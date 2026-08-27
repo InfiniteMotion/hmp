@@ -110,6 +110,10 @@ class FakeMusicRepository : MusicRepository {
         labels.getOrPut(label.musicId) { mutableListOf() }.add(label)
     }
 
+    override suspend fun addUserMusicLabel(label: MusicLabel, confidence: Double) {
+        labels.getOrPut(label.musicId) { mutableListOf() }.add(label)
+    }
+
     override fun getLabelNamesByType(type: LabelCategory): Flow<List<LabelName>> {
         val names = labels.values.flatten()
             .filter { it.type == type }

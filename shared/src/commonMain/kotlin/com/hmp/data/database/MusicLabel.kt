@@ -1,5 +1,6 @@
 package com.hmp.data.database
 
+import androidx.room.ColumnInfo
 import androidx.room.Dao
 import androidx.room.Entity
 import androidx.room.Insert
@@ -16,7 +17,17 @@ import kotlinx.coroutines.flow.Flow
 data class MusicLabel(
     val musicId: Long,
     val type: LabelCategory,
-    val label: LabelName
+    val label: LabelName,
+    /** 认识来源：LLM（模型富化）/ USER（用户修正，永不被模型覆盖）/ AGENT（agent 主动写入）。v1 存量行为 null，按 LLM 旧认识处理。 */
+    val source: String? = null,
+    /** 可信度 0-1：行为确证/证伪动态调整（设计总纲 3.2 规则 ②） */
+    val confidence: Double? = null,
+    /** 认识建立时间（审计四问·何时建立） */
+    @ColumnInfo(name = "created_at")
+    val createdAt: Long? = null,
+    /** 最近修正/确证时间（审计四问·被确证过吗） */
+    @ColumnInfo(name = "updated_at")
+    val updatedAt: Long? = null,
 )
 
 

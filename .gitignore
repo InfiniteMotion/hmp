@@ -70,7 +70,9 @@ project.xcworkspace
 # Kotlin Multiplatform
 .kotlin/
 build/
-shared/schemas/
+shared/schemas/**
+!shared/schemas/**/
+!shared/schemas/**/*.json
 
 # Android/IntelliJ
 #

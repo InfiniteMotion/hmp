@@ -1,6 +1,9 @@
 package com.hmp.di
 
 import com.hmp.data.database.AppDatabase
+import com.hmp.data.database.AgentMessageDao
+import com.hmp.data.database.AgentAuditLogDao
+import com.hmp.data.database.AgentTaskDao
 import com.hmp.data.database.ListeningDurationDao
 import com.hmp.data.database.MusicAllDao
 import com.hmp.data.database.MusicDao
@@ -42,6 +45,9 @@ val iosPlatformModule = module {
     single<PlaylistItemDao> { get<AppDatabase>().playlistItemDao() }
     single<PlaybackHistoryDao> { get<AppDatabase>().playbackHistoryDao() }
     single<ListeningDurationDao> { get<AppDatabase>().listeningDurationDao() }
+single<AgentTaskDao> { get<AppDatabase>().agentTaskDao() }
+single<AgentAuditLogDao> { get<AppDatabase>().agentAuditLogDao() }
+single<AgentMessageDao> { get<AppDatabase>().agentMessageDao() }
 
     single { BuiltInApiKeyProvider() } // iOS: 占位符，后续可通过配置注入
     singleOf(::SettingsRepositoryImpl) bind SettingsRepository::class

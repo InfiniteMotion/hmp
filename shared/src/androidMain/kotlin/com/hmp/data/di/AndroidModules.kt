@@ -2,6 +2,9 @@ package com.hmp.data.di
 
 import android.content.Context
 import com.hmp.data.database.AppDatabase
+import com.hmp.data.database.AgentMessageDao
+import com.hmp.data.database.AgentAuditLogDao
+import com.hmp.data.database.AgentTaskDao
 import com.hmp.data.database.ListeningDurationDao
 import com.hmp.data.database.MusicAllDao
 import com.hmp.data.database.MusicDao
@@ -43,6 +46,9 @@ val androidPlatformModule = module {
     single<PlaylistItemDao> { get<AppDatabase>().playlistItemDao() }
     single<PlaybackHistoryDao> { get<AppDatabase>().playbackHistoryDao() }
     single<ListeningDurationDao> { get<AppDatabase>().listeningDurationDao() }
+    single<AgentTaskDao> { get<AppDatabase>().agentTaskDao() }
+    single<AgentAuditLogDao> { get<AppDatabase>().agentAuditLogDao() }
+    single<AgentMessageDao> { get<AppDatabase>().agentMessageDao() }
 
     singleOf(::SettingsRepositoryImpl) bind SettingsRepository::class
     singleOf(::PlaylistRepositoryImpl) bind PlaylistRepository::class

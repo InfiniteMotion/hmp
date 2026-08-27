@@ -5,6 +5,9 @@ import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.RoomDatabaseConstructor
 import androidx.room.TypeConverters
+import androidx.room.migration.Migration
+import androidx.sqlite.SQLiteConnection
+import androidx.sqlite.execSQL
 import com.hmp.data.database.myenum.LabelConverters
 
 // RoomDatabaseConstructor for KMP
@@ -23,10 +26,13 @@ expect object AppDatabaseConstructor : RoomDatabaseConstructor<AppDatabase> {
         Playlist::class,
         PlaylistItem::class,
         PlaybackHistory::class,
-        ListeningDuration::class
+        ListeningDuration::class,
+        AgentTask::class,
+        AgentAuditLog::class,
+        AgentMessage::class
     ],
-    version = 1,
-    exportSchema = false
+    version = 2,
+    exportSchema = true
 )
 @TypeConverters(LabelConverters::class)
 abstract class AppDatabase : RoomDatabase() {
@@ -39,6 +45,41 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun playlistItemDao(): PlaylistItemDao
     abstract fun playbackHistoryDao(): PlaybackHistoryDao
     abstract fun listeningDurationDao(): ListeningDurationDao
+    abstract fun agentTaskDao(): AgentTaskDao
+    abstract fun agentAuditLogDao(): AgentAuditLogDao
+    abstract fun agentMessageDao(): AgentMessageDao
+
+    companion object {
+        /**
+         * v1 → v2（设计总纲 7.3）：
+         * - musicLabel 加 4 列（source/confidence/created_at/updated_at）——认识可演化的存储基础；
+         * - 新增 agent_task / agent_audit_log / agent_message 三表。
+         * 只加表和列，不动存量数据结构。
+         */
+        val MIGRATION_1_2 = object : Migration(1, 2) {
+            override fun migrate(connection: SQLiteConnection) {
+                connection.execSQL("ALTER TABLE `musicLabel` ADD COLUMN `source` TEXT")
+                connection.execSQL("ALTER TABLE `musicLabel` ADD COLUMN `confidence` REAL")
+                connection.execSQL("ALTER TABLE `musicLabel` ADD COLUMN `created_at` INTEGER")
+                connection.execSQL("ALTER TABLE `musicLabel` ADD COLUMN `updated_at` INTEGER")
+                connection.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `agent_task` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "`trigger_type` TEXT NOT NULL, `persona_snapshot` TEXT, `status` TEXT NOT NULL, " +
+                        "`budget_used` INTEGER, `result` TEXT, `created_at` INTEGER NOT NULL)"
+                )
+                connection.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `agent_audit_log` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "`task_id` INTEGER, `tool` TEXT NOT NULL, `args_hash` TEXT, " +
+                        "`outcome` TEXT NOT NULL, `reason` TEXT, `created_at` INTEGER NOT NULL)"
+                )
+                connection.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `agent_message` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "`session_id` TEXT NOT NULL, `role` TEXT NOT NULL, `content` TEXT, " +
+                        "`render_hint` TEXT, `created_at` INTEGER NOT NULL)"
+                )
+            }
+        }
+    }
 }
 
 // Factory function to create database - implemented per-platform

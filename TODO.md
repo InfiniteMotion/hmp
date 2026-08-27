@@ -9,6 +9,8 @@
 - [设计文档](docs/5_10/ios-adaptation-design.md) — iOS 适配技术设计
 - [实施计划](docs/5_10/ios-adaptation-plan.md) — v5.10 详细实施步骤
 - [UI 差异对照](docs/5_10/ios-android-ui-diff.md) — iOS vs Android UI 原生优势与简化策略
+- [Agent 设计总纲](docs/7_x/agent.md) — 音乐伙伴方案单一事实来源（定位/本体/认识论/能力面/交互实施/工程）
+- [Agent 落地任务书](docs/7_x/agent-task-book.md) — 阶段制 M0-M7 实施规划（不绑定版本号，含验收标准与挂起参数默认值）
 
 ---
 
@@ -268,12 +270,15 @@ v5.10 是 v5 系列的最后一个版本，标志着跨平台架构搭建完成�
 
 ### 方向 B：AI 功能 Agent 化（7.3）
 
-- [ ] **B1** OpenAiCompatibleAdapter 扩展：tools（function-calling）参数 + SSE 流式解析，保持 5 家服务商兼容
-- [ ] **B2** 本地工具注册表：searchLibrary / getListenStats / createPlaylist / addToPlaylist / controlPlayback / getNowPlayingContext（每个工具 = schema + suspend 调既有 UseCase）
-- [ ] **B3** AgentOrchestrator（shared domain 层）：agent loop（tool_call → 执行 → 回传 → 循环至最终答复）+ 护栏（破坏性操作 UI 确认 / 工具白名单 / 步数上限）
-- [ ] **B4** 对话式 UI（shared-ui commonMain，三端共享）+ 工具执行过程可视化
-- [ ] **B5** 场景落地：自然语言歌单生成、曲库问答
-- [ ] **B6** AI 电台：播完基于上下文（时段 + 历史 + 当前曲目）自动续队列
+> 方案定稿见 [docs/7_x/agent.md](docs/7_x/agent.md)；落地任务分解（含验收标准、文件落点、挂起参数默认值）见 [docs/7_x/agent-task-book.md](docs/7_x/agent-task-book.md)（阶段制 M0-M7，不绑定版本号）。编号已对齐 B0-B6 体系；B0 无 agent 依赖，可提前还债。
+
+- [ ] **B0** AI 管道三端去重 + Room v2 迁移——MusicRepositoryImpl 三份（1034/910/899 行）中 AI 方法上提 commonMain（去重目标 30-40%，扫描/存储/标签写入等平台特强方法留 actual）+ 新建 agent_task/agent_audit_log/agent_message 三表 + MusicLabel 加 source/confidence/created_at/updated_at（标签溯源先行，迁移测试先行）（M0）
+- [ ] **B1** LlmTransport 流式协议——OpenAiCompatibleAdapter 扩展 tools（function-calling）+ 手动 SSE 解析（ByteReadChannel，避 Ktor 3.2 升级）+ temperature 1.3→0.2-0.4 + FakeLlmTransport（M2）
+- [ ] **B2** 工具层——ToolSpec DSL（schema 生成+校验）+ 十项工具（包装既有 UseCase）+ ToolRegistry + 工具结果回填语义（M3）
+- [ ] **B3** 引擎循环——AgentOrchestrator（步数预算 8）+ Scheduler/PolicyGuard/TrustLedger/ContextBudget/SessionStore/PresenceBus + PlaybackCommandPort（:shared 接口，三端适配器复用 Controller 桥）+ 双层预算（云端频率/额度配额）+ FakePlaybackCommandPort 确定性测试（M4）
+- [ ] **B4** 对话 UI（纯文字完整体验）——ChatScreen + 五类气泡（text/song/songlist/explain/confirm）+ 确认卡片流 + 锚点系统（三胶囊/轻量浮层/播放页重排/C 键）+ 两级漏斗 + 门面二期 + 搜索框条带（M1 + M5）
+- [ ] **B5** 电台与事件接线——AI 电台三轮协作 / 跳过感知重排 / DJ 衔接预生成 / 存在感呈现（PresenceBus→徽标+侧条+问候轮换）+ 审计日志页（含撤销边界）（M6）
+- [ ] **B6** 报告角色与语音档——听歌报告 / 遗忘唤醒 + 伙伴设置页六分区（AI 页演进）+ RealtimeVoiceTransport 实时语音（**独立 gate**：端点不可用即整体延期，v1 完整性不依赖语音）（M7）
 
 ### 方向 C：播放功能增强补齐
 

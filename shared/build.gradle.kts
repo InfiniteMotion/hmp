@@ -69,6 +69,7 @@ kotlin {
             implementation(kotlin("test"))
             implementation(libs.kotlinx.coroutines.test)
             implementation(libs.turbine)
+            implementation(libs.androidx.room.testing)
         }
     }
 }
@@ -82,8 +83,9 @@ dependencies {
 }
 
 room {
-    // exportSchema=false，此目录仅占位（绝对路径 /schemas 会与 copyIconsToIos 冲突触发
-    // Gradle 输出位置重叠校验，改为模块相对路径）
+    // exportSchema=true（AppDatabase @Database）：KSP 导出 schemas/<fqn>/{1,2}.json，
+    // 供 desktopTest 的 MigrationTestHelper（room-testing）跑 v1→v2 迁移测试。
+    // 模块相对路径避免与 copyIconsToIos 隐式输出重叠校验冲突。
     schemaDirectory("schemas")
 }
 

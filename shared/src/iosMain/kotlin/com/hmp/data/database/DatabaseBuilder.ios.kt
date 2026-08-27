@@ -19,6 +19,7 @@ fun getDatabaseBuilder(): androidx.room.RoomDatabase.Builder<AppDatabase> {
 @OptIn(ExperimentalForeignApi::class)
 actual fun getRoomDatabase(builder: androidx.room.RoomDatabase.Builder<AppDatabase>): AppDatabase {
     return builder
+        .addMigrations(AppDatabase.MIGRATION_1_2)
         .fallbackToDestructiveMigration(dropAllTables = true)
         .setDriver(BundledSQLiteDriver())
         .setQueryCoroutineContext(Dispatchers.Default)

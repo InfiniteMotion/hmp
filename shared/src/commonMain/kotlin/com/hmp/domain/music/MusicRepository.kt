@@ -39,6 +39,13 @@ interface MusicRepository {
 
     // Labels
     suspend fun addMusicLabel(label: MusicLabel)
+
+    /**
+     * 用户修正标签（T1 路径，UI/agent 修正调用）——source=USER，永不被模型认识覆盖
+     * （设计总纲 3.2 规则 ①）。
+     */
+    suspend fun addUserMusicLabel(label: MusicLabel, confidence: Double = 1.0)
+
     fun getLabelNamesByType(type: LabelCategory): Flow<List<LabelName>>
     suspend fun getMusicIdListByType(label: LabelName): List<Long>
     suspend fun getMusicLabels(musicId: Long): List<MusicLabel>
