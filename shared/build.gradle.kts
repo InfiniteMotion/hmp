@@ -65,11 +65,20 @@ kotlin {
                 implementation(libs.kotlinx.coroutines.swing)
             }
         }
+        val desktopTest by getting {
+            dependencies {
+                // room-testing 仅桌面 JVM 使用（迁移测试在 desktopTest 源集）；
+                // 不能进 commonTest——room-migration 未发布 iosArm64 目标，会破坏 iOS 测试编译元数据解析
+                // （androidx.room:room-migration-iosarm64:2.8.3 不存在，IDE 同步 transform*ForIde 会失败）
+                implementation(libs.androidx.room.testing)
+            }
+        }
         commonTest.dependencies {
             implementation(kotlin("test"))
             implementation(libs.kotlinx.coroutines.test)
             implementation(libs.turbine)
-            implementation(libs.androidx.room.testing)
+            // ktor-client-mock 为完整 KMP（iosArm64/iossimulatorarm64 构件齐全），可留在 commonTest
+            implementation(libs.ktor.client.mock)
         }
     }
 }

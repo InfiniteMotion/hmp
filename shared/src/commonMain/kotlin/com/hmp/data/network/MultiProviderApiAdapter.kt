@@ -2,13 +2,18 @@ package com.hmp.data.network
 
 import com.hmp.data.network.dto.ModelsResponse
 import com.hmp.data.network.dto.OpenAiMessage
+import com.hmp.data.network.dto.OpenAiStreamChunk
 import com.hmp.data.network.dto.OpenAiStyleRequest
 import com.hmp.data.network.dto.OpenAiStyleResponse
 import com.hmp.domain.setting.model.AiEndpointConfig
 import io.ktor.client.*
 import io.ktor.client.call.*
 import io.ktor.client.request.*
+import io.ktor.client.statement.*
 import io.ktor.http.*
+import io.ktor.utils.io.*
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
 import kotlinx.serialization.json.Json
 
 sealed class AiApiResult<out T> {
@@ -46,18 +51,22 @@ class OpenAiCompatibleAdapter(
     private val json: Json
 ) {
     /**
-     * 调用 Chat Completion API
+     * 调用 Chat Completion API（非流式）。
+     *
+     * @param temperature JSON/富化任务建议 0.2-0.4（M2-T3 修正：原 1.3f 对严格 JSON 任务过高）；
+     *   对话类任务由调用方按任务档位覆盖。
      */
     suspend fun callChatApi(
         config: AiEndpointConfig,
-        prompt: String
+        prompt: String,
+        temperature: Float = 0.3f
     ): AiApiResult<String> {
         return try {
             val url = "${config.endpoint.trimEnd('/')}/chat/completions"
             val requestBody = OpenAiStyleRequest(
                 model = config.selectedModel,
                 messages = listOf(OpenAiMessage(role = "user", content = prompt)),
-                temperature = 1.3f,
+                temperature = temperature,
                 responseFormat = mapOf("type" to "json_object")
             )
 
@@ -82,6 +91,48 @@ class OpenAiCompatibleAdapter(
             }
         } catch (e: Exception) {
             AiApiResult.Error(AiApiError.NetworkError(e.message ?: "Network error"))
+        }
+    }
+
+    /**
+     * 流式调用 Chat Completion API（SSE）。
+     *
+     * 手动 SSE 解析（[SseParser]，设计总纲选型 #2）：逐 chunk 流出 [OpenAiStreamChunk]；
+     * HTTP 错误抛 [LlmStreamException]（传输层转 [com.hmp.domain.agent.port.LlmEvent.Failed]）；
+     * 单个 chunk JSON 解析失败仅跳过（怪癖端点容忍），不中断整条流。
+     */
+    suspend fun streamChatCompletion(
+        config: AiEndpointConfig,
+        request: OpenAiStyleRequest,
+    ): Flow<OpenAiStreamChunk> = flow {
+        val url = "${config.endpoint.trimEnd('/')}/chat/completions"
+        val response = httpClient.post(url) {
+            headers {
+                append("Authorization", formatAuthToken(config.apiKey))
+                append("Content-Type", "application/json")
+                append("Accept", "text/event-stream")
+            }
+            setBody(request)
+        }
+
+        if (!response.status.isSuccess()) {
+            val failure = handleHttpError(response.status)
+            val message = when (failure) {
+                is AiApiResult.Error -> failure.error.toDisplayMessage()
+                else -> "请求失败 (HTTP ${response.status.value})"
+            }
+            throw LlmStreamException(message)
+        }
+
+        SseParser.parse(response.bodyAsChannel()) { payload ->
+            if (payload == "[DONE]" || payload == "done") return@parse
+            val chunk = try {
+                json.decodeFromString<OpenAiStreamChunk>(payload.trim())
+            } catch (e: Exception) {
+                println("[WRN] SSE chunk 解析失败，跳过: ${e.message}")
+                return@parse
+            }
+            emit(chunk)
         }
     }
 

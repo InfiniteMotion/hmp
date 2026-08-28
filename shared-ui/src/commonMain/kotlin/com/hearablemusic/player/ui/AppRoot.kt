@@ -11,6 +11,7 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.displayCutoutPadding
@@ -34,11 +35,18 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.graphics.Color.Companion.Transparent
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
+import com.hearablemusic.player.ui.common.components.AgentQuickSheet
 import com.hearablemusic.player.ui.common.components.BottomFusionBar
 import com.hearablemusic.player.ui.common.components.FusionSidebar
 import com.hearablemusic.player.ui.common.components.TabPageIndicator
@@ -58,6 +66,7 @@ import com.hearablemusic.player.ui.common.dialogs.viewmodel.DialogManagerViewMod
 import com.hearablemusic.player.ui.common.dialogs.viewmodel.DialogViewModel
 import com.hearablemusic.player.ui.common.layout.LocalTitleBarInset
 import com.hearablemusic.player.ui.common.layout.LocalWindowSizeInfo
+import com.hearablemusic.player.ui.common.util.rememberHapticFeedback
 import com.hearablemusic.player.ui.common.layout.WindowWidthSizeClass
 import com.hearablemusic.player.ui.common.layout.rememberAppWindowSizeInfo
 import com.hearablemusic.player.ui.common.navigation.Routes
@@ -96,6 +105,7 @@ import org.koin.compose.koinInject
  *
  * @param darkTheme 由 app 壳（MainActivity）按用户主题偏好计算后传入
  */
+@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun AppRoot(darkTheme: Boolean) {
     val settingsViewModel: SettingsViewModel = activityViewModel()
@@ -197,6 +207,13 @@ fun AppRoot(darkTheme: Boolean) {
     val pagerState = rememberPagerState(
         initialPage = savedTabIndex.intValue
     ) { tabCount }
+    val haptic = rememberHapticFeedback()
+
+    // ── M1 锚点系统状态（Fake 驱动；M4 接 PresenceBus）──
+    // M1-T6 存根：轻量浮层开关（伙伴徽标已于 2026-08-27 移除——门面页高亮代替红点提示；
+    // 未读/待确认等真实徽标在 M5 会话接入时按需恢复）
+    var companionQuickSheetVisible by remember { mutableStateOf(false) }
+
     LaunchedEffect(pagerState.currentPage) {
         savedTabIndex.intValue = pagerState.currentPage
     }
@@ -234,6 +251,28 @@ fun AppRoot(darkTheme: Boolean) {
                             Box(
                                 modifier = Modifier
                                     .fillMaxSize()
+                                    // M1-T5 键盘锚点：C 唤起轻量浮层、Esc 收起。
+                                    // 用 onKeyEvent（冒泡阶段）而非 onPreviewKeyEvent（捕获阶段）：
+                                    // 冒泡阶段子节点先消费按键——文本输入聚焦时字母 C/Esc 由输入框先行处理，
+                                    // 根节点只收到未被消费的按键，不会吞掉用户正在输入的字符（review 修复 2026-08-28）
+                                    .onKeyEvent { event ->
+                                        when {
+                                            event.type == KeyEventType.KeyDown &&
+                                                event.key == Key.C &&
+                                                !companionQuickSheetVisible -> {
+                                                haptic.performClick()
+                                                companionQuickSheetVisible = true
+                                                true
+                                            }
+                                            event.type == KeyEventType.KeyDown &&
+                                                event.key == Key.Escape &&
+                                                companionQuickSheetVisible -> {
+                                                companionQuickSheetVisible = false
+                                                true
+                                            }
+                                            else -> false
+                                        }
+                                    }
                                     .hazeSource(state = hazeState)
                             ) {
                                 // 1. 静态背景层 (始终存在，确保无黑屏)
@@ -450,18 +489,42 @@ fun AppRoot(darkTheme: Boolean) {
                                     modifier = Modifier
                                         .align(Alignment.BottomCenter)
                                 ) {
-                                    Box {
-                                        BottomFusionBar(
-                                            musicInfo = currentMusic,
-                                            isPlaying = isPlaying,
-                                            progress = if (duration > 0) currentPosition.toFloat() / duration.toFloat() else 0f,
-                                            selectedTabIndex = pagerState.currentPage,
-                                            onTabSelected = { index ->
-                                                bfbScope.launch {
-                                                    pagerState.animateScrollToPage(index)
-                                                }
+                                    // 浮层锚定在底栏上方（设计总纲 3.3：有底栏贴底栏上方、无底栏贴屏底）
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        AgentQuickSheet(
+                                            visible = companionQuickSheetVisible,
+                                            onSubmit = { input ->
+                                                // M5 起接线会话（浮层与对话页同 session_id）；M1 为锚点骨架占位
+                                                println("[M1] agent quick sheet submit: $input")
+                                                companionQuickSheetVisible = false
                                             },
-                                            hazeState = hazeState,
+                                            modifier = Modifier.align(Alignment.CenterHorizontally)
+                                        )
+                                        Box {
+                                            BottomFusionBar(
+                                                musicInfo = currentMusic,
+                                                isPlaying = isPlaying,
+                                                progress = if (duration > 0) currentPosition.toFloat() / duration.toFloat() else 0f,
+                                                selectedTabIndex = pagerState.currentPage,
+                                                onTabSelected = { index ->
+                                                    bfbScope.launch {
+                                                        // tab N ↔ 页 N+1（门面页 0 无对应 Tab，设计总纲 2.2）
+                                                        pagerState.animateScrollToPage(index + 1)
+                                                    }
+                                                },
+                                                onCompanionClick = {
+                                                    // 设计总纲 2.2：子页面态点按伙伴胶囊 = pop 回 Tabs + 滚到门面（第 0 页）
+                                                    bfbScope.launch {
+                                                        while (navController.size > 1) {
+                                                            navController.removeLastOrNull()
+                                                        }
+                                                        pagerState.animateScrollToPage(0)
+                                                    }
+                                                },
+                                                onCompanionLongPress = {
+                                                    companionQuickSheetVisible = true
+                                                },
+                                                hazeState = hazeState,
                                             showNavText = windowSizeInfo.isLandscape,
                                             showNavCapsule = bfbIsOnTabPage,
                                             maxWidth = when (windowSizeInfo.widthSizeClass) {
@@ -483,6 +546,7 @@ fun AppRoot(darkTheme: Boolean) {
                                     }
                                 }
                             }
+                        }
 
                             val activeDialogState by dialogViewModel.activeDialog.collectAsState()
                             when (val state = activeDialogState) {

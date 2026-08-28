@@ -504,4 +504,7 @@
     <string name="section_basic_info">基本信息</string>
     <string name="section_detail_info">详细信息</string>
     <string name="unsaved_changes">有未保存的更改</string>
+    <string name="agent_capsule_desc">伙伴</string>
+    <string name="agent_quick_sheet_hint">和伙伴聊聊…</string>
+    <string name="agent_quick_sheet_send">发送</string>
 </resources>

@@ -152,16 +152,11 @@ abstract class MusicRepositoryBase(
      * 该规则下沉为 DAO 事务（INSERT OR IGNORE WHERE source=USER）。
      */
     override suspend fun addMusicLabel(label: MusicLabel) {
-        if (label.label == LabelName.UNKNOWN) {
-            println("UNKNOWN Label!")
-            return
-        }
+        // UNKNOWN 为占位非知识，静默丢弃（review 2026-08-28：移除 println 调试残留）
+        if (label.label == LabelName.UNKNOWN) return
         val existing = findExistingLabel(label)
         if (existing?.source == SOURCE_USER) return
         val now = currentTimeMillis()
-        if (existing != null) {
-            recordLabelSuperseded(label, existing, reason = "T2 被 T2 更新（模型重新认识）")
-        }
         musicLabelDao.insert(
             label.toEntity().copy(
                 source = SOURCE_LLM,
@@ -170,19 +165,18 @@ abstract class MusicRepositoryBase(
                 updatedAt = now
             )
         )
+        if (existing != null) {
+            // 主数据先落库、审计后留痕：insert 失败时不再产生孤儿留痕（review 2026-08-28）
+            recordLabelSuperseded(label, existing, reason = "T2 被 T2 更新（模型重新认识）")
+        }
     }
 
     /** 用户修正写入（T1 来源）：任何来源均可覆盖，置信度默认 1.0（用户显式判断 = ground truth）。被覆盖旧认识留痕。 */
     override suspend fun addUserMusicLabel(label: MusicLabel, confidence: Double) {
-        if (label.label == LabelName.UNKNOWN) {
-            println("UNKNOWN Label!")
-            return
-        }
+        // UNKNOWN 为占位非知识，静默丢弃（review 2026-08-28：移除 println 调试残留）
+        if (label.label == LabelName.UNKNOWN) return
         val existing = findExistingLabel(label)
         val now = currentTimeMillis()
-        if (existing != null) {
-            recordLabelSuperseded(label, existing, reason = "T1 用户修正覆盖（USER > 一切）")
-        }
         musicLabelDao.insert(
             label.toEntity().copy(
                 source = SOURCE_USER,
@@ -191,6 +185,10 @@ abstract class MusicRepositoryBase(
                 updatedAt = now
             )
         )
+        if (existing != null) {
+            // 主数据先落库、审计后留痕：insert 失败时不再产生孤儿留痕（review 2026-08-28）
+            recordLabelSuperseded(label, existing, reason = "T1 用户修正覆盖（USER > 一切）")
+        }
     }
 
     private suspend fun findExistingLabel(label: MusicLabel): com.hmp.data.database.MusicLabel? =
@@ -705,7 +703,11 @@ abstract class MusicRepositoryBase(
             MusicLabelSnapshot(
                 musicId = it.musicId,
                 label = LabelName.valueOf(it.label.name),
-                category = LabelCategory.valueOf(it.type.name)
+                category = LabelCategory.valueOf(it.type.name),
+                source = it.source,
+                confidence = it.confidence,
+                createdAt = it.createdAt,
+                updatedAt = it.updatedAt
             )
         }
 
@@ -759,11 +761,17 @@ abstract class MusicRepositoryBase(
         }
         musicExtraDao.insertAll(mergedExtras)
 
+        val now = System.currentTimeMillis()
         val musicLabels = snapshot.labels.map {
             com.hmp.data.database.MusicLabel(
                 musicId = it.musicId,
                 label = DataLabelName.valueOf(it.label.name),
-                type = DataLabelCategory.valueOf(it.category.name)
+                type = DataLabelCategory.valueOf(it.category.name),
+                // v1 存量备份缺溯源字段 → null（规则①不可用）；v2 备份原样保留 USER/LLM 溯源（review 修复 2026-08-28）
+                source = it.source,
+                confidence = it.confidence,
+                createdAt = it.createdAt ?: now,
+                updatedAt = it.updatedAt ?: now
             )
         }
         musicLabelDao.insertAll(musicLabels)

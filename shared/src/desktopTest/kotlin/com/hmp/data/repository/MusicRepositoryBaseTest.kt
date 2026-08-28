@@ -2,6 +2,8 @@ package com.hmp.data.repository
 
 import com.hmp.data.database.AppDatabase
 import com.hmp.data.network.OpenAiCompatibleAdapter
+import com.hmp.domain.backup.MusicLabelSnapshot
+import com.hmp.domain.backup.MusicUserStateSnapshot
 import com.hmp.domain.enum.LabelCategory
 import com.hmp.domain.enum.LabelName
 import com.hmp.domain.music.MusicInfo
@@ -16,6 +18,7 @@ import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /** 用真实 in-memory Room DAO 装配的 [MusicRepositoryBase] 测试替身（平台分叉方法置为桩）。 */
@@ -125,5 +128,45 @@ class MusicRepositoryBaseTest {
         val audits = db.agentAuditLogDao().getRecent(10)
         assertEquals(1, audits.size)
         assertTrue(audits.single().reason!!.contains("T2 被 T2 更新"))
+    }
+
+    @Test
+    fun backupRoundTrip_preservesUserLabelProvenance() = runTest {
+        // review 修复 2026-08-28：备份还原后 USER 标签须保留规则①保护（快照携带 source/confidence/时间戳）
+        repo.addUserMusicLabel(MusicLabel(1L, LabelCategory.GENRE, LabelName.ROCK), confidence = 0.9)
+        val before = db.musicLabelDao().getLabelsById(1L).single()
+
+        val snapshot = repo.exportMusicUserStateSnapshot()
+        val labelSnapshot = snapshot.labels.single()
+        assertEquals(MusicRepositoryBase.SOURCE_USER, labelSnapshot.source)
+        assertEquals(0.9, labelSnapshot.confidence)
+        assertEquals(before.createdAt, labelSnapshot.createdAt)
+        assertEquals(before.updatedAt, labelSnapshot.updatedAt)
+
+        // 还原（REPLACE 覆盖同槽位）→ 溯源字段原样落库
+        repo.restoreMusicUserState(snapshot)
+        val restored = db.musicLabelDao().getLabelsById(1L).single()
+        assertEquals(MusicRepositoryBase.SOURCE_USER, restored.source)
+        assertEquals(0.9, restored.confidence)
+        assertEquals(before.createdAt, restored.createdAt, "还原应保留原认识建立时间")
+        assertEquals(before.updatedAt, restored.updatedAt)
+
+        // 规则①在还原后依然生效：模型拒写
+        repo.addMusicLabel(MusicLabel(1L, LabelCategory.GENRE, LabelName.ROCK))
+        assertEquals(MusicRepositoryBase.SOURCE_USER, db.musicLabelDao().getLabelsById(1L).single().source)
+    }
+
+    @Test
+    fun restoreLegacyV1Snapshot_labelsLackProvenance() = runTest {
+        // v1 存量备份（无 source/confidence/时间戳字段）→ 还原后 null，按 LLM 旧认识处理
+        val legacy = MusicUserStateSnapshot(
+            labels = listOf(MusicLabelSnapshot(musicId = 1L, label = LabelName.ROCK, category = LabelCategory.GENRE))
+        )
+        repo.restoreMusicUserState(legacy)
+
+        val restored = db.musicLabelDao().getLabelsById(1L).single()
+        assertNull(restored.source)
+        assertNull(restored.confidence)
+        assertTrue(restored.createdAt != null && restored.createdAt!! > 0, "时间戳缺失时以还原时刻兜底")
     }
 }

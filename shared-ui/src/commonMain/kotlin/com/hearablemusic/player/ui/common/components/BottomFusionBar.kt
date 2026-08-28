@@ -67,7 +67,9 @@ import com.hearablemusic.player.ui.common.util.rememberPlatformHaptics
 import com.hearablemusic.player.ui.generated.resources.Res
 import com.hearablemusic.player.ui.generated.resources.house
 import com.hearablemusic.player.ui.generated.resources.house_fill
+import com.hearablemusic.player.ui.generated.resources.library_settings
 import com.hearablemusic.player.ui.generated.resources.list_bullet
+import com.hearablemusic.player.ui.generated.resources.music_fill
 import com.hearablemusic.player.ui.generated.resources.pause
 import com.hearablemusic.player.ui.generated.resources.pause_desc
 import com.hearablemusic.player.ui.generated.resources.person
@@ -107,12 +109,18 @@ private data class BottomTabItem(
     val unselectedIcon: DrawableResource
 )
 
+/**
+ * 底部导航 Tab（三胶囊底栏：门面页第 0 页无 Tab → 页 N 对应 tab N-1）。
+ * 设计总纲 2.2：bottomTabs 去 Home，门面是伙伴的家（点按伙伴胶囊进入），不再是并列 Tab。
+ */
 private val bottomTabs = listOf(
-    BottomTabItem(Res.string.tab_home, Res.drawable.house_fill, Res.drawable.house),
     BottomTabItem(Res.string.tab_gallery, Res.drawable.square_fill_grid_2x2, Res.drawable.square_grid_2x2),
     BottomTabItem(Res.string.tab_list, Res.drawable.list_bullet, Res.drawable.list_bullet),
     BottomTabItem(Res.string.tab_user, Res.drawable.person_filled_viewfinder, Res.drawable.person)
 )
+
+/** 页索引 → Tab 索引：页 0（门面）无对应 Tab（-1 = 三 Tab 均不高亮）。internal 供单测（M1-T1）。 */
+internal fun tabIndexForPage(page: Int): Int = page - 1
 
 @Composable
 fun BottomFusionBar(
@@ -129,10 +137,13 @@ fun BottomFusionBar(
     hazeState: HazeState? = null,
     showNavText: Boolean = true,
     showNavCapsule: Boolean = true,
-    maxWidth: Dp? = null
+    maxWidth: Dp? = null,
+    onCompanionClick: () -> Unit = {},
+    onCompanionLongPress: () -> Unit = {},
 ) {
     val haptic = rememberPlatformHaptics()
-    var initialFusionState = if (showNavCapsule) FusionBarState.NavigationExpanded else FusionBarState.PlaybackExpanded
+    // 初始态取首次组合值，后续由 LaunchedEffect 校正（review 2026-08-28：var→val，该值不参与赋值）
+    val initialFusionState = if (showNavCapsule) FusionBarState.NavigationExpanded else FusionBarState.PlaybackExpanded
     var fusionState by remember { mutableStateOf(initialFusionState) }
     var timerKey by remember { mutableIntStateOf(0) }
     val hasMusic = musicInfo != null
@@ -181,11 +192,28 @@ fun BottomFusionBar(
         modifier = modifier
             .fillMaxWidth()
             .then(if (maxWidth != null) Modifier.widthIn(max = maxWidth) else Modifier)
-            .padding(horizontal = 16.dp)
+            .padding(horizontal = 12.dp) // 宽度压缩（设计总纲 2.2.1：外边距 16→12dp）
             .padding(bottom = 20.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
+        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally), // 压缩：间距 12→8dp
         verticalAlignment = Alignment.CenterVertically
     ) {
+        // ── 伙伴胶囊（常驻锚点：点按=门面 长按=浮层）──
+        CompanionCapsule(
+            selected = tabIndexForPage(selectedTabIndex) < 0, // 门面页（第 0 页）时图标高亮
+            onClick = {
+                haptic.perform(HapticEffect.TICK)
+                resetTimer()
+                onCompanionClick()
+            },
+            onLongPress = {
+                haptic.perform(HapticEffect.LONG_PRESS)
+                resetTimer()
+                onCompanionLongPress()
+            },
+            hazeState = hazeState,
+            // 全局恒定为 48dp 体系，无动态缩放（用户决策 2026-08-27）
+        )
+
         // ── 左侧胶囊：导航 ──
         val capsuleShape = RoundedCornerShape(36.dp)
         Card(
@@ -236,10 +264,10 @@ fun BottomFusionBar(
             ) { state ->
                 when (state) {
                     FusionBarState.NavigationExpanded ->
-                        NavigationExpandedContent(selectedTabIndex, onTabSelected, haptic, showNavText)
+                        NavigationExpandedContent(tabIndexForPage(selectedTabIndex), onTabSelected, haptic, showNavText)
                     FusionBarState.PlaybackExpanded ->
                         NavigationCollapsedContent(
-                            selectedTab = bottomTabs[selectedTabIndex]
+                            tabIndex = tabIndexForPage(selectedTabIndex)
                         )
                 }
             }
@@ -336,7 +364,8 @@ private fun NavigationExpandedContent(
 ) {
     Row(
         modifier = Modifier
-            .padding(horizontal = 8.dp, vertical = 10.dp),
+            .padding(8.dp) // 与其他胶囊一致的围绕 padding：总高 8+48+8=64dp，与其他胶囊严格等高
+            .height(48.dp), // 内容区恒定 48dp，图标 24dp 垂直居中（上下各 12dp 空隙）
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -357,14 +386,15 @@ private fun NavigationExpandedContent(
                         haptic.perform(HapticEffect.TICK)
                         onTabSelected(index)
                     }
-                    .padding(horizontal = 10.dp, vertical = 12.dp),
+                    .fillMaxHeight() // 点击区占满 48dp 行高（原 vertical padding 由行高接管）
+                    .padding(horizontal = 10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(
                     painter = painterResource(if (isSelected) tab.selectedIcon else tab.unselectedIcon),
                     contentDescription = stringResource(tab.label),
                     tint = contentColor,
-                    modifier = Modifier.size(28.dp)
+                    modifier = Modifier.size(24.dp) // 宽度压缩：图标 28→24dp
                 )
                 if (showNavText) {
                     Spacer(modifier = Modifier.width(6.dp))
@@ -383,20 +413,36 @@ private fun NavigationExpandedContent(
 // ── 导航折叠内容 ──
 
 @Composable
-private fun NavigationCollapsedContent(
-    selectedTab: BottomTabItem
-) {
+private fun NavigationCollapsedContent(tabIndex: Int) {
+    // 门面页（tabIndex < 0，第 0 页无对应 Tab）：显示「音乐库」图标且不高亮（常态 onSurface）；
+    // 其余页：显示当前 Tab 选中图标并高亮（primary）
+    val isFacePage = tabIndex < 0
+    val iconRes: DrawableResource = if (isFacePage) {
+        Res.drawable.music_fill
+    } else {
+        bottomTabs[tabIndex].selectedIcon
+    }
+    val iconDesc: StringResource = if (isFacePage) {
+        Res.string.library_settings
+    } else {
+        bottomTabs[tabIndex].label
+    }
+    val tint = if (isFacePage) {
+        MaterialTheme.colorScheme.onSurface
+    } else {
+        MaterialTheme.colorScheme.primary
+    }
     Box(
         modifier = Modifier
             .padding(8.dp)
-            .size(56.dp),
+            .size(48.dp), // 全局 48dp 体系：折叠图标区恒定
         contentAlignment = Alignment.Center
     ) {
         Icon(
-            painter = painterResource(selectedTab.selectedIcon),
-            contentDescription = stringResource(selectedTab.label),
-            tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(28.dp)
+            painter = painterResource(iconRes),
+            contentDescription = stringResource(iconDesc),
+            tint = tint,
+            modifier = Modifier.size(24.dp)
         )
     }
 }
@@ -432,8 +478,8 @@ private fun PlaybackCollapsedContent(
     ) {
         AlbumCover(
             uri = musicInfo.music.albumArtUri,
-            size = 56.dp,
-            corner = 28.dp,
+            size = 48.dp, // 全局恒定 48dp 体系：播放折叠封面与其余胶囊一致
+            corner = 24.dp,
             shadow = 3.dp,
             modifier = Modifier.graphicsLayer {
                 rotationZ = coverRotation.value
@@ -571,8 +617,8 @@ private fun PlaybackExpandedContent(
             ) {
                 AlbumCover(
                     uri = musicInfo.music.albumArtUri,
-                    size = 56.dp,
-                    corner = 28.dp,
+                    size = 48.dp, // 播放展开（三胶囊共存）紧凑体系：封面统一 48dp，与伙伴/导航协调
+                    corner = 24.dp,
                     shadow = 4.dp,
                     modifier = Modifier.graphicsLayer {
                         rotationZ = coverRotation.value
@@ -584,7 +630,7 @@ private fun PlaybackExpandedContent(
                     ),
                     contentDescription = if (isPlaying) stringResource(Res.string.pause_desc) else stringResource(Res.string.play_desc),
                     tint = Color.White,
-                    modifier = Modifier.size(28.dp)
+                    modifier = Modifier.size(24.dp) // 宽度压缩：控制图标 28→24dp
                 )
             }
 
@@ -594,7 +640,7 @@ private fun PlaybackExpandedContent(
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier
-                    .padding(horizontal = 16.dp)
+                    .padding(horizontal = 12.dp) // 宽度压缩：歌名列左右留白 16→12dp
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null

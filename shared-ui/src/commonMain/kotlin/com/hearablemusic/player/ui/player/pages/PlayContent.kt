@@ -23,10 +23,13 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -53,6 +56,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.hearablemusic.player.ui.common.components.AgentQuickSheet
 import com.hearablemusic.player.ui.common.components.base.GeneratePlaylistComboButtons
 import com.hearablemusic.player.ui.common.dialogs.TimerDialog
 import com.hearablemusic.player.ui.common.layout.LocalWindowSizeInfo
@@ -81,6 +85,7 @@ import com.hearablemusic.player.ui.generated.resources.backward_end_fill
 import com.hearablemusic.player.ui.generated.resources.creative_background
 import com.hearablemusic.player.ui.generated.resources.favorite
 import com.hearablemusic.player.ui.generated.resources.forward_end_fill
+import com.hearablemusic.player.ui.generated.resources.agent_capsule_desc
 import com.hearablemusic.player.ui.generated.resources.heart
 import com.hearablemusic.player.ui.generated.resources.heart_fill
 import com.hearablemusic.player.ui.generated.resources.identify_song
@@ -97,8 +102,10 @@ import com.hearablemusic.player.ui.generated.resources.play_pause
 import com.hearablemusic.player.ui.generated.resources.playback_mode
 import com.hearablemusic.player.ui.generated.resources.playlist
 import com.hearablemusic.player.ui.generated.resources.playlist_count
-import com.hearablemusic.player.ui.generated.resources.previous
 import com.hearablemusic.player.ui.generated.resources.recommendation_mode
+import com.hearablemusic.player.ui.generated.resources.scope
+import com.hearablemusic.player.ui.generated.resources.more
+import com.hearablemusic.player.ui.generated.resources.previous
 import com.hearablemusic.player.ui.generated.resources.related_info
 import com.hearablemusic.player.ui.generated.resources.repeat
 import com.hearablemusic.player.ui.generated.resources.repeat_1
@@ -151,6 +158,8 @@ fun PlayContent(
 
     var showTimerDialog by remember { mutableStateOf(false) }
     var playlistExpanded by remember { mutableStateOf(false) }
+    // M1 播放页锚点：轻量浮层（无底栏页面贴屏底，设计总纲 3.3）
+    var quickSheetVisible by remember { mutableStateOf(false) }
 
     // 解构状态以便在代码中使用
     val musicInfo = playerUiState.musicInfo
@@ -201,6 +210,15 @@ fun PlayContent(
                 .fillMaxSize()
                 .then(if (hazeState != null) Modifier.hazeSource(state = hazeState) else Modifier)
         ) {
+            AgentQuickSheet(
+                visible = quickSheetVisible,
+                onSubmit = { input ->
+                    // M5 接会话（浮层与对话页同 session_id）；M1 为锚点骨架占位
+                    println("[M1] player quick sheet: $input")
+                    quickSheetVisible = false
+                },
+                modifier = Modifier.align(Alignment.BottomCenter)
+            )
             if (isPhoneLandscape) {
                 // 手机横屏：左栏封面，右栏 tabs
                 var selectedTab by remember { mutableStateOf("controls") }
@@ -244,7 +262,22 @@ fun PlayContent(
                                         MusicInfo(musicInfo?.music, { callbacks.onArtistClick(it) }, centerAlign = true)
                                         Spacer(Modifier.height(24.dp))
                                         SeekBar(currentPosition, duration) { callbacks.onSeek(it) }
-                                        PlaybackControlsButtons(isPlaying, playbackMode, isLiked, remainingTime, selectedTab == "playlist", { haptic.performClick(); callbacks.onPlayPause() }, { haptic.performClick(); callbacks.onNext() }, { haptic.performClick(); callbacks.onPrevious() }, { haptic.performContextClick(); callbacks.onPlaybackModeChange() }, { haptic.performConfirm(); callbacks.onFavorite() }, { callbacks.onShowTimerDialog() }, { haptic.performConfirm(); callbacks.onHeartMode() }, { selectedTab = if (selectedTab == "playlist") "controls" else "playlist" })
+                                        PlaybackControlsButtons(
+                                            isPlaying = isPlaying,
+                                            playbackMode = playbackMode,
+                                            isLike = isLiked,
+                                            remainingTime = remainingTime,
+                                            playlistExpanded = selectedTab == "playlist",
+                                            onPlayPause = { haptic.performClick(); callbacks.onPlayPause() },
+                                            onNext = { haptic.performClick(); callbacks.onNext() },
+                                            onPrevious = { haptic.performClick(); callbacks.onPrevious() },
+                                            onPlaybackModeChange = { haptic.performContextClick(); callbacks.onPlaybackModeChange() },
+                                            onFavorite = { haptic.performConfirm(); callbacks.onFavorite() },
+                                            onChatClick = { quickSheetVisible = true },
+                                            onPlaylistToggle = { selectedTab = if (selectedTab == "playlist") "controls" else "playlist" },
+                                            onTimerClick = { callbacks.onShowTimerDialog() },
+                                            onHeartMode = { haptic.performConfirm(); callbacks.onHeartMode() },
+                                        )
                                     }
                                     "playlist" -> PlaylistTabContent(playlist, currentIndex ?: 0, onPlayItem = { callbacks.onPlayItem(it) }, onMoveToTop = { callbacks.onMoveToTop(it) }, onRemoveFromPlaylist = { callbacks.onRemoveFromPlaylist(it) }, onClearPlaylist = { callbacks.onClearPlaylist() })
                                     "info" -> SongDetailInfoTab(songDetailState, musicInfo?.extra, musicInfo?.userInfo)
@@ -272,7 +305,22 @@ fun PlayContent(
                             Box(Modifier.weight(1f), contentAlignment = Alignment.Center) { AlbumCover(musicInfo?.music?.albumArtUri, 280.dp, 16.dp, 8.dp) }
                             Spacer(Modifier.height(16.dp))
                             SeekBar(currentPosition, duration) { callbacks.onSeek(it) }
-                            PlaybackControlsButtons(isPlaying, playbackMode, isLiked, remainingTime, selectedTab == "playlist", { haptic.performClick(); callbacks.onPlayPause() }, { haptic.performClick(); callbacks.onNext() }, { haptic.performClick(); callbacks.onPrevious() }, { haptic.performContextClick(); callbacks.onPlaybackModeChange() }, { haptic.performConfirm(); callbacks.onFavorite() }, { callbacks.onShowTimerDialog() }, { haptic.performConfirm(); callbacks.onHeartMode() }, { selectedTab = if (selectedTab == "playlist") "lyrics" else "playlist" })
+                            PlaybackControlsButtons(
+                                            isPlaying = isPlaying,
+                                            playbackMode = playbackMode,
+                                            isLike = isLiked,
+                                            remainingTime = remainingTime,
+                                            playlistExpanded = selectedTab == "playlist",
+                                            onPlayPause = { haptic.performClick(); callbacks.onPlayPause() },
+                                            onNext = { haptic.performClick(); callbacks.onNext() },
+                                            onPrevious = { haptic.performClick(); callbacks.onPrevious() },
+                                            onPlaybackModeChange = { haptic.performContextClick(); callbacks.onPlaybackModeChange() },
+                                            onFavorite = { haptic.performConfirm(); callbacks.onFavorite() },
+                                            onChatClick = { quickSheetVisible = true },
+                                            onPlaylistToggle = { selectedTab = if (selectedTab == "playlist") "lyrics" else "playlist" },
+                                            onTimerClick = { callbacks.onShowTimerDialog() },
+                                            onHeartMode = { haptic.performConfirm(); callbacks.onHeartMode() },
+                                        )
                             Spacer(Modifier.height(8.dp))
                         }
                     }
@@ -387,6 +435,7 @@ fun PlayContent(
                                 haptic.performConfirm()
                                 callbacks.onFavorite()
                             },
+                            onChatClick = { quickSheetVisible = true },
                             onTimerClick = { callbacks.onShowTimerDialog() },
                             onHeartMode = {
                                 haptic.performConfirm()
@@ -632,7 +681,9 @@ fun SeekBar(
     }
 }
 
-// 播放控制按钮（上一首、播放/暂停、下一首）
+// 播放控制按钮（上一首、播放/暂停、下一首 + 副行五键）
+// 设计总纲 2.5 重排：副行 = 播放模式 · 收藏 · 对话 · 播放列表 · 更多；
+// 心动模式与睡眠定时收入「更多」菜单（定时激活时菜单项显示倒计时、更多按钮带角标）
 @Composable
 fun PlaybackControlsButtons(
     isPlaying: Boolean,
@@ -645,11 +696,13 @@ fun PlaybackControlsButtons(
     onPrevious: () -> Unit,
     onPlaybackModeChange: () -> Unit,
     onFavorite: () -> Unit,
+    onChatClick: () -> Unit,
+    onPlaylistToggle: () -> Unit,
     onTimerClick: () -> Unit,
     onHeartMode: () -> Unit,
-    onPlaylistToggle: () -> Unit
 ) {
     val haptic = rememberHapticFeedback()
+    var showMoreMenu by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -697,7 +750,7 @@ fun PlaybackControlsButtons(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // 下方额外操作按钮区
+        // 副行五键：播放模式 · 收藏 · 对话 · 播放列表 · 更多
         Row(
             modifier = Modifier.fillMaxWidth()
                 .padding(horizontal = 16.dp),
@@ -718,44 +771,29 @@ fun PlaybackControlsButtons(
                 )
             }
 
-            var isLiked by remember { mutableStateOf(false) }
-            isLiked = isLike
+            // 收藏态由外部参数单源驱动（review 2026-08-28：移除本地乐观翻转双源真值，状态回传即时反映）
+            IconButton(onClick = onFavorite) {
+                Icon(
+                    painter = painterResource(if (isLike) Res.drawable.heart_fill else Res.drawable.heart),
+                    contentDescription = stringResource(Res.string.favorite),
+                    tint = if (isLike) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                )
+            }
 
+            // 对话：唤起轻量浮层（M1 播放页锚点；浮层实例由 PlayerScreen 层持有）
             IconButton(
                 onClick = {
-                    onFavorite()
-                    isLiked = !isLiked
-                },
+                    haptic.performClick()
+                    onChatClick()
+                }
             ) {
                 Icon(
-                    painter = painterResource(if (isLiked) Res.drawable.heart_fill else Res.drawable.heart),
-                    contentDescription = stringResource(Res.string.favorite),
-                    tint = if (isLiked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
-                )
-            }
-            IconButton(onClick = onHeartMode) {
-                Icon(
-                    painter = painterResource(Res.drawable.identify_song),
+                    painter = painterResource(Res.drawable.scope),
                     tint = MaterialTheme.colorScheme.onSurface,
-                    contentDescription = stringResource(Res.string.recommendation_mode),
+                    contentDescription = stringResource(Res.string.agent_capsule_desc),
                 )
             }
-            if (remainingTime == null) {
-                IconButton(onClick = { onTimerClick() }) {
-                    Icon(
-                        painter = painterResource(Res.drawable.timer),
-                        tint = MaterialTheme.colorScheme.onSurface,
-                        contentDescription = stringResource(Res.string.sleep_timer),
-                    )
-                }
-            } else {
-                Text(
-                    text = formatTime(remainingTime),
-                    style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.clickable { onTimerClick() },
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
+
             // 播放列表按钮
             IconButton(
                 onClick = {
@@ -770,6 +808,64 @@ fun PlaybackControlsButtons(
                     ),
                     contentDescription = stringResource(Res.string.playlist),
                 )
+            }
+
+            // 更多：心动模式 + 睡眠定时（定时激活时菜单项显示倒计时、按钮带角标）
+            Box {
+                IconButton(onClick = { showMoreMenu = true }) {
+                    Icon(
+                        painter = painterResource(Res.drawable.more),
+                        tint = MaterialTheme.colorScheme.onSurface,
+                        contentDescription = stringResource(Res.string.recommendation_mode),
+                    )
+                }
+                if (remainingTime != null) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .size(10.dp)
+                            .background(MaterialTheme.colorScheme.primary, CircleShape)
+                    )
+                }
+                DropdownMenu(
+                    expanded = showMoreMenu,
+                    onDismissRequest = { showMoreMenu = false }
+                ) {
+                    DropdownMenuItem(
+                        text = { Text(stringResource(Res.string.recommendation_mode)) },
+                        onClick = {
+                            showMoreMenu = false
+                            onHeartMode()
+                        },
+                        leadingIcon = {
+                            Icon(
+                                painter = painterResource(Res.drawable.identify_song),
+                                contentDescription = null
+                            )
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = {
+                            Text(
+                                if (remainingTime != null) {
+                                    formatTime(remainingTime)
+                                } else {
+                                    stringResource(Res.string.sleep_timer)
+                                }
+                            )
+                        },
+                        onClick = {
+                            showMoreMenu = false
+                            onTimerClick()
+                        },
+                        leadingIcon = {
+                            Icon(
+                                painter = painterResource(Res.drawable.timer),
+                                contentDescription = null
+                            )
+                        }
+                    )
+                }
             }
         }
     }

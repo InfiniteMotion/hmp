@@ -76,7 +76,12 @@ data class MusicExtraUserSnapshot(
 data class MusicLabelSnapshot(
     val musicId: Long = 0L,
     val label: LabelName = LabelName.ROCK,
-    val category: LabelCategory = LabelCategory.GENRE
+    val category: LabelCategory = LabelCategory.GENRE,
+    /** 认识来源（LLM/USER/AGENT）与时间戳：v1 存量备份无此字段 → null（还原后按 LLM 旧认识处理，规则①丢失） */
+    val source: String? = null,
+    val confidence: Double? = null,
+    val createdAt: Long? = null,
+    val updatedAt: Long? = null
 )
 
 @Serializable
