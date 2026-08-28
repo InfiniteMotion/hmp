@@ -12,6 +12,7 @@ import com.hmp.data.database.MusicLabelDao
 import com.hmp.data.database.PlaybackHistoryDao
 import com.hmp.data.database.PlaylistDao
 import com.hmp.data.database.PlaylistItemDao
+import com.hmp.data.database.RoomAuditLogAdapter
 import com.hmp.data.database.UserInfoDao
 import com.hmp.data.database.getDatabaseBuilder
 import com.hmp.data.database.getRoomDatabase
@@ -23,6 +24,7 @@ import com.hmp.data.repository.PlaylistRepositoryImpl
 import com.hmp.data.repository.SettingsRepositoryImpl
 import com.hmp.data.util.DataStoreFactory
 import com.hmp.domain.backup.BackupFileRepository
+import com.hmp.domain.agent.port.AuditLogPort
 import com.hmp.domain.music.MusicRepository
 import com.hmp.domain.playlist.PlaylistRepository
 import com.hmp.domain.setting.SettingsRepository
@@ -48,6 +50,7 @@ val desktopPlatformModule = module {
 single<AgentTaskDao> { get<AppDatabase>().agentTaskDao() }
 single<AgentAuditLogDao> { get<AppDatabase>().agentAuditLogDao() }
 single<AgentMessageDao> { get<AppDatabase>().agentMessageDao() }
+single<AuditLogPort> { RoomAuditLogAdapter(get<AgentAuditLogDao>()) }
 
     single { BuiltInApiKeyProvider() } // Desktop: 占位符
     singleOf(::SettingsRepositoryImpl) bind SettingsRepository::class
