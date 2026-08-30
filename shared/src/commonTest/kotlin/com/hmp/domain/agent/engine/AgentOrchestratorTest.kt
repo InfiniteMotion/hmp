@@ -3,6 +3,7 @@ package com.hmp.domain.agent.engine
 import com.hmp.domain.agent.port.FakeNowPlayingContextProvider
 import com.hmp.domain.agent.port.FakePlaybackCommandPort
 import com.hmp.domain.agent.port.LlmEvent
+import com.hmp.domain.agent.port.LlmMessage
 import com.hmp.domain.agent.tool.ToolDependencies
 import com.hmp.domain.agent.tool.ToolRegistry
 import com.hmp.domain.music.Music
@@ -27,7 +28,7 @@ class AgentOrchestratorTest {
 
     private class Fixture(
         transport: FakeLlmTransport,
-        confirmGate: ConfirmGate = ConfirmGate { _, _ -> true },
+        confirmGate: ConfirmGate = ConfirmGate { r -> List(r.size) { true } },
         stepBudget: Int = EngineDefaults.STEP_BUDGET,
         cloudQuota: Int = EngineDefaults.DAILY_CLOUD_QUOTA,
     ) {
@@ -100,13 +101,41 @@ class AgentOrchestratorTest {
             listOf(toolCall("c1", "createPlaylist", """{"name":"我的收藏"}"""), LlmEvent.Completed),
             listOf(LlmEvent.TextDelta("我没有创建。"), LlmEvent.Completed),
         ))
-        val fx = Fixture(t, confirmGate = ConfirmGate { _, _ -> false })
+        val fx = Fixture(t, confirmGate = ConfirmGate { r -> List(r.size) { false } })
         val r = fx.orchestrator.run("建一个歌单", config)
 
         assertEquals(TerminationReason.ANSWERED, r.terminatedBy)
         assertEquals("refused", r.toolCalls.single().outcome)
         assertEquals("refused", fx.audit.outcomes("createPlaylist").single())
         assertTrue(fx.playlists.playlists.isEmpty(), "被拒的歌单不应被创建")
+    }
+
+    @Test
+    fun `batch confirm approves selected items only`() = runTest {
+        val t = FakeLlmTransport(perTurnScript = listOf(
+            listOf(
+                toolCall("c1", "createPlaylist", """{"name":"A"}"""),
+                toolCall("c2", "createPlaylist", """{"name":"B"}"""),
+                LlmEvent.Completed,
+            ),
+            listOf(LlmEvent.TextDelta("建好了 A。"), LlmEvent.Completed),
+        ))
+        var requestedNames: List<String> = emptyList()
+        val gate = ConfirmGate { r ->
+            requestedNames = r.map { it.argsSummary }
+            r.mapIndexed { i, _ -> i == 0 } // 只批准第 1 项（A）
+        }
+        val fx = Fixture(t, confirmGate = gate)
+        val r = fx.orchestrator.run("建 A 和 B", config)
+
+        assertEquals(TerminationReason.ANSWERED, r.terminatedBy)
+        // 一次批量请求聚合了两个待确认项
+        assertEquals(2, requestedNames.size)
+        // A 执行成功，B 被拒
+        assertEquals("success", r.toolCalls[0].outcome)
+        assertEquals("refused", r.toolCalls[1].outcome)
+        assertEquals(listOf("success", "refused"), fx.audit.outcomes("createPlaylist"))
+        assertEquals(listOf("A"), fx.playlists.playlists.values.map { it.name })
     }
 
     @Test
@@ -142,5 +171,24 @@ class AgentOrchestratorTest {
         val r = fx.orchestrator.run("hi", config)
         assertEquals(TerminationReason.FAILED, r.terminatedBy)
         assertEquals("failed", fx.audit.outcomes("orchestrator").single())
+    }
+
+    @Test
+    fun `history is prepended so agent remembers prior turn`() = runTest {
+        val t = FakeLlmTransport(perTurnScript = listOf(
+            listOf(LlmEvent.TextDelta("收到"), LlmEvent.Completed),
+        ))
+        val fx = Fixture(t)
+        val history = listOf(
+            LlmMessage(role = "user", content = "帮我建个歌单"),
+            LlmMessage(role = "assistant", content = "建好了，12 首"),
+        )
+        val r = fx.orchestrator.run("再推荐几首", config, RunContextInput(history = history))
+        assertEquals(TerminationReason.ANSWERED, r.terminatedBy)
+        val m = t.calls.first().messages
+        assertEquals("system", m[0].role)
+        assertEquals("user", m[1].role); assertEquals("帮我建个歌单", m[1].content)
+        assertEquals("assistant", m[2].role); assertEquals("建好了，12 首", m[2].content)
+        assertEquals("user", m[3].role); assertEquals("再推荐几首", m[3].content)
     }
 }

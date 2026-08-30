@@ -30,7 +30,7 @@ class TrustLedger(
 
     /** 某写动作被隐式接受（用户未否决且未确认拖拽偏离）。达到阈值即升档。 */
     fun onActionAccepted(toolName: String) {
-        val c = implicitAcceptByTool.getOrDefault(toolName, 0) + 1
+        val c = (implicitAcceptByTool[toolName] ?: 0) + 1
         implicitAcceptByTool[toolName] = c
         if (c >= escalationThreshold && tier != TrustTier.SILENT) {
             tier = TrustTier.entries[tier.index + 1]
@@ -54,5 +54,5 @@ class TrustLedger(
     }
 
     /** 当前该工具的连续隐式接受计数（测试断言用）。 */
-    fun consecutiveAccepts(toolName: String): Int = implicitAcceptByTool.getOrDefault(toolName, 0)
+    fun consecutiveAccepts(toolName: String): Int = implicitAcceptByTool[toolName] ?: 0
 }

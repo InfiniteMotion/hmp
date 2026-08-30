@@ -48,6 +48,7 @@ M1 锚点层一期（B4 的前置 UI 骨架，Fake 数据驱动，与 M0-M7 完�
 | M5 | 对话页 + 五类气泡 + 确认流 + 门面二期 + 漏斗（B4） | M4 + M1     | 纯文字完整体验三端可用                             |
 | M6 | 电台三轮协作 + 跳过感知 + DJ 衔接 + 审计页（B5）  | M5          | FakeLlm+FakePlaybackCommandPort 电台确定性测试 |
 | M7 | 报告角色 + 伙伴设置页 + 语音档（B6）           | M6          | 语音为独立 gate，可整体延期不影响 v1 完整性              |
+| R  | 债务清零与交互地基修复（首轮注入/漏斗/真实播放端口/多确认/会话持久/M5 收尾 UI） | M5 未完成 + 定义级漏项 | 交互主干（触发→理解→执行→呈现→反馈→审计）闭环；三端编译 |
 
 ***
 
@@ -126,19 +127,19 @@ M1 锚点层一期（B4 的前置 UI 骨架，Fake 数据驱动，与 M0-M7 完�
 
 **退出**：引擎一切行为确定性可测（步数/许可/拒绝纪律/预算/审计断言全覆盖）；`:shared` 依赖方向铁律守住。
 
-### M5 对话与锚点二期（B4，\~9 人天）——纯文字完整体验
+### M5 对话与锚点二期（B4，\~9 人天）——纯文字完整体验　<span style="color:#2e7d32">✅ T1/T2/T4 交付 2026-08-28；T3/T5/T6/T7 由 R 阶段 R-T6 补齐 2026-08-30（AgentNoticeBar 组件/门面二期/搜索条带）；侧条 NOTIFY 接线、审计页留 M6</span>
 
 > **刻意纪律**：确认交互（「有感」）必须在电台隐式接受（「无感」）之前交付——M5 是 M6 的校准基准。
 
-| ID    | 任务                                                                                                                                                                                                   | 涉及文件                                                         | 验收                          |
-| ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ | --------------------------- |
-| M5-T1 | `ChatScreen` + `ChatViewModel`：问候区/正在听卡（点按进播放页）/对话流（LazyColumn 自动滚底+回看暂停+顶部翻页）/任务进行条（三点脉动+取消，完成原地替换结果）/常驻输入条（胶囊形+发送）；SubScreen 基座                                                                    | 新建 `chat/ChatScreen.kt`、`chat/ChatViewModel.kt`              | 消息流单测（session 分页/滚底语义）；三端编译 |
-| M5-T2 | `CompanionBubble` 五类气泡：text/song（AlbumCover+题名+菜单）/songlist（FixedMusicList 复用 HomeScreen 心动歌单配置+尾部动作行）/explain（三轮轨迹折叠）/confirm（逐项勾选）；路由注册（Routes.Companion.Chat + NavigationGraph + HmpNavBackStack） | 新建 `chat/CompanionBubble.kt`；`common/navigation/Routes.kt` 等 | render\_hint 驱动渲染单测/快照      |
-| M5-T3 | `AgentNoticeBar` 通知侧条（4s 退场+撤销；撤销窗口后入口转审计页——可逆性非限时优惠）+ 与 MessageToast 分工                                                                                                                             | 新建 `common/components/AgentNoticeBar.kt`                     | 侧条生命周期单测                    |
-| M5-T4 | 确认卡片流：流内非模态（不挡输入条）、逐项可跳过、「照做」只执行选中项、执行后→NOTIFY+卡状态更新「已建 9 首，跳过 3 首」                                                                                                                                  | CompanionBubble.confirm + ChatViewModel                      | 确认流单测（跳过/部分执行/拒绝不纠缠）        |
-| M5-T5 | 门面二期：HomeScreen 改造（问候区+「和伙伴聊聊」触发钮+每日推荐/心动歌单口吻化卡片+认识进度轻提及）；pager 手术 `userScrollEnabled = currentPage != 0`；门面页隐藏 TabPageIndicator 页点；savedTabIndex 保持                                                 | `MainShell.kt`、`library/pages/HomeScreen.kt`                 | 冷启动回门面；门面禁滑出/画廊右滑不受阻        |
-| M5-T6 | 搜索框条带：漏斗未命中+意图特征→条带（「交给伙伴」/「只是搜索」）；空结果页追加「问问伙伴？」；拒绝纪律（本次会话不纠缠）                                                                                                                                       | `library/pages/SearchScreen.kt`                              | 判定逻辑单测                      |
-| M5-T7 | 两级漏斗：高频指令词表直映射（零 token、50ms 内）；模糊意图升级单轮 agent 任务                                                                                                                                                     | 新建 `domain/agent/funnel/CommandLexicon.kt`                   | 漏斗单测（命中/未命中/升级语义）；FREE 模式可用 |
+| ID    | 任务                                                                                                                                                                                                   | 涉及文件                                                         | 验收                                    |
+| ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ | ------------------------------------- |
+| M5-T1 | `ChatScreen` + `ChatViewModel`：问候区/正在听卡（点按进播放页）/对话流（LazyColumn 自动滚底+回看暂停+顶部翻页）/任务进行条（三点脉动+取消，完成原地替换结果）/常驻输入条（胶囊形+发送）；SubScreen 基座                                                                    | 新建 `chat/ChatScreen.kt`、`chat/ChatViewModel.kt`              | 消息流单测（session 分页/滚底语义）；三端编译 ✅（8/8 用例） |
+| M5-T2 | `CompanionBubble` 五类气泡：text/song（AlbumCover+题名+菜单）/songlist（FixedMusicList 复用 HomeScreen 心动歌单配置+尾部动作行）/explain（三轮轨迹折叠）/confirm（逐项勾选）；路由注册（Routes.Companion.Chat + NavigationGraph + HmpNavBackStack） | 新建 `chat/CompanionBubble.kt`；`common/navigation/Routes.kt` 等 | render\_hint 驱动渲染单测/快照 ✅              |
+| M5-T3 | `AgentNoticeBar` 通知侧条（4s 退场+撤销；撤销窗口后入口转审计页——可逆性非限时优惠）+ 与 MessageToast 分工                                                                                                                             | 新建 `common/components/AgentNoticeBar.kt`                     | 侧条生命周期单测                              |
+| M5-T4 | 确认卡片流：流内非模态（不挡输入条）、逐项可跳过、「照做」只执行选中项、执行后→NOTIFY+卡状态更新「已建 9 首，跳过 3 首」                                                                                                                                  | CompanionBubble.confirm + ChatViewModel                      | 确认流单测（跳过/部分执行/拒绝不纠缠） ✅                |
+| M5-T5 | 门面二期：HomeScreen 改造（问候区+「和伙伴聊聊」触发钮+每日推荐/心动歌单口吻化卡片+认识进度轻提及）；pager 手术 `userScrollEnabled = currentPage != 0`；门面页隐藏 TabPageIndicator 页点；savedTabIndex 保持                                                 | `MainShell.kt`、`library/pages/HomeScreen.kt`                 | 冷启动回门面；门面禁滑出/画廊右滑不受阻                  |
+| M5-T6 | 搜索框条带：漏斗未命中+意图特征→条带（「交给伙伴」/「只是搜索」）；空结果页追加「问问伙伴？」；拒绝纪律（本次会话不纠缠）                                                                                                                                       | `library/pages/SearchScreen.kt`                              | 判定逻辑单测                                |
+| M5-T7 | 两级漏斗：高频指令词表直映射（零 token、50ms 内）；模糊意图升级单轮 agent 任务                                                                                                                                                     | 新建 `domain/agent/funnel/CommandLexicon.kt`                   | 漏斗单测（命中/未命中/升级语义）；FREE 模式可用           |
 
 **退出**：纯文字完整闭环三端可用（锚点→对话→任务→确认→回执）；M5 全部交互并入审计。
 
@@ -164,6 +165,29 @@ M1 锚点层一期（B4 的前置 UI 骨架，Fake 数据驱动，与 M0-M7 完�
 | M7-T4 | 语音会话：transcript 双向流→一 UI 两形态（语音气泡=文字+内存内重放）、会话模式（VoiceSessionController）+CONFIRM 口头化、混排                       | ChatScreen 气泡扩展                                            | 会话协议测试；语音会话写操作有文字记录（可审计）                   |
 
 **gate 规则**：M7-T3/T4 端点不可用或验证不过→**B6 语音整体延期**，报告角色+设置页照常交付——v1 完整性不依赖语音。
+
+### R 阶段：债务清零与交互地基修复（还债阶段，横切；先于 M5 完成态）✅ 2026-08-30 代码层完成
+
+> **进度**：R-T1..R-T6 全部实现（首轮注入/漏斗/真实播放端口/多确认门/会话持久/M5 剩余 UI）。
+> **验收缺口（待补）**：iOS 编译未验证（仅 android/desktop）；门面/搜索条带交互核验未深入；审计页/撤销按定义留 M6；本地化（14 语言）为横切项未做。
+
+> **定位**：M5 一期交付了「能跑通」的对话页，但交互主干多处断裂——首轮上下文为空、两级漏斗缺失、
+> 真实播放端口是 Fake、多确认门会挂起、会话不持久、M5 剩余 UI（T3/T5/T6/T7）未做。
+> 本阶段把**定义有、实现空**的债务一次清掉，并并入当前必需的 B 内容。**独立于 M0-M7 编号**（不清原里程碑），
+> 与总纲 7.4 的 B 展开按实际进度调和，此处不绑定版本号。
+> **本次并入的 B 内容**：仅 R-T3 真实播放/现在听端口（M5 反馈闭环与 `controlPlayback` 工具能真跑的硬前提）。
+> **明确留后续（不并入 R）**：DJ 线、事件触发/存在感全量、审计页/撤销、听歌报告、语音档、伙伴设置页六分区。
+
+| ID | 任务 | 涉及文件 | 验收 |
+|----|------|---------|------|
+| R-T1 | 首轮上下文注入装配器：CompanionProfile(人格v0)/称呼 + 曲库概览聚合(概览法) + 真实当前曲目(NowPlaying) + 时段 + 认识进度 → 喂进 `RunContextInput` + `buildSystemPrompt` | 新 `engine/ContextAssembler.kt`、`AgentOrchestrator.buildSystemPrompt`、`RunContextInput`、`ChatAgentGateway` | 首轮系统提示含 5 类内容；快照单测；三端编译 |
+| R-T2 | 两级漏斗 `CommandLexicon`：高频词表直映射(零 token/50ms) + 模糊意图升级 agent + FREE(无Key) 高频命令可用 | 新 `domain/agent/funnel/CommandLexicon.kt` + ChatScreen/浮层接线 | 命中/未命中/升级语义单测；FREE 模式高频命令可用 |
+| R-T3 | 接**真实播放/现在听端口**适配器（复用 `PlaybackController` 桥）替换 Fake | shared-ui `platform/` 新适配器 + `ChatKoinModule` | `controlPlayback` 真实生效；`getNowPlayingContext` 返回真实当前曲目；`:shared` 不反向依赖 shared-ui；Fake 测试保留 |
+| R-T4 | 多确认门修复：`ChatViewModel` 确认槽队列 + `ConfirmBridge` 多批次 | `ChatViewModel.kt`、`ConfirmBridge` | 单轮多次确认不覆盖/不挂起；审批同序测试 |
+| R-T5 | `agent_message` 会话持久化 + `session_id` 分页（ChatViewModel 真实读写） | `ChatViewModel.kt` + `AgentMessageDao` 接线 | 会话持久；分页单测 |
+| R-T6 | M5 剩余 UI：`AgentNoticeBar`(T3) + 门面二期(T5) + 搜索条带(T6) | 新 `common/components/AgentNoticeBar.kt`、`HomeScreen.kt`、`SearchScreen.kt` | 三端编译 + 模拟器/桌面交互核验 |
+
+**退出**：交互主干（触发→理解→执行→呈现→反馈→审计）闭环——首轮注入完整 + 漏斗 + 真实播放端口 + 无确认挂起 + 会话可持久 + M5 剩余 UI 三端可用。
 
 ***
 
@@ -208,7 +232,10 @@ M1 锚点层一期（B4 的前置 UI 骨架，Fake 数据驱动，与 M0-M7 完�
 
 ## 7. 变更记录
 
-| 日期         | 变更                                                                                        |
-| ---------- | ----------------------------------------------------------------------------------------- |
-| 2026-08-26 | v1：依据 agent.md（深度合并稿）编制；阶段制 M0-M7，不绑定版本号；B0 归 M0 优先（可在非 agent 版本先行）；语音 gate 明确；挂起参数给建议默认值 |
+| 日期         | 变更                                                                                                                                                                                                  |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-08-26 | v1：依据 agent.md（深度合并稿）编制；阶段制 M0-M7，不绑定版本号；B0 归 M0 优先（可在非 agent 版本先行）；语音 gate 明确；挂起参数给建议默认值                                                                                                           |
+| 2026-08-28 | M5 一期：ChatScreen/ChatViewModel + 五类气泡 + 批量确认卡流（T1/T2/T4）；Gateway 接口 + Orchestrator 真实接线；顺带修复 TrustLedger/MusicRepositoryBase 的 iOS 跨平台缺口（Map.getOrDefault→显式判空；System.currentTimeMillis→跨平台 expect） |
+| 2026-08-30 | **R 阶段落地**：R-T1 首轮注入（CompanionProfile/ContextAssembler/buildSystemPrompt + gateway 真实装配）、R-T2 漏斗（CommandLexicon + ChatViewModel 接线）、R-T3 真实播放/现在听端口、R-T4 多确认门（submittedConfirms）、R-T5 会话持久（AgentMessageStore/RoomAgentMessageStore + 三端 DI）、R-T6 M5 剩余 UI；工具层修复（searchLibrary 标签+id、controlPlayback play_by_id 引导、getRecentHistory 带标题）；AgentLog 运行时日志；对话页沉浸式 UI 重构（去顶栏/去头像/紧凑输入栏/键盘贴键盘/新增消息与聚焦自动滚底/横滑与页点恢复）。**验收缺口**：iOS 编译未验证、门面/搜索交互核验未深入、审计页/撤销留 M6、本地化横切未做 |
 
+<br />

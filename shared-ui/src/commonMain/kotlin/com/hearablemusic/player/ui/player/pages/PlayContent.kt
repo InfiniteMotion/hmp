@@ -152,7 +152,9 @@ fun PlayContent(
     paletteColors: PaletteColors? = null,
     callbacks: PlayerCallbacks,
     hazeState: HazeState? = null,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    /** 播放页快捷条提交：上抛输入到对话入口（M1 锚点 → M5 对话）。 */
+    onOpenChat: (String) -> Unit = {},
 ) {
     val haptic = rememberHapticFeedback()
 
@@ -213,8 +215,8 @@ fun PlayContent(
             AgentQuickSheet(
                 visible = quickSheetVisible,
                 onSubmit = { input ->
-                    // M5 接会话（浮层与对话页同 session_id）；M1 为锚点骨架占位
-                    println("[M1] player quick sheet: $input")
+                    // M1 锚点 → M5 对话：上抛输入，由 PlayerScreen 带话进对话页
+                    onOpenChat(input)
                     quickSheetVisible = false
                 },
                 modifier = Modifier.align(Alignment.BottomCenter)

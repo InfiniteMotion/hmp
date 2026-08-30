@@ -12,6 +12,8 @@ import com.hearablemusic.player.ui.library.viewmodel.LibraryViewModel
 import com.hearablemusic.player.ui.library.viewmodel.EditMusicTagsViewModel
 import com.hearablemusic.player.ui.library.viewmodel.SearchViewModel
 import com.hearablemusic.player.ui.library.viewmodel.SongDetailViewModel
+import com.hearablemusic.player.ui.chat.ChatViewModel
+import com.hearablemusic.player.ui.chat.chatGatewayModule
 import com.hearablemusic.player.ui.player.viewmodel.PlaybackViewModel
 import com.hearablemusic.player.ui.player.viewmodel.PlaylistQueueViewModel
 import com.hearablemusic.player.ui.playlist.viewmodel.PlaylistViewModel
@@ -28,6 +30,8 @@ import org.koin.androidx.viewmodel.dsl.viewModel
 import org.koin.dsl.module
 
 val uiModule = module {
+    includes(chatGatewayModule)
+
     single { DialogManager() }
     single<PlaybackController> { MusicControllerPlaybackAdapter(get()) }
     viewModel { DialogManagerViewModel(get()) }
@@ -48,6 +52,7 @@ val uiModule = module {
     viewModel { LyricsSettingsViewModel(get()) }
     viewModel { RecommendationViewModel(get(), get(), get(), get()) }
     viewModel { UserUsageDataViewModel(get()) }
+    viewModel { ChatViewModel(get(), get(), get(), get()) }
     single<AlbumArtPixelsLoader> { CoilAlbumArtPixelsLoader(androidContext()) }
     viewModel { ThemeViewModel(get(), get()) }
 }

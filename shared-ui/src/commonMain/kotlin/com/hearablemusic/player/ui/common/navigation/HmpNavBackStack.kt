@@ -52,6 +52,8 @@ private val HMP_NAV_KEY_SERIALIZERS = SerializersModule {
         subclass(serializer = Routes.AI.AI.serializer())
         subclass(serializer = Routes.Custom.Custom.serializer())
         subclass(serializer = Routes.UserData.UserUsageData.serializer())
+        // Companion（听歌伙伴对话）
+        subclass(serializer = Routes.Companion.Chat.serializer())
     }
 }
 

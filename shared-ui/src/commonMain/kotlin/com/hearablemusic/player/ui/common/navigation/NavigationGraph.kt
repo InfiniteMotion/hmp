@@ -6,6 +6,7 @@ import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
 import com.hearablemusic.player.ui.MainShell
+import com.hearablemusic.player.ui.chat.ChatScreen
 import com.hearablemusic.player.ui.settings.pages.AIScreen
 import com.hearablemusic.player.ui.library.pages.AlbumScreen
 import com.hearablemusic.player.ui.library.pages.ArtistScreen
@@ -167,5 +168,10 @@ fun navigationGraph(
     // UserData 模块
     entry<Routes.UserData.UserUsageData> {
         UserUsageDataScreen(navController = navController)
+    }
+
+    // Companion（听歌伙伴对话）
+    entry<Routes.Companion.Chat> {
+        ChatScreen(navController = navController)
     }
 }

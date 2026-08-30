@@ -95,7 +95,7 @@ class ControlPlaybackTool(
     private val port = deps.playbackCommandPort
 
     override val name = ToolNames.CONTROL_PLAYBACK
-    override val description = "控制播放：播放/暂停/上下一首/跳转/切换随机与循环\n影响当前播放，属写操作\n仅在用户明确要求时使用，参数须精确"
+    override val description = "控制当前播放：\n- play=继续播放当前 / pause=暂停 / next=下一首 / previous=上一首\n- play_by_id=播放指定曲目（music_id 填 searchLibrary/getSimilarSongs 结果里的 id）\n- seek_to=跳转到 position_ms；shuffle_on/off、repeat_one/repeat_all/repeat_off 切模式\n影响当前播放，属写操作\n用户要播某首/某歌手的歌时用 play_by_id + 检索到的 id；只有「继续/暂停当前」才用 play/pause"
     override val permissionLevel = ToolPermissionLevel.CONFIRM
     override val params = listOf(
         EnumParam(
@@ -109,7 +109,7 @@ class ControlPlaybackTool(
             description = "播放控制指令",
         ),
         LongParam(name = "position_ms", description = "seek_to 的目标位置(毫秒)", required = false, min = 0),
-        LongParam(name = "music_id", description = "play_by_id 的目标歌曲ID", required = false, min = 1),
+        LongParam(name = "music_id", description = "play_by_id 的目标歌曲ID（取 searchLibrary/getSimilarSongs 结果的 id=；仅为 play_by_id 必填）", required = false, min = 1),
     )
 
     override suspend fun run(args: ToolArgs): ToolResult {

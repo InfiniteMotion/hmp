@@ -6,7 +6,9 @@ import com.hmp.domain.agent.port.LlmEvent
 import com.hmp.domain.agent.port.LlmMessage
 import com.hmp.domain.agent.port.LlmToolCall
 import com.hmp.domain.agent.port.LlmTransport
+import com.hmp.domain.agent.persona.DefaultCompanionProfiles
 import com.hmp.domain.agent.tool.AgentTool
+import com.hmp.domain.agent.tool.ToolPermissionLevel
 import com.hmp.domain.agent.tool.ToolRegistry
 import com.hmp.domain.setting.model.AiEndpointConfig
 import kotlinx.coroutines.flow.toList
@@ -32,18 +34,39 @@ data class AgentResult(
 )
 
 /**
+ * 一次待确认的工具调用（M5-T4 确认卡片：一次 turn 的多项确认聚合展示、逐项勾选）。
+ * @param toolName 工具名（供卡片展示与审计）
+ * @param argsSummary 参数摘要（供用户判断）
+ * @param permissionLevel 许可级（CONFIRM / STRONG_CONFIRM）
+ */
+data class ConfirmRequest(
+    val toolName: String,
+    val argsSummary: String,
+    val permissionLevel: ToolPermissionLevel,
+)
+
+/**
  * 确认门（M5 确认卡片流实现；M4 测试注入脚本化门：全通过 / 全否决 / 按工具）。
- * 返回 true=执行，false=拒绝（拒绝纪律：本次会话不纠缠，跳过不报错）。
+ * 批量语义：一次 turn 可能触发多项需要确认的工具，聚合为 [requests] 一次性请求，
+ * 返回与传入**同序**的批准列表；`false`=该项跳过（拒绝纪律：本次会话不纠缠，不报错）。
  */
 fun interface ConfirmGate {
-    suspend fun request(tool: AgentTool, argsSummary: String): Boolean
+    suspend fun request(requests: List<ConfirmRequest>): List<Boolean>
 }
 
-/** 一次运行的外部上下文输入（供 ContextBudget 三层组装）。 */
+/** 一次运行的外部上下文输入（供 ContextBudget 三层组装 + R-T1 首轮注入）。 */
 data class RunContextInput(
     val taskState: String? = null,
     val libraryListText: String? = null,
     val libraryOverviewText: String? = null,
+    // —— R-T1 首轮注入（第一次对话就该到 agent 的内容）——
+    val personaText: String? = null,
+    val recognitionText: String? = null,
+    val timeOfDayText: String? = null,
+    val nowPlayingText: String? = null,
+    val userTitle: String? = null,
+    // —— 跨轮记忆：上一轮及以前的 user/assistant 文本消息（按时间正序，越新越靠后）——
+    val history: List<LlmMessage> = emptyList(),
 )
 
 /**
@@ -79,8 +102,13 @@ class AgentOrchestrator(
         val systemPrompt = buildSystemPrompt(ctx)
         val messages = mutableListOf(
             LlmMessage(role = "system", content = systemPrompt),
-            LlmMessage(role = "user", content = userMessage),
-        )
+        ).apply {
+            // 跨轮记忆：先前对话（user/assistant 文本）接在 system 之后、本次 user 之前
+            addAll(ctx.history)
+            add(LlmMessage(role = "user", content = userMessage))
+        }
+
+        AgentLog.i("run start (task=$taskId): input=${AgentLog.truncate(userMessage)} history=${ctx.history.size} steps_budget=$stepBudget")
 
         val toolLog = mutableListOf<ToolExecutionRecord>()
         var steps = 0
@@ -91,6 +119,7 @@ class AgentOrchestrator(
             // 云端额度：耗尽 → 本地兜底熔断
             if (!contextBudget.spendCloudCall()) {
                 terminated = TerminationReason.CLOUD_QUOTA_EXHAUSTED
+                AgentLog.w("step $steps: cloud quota exhausted -> local fallback")
                 presenceBus.emit(PresenceEvent.CloudQuotaExhausted)
                 auditLog.record(AuditEntry(tool = "orchestrator", outcome = "budget_exhausted",
                     reason = "单日云端额度耗尽，已本地兜底", taskId = taskId))
@@ -99,7 +128,9 @@ class AgentOrchestrator(
             presenceBus.emit(PresenceEvent.TaskProgress(phase = "thinking", active = true))
             steps++
 
+            AgentLog.d("step $steps: calling LLM (tools=${registry.allLlmSpecs.size})")
             val (assistantText, toolCalls, failed) = collectTurn(messages, config)
+            AgentLog.d("step $steps: text=${AgentLog.truncate(assistantText)} toolCalls=${toolCalls.map { it.name }} failed=$failed")
             if (failed) {
                 terminated = TerminationReason.FAILED
                 finalText = "（对话中断，请稍后再试）"
@@ -119,13 +150,16 @@ class AgentOrchestrator(
                 content = assistantText.ifBlank { null },
                 toolCalls = toolCalls.map { LlmToolCall(it.id, it.name, it.argumentsJson) },
             )
+            // 批量确认：本轮所有 RequireConfirm 聚合一次请求，得同序批准列表后再逐项执行
+            val approvals = decideApprovals(toolCalls, taskId)
             for (tc in toolCalls) {
-                toolLog += executeOne(tc, messages, taskId)
+                toolLog += executeOne(tc, messages, taskId, approved = approvals[tc.id])
             }
 
             // 步数预算用尽但尚有工具调用已回传、尚未拿到最终回答 → 硬熔断
             if (steps >= stepBudget) {
                 terminated = TerminationReason.STEP_BUDGET_EXHAUSTED
+                AgentLog.w("step $steps: step budget exhausted ($steps/$stepBudget)")
                 auditLog.record(AuditEntry(tool = "orchestrator", outcome = "circuit_break",
                     reason = "步数预算耗尽 steps=$steps/${stepBudget}（尚有工具已执行但未获最终回答）",
                     taskId = taskId))
@@ -147,7 +181,9 @@ class AgentOrchestrator(
             stepsUsed = steps,
             toolCalls = toolLog,
             terminatedBy = terminated,
-        )
+        ).also {
+            AgentLog.i("run done: terminated=$terminated steps=$steps tools=${it.toolCalls.size} text=${AgentLog.truncate(finalTextOut)}")
+        }
     }
 
     /** 单次 LLM 调用：收集文本增量 + 工具调用列表；失败时 failed=true。 */
@@ -179,11 +215,42 @@ class AgentOrchestrator(
         return Triple(text.toString(), calls, failed)
     }
 
-    /** 执行单个工具调用：裁决→确认→执行→回填 role="tool" 消息，并审计。 */
+    /**
+     * 批量确认：对本轮所有需确认（RequireConfirm）的工具聚合一次请求。
+     * - 裁决（PolicyGuard）含审计副作用，在此对**每个工具**执行一次。
+     * - 将 RequireConfirm 的工具收集为 [ConfirmRequest]，一次性交给 [ConfirmGate]，
+     *   得到同序批准列表。
+     * - 返回按 toolCallId 索引的批准表（`true`=执行）；需确认但未获批准 → `false`；
+     *   无需确认的工具不在表中（executeOne 以 null 视作直接执行）。
+     */
+    private suspend fun decideApprovals(
+        toolCalls: List<LlmEvent.ToolCall>,
+        taskId: Long?,
+    ): Map<String, Boolean> {
+        val approvals = mutableMapOf<String, Boolean>()
+        val pending = mutableListOf<LlmEvent.ToolCall>()
+        for (tc in toolCalls) {
+            val tool = registry.find(tc.name) ?: continue // 未知工具由 executeOne 处理为 skipped
+            val decision = policyGuard.decide(tc.name, tool.permissionLevel, taskId)
+            if (decision is PermissionDecision.RequireConfirm) pending += tc
+        }
+        if (pending.isNotEmpty()) {
+            AgentLog.i("confirm request: ${pending.map { it.name }} (${pending.size} 项)")
+            val granted = confirmGate.request(
+                pending.map { ConfirmRequest(it.name, summarizeArgs(it.argumentsJson), registry.find(it.name)!!.permissionLevel) }
+            )
+            AgentLog.d("confirm granted=${granted}")
+            pending.forEachIndexed { i, tc -> approvals[tc.id] = granted.getOrElse(i) { false } }
+        }
+        return approvals
+    }
+
+    /** 执行单个工具调用：裁决(在 decideApprovals 已做)→按批准执行→回填 role="tool" 消息，并审计。 */
     private suspend fun executeOne(
         tc: LlmEvent.ToolCall,
         messages: MutableList<LlmMessage>,
         taskId: Long?,
+        approved: Boolean?,
     ): ToolExecutionRecord {
         val tool = registry.find(tc.name)
         if (tool == null) {
@@ -193,16 +260,12 @@ class AgentOrchestrator(
             return ToolExecutionRecord(tc.name, "skipped", "未知工具")
         }
 
-        val decision = policyGuard.decide(tc.name, tool.permissionLevel, taskId)
-        if (decision is PermissionDecision.RequireConfirm) {
-            val argsSummary = summarizeArgs(tc.argumentsJson)
-            val ok = confirmGate.request(tool, argsSummary)
-            if (!ok) {
-                auditLog.record(AuditEntry(tool = tc.name, outcome = "refused",
-                    reason = "用户否决，会话内不纠缠", argsHash = hashCode(tc.name, tc.argumentsJson), taskId = taskId))
-                messages += LlmMessage(role = "tool", toolCallId = tc.id, content = "（用户拒绝执行，已跳过）")
-                return ToolExecutionRecord(tc.name, "refused", "用户拒绝")
-            }
+        // approved != null → 本轮该工具需要确认；false=用户否决（拒绝纪律：不纠缠，跳过不报错）
+        if (approved != null && !approved) {
+            auditLog.record(AuditEntry(tool = tc.name, outcome = "refused",
+                reason = "用户否决，会话内不纠缠", argsHash = hashCode(tc.name, tc.argumentsJson), taskId = taskId))
+            messages += LlmMessage(role = "tool", toolCallId = tc.id, content = "（用户拒绝执行，已跳过）")
+            return ToolExecutionRecord(tc.name, "refused", "用户拒绝")
         }
 
         val outcome = try {
@@ -229,10 +292,19 @@ class AgentOrchestrator(
             libraryOverviewText = ctx.libraryOverviewText,
             newToolResult = null,
         )
+        // R-T1 首轮注入：人格/称呼 + 当前曲目 + 时段 + 曲库概况 + 认识进度
+        val firstTurn = ContextAssembler.assembleFirstTurnBlock(
+            personaText = ctx.personaText ?: DefaultCompanionProfiles.DEFAULT.personaPrompt,
+            libraryOverview = a.library,
+            recognition = ctx.recognitionText,
+            timeOfDay = ctx.timeOfDayText,
+            nowPlaying = ctx.nowPlayingText,
+            userTitle = ctx.userTitle,
+        )
         return buildString {
-            append("你是听歌伙伴。用中文简洁回应。可调用工具来检索曲库、管理歌单或控制播放。")
+            append(firstTurn.trim())
+            append("\n\n可调用工具来检索曲库、管理歌单或控制播放。用中文简洁回应。")
             a.taskState?.let { append("\n【当前任务】\n").append(it) }
-            a.library?.let { append("\n【曲库概况】\n").append(it) }
         }
     }
 

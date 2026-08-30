@@ -26,6 +26,8 @@ class FakeAgentMusicRepository : MusicRepository {
     val history = mutableListOf<PlaybackHistory>()
     val recentHistoryResult = mutableListOf<PlaybackHistory>()
     val playbacks: MutableList<PlaybackHistory> = history
+    /** 标签 → 曲目 id（供 searchLibrary 标签过滤测试）。 */
+    val musicIdsByLabel = mutableMapOf<LabelName, List<Long>>()
 
     override suspend fun getAllMusicInfoAsList(orderBy: String, orderType: String): List<MusicInfo> = songs.values.toList()
     override fun getMusicCount(): Flow<Int> = flowOf(songs.size)
@@ -48,7 +50,7 @@ class FakeAgentMusicRepository : MusicRepository {
     override suspend fun addMusicLabel(label: MusicLabel) {}
     override suspend fun addUserMusicLabel(label: MusicLabel, confidence: Double) {}
     override fun getLabelNamesByType(type: LabelCategory): Flow<List<LabelName>> = flowOf(emptyList())
-    override suspend fun getMusicIdListByType(label: LabelName): List<Long> = emptyList()
+    override suspend fun getMusicIdListByType(label: LabelName): List<Long> = musicIdsByLabel[label] ?: emptyList()
     override suspend fun getMusicLabels(musicId: Long): List<MusicLabel> = emptyList()
     override suspend fun updateMusicTags(musicId: Long, tags: EditableMusicTags): Result<Unit> = Result.success(Unit)
     override suspend fun refreshMusicTags(musicId: Long, tags: EditableMusicTags): Result<Unit> = Result.success(Unit)

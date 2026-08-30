@@ -14,6 +14,8 @@ import com.hearablemusic.player.ui.library.viewmodel.LibraryViewModel
 import com.hearablemusic.player.ui.library.viewmodel.EditMusicTagsViewModel
 import com.hearablemusic.player.ui.library.viewmodel.SearchViewModel
 import com.hearablemusic.player.ui.library.viewmodel.SongDetailViewModel
+import com.hearablemusic.player.ui.chat.ChatViewModel
+import com.hearablemusic.player.ui.chat.chatGatewayModule
 import com.hearablemusic.player.ui.player.viewmodel.PlaybackViewModel
 import com.hearablemusic.player.ui.player.viewmodel.PlaylistQueueViewModel
 import com.hearablemusic.player.ui.playlist.viewmodel.PlaylistViewModel
@@ -42,6 +44,8 @@ import org.koin.dsl.module
  * 装配时机：desktop/app 壳连同 desktopPlayerModule 等既有模块一起加载。
  */
 val desktopUiModule = module {
+    includes(chatGatewayModule)
+
     single { DialogManager() }
 
     // 平台桥三件
@@ -67,5 +71,6 @@ val desktopUiModule = module {
     viewModel { LyricsSettingsViewModel(get()) }
     viewModel { RecommendationViewModel(get(), get(), get(), get()) }
     viewModel { UserUsageDataViewModel(get()) }
+    viewModel { ChatViewModel(get(), get(), get(), get()) }
     viewModel { ThemeViewModel(get(), get()) }
 }

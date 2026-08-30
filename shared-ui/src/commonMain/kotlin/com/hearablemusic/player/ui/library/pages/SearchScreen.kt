@@ -12,6 +12,7 @@ import com.hearablemusic.player.ui.generated.resources.search_placeholder
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -21,6 +22,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
@@ -36,6 +38,11 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import org.koin.compose.viewmodel.koinViewModel
+import org.koin.compose.koinInject
+import com.hearablemusic.player.ui.chat.ChatEntryBroker
+import com.hearablemusic.player.ui.common.navigation.Routes as NavRoutes
+import com.hmp.domain.agent.funnel.CommandLexicon
+import com.hmp.domain.agent.funnel.FunnelResult
 import com.hearablemusic.player.ui.common.util.activityViewModel
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
@@ -69,7 +76,8 @@ fun SearchScreen(
     playbackViewModel: PlaybackViewModel = activityViewModel(),
     playlistQueueViewModel: PlaylistQueueViewModel = activityViewModel(),
     dialogViewModel: DialogViewModel = activityViewModel(),
-    navController: NavBackStack<NavKey>
+    navController: NavBackStack<NavKey>,
+    chatEntryBroker: ChatEntryBroker = koinInject(),
 ){
     val isPlaying by playbackViewModel.isPlaying.collectAsState()
     var searchQuery by rememberSaveable { mutableStateOf("") }
@@ -107,7 +115,11 @@ fun SearchScreen(
             )
             dialogViewModel.showMusicDetailDialog(musicInfo, menuConfig)
         },
-        onRetry = { searchViewModel.searchMusic(searchQuery) }
+        onRetry = { searchViewModel.searchMusic(searchQuery) },
+        onTalkToCompanion = { q ->
+            chatEntryBroker.pendingInput.value = q
+            navController.add(NavRoutes.Companion.Chat)
+        },
     )
 }
 
@@ -122,10 +134,16 @@ fun SearchScreenContent(
     playWith: suspend (MusicInfo) -> Unit,
     addToPlaylist: (MusicInfo) -> Unit,
     onShowMusicDetailDialog: (MusicInfo) -> Unit,
-    onRetry: () -> Unit
+    onRetry: () -> Unit,
+    onTalkToCompanion: (String) -> Unit,
 ) {
     val haptic = rememberHapticFeedback()
     val scope = rememberCoroutineScope()
+    // 拒绝纪律：用户点「只是搜索」后，本次会话同类输入不再弹伙伴条带（总纲 5.3 厚度3）
+    var showIntentStrip by rememberSaveable { mutableStateOf(true) }
+    val isIntent = searchQuery.isNotEmpty() &&
+        showIntentStrip &&
+        CommandLexicon.classify(searchQuery) is FunnelResult.Upgrade
     SubScreen(
         onBackClick = onBackClick,
         title = stringResource(Res.string.search)
@@ -166,6 +184,29 @@ fun SearchScreenContent(
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp)
             )
+            // 两级漏斗第一级未命中 + 意图特征 → 伙伴条带（交给伙伴 / 只是搜索）
+            if (isIntent) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = "听起来像想让伙伴帮你",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.weight(1f)
+                    )
+                    TextButton(onClick = { onTalkToCompanion(searchQuery) }) {
+                        Text("交给伙伴", color = MaterialTheme.colorScheme.primary)
+                    }
+                    TextButton(onClick = { showIntentStrip = false }) {
+                        Text("只是搜索", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
             if (searchQuery.isEmpty()) {
                 Column(
                     modifier = Modifier.fillMaxSize().weight(1f),
@@ -207,6 +248,9 @@ fun SearchScreenContent(
                                 style = MaterialTheme.typography.bodyLarge,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
+                            TextButton(onClick = { onTalkToCompanion(searchQuery) }) {
+                                Text("问问伙伴？", color = MaterialTheme.colorScheme.primary)
+                            }
                         }
                     }
                 ) { searchResults ->

@@ -761,7 +761,7 @@ abstract class MusicRepositoryBase(
         }
         musicExtraDao.insertAll(mergedExtras)
 
-        val now = System.currentTimeMillis()
+        val now = currentTimeMillis()
         val musicLabels = snapshot.labels.map {
             com.hmp.data.database.MusicLabel(
                 musicId = it.musicId,

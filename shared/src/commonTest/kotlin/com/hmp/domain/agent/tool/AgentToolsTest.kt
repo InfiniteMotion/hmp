@@ -1,5 +1,6 @@
 package com.hmp.domain.agent.tool
 
+import com.hmp.domain.enum.LabelName
 import com.hmp.domain.agent.port.FakeNowPlayingContextProvider
 import com.hmp.domain.agent.port.FakePlaybackCommandPort
 import com.hmp.domain.music.Music
@@ -62,10 +63,22 @@ class AgentToolsTest {
         val hit = fx.registry.executeTool(ToolNames.SEARCH_LIBRARY, jsonArgs("query" to "rock"))
         assertTrue(hit.success)
         assertTrue(hit.summary.contains("Rock"), "应命中标题含 rock 曲目，实际: ${hit.summary}")
+        assertTrue(hit.summary.contains("(id=1)"), "检索结果应带 music_id 供 play_by_id 使用，实际: ${hit.summary}")
 
         val miss = fx.registry.executeTool(ToolNames.SEARCH_LIBRARY, jsonArgs("query" to "不存在"))
         assertTrue(miss.success)
         assertTrue(miss.summary.contains("未在曲库中匹配到"), "空结果应返回未命中摘要而非报错，实际: ${miss.summary}")
+    }
+
+    @Test
+    fun searchLibrary_matchesByLabelWithId() = runTest {
+        val fx = Fixture()
+        fx.musicRepo.songs[7L] = song(7, "Take Five", "Dave Brubeck")
+        fx.musicRepo.musicIdsByLabel[LabelName.JAZZ] = listOf(7L)
+        val r = fx.registry.executeTool(ToolNames.SEARCH_LIBRARY, jsonArgs("query" to "爵士"))
+        assertTrue(r.success)
+        assertTrue(r.summary.contains("Take Five"), "查询词命中标签应返回该类曲目，实际: ${r.summary}")
+        assertTrue(r.summary.contains("(id=7)"), "带 id 供 play_by_id，实际: ${r.summary}")
     }
 
     // ---------- getListenStats ----------
@@ -86,10 +99,11 @@ class AgentToolsTest {
         assertTrue(empty.success)
         assertTrue(empty.summary.contains("暂无播放记录"))
 
+        fx.musicRepo.songs[1L] = song(1, "SongA", "ArtistA")
         fx.musicRepo.recentHistoryResult += PlaybackHistory(id = 1, musicId = 1, playedAt = 1000, playDuration = 60_000)
         val filled = fx.registry.executeTool(ToolNames.GET_RECENT_HISTORY, jsonArgs("limit" to 10))
         assertTrue(filled.success)
-        assertTrue(filled.summary.contains("musicId=1"))
+        assertTrue(filled.summary.contains("SongA"), "历史应带曲名，实际: ${filled.summary}")
     }
 
     // ---------- getNowPlayingContext ----------

@@ -8,6 +8,8 @@ import com.hearablemusic.player.ui.library.viewmodel.EditMusicTagsViewModel
 import com.hearablemusic.player.ui.library.viewmodel.LibraryViewModel
 import com.hearablemusic.player.ui.library.viewmodel.SearchViewModel
 import com.hearablemusic.player.ui.library.viewmodel.SongDetailViewModel
+import com.hearablemusic.player.ui.chat.ChatViewModel
+import com.hearablemusic.player.ui.chat.chatGatewayModule
 import com.hearablemusic.player.ui.player.viewmodel.PlaybackViewModel
 import com.hearablemusic.player.ui.player.viewmodel.PlaylistQueueViewModel
 import com.hearablemusic.player.ui.playlist.viewmodel.ArtistAlbumViewModel
@@ -41,6 +43,8 @@ import org.koin.dsl.module
  * `installKoinIosWithSharedUi()` 一并注册（含 shared 的 sharedModule + iosPlatformModule）。
  */
 val iosUiModule = module {
+    includes(chatGatewayModule)
+
     single { DialogManager() }
 
     // 平台桥三件（PlaybackController 为单例 object，Swift 桥与 Koin 共用同一实例）
@@ -66,6 +70,7 @@ val iosUiModule = module {
     viewModel { LyricsSettingsViewModel(get()) }
     viewModel { RecommendationViewModel(get(), get(), get(), get()) }
     viewModel { UserUsageDataViewModel(get()) }
+    viewModel { ChatViewModel(get(), get(), get(), get()) }
     viewModel { ThemeViewModel(get(), get()) }
 }
 

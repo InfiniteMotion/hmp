@@ -404,6 +404,7 @@
 - 决策点（进行中）：Liquid Glass 观感取舍（Compose Haze 近似 vs 关键页保留 SwiftUI，随 A6-A9 逐页决策）；渐进双轨 vs 一次性替换（当前试点为双轨共存模式验证）
 
 **方向 B — AI 功能 Agent 化**
+> **进度（2026-08-30）**：B0-B4 已完成（M0-M4 + R 阶段落地：首轮上下文注入 / 两级漏斗 / 真实播放端口 / 多确认门 / 会话持久 / M5 剩余 UI + 工具层修复 searchLibrary 标签与 id / controlPlayback / getRecentHistory + AgentLog 日志 + 对话页沉浸式重构）。B5（电台/存在感/审计页）、B6（报告/语音）留 M6/M7；审计页/撤销、本地化横切待跟进。
 - OpenAiCompatibleAdapter 扩展 tools（function-calling）与 SSE 流式；现有 5 家服务商均走 OpenAI 兼容协议，协议层只改一处
 - shared domain 层新增 AgentOrchestrator：本地工具注册表（曲库检索/听歌统计/歌单管理/播放控制）+ agent loop + 护栏（破坏性操作 UI 确认、工具白名单、步数上限）
 - 场景：自然语言曲库操作与歌单生成、曲库问答、AI 电台（播完基于上下文自动续队列）

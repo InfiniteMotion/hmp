@@ -152,4 +152,13 @@ object Routes {
         /** 用户使用数据页路由 */
         @Serializable object UserUsageData : NavKey
     }
+
+    /**
+     * 听歌伙伴（AI 对话）模块路由
+     * 包含存在感召唤/提问的对话页
+     */
+    object Companion {
+        /** 对话页路由（M5 确认卡片流宿主界面） */
+        @Serializable object Chat : NavKey
+    }
 }

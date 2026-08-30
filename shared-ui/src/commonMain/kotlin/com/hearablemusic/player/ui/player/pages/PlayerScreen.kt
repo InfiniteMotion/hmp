@@ -22,6 +22,7 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 import com.hearablemusic.player.ui.common.util.activityViewModel
 import androidx.navigation3.runtime.NavBackStack
@@ -57,6 +58,7 @@ fun PlayerScreen(
     navController: NavBackStack<NavKey>
 ) {
     val density = LocalDensity.current
+    val chatEntryBroker = koinInject<com.hearablemusic.player.ui.chat.ChatEntryBroker>()
     val dismissThreshold = with(density) { 220.dp.toPx() }
     val offsetY = remember { Animatable(0f) }
     val scope = rememberCoroutineScope()
@@ -201,7 +203,12 @@ fun PlayerScreen(
             lyricsSettingsState = lyricsSettingsState,
             paletteColors = paletteColors,
             callbacks = playerCallbacks,
-            hazeState = hazeState
+            hazeState = hazeState,
+            onOpenChat = { input ->
+                // M1 锚点 → M5 对话：带话进对话页（同 session_id 语义）
+                chatEntryBroker.pendingInput.value = input
+                navController.add(Routes.Companion.Chat)
+            },
         )
     }
 }

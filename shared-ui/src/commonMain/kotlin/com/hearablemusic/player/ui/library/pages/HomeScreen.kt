@@ -80,6 +80,7 @@ import com.hmp.domain.music.MusicInfo
 import kotlinx.coroutines.launch
 import com.hearablemusic.player.ui.common.util.activityViewModel
 import com.hearablemusic.player.ui.common.navigation.Routes as NavRoutes
+import com.hmp.domain.agent.persona.DefaultCompanionProfiles
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 
@@ -225,6 +226,8 @@ fun HomeScreen(
                         modifier = Modifier.verticalScroll(rememberScrollState())
                             .padding(bottom = 16.dp)
                     ) {
+                        // 门面二期：问候区 + 对话触发钮（「和伙伴聊聊」→ 独立对话页）
+                        CompanionGreetingSection(navController)
                         Text(
                             text = stringResource(Res.string.today_recommendation),
                             style = MaterialTheme.typography.titleLarge,
@@ -377,6 +380,30 @@ private fun HeartbeatSection(
 }
 
 
+
+/** 门面二期：伙伴问候区 + 「和伙伴聊聊」触发钮（总纲 5.2.3）。 */
+@Composable
+private fun CompanionGreetingSection(navController: NavBackStack<NavKey>) {
+    val profile = DefaultCompanionProfiles.DEFAULT
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+    ) {
+        Text(
+            text = profile.greeting,
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onBackground,
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Button(
+            onClick = { navController.add(NavRoutes.Companion.Chat) },
+            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+        ) {
+            Text("和伙伴聊聊", color = MaterialTheme.colorScheme.onPrimary)
+        }
+    }
+}
 
 @Composable
 fun DailyHeroCard(

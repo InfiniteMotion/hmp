@@ -1,8 +1,10 @@
 package com.hmp.data.di
 
 import com.hmp.data.network.OpenAiCompatibleAdapter
+import com.hmp.data.network.OpenAiLlmTransport
 import com.hmp.data.network.createHttpClient
 import com.hmp.data.network.createJson
+import com.hmp.domain.agent.port.LlmTransport
 import com.hmp.domain.music.usecase.GetAllMusicUseCase
 import com.hmp.domain.music.usecase.GetDailyMusicRecommendationUseCase
 import com.hmp.domain.music.usecase.GetDeletedMusicIdsGroupedByFolderUseCase
@@ -38,6 +40,7 @@ val sharedModule = module {
     single { createHttpClient(get()) }
 
     singleOf(::OpenAiCompatibleAdapter)
+    single<LlmTransport> { OpenAiLlmTransport(adapter = get(), json = get()) }
 
     // Use Cases
     single { GetAllMusicUseCase(get()) }
