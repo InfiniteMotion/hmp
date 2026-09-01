@@ -4,6 +4,7 @@ import com.sun.jna.Native
 import com.sun.jna.platform.win32.User32
 import com.sun.jna.platform.win32.WinDef
 import com.sun.jna.win32.W32APIOptions
+import co.touchlab.kermit.Logger
 
 /**
  * Native window operations for undecorated window management on Windows.
@@ -82,7 +83,7 @@ object WindowHelper {
             val rgn = gdi32.CreateRoundRectRgn(0, 0, width + 1, height + 1, radius * 2, radius * 2)
             nativeLib.SetWindowRgn(hwnd, rgn, true)
         } catch (e: Throwable) {
-            println("[WindowHelper] clipRoundedCorners failed: ${e.message}")
+            Logger.e(e, "WindowHelper") { "clipRoundedCorners failed: ${e.message}" }
         }
     }
 

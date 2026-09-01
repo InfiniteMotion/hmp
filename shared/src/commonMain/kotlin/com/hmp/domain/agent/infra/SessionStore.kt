@@ -1,6 +1,7 @@
-package com.hmp.domain.agent.engine
+package com.hmp.domain.agent.infra
 
 import com.hmp.domain.agent.port.LlmMessage
+import com.hmp.domain.agent.runtime.TimeProvider
 
 /**
  * 会话状态（M4-T3 SessionStore）：一次 agent 对话期间的消息历史、任务状态、确认挂起。

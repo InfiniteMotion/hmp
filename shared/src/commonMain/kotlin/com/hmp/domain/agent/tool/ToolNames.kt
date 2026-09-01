@@ -1,25 +1,91 @@
 package com.hmp.domain.agent.tool
 
-/** M3-T2 工具名常量（集中一处，M4 引擎按名路由、Registry 拼装均引用此处）。 */
+/**
+ * 原子工具名常量（S 阶段——基于 5 能力域重新整理）。
+ * 域前缀统一：playback_*（播放）/ playlist_*（歌单）/ library_*（曲库检索）/ song_*（富化标签）/ agent_*（会话配额）。
+ * Registry 全部注册 [ALL] 集合，LLM function-calling schema 按此全量下发。
+ */
 object ToolNames {
-    const val SEARCH_LIBRARY = "searchLibrary"
-    const val GET_LISTEN_STATS = "getListenStats"
-    const val GET_RECENT_HISTORY = "getRecentHistory"
-    const val GET_NOW_PLAYING_CONTEXT = "getNowPlayingContext"
-    const val GET_SIMILAR_SONGS = "getSimilarSongs"
-    const val GET_MUSIC_EXTRA = "getMusicExtra"
-    const val ENRICH_SONG = "enrichSong"
-    const val CREATE_PLAYLIST = "createPlaylist"
-    const val ADD_TO_PLAYLIST = "addToPlaylist"
-    const val REORDER_PLAYLIST = "reorderPlaylist"
-    const val CONTROL_PLAYBACK = "controlPlayback"
+    // ── Playback（播放控制，5 个原子）──
+    const val PLAYBACK_STATE = "playback_state"
+    const val PLAYBACK_CONTROL = "playback_control"
+    const val PLAYBACK_PLAY_AT = "playback_play_at"
+    const val PLAYBACK_ENQUEUE = "playback_enqueue"
 
-    /** Registry 注册的全部工具名（M3-T2 十项）。 */
+    // ── Playlist 实体 CRUD（5 个）──
+    const val PLAYLIST_LIST = "playlist_list"
+    const val PLAYLIST_DETAIL = "playlist_detail"
+    const val PLAYLIST_CREATE = "playlist_create"
+    const val PLAYLIST_RENAME = "playlist_rename"
+    const val PLAYLIST_DELETE = "playlist_delete"
+
+    // ── Playlist 曲目管理（3 个）──
+    const val PLAYLIST_ADD_SONG = "playlist_add_song"
+    const val PLAYLIST_REMOVE_SONG = "playlist_remove_song"
+    const val PLAYLIST_REORDER = "playlist_reorder"
+
+    // ── Library 搜索与聚合（11 个）──
+    const val LIBRARY_SEARCH = "library_search"
+    const val LIBRARY_SIMILAR = "library_similar"
+    const val LIBRARY_STATS = "library_stats"
+    const val LIBRARY_RECENT_HISTORY = "library_recent_history"
+    const val LIBRARY_ARTISTS = "library_artists"
+    const val LIBRARY_ALBUMS = "library_albums"
+    const val LIBRARY_TAGS = "library_tags"
+    const val LIBRARY_SONGS_BY_ARTIST = "library_songs_by_artist"
+    const val LIBRARY_SONGS_BY_ALBUM = "library_songs_by_album"
+    const val LIBRARY_SONGS_BY_TAG = "library_songs_by_tag"
+    const val AGENT_BUDGET = "agent_budget"
+
+    // ── Song 标签富化（4 个）──
+    const val SONG_TAGS_GET = "song_tags_get"
+    const val SONG_ENRICH_LLM = "song_enrich_llm"
+    const val SONG_TAG_USER_ADD = "song_tag_user_add"
+    const val SONG_TAG_USER_REMOVE = "song_tag_user_remove"
+
+    // ── Master 专属：富化生命周期管理（5 个；仅 MasterAgent LLM 可见，chatbot 不注册）──
+    const val ENRICH_START = "enrich_start"
+    const val ENRICH_PAUSE = "enrich_pause"
+    const val ENRICH_RESUME = "enrich_resume"
+    const val ENRICH_STATUS = "enrich_status"
+    const val ENRICH_RESCAN = "enrich_rescan"
+
+    /**
+     * Registry 默认注册的基础工具名清单（chatbot 模式可见，不含 Master 专属）。
+     * Playback(4) + Playlist CRUD(5) + Playlist 曲目(3) + Library(11) + Song 标签(4) = 27 个。
+     */
     val ALL: List<String> = listOf(
-        SEARCH_LIBRARY, GET_LISTEN_STATS, GET_RECENT_HISTORY,
-        GET_NOW_PLAYING_CONTEXT, GET_SIMILAR_SONGS, GET_MUSIC_EXTRA,
-        ENRICH_SONG, CREATE_PLAYLIST, ADD_TO_PLAYLIST, REORDER_PLAYLIST,
-        CONTROL_PLAYBACK,
+        PLAYBACK_STATE, PLAYBACK_CONTROL, PLAYBACK_PLAY_AT,
+        PLAYLIST_LIST, PLAYLIST_DETAIL, PLAYLIST_CREATE, PLAYLIST_RENAME, PLAYLIST_DELETE,
+        PLAYLIST_ADD_SONG, PLAYLIST_REMOVE_SONG, PLAYLIST_REORDER,
+        LIBRARY_SEARCH, LIBRARY_SIMILAR, LIBRARY_STATS, LIBRARY_RECENT_HISTORY,
+        SONG_TAGS_GET, SONG_ENRICH_LLM,
+        // Batch B
+        PLAYBACK_ENQUEUE,
+        LIBRARY_TAGS, LIBRARY_SONGS_BY_TAG, LIBRARY_SONGS_BY_ARTIST, LIBRARY_SONGS_BY_ALBUM,
+        LIBRARY_ARTISTS, LIBRARY_ALBUMS,
+        AGENT_BUDGET,
+        SONG_TAG_USER_ADD, SONG_TAG_USER_REMOVE,
+    )
+
+    /**
+     * MasterAgent 专属工具名（不进入 chatbot ToolRegistry，ToolDependencies.masterAgentFacade 非空时追加注册）。
+     * 共 5 个：enrich_start / enrich_pause / enrich_resume / enrich_status / enrich_rescan。
+     */
+    val MASTER_EXCLUSIVE: List<String> = listOf(
+        ENRICH_START, ENRICH_PAUSE, ENRICH_RESUME, ENRICH_STATUS, ENRICH_RESCAN,
+    )
+
+    /** MasterAgent 模式下的完整工具清单（基础 + Master 专属 = 32 个）。 */
+    val ALL_COMPLETE: List<String> = ALL + MASTER_EXCLUSIVE
+
+    /** 批次 B 新增工具名（需底层补完后才能注册）。 */
+    val ALL_BATCH_B: List<String> = listOf(
+        PLAYBACK_ENQUEUE,
+        LIBRARY_ARTISTS, LIBRARY_ALBUMS, LIBRARY_TAGS,
+        LIBRARY_SONGS_BY_ARTIST, LIBRARY_SONGS_BY_ALBUM, LIBRARY_SONGS_BY_TAG,
+        AGENT_BUDGET,
+        SONG_TAG_USER_ADD, SONG_TAG_USER_REMOVE,
     )
 }
 

@@ -1,7 +1,7 @@
 package com.hearablemusic.player.ui.chat
 
-import com.hmp.domain.agent.engine.ConfirmRequest
-import com.hmp.domain.agent.engine.TerminationReason
+import com.hmp.domain.agent.runtime.ConfirmRequest
+import com.hmp.domain.agent.runtime.TerminationReason
 import com.hmp.domain.agent.port.AgentMessageStore
 import com.hmp.domain.agent.port.FakePlaybackCommandPort
 import com.hmp.domain.agent.port.StoredAgentMessage

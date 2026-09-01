@@ -2,8 +2,9 @@ package com.hearablemusic.player.ui.chat
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import co.touchlab.kermit.Logger
 import com.hearablemusic.player.ui.platform.currentTimeMillis
-import com.hmp.domain.agent.engine.AgentLog
+import com.hmp.domain.agent.runtime.ConfirmOutcome
 import com.hmp.domain.agent.funnel.CommandLexicon
 import com.hmp.domain.agent.funnel.FunnelResult
 import com.hmp.domain.agent.port.AgentMessageStore
@@ -64,7 +65,7 @@ class ChatViewModel(
             val sid = agentMessageStore.currentOrNewSessionId()
             sessionId = sid
             val history = agentMessageStore.loadSession(sid, SESSION_LOAD_LIMIT)
-            AgentLog.i("session resume: sid=$sid history=${history.size}")
+            Logger.i("Agent.Chat") { "session resume: sid=$sid history=${history.size}" }
             if (history.isNotEmpty()) {
                 _state.update {
                     it.copy(messages = history.map { m ->
@@ -125,14 +126,34 @@ class ChatViewModel(
         _state.update { it.copy(pendingConfirm = p.copy(items = items)) }
     }
 
+    /** 切换某项的"总是允许"标记（勾上后该项会自动 selected）。 */
+    fun toggleAlwaysAllowConfirmItem(itemId: String) {
+        val p = _state.value.pendingConfirm ?: return
+        if (p.submitted) return
+        val items = p.items.map {
+            if (it.id == itemId) {
+                val newAlways = !it.alwaysAllow
+                it.copy(alwaysAllow = newAlways, selected = it.selected || newAlways)
+            } else it
+        }
+        _state.update { it.copy(pendingConfirm = p.copy(items = items)) }
+    }
+
     /** 「照做」：把当前勾选提交给引擎，恢复挂起的确认批次（累积到 submittedConfirms）。 */
     fun submitConfirm() {
         val p = _state.value.pendingConfirm ?: return
         if (p.submitted) return
         submittedConfirms += p
-        AgentLog.i("confirm 照做: turn=${p.turnId} selected=${p.items.count { it.selected }}/${p.items.size}")
-        val approvals = p.items.map { it.selected }
-        gatewayBridge?.submit(p.turnId, approvals)
+        val alwaysCount = p.items.count { it.alwaysAllow }
+        Logger.i("Agent.Chat") { "confirm 照做: turn=${p.turnId} selected=${p.items.count { it.selected }}/${p.items.size} alwaysAllow=$alwaysCount" }
+        val outcomes = p.items.map {
+            when {
+                it.alwaysAllow && it.selected -> ConfirmOutcome.AllowAlways
+                it.selected -> ConfirmOutcome.AllowOnce
+                else -> ConfirmOutcome.Deny
+            }
+        }
+        gatewayBridge?.submit(p.turnId, outcomes)
         _state.update { it.copy(pendingConfirm = p.copy(submitted = true)) }
     }
 
@@ -142,9 +163,9 @@ class ChatViewModel(
         if (p.submitted) return
         val rejected = p.copy(items = p.items.map { it.copy(selected = false) })
         submittedConfirms += rejected
-        AgentLog.i("confirm 跳过全部: turn=${p.turnId}")
-        val approvals = List(p.items.size) { false }
-        gatewayBridge?.submit(p.turnId, approvals)
+        Logger.i("Agent.Chat") { "confirm 跳过全部: turn=${p.turnId}" }
+        val outcomes = List(p.items.size) { ConfirmOutcome.Deny }
+        gatewayBridge?.submit(p.turnId, outcomes)
         _state.update { it.copy(pendingConfirm = rejected.copy(submitted = true)) }
     }
 
@@ -161,15 +182,15 @@ class ChatViewModel(
         persist("user", text, CompanionRenderHint.TEXT)
         when (val decision = CommandLexicon.classify(text)) {
             is FunnelResult.Direct -> {
-                AgentLog.i("chat send (funnel=Direct): cmd=${decision.command}")
+                Logger.i("Agent.Chat") { "chat send (funnel=Direct): cmd=${decision.command}" }
                 launchDirect(decision.command)
             }
             FunnelResult.Upgrade -> {
-                AgentLog.i("chat send (funnel=Upgrade): $text")
+                Logger.i("Agent.Chat") { "chat send (funnel=Upgrade): $text" }
                 launchRun(text)
             }
             FunnelResult.Pass -> {
-                AgentLog.d("chat send (funnel=Pass): $text")
+                Logger.d("Agent.Chat") { "chat send (funnel=Pass): $text" }
                 launchRun(text)
             }
         }
@@ -179,7 +200,7 @@ class ChatViewModel(
     private fun launchDirect(command: PlaybackCommand) {
         viewModelScope.launch {
             val (_, msg) = playbackCommandPort.execute(command)
-            AgentLog.i("direct command result: $msg")
+            Logger.i("Agent.Chat") { "direct command result: $msg" }
             _state.update {
                 it.copy(messages = it.messages + CompanionMessage(id = nextId(), fromUser = false, text = msg))
             }
@@ -218,7 +239,7 @@ class ChatViewModel(
                             }
                             bubbles += buildAssistantBubbles(text = event.text, confirmItems = emptyList(), records = event.toolCalls)
                             val ided = bubbles.map { it.copy(id = nextId()) } // 统一分配稳定 id，避免 LazyColumn 撞键（问候=1）
-                            AgentLog.i("chat finished: bubbles=${ided.size} terminated=${event.terminatedBy} text=${AgentLog.truncate(event.text)}")
+                            Logger.i("Agent.Chat") { "chat finished: bubbles=${ided.size} terminated=${event.terminatedBy} text=${event.text.take(119)}…" }
                             ided.forEach { persist("agent", it.text, it.renderHint) }
                             _state.update {
                                 it.copy(
@@ -233,7 +254,7 @@ class ChatViewModel(
                         }
                         is ChatAgentEvent.Failed -> {
                             val err = "（暂时没连上伙伴，稍后再试）"
-                            AgentLog.w("chat failed: ${event.message}")
+                            Logger.w("Agent.Chat") { "chat failed: ${event.message}" }
                             _state.update {
                                 it.copy(
                                     running = false,

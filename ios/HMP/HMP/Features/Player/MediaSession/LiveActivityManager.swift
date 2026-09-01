@@ -44,7 +44,7 @@ class LiveActivityManager {
             )
             lastUpdateTime = Date()
         } catch {
-            print("[LiveActivityManager] Failed to start activity: \(error)")
+            PlatformLogKt.platformLog(severity: 3, tag: "LiveActivityManager", message: "Failed to start activity: \(error)")
         }
     }
 

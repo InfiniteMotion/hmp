@@ -1,6 +1,6 @@
 package com.hearablemusic.player.ui.chat
 
-import com.hmp.domain.agent.engine.ToolExecutionRecord
+import com.hmp.domain.agent.runtime.ToolExecutionRecord
 import com.hmp.domain.music.MusicInfo
 import com.hmp.domain.playlist.Playlist
 
@@ -36,6 +36,8 @@ data class ConfirmItem(
     val toolName: String,
     val argsSummary: String,
     val selected: Boolean,
+    /** v7.1 新增：勾上后该工具将写入 agentPolicy.config.alwaysAllow，后续不再弹确认 */
+    val alwaysAllow: Boolean = false,
 )
 
 /** 单条对话消息（UI 展平模型，含渲染类型与可选载荷）。 */

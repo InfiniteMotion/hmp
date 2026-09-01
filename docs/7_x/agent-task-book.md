@@ -31,8 +31,12 @@
 ## 2. 阶段总览与依赖图
 
 ```
-M0 地基与还债 ──▶ M2 协议层 ──▶ M3 工具层 ──▶ M4 引擎循环 ──▶ M5 对话与锚点二期 ──▶ M6 电台与事件 ──▶ M7 报告与语音
-   (B0)            (B1)          (B2)           (B3)              (B4)                     (B5)               (B6)
+M0 地基与还债 ──▶ M2 协议层 ──▶ M3 工具层 ──▶ M4 引擎循环 ──▶ M5 对话与锚点二期 ──▶ U Kermit 日志治理 ──▶ M6 电台与事件 ──▶ M7 报告与语音
+   (B0)            (B1)          (B2)           (B3)              (B4)                       (横切)              (B5)               (B6)
+                                                                      ▲                          ▲                  ▲
+                                                             R 债务清零 ─┘                          │                  │
+                                                             S 工具层终局 ─┘（批次 A 重命名 17 + 批次 B 追加 10 = 27）          │
+                                                             T Agent 体系 ─── Enrich SubAgent 跑通 + SubAgent 基类 → M6 依赖 ────┘
 
 M1 锚点层一期（B4 的前置 UI 骨架，Fake 数据驱动，与 M0-M7 完全并行）
 横切：本地化（贯穿 M1-M7）· 测试基建（Fake* 替身随阶段建立）
@@ -43,12 +47,15 @@ M1 锚点层一期（B4 的前置 UI 骨架，Fake 数据驱动，与 M0-M7 完�
 | M0 | 三端 Repository 去重 + Room v2（B0）   | —           | 全平台编译 + 迁移单测绿 + 既有 650 单测零回归            |
 | M1 | 锚点层一期：三胶囊/浮层/播放页重排/C 键（Fake 驱动）  | —（可与 M0 并行） | 三端编译 + 模拟器锚点交互核验                        |
 | M2 | LlmTransport 流式协议 + tools 参数（B1） | M0          | 协议层单测全绿（SSE 解析/错误路径/5 服务商兼容）            |
-| M3 | 工具层：ToolSpec DSL + 十项工具（B2）      | M2          | 工具校验单测防漂移                               |
+| M3 | 工具层：ToolSpec DSL + 十项工具首次交付；终局由 S 阶段完成（27 原子工具域前缀统一）      | M2          | 工具校验单测防漂移                               |
 | M4 | 引擎循环四件套 + 双层预算（B3）               | M3          | 引擎全行为确定性测试（步数/许可/拒绝/审计断言）               |
 | M5 | 对话页 + 五类气泡 + 确认流 + 门面二期 + 漏斗（B4） | M4 + M1     | 纯文字完整体验三端可用                             |
-| M6 | 电台三轮协作 + 跳过感知 + DJ 衔接 + 审计页（B5）  | M5          | FakeLlm+FakePlaybackCommandPort 电台确定性测试 |
+| M6 | Radio SubAgent 完整实现 + 电台三轮协作 + 跳过感知 + DJ 衔接 + 审计页（B5）  | M5 + T（SubAgent 基类 + AgentScheduler + ToolRegistryView） | Radio SubAgent 独立运行 + FakeLlm+FakePlaybackCommandPort 电台确定性测试 |
 | M7 | 报告角色 + 伙伴设置页 + 语音档（B6）           | M6          | 语音为独立 gate，可整体延期不影响 v1 完整性              |
-| R  | 债务清零与交互地基修复（首轮注入/漏斗/真实播放端口/多确认/会话持久/M5 收尾 UI） | M5 未完成 + 定义级漏项 | 交互主干（触发→理解→执行→呈现→反馈→审计）闭环；三端编译 |
+| R  | 债务清零与交互地基修复（首轮注入/漏斗/真实播放端口/多确认/会话持久/M5 收尾 UI）✅ 2026-08-30 | M5 未完成 + 定义级漏项 | 交互主干（触发→理解→执行→呈现→反馈→审计）闭环；三端编译 |
+| S  | 工具层终局：批次 A 域前缀统一重命名拆分（17 原子工具）+ 批次 B 追加 Library 聚合/Song USER 标签写入闭环/PlaybackEnqueue（+10 = 27 原子工具）✅ 2026-08-31 | M3 首次交付 + R 阶段暴露出的工具层遗留 | ToolNames.ALL 27 ↔ ToolRegistry 27 注册 1:1；desktopTest 677 全绿；compileAndroidMain/compileKotlinDesktop 通过 |
+| T  | Agent 体系终局——Master Agent（唯一大脑：派发/验收/生命周期）+ Enrich SubAgent（纯被动执行器）+ 两层基础设施（AgentContextBudget 每 Agent 独立 + AgentScheduler 全局纯规则仲裁）✅ 2026-08-31 | S（27 原子工具）+ R（感知锚点） | Enrich SubAgent 端到端跑通 + Master 唯一决策铁则 + 两层 ContextBudget 生效 + Scheduler pause/resume 自动触发 + Radio SubAgent 基类预留（M6 填实现） |
+| U  | Kermit 日志体系统一治理——引入 Touchlab Kermit 替换三套 Agent Log object + 66 处裸 println 渐进迁移 + Release 级别裁剪 + 三端原生桥接 | T（Agent 体系是最大消费者） + M5（UI 层有 Log 调用） | AgentLog/AgentRuntimeLog/AgentSubAgentLog 全部删除；Agent 体系 40+ 调用点迁完；三端（Android Logcat / iOS OSLog / Desktop stdout）原生桥接生效；desktopTest 全绿 |
 
 ***
 
@@ -105,15 +112,15 @@ M1 锚点层一期（B4 的前置 UI 骨架，Fake 数据驱动，与 M0-M7 完�
 
 **退出**：协议层单测全绿；现有 AI 功能（富化/每日推荐）回归不破坏。
 
-### M3 工具层（B2，\~4 人天）
+### M3 工具层（B2，\~4 人天）✅ 2026-08-29 首次交付（十项工具原型）；终局迭代见 S 阶段
 
 | ID    | 任务                                                                                                                                                                                                                                                      | 涉及文件                                        | 验收                 |
 | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- | ------------------ |
 | M3-T1 | `ToolSpec` DSL：手写 schema 生成 + 参数校验器（与 kotlinx.serialization 协同）                                                                                                                                                                                         | 新建 `domain/agent/tool/ToolSpec.kt`          | schema↔校验单测防漂移     |
-| M3-T2 | 十项工具实现 + `ToolRegistry`：read/calc 六项静默（searchLibrary/getListenStats/getRecentHistory/getNowPlayingContext/getSimilarSongs/getMusicExtra）、enrichSong 通知、写三项确认（createPlaylist/addToPlaylist+reorderPlaylist/controlPlayback）；工具描述三段式（行为约束≤50 条/成本提示/替代指引） | 新建 `domain/agent/tool/` 十个实现 + ToolRegistry | 每工具单测（成功/空结果/参数越界） |
+| M3-T2 | **27 原子工具 + ToolRegistry**（批次 A 重命名拆分 17 + 批次 B 追加 10）。域前缀统一：playback_* 瞬时控制/playback_play_at/playback_enqueue、playlist_* 八件套（CRUD+曲目管理+系统歌单保护）、library_* search/similar/stats/recent_history/**artists/albums/tags/songs_by_***、song_* tags_get/enrich_llm/**tag_user_add/tag_user_remove**、agent_budget；批次 B 补 MusicRepository 聚合查询（getAllArtistsSummary/getAllAlbumsSummary）、DAO deleteUserLabel、PlaybackCommand.ADD_TO_QUEUE 枚举 | `domain/agent/tool/` 十个实现文件 + ToolRegistry | ✅ desktopTest 677 全绿；compileAndroidMain/compileKotlinDesktop 通过；FakeAgentMusicRepository/FakeMusicRepository 同步补方法 |
 | M3-T3 | 工具结果回填语义：工具执行结果强制回填上下文（防幻觉型假成功），失败=异常结果入审计                                                                                                                                                                                                              | ToolRegistry                                | 回填与失败路径单测          |
 
-**退出**：工具层单测全绿；工具白名单与许可级可被 M4 引用。
+**退出**：✅ 批次 A 2026-08-29（17 工具重命名拆分）+ 批次 B 2026-08-31（追加 10 工具 = 27 原子工具）；ToolNames.ALL 常量 ↔ ToolRegistry 注册 1:1；desktopTest 677 全绿；compileAndroidMain/compileKotlinDesktop 通过；工具白名单与许可级已被 M4 引用。
 
 ### M4 引擎循环（B3，\~6 人天）——复杂度在护栏，不进循环
 
@@ -143,6 +150,31 @@ M1 锚点层一期（B4 的前置 UI 骨架，Fake 数据驱动，与 M0-M7 完�
 
 **退出**：纯文字完整闭环三端可用（锚点→对话→任务→确认→回执）；M5 全部交互并入审计。
 
+### U 阶段：Kermit 日志体系统一治理（横切，\~1 人天）
+
+> **背景**：全项目零统一日志基础设施。Agent 体系自封了三套几乎一模一样的 `object AgentLog` / `AgentRuntimeLog` / `AgentSubAgentLog`（底层全是 println + 不同 TAG 前缀），加上其余 40+ 处裸 println 散落各模块。println 在 Android 上输出到 `System.out`（Logcat 里混在系统输出中无法按 TAG 过滤），iOS 上仅进 App 沙箱 stdout（Xcode Console 看不到）。根因是项目从未引入过 KMP 日志库。
+>
+> **方案**：引入 [Touchlab Kermit 2.1.0](https://github.com/touchlab/Kermit)——KMP 社区事实标准，1k stars，Apache 2.0，三端原生桥接（Android → `android.util.Log` 进 Logcat、iOS → `OSLog` 进系统日志、Desktop → stdout + ANSI 颜色）。零外部依赖代价（纯 Kotlin 库，与 Room/Ktor/Koin 同级别），但立即获得 Logcat TAG 过滤、iOS 系统日志可见、Release 级别裁剪、per-tag 覆盖、测试捕获等能力。
+
+| ID    | 任务                                                                                                                                                                                                 | 涉及文件                                                                                                                       | 验收                                              |
+| ----- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| U-T1 | **依赖引入**：`gradle/libs.versions.toml` 加 `kermit = "2.1.0"` 版本号 + `kermit` library alias（坐标 `co.touchlab:kermit`）；`shared/build.gradle.kts` 的 `commonMain.dependencies` 加 `implementation(libs.kermit)`；同步 shared-ui 的 commonMain（AgentLog 被 UI 层 ChatViewModel/ChatAgentGateway 引用） | `gradle/libs.versions.toml`、`shared/build.gradle.kts`、`shared-ui/build.gradle.kts` | `./gradlew :shared:dependencies` 见 kermit 在 commonMain 类路径；`compileKotlinDesktop` 通过 |
+| U-T2 | **三端初始化**：Android 端 `MusicApplication.onCreate()` 加 `Logger.setMinSeverity(Severity.Debug)`（Release 构建用 `Severity.Warn` 可后续通过 BuildConfig 注入）；Desktop 端 `HmpDesktopApplication.kt` main 加 `Logger.setMinSeverity(Severity.Debug)`；iOS 端 `AppDelegate` 加初始化；三端统一用 `platformLogWriter()`（Android 走 Logcat、iOS 走 OSLog、Desktop 走 System.out） | `android/app/MusicApplication.kt`、`desktop/app/HmpDesktopApplication.kt`、`ios/HMP/AppDelegate.swift`（或 Kotlin 桥接层）           | Android Studio Logcat 过滤 TAG 能看到 Kermit 格式日志；iOS Xcode Console 有子系统日志；Desktop stdout 带 ANSI 颜色 |
+| U-T3 | **Agent 三套 Log 合并**：删除 `AgentLog.kt` / `AgentRuntimeLog`（AgentContextBudget 内的 internal object）/ `AgentSubAgentLog`（SubAgent 内的 internal object）；全项目 ~40 处 Agent 日志调用改为 Kermit `Logger.withTag("Agent.xxx")` 或 `Logger.i("Agent.xxx") { ... }`；Tag 层级：`Agent.Master` / `Agent.Scheduler` / `Agent.Enrich` / `Agent.Tool` / `Agent.ReActLoop` / `Agent.LlmCall`；原 `AgentLog.truncate()` 辅助方法在消息构造层处理（字符串模板里截断） | 删除 `shared/src/commonMain/.../infra/AgentLog.kt`；`AgentContextBudget.kt` 删 8 行；`SubAgent.kt` 删 7 行；改 `MasterAgent.kt`、`ReActLoop.kt`、`ToolCallExecutor.kt`、`LlmCallExecutor.kt`、`EnrichSubAgent.kt`、`AgentScheduler.kt`、`ChatViewModel.kt`、`ChatAgentGateway.kt` | `grep -r "AgentLog\|AgentRuntimeLog\|AgentSubAgentLog" shared/ shared-ui/` 零结果；desktopTest 全绿 |
+| U-T4 | **全局裸 println 渐进迁移 + Release 裁剪**：扫描 `println(` 共 66 处（Agent 已在 U-T3 迁完，剩 ~26 处）——FFmpegAudioEngine(12)、Desktop 窗口/托盘(14)、各 Repository impl(13)、DailyRecommendationUseCase(10)、其他(5)；按模块渐进迁移（本阶段先迁 Repository + DailyRecommendation，Desktop/FFmpeg 可后续）；`Logger.config.minSeverity` 通过 BuildConfig 在 Release 构建注入 `Severity.Warn`（屏蔽 DEBUG/INFO） | `MusicRepositoryImpl.android/desktop/ios.kt`、`GetDailyMusicRecommendationUseCase.kt`、`FFmpegAudioEngine.kt`（可延迟）、三端 `build.gradle.kts` 加 BuildConfig minSeverity | `grep -rn "println(" shared/` 只剩 Desktop/FFmpeg 平台特定实现（可接受）；Release APK 运行 DEBUG/INFO 不输出 |
+
+**退出**：
+- AgentLog / AgentRuntimeLog / AgentSubAgentLog 三个文件全删除
+- Agent 体系 40+ 调用点统一用 Kermit
+- 三端原生桥接生效（Android Logcat TAG 可过滤、iOS 进 Xcode Console、Desktop ANSI 颜色）
+- `compileAndroidMain` / `compileKotlinDesktop` / desktopTest 全绿
+- 66 处裸 println 至少迁完 Repository + Agent + UseCase 域（Desktop/FFmpeg 可延迟到后续阶段）
+
+**刻意纪律**：
+- 不在本阶段引入 `kermit-io`（文件日志轮转）、`kermit-crashlytics`（崩溃上报）等扩展——本地播放器 + 单人开发，console 足够
+- 不做 `withTag` 作用域工厂、Coroutine 上下文传播等高级特性——保持 API 使用极简（静态调用 + TAG 字符串），降低迁移心智成本
+- `truncate()` 辅助方法不复用 Kermit API，在消息字符串模板中内联处理——避免自定义 wrapper 增加间接层
+
 ### M6 电台与事件（B5，\~5 人天）
 
 | ID    | 任务                                                                                                                                           | 涉及文件                                        | 验收                                             |
@@ -168,6 +200,26 @@ M1 锚点层一期（B4 的前置 UI 骨架，Fake 数据驱动，与 M0-M7 完�
 
 ### R 阶段：债务清零与交互地基修复（还债阶段，横切；先于 M5 完成态）✅ 2026-08-30 代码层完成
 
+### S 阶段：工具层终局（批次 A + 批次 B）✅ 2026-08-31 完成
+
+> R 阶段修了工具层遗留（searchLibrary 标签与 id / controlPlayback play_by_id 引导），但 10 工具原型到 27 原子工具的域前缀统一、原子拆分、Library/Song/Playback 域补齐，留到本阶段闭环。**S 阶段独立于 M0-M7 主序列**——M3 首次交付（十项工具）已完成，S 是 R 之后、回到 M4/M6 之前的工具层补全。
+
+| 批次 | 任务 | 结果 |
+|------|------|------|
+| 批次 A | 域前缀统一（playback_*/playlist_*/library_*/song_*）+ 原子拆分（control vs play_at）+ Playlist 八件套（CRUD + 曲目管理 + 系统歌单保护） | ✅ 10 → 17 原子工具；desktopTest 全绿 |
+| 批次 B | Library 域聚合查询 6 个（artists/albums/tags + songs_by_*）+ Song 域 USER 标签写入闭环（tag_user_add/remove，source=USER 永不被模型覆盖）+ PlaybackCommand.ADD_TO_QUEUE + agent_budget stub | ✅ 17 → 27 原子工具；desktopTest 677 全绿；compileAndroidMain/compileKotlinDesktop 通过 |
+
+底层依赖补完（批次 B 触发）：
+- MusicRepository 接口补 getAllArtistsSummary / getAllAlbumsSummary / removeUserMusicLabel
+- MusicRepositoryBase 用 Kotlin 侧 groupBy 实现聚合（不新增 DAO SQL，避免三端平台层同步）
+- MusicLabelDao.deleteUserLabel（硬编码 `source='USER'` 防误删 LLM 富化标签）
+- PlaybackCommand 密封接口补 ADD_TO_QUEUE(Long) 枚举
+- FakeAgentMusicRepository + FakeMusicRepository 同步补 3 方法
+
+ToolNames.ALL 27 常量 ↔ ToolRegistry 27 注册 1:1 匹配；批次 A 结束 desktopTest 全绿；批次 B 结束 desktopTest 677 全绿。
+
+**退出**：工具层 27 原子工具闭环，LLM 可 function-calling 组合出任意编排。
+
 > **进度**：R-T1..R-T6 全部实现（首轮注入/漏斗/真实播放端口/多确认门/会话持久/M5 剩余 UI）。
 > **验收缺口（待补）**：iOS 编译未验证（仅 android/desktop）；门面/搜索条带交互核验未深入；审计页/撤销按定义留 M6；本地化（14 语言）为横切项未做。
 
@@ -188,6 +240,445 @@ M1 锚点层一期（B4 的前置 UI 骨架，Fake 数据驱动，与 M0-M7 完�
 | R-T6 | M5 剩余 UI：`AgentNoticeBar`(T3) + 门面二期(T5) + 搜索条带(T6) | 新 `common/components/AgentNoticeBar.kt`、`HomeScreen.kt`、`SearchScreen.kt` | 三端编译 + 模拟器/桌面交互核验 |
 
 **退出**：交互主干（触发→理解→执行→呈现→反馈→审计）闭环——首轮注入完整 + 漏斗 + 真实播放端口 + 无确认挂起 + 会话可持久 + M5 剩余 UI 三端可用。
+
+### T 阶段：Agent 体系终局——Master Agent 唯一大脑 + Enrich SubAgent 跑通 + 两层基础设施
+
+> **当前诊断（2026-08-31）**：agent 是"植物人"——闭箱、失忆、被动。27 原子工具 + 引擎循环 + 确认护栏都齐全，但：
+> - 跑一轮对话 = 醒一次，醒来就失忆（跨会话零积累）
+> - 闭箱运行：agent 调 `playback_play_at` 让你听一首歌，但你手动跳过 → agent 不知道
+> - 完全被动：只有你发消息才运行，不会主动排下一首
+> - 学习闭环断裂：跳过了 agent 推的歌 = 无事发生，永远第一次见面
+> - LLM 是单故障点，额度耗尽 = agent 死
+>
+> **根因**：当前架构只有 Tool + 单个对话 Agent 两层。这个 Agent 就是 chatbot——一次性 run()、被动响应、无自主行为。缺的是：独立的长期运行时（Sub Agent）、跨 Agent 共享的感知/记忆/配额管理。
+>
+> **本阶段定位**：重塑 Agent 体系的**基础设施层 + Master 内核 + Enrich 端到端**，Radio SubAgent 留 M6 填实现（T 只预留基类）。不推倒重来——现有 chatbot（AgentOrchestrator）、27 原子工具、ToolRegistry 全部复用，T 是「在现有 chatbot 上焊一层 Master 管理逻辑 + 加一个 Enrich 执行器」。
+
+---
+
+## 设计铁则（实施中不可动摇）
+
+| 编号 | 铁则 | 反对什么 |
+|------|------|----------|
+| F1 | **Master 是唯一大脑**：派发任务、验收结果、决定子Agent 生命周期，全部收口 Master；子Agent 只有执行权，无决策权 | 子Agent 自毁、子Agent 自己找活干、子Agent 自己判断完成 |
+| F2 | **每个 Agent = 独立 LLM 实例 + 独立 AgentContextBudget**（只管自己的上下文窗口 + 历史压缩） | 全局一份 ContextBudget 分账、串行调用 |
+| F3 | **全局唯一 AgentScheduler**：纯规则、零 LLM，只管「Agent 能不能跑」（pause/resume 由电量/网络/Token 日配额触发） | ContextBudget 兼管运行仲裁 |
+| F4 | **Master 的派活/验收循环是轻量规则协程**，不用 LLM（LLM 用在子Agent 执行上） | Master 用 LLM 判断富化是否完成 |
+| F5 | **Enrich 的 system prompt 由 Master 生成并注入**，子Agent 自己不维护 prompt 演化 | Enrich 自改 prompt、自调整策略 |
+| F6 | **SubAgent 是纯无状态执行器**（除了自己的 AgentContextBudget 历史），不知道"任务是否完成"、不知道"当前是不是 WiFi" | 子Agent 持有全局状态感知 |
+
+---
+
+## 架构总览（修正版）
+
+### 两层结构
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│ 第一层：Agent 内部（每个 Agent 独立）                               │
+│                                                                  │
+│  Master Agent                                                  │
+│  ├── AgentContextBudget (maxContextTokens=128K, 对话模型)         │
+│  ├── 独立 LlmTransport 实例 (windowSize=128K)                   │
+│  ├── 派活/验收循环（轻量协程，不用 LLM）                            │
+│  └── subAgents 注册表（Map<String, SubAgent>）                    │
+│                                                                  │
+│  Enrich SubAgent（T 阶段实现）                                    │
+│  ├── AgentContextBudget (maxContextTokens=32K, 轻量批量模型)       │
+│  ├── 独立 LlmTransport 实例 (windowSize=32K)                    │
+│  ├── batchChannel（从 Master 接收批次）                            │
+│  └── 执行循环（被动接收 → LLM 调用 → 写 DB → 回报进度）             │
+│                                                                  │
+│  Radio SubAgent（T 只预留基类，M6 填实现）                          │
+│  └── ...                                                         │
+│                                                                  │
+│  每个 Agent 的 LLM 调用是物理并行的（Ktor async + 独立 coroutine）    │
+│  一个 Agent 的 LLM 超时/爆上下文，不影响其他 Agent                    │
+└──────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────┐
+│ 第二层：全局共享（纯规则/零 LLM）                                   │
+│                                                                  │
+│  AgentScheduler（全局唯一）                                        │
+│  ├── 接受 SubAgent 注册（priority / onPause / onResume）           │
+│  ├── 每秒循环判断电量/网络/Token 日配额                               │
+│  ├── priority=1（Master）永不暂停                                   │
+│  ├── priority=2（Radio）电量≥20% 或 WiFi 允许                        │
+│  └── priority=3（Enrich）电量≥50% 且 WiFi 且 日配额剩10% 允许          │
+│                                                                  │
+│  GlobalTokenCounter（全局唯一，只记当日 Token 总消耗，供 Scheduler 用）  │
+│                                                                  │
+│  ToolRegistryView（给每个 SubAgent 的权限过滤视图）                    │
+│  ├── Master → 27 原子工具 + SubAgent 管理工具                        │
+│  ├── Enrich → library_* + song_*（不能调 playback_*/playlist_*）     │
+│  └── Radio → playback_* + playlist_* + library_*（M6 定义）           │
+│                                                                  │
+│  共享 ToolRegistry（所有 Agent 共用同一套原子工具实现，IO 操作无需独立实例） │
+│  PresenceBus（所有 Agent emit 状态变化，UI 消费）                      │
+│  AgentMemory（持久化，跨会话，所有 Agent 共享但各有独立命名空间）          │
+│  AuditLogPort（所有 Agent 操作都入审计）                              │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+### ContextBudget 两层结构对比（修正之前的混淆）
+
+| 维度 | AgentContextBudget（每 Agent 独立） | AgentScheduler（全局唯一） |
+|------|-----------------------------------|---------------------------|
+| 职责 | 管自己 LLM 实例的上下文窗口（token 估算 + 历史压缩） | 管「Agent 能不能跑」（纯规则判断） |
+| 是否用 LLM | 历史压缩用轻量 summary 模型（独立于主窗口） | 零 LLM |
+| 触发 | 每次 LLM 调用前自动检查 | 每秒循环 |
+| 跨 Agent 协调 | 不涉及 | 决定 pause/resume 回调 |
+| 错误场景 | 一个 Agent 上下文爆 → 只影响它自己，压缩历史后继续 | 资源不足 → 自动暂停低优先级 Agent |
+
+---
+
+## 各 Agent 详解
+
+### Master Agent（唯一大脑 · 升级现有 AgentOrchestrator）
+
+| 项 | 说明 |
+|----|------|
+| **驱动** | LLM function-calling（用户对话）+ 轻量协程（派活/验收循环） |
+| **生命周期** | 应用启动时初始化，随应用销毁；用户对话时激活 LLM，闲置时 LLM 挂起但派活循环常驻 |
+| **触发源** | 用户发消息 → LLM 循环激活；富化健康度不足 → 自动派活循环启动 |
+| **目标** | ① 理解用户意图 → 执行一次性任务 ② 创建/管理/验收/销毁 SubAgent ③ 把子Agent 状态翻译给用户 |
+| **system prompt** | persona（知音/DJ/馆长）+ Recall 偏好画像 + 曲库概况 + 认识进度 |
+| **上下文** | 用户对话历史（自己的 AgentContextBudget 管） |
+| **LLM 实例** | 独立 LlmTransport（windowSize=128K，对话专用模型） |
+| **能做什么** | 调 27 原子工具 + 所有 SubAgent 管理工具（enrich_start/status 等） |
+| **不能做什么** | 直接执行批量富化任务（派给 Enrich）、绕过 SubAgent 管理工具直接操作 Enrich/Radio |
+
+**Master 启动链路（伪代码）**：
+
+```kotlin
+suspend fun initialize() {
+    // ① 绑定自己的 AgentContextBudget
+    myBudget = AgentContextBudget(
+        agentId = "master",
+        maxContextTokens = 128_000,
+        llmClient = LlmTransport.create(windowSize = 128_000)
+    )
+
+    // ② 向 AgentScheduler 注册自己（永不暂停）
+    scheduler.registerAgent(AgentRegistration(
+        agentId = "master", priority = 1,
+        tokenUsagePerMin = 2_000,
+        onPause = {}, onResume = {}
+    ))
+
+    // ③ 启动 AgentScheduler 仲裁循环（全局唯一）
+    GlobalScope.launch { scheduler.arbitrationLoop() }
+
+    // ④ 富化健康度检测 → 决定是否创建 Enrich
+    val health = musicRepo.getEnrichHealth()
+    val targetCoverage = userPrefs.getEnrichTargetCoverage() // 默认 0.9
+    if (health.coverageRate < targetCoverage) {
+        // 生成任务单 → 创建 Enrich → 启动派活/验收循环
+        val enrichTask = EnrichTask(
+            targetCoverage = targetCoverage,
+            maxBatchSize = 20,
+            acceptableFailureRate = 0.1
+        )
+        enrichAgent = createEnrichSubAgent(enrichTask)
+        GlobalScope.launch { enrichTaskLoop(enrichTask) }
+    }
+
+    // ⑤ 进入用户对话循环（现有 AgentOrchestrator 的 run() 升级）
+    startUserInteractionLoop()
+}
+```
+
+**Master 的派活/验收循环（核心新增）**：
+
+```kotlin
+// 轻量协程循环，不用 LLM，固定节奏
+private suspend fun enrichTaskLoop(task: EnrichTask) {
+    while (enrichAgent != null) {
+        // 【派发】决定下一批
+        val nextBatch = musicRepo.getUnenrichedSongs(limit = task.maxBatchSize)
+        if (nextBatch.isEmpty()) {
+            // 没有新待富化的 → 检查目标是否达成
+            val actualHealth = musicRepo.getEnrichHealth()
+            if (actualHealth.coverageRate >= task.targetCoverage) {
+                // ✅ 验收通过 → 下令销毁 Enrich
+                enrichAgent!!.shutdown()
+                scheduler.unregisterAgent("enrich")
+                enrichAgent = null
+                agentMemory.store("enrich_completed", ...) // 持久化完成记录
+                return
+            } else {
+                // 可能之前失败了 → 重派失败批次
+                val failed = musicRepo.getFailedEnrichSongs(limit = task.maxBatchSize)
+                if (failed.isNotEmpty()) enrichAgent!!.assignBatch(failed)
+            }
+        } else {
+            // 有新批次 → 派给 Enrich
+            enrichAgent!!.assignBatch(nextBatch)
+        }
+
+        // 【验收】等 5s → 查 DB 实际结果（不是查 Enrich 回报）
+        delay(5000)
+        val results = musicRepo.getRecentEnrichResults(since = lastCheckTime)
+        val successRate = results.successCount.toFloat() /
+            (results.successCount + results.failureCount)
+
+        if (results.successCount == 0 && results.failureCount == 0) {
+            // Enrich 可能被 Scheduler pause 了 → 等一会儿
+            delay(10000)
+        } else if (successRate < task.acceptableFailureRate) {
+            // ❌ 失败率太高 → 调整策略
+            task.maxBatchSize = 10 // 减小批次
+            enrichAgent!!.updateSystemPrompt(...) // 更新注入的 prompt
+        }
+        lastCheckTime = System.currentTimeMillis()
+    }
+}
+```
+
+**Master 持有的 SubAgent 注册表**：
+
+```kotlin
+val subAgents = mutableMapOf<String, SubAgent>()
+// "enrich" → EnrichSubAgent 实例
+// "radio" → null（M6 创建）
+```
+
+Master 暴露给 LLM 的 SubAgent 管理工具（Master 的 LLM 通过这些工具管理 SubAgent，LLM 不知道背后是独立运行的 Kotlin 类）：
+- `enrich_start` / `enrich_pause` / `enrich_resume` / `enrich_status` / `enrich_rescan`
+- `radio_start` / `radio_pause` / `radio_resume` / `radio_stop` / `radio_state` / `radio_instruction`（M6）
+
+---
+
+### Enrich SubAgent（纯被动执行器 · T 阶段完整实现）
+
+| 项 | 说明 |
+|----|------|
+| **驱动** | LLM function-calling（自己的独立实例） |
+| **生命周期** | Master 创建 → 执行 Master 派发的批次 → Master 下令 shutdown（**永不自毁**） |
+| **触发源** | Master 派发批次到 batchChannel（Channel.receive()，阻塞等待） |
+| **目标** | 接收 Master 派发的歌曲批次 → 调用 LLM 生成 AI 标签 → 写数据库 |
+| **system prompt** | Master 注入的执行手册（无自演化逻辑） |
+| **上下文** | 自己的 AgentContextBudget 历史（每批独立，不跨批膨胀） |
+| **LLM 实例** | 独立 LlmTransport（windowSize=32K，轻量批量模型，省 Token） |
+| **能做什么** | 调 `library_*` + `song_*` 工具（ToolRegistryView 权限过滤）、写 DB、emit PresenceBus 进度 |
+| **不能做什么** | 自己找活干、判断任务是否完成、调整批次大小、暂停/恢复自己的运行（全归 Master 和 Scheduler） |
+
+**Enrich SubAgent 内部只有**：
+
+```kotlin
+class EnrichSubAgent(
+    private val contextBudget: AgentContextBudget, // 独立 LLM 实例 + 独立上下文窗口
+    private val systemPrompt: String,               // Master 注入的执行手册
+    private val toolRegistryView: ToolRegistryView, // 权限过滤后的工具视图（只有 library_* + song_*）
+) : SubAgent() {
+
+    private val batchChannel = Channel<EnrichBatch>(capacity = 10) // 唯一输入口
+
+    // ===== 对外接口（只有 Master 能调，不对外暴露）=====
+
+    /** Master 派发批次的唯一入口 */
+    fun assignBatch(batch: EnrichBatch) = batchChannel.trySend(batch)
+
+    /** Master 下令销毁的唯一入口 */
+    suspend fun shutdown() {
+        isActive = false
+        contextBudget.releaseLlmClient()
+    }
+
+    /** Scheduler pause/resume 回调 */
+    suspend fun suspendCoroutine() { // Scheduler 调用，挂起执行循环 }
+    suspend fun resumeCoroutine() { // Scheduler 调用，唤醒执行循环 }
+
+    /** Master 更新注入的 system prompt */
+    fun updateSystemPrompt(newPrompt: String) { systemPrompt = newPrompt }
+
+    // ===== 内部执行循环（极简，不做任何决策）=====
+
+    suspend fun runLoop() {
+        while (isActive) {
+            // 阻塞等待 Master 派发的批次 —— 绝不主动拉活
+            val batch = batchChannel.receive()
+
+            // 调自己的独立 LLM 实例（和 Master/Radio 物理并行）
+            val response = contextBudget.callLlm(
+                systemPrompt = systemPrompt,
+                newMessages = batch.toMessages(),
+                tools = toolRegistryView.getToolDefs()
+            )
+
+            // 把结果写数据库（IO 操作，不用 LLM）
+            musicRepo.saveEnrichResults(response.toolCalls)
+
+            // 回报进度（PresenceBus 事件，Master 会从 PresenceBus 感知）
+            presenceBus.emit(AgentProgress("enrich", batch.size, response.toolCalls.size))
+        }
+    }
+}
+```
+
+**Enrich 的 system prompt 模板（Master 注入，无自演化）**：
+
+```
+你是一个音乐标签富化助手，负责给以下歌曲补充 AI 生成的标签。
+
+执行规则：
+1. 只处理 Master Agent 派发的当前批次歌曲，不要处理其他歌曲
+2. 每首歌最多生成 3 个 AI 标签（风格 / 情绪 / 场景 各 1 个）
+3. 标签格式：调用 song_tag_ai_add 工具写入，source="LLM"
+4. 不要覆盖已有 USER source 的标签（source="USER" 永不被模型覆盖）
+5. 当前批次大小上限：${maxBatchSize}
+
+当前批次歌曲列表：
+${batchSongs.toBulletList()}
+```
+
+**Enrich 的执行链路（完整，全被动）**：
+
+```
+Master 检测到 coverageRate < 目标
+  │
+  ├─ 生成 EnrichTask（targetCoverage=0.9, maxBatchSize=20）
+  ├─ 创建 EnrichSubAgent（独立 LlmTransport + 独立 AgentContextBudget(32K)）
+  ├─ 向 AgentScheduler 注册（priority=3, onPause=挂起, onResume=唤醒）
+  └─ 启动自己的派活/验收协程循环
+
+Master 派活循环第 1 轮：
+  ├─ 查 DB：getUnenrichedSongs(20) → 得到批次 [Song1..Song20]
+  ├─ enrichAgent.assignBatch([Song1..Song20])  ← 塞进 Enrich 的 batchChannel
+  └─ 等 5s → 查 DB：getRecentEnrichResults(since=...) → 验收
+
+Enrich 执行循环同时运行（并行）：
+  ├─ batchChannel.receive() → 拿到 [Song1..Song20]
+  ├─ contextBudget.callLlm(ENRICH_PROMPT, 批次消息, toolDefs) ← 独立 LLM 实例
+  │   └─ LLM function-calling: song_tag_ai_add × N
+  ├─ musicRepo.saveEnrichResults(toolCalls) ← 写 DB
+  └─ presenceBus.emit(AgentProgress("enrich", 20, N)) ← 回报进度
+
+Scheduler 仲裁并行进行（每秒）：
+  ├─ 电量 60% + WiFi → Enrich priority=3 满足条件 → onResume() 已在跑
+  └─ 突然切移动数据 + 电量掉到 48% → Enrich priority=3 不满足 → onPause() 触发 → 挂起 coroutine
+      → batchChannel 里剩余批次保留，resume 后从断点继续
+```
+
+---
+
+### Radio SubAgent（T 只预留骨架，M6 填实现）
+
+T 阶段做的：
+- `SubAgent` 基类：定义 `assignBatch()` / `shutdown()` / `suspendCoroutine()` / `resumeCoroutine()` 四个接口
+- Master 的 `subAgents` 表里预留 `"radio"` 键（初始 null）
+- AgentScheduler 预留 priority=2 档注释
+- ToolRegistryView 预留 Radio 的权限白名单配置位
+
+M6 阶段要做的：
+- `RadioSubAgent` 继承 SubAgent 基类，实现持续编排播放队列
+- 独立 system prompt（电台 DJ persona）
+- 独立 AgentContextBudget（64K 窗口）
+- 触发源改为 AgentSenses 事件（PlaybackChanged/Skipped/Favorited）
+
+---
+
+## 批次计划（严格串行，依赖关系不可跳过）
+
+```
+T1 基础设施重构 ──▶ T2 Master 内核改造 ──▶ T3 Enrich 实现 ──▶ T4 联调 + Radio 预留
+  （拆两层结构）        （在现有chatbot上升级）   （纯被动执行器）     （全链路验证）
+```
+
+---
+
+### T1 基础设施重构（地基）
+
+**目标**：把当前混在一起的「全局 ContextBudget / 单例 LlmTransport」拆成两层，为 Master/SubAgent 并行铺路。
+
+| ID | 任务 | 涉及文件 | 验收 |
+|----|------|---------|------|
+| T1-T1 | **拆分 ContextBudget**：现有 `ContextBudget` 拆为：<br>• `AgentContextBudget`（每个 Agent 一份，绑定 LLM 实例，管自己的上下文窗口 + 历史压缩）<br>• `GlobalTokenCounter`（全局唯一，只记当日 Token 总消耗，供 Scheduler 用） | 新增 `domain/agent/runtime/AgentContextBudget.kt`<br>新增 `domain/agent/runtime/GlobalTokenCounter.kt`<br>**改造** 现有 `engine/ContextBudget.kt`（如果有的话） | `AgentContextBudget` 单测：token 估算准确、超窗口 85% 自动压缩历史、LLM 实例绑定正确 |
+| T1-T2 | **重构 LlmTransport**：从单例改为可创建多实例的工厂 `LlmTransport.create(windowSize: Int, modelType: ModelType)`，每个 Agent 绑定独立实例 | **改造** `domain/agent/llm/LlmTransport.kt`（移除 companion object 单例，加工厂方法） | `LlmTransport.create()` 单测：多实例互不干扰、各用各自的 windowSize |
+| T1-T3 | **新增 AgentScheduler**：全局唯一纯规则仲裁器：<br>• 接受 SubAgent 注册（priority / onPause / onResume）<br>• 每秒循环判断电量/网络/Token 日配额，触发 pause/resume<br>• priority=1（Master）永不暂停 | 新增 `domain/agent/runtime/AgentScheduler.kt` | `AgentScheduler` 单测：priority 1/2/3 各档位触发条件正确、pause/resume 回调正确、每秒循环不阻塞主线程 |
+| T1-T4 | **新增 SubAgent 基类 + ToolRegistryView**：<br>• `abstract class SubAgent`：暴露 `assignBatch(batch)` / `shutdown()` / `suspendCoroutine()` / `resumeCoroutine()` 四个接口<br>• `ToolRegistryView`：权限过滤，给每个 SubAgent 的 ToolRegistry 视图（白名单过滤） | 新增 `domain/agent/sub/SubAgent.kt`<br>新增 `domain/agent/runtime/ToolRegistryView.kt` | `ToolRegistryView` 单测：Enrich 视图只能拿到 library_* + song_*，拿不到 playback_* / playlist_* |
+
+**依赖**：无（纯重构，不碰业务逻辑）
+**验证**：跑 `./gradlew :shared:test` 全绿，现有 chatbot 功能不受影响（Master 的 AgentContextBudget 先和原来的全局 ContextBudget 等价替换，功能不变）
+
+---
+
+### T2 Master Agent 内核改造（在现有 chatbot 上升级）
+
+**目标**：把现有 `AgentOrchestrator`（chatbot）升级成 Master Agent——加富化健康度检测、Enrich 任务管理循环、子Agent 生命周期管理，同时**不破坏现有用户对话功能**。
+
+| ID | 任务 | 涉及文件 | 验收 |
+|----|------|---------|------|
+| T2-T1 | **Master 初始化重写**：在 `AgentOrchestrator.initialize()` 里加入：<br>• 创建自己的 `AgentContextBudget`（绑定 128K 对话模型的 LlmTransport 实例）<br>• 向 `AgentScheduler` 注册自己（priority=1）<br>• 启动 Scheduler 仲裁循环<br>• 新增：调用 `MusicRepository.getEnrichHealth()` 检测富化状态 | **改造** `domain/agent/orchestrator/AgentOrchestrator.kt` | 初始化日志包含 `[Master] enrich health score=XX` 和 `[Master] registered with Scheduler priority=1` |
+| T2-T2 | **富化健康度 Repository 接口**：新增 4 个查询：<br>• `getEnrichHealth(): EnrichHealth`（coverageRate / unenrichedCount / lowConfidenceCount）<br>• `getUnenrichedSongs(limit)` / `getFailedEnrichSongs(limit)` / `getRecentEnrichResults(since)` | 新增接口到 `MusicRepository.kt`<br>实现到 `MusicRepositoryImpl.kt` / DAO | FakeMusicRepository 补 4 个方法；单元测试覆盖各场景（空库/全覆盖/部分覆盖） |
+| T2-T3 | **派活/验收循环**：Master 内部启动一个轻量协程循环（不用 LLM）——决定批次、派给 Enrich、等 5s、查 DB 验收、达标则下令 shutdown | 新增 `AgentOrchestrator.enrichTaskLoop()` 私有方法 | 循环单测：完整派发→执行→验收→shutdown 全链路；Scheduler pause 后循环等待不崩 |
+| T2-T4 | **SubAgent 注册表**：Master 持有 `val subAgents = mutableMapOf<String, SubAgent>()`，对外暴露 `master_query_sub_agents` 工具（用户问"当前后台有什么"时可回答） | **改造** `AgentOrchestrator.kt` | LLM 通过 `master_query_sub_agents` 工具能拿到当前子Agent 状态 |
+
+**依赖**：T1 完成
+**验证**：Master 启动后能检测富化健康度；现有用户对话功能正常；`./gradlew :shared:test` 全绿
+
+---
+
+### T3 Enrich SubAgent 实现（纯被动执行器）
+
+**目标**：实现 `EnrichSubAgent`，严格遵守 F1-F6 铁则——**只接收 Master 派发的批次、执行、写 DB，不做任何决策**。
+
+| ID | 任务 | 涉及文件 | 验收 |
+|----|------|---------|------|
+| T3-T1 | **EnrichSubAgent 实现**：继承 SubAgent 基类：<br>• 构造函数接收 Master 注入的 `EnrichTask`（转换成 system prompt）<br>• 内部只有一个循环：`batchChannel.receive()` → `contextBudget.callLlm()` → 写 DB → emit PresenceBus<br>• 无任何决策逻辑 | 新增 `domain/agent/sub/EnrichSubAgent.kt` | 单元测试：batchChannel 收到批次 → LLM 被调用 → toolCalls 写 DB；Scheduler pause 后 coroutine 挂起 |
+| T3-T2 | **Enrich 专属 ToolRegistryView**：配置权限白名单：只能调 `library_*` + `song_*`，拿不到 `playback_*` / `playlist_*` | **改造** T1 的 `ToolRegistryView.kt` | 权限白名单单测：`playback_play_at` 在 Enrich 视图里不可见 |
+| T3-T3 | **Enrich system prompt 模板**：Master 注入的执行手册常量（无自演化逻辑） | 新增常量到 `domain/agent/sub/EnrichPrompts.kt` | prompt 注入单测：Master 传入的 EnrichTask 参数正确填入 prompt |
+| T3-T4 | **Scheduler pause/resume 与 Enrich 联动**：Enrich 的 coroutine 支持外部挂起/唤醒，batchChannel 缓冲区 10 保证 pause 期间 Master 派发的批次不丢失 | EnrichSubAgent 内部 + T1 Scheduler | Scheduler 切移动数据 → Enrich coroutine 挂起；切 WiFi → 自动唤醒，从缓冲区继续 |
+
+**依赖**：T1（SubAgent 基类 + ToolRegistryView）、T2（Master 派活逻辑）
+**验证**：Master 派发一批 10 首歌 → Enrich 能收到 → 调 LLM → 写 DB → Master 验收查到结果；Scheduler pause 后 Enrich 暂停，resume 后从断点继续
+
+---
+
+### T4 端到端联调 + Radio 预留
+
+**目标**：跑通 Master → Enrich 全链路，给 Radio 留好扩展位。
+
+| ID | 任务 | 涉及文件 | 验收 |
+|----|------|---------|------|
+| T4-T1 | **全链路集成测试**：测试完整流程：<br>1. 清空测试库 AI 标签 → 启动应用<br>2. Master 检测到覆盖率不足（如 0%）→ 创建 Enrich<br>3. Master 派第一批 20 首 → Enrich 执行 → 写 DB<br>4. Master 验收，派第二批...直到覆盖率达标<br>5. Master 下令 Enrich shutdown → 销毁实例 | 新增 `MasterEnrichIntegrationTest.kt`（commonTest） | 测试全绿；Room DB 里 `music_label` 表有 AI 源新标签；日志有 `[Master] enrich target achieved, shutdown Enrich` |
+| T4-T2 | **Radio 预留扩展位**：只做骨架，不实现逻辑：<br>• Master 的 `subAgents` 表预留 `"radio"` 键（初始 null）<br>• AgentScheduler 预留 priority=2 档注释<br>• ToolRegistryView 预留 Radio 权限白名单配置位<br>• SubAgent 基类注释标注「RadioSubAgent 待 M6 实现」 | **改造** `AgentOrchestrator.kt` / `AgentScheduler.kt` / `ToolRegistryView.kt` | 代码级检查：所有预留位有 TODO 注释指向 M6 |
+| T4-T3 | **现有 chatbot 回归**：验证 Master 作为对话入口的原有功能完全不受影响（用户输入 → LLM 回复 → 工具调用） | 回归现有 `AgentOrchestratorTest.kt` + 手动测试 | `AgentOrchestratorTest` 全绿；手动测试：输入"推荐一首摇滚" → Master 正常回复 |
+| T4-T4 | **两层 ContextBudget 正确性验证**：Master 的 AgentContextBudget 和 Enrich 的 AgentContextBudget 独立实例化，各自管各自的窗口；Scheduler 的 GlobalTokenCounter 正确统计当日总量 | 新增 `TwoLayerContextBudgetTest.kt` | 单测：Master 的 128K 窗口压缩 → 不影响 Enrich 的 32K 窗口；Scheduler pause/resume 只影响 Enrich，不影响 Master |
+
+**依赖**：T1 + T2 + T3 全完成
+**验证**：`./gradlew :shared:test` 全绿；手动联调全链路通过；Radio 骨架不影响现有功能
+
+---
+
+## T 阶段退出条件（必须同时满足）
+
+| 编号 | 退出条件 | 验证方式 | 状态 |
+|------|----------|----------|------|
+| E1 | Master 启动时自动检测富化健康度，覆盖率不足时自动创建 Enrich | 手动清空测试库 AI 标签 → 启动 → 日志有 `[Master] enrich health score=XX, creating EnrichSubAgent` | ✅ 代码层完成；**待手动冒烟**（需 LLM 端点 + 测试曲库） |
+| E2 | Enrich 能接收 Master 派发的批次，执行后标签写入 DB | 查 Room `music_label` 表，有 AI 源新标签；Master 验收日志有 `[Master] enrich batch success rate=X.XX` | ✅ 代码层完成；**待手动冒烟**（需 LLM 端点 + 测试曲库） |
+| E3 | Master 验收逻辑生效：覆盖率达标后下令 Enrich 销毁 | 日志有 `[Master] enrich target achieved, shutdown Enrich`；DB 里 EnrichSubAgent 实例已释放 | ✅ 代码层完成 |
+| E4 | AgentScheduler 仲裁生效：移动数据 + 电量<50% 时 Enrich 暂停，WiFi 时恢复 | 切移动数据 + 电量<50% → Enrich coroutine 挂起；切 WiFi → 自动唤醒，从断点继续 | ✅ 代码层 priority 逻辑完整；**开发阶段放开额度**（无电量/网络事件 expect-actual 桥接） |
+| E5 | 两层 ContextBudget 各自独立：一个 Agent 的上下文爆 → 只影响它自己 | 强制 Master 的 contextBudget 爆 128K → 自动压缩历史继续跑 → Enrich 的 32K 上下文不受影响 | ✅ 完成（AgentContextBudget + GlobalTokenCounter 两层分离） |
+| E6 | 现有 chatbot 功能完全不受影响 | 手动对话测试（输入"推荐一首摇滚" → Master 调 `library_search` → 返回结果） | ✅ 完成（compile + desktopTest 全绿） |
+| E7 | Radio SubAgent 基类预留完成 | 代码级检查：SubAgent 基类 + Master 的 subAgents 表 + Scheduler priority=2 + ToolRegistryView 预留位全部到位 | ✅ 完成 |
+| E8 | 测试全绿 + 编译通过 | `./gradlew :shared:test` 退出码 0；`:shared-ui:compileKotlinDesktop` 通过 | ✅ 完成（2026-09-01 最后一次验证） |
+
+> **T 阶段整体状态（2026-09-01）**：代码层 8/8 完成；E1/E2 待手动冒烟，E4 按开发阶段要求放开额度。**可进入 M6 阶段（Radio 占位 T4-T2 已完成）**。
+
+---
+
+## T 阶段明确不做什么（严格 scope 控制）
+
+| 明确不做 | 理由 |
+|----------|------|
+| Radio SubAgent 实现 | 留到 M6，T 只预留 SubAgent 基类接口 + Scheduler priority=2 + ToolRegistryView 权限白名单 |
+| AgentMemory 跨会话持久化（Master 派活/验收循环的状态） | T 阶段 Master 的派活验收循环用临时内存状态，跨会话持久化留到后续 |
+| 用户可配置的富化目标覆盖率 UI | 先用 DataStore 默认值 90%，后续加设置界面 |
+| iOS 端编译验证 | 当前开发环境是 Windows，iOS 端留到后续 macOS 环境验证 |
+| Feedback → Recall → 推荐闭环 | M6 Radio Agent 实现时才需要，T 不做 |
+| 撤销 UI（Agent 操作的可撤销） | M6 审计页 + M7 伙伴设置页做 |
+| agent_budget 全局查询工具 | T 只实现 GlobalTokenCounter 数据层，agent_budget 工具 UI 留后续 |
 
 ***
 
@@ -232,10 +723,17 @@ M1 锚点层一期（B4 的前置 UI 骨架，Fake 数据驱动，与 M0-M7 完�
 
 ## 7. 变更记录
 
+| 日期 | 变更 |
+|------|------|
+| 2026-09-01 | **T 阶段代码层终局 + 权限体系简化 + 持久化闭环**：① 权限体系简化 9→6 概念：砍 TrustTier enum → trustLevel:Int + TrustLevel object 常量；砍 AgentPolicyConfig.allowFromOverride → 2 字段极简；砍 DirectToolExecutor 僵尸 object；TrustLedger 复活（持有 AgentPolicyConfig 引用 + onChange 回调驱动 trustLevel 升降档）；② EnrichSubAgent 接入权限体系（不再 DirectToolExecutor 裸跑，改用 ToolCallExecutor + AgentPolicy.enrich）；③ ConfirmGate UI 扩展"总是允许"（ConfirmMatrixCard + toggleAlwaysAllowConfirmItem），AllowOnce 明确不累积信任（单次确认无论多少次都不改 trustLevel）；④ AgentPolicyConfig DataStore 持久化（三端 SettingsRepository impl + MasterAgent init 块 runBlocking 读 + TrustLedger onChange 异步写 + ReActLoop.onSessionComplete 统一刷 alwaysAllow 变化）；⑤ MasterAgent 瘦身 640→454 行，ReActLoop/ToolCallExecutor/StopSignal 四层组件彻底解耦；⑥ T 阶段退出条件 E1-E8 代码层全完成，可进入 M6 |
+| 2026-08-31 | **T 阶段全面重写（第二轮）**：修正三处核心架构错误——① ContextBudget 拆为两层：`AgentContextBudget`（每 Agent 独立，管自己 LLM 上下文窗口 + 历史压缩）+ `AgentScheduler`（全局唯一，纯规则零 LLM，只管 pause/resume）；② Master 是唯一大脑：派发/验收/生命周期全归 Master，子Agent 只有执行权（F1 铁则），Enrich 不再自毁/自己找活干；③ Enrich SubAgent 重定义为纯被动执行器：只接收 Master 派发的 batchChannel、调独立 LLM 实例执行、写 DB，不做任何决策。批次计划从 T1-T5（Feedback/Memory/Perception/Radio/Fallback）重构为 T1-T4 严格串行链：T1 基础设施（拆两层 ContextBudget + 新 AgentScheduler + SubAgent 基类 + ToolRegistryView 权限过滤）→ T2 Master 内核（AgentOrchestrator 升级 + 富化健康度检测 + 派活/验收轻量协程循环）→ T3 Enrich 实现（纯被动执行器）→ T4 联调 + Radio 预留。Radio SubAgent 明确留到 M6 填实现（T 只预留 SubAgent 基类 + Scheduler priority=2 + ToolRegistryView 权限白名单）；M6 依赖从 M5 改为 M5 + T。设计铁则 6 条（F1-F6）写入文档作为实施红线。退出条件 8 条，scope 边界 7 条明确不做。依赖图 + 总览表 + M6 描述同步修正 |
+| 2026-08-31 | **T 阶段方案（初版 → 修正版，已废弃）**：初版方案定义 5 根脊柱但过度设计（AgentProfile 独立 DAO 层 / AgentSenses expect-actual / Scheduler 复活 / FallbackOrchestrator 独立类），修正后 FeedbackCollector 直接写 MusicLabel。**已被第二轮重写完全取代** |
+
 | 日期         | 变更                                                                                                                                                                                                  |
 | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 2026-08-26 | v1：依据 agent.md（深度合并稿）编制；阶段制 M0-M7，不绑定版本号；B0 归 M0 优先（可在非 agent 版本先行）；语音 gate 明确；挂起参数给建议默认值                                                                                                           |
 | 2026-08-28 | M5 一期：ChatScreen/ChatViewModel + 五类气泡 + 批量确认卡流（T1/T2/T4）；Gateway 接口 + Orchestrator 真实接线；顺带修复 TrustLedger/MusicRepositoryBase 的 iOS 跨平台缺口（Map.getOrDefault→显式判空；System.currentTimeMillis→跨平台 expect） |
+| 2026-08-31 | **M3 工具层终局（批次 A + B）**：批次 A 完成域前缀统一重命名/拆分（17 工具，批次 A 结束 desktopTest 全绿）；批次 B 追加 10 原子工具（playback_enqueue + library 域聚合查询 6 个 + song_tag_user_add/remove + agent_budget stub），Registry 17→27；底层依赖：MusicRepository.getAllArtistsSummary/getAllAlbumsSummary/removeUserMusicLabel（Kotlin 侧 groupBy，不新增 DAO SQL）、MusicLabelDao.deleteUserLabel（source=USER 过滤）、PlaybackCommand.ADD_TO_QUEUE 枚举；ToolNames.ALL 27 常量 ↔ ToolRegistry 注册 1:1 匹配；desktopTest 677 全绿，compileAndroidMain/compileKotlinDesktop 通过；FakeAgentMusicRepository + FakeMusicRepository 同步补 3 方法 |
 | 2026-08-30 | **R 阶段落地**：R-T1 首轮注入（CompanionProfile/ContextAssembler/buildSystemPrompt + gateway 真实装配）、R-T2 漏斗（CommandLexicon + ChatViewModel 接线）、R-T3 真实播放/现在听端口、R-T4 多确认门（submittedConfirms）、R-T5 会话持久（AgentMessageStore/RoomAgentMessageStore + 三端 DI）、R-T6 M5 剩余 UI；工具层修复（searchLibrary 标签+id、controlPlayback play_by_id 引导、getRecentHistory 带标题）；AgentLog 运行时日志；对话页沉浸式 UI 重构（去顶栏/去头像/紧凑输入栏/键盘贴键盘/新增消息与聚焦自动滚底/横滑与页点恢复）。**验收缺口**：iOS 编译未验证、门面/搜索交互核验未深入、审计页/撤销留 M6、本地化横切未做 |
 
 <br />

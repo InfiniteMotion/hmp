@@ -51,6 +51,7 @@ material3Adaptive = "1.2.0"
 
 koin = "4.2.2"
 ktor = "3.1.1"
+kermit = "2.1.0"
 sqlite = "2.6.1"
 composeMultiplatform = "1.9.3"
 # CMP 1.9 起 Material3 版本与 CMP 解耦（decoupled versioning）：material3 独立发版，1.9.0 基于 Jetpack Material3 1.4.0
@@ -156,6 +157,9 @@ ktor-darwin = { module = "io.ktor:ktor-client-darwin", version.ref = "ktor" }
 ktor-java = { module = "io.ktor:ktor-client-java", version.ref = "ktor" }
 ktor-logging = { module = "io.ktor:ktor-client-logging", version.ref = "ktor" }
 ktor-client-mock = { module = "io.ktor:ktor-client-mock", version.ref = "ktor" }
+
+# Kermit (Touchlab) — KMP 日志，三端原生桥接
+kermit = { module = "co.touchlab:kermit", version.ref = "kermit" }
 
 # Desktop
 kotlinx-coroutines-swing = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-swing", version.ref = "kotlinxCoroutines" }

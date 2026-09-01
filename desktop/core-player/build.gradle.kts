@@ -11,6 +11,7 @@ kotlin {
                 implementation(project(":shared"))
                 implementation(libs.koin.core)
                 implementation(libs.kotlinx.coroutines)
+                implementation(libs.kermit)
             }
         }
         val desktopTest by getting {

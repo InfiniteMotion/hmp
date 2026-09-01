@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.hmp.data.network.BuiltInApiKeyProvider
 import com.hmp.data.util.SecureStorageHelper
@@ -60,6 +61,10 @@ class SettingsRepositoryImpl(
         val CUSTOM_AI_API_KEY = stringPreferencesKey("custom_ai_api_key")
         val CUSTOM_AI_MODEL = stringPreferencesKey("custom_ai_model")
         val AI_FREE_TRIAL_REMAINING = intPreferencesKey("ai_free_trial_remaining")
+        // Agent Policy Config — per-Agent 信任档位 + 永远允许白名单
+        // key 名用 role 做前缀，一个 Preferences 文件里存多个 Agent 的配置
+        fun agentTrustLevelKey(role: String) = intPreferencesKey("agent_policy_${role}_trust_level")
+        fun agentAlwaysAllowKey(role: String) = stringSetPreferencesKey("agent_policy_${role}_always_allow")
         val THEME_MODE = stringPreferencesKey("theme_mode")
         val BACKGROUND_STYLE = stringPreferencesKey("background_style")
         val HAZE_MODE = stringPreferencesKey("haze_mode")
@@ -327,6 +332,26 @@ class SettingsRepositoryImpl(
             prefs[PreferencesKeys.AI_FREE_TRIAL_REMAINING] = (current - 1).coerceAtLeast(0)
         }
     }
+
+    override suspend fun getAgentPolicyConfig(agentRole: String): com.hmp.domain.agent.policy.AgentPolicyConfig {
+        val prefs = context.dataStore.data.first()
+        val trustLevel = prefs[PreferencesKeys.agentTrustLevelKey(agentRole)]
+            ?: com.hmp.domain.agent.policy.TrustLevel.SUGGEST
+        val alwaysAllow = prefs[PreferencesKeys.agentAlwaysAllowKey(agentRole)]
+            ?: emptySet()
+        return com.hmp.domain.agent.policy.AgentPolicyConfig(
+            trustLevel = trustLevel.coerceIn(0, com.hmp.domain.agent.policy.TrustLevel.MAX),
+            alwaysAllow = alwaysAllow.toMutableSet(),
+        )
+    }
+
+    override suspend fun saveAgentPolicyConfig(agentRole: String, config: com.hmp.domain.agent.policy.AgentPolicyConfig) {
+        dataStore.edit { prefs ->
+            prefs[PreferencesKeys.agentTrustLevelKey(agentRole)] = config.trustLevel
+            prefs[PreferencesKeys.agentAlwaysAllowKey(agentRole)] = config.alwaysAllow.toSet()
+        }
+    }
+
     override suspend fun saveEqualizerPreset(preset: Int) {
         dataStore.edit { prefs -> prefs[PreferencesKeys.EQUALIZER_PRESET] = preset }
     }

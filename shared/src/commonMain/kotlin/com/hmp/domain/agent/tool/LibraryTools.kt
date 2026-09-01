@@ -57,7 +57,7 @@ private val LABEL_ALIASES: Map<String, LabelName> = mapOf(
 )
 
 /** 查询词中命中的标签（含中文别名与英文枚举名）。 */
-private fun labelAliasesFor(query: String): List<LabelName> {
+internal fun labelAliasesFor(query: String): List<LabelName> {
     val q = query.lowercase()
     return LABEL_ALIASES.entries
         .filter { (alias, _) -> q.contains(alias.lowercase()) }
@@ -65,15 +65,19 @@ private fun labelAliasesFor(query: String): List<LabelName> {
         .distinct()
 }
 
-// ---------------- searchLibrary (read/silent) ----------------
+/** LabelName → 人类可读中文（反查 LABEL_ALIASES 表取第一个别名）。 */
+internal fun LabelName.displayCn(): String =
+    LABEL_ALIASES.entries.firstOrNull { it.value == this }?.key ?: name
+
+// ---------------- library_search (read/silent) ----------------
 
 class SearchLibraryTool(
     deps: ToolDependencies,
 ) : AgentTool {
     private val repo = deps.musicRepository
 
-    override val name = ToolNames.SEARCH_LIBRARY
-    override val description = "在本地曲库中按关键词搜索歌曲(标题/艺术家)，结果每行带 id（供 play_by_id 播放）；查询命中风格/情绪/场景标签时也会返回该类曲目\n极少读数，几乎无成本\n用户要播某首/某歌手的歌时，先搜这里拿到该曲的 id，再用控制播放的 play_by_id"
+    override val name = ToolNames.LIBRARY_SEARCH
+    override val description = "在本地曲库中按关键词搜索歌曲(标题/艺术家)，结果每行带 id（供 playback_play_at 播放）；查询命中风格/情绪/场景标签时也会返回该类曲目\n极少读数，几乎无成本\n用户要播某首/某歌手的歌时，先搜这里拿到该曲的 id，再用 playback_play_at"
     override val permissionLevel = ToolPermissionLevel.SILENT
     override val params = listOf(
         StringParam(name = "query", description = "搜索关键词(标题/艺术家/或风格情绪场景标签如 爵士/摇滚/深夜/运动)"),
@@ -96,13 +100,44 @@ class SearchLibraryTool(
     }
 }
 
-// ---------------- enrichSong (notify) ----------------
+// ---------------- song_tags_get (read/silent) ----------------
+
+class SongTagsGetTool(
+    deps: ToolDependencies,
+) : AgentTool {
+    private val repo = deps.musicRepository
+
+    override val name = ToolNames.SONG_TAGS_GET
+    override val description = "获取某首歌的全部标签信息\n区分 source：LLM 生成 vs USER 主动标注（USER 标签永不被模型覆盖）\n只读，极低成本"
+    override val permissionLevel = ToolPermissionLevel.SILENT
+    override val params = listOf(
+        LongParam(name = "music_id", description = "歌曲ID", min = 1),
+    )
+
+    override suspend fun run(args: ToolArgs): ToolResult {
+        val musicId = args.requireLong("music_id")
+        val extra = repo.getMusicExtraById(musicId)
+        if (!extra.errorInfo.isNullOrBlank()) {
+            return ToolResult.failure("歌曲 $musicId 尚未富化：${extra.errorInfo.take(80)}")
+        }
+        return ToolResult.success(
+            "歌曲 $musicId 标签：\n" +
+                "  genre(风格): ${extra.genre.joinToString("、")}\n" +
+                "  mood(情绪): ${extra.mood.joinToString("、")}\n" +
+                "  scenario(场景): ${extra.scenario.joinToString("、")}\n" +
+                "  era(年代): ${extra.era}\n" +
+                "  language(语言): ${extra.language}"
+        )
+    }
+}
+
+// ---------------- song_enrich_llm (notify) ----------------
 
 class EnrichSongTool(
     private val deps: ToolDependencies,
 ) : AgentTool {
-    override val name = ToolNames.ENRICH_SONG
-    override val description = "为单曲生成 AI 富化信息(风格/情绪/场景/歌词简介)\n涉及云端调用，有成本与耗时\n建议【已开唱】或用户主动询问风格时再用"
+    override val name = ToolNames.SONG_ENRICH_LLM
+    override val description = "用 AI 为单曲生成风格/情绪/场景标签（source=LLM）\n涉及云端调用，有成本与耗时\n建议【已开唱】或用户主动询问风格时再用"
     override val permissionLevel = ToolPermissionLevel.NOTIFY
     override val params = listOf(
         StringParam(name = "title", description = "歌曲标题"),
@@ -116,7 +151,7 @@ class EnrichSongTool(
         return result.fold(
             onSuccess = { info ->
                 ToolResult.success(
-                    "「$title」富贵化完成：风格 ${info.genre.take(4).joinToString("、")}、" +
+                    "「$title」AI 富化完成：风格 ${info.genre.take(4).joinToString("、")}、" +
                         "情绪 ${info.mood.take(4).joinToString("、")}、场景 ${info.scenario.take(4).joinToString("、")}",
                     detail = listOf(
                         "era=${info.era}",
@@ -125,7 +160,7 @@ class EnrichSongTool(
                     ).joinToString("\n"),
                 )
             },
-            onFailure = { e -> ToolResult.failure("「$title」富贵化失败：${e.message ?: "未知原因"}") },
+            onFailure = { e -> ToolResult.failure("「$title」AI 富化失败：${e.message ?: "未知原因"}") },
         )
     }
 }

@@ -1,5 +1,8 @@
 package com.hmp.test.fakes
 
+import com.hmp.data.database.MusicLabel as DataMusicLabel
+import com.hmp.domain.agent.enrich.EnrichBatchResult
+import com.hmp.domain.agent.enrich.EnrichHealth
 import com.hmp.domain.backup.ListeningStatsSnapshot
 import com.hmp.domain.backup.MusicUserStateSnapshot
 import com.hmp.domain.enum.LabelCategory
@@ -24,6 +27,8 @@ class FakeMusicRepository : MusicRepository {
     private val musicList = mutableListOf<MusicInfo>()
     private val deletedMusic = mutableListOf<MusicInfo>()
     private val labels = mutableMapOf<Long, MutableList<MusicLabel>>()
+    /** 富化/标签溯源用 data 层 entity 存储（含 source/confidence/createdAt 字段）。 */
+    private val dataLabels = mutableMapOf<Long, MutableList<DataMusicLabel>>()
     private val likedStatus = mutableMapOf<Long, Boolean>()
     private val lyrics = mutableMapOf<Long, String>()
     private val extras = mutableMapOf<Long, DailyMusicInfo>()
@@ -67,6 +72,24 @@ class FakeMusicRepository : MusicRepository {
     override suspend fun getMusicListByAlbum(albumName: String): List<MusicInfo> =
         musicList.filter { it.music.album == albumName }
 
+    override suspend fun getAllArtistsSummary(limit: Int): List<Pair<String, Int>> =
+        musicList
+            .filter { !it.music.artist.isBlank() }
+            .groupBy { it.music.artist }
+            .mapValues { (_, list) -> list.size }
+            .toList()
+            .sortedByDescending { it.second }
+            .take(limit)
+
+    override suspend fun getAllAlbumsSummary(limit: Int): List<Pair<String, Int>> =
+        musicList
+            .filter { !it.music.album.isBlank() }
+            .groupBy { it.music.album }
+            .mapValues { (_, list) -> list.size }
+            .toList()
+            .sortedByDescending { it.second }
+            .take(limit)
+
     override suspend fun searchMusic(query: String): List<MusicInfo> {
         val q = query.lowercase()
         return musicList.filter {
@@ -108,10 +131,32 @@ class FakeMusicRepository : MusicRepository {
 
     override suspend fun addMusicLabel(label: MusicLabel) {
         labels.getOrPut(label.musicId) { mutableListOf() }.add(label)
+        dataLabels.getOrPut(label.musicId) { mutableListOf() }.add(
+            DataMusicLabel(
+                musicId = label.musicId,
+                type = com.hmp.data.database.myenum.LabelCategory.valueOf(label.type.name),
+                label = com.hmp.data.database.myenum.LabelName.valueOf(label.label.name),
+                source = "LLM",
+                confidence = 0.6,
+                createdAt = System.currentTimeMillis(),
+                updatedAt = System.currentTimeMillis(),
+            )
+        )
     }
 
     override suspend fun addUserMusicLabel(label: MusicLabel, confidence: Double) {
         labels.getOrPut(label.musicId) { mutableListOf() }.add(label)
+        dataLabels.getOrPut(label.musicId) { mutableListOf() }.add(
+            DataMusicLabel(
+                musicId = label.musicId,
+                type = com.hmp.data.database.myenum.LabelCategory.valueOf(label.type.name),
+                label = com.hmp.data.database.myenum.LabelName.valueOf(label.label.name),
+                source = "USER",
+                confidence = confidence,
+                createdAt = System.currentTimeMillis(),
+                updatedAt = System.currentTimeMillis(),
+            )
+        )
     }
 
     override fun getLabelNamesByType(type: LabelCategory): Flow<List<LabelName>> {
@@ -129,6 +174,10 @@ class FakeMusicRepository : MusicRepository {
 
     override suspend fun getMusicLabels(musicId: Long): List<MusicLabel> =
         labels[musicId] ?: emptyList()
+
+    override suspend fun removeUserMusicLabel(musicId: Long, label: LabelName) {
+        labels[musicId]?.removeAll { it.label == label }
+    }
 
     override suspend fun updateMusicTags(musicId: Long, tags: EditableMusicTags): Result<Unit> {
         val index = musicList.indexOfFirst { it.music.id == musicId }
@@ -233,4 +282,55 @@ class FakeMusicRepository : MusicRepository {
         ListeningStatsSnapshot()
 
     override suspend fun restoreListeningStats(snapshot: ListeningStatsSnapshot) {}
+
+    // region Agent T2: 富化健康度查询
+
+    private val SOURCE_LLM = "LLM"
+    private val SOURCE_AGENT = "AGENT"
+
+    private fun allDataLabels(): List<DataMusicLabel> = dataLabels.values.flatten()
+
+    override suspend fun getEnrichHealth(): EnrichHealth {
+        val all = allDataLabels()
+        val enrichedIds = all
+            .filter { it.source == SOURCE_LLM || it.source == SOURCE_AGENT }
+            .map { it.musicId }
+            .toSet()
+        val lowConfCount = all
+            .filter { (it.source == SOURCE_LLM || it.source == SOURCE_AGENT) && (it.confidence != null && it.confidence < 0.5) }
+            .map { it.musicId }
+            .distinct()
+            .size
+        return EnrichHealth(
+            enrichedSongCount = enrichedIds.size,
+            totalSongCount = musicList.size,
+            lowConfidenceCount = lowConfCount,
+        )
+    }
+
+    override suspend fun getUnenrichedSongs(limit: Int): List<MusicInfo> {
+        val enrichedIds = allDataLabels()
+            .filter { it.source == SOURCE_LLM || it.source == SOURCE_AGENT }
+            .map { it.musicId }
+            .toSet()
+        return musicList.filter { it.music.id !in enrichedIds }.take(limit)
+    }
+
+    override suspend fun getFailedEnrichSongs(limit: Int): List<MusicInfo> {
+        val lowConfIds = allDataLabels()
+            .filter { (it.source == SOURCE_LLM || it.source == SOURCE_AGENT) && (it.confidence != null && it.confidence < 0.5) }
+            .map { it.musicId }
+            .distinct()
+        val lowConfSet = lowConfIds.toSet()
+        return musicList.filter { it.music.id in lowConfSet }.take(limit)
+    }
+
+    override suspend fun getRecentEnrichResults(since: Long): EnrichBatchResult {
+        val recentLabels = allDataLabels()
+            .filter { (it.source == SOURCE_LLM || it.source == SOURCE_AGENT) && (it.createdAt != null && it.createdAt >= since) }
+        val successMusicIds = recentLabels.map { it.musicId }.distinct().size
+        return EnrichBatchResult(successCount = successMusicIds, failureCount = 0)
+    }
+
+    // endregion
 }

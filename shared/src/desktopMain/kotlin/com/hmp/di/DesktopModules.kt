@@ -1,5 +1,6 @@
 package com.hmp.di
 
+import co.touchlab.kermit.Logger
 import com.hmp.data.database.AppDatabase
 import com.hmp.data.database.AgentMessageDao
 import com.hmp.data.database.AgentAuditLogDao
@@ -66,10 +67,10 @@ fun initKoinDesktop(vararg additionalModules: org.koin.core.module.Module) {
     val t = System.currentTimeMillis()
     val modules = mutableListOf(sharedModule, desktopPlatformModule)
     modules.addAll(additionalModules)
-    println("[Startup] +${System.currentTimeMillis() - t}ms — module list assembled")
+    Logger.i(null, "Startup") { "+${System.currentTimeMillis() - t}ms — module list assembled" }
     val t2 = System.currentTimeMillis()
     startKoin {
         modules(modules)
     }
-    println("[Startup] +${System.currentTimeMillis() - t2}ms — startKoin {} execution")
+    Logger.i(null, "Startup") { "+${System.currentTimeMillis() - t2}ms — startKoin {} execution" }
 }

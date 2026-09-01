@@ -1,4 +1,4 @@
-package com.hmp.domain.agent.engine
+package com.hmp.domain.agent.infra
 
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -27,6 +27,13 @@ sealed interface PresenceEvent {
 
     /** DJ 衔接空白（电台曲间一句，M6-T3）。 */
     data object DjBlank : PresenceEvent
+
+    /** T3 SubAgent 执行进度（供 Master 验收 + UI 后台状态显示）。 */
+    data class AgentProgress(
+        val agentId: String,
+        val processed: Int,
+        val total: Int,
+    ) : PresenceEvent
 }
 
 /**
@@ -40,9 +47,9 @@ class PresenceBus {
     val badgeState: StateFlow<PresenceEvent.CompanionBadge> = badgeFlow
     val events: Flow<PresenceEvent> = eventFlow.asSharedFlow()
 
-    /** 广播事件；徽标事件同步更新合成态。 */
-    suspend fun emit(event: PresenceEvent) {
+    /** 广播事件；徽标事件同步更新合成态。非阻塞 tryEmit，依赖 extraBufferCapacity=16 保证不丢事件。 */
+    fun emit(event: PresenceEvent) {
         if (event is PresenceEvent.CompanionBadge) badgeFlow.value = event
-        eventFlow.emit(event)
+        eventFlow.tryEmit(event)
     }
 }

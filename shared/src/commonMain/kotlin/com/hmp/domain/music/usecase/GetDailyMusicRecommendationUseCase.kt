@@ -1,5 +1,6 @@
 package com.hmp.domain.music.usecase
 
+import co.touchlab.kermit.Logger
 import com.hmp.domain.setting.model.AiAccessMode
 import com.hmp.domain.setting.model.DailyMusicInfo
 import com.hmp.domain.setting.model.ListeningDuration
@@ -23,18 +24,18 @@ class GetDailyMusicRecommendationUseCase(
 
     fun pauseProcessing() {
         _isPaused = true
-        println("[DBG] Processing paused")
+        Logger.d("UseCase.DailyRec") { "Processing paused" }
     }
 
     fun resumeProcessing() {
         _isPaused = false
-        println("[DBG] Processing resumed")
+        Logger.d("UseCase.DailyRec") { "Processing resumed" }
     }
 
     fun cancelProcessing() {
         _isCancelled = true
         _isPaused = false
-        println("[DBG] Processing cancelled")
+        Logger.d("UseCase.DailyRec") { "Processing cancelled" }
     }
 
     fun resetProcessingState() {
@@ -82,7 +83,7 @@ class GetDailyMusicRecommendationUseCase(
             val musicInfo = withTimeoutOrNull(2000) {
                 musicRepository.getMusicInfoById(musicId).firstOrNull()
             } ?: run {
-                println("[WRN] getMusicWithExtraById: Timeout or null for id $musicId")
+                Logger.w("UseCase.DailyRec") { "getMusicWithExtraById: Timeout or null for id $musicId" }
                 return null
             }
 
@@ -90,7 +91,7 @@ class GetDailyMusicRecommendationUseCase(
             val labels = musicRepository.getMusicLabels(musicId)
             return MusicRecommendation(musicInfo, dailyMusicInfo, labels)
         } catch (e: Exception) {
-            println("[ERR] Error fetching music by id: $musicId")
+            Logger.e("UseCase.DailyRec", e) { "Error fetching music by id: $musicId" }
             return null
         }
     }
@@ -129,7 +130,7 @@ class GetDailyMusicRecommendationUseCase(
         val activeConfig = settingsRepository.getActiveAiConfig()
 
         if (!activeConfig.isConfigured) {
-            println("[WRN] No AI provider configured, skipping auto process")
+            Logger.w("UseCase.DailyRec") { "No AI provider configured, skipping auto process" }
             onComplete(ProcessingResult())
             return
         }
@@ -141,7 +142,7 @@ class GetDailyMusicRecommendationUseCase(
 
         while (true) {
             if (isCancelled()) {
-                println("[DBG] Processing cancelled by user")
+                Logger.d("UseCase.DailyRec") { "Processing cancelled by user" }
                 break
             }
 
@@ -178,7 +179,7 @@ class GetDailyMusicRecommendationUseCase(
         )
 
         onComplete(processingResult)
-        println("[DBG] Processing completed: $processingResult")
+        Logger.d("UseCase.DailyRec") { "Processing completed: $processingResult" }
     }
 
     private suspend fun getMusicExtraInfoWithCurrentProviderAndResult(input: MusicInfo): ExtraInfoResult {
@@ -211,11 +212,11 @@ class GetDailyMusicRecommendationUseCase(
                 if (mode == AiAccessMode.FREE) {
                     settingsRepository.decrementAiFreeTrialCount()
                 }
-                println("[DBG] Successfully processed music via ${activeConfig.endpoint}")
+                Logger.d("UseCase.DailyRec") { "Successfully processed music via ${activeConfig.endpoint}" }
                 ExtraInfoResult.Success(intro)
             },
             onFailure = { exception ->
-                println("[ERR] Fetch extra info failed: ${exception.message}")
+                Logger.e("UseCase.DailyRec", exception) { "Fetch extra info failed: ${exception.message}" }
                 ExtraInfoResult.Error(exception.message ?: "Unknown error")
             }
         )

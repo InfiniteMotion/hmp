@@ -75,6 +75,9 @@ kotlin {
 
             // NavDisplay 的 ViewModel decorator
             implementation(libs.jetbrains.lifecycle.viewmodel.navigation3)
+
+            // Kermit — ChatViewModel/ChatAgentGateway 日志
+            implementation(libs.kermit)
         }
 
         androidMain.dependencies {

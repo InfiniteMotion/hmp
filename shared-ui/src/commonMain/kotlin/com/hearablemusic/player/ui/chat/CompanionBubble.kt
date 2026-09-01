@@ -20,6 +20,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.draw.clip
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -66,6 +67,8 @@ data class CompanionCallbacks(
     val onSongMenu: (MusicInfo) -> Unit = {},
     val onPlaylistPlayAll: () -> Unit = {},
     val onToggleConfirm: (String) -> Unit = {},
+    /** v7.1 新增：切换某项"总是允许"（写 AgentPolicyConfig.alwaysAllow） */
+    val onToggleAlwaysAllow: (String) -> Unit = {},
     val onSubmitConfirm: () -> Unit = {},
     val onSkipConfirm: () -> Unit = {},
 )
@@ -158,43 +161,81 @@ fun ConfirmMatrixCard(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .then(
-                            if (submitted) Modifier
-                            else Modifier.clickable { callbacks.onToggleConfirm(item.id) }
-                        )
                         .padding(vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Box(
+                    // 左侧：确认勾选框 + 工具名（可点击区域）
+                    Row(
                         modifier = Modifier
-                            .size(20.dp)
-                            .background(
-                                when {
-                                    submitted && item.selected -> MaterialTheme.colorScheme.primary
-                                    item.selected -> MaterialTheme.colorScheme.primary
-                                    else -> MaterialTheme.colorScheme.surfaceVariant
-                                },
-                                RoundedCornerShape(6.dp),
+                            .weight(1f)
+                            .then(
+                                if (submitted) Modifier
+                                else Modifier.clickable { callbacks.onToggleConfirm(item.id) }
                             ),
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        if (item.selected) {
+                        Box(
+                            modifier = Modifier
+                                .size(20.dp)
+                                .background(
+                                    when {
+                                        submitted && item.selected -> MaterialTheme.colorScheme.primary
+                                        item.selected -> MaterialTheme.colorScheme.primary
+                                        else -> MaterialTheme.colorScheme.surfaceVariant
+                                    },
+                                    RoundedCornerShape(6.dp),
+                                ),
+                        ) {
+                            if (item.selected) {
+                                Text(
+                                    text = "✓",
+                                    color = MaterialTheme.colorScheme.onPrimary,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.align(Alignment.Center),
+                                    style = MaterialTheme.typography.labelMedium,
+                                )
+                            }
+                        }
+                        Spacer(Modifier.width(10.dp))
+                        Text(
+                            text = "${item.toolName} · ${item.argsSummary}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+
+                    // 右侧："总是允许" checkbox（仅未提交时可操作）
+                    if (!submitted) {
+                        val labelColor = if (item.alwaysAllow)
+                            MaterialTheme.colorScheme.tertiary
+                        else
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.clickable { callbacks.onToggleAlwaysAllow(item.id) },
+                        ) {
+                            Checkbox(
+                                checked = item.alwaysAllow,
+                                onCheckedChange = null,  // 整个 Row clickable，Checkbox 自身不消费点击
+                                modifier = Modifier.size(28.dp),
+                            )
                             Text(
-                                text = "✓",
-                                color = MaterialTheme.colorScheme.onPrimary,
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier.align(Alignment.Center),
-                                style = MaterialTheme.typography.labelMedium,
+                                text = "总是允许",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = labelColor,
                             )
                         }
+                    } else if (item.alwaysAllow) {
+                        // 已提交回执：如果勾了"总是允许"显示标记
+                        Text(
+                            text = "✦ 总是允许",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.tertiary,
+                        )
                     }
-                    Spacer(Modifier.width(10.dp))
-                    Text(
-                        text = "${item.toolName} · ${item.argsSummary}",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                    )
                 }
                 if (index != items.lastIndex) {
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)

@@ -10,15 +10,15 @@ internal fun List<PlaybackHistory>.historyLines(limit: Int): String =
         "#${i + 1} musicId=${h.musicId} 播放时长=${h.playDuration / 1000}s completed=${h.isCompleted} 时间戳=${h.playedAt}"
     }.joinToString("\n")
 
-// ---------------- getListenStats (read/silent) ----------------
+// ---------------- library_stats (read/silent) ----------------
 
 class GetListenStatsTool(
     deps: ToolDependencies,
 ) : AgentTool {
     private val repo = deps.musicRepository
 
-    override val name = ToolNames.GET_LISTEN_STATS
-    override val description = "获取用户整体收听统计(总播放/常听/时长/类型分布)\n只读聚合，极低成本\n需要更细粒度时可用 getRecentHistory"
+    override val name = ToolNames.LIBRARY_STATS
+    override val description = "获取用户整体收听统计(总播放/常听/时长/类型分布)\n只读聚合，极低成本\n需要更细粒度时可用 library_recent_history"
     override val permissionLevel = ToolPermissionLevel.SILENT
     override val params = emptyList<ToolParam>()
 
@@ -35,15 +35,15 @@ class GetListenStatsTool(
     }
 }
 
-// ---------------- getRecentHistory (read/silent) ----------------
+// ---------------- library_recent_history (read/silent) ----------------
 
 class GetRecentHistoryTool(
     deps: ToolDependencies,
 ) : AgentTool {
     private val repo = deps.musicRepository
 
-    override val name = ToolNames.GET_RECENT_HISTORY
-    override val description = "获取最近播放历史列表\n只读，成本极低\n与 getListenStats 叠加可洞察近期偏好"
+    override val name = ToolNames.LIBRARY_RECENT_HISTORY
+    override val description = "获取最近播放历史列表\n只读，成本极低\n与 library_stats 叠加可洞察近期偏好"
     override val permissionLevel = ToolPermissionLevel.SILENT
     override val params = listOf(
         IntParam(name = "limit", description = "返回条数", required = false, min = 1, max = 50, clamp = true),

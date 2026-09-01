@@ -85,6 +85,7 @@ fun ChatScreen(
         onInputChange = chatViewModel::onInputChange,
         onSend = chatViewModel::send,
         onToggleConfirm = chatViewModel::toggleConfirmItem,
+        onToggleAlwaysAllow = chatViewModel::toggleAlwaysAllowConfirmItem,
         onSubmitConfirm = chatViewModel::submitConfirm,
         onSkipConfirm = chatViewModel::skipConfirm,
         onSongClick = { music -> scope.launch { playbackController.playWith(music) } },
@@ -100,6 +101,7 @@ private fun ChatScreenContent(
     onInputChange: (String) -> Unit,
     onSend: () -> Unit,
     onToggleConfirm: (String) -> Unit,
+    onToggleAlwaysAllow: (String) -> Unit,
     onSubmitConfirm: () -> Unit,
     onSkipConfirm: () -> Unit,
     onSongClick: (MusicInfo) -> Unit,
@@ -113,6 +115,7 @@ private fun ChatScreenContent(
         onSongMenu = onSongMenu,
         onPlaylistPlayAll = onPlaylistPlayAll,
         onToggleConfirm = onToggleConfirm,
+        onToggleAlwaysAllow = onToggleAlwaysAllow,
         onSubmitConfirm = onSubmitConfirm,
         onSkipConfirm = onSkipConfirm,
     )

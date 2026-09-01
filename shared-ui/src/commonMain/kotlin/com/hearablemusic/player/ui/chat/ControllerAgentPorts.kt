@@ -53,6 +53,7 @@ class ControllerPlaybackCommandPort(
         is PlaybackCommand.REPEAT_ONE_ON -> setMode(PlaybackMode.REPEAT_ONE)
         is PlaybackCommand.REPEAT_ALL_ON -> setMode(PlaybackMode.SEQUENTIAL) // 全部循环无对应，退回顺序
         is PlaybackCommand.REPEAT_OFF -> setMode(PlaybackMode.SEQUENTIAL)
+        is PlaybackCommand.ADD_TO_QUEUE -> false to "播放控制器暂不支持直接入队，建议使用播放列表功能"
     }
 
     /** 通过 [PlaybackController.togglePlaybackModeByOrder] 循环切换至目标；3 态循环至多 2 次必达。 */

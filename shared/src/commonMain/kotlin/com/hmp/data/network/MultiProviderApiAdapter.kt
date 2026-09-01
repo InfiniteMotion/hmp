@@ -1,5 +1,6 @@
 package com.hmp.data.network
 
+import co.touchlab.kermit.Logger
 import com.hmp.data.network.dto.ModelsResponse
 import com.hmp.data.network.dto.OpenAiMessage
 import com.hmp.data.network.dto.OpenAiStreamChunk
@@ -129,7 +130,7 @@ class OpenAiCompatibleAdapter(
             val chunk = try {
                 json.decodeFromString<OpenAiStreamChunk>(payload.trim())
             } catch (e: Exception) {
-                println("[WRN] SSE chunk 解析失败，跳过: ${e.message}")
+                Logger.w("Network.ApiAdapter", e) { "SSE chunk 解析失败，跳过: ${e.message}" }
                 return@parse
             }
             emit(chunk)

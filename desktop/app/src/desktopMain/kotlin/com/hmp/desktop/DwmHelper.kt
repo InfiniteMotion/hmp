@@ -7,6 +7,7 @@ import com.sun.jna.platform.win32.Advapi32Util
 import com.sun.jna.platform.win32.WinDef
 import com.sun.jna.platform.win32.WinReg
 import com.sun.jna.ptr.IntByReference
+import co.touchlab.kermit.Logger
 
 /**
  * Windows DWM API helper — disables Mica/Acrylic, sets solid title bar color,
@@ -35,7 +36,7 @@ object DwmHelper {
      */
     fun setWindowHandle(hwnd: WinDef.HWND) {
         cachedHwnd = hwnd
-        println("[DwmHelper] Window handle registered: ${hwnd.pointer}")
+        Logger.i(null, "DwmHelper") { "Window handle registered: ${hwnd.pointer}" }
     }
 
     /** Start native window drag from the cached HWND (for Aero Snap support). */
@@ -51,7 +52,7 @@ object DwmHelper {
 
         val hwnd = cachedHwnd ?: findWindowByPid()
         if (hwnd == null) {
-            println("[DwmHelper] WARNING: No window handle available")
+            Logger.w(null, "DwmHelper") { "No window handle available" }
             return
         }
         cachedHwnd = hwnd
@@ -60,7 +61,7 @@ object DwmHelper {
         val isDark = luminance < 0.5
         val textArgb = if (isDark) 0xFFFFFFFF.toInt() else 0xFF000000.toInt()
 
-        println("[DwmHelper] apply: caption=#${Integer.toHexString(captionArgb)} isDark=$isDark hwnd=${hwnd.pointer}")
+        Logger.d(null, "DwmHelper") { "apply: caption=#${Integer.toHexString(captionArgb)} isDark=$isDark hwnd=${hwnd.pointer}" }
 
         dwmSetAttr(hwnd, DWMWA_SYSTEMBACKDROP_TYPE, DWMSBT_NONE)
         dwmSetAttr(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, if (isDark) 1 else 0)
@@ -86,11 +87,11 @@ object DwmHelper {
             margins.write()
             val hr = fn.invokeInt(arrayOf(hwnd, margins))
             if (hr != 0) {
-                println("[DwmHelper] DwmExtendFrameIntoClientArea failed: HRESULT=0x${Integer.toHexString(hr)}")
+                Logger.w(null, "DwmHelper") { "DwmExtendFrameIntoClientArea failed: HRESULT=0x${Integer.toHexString(hr)}" }
             }
             margins.read()
         } catch (e: Throwable) {
-            println("[DwmHelper] DwmExtendFrameIntoClientArea exception: ${e.message}")
+            Logger.e(e, "DwmHelper") { "DwmExtendFrameIntoClientArea exception: ${e.message}" }
         }
     }
 
@@ -130,7 +131,7 @@ object DwmHelper {
                     Thread.sleep(intervalMs)
                     val dark = isSystemDark()
                     if (dark != lastDark) {
-                        println("[DwmHelper] System theme changed: isDark=$dark")
+                        Logger.i(null, "DwmHelper") { "System theme changed: isDark=$dark" }
                         lastDark = dark
                         callback(dark)
                     }
@@ -170,10 +171,10 @@ object DwmHelper {
             val valueRef = IntByReference(value)
             val hr = fn.invokeInt(arrayOf(hwnd, attr, valueRef, 4))
             if (hr != 0) {
-                println("[DwmHelper] attr=$attr failed: HRESULT=0x${Integer.toHexString(hr)}")
+                Logger.w(null, "DwmHelper") { "attr=$attr failed: HRESULT=0x${Integer.toHexString(hr)}" }
             }
         } catch (e: Throwable) {
-            println("[DwmHelper] attr=$attr exception: ${e.message}")
+            Logger.e(e, "DwmHelper") { "attr=$attr exception: ${e.message}" }
         }
     }
 

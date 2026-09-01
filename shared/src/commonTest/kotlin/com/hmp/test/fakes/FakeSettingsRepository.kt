@@ -278,4 +278,8 @@ class FakeSettingsRepository : SettingsRepository {
     override suspend fun backupSettings(): Result<String> = Result.success("/backup.json")
     override suspend fun restoreSettings(backupFilePath: String): Result<Unit> = Result.success(Unit)
     override suspend fun cleanOldBackups(keepCount: Int): Result<Unit> = Result.success(Unit)
+
+    override suspend fun getAgentPolicyConfig(agentRole: String): com.hmp.domain.agent.policy.AgentPolicyConfig =
+        com.hmp.domain.agent.policy.AgentPolicyConfig()
+    override suspend fun saveAgentPolicyConfig(agentRole: String, config: com.hmp.domain.agent.policy.AgentPolicyConfig) {}
 }

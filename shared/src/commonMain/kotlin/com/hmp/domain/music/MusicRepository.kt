@@ -1,5 +1,7 @@
 package com.hmp.domain.music
 
+import com.hmp.domain.agent.enrich.EnrichBatchResult
+import com.hmp.domain.agent.enrich.EnrichHealth
 import com.hmp.domain.setting.model.AiEndpointConfig
 import com.hmp.domain.setting.model.DailyMusicInfo
 import com.hmp.domain.setting.model.ListeningDuration
@@ -18,6 +20,12 @@ interface MusicRepository {
     fun getMusicInfoById(musicId: Long): Flow<MusicInfo?>
     suspend fun getMusicListByArtist(artistName: String): List<MusicInfo>
     suspend fun getMusicListByAlbum(albumName: String): List<MusicInfo>
+
+    /** 按歌手聚合：返回 (歌手名, 作品数) 列表，按作品数降序。 */
+    suspend fun getAllArtistsSummary(limit: Int): List<Pair<String, Int>>
+
+    /** 按专辑聚合：返回 (专辑名, 曲目数) 列表，按曲目数降序。 */
+    suspend fun getAllAlbumsSummary(limit: Int): List<Pair<String, Int>>
     suspend fun searchMusic(query: String): List<MusicInfo>
 
     // Music Random
@@ -48,6 +56,9 @@ interface MusicRepository {
 
     fun getLabelNamesByType(type: LabelCategory): Flow<List<LabelName>>
     suspend fun getMusicIdListByType(label: LabelName): List<Long>
+
+    /** 删除某首歌的 USER 源标签（只删 source=USER 的；LLM 富化标签不受影响）。 */
+    suspend fun removeUserMusicLabel(musicId: Long, label: LabelName)
     suspend fun getMusicLabels(musicId: Long): List<MusicLabel>
 
     /** 编辑单曲标签（ID3 元数据），写入文件成功后同步更新本地曲库记录。 */
@@ -108,4 +119,18 @@ interface MusicRepository {
     
     suspend fun exportListeningStatsSnapshot(): com.hmp.domain.backup.ListeningStatsSnapshot
     suspend fun restoreListeningStats(snapshot: com.hmp.domain.backup.ListeningStatsSnapshot)
+
+    // ===== Agent T2: 富化健康度查询 =====
+
+    /** 富化健康度快照（Master 启动时检测覆盖率） */
+    suspend fun getEnrichHealth(): EnrichHealth
+
+    /** 获取未富化的歌曲（没有任何 LLM/AGENT 源标签的），返回前 limit 首 */
+    suspend fun getUnenrichedSongs(limit: Int): List<MusicInfo>
+
+    /** 获取之前富化失败的歌曲重试批次（简化版：low confidence 的） */
+    suspend fun getFailedEnrichSongs(limit: Int): List<MusicInfo>
+
+    /** 最近富化结果验收：自 since 时间戳以来的成功/失败统计 */
+    suspend fun getRecentEnrichResults(since: Long): EnrichBatchResult
 }

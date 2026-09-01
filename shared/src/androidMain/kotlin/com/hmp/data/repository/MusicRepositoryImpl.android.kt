@@ -5,6 +5,7 @@ import android.content.Context
 import android.media.MediaMetadataRetriever
 import android.provider.MediaStore
 import androidx.core.net.toUri
+import co.touchlab.kermit.Logger
 import com.hmp.data.database.AgentAuditLogDao
 import com.hmp.data.database.ListeningDurationDao
 import com.hmp.data.database.Music
@@ -149,7 +150,7 @@ class MusicRepositoryImpl(
 
             kotlin.Result.success(Unit)
         } catch (e: Exception) {
-            println("MusicRepository: Music scan failed: ${e.message}")
+            Logger.e("Repo.Music", e) { "MusicRepository: Music scan failed: ${e.message}" }
             kotlin.Result.failure(e)
         } finally {
             _isScanning.value = false
@@ -224,7 +225,7 @@ class MusicRepositoryImpl(
 
             kotlin.Result.success(Unit)
         } catch (e: Exception) {
-            println("MusicRepository: Incremental music scan failed: ${e.message}")
+            Logger.e("Repo.Music", e) { "MusicRepository: Incremental music scan failed: ${e.message}" }
             kotlin.Result.failure(e)
         } finally {
             _isScanning.value = false
@@ -341,7 +342,7 @@ class MusicRepositoryImpl(
                             )
                         )
                     } catch (e: Exception) {
-                        println("MusicRepository: Error processing music item: ${e.message}")
+                        Logger.e("Repo.Music", e) { "MusicRepository: Error processing music item: ${e.message}" }
                     }
                 }
             }

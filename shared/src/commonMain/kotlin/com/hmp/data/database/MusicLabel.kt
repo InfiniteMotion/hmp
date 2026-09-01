@@ -60,4 +60,8 @@ interface MusicLabelDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(labels: List<MusicLabel>)
+
+    /** 删除指定 (musicId, label) 的 USER 源标签（domain 层 removeUserMusicLabel 调用）。 */
+    @Query("DELETE FROM musicLabel WHERE musicId = :musicId AND label = :label AND source = 'USER'")
+    suspend fun deleteUserLabel(musicId: Long, label: LabelName)
 }

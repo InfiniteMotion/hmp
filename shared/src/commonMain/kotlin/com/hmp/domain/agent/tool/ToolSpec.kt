@@ -165,6 +165,9 @@ class ToolArgs internal constructor(
     fun optionalLong(name: String): Long? =
         optionalPrimitive(name)?.content?.toLongOrNull()
 
+    fun optionalFloat(name: String): Float? =
+        optionalPrimitive(name)?.content?.toFloatOrNull()
+
     fun requireBool(name: String): Boolean =
         requirePrimitive(name).content.toBooleanStrictOrNull()
             ?: throw ToolParamError("参数 '$name' 应为布尔，实际: '${requirePrimitive(name).content}'")

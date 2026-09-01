@@ -1,5 +1,6 @@
 package com.hmp.data.repository
 
+import co.touchlab.kermit.Logger
 import com.hmp.data.database.ListeningDuration
 import com.hmp.data.database.AgentAuditLogDao
 import com.hmp.data.database.ListeningDurationDao
@@ -68,7 +69,7 @@ class MusicRepositoryImpl(
         _isScanning.value = true
         try {
             val (musicList, extraList, userInfoList) = performMusicScan()
-            println("MusicRepository: scanned ${musicList.size} music files")
+            Logger.i("Repo.Music") { "scanned ${musicList.size} music files" }
 
             musicDao.deleteAll()
             musicExtraDao.deleteAll()
@@ -84,10 +85,10 @@ class MusicRepositoryImpl(
                 userInfoDao.insertAll(batch)
             }
 
-            println("MusicRepository: persisted ${musicList.size} tracks to database")
+            Logger.i("Repo.Music") { "persisted ${musicList.size} tracks to database" }
             Result.success(Unit)
         } catch (e: Exception) {
-            println("MusicRepository: Music scan failed: ${e.message}")
+            Logger.e("Repo.Music", e) { "MusicRepository: Music scan failed: ${e.message}" }
             Result.failure(e)
         } finally {
             _isScanning.value = false
@@ -159,7 +160,7 @@ class MusicRepositoryImpl(
 
             Result.success(Unit)
         } catch (e: Exception) {
-            println("MusicRepository: Incremental music scan failed: ${e.message}")
+            Logger.e("Repo.Music", e) { "MusicRepository: Incremental music scan failed: ${e.message}" }
             Result.failure(e)
         } finally {
             _isScanning.value = false
@@ -202,7 +203,7 @@ class MusicRepositoryImpl(
 
                     userInfoList.add(UserInfo(id = file.id))
                 } catch (e: Exception) {
-                    println("MusicRepository: Error processing music item: ${e.message}")
+                    Logger.e("Repo.Music", e) { "MusicRepository: Error processing music item: ${e.message}" }
                 }
             }
 

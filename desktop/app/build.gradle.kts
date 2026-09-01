@@ -27,6 +27,7 @@ kotlin {
                 implementation(compose.runtime)
                 implementation(compose.material3)
                 implementation(libs.koin.core)
+                implementation(libs.kermit)
                 implementation(libs.jna)
                 implementation(libs.jna.platform)
             }
@@ -170,6 +171,9 @@ compose.desktop {
         jvmArgs += listOf(
             "-Xmx512m",
             "-Dfile.encoding=UTF-8",
+            // Release 级别裁剪：命令行 -Phmp.release-build=true 时注入 Severity.Warn；
+            // 默认 false → Severity.Debug（开发 run）。CI 构建在 release.yml 里带此属性。
+            "-Dhmp.release-build=${project.findProperty("hmp.release-build")?.toString()?.toBoolean() == true}",
             // AWT DPI awareness — prevent Windows from applying bitmap upscaling
             "-Dsun.java2d.dpiaware=true",
             "-Dsun.java2d.scaling.enabled=false",

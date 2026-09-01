@@ -26,6 +26,8 @@ import com.hmp.data.util.MusicTagEditor
 import com.hmp.data.util.parseDateToMillis
 import com.hmp.data.util.stringToPinyinSortKey
 import com.hmp.data.util.todayDateString
+import com.hmp.domain.agent.enrich.EnrichBatchResult
+import com.hmp.domain.agent.enrich.EnrichHealth
 import com.hmp.domain.backup.ListeningStatsSnapshot
 import com.hmp.domain.backup.MusicExtraUserSnapshot
 import com.hmp.domain.backup.MusicLabelSnapshot
@@ -109,6 +111,24 @@ abstract class MusicRepositoryBase(
             compareBy<MusicInfo> { stringToPinyinSortKey(it.music.title) }.thenBy { it.music.title }
         )
     }
+
+    override suspend fun getAllArtistsSummary(limit: Int): List<Pair<String, Int>> =
+        getAllMusicInfoAsList("playCount", "DESC")
+            .filter { !it.music.artist.isBlank() }
+            .groupBy { it.music.artist }
+            .mapValues { (_, list) -> list.size }
+            .toList()
+            .sortedByDescending { it.second }
+            .take(limit)
+
+    override suspend fun getAllAlbumsSummary(limit: Int): List<Pair<String, Int>> =
+        getAllMusicInfoAsList("playCount", "DESC")
+            .filter { !it.music.album.isBlank() }
+            .groupBy { it.music.album }
+            .mapValues { (_, list) -> list.size }
+            .toList()
+            .sortedByDescending { it.second }
+            .take(limit)
 
     override suspend fun searchMusic(query: String): List<MusicInfo> =
         musicAllDao.searchMusic("%$query%").map { it.toDomain() }
@@ -243,6 +263,15 @@ abstract class MusicRepositoryBase(
 
     override suspend fun getMusicLabels(musicId: Long): List<MusicLabel> =
         musicLabelDao.getLabelsById(musicId).map { it.toDomain() }
+
+    override suspend fun removeUserMusicLabel(musicId: Long, label: LabelName) {
+        val dataLabel = try {
+            DataLabelName.valueOf(label.name)
+        } catch (e: Exception) {
+            return
+        }
+        musicLabelDao.deleteUserLabel(musicId, dataLabel)
+    }
 
     /** 编辑单曲标签（ID3 元数据）：文件写入委托平台 [MusicTagEditor]（expect/actual），本地曲库记录同步在此。 */
     override suspend fun updateMusicTags(musicId: Long, tags: EditableMusicTags): Result<Unit> =
@@ -821,6 +850,82 @@ abstract class MusicRepositoryBase(
             )
         }
         playbackHistoryDao.insertAll(history)
+    }
+
+    // endregion
+
+    // region Agent T2: 富化健康度查询
+
+    /** 富化健康度快照：Kotlin 侧 groupBy 实现，避免新增 DAO SQL。 */
+    override suspend fun getEnrichHealth(): EnrichHealth {
+        val allIds = musicDao.getAllActiveIds()
+        val allLabels = musicLabelDao.getAllLabels()
+
+        val enrichedIds = allLabels
+            .filter { it.source == SOURCE_LLM || it.source == SOURCE_AGENT }
+            .map { it.musicId }
+            .toSet()
+
+        val lowConfCount = allLabels
+            .filter { (it.source == SOURCE_LLM || it.source == SOURCE_AGENT) && (it.confidence != null && it.confidence < 0.5) }
+            .map { it.musicId }
+            .distinct()
+            .size
+
+        return EnrichHealth(
+            enrichedSongCount = enrichedIds.size,
+            totalSongCount = allIds.size,
+            lowConfidenceCount = lowConfCount,
+        )
+    }
+
+    /** 获取未富化的歌曲：没有任何 LLM/AGENT 源标签的。 */
+    override suspend fun getUnenrichedSongs(limit: Int): List<MusicInfo> {
+        val allIds = musicDao.getAllActiveIds()
+        val enrichedIds = musicLabelDao.getAllLabels()
+            .filter { it.source == SOURCE_LLM || it.source == SOURCE_AGENT }
+            .map { it.musicId }
+            .toSet()
+
+        val unenrichedIds = allIds.filter { it !in enrichedIds }.take(limit)
+        val result = mutableListOf<MusicInfo>()
+        for (id in unenrichedIds) {
+            val info = musicAllDao.getMusicInfoById(id).firstOrNull()
+            if (info != null) result.add(info.toDomain())
+        }
+        return result
+    }
+
+    /** 获取之前富化失败的歌曲：low confidence 的。 */
+    override suspend fun getFailedEnrichSongs(limit: Int): List<MusicInfo> {
+        val allLabels = musicLabelDao.getAllLabels()
+        val lowConfIds = allLabels
+            .filter { (it.source == SOURCE_LLM || it.source == SOURCE_AGENT) && (it.confidence != null && it.confidence < 0.5) }
+            .map { it.musicId }
+            .distinct()
+            .take(limit)
+
+        val result = mutableListOf<MusicInfo>()
+        for (id in lowConfIds) {
+            val info = musicAllDao.getMusicInfoById(id).firstOrNull()
+            if (info != null) result.add(info.toDomain())
+        }
+        return result
+    }
+
+    /** 最近富化结果验收：since 后新增/更新的 LLM/AGENT 标签数 ≈ success；无标签产出 ≈ failure。 */
+    override suspend fun getRecentEnrichResults(since: Long): EnrichBatchResult {
+        val allLabels = musicLabelDao.getAllLabels()
+        val recentLabels = allLabels.filter { label ->
+            (label.source == SOURCE_LLM || label.source == SOURCE_AGENT) &&
+                (label.createdAt != null && label.createdAt >= since)
+        }
+        // 简化验收：recentLabels 的 musicId 去重数 = success；没有专门的 failure 记录，用 0
+        val successMusicIds = recentLabels.map { it.musicId }.distinct().size
+        return EnrichBatchResult(
+            successCount = successMusicIds,
+            failureCount = 0, // 简化实现：失败率由 successRate=1.0 推断
+        )
     }
 
     // endregion

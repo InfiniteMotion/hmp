@@ -1,8 +1,10 @@
 package com.hearablemusic.player
 
 import android.app.Application
+import co.touchlab.kermit.Severity
 import com.hearablemusic.player.player.di.playerModule
 import com.hearablemusic.player.ui.di.uiModule
+import com.hmp.initKermit
 import com.hmp.data.di.androidPlatformModule
 import com.hmp.data.di.sharedModule
 import com.hmp.data.network.BuiltInApiKeyProvider
@@ -23,6 +25,7 @@ class MusicApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         instance = this
+        initKermit(if (BuildConfig.DEBUG) Severity.Debug else Severity.Warn)
         MusicTagEditor.init(this)
         val builtInAiModule = module {
             single {

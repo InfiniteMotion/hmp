@@ -8,11 +8,16 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
+        #if DEBUG
+        KermitInitKt.initKermitForIos(isReleaseBuild: false)
+        #else
+        KermitInitKt.initKermitForIos(isReleaseBuild: true)
+        #endif
         requestMusicLibraryPermission()
         ensureDocumentsFolderVisible()
         // shared（业务+平台）+ shared-ui（Compose UI）一次性装配
         IosUiKoinModuleKt.installKoinIosWithSharedUi()
-        print("[AppDelegate] Koin initialized (shared + shared-ui)")
+        PlatformLogKt.platformLog(severity: 0, tag: "AppDelegate", message: "Koin initialized (shared + shared-ui)")
         MetadataParserBridge().register(parser: MusicMetadataParser())
         ArtworkBridge().register(extractor: ArtworkExtractor())
 
@@ -44,7 +49,7 @@ class AppDelegate: NSObject, UIApplicationDelegate {
     /// 在 Documents 目录创建一个占位文件，使 HMP 文件夹在文件 App 中可见
     private func ensureDocumentsFolderVisible() {
         guard let documentsURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
-            print("[AppDelegate] cannot get Documents directory")
+            PlatformLogKt.platformLog(severity: 3, tag: "AppDelegate", message: "cannot get Documents directory")
             return
         }
 
@@ -52,9 +57,9 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         if !FileManager.default.fileExists(atPath: placeholderFile.path) {
             do {
                 try "HMP Music Player Documents".write(to: placeholderFile, atomically: true, encoding: .utf8)
-                print("[AppDelegate] created placeholder file to make Documents folder visible: \(placeholderFile.path)")
+                PlatformLogKt.platformLog(severity: 1, tag: "AppDelegate", message: "created placeholder file to make Documents folder visible: \(placeholderFile.path)")
             } catch {
-                print("[AppDelegate] failed to create placeholder file: \(error)")
+                PlatformLogKt.platformLog(severity: 3, tag: "AppDelegate", message: "failed to create placeholder file: \(error)")
             }
         }
     }

@@ -5,7 +5,7 @@ import sharedIos
 
 class MusicMetadataParser: MetadataParserBridgeParser {
     func parse(filePath: String) -> MusicMetadata? {
-        print("[MetadataParser] parsing: \(filePath)")
+        PlatformLogKt.platformLog(severity: 0, tag: "MetadataParser", message: "parsing: \(filePath)")
         let url = URL(fileURLWithPath: filePath)
         let asset = AVURLAsset(url: url)
 
@@ -109,7 +109,7 @@ class MusicMetadataParser: MetadataParserBridgeParser {
             lyrics: lyrics,
             albumArt: nil
         )
-        print("[MetadataParser] result: title=\(result.title), artist=\(result.artist), album=\(result.album), lyrics=\(lyrics != nil ? "\(lyrics!.prefix(30))..." : "nil")")
+        PlatformLogKt.platformLog(severity: 0, tag: "MetadataParser", message: "result: title=\(result.title), artist=\(result.artist), album=\(result.album), lyrics=\(lyrics != nil ? "\(lyrics!.prefix(30))..." : "nil")")
         return result
     }
 
@@ -117,7 +117,7 @@ class MusicMetadataParser: MetadataParserBridgeParser {
     /// AVFoundation often doesn't expose LYRICS from Vorbis comments.
     private func parseFlacVorbisLyrics(filePath: String) -> String? {
         guard let data = try? Data(contentsOf: URL(fileURLWithPath: filePath), options: .alwaysMapped) else {
-            print("[MetadataParser] FLAC: failed to read file")
+            PlatformLogKt.platformLog(severity: 3, tag: "MetadataParser", message: "FLAC: failed to read file")
             return nil
         }
         let bytes = [UInt8](data)
@@ -125,7 +125,7 @@ class MusicMetadataParser: MetadataParserBridgeParser {
         // FLAC structure: "fLaC" magic (4 bytes) + metadata blocks
         guard bytes.count > 8,
               bytes[0] == 0x66, bytes[1] == 0x4C, bytes[2] == 0x61, bytes[3] == 0x43 else {
-            print("[MetadataParser] FLAC: not a valid FLAC file")
+            PlatformLogKt.platformLog(severity: 3, tag: "MetadataParser", message: "FLAC: not a valid FLAC file")
             return nil
         }
 
@@ -184,7 +184,7 @@ class MusicMetadataParser: MetadataParserBridgeParser {
             let value = String(comment[eqRange.upperBound...])
 
             if lyricsKeys.contains(key) {
-                print("[MetadataParser] FLAC Vorbis: found lyrics via key '\(key)'")
+                PlatformLogKt.platformLog(severity: 0, tag: "MetadataParser", message: "FLAC Vorbis: found lyrics via key '\(key)'")
                 return value
             }
         }

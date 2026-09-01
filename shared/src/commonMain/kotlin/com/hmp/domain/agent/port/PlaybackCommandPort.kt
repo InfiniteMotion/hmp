@@ -26,6 +26,9 @@ sealed interface PlaybackCommand {
     data object REPEAT_ONE_ON : PlaybackCommand { override val displayName: String get() = "单曲循环开启" }
     data object REPEAT_ALL_ON : PlaybackCommand { override val displayName: String get() = "全部循环开启" }
     data object REPEAT_OFF : PlaybackCommand { override val displayName: String get() = "关闭循环" }
+    data class ADD_TO_QUEUE(val musicId: Long) : PlaybackCommand {
+        override val displayName: String get() = "追加入队 $musicId"
+    }
 }
 
 /**

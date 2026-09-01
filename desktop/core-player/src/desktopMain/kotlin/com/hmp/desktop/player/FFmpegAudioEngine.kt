@@ -1,5 +1,6 @@
 package com.hmp.desktop.player
 
+import co.touchlab.kermit.Logger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -95,7 +96,7 @@ class FFmpegAudioEngine : AudioEngine {
         seekPositionMs = 0L
         bytesWritten = 0L
 
-        println("[AudioEngine] play: $path, ffmpeg=$ffmpegPath")
+        Logger.i(null, "AudioEngine") { "play: $path, ffmpeg=$ffmpegPath" }
         startPlayback(path, 0L)
     }
 
@@ -186,7 +187,7 @@ class FFmpegAudioEngine : AudioEngine {
     private suspend fun probeDuration(path: String) = withContext(Dispatchers.IO) {
         var process: Process? = null
         try {
-            println("[AudioEngine] probing: $ffmpegPath -i $path")
+            Logger.d(null, "AudioEngine") { "probing: $ffmpegPath -i $path" }
             process = ProcessBuilder(
                 ffmpegPath, "-i", path,
                 "-f", "null", "-"
@@ -196,7 +197,7 @@ class FFmpegAudioEngine : AudioEngine {
 
             val output = process.inputStream.bufferedReader().readText()
             val exitCode = process.waitFor()
-            println("[AudioEngine] probe exit=$exitCode, output: ${output.take(300)}")
+            Logger.d(null, "AudioEngine") { "probe exit=$exitCode, output: ${output.take(300)}" }
 
             // Parse duration from ffmpeg output: Duration: HH:MM:SS.ss
             val durationRegex = Regex("""Duration:\s*(\d+):(\d+):(\d+)\.(\d+)""")
@@ -274,13 +275,13 @@ class FFmpegAudioEngine : AudioEngine {
                     "-"
                 )
 
-                println("[AudioEngine] command: ${command.joinToString(" ")}")
+                Logger.d(null, "AudioEngine") { "command: ${command.joinToString(" ")}" }
 
                 val pb = ProcessBuilder(command)
                 pb.redirectErrorStream(false)
                 val process = pb.start()
                 ffmpegProcess = process
-                println("[AudioEngine] process started, alive=${process.isAlive}")
+                Logger.d(null, "AudioEngine") { "process started, alive=${process.isAlive}" }
 
                 // Capture stderr for error diagnosis
                 var stderrOutput = ""
@@ -303,11 +304,11 @@ class FFmpegAudioEngine : AudioEngine {
                     false
                 )
                 val info = DataLine.Info(SourceDataLine::class.java, format)
-                println("[AudioEngine] format: ${sampleRate.toInt()}Hz ${channels}ch 16bit frameSize=$frameSize")
+                Logger.d(null, "AudioEngine") { "format: ${sampleRate.toInt()}Hz ${channels}ch 16bit frameSize=$frameSize" }
 
                 if (!AudioSystem.isLineSupported(info)) {
                     val msg = "Audio line not supported for format: ${sampleRate.toInt()}Hz ${channels}ch"
-                    println("[AudioEngine] ERROR: $msg")
+                    Logger.e(null, "AudioEngine") { "ERROR: $msg" }
                     withContext(Dispatchers.Main) {
                         onError?.invoke(Exception(msg))
                     }
@@ -318,13 +319,13 @@ class FFmpegAudioEngine : AudioEngine {
                 sourceLine = line
                 line.open(format)
                 line.start()
-                println("[AudioEngine] SourceDataLine opened and started")
+                Logger.i(null, "AudioEngine") { "SourceDataLine opened and started" }
 
                 sampleSizeInBytes = 2
 
                 val buffer = ByteArray(8192)
                 val audioStream = BufferedInputStream(process.inputStream)
-                println("[AudioEngine] reading PCM data, format=${sampleRate.toInt()}Hz ${channels}ch 16bit")
+                Logger.d(null, "AudioEngine") { "reading PCM data, format=${sampleRate.toInt()}Hz ${channels}ch 16bit" }
 
                 while (isActive && !isStopped) {
                     if (isPaused) {
@@ -344,7 +345,7 @@ class FFmpegAudioEngine : AudioEngine {
                     bytesWritten += bytesRead
                 }
 
-                println("[AudioEngine] read loop ended, bytesWritten=$bytesWritten, isStopped=$isStopped")
+                Logger.d(null, "AudioEngine") { "read loop ended, bytesWritten=$bytesWritten, isStopped=$isStopped" }
 
                 line.drain()
                 line.stop()
@@ -356,7 +357,7 @@ class FFmpegAudioEngine : AudioEngine {
                 val exitCode = process.waitFor()
                 process.destroyForcibly()
 
-                println("[AudioEngine] process exited with code $exitCode, stderr: ${stderrOutput.take(300)}")
+                Logger.i(null, "AudioEngine") { "process exited with code $exitCode, stderr: ${stderrOutput.take(300)}" }
 
                 if (!isStopped && isActive) {
                     if (exitCode != 0 && bytesWritten == 0L) {
@@ -370,7 +371,7 @@ class FFmpegAudioEngine : AudioEngine {
                     }
                 }
             } catch (e: Exception) {
-                println("[AudioEngine] exception: ${e.message}")
+                Logger.e(e, "AudioEngine") { "exception: ${e.message}" }
                 if (!isStopped) {
                     withContext(Dispatchers.Main) {
                         onError?.invoke(e)

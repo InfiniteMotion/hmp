@@ -8,6 +8,7 @@ import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import com.hmp.data.database.currentTimeMillis
 import com.hmp.data.network.BuiltInApiKeyProvider
 import com.hmp.data.util.SecureStorageHelper
@@ -67,6 +68,8 @@ class SettingsRepositoryImpl(
         val CUSTOM_AI_API_KEY = stringPreferencesKey("custom_ai_api_key")
         val CUSTOM_AI_MODEL = stringPreferencesKey("custom_ai_model")
         val AI_FREE_TRIAL_REMAINING = intPreferencesKey("ai_free_trial_remaining")
+        fun agentTrustLevelKey(role: String) = intPreferencesKey("agent_policy_${role}_trust_level")
+        fun agentAlwaysAllowKey(role: String) = stringSetPreferencesKey("agent_policy_${role}_always_allow")
         val EQUALIZER_PRESET = intPreferencesKey("equalizer_preset")
         val BASS_BOOST_LEVEL = intPreferencesKey("bass_boost_level")
         val IS_SURROUND_SOUND_ENABLED = booleanPreferencesKey("is_surround_sound_enabled")
@@ -243,6 +246,26 @@ class SettingsRepositoryImpl(
     }
     override suspend fun getAiFreeTrialRemainingCount(): Int = dataStore.data.first()[PreferencesKeys.AI_FREE_TRIAL_REMAINING] ?: 100
     override suspend fun decrementAiFreeTrialCount() { dataStore.edit { prefs -> val current = prefs[PreferencesKeys.AI_FREE_TRIAL_REMAINING] ?: 100; prefs[PreferencesKeys.AI_FREE_TRIAL_REMAINING] = (current - 1).coerceAtLeast(0) } }
+
+    override suspend fun getAgentPolicyConfig(agentRole: String): com.hmp.domain.agent.policy.AgentPolicyConfig {
+        val prefs = dataStore.data.first()
+        val trustLevel = prefs[PreferencesKeys.agentTrustLevelKey(agentRole)]
+            ?: com.hmp.domain.agent.policy.TrustLevel.SUGGEST
+        val alwaysAllow = prefs[PreferencesKeys.agentAlwaysAllowKey(agentRole)]
+            ?: emptySet()
+        return com.hmp.domain.agent.policy.AgentPolicyConfig(
+            trustLevel = trustLevel.coerceIn(0, com.hmp.domain.agent.policy.TrustLevel.MAX),
+            alwaysAllow = alwaysAllow.toMutableSet(),
+        )
+    }
+
+    override suspend fun saveAgentPolicyConfig(agentRole: String, config: com.hmp.domain.agent.policy.AgentPolicyConfig) {
+        dataStore.edit { prefs ->
+            prefs[PreferencesKeys.agentTrustLevelKey(agentRole)] = config.trustLevel
+            prefs[PreferencesKeys.agentAlwaysAllowKey(agentRole)] = config.alwaysAllow.toSet()
+        }
+    }
+
     override suspend fun saveEqualizerPreset(preset: Int) { dataStore.edit { prefs -> prefs[PreferencesKeys.EQUALIZER_PRESET] = preset } }
     override suspend fun saveBassBoostLevel(level: Int) { dataStore.edit { prefs -> prefs[PreferencesKeys.BASS_BOOST_LEVEL] = level } }
     override suspend fun saveSurroundSoundEnabled(enabled: Boolean) { dataStore.edit { prefs -> prefs[PreferencesKeys.IS_SURROUND_SOUND_ENABLED] = enabled } }

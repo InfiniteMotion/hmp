@@ -126,7 +126,7 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
 
       - name: Build macOS DMG
-        run: ./gradlew :desktop:app:packageDistributionForCurrentOS --no-daemon --no-configuration-cache
+        run: ./gradlew :desktop:app:packageDistributionForCurrentOS -Phmp.release-build=true --no-daemon --no-configuration-cache
 
       - name: Upload macOS artifact
         uses: actions/upload-artifact@v4
@@ -157,7 +157,7 @@ jobs:
         run: choco install wixtoolset -y
 
       - name: Build Windows MSI
-        run: ./gradlew :desktop:app:packageDistributionForCurrentOS --no-daemon --no-configuration-cache
+        run: ./gradlew :desktop:app:packageDistributionForCurrentOS -Phmp.release-build=true --no-daemon --no-configuration-cache
 
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
@@ -188,7 +188,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y dpkg fakeroot
 
       - name: Build Linux DEB + AppImage
-        run: ./gradlew :desktop:app:packageDistributionForCurrentOS --no-daemon --no-configuration-cache
+        run: ./gradlew :desktop:app:packageDistributionForCurrentOS -Phmp.release-build=true --no-daemon --no-configuration-cache
 
       - name: Upload Linux artifact
         uses: actions/upload-artifact@v4

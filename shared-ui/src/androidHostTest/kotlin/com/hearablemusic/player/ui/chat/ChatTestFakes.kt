@@ -1,6 +1,6 @@
 package com.hearablemusic.player.ui.chat
 
-import com.hmp.domain.agent.engine.RunContextInput
+import com.hmp.domain.agent.runtime.RunContextInput
 import com.hmp.domain.agent.port.AiExtraEnrichPort
 import com.hmp.domain.backup.AppSettingsSnapshot
 import com.hmp.domain.backup.DailyRecommendationSnapshot

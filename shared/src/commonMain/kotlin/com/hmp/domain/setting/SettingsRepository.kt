@@ -83,6 +83,11 @@ interface SettingsRepository {
     // Active AI Config (returns config based on current mode)
     suspend fun getActiveAiConfig(): AiEndpointConfig
 
+    // Agent Policy Config — per-Agent 信任档位 + 永远允许白名单
+    // role: "master" | "enrich" | "radio"（与 AgentRole.name 对齐）
+    suspend fun getAgentPolicyConfig(agentRole: String): com.hmp.domain.agent.policy.AgentPolicyConfig
+    suspend fun saveAgentPolicyConfig(agentRole: String, config: com.hmp.domain.agent.policy.AgentPolicyConfig)
+
     // Free Trial Quota
     val aiFreeTrialRemainingCount: Flow<Int>
     suspend fun getAiFreeTrialRemainingCount(): Int
