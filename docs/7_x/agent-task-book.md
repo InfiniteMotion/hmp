@@ -19,7 +19,7 @@
 | 数据 | Room v2 三表（agent\_task/agent\_audit\_log/agent\_message）+ MusicLabel 溯源四列 + 迁移测试                              |
 | 协议 | LlmTransport（手动 SSE + tools 参数）、RealtimeVoiceTransport（WebSocket，独立 gate）                                     |
 | 工具 | ToolSpec DSL + ToolRegistry + 十项工具（包装既有 UseCase）                                                              |
-| 引擎 | AgentOrchestrator（步数预算 8）+ Scheduler + PolicyGuard + TrustLedger + ContextBudget + SessionStore + PresenceBus |
+| 引擎 | MasterAgent（唯一大脑，对话 handleUserMessage 即原 AgentOrchestrator.run() 循环，步数预算 8）+ AgentScheduler + PolicyGuard + TrustLedger + ContextBudget + SessionStore + PresenceBus |
 | 端口 | PlaybackCommandPort（:shared 定义接口，三端适配器复用现有 Controller 桥）                                                      |
 | UI | 三胶囊底栏、轻量浮层、对话页（五类气泡）、确认卡片流、通知侧条、审计日志页、门面二期、伙伴设置页六分区                                                           |
 | 场景 | 15 场景中的 11 个（一/二/三梯队全量 + 四梯队的听歌报告与遗忘唤醒）                                                                       |
@@ -31,12 +31,12 @@
 ## 2. 阶段总览与依赖图
 
 ```
-M0 地基与还债 ──▶ M2 协议层 ──▶ M3 工具层 ──▶ M4 引擎循环 ──▶ M5 对话与锚点二期 ──▶ U Kermit 日志治理 ──▶ M6 电台与事件 ──▶ M7 报告与语音
-   (B0)            (B1)          (B2)           (B3)              (B4)                       (横切)              (B5)               (B6)
-                                                                      ▲                          ▲                  ▲
-                                                             R 债务清零 ─┘                          │                  │
-                                                             S 工具层终局 ─┘（批次 A 重命名 17 + 批次 B 追加 10 = 27）          │
-                                                             T Agent 体系 ─── Enrich SubAgent 跑通 + SubAgent 基类 → M6 依赖 ────┘
+M0 地基与还债 ──▶ M2 协议层 ──▶ M3 工具层 ──▶ M4 引擎循环 ──▶ M5 对话与锚点二期 ──▶ U Kermit 日志治理 ──▶ M6 电台与事件 ──▶ V Enrich v2 批次加固 ──▶ M7 报告与语音
+   (B0)            (B1)          (B2)           (B3)              (B4)                       (横切)              (B5)                                   (B6)
+                                                                      ▲                          ▲                  ▲                                       ▲
+                                                             R 债务清零 ─┘                          │                  │                                       │
+                                                             S 工具层终局 ─┘（批次 A 重命名 17 + 批次 B 追加 10 = 27）          │                                       │
+                                                             T Agent 体系 ─── Enrich SubAgent v1 基类 + Master 终局 ──────────────────────────────────────────────┘
 
 M1 锚点层一期（B4 的前置 UI 骨架，Fake 数据驱动，与 M0-M7 完全并行）
 横切：本地化（贯穿 M1-M7）· 测试基建（Fake* 替身随阶段建立）
@@ -51,7 +51,8 @@ M1 锚点层一期（B4 的前置 UI 骨架，Fake 数据驱动，与 M0-M7 完�
 | M4 | 引擎循环四件套 + 双层预算（B3）               | M3          | 引擎全行为确定性测试（步数/许可/拒绝/审计断言）               |
 | M5 | 对话页 + 五类气泡 + 确认流 + 门面二期 + 漏斗（B4） | M4 + M1     | 纯文字完整体验三端可用                             |
 | M6 | Radio SubAgent 完整实现 + 电台三轮协作 + 跳过感知 + DJ 衔接 + 审计页（B5）  | M5 + T（SubAgent 基类 + AgentScheduler + ToolRegistryView） | Radio SubAgent 独立运行 + FakeLlm+FakePlaybackCommandPort 电台确定性测试 |
-| M7 | 报告角色 + 伙伴设置页 + 语音档（B6）           | M6          | 语音为独立 gate，可整体延期不影响 v1 完整性              |
+| V  | Enrich SubAgent v2：批次策略重写（Repository 层 ArtistGroup/MixedGroup 拉活 + chunk 拆分）+ 6 轮编排 + 两轮深度 review（13 个修复：chunk history 隔离/预热清 history/EMPTY_FACT_MARKERS 统一/JSON 兜底扩展/隐式依赖清除）✅ 2026-09-02 | T | 批次拆分确定性 + history 零污染 + 空值标记 13 项统一 + JSON 兜底不误伤 + compileKotlinDesktop + desktopTest 绿 |
+| M7 | 报告角色 + 伙伴设置页 + 语音档（B6）           | M6 + V      | 语音为独立 gate，可整体延期不影响 v1 完整性              |
 | R  | 债务清零与交互地基修复（首轮注入/漏斗/真实播放端口/多确认/会话持久/M5 收尾 UI）✅ 2026-08-30 | M5 未完成 + 定义级漏项 | 交互主干（触发→理解→执行→呈现→反馈→审计）闭环；三端编译 |
 | S  | 工具层终局：批次 A 域前缀统一重命名拆分（17 原子工具）+ 批次 B 追加 Library 聚合/Song USER 标签写入闭环/PlaybackEnqueue（+10 = 27 原子工具）✅ 2026-08-31 | M3 首次交付 + R 阶段暴露出的工具层遗留 | ToolNames.ALL 27 ↔ ToolRegistry 27 注册 1:1；desktopTest 677 全绿；compileAndroidMain/compileKotlinDesktop 通过 |
 | T  | Agent 体系终局——Master Agent（唯一大脑：派发/验收/生命周期）+ Enrich SubAgent（纯被动执行器）+ 两层基础设施（AgentContextBudget 每 Agent 独立 + AgentScheduler 全局纯规则仲裁）✅ 2026-08-31 | S（27 原子工具）+ R（感知锚点） | Enrich SubAgent 端到端跑通 + Master 唯一决策铁则 + 两层 ContextBudget 生效 + Scheduler pause/resume 自动触发 + Radio SubAgent 基类预留（M6 填实现） |
@@ -179,13 +180,93 @@ M1 锚点层一期（B4 的前置 UI 骨架，Fake 数据驱动，与 M0-M7 完�
 
 | ID    | 任务                                                                                                                                           | 涉及文件                                        | 验收                                             |
 | ----- | -------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- | ---------------------------------------------- |
-| M6-T1 | AI 电台三轮协作接线：种子认识（第 0 步 enrichSong）→ 本地保底队列（零等待开听）→ 云端全量清单决策 → diff 仲裁回传；开电台=`songlist` 卡（「今夜电台 · 12 首备选」）、播完续歌 SILENT、徽标=电台运行点、每次续选「为什么」入审计页 | AgentOrchestrator 接线 + ChatViewModel        | FakeLlm+FakePlaybackCommandPort 电台确定性测试（三轮各路径） |
+| M6-T1 | AI 电台三轮协作接线：种子认识（第 0 步 enrichSong）→ 本地保底队列（零等待开听）→ 云端全量清单决策 → diff 仲裁回传；开电台=`songlist` 卡（「今夜电台 · 12 首备选」）、播完续歌 SILENT、徽标=电台运行点、每次续选「为什么」入审计页 | MasterAgent + RadioSubAgent 骨架接线 + ChatViewModel + Room Migration 2→3（agent_message.data_json 结构化 songlist） | FakeLlm+FakePlaybackCommandPort 电台确定性测试（三轮各路径） |
 | M6-T2 | 跳过感知重排（连跳 2 首→重排 SILENT+侧条「换了一批安静的，↩恢复」）；一句话切换（浮层→漏斗→执行+侧条+对话页沉淀）                                                                            | PresenceBus 事件接线                            | 事件触发测试                                         |
 | M6-T3 | DJ 衔接预生成（曲间一句，门面问候区轮换+对话页 text 沉淀；播放中不弹浮面硬纪律）                                                                                                | PresenceBus + 门面                            | 预生成零延迟核验；硬纪律断言（手势进行中无浮面）                       |
 | M6-T4 | `AuditLogScreen`：agent\_audit\_log 驱动、时间倒序、每行动作+「为什么」展开（→T0 行为证据）+撤销；撤销边界（被用户改过的动作降级为「删除」走 STRONG\_CONFIRM；重排队列类始终可撤销）                       | 新建 `audit/AuditLogScreen.kt`                | 撤销边界单测                                         |
 | M6-T5 | STRONG\_CONFIRM 双确认链：删歌单/改 ID3 走 DialogHost 模态（伙伴问意图→系统问权限，顺序不合并）                                                                            | 复用 AppRoot DialogHost + EditMusicTagsScreen | 双确认链路核验                                        |
 
 **退出**：电台三轮协作全路径确定性测试；审计页承载全部「为什么」。
+
+### V 阶段：Enrich SubAgent v2 批次策略 + 两轮深度 review 鲁棒性加固（13 个修复）✅ 2026-09-02
+
+> **前置**：依赖 T 阶段交付的 Master Agent + Enrich SubAgent v1 基类 + 工具层终局。T 阶段跑通了端到端骨架，但 Enrich v1 的批次拆分、history 隔离、空值标记、JSON 兜底四处有"能跑但不稳"的硬伤——改阈值就踩坑、预热残留污染、LLM 微偏格式就丢歌。
+>
+> **本次做的事**：批次策略从 Enrich 层内存 groupBy 下沉到 Repository 层一次拉活（`fetchNextEnrichWorkUnit`），加上 chunk 保护、预热 history 清理、空值标记统一、JSON 兜底扩展。两轮 review 共 13 个修复。
+
+**核心参数**（硬编码在 EnrichSubAgent 伴生对象）：
+| 参数 | 值 | 说明 |
+|------|----|------|
+| `CHUNK_SPLIT_SIZE` | 20 | 单个 LLM call 最大歌曲数（任何来源 ArtistGroup / MixedGroup 都 chunked） |
+| `BIG_ARTIST_THRESHOLD` | 3 | 某歌手 ≥ 3 首未富化 → 走 ArtistGroup（可预热） |
+| `MIXED_GROUP_SIZE` | 10 | 小歌手累计 ≥ 10 首 → 走 MixedGroup（跳过预热） |
+| `EMPTY_FACT_MARKERS` | 13 项 | `待定/不详/未知/TBD/N/A/NA/—/-暂无/暂无/—/null/NULL/undefined` |
+
+**6 轮编排**（runLoop + processChunk）：
+```
+Round 0  预热 → runLoop 处理（ArtistGroup 才走，缓存复用）
+Round 1  枚举批量 → genre/mood/scenario 一次性输出 JSON array
+Round 1.5 枚举自检 → 上一轮结果与 LLM 内部"真实判断"对比，差异修正
+Round 2a 自由文本易 → description / singerIntroduce（LLM 相对靠谱）
+Round 2b 自由文本难 → rewards / lyricBackground（极易编造，强 prompt 约束）
+Round 3  总体反思 → patch 格式，只返单字段修改（ReflectionPatch(index, field, fix)）
+```
+
+**批次策略**（Repository 层一次拉活，不是内存 groupBy）：
+```
+MusicRepositoryBase.fetchNextEnrichWorkUnit():
+  getAllUnenrichedIds() → exclude deleted + exclude LLM/AGENT 标签已有的
+  groupBy artist → count DESC（先大歌手）
+  遇 ≥ BIG_ARTIST_THRESHOLD 首 → ArtistGroup(artist, songs)
+  遇小歌手累计 ≥ MIXED_GROUP_SIZE → MixedGroup(songs)
+  最后一批没填满 → 全取（兜底）
+```
+
+**两轮 review 13 个修复**：
+
+| 轮次 | # | 级别 | 问题 | 根因 | 修复 |
+|------|---|------|------|------|------|
+| 第一轮 | P0-1 | 🔴 | chunk 间 history 未清，chunk N-1 输出污染 chunk N | `clearHistory()` 在 for 循环外 | 移到 for 循环内部，每个 chunk 结束即清 |
+| | P0-2 | 🔴 | 手动注入预热只有 assistant 消息，历史不对称 | orphan assistant 消息 | 配对注入 `user+assistant` |
+| | P0-3 | 🔴 | `extractJsonArrayElements` 纯文本兜底当单对象 → 静默丢歌 | 无格式检测 | 纯文本（无 `{`/`[`）返回 emptyList |
+| | P1-4 | 🟡 | `normalizeFacts` 只处理 3 个空值标记 | 空值枚举不全 | 扩展到 13 个 |
+| | P1-5 | 🟡 | `parseEnumSelfCheckPatch` 名不副实 | 函数名暗示 patch，实际返回 full list | 改名 `parseEnumSelfCheckFullList` + `applyEnumReplacements` |
+| | P1-6 | 🟡 | PresenceEvent total 参数传错 | 传 chunk 大小而非工作单元大小 | 改为 `currentUnitSize` |
+| | P1-7 | 🟡 | system prompt 自信角色 vs 预热 prompt "不要编造"冲突 | prompt 约束不对称 | system prompt 加 ⚠️ 核心约束段落 |
+| | P2-8 | ⚪ | 注释写"6 轮编排"实际 processChunk 是 5 轮 | 注释不一致 | 修正注释表述 |
+| | P2-9 | ⚪ | FreeTextFactsResult.errorInfo 多余 | LLM 不知道自己出错 | 删掉 data class 字段 + prompt |
+| 第二轮 | P0-A | 🔴 | Round 0 预热后 user 消息残留 → chunk 开头重复注入预热 | `callLlm()` 只追加 user，预热完没清 | 预热完立刻 `clearHistory()` |
+| | P0-B | 🔴 | MixedGroup 无 chunk 拆分保护 → 隐式依赖 `mixGroupSize < CHUNK_SPLIT_SIZE` | MixedGroup 代码遗漏 | MixedGroup 也 `chunked(CHUNK_SPLIT_SIZE)` |
+| | P1-C | 🟡 | `applyPatch` 空值判断只认 `"-暂无"` 和 blank → LLM 返回 `"待定"` 当真实值 | 没复用 `EMPTY_FACT_MARKERS` | `isEmptyMarker` 判断改为遍历 13 项 |
+| | P1-D | 🟡 | `extractJsonArrayElements` LLM 输出 `{...},{...},{...}` 没包数组 → 整个 parse 失败 | 兜底只处理单对象 | 兜底加分支：检测到 `{` 和 `}` 都有时用 `splitJsonObjects` 拆分 |
+
+**关键设计决策（不是 bug，后续可能要动）**：
+
+1. **`callLlmText` 不把 assistant 回复追加到 history**（`AgentContextBudget` 内部只追加 `newMessages` = 用户消息）。对 Enrich 没问题——所有 context 都是手动拼的（`buildEnumSelfCheckPrompt` 插入 `enumSummary` 等）。但 `estimatedTokenCount` 只累加用户侧。若将来需精确 token 预算控制（API 成本），需把 assistant 回复也追加。
+2. **批次确定性依赖歌曲位置索引**（不是 ID）。Round 1 → Round 3 都是按输出顺序匹配输入 chunk 的第 N 首。若 LLM 乱序输出则错位。prompt 里显式约束「输出顺序必须与输入一致」。
+3. **预热缓存存 `preheatCache: Pair<String, String?>`**（同名歌手 chunk 0 调用一次 Round 0，后续 chunk 复用）。预热失败不阻塞流程（降级为无预热）。
+
+| ID | 任务 | 涉及文件 | 验收 |
+|----|------|----------|------|
+| V-T1 | Repository 层批次拉活：`fetchNextEnrichWorkUnit()` 一次返回 `ArtistGroup` / `MixedGroup`（不再 Enrich 层内存 groupBy） | `EnrichModels.kt`（新增 sealed class）+ `MusicRepository.kt`（接口）+ `MusicRepositoryBase.kt`（实现） | 单测：ArtistGroup 优先大歌手、小歌手累计兜底 |
+| V-T2 | runLoop 重构：`while(isActive) { fetch → when ArtistGroup/MixedGroup → chunk 循环 }`；Round 0 预热后立刻 `clearHistory()` | `EnrichSubAgent.kt` runLoop | 断点核验：history 在 chunk 循环外是空、chunk 内 5 轮累积、chunk 末清零 |
+| V-T3 | MixedGroup chunk 拆分 + `isActive`/`waitResume`/`shouldSoftStop` 三重护栏 | `EnrichSubAgent.kt` runLoop MixedGroup 分支 | 改 `mixGroupSize=100` 不崩（兜底） |
+| V-T4 | `applyPatch` 空值判断复用 `EMPTY_FACT_MARKERS`（13 项）+ `normalizeFacts` 保持一致 | `EnrichSubAgent.kt` | 单测：`fix="待定"` 不写入、`fix="ROCK"` 正常写入 |
+| V-T5 | `extractJsonArrayElements` 兜底扩展（单对象 / 无数组包装多对象 `{...},{...}` / 纯文本三路分流） | `EnrichSubAgent.kt` JSON 工具 | 单测：LLM 三种"格式不对"的输出都不误伤 |
+| V-T6 | 第一次 review 9 个修复：chunk history 隔离 + 预热对称注入 + 纯文本兜底 + normalizeFacts 扩展 + parseEnumSelfCheck 重命名 + PresenceEvent total + system prompt 约束 + 注释修正 + errorInfo 删除 | `EnrichSubAgent.kt` + `MasterAgent.kt`（适配签名）+ `FakeMusicRepository.kt` + `AgentToolFakes.kt`（fake stub） | desktopTest 零回归 |
+
+**退出**：
+
+| 项 | 结果 |
+|----|------|
+| `:shared:compileKotlinDesktop` | ✅ BUILD SUCCESSFUL |
+| `:shared-ui:compileKotlinDesktop` | ✅ UP-TO-DATE |
+| `:shared:desktopTest` | ✅ BUILD SUCCESSFUL |
+| history 零污染 | ✅ 断点核验：chunk 外 history 为空 |
+| 预热不重复 | ✅ Round 0 后 `clearHistory()` + chunk 开头配对注入 |
+| MixedGroup 安全 | ✅ `chunked(20)` 兜底，隐式依赖消除 |
+| 空值 13 项统一 | ✅ `applyPatch` 与 `normalizeFacts` 共享 `EMPTY_FACT_MARKERS` |
+| JSON 兜底不误伤 | ✅ 三路分流 |
 
 ### M7 报告角色与语音档（B6，\~7 人天，语音独立 gate）
 
@@ -232,7 +313,7 @@ ToolNames.ALL 27 常量 ↔ ToolRegistry 27 注册 1:1 匹配；批次 A 结束 
 
 | ID | 任务 | 涉及文件 | 验收 |
 |----|------|---------|------|
-| R-T1 | 首轮上下文注入装配器：CompanionProfile(人格v0)/称呼 + 曲库概览聚合(概览法) + 真实当前曲目(NowPlaying) + 时段 + 认识进度 → 喂进 `RunContextInput` + `buildSystemPrompt` | 新 `engine/ContextAssembler.kt`、`AgentOrchestrator.buildSystemPrompt`、`RunContextInput`、`ChatAgentGateway` | 首轮系统提示含 5 类内容；快照单测；三端编译 |
+| R-T1 | 首轮上下文注入装配器：CompanionProfile(人格v0)/称呼 + 曲库概览聚合(概览法) + 真实当前曲目(NowPlaying) + 时段 + 认识进度 → 喂进 `RunContextInput` + `buildChatSystemPrompt` | 新 `runtime/ContextAssembler.kt`、`MasterAgent.buildChatSystemPrompt`、`RunContextInput`、`ChatAgentGateway` | 首轮系统提示含 5 类内容；快照单测；三端编译 |
 | R-T2 | 两级漏斗 `CommandLexicon`：高频词表直映射(零 token/50ms) + 模糊意图升级 agent + FREE(无Key) 高频命令可用 | 新 `domain/agent/funnel/CommandLexicon.kt` + ChatScreen/浮层接线 | 命中/未命中/升级语义单测；FREE 模式高频命令可用 |
 | R-T3 | 接**真实播放/现在听端口**适配器（复用 `PlaybackController` 桥）替换 Fake | shared-ui `platform/` 新适配器 + `ChatKoinModule` | `controlPlayback` 真实生效；`getNowPlayingContext` 返回真实当前曲目；`:shared` 不反向依赖 shared-ui；Fake 测试保留 |
 | R-T4 | 多确认门修复：`ChatViewModel` 确认槽队列 + `ConfirmBridge` 多批次 | `ChatViewModel.kt`、`ConfirmBridge` | 单轮多次确认不覆盖/不挂起；审批同序测试 |
@@ -699,7 +780,7 @@ T1 基础设施重构 ──▶ T2 Master 内核改造 ──▶ T3 Enrich 实�
 
 | 参数        | 建议默认                                           | 归属                |
 | --------- | ---------------------------------------------- | ----------------- |
-| 步数预算      | 8 步（总纲 7.1 已定）                                 | AgentOrchestrator |
+| 步数预算      | 8 步（总纲 7.1 已定）                                 | MasterAgent.handleUserMessage |
 | 云端频率/额度配额 | 单日云端调用上限 100 次（可配置；额度耗尽→本地兜底）                  | ContextBudget     |
 | 信任阶梯升级阈值  | 同类写动作连续隐式接受 3 次升一档（建议→代劳→静默）                   | TrustLedger       |
 | 跳过感知触发    | 连跳 2 首（总纲场景 2 已定）                              | PresenceBus 事件    |

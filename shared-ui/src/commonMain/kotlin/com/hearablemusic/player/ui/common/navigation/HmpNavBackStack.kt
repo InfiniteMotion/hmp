@@ -48,6 +48,7 @@ private val HMP_NAV_KEY_SERIALIZERS = SerializersModule {
         subclass(serializer = Routes.Settings.BackupSettings.serializer())
         subclass(serializer = Routes.Settings.LibrarySettings.serializer())
         subclass(serializer = Routes.Settings.LyricsSettings.serializer())
+        subclass(serializer = Routes.Settings.AuditLog.serializer())
         // AI / Custom / UserData
         subclass(serializer = Routes.AI.AI.serializer())
         subclass(serializer = Routes.Custom.Custom.serializer())

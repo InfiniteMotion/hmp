@@ -31,7 +31,7 @@ expect object AppDatabaseConstructor : RoomDatabaseConstructor<AppDatabase> {
         AgentAuditLog::class,
         AgentMessage::class
     ],
-    version = 2,
+    version = 3,
     exportSchema = true
 )
 @TypeConverters(LabelConverters::class)
@@ -77,6 +77,16 @@ abstract class AppDatabase : RoomDatabase() {
                         "`session_id` TEXT NOT NULL, `role` TEXT NOT NULL, `content` TEXT, " +
                         "`render_hint` TEXT, `created_at` INTEGER NOT NULL)"
                 )
+            }
+        }
+
+        /**
+         * v2 → v3（M6-T1 电台三轮协作）：
+         * - agent_message 加 data_json 列（songlist/confirm 结构化 payload）。
+         */
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(connection: SQLiteConnection) {
+                connection.execSQL("ALTER TABLE `agent_message` ADD COLUMN `data_json` TEXT")
             }
         }
     }

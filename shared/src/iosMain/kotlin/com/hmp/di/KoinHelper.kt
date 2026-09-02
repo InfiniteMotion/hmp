@@ -156,31 +156,19 @@ suspend fun getMusicWithExtraCount(): Int =
 suspend fun getMusicWithMissingExtraCount(): Int =
     getGetAllMusicUseCase().getMusicWithMissingExtraCount().first()
 
+// === 富化生命周期已迁移到 MasterAgent/EnrichSubAgent，旧版 autoProcess 方法已删除 ===
+// iOS 侧如果需要桥接 MasterAgent，需要先从 shared-ui 的 chatGatewayModule 获取
+
 suspend fun autoProcessMissingExtra() {
-    getGetDailyMusicRecommendationUseCase().autoProcessMissingExtraInfoWithCurrentProvider()
+    // TODO(iOS): 桥接到 MasterAgent.startEnrich() — 需要引入 MasterAgent 依赖
 }
 
-fun pauseAutoProcess() {
-    getGetDailyMusicRecommendationUseCase().pauseProcessing()
-}
-
-fun resumeAutoProcess() {
-    getGetDailyMusicRecommendationUseCase().resumeProcessing()
-}
-
-fun cancelAutoProcess() {
-    getGetDailyMusicRecommendationUseCase().cancelProcessing()
-}
-
-fun resetAutoProcessState() {
-    getGetDailyMusicRecommendationUseCase().resetProcessingState()
-}
-
-fun getAutoProcessIsPaused(): Boolean =
-    getGetDailyMusicRecommendationUseCase().isPaused()
-
-fun getAutoProcessIsCancelled(): Boolean =
-    getGetDailyMusicRecommendationUseCase().isCancelled()
+fun pauseAutoProcess() { /* TODO(iOS): 桥接到 MasterAgent.pauseEnrich() */ }
+fun resumeAutoProcess() { /* TODO(iOS): 桥接到 MasterAgent.resumeEnrich() */ }
+fun cancelAutoProcess() { /* TODO(iOS): 桥接到 MasterAgent.stopEnrich() */ }
+fun resetAutoProcessState() { /* no-op: 旧版状态管理已删除 */ }
+fun getAutoProcessIsPaused(): Boolean = false
+fun getAutoProcessIsCancelled(): Boolean = false
 
 fun getPinyinInitial(title: String): String {
     if (title.isEmpty()) return "#"

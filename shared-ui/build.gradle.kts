@@ -77,7 +77,7 @@ kotlin {
             implementation(libs.jetbrains.lifecycle.viewmodel.navigation3)
 
             // Kermit — ChatViewModel/ChatAgentGateway 日志
-            implementation(libs.kermit)
+            api(libs.kermit)
         }
 
         androidMain.dependencies {

@@ -269,6 +269,23 @@ class ChatViewModel(
                             submittedConfirms.clear()
                             gatewayBridge = null
                         }
+                        is ChatAgentEvent.RadioStarted -> {
+                            val summaryMsg = CompanionMessage(
+                                id = nextId(), fromUser = false,
+                                renderHint = CompanionRenderHint.TEXT,
+                                text = event.summary,
+                            )
+                            val songlistMsg = CompanionMessage(
+                                id = nextId(), fromUser = false,
+                                renderHint = CompanionRenderHint.SONGLIST,
+                                songs = event.songs,
+                            )
+                            listOf(summaryMsg, songlistMsg).forEach { persist("agent", it.text, it.renderHint) }
+                            _state.update { it.copy(messages = it.messages + summaryMsg + songlistMsg) }
+                        }
+                        is ChatAgentEvent.RadioStateChanged -> {
+                            Logger.i("Agent.Chat") { "radio state changed: playing=${event.isPlaying} tracks=${event.trackCount}" }
+                        }
                     }
                 }
             } finally {

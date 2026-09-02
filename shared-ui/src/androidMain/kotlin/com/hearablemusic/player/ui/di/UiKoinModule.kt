@@ -50,7 +50,7 @@ val uiModule = module {
     viewModel { BackupViewModel(get(), get(), get(), get()) }
     viewModel { AiSettingsViewModel(get(), get()) }
     viewModel { LyricsSettingsViewModel(get()) }
-    viewModel { RecommendationViewModel(get(), get(), get(), get()) }
+    viewModel { RecommendationViewModel(get(), get(), get(), get(), get()) }
     viewModel { UserUsageDataViewModel(get()) }
     viewModel { ChatViewModel(get(), get(), get(), get()) }
     single<AlbumArtPixelsLoader> { CoilAlbumArtPixelsLoader(androidContext()) }

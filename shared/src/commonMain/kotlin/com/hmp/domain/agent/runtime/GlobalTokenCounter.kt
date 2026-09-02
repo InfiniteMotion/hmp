@@ -1,5 +1,8 @@
 package com.hmp.domain.agent.runtime
 
+import com.hmp.platform.Volatile
+import com.hmp.platform.Synchronized
+
 /**
  * T1 基础设施：全局唯一 Token 消耗计数器。
  *

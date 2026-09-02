@@ -11,6 +11,11 @@ import androidx.room.Query
  * Agent 会话消息（设计总纲 7.3 agent_message）。
  * 只存 transcript 文本（音频不落库）；render_hint 驱动 UI 渲染厚度
  * （text / song / songlist / explain / confirm）。
+ *
+ * data_json：结构化 payload（v7.1 M6-T1 新增）——
+ *   - songlist: {"songs":[{"id":123,"title":"...","why":"因为你最近常听"}],"summary":"今夜电台 · 12 首备选"}
+ *   - confirm: 确认请求列表 JSON
+ *   - 其余 render_hint 可为 null
  */
 @Entity(tableName = "agent_message")
 data class AgentMessage(
@@ -23,6 +28,9 @@ data class AgentMessage(
     val content: String? = null,
     @ColumnInfo(name = "render_hint")
     val renderHint: String? = null,
+    /** 结构化 payload（songlist/confirm 等需要额外数据时） */
+    @ColumnInfo(name = "data_json")
+    val dataJson: String? = null,
     @ColumnInfo(name = "created_at")
     val createdAt: Long,
 )

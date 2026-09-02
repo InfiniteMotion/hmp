@@ -42,4 +42,26 @@ interface AgentAuditLogDao {
 
     @Query("SELECT * FROM agent_audit_log WHERE task_id = :taskId ORDER BY id ASC")
     suspend fun getByTaskId(taskId: Long): List<AgentAuditLog>
+
+    /** 审计页用：全量读取，最新在前 */
+    @Query("SELECT * FROM agent_audit_log ORDER BY id DESC")
+    suspend fun getAll(): List<AgentAuditLog>
+
+    /** 审计页筛选按 tool（动作类型） */
+    @Query("SELECT * FROM agent_audit_log WHERE tool = :tool ORDER BY id DESC")
+    suspend fun queryByTool(tool: String): List<AgentAuditLog>
+
+    /** 撤销支持：按 id 查单条 */
+    @Query("SELECT * FROM agent_audit_log WHERE id = :id")
+    suspend fun getById(id: Long): AgentAuditLog?
+
+    @Query("DELETE FROM agent_audit_log WHERE id = :id")
+    suspend fun deleteById(id: Long)
+
+    @Query("DELETE FROM agent_audit_log")
+    suspend fun deleteAll()
+
+    /** 审计页展示的总数 */
+    @Query("SELECT COUNT(*) FROM agent_audit_log")
+    suspend fun count(): Long
 }

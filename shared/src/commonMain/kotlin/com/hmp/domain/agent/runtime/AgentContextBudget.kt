@@ -1,11 +1,11 @@
 package com.hmp.domain.agent.runtime
 
 import co.touchlab.kermit.Logger
+import com.hmp.domain.agent.port.LlmEvent
 import com.hmp.domain.agent.port.LlmMessage
 import com.hmp.domain.agent.port.LlmToolSpec
 import com.hmp.domain.agent.port.LlmTransport
 import com.hmp.domain.setting.model.AiEndpointConfig
-import kotlinx.coroutines.flow.toList
 
 /**
  * T1 基础设施：每个 Agent 独立的 LLM 上下文窗口管理器。
@@ -85,6 +85,38 @@ class AgentContextBudget(
             tools = tools,
             temperature = temperature,
         )
+    }
+
+    /**
+     * 非流式便捷调用：收集流式输出拼接成完整文本。
+     *
+     * 适用于一次性 JSON 生成、富化管道等不需要流式打字机效果的场景。
+     * 返回 null 表示 LLM 调用失败（网络、超时、HTTP 错误等）。
+     */
+    suspend fun callLlmText(
+        config: AiEndpointConfig,
+        systemPrompt: String,
+        newMessages: List<LlmMessage>,
+        tools: List<LlmToolSpec>? = null,
+        temperature: Float = 0.3f,
+    ): String? {
+        val flow = callLlm(config, systemPrompt, newMessages, tools, temperature)
+        val textBuffer = StringBuilder()
+        var failedMessage: String? = null
+        flow.collect { event ->
+            when (event) {
+                is LlmEvent.TextDelta -> textBuffer.append(event.text)
+                is LlmEvent.Failed -> failedMessage = event.message
+                is LlmEvent.Completed -> Unit
+                is LlmEvent.ToolCall -> Unit // 非流式场景忽略 tool calls
+            }
+        }
+        return if (failedMessage != null) {
+            Logger.e("Agent.ContextBudget") { "[$agentId] callLlmText failed: $failedMessage" }
+            null
+        } else {
+            textBuffer.toString()
+        }
     }
 
     /**

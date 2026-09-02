@@ -23,15 +23,16 @@ import org.koin.dsl.module
 /**
  * M5-T2 对话引擎接缝的三端共享 Koin 模块。
  *
- * T 阶段整合后：MasterAgent 作为唯一大脑统一对话能力（handleUserMessage）和
- * 后台 SubAgent 管理（enrichTaskLoop + enrich_* 工具 + Scheduler）。
+ * MasterAgent 作为唯一大脑，统一对话能力（handleUserMessage + 内建意图路由）和
+ * 后台 SubAgent 管理（enrichTaskLoop + Scheduler）。
+ *
+ * SubAgent 生命周期管理（enrich pause/resume/status、radio start/stop）
+ * 已重构为 MasterAgent.handleUserMessage() 内建意图路由——不经过 LLM、不注册为工具。
  *
  * Koin 依赖顺序：
- * MasterAgent → ToolDependencies（无 masterAgentFacade 了，循环依赖已打破）
- *             → ToolRegistry → （MasterAgent.init 自动注册 enrich_*）
- *             → MasterChatGateway（薄壳，调 masterAgent.handleUserMessage）
- *
- * LlmTransport / AuditLogPort / AgentMessageStore 等由各平台模块注册。
+ * ToolDependencies → ToolRegistry（27 基础工具，无 enrich_*）
+ *                 → MasterAgent（持有 ToolRegistry + chatTransport + ...）
+ *                 → MasterChatGateway（薄壳，调 masterAgent.handleUserMessage）
  */
 val chatGatewayModule = module {
     single { ChatEntryBroker() }
@@ -78,6 +79,9 @@ val chatGatewayModule = module {
             stepBudget = EngineDefaults.STEP_BUDGET,
             // Enrich 后台依赖
             enrichConfig = enrichConfig,
+            // Radio 电台依赖（M6-T1）
+            playbackPort = get(),
+            nowPlayingProvider = get(),
             // Agent 配置持久化（trustLevel + alwaysAllow DataStore 读写）
             settingsRepo = settingsRepo,
         )
@@ -96,15 +100,17 @@ val chatGatewayModule = module {
 }
 
 /**
- * [AiExtraEnrichPort] 生产实现：按接线方注入的 UserSettingsUseCase 取当前生效 AI 端点，
- * 调 MusicRepository 完成单曲富化（对应 AiExtraEnrichPort 文档规定的接线方式）。
+ * [AiExtraEnrichPort] 生产实现。
+ *
+ * @deprecated 富化管道已内化到 EnrichSubAgent（走 contextBudget.callLlmText），
+ *   不再通过此 Port。保留仅为编译兼容，返回 Result.failure。
  */
+@Deprecated("富化管道已内化到 EnrichSubAgent，此 Port 不再使用")
 class MusicServiceEnrichPort(
     private val musicRepository: MusicRepository,
     private val userSettings: UserSettingsUseCase,
 ) : AiExtraEnrichPort {
     override suspend fun enrich(title: String, artist: String): Result<com.hmp.domain.setting.model.DailyMusicInfo> {
-        val config = userSettings.getActiveAiConfig()
-        return musicRepository.fetchMusicExtraInfoWithProvider(config, title, artist)
+        return Result.failure(IllegalStateException("MusicServiceEnrichPort is deprecated — enrich pipeline moved to EnrichSubAgent"))
     }
 }

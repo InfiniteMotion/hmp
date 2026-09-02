@@ -47,7 +47,7 @@ kotlin {
             implementation(libs.ktor.serialization.json)
             implementation(libs.ktor.logging)
             implementation(libs.kotlinx.coroutines)
-            implementation(libs.kermit)
+            api(libs.kermit)
         }
         androidMain.dependencies {
             implementation(libs.koin.android)

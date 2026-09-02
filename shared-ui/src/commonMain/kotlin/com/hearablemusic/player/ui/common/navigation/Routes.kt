@@ -112,18 +112,21 @@ object Routes {
     object Settings {
         /** 设置页路由 */
         @Serializable object Setting : NavKey
-        
+
         /** 个人资料设置路由 */
         @Serializable object ProfileSettings : NavKey
-        
+
         /** 备份设置路由 */
         @Serializable object BackupSettings : NavKey
-        
+
         /** 音乐库设置路由 */
         @Serializable object LibrarySettings : NavKey
 
         /** 歌词设置路由 */
         @Serializable object LyricsSettings : NavKey
+
+        /** M6-T4：Agent 操作审计日志页 */
+        @Serializable object AuditLog : NavKey
     }
     
     /**

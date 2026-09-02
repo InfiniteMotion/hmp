@@ -37,29 +37,25 @@ object ToolNames {
     const val LIBRARY_SONGS_BY_TAG = "library_songs_by_tag"
     const val AGENT_BUDGET = "agent_budget"
 
-    // ── Song 标签富化（4 个）──
+    // ── Song 标签（3 个）──
     const val SONG_TAGS_GET = "song_tags_get"
-    const val SONG_ENRICH_LLM = "song_enrich_llm"
     const val SONG_TAG_USER_ADD = "song_tag_user_add"
     const val SONG_TAG_USER_REMOVE = "song_tag_user_remove"
 
-    // ── Master 专属：富化生命周期管理（5 个；仅 MasterAgent LLM 可见，chatbot 不注册）──
-    const val ENRICH_START = "enrich_start"
-    const val ENRICH_PAUSE = "enrich_pause"
-    const val ENRICH_RESUME = "enrich_resume"
-    const val ENRICH_STATUS = "enrich_status"
-    const val ENRICH_RESCAN = "enrich_rescan"
-
     /**
-     * Registry 默认注册的基础工具名清单（chatbot 模式可见，不含 Master 专属）。
-     * Playback(4) + Playlist CRUD(5) + Playlist 曲目(3) + Library(11) + Song 标签(4) = 27 个。
+     * Registry 默认注册的全部工具名清单（26 个）。
+     * Playback(4) + Playlist CRUD(5) + Playlist 曲目(3) + Library(11) + Song 标签(3)。
+     *
+     * EnrichSubAgent 富化管道已内化到自循环（runLoop 直接调 repository.fetchMusicExtraInfoWithProvider），
+     * song_enrich_llm 工具删除。SubAgent 生命周期管理（enrich 系列 / radio 系列）已重构为内建意图路由，
+     * 不再暴露为 LLM 工具。
      */
     val ALL: List<String> = listOf(
         PLAYBACK_STATE, PLAYBACK_CONTROL, PLAYBACK_PLAY_AT,
         PLAYLIST_LIST, PLAYLIST_DETAIL, PLAYLIST_CREATE, PLAYLIST_RENAME, PLAYLIST_DELETE,
         PLAYLIST_ADD_SONG, PLAYLIST_REMOVE_SONG, PLAYLIST_REORDER,
         LIBRARY_SEARCH, LIBRARY_SIMILAR, LIBRARY_STATS, LIBRARY_RECENT_HISTORY,
-        SONG_TAGS_GET, SONG_ENRICH_LLM,
+        SONG_TAGS_GET,
         // Batch B
         PLAYBACK_ENQUEUE,
         LIBRARY_TAGS, LIBRARY_SONGS_BY_TAG, LIBRARY_SONGS_BY_ARTIST, LIBRARY_SONGS_BY_ALBUM,
@@ -67,17 +63,6 @@ object ToolNames {
         AGENT_BUDGET,
         SONG_TAG_USER_ADD, SONG_TAG_USER_REMOVE,
     )
-
-    /**
-     * MasterAgent 专属工具名（不进入 chatbot ToolRegistry，ToolDependencies.masterAgentFacade 非空时追加注册）。
-     * 共 5 个：enrich_start / enrich_pause / enrich_resume / enrich_status / enrich_rescan。
-     */
-    val MASTER_EXCLUSIVE: List<String> = listOf(
-        ENRICH_START, ENRICH_PAUSE, ENRICH_RESUME, ENRICH_STATUS, ENRICH_RESCAN,
-    )
-
-    /** MasterAgent 模式下的完整工具清单（基础 + Master 专属 = 32 个）。 */
-    val ALL_COMPLETE: List<String> = ALL + MASTER_EXCLUSIVE
 
     /** 批次 B 新增工具名（需底层补完后才能注册）。 */
     val ALL_BATCH_B: List<String> = listOf(

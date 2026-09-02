@@ -28,6 +28,7 @@ import com.hmp.data.util.stringToPinyinSortKey
 import com.hmp.data.util.todayDateString
 import com.hmp.domain.agent.enrich.EnrichBatchResult
 import com.hmp.domain.agent.enrich.EnrichHealth
+import com.hmp.domain.agent.enrich.EnrichWorkUnit
 import com.hmp.domain.backup.ListeningStatsSnapshot
 import com.hmp.domain.backup.MusicExtraUserSnapshot
 import com.hmp.domain.backup.MusicLabelSnapshot
@@ -364,42 +365,6 @@ abstract class MusicRepositoryBase(
         )
     }
 
-    override suspend fun fetchMusicExtraInfoWithProvider(
-        config: AiEndpointConfig,
-        title: String,
-        artist: String
-    ): Result<DailyMusicInfo> {
-        val prompt = buildMusicInfoPrompt(title, artist)
-
-        return when (val result = openAiCompatibleAdapter.callChatApi(config, prompt)) {
-            is AiApiResult.Success -> {
-                try {
-                    val response = json.decodeFromString<MusicInfoResponse>(result.data)
-                    val info = DailyMusicInfo(
-                        genre = response.genre,
-                        mood = response.mood,
-                        scenario = response.scenario,
-                        language = response.language,
-                        era = response.era,
-                        rewards = response.rewards,
-                        lyric = response.lyric,
-                        singerIntroduce = response.singerIntroduce,
-                        backgroundIntroduce = response.backgroundIntroduce,
-                        description = response.description,
-                        relevantMusic = response.relevantMusic,
-                        errorInfo = response.errorInfo
-                    )
-                    Result.success(info)
-                } catch (e: Exception) {
-                    Result.failure(e)
-                }
-            }
-            is AiApiResult.Error -> {
-                Result.failure(Exception(result.error.toDisplayMessage()))
-            }
-        }
-    }
-
     override suspend fun validateProviderApiKey(config: AiEndpointConfig): Result<Boolean> {
         return when (val result = openAiCompatibleAdapter.testConnection(config)) {
             is AiApiResult.Success -> Result.success(true)
@@ -412,42 +377,6 @@ abstract class MusicRepositoryBase(
             is AiApiResult.Success -> Result.success(result.data)
             is AiApiResult.Error -> Result.failure(Exception(result.error.toDisplayMessage()))
         }
-    }
-
-    private fun buildMusicInfoPrompt(title: String, artist: String): String {
-        return """
-                你是一位专业的音乐编辑，精通各类音乐风格、流派发展历史和艺术家背景。
-
-                请分析以下歌曲信息，如果需要可以通过网络搜索获取更准确的信息。
-
-                请严格按照以下JSON格式回复，不要包含任何解释、注释或其他额外文本：
-                {
-                "genre": ["ROCK", "POP", "JAZZ", "CLASSICAL", "HIPHOP", "ELECTRONIC", "FOLK", "RNB", "METAL", "COUNTRY", "BLUES", "REGGAE", "PUNK", "FUNK", "SOUL", "INDIE"],
-                "mood": ["HAPPY", "SAD", "ENERGETIC", "CALM", "ROMANTIC", "ANGRY", "LONELY", "UPLIFTING", "MYSTERIOUS", "DARK", "MELANCHOLY", "HOPEFUL"],
-                "scenario": ["WORKOUT", "SLEEP", "PARTY", "DRIVING", "STUDY", "RELAX", "DINNER", "MEDITATION", "FOCUS", "TRAVEL", "MORNING", "NIGHT"],
-                "language":"ENGLISH/CHINESE/JAPANESE/KOREAN/OTHERS",
-                "era":"SIXTIES/SEVENTIES/EIGHTIES/NINETIES/TWO_THOUSANDS/TWENTY_TENS/TWENTY_TWENTIES",
-                "rewards": "歌手或歌曲获得的重要奖项，如格莱美、金曲奖等，若无则返回-暂无",
-                "lyric": "该歌曲最广为人知的一到两句歌词，若无则返回-暂无",
-                "singerIntroduce": "歌手的背景、主要成就、音乐风格和代表作品介绍",
-                "backgroundIntroduce": "歌曲的创作背景、灵感来源、发布时的反响或背后的故事",
-                "description": "歌曲表达的主题、情感、核心内容或想要传达的信息",
-                "relevantMusic": "与该歌曲风格、流派或情感相似的其他知名歌曲，用逗号分隔，不可返回数组",
-                "errorInfo": "None"
-                }
-
-                要求：
-                1. 只返回上述JSON格式，不要添加任何markdown标记或解释
-                2. genre、mood、scenario 为多选，返回JSON数组，从候选值中选择
-                3. relevantMusic 为多选，用逗号分隔为字符串，禁止返回JSON数组
-                4. language和era为单选，直接输出选项值
-                4. 如果无法确定某字段，回复"UNKNOWN"
-                5. 歌词必须是该歌曲的真实热门歌词，不要编造
-                6. 相似歌曲推荐必须是真正与该歌曲风格相似的知名歌曲
-                7. 优先通过网络搜索确认信息的准确性
-
-                歌曲信息：$artist 演唱的《$title》
-        """.trimIndent()
     }
 
     // endregion
@@ -881,19 +810,59 @@ abstract class MusicRepositoryBase(
 
     /** 获取未富化的歌曲：没有任何 LLM/AGENT 源标签的。 */
     override suspend fun getUnenrichedSongs(limit: Int): List<MusicInfo> {
+        val unenrichedIds = getAllUnenrichedIds().take(limit)
+        return unenrichedIds.mapNotNull { id ->
+            musicAllDao.getMusicInfoById(id).firstOrNull()?.toDomain()
+        }
+    }
+
+    /** 取全部未富化的歌曲，按歌手聚合 + count DESC 排序后返回下一个工作单元。 */
+    override suspend fun fetchNextEnrichWorkUnit(
+        bigArtistThreshold: Int,
+        mixGroupSize: Int,
+    ): EnrichWorkUnit? {
+        val unenrichedIds = getAllUnenrichedIds()
+        if (unenrichedIds.isEmpty()) return null
+
+        val allSongs = unenrichedIds.mapNotNull { id ->
+            musicAllDao.getMusicInfoById(id).firstOrNull()?.toDomain()
+        }
+        if (allSongs.isEmpty()) return null
+
+        val byArtist = allSongs.groupBy { it.music.artist }
+        val sortedArtists = byArtist.entries.sortedByDescending { it.value.size }
+
+        // ① 优先吃大歌手（≥ bigArtistThreshold 首）
+        val bigArtist = sortedArtists.firstOrNull { it.value.size >= bigArtistThreshold }
+        if (bigArtist != null) {
+            return EnrichWorkUnit.ArtistGroup(
+                artist = bigArtist.key,
+                songs = bigArtist.value,
+            )
+        }
+
+        // ② 没有大歌手 → 小歌手攒到 mixGroupSize 一起处理
+        val mixed = sortedArtists.flatMap { it.value }
+        if (mixed.size >= mixGroupSize) {
+            return EnrichWorkUnit.MixedGroup(songs = mixed.take(mixGroupSize))
+        }
+
+        // ③ 小歌手凑不到阈值 → 全部一把梭（最后一批）
+        if (mixed.isNotEmpty()) {
+            return EnrichWorkUnit.MixedGroup(songs = mixed)
+        }
+
+        return null
+    }
+
+    /** 取所有未富化歌曲的 id 集合：排除已删除 + 排除有 LLM/AGENT 标签的。 */
+    private suspend fun getAllUnenrichedIds(): List<Long> {
         val allIds = musicDao.getAllActiveIds()
         val enrichedIds = musicLabelDao.getAllLabels()
             .filter { it.source == SOURCE_LLM || it.source == SOURCE_AGENT }
             .map { it.musicId }
             .toSet()
-
-        val unenrichedIds = allIds.filter { it !in enrichedIds }.take(limit)
-        val result = mutableListOf<MusicInfo>()
-        for (id in unenrichedIds) {
-            val info = musicAllDao.getMusicInfoById(id).firstOrNull()
-            if (info != null) result.add(info.toDomain())
-        }
-        return result
+        return allIds.filter { it !in enrichedIds }
     }
 
     /** 获取之前富化失败的歌曲：low confidence 的。 */

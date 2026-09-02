@@ -147,20 +147,6 @@ class AgentToolsTest {
         assertNotNull(notReady.failureReason)
     }
 
-    // ---------- enrichSong ----------
-    @Test
-    fun enrichSong_successAndFailure() = runTest {
-        val fx = Fixture()
-        val ok = fx.registry.executeTool(ToolNames.SONG_ENRICH_LLM, jsonArgs("title" to "Deep Focus", "artist" to "Ambient"))
-        assertTrue(ok.success)
-        assertTrue(ok.summary.contains("电子"), "成功应含风格标签")
-
-        fx.enrich.result = Result.failure(IllegalStateException("云端超时"))
-        val fail = fx.registry.executeTool(ToolNames.SONG_ENRICH_LLM, jsonArgs("title" to "Deep Focus"))
-        assertFalse(fail.success)
-        assertNotNull(fail.failureReason)
-    }
-
     // ---------- createPlaylist ----------
     @Test
     fun createPlaylist_success() = runTest {
@@ -256,7 +242,6 @@ class AgentToolsTest {
             ToolNames.PLAYBACK_STATE to jsonArgs(),
             ToolNames.LIBRARY_SIMILAR to jsonArgs("music_id" to 1L),
             ToolNames.SONG_TAGS_GET to jsonArgs("music_id" to 1L),
-            ToolNames.SONG_ENRICH_LLM to jsonArgs("title" to "Title"),
             ToolNames.PLAYLIST_CREATE to jsonArgs("name" to "T"),
             ToolNames.PLAYLIST_ADD_SONG to jsonArgs("playlist_id" to fx.playlistRepo.createPlaylist("L"), "music_id" to 1L),
             ToolNames.PLAYLIST_REORDER to jsonArgs("playlist_id" to 1L, "ordered_music_ids" to listOf(1L, 2L)),

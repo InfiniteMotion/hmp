@@ -28,6 +28,9 @@ sealed interface PresenceEvent {
     /** DJ 衔接空白（电台曲间一句，M6-T3）。 */
     data object DjBlank : PresenceEvent
 
+    /** 用户连跳 N 首（跳过感知重排触发，M6-T2）。 */
+    data class SkipDetected(val consecutiveCount: Int, val trackTitle: String? = null) : PresenceEvent
+
     /** T3 SubAgent 执行进度（供 Master 验收 + UI 后台状态显示）。 */
     data class AgentProgress(
         val agentId: String,

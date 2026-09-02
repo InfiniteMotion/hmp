@@ -7,6 +7,8 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import com.hmp.platform.Volatile
+import com.hmp.platform.Synchronized
 
 /**
  * Agent 优先级：数值越小优先级越高。

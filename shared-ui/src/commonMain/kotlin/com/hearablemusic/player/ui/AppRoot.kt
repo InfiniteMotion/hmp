@@ -47,6 +47,8 @@ import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDe
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
 import com.hearablemusic.player.ui.common.components.AgentQuickSheet
+import com.hearablemusic.player.ui.common.components.AgentNoticeBar
+import com.hearablemusic.player.ui.common.components.AgentNotice
 import com.hearablemusic.player.ui.common.components.BottomFusionBar
 import com.hearablemusic.player.ui.common.components.FusionSidebar
 import com.hearablemusic.player.ui.common.components.TabPageIndicator
@@ -90,8 +92,11 @@ import com.hearablemusic.player.ui.player.viewmodel.PlaybackViewModel
 import com.hearablemusic.player.ui.player.viewmodel.PlaylistQueueViewModel
 import com.hearablemusic.player.ui.settings.viewmodel.SettingsViewModel
 import com.hmp.domain.setting.usecase.LyricsSettingsUseCase
+import com.hmp.domain.agent.infra.PresenceBus
+import com.hmp.domain.agent.infra.PresenceEvent
 import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.rememberHazeState
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
@@ -116,6 +121,7 @@ fun AppRoot(darkTheme: Boolean) {
     val dialogViewModel: DialogViewModel = activityViewModel()
     val platformServices = koinInject<com.hearablemusic.player.ui.platform.PlatformServices>()
     val chatEntryBroker = koinInject<com.hearablemusic.player.ui.chat.ChatEntryBroker>()
+    val presenceBus = koinInject<PresenceBus>()
 
     val dialogManager = dialogManagerViewModel.dialogManager
     // 订阅调色板、当前曲目与播放状态
@@ -214,6 +220,34 @@ fun AppRoot(darkTheme: Boolean) {
     // M1-T6 存根：轻量浮层开关（伙伴徽标已于 2026-08-27 移除——门面页高亮代替红点提示；
     // 未读/待确认等真实徽标在 M5 会话接入时按需恢复）
     var companionQuickSheetVisible by remember { mutableStateOf(false) }
+
+    // ── M6-T2c/M6-T3：PresenceBus → AgentNoticeBar 侧条 ──
+    var currentNotice by remember { mutableStateOf<AgentNotice?>(null) }
+    var noticeIdCounter by remember { mutableIntStateOf(0) }
+    LaunchedEffect(Unit) {
+        presenceBus.events.collectLatest { event ->
+            when (event) {
+                is PresenceEvent.NoticeAvailable -> {
+                    noticeIdCounter++
+                    currentNotice = AgentNotice(
+                        id = noticeIdCounter.toLong(),
+                        message = event.text,
+                        showUndo = false,
+                    )
+                }
+                is PresenceEvent.SkipDetected -> {
+                    noticeIdCounter++
+                    val title = event.trackTitle ?: "这首不太合你口味"
+                    currentNotice = AgentNotice(
+                        id = noticeIdCounter.toLong(),
+                        message = "跳过了「$title」，正在换一批…",
+                        showUndo = false,
+                    )
+                }
+                else -> Unit  // 其他事件不触发侧条
+            }
+        }
+    }
 
     LaunchedEffect(pagerState.currentPage) {
         savedTabIndex.intValue = pagerState.currentPage
@@ -492,6 +526,12 @@ fun AppRoot(darkTheme: Boolean) {
                                 ) {
                                     // 浮层锚定在底栏上方（设计总纲 3.3：有底栏贴底栏上方、无底栏贴屏底）
                                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        // M6-T2c/M6-T3：AgentNoticeBar 侧条（PresenceBus 事件 → 4s 自动退场）
+                                        AgentNoticeBar(
+                                            notice = currentNotice,
+                                            onDismiss = { currentNotice = null },
+                                            modifier = Modifier.padding(bottom = 4.dp),
+                                        )
                                         AgentQuickSheet(
                                             visible = companionQuickSheetVisible,
                                             onSubmit = { input ->
@@ -606,6 +646,54 @@ fun AppRoot(darkTheme: Boolean) {
                                     )
                                 }
                                 null -> Unit
+                            }
+
+                            // ── M6-T5：STRONG_CONFIRM 双确认链 DialogHost ──
+                            (dialogEvent as? DialogEvent.ConfirmChain)?.let { chain ->
+                                val step = chain.steps.getOrNull(chain.stepIndex)
+                                if (step != null) {
+                                    androidx.compose.material3.AlertDialog(
+                                        onDismissRequest = { dialogManager.cancelConfirmChain(chain.id) },
+                                        title = {
+                                            Column {
+                                                androidx.compose.material3.Text(
+                                                    text = step.title,
+                                                    style = MaterialTheme.typography.titleMedium
+                                                )
+                                                if (chain.steps.size > 1) {
+                                                    androidx.compose.material3.Text(
+                                                        text = "（${chain.stepIndex + 1}/${chain.steps.size}）",
+                                                        style = MaterialTheme.typography.labelSmall,
+                                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                    )
+                                                }
+                                            }
+                                        },
+                                        text = {
+                                            androidx.compose.material3.Text(
+                                                text = step.message,
+                                                style = MaterialTheme.typography.bodyMedium
+                                            )
+                                        },
+                                        confirmButton = {
+                                            androidx.compose.material3.TextButton(
+                                                onClick = { dialogManager.advanceConfirmStep(chain.id) }
+                                            ) {
+                                                androidx.compose.material3.Text(
+                                                    step.confirmLabel,
+                                                    color = MaterialTheme.colorScheme.primary
+                                                )
+                                            }
+                                        },
+                                        dismissButton = {
+                                            androidx.compose.material3.TextButton(
+                                                onClick = { dialogManager.denyConfirmChain(chain.id) }
+                                            ) {
+                                                androidx.compose.material3.Text(step.denyLabel)
+                                            }
+                                        }
+                                    )
+                                }
                             }
 
                             messageToShowState.value?.let { message ->

@@ -1,6 +1,7 @@
 package com.hmp.domain.agent.runtime
 
 import kotlinx.coroutines.sync.Mutex
+import com.hmp.platform.Volatile
 
 /**
  * Agent 停止/暂停信号——每个 Agent 构造时选一个实现。

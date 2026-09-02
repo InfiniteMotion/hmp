@@ -20,10 +20,4 @@ data class ToolDependencies(
     val nowPlayingContextProvider: NowPlayingContextProvider,
     val playbackCommandPort: PlaybackCommandPort,
     val enrichPort: AiExtraEnrichPort,
-    /**
-     * T 阶段新增：MasterAgent 对工具层的窄接口（可空）。
-     * - chatbot 模式（无 Master）：null → ToolRegistry 不注册 enrich_* 工具
-     * - Master 模式：MasterAgent 实现此接口并注入 → ToolRegistry 额外注册 5 个 enrich_* 工具
-     */
-    val masterAgentFacade: MasterAgentFacade? = null,
 )

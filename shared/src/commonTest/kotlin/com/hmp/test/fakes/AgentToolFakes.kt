@@ -81,8 +81,6 @@ class FakeAgentMusicRepository : MusicRepository {
     override suspend fun loadMusicFromDevice(): Result<Unit> = Result.success(Unit)
     override val isScanning: Flow<Boolean> = flowOf(false)
     override suspend fun syncMusicFromDeviceIncremental(): Result<Unit> = Result.success(Unit)
-    override suspend fun fetchMusicExtraInfoWithProvider(config: AiEndpointConfig, title: String, artist: String): Result<DailyMusicInfo> =
-        Result.failure(IllegalStateException("测试不应直达 fetch"))
     override suspend fun validateProviderApiKey(config: AiEndpointConfig): Result<Boolean> = Result.success(true)
     override suspend fun fetchAvailableModels(config: AiEndpointConfig): Result<List<String>> = Result.success(emptyList())
     override suspend fun insertPlayback(newRecord: PlaybackHistory): Long { history += newRecord; return newRecord.id.takeIf { it != 0L } ?: history.size.toLong() }
@@ -112,6 +110,7 @@ class FakeAgentMusicRepository : MusicRepository {
     override suspend fun getEnrichHealth(): EnrichHealth = EnrichHealth(0, songs.size, 0)
     override suspend fun getUnenrichedSongs(limit: Int): List<MusicInfo> = songs.values.take(limit)
     override suspend fun getFailedEnrichSongs(limit: Int): List<MusicInfo> = emptyList()
+    override suspend fun fetchNextEnrichWorkUnit(bigArtistThreshold: Int, mixGroupSize: Int): com.hmp.domain.agent.enrich.EnrichWorkUnit? = null
     override suspend fun getRecentEnrichResults(since: Long): EnrichBatchResult = EnrichBatchResult(0, 0)
     // endregion
 }

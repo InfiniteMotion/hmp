@@ -52,7 +52,7 @@ val sharedModule = module {
     single { GetDeletedMusicIdsGroupedByFolderUseCase(get()) }
     single { MusicLabelUseCase(get(), get()) }
     single { EditMusicTagsUseCase(get()) }
-    single { GetDailyMusicRecommendationUseCase(get(), get(), get()) }
+    single { GetDailyMusicRecommendationUseCase(get(), get()) }
     single { ManagePlaylistUseCase(get(), get()) }
     single { GeneratePlaylistUseCase(get(), get()) }
     single { UserSettingsUseCase(get()) }

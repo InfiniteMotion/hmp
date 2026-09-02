@@ -130,37 +130,3 @@ class SongTagsGetTool(
         )
     }
 }
-
-// ---------------- song_enrich_llm (notify) ----------------
-
-class EnrichSongTool(
-    private val deps: ToolDependencies,
-) : AgentTool {
-    override val name = ToolNames.SONG_ENRICH_LLM
-    override val description = "用 AI 为单曲生成风格/情绪/场景标签（source=LLM）\n涉及云端调用，有成本与耗时\n建议【已开唱】或用户主动询问风格时再用"
-    override val permissionLevel = ToolPermissionLevel.NOTIFY
-    override val params = listOf(
-        StringParam(name = "title", description = "歌曲标题"),
-        StringParam(name = "artist", description = "艺术家", required = false, allowEmpty = true),
-    )
-
-    override suspend fun run(args: ToolArgs): ToolResult {
-        val title = args.requireString("title")
-        val artist = args.optionalString("artist").orEmpty()
-        val result = deps.enrichPort.enrich(title, artist)
-        return result.fold(
-            onSuccess = { info ->
-                ToolResult.success(
-                    "「$title」AI 富化完成：风格 ${info.genre.take(4).joinToString("、")}、" +
-                        "情绪 ${info.mood.take(4).joinToString("、")}、场景 ${info.scenario.take(4).joinToString("、")}",
-                    detail = listOf(
-                        "era=${info.era}",
-                        "language=${info.language}",
-                        "description=${info.description.take(120)}",
-                    ).joinToString("\n"),
-                )
-            },
-            onFailure = { e -> ToolResult.failure("「$title」AI 富化失败：${e.message ?: "未知原因"}") },
-        )
-    }
-}

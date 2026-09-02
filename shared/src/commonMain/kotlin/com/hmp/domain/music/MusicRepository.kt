@@ -2,6 +2,7 @@ package com.hmp.domain.music
 
 import com.hmp.domain.agent.enrich.EnrichBatchResult
 import com.hmp.domain.agent.enrich.EnrichHealth
+import com.hmp.domain.agent.enrich.EnrichWorkUnit
 import com.hmp.domain.setting.model.AiEndpointConfig
 import com.hmp.domain.setting.model.DailyMusicInfo
 import com.hmp.domain.setting.model.ListeningDuration
@@ -88,12 +89,6 @@ interface MusicRepository {
     suspend fun syncMusicFromDeviceIncremental(): Result<Unit>
 
     // AI / Extra Fetching
-    suspend fun fetchMusicExtraInfoWithProvider(
-        config: AiEndpointConfig,
-        title: String,
-        artist: String
-    ): Result<DailyMusicInfo>
-
     suspend fun validateProviderApiKey(config: AiEndpointConfig): Result<Boolean>
 
     suspend fun fetchAvailableModels(config: AiEndpointConfig): Result<List<String>>
@@ -127,6 +122,19 @@ interface MusicRepository {
 
     /** 获取未富化的歌曲（没有任何 LLM/AGENT 源标签的），返回前 limit 首 */
     suspend fun getUnenrichedSongs(limit: Int): List<MusicInfo>
+
+    /**
+     * 取下一个富化工作单元：
+     * - 大歌手（≥ bigArtistThreshold 首未富化）→ ArtistGroup（可预热）
+     * - 小歌手累计到 mixGroupSize → MixedGroup（跳过 Round 0）
+     * - 全部富化完 → null
+     *
+     * 内部逻辑：取全部 unenriched → groupBy artist → count DESC → 依次吃大歌手 + 攒小歌手。
+     */
+    suspend fun fetchNextEnrichWorkUnit(
+        bigArtistThreshold: Int = 3,
+        mixGroupSize: Int = 10,
+    ): EnrichWorkUnit?
 
     /** 获取之前富化失败的歌曲重试批次（简化版：low confidence 的） */
     suspend fun getFailedEnrichSongs(limit: Int): List<MusicInfo>

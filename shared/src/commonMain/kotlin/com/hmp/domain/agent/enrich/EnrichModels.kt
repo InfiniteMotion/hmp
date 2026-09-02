@@ -1,5 +1,7 @@
 package com.hmp.domain.agent.enrich
 
+import com.hmp.domain.music.MusicInfo
+
 /**
  * 富化健康度快照（T2-T2，Master 启动时检测用）。
  *
@@ -40,3 +42,23 @@ data class EnrichTask(
     /** 可接受的批次失败率阈值（超过则 Master 调整策略） */
     val acceptableFailureRate: Float = 0.1f,
 )
+
+/**
+ * 富化工作单元 —— Repository 层按歌手聚合 + count DESC 排序后的最小处理单元。
+ *
+ * - ArtistGroup: 大歌手（≥ bigArtistThreshold 首）→ 单独一组，可预热
+ * - MixedGroup:  小歌手累计到混合阈值（mixGroupSize）→ 批量，跳过 Round 0
+ */
+sealed class EnrichWorkUnit {
+    data class ArtistGroup(val artist: String, val songs: List<MusicInfo>) : EnrichWorkUnit()
+    data class MixedGroup(val songs: List<MusicInfo>) : EnrichWorkUnit()
+
+    /** 是否可预热（ArtistGroup 才可以） */
+    val canPreheat: Boolean get() = this is ArtistGroup
+
+    /** 单元内歌曲数 */
+    val size: Int get() = when (this) {
+        is ArtistGroup -> songs.size
+        is MixedGroup -> songs.size
+    }
+}

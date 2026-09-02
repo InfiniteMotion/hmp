@@ -1,6 +1,8 @@
 package com.hmp.domain.agent.port
 
 import com.hmp.domain.music.MusicInfo
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.emptyFlow
 
 /**
  * 播放控制端口（M3-M4：工具层不反向依赖 shared-ui，接口定义于此，三端适配由各平台完成）。
@@ -29,6 +31,8 @@ sealed interface PlaybackCommand {
     data class ADD_TO_QUEUE(val musicId: Long) : PlaybackCommand {
         override val displayName: String get() = "追加入队 $musicId"
     }
+    /** 跳过当前播放队列的所有曲目（M6-T2 电台重排时清空旧队列）。 */
+    data object SKIP_ALL : PlaybackCommand { override val displayName: String get() = "清空播放队列" }
 }
 
 /**
@@ -38,6 +42,22 @@ sealed interface PlaybackCommand {
 interface PlaybackCommandPort {
     /** 执行给定指令，返回执行结果摘要（true=成功）+ human-readable 文本。 */
     suspend fun execute(command: PlaybackCommand): Pair<Boolean, String>
+
+    /**
+     * 用户跳过（NEXT/PREVIOUS/PLAY_BY_ID/SKIP_ALL）事件流：emit 被跳过曲目的 title。
+     * M6-T2 MasterAgent 监听此流 → 累积 consecutiveCount → SkipDetected → 重排。
+     * 默认 emptyFlow() stub；真实实现由 ControllerPlaybackCommandPort 在 execute() 内部 emit。
+     */
+    val skipEvents: Flow<String> get() = emptyFlow()
+
+    /**
+     * Agent 命令触发的切歌事件：emit 新曲目的 title。
+     * M6-T3 MasterAgent 监听此流 → emit PresenceBus.DjBlank → 生成 DJ 衔接语。
+     * 默认 emptyFlow() stub；真实实现由 ControllerPlaybackCommandPort 在 execute() 内部 emit。
+     * 与 skipEvents 的区别：skipEvents emit"被跳过的旧曲目"，
+     * trackChangeEvents emit"刚切过去的新曲目"——两者可能先后到达同一轮切歌。
+     */
+    val trackChangeEvents: Flow<String> get() = emptyFlow()
 }
 
 /**
@@ -62,6 +82,8 @@ interface NowPlayingContextProvider {
  * M3-M4 单元测试不依赖真实播放器，用此 Fake。
  */
 object FakePlaybackCommandPort : PlaybackCommandPort {
+    override val skipEvents: Flow<String> = emptyFlow()
+    override val trackChangeEvents: Flow<String> = emptyFlow()
     override suspend fun execute(command: PlaybackCommand): Pair<Boolean, String> =
         true to "（测试环境）[${command.displayName}] 已接收指令"
 }

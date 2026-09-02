@@ -60,10 +60,10 @@ class ToolRegistry(
 
     companion object {
         /**
-         * 构造基础工具集（27 个：Playback 3 + Playlist 8 + Library 11 + Song 4 + agent_budget 1）。
+         * 构造基础工具集（27 个：Playback 4 + Playlist 8 + Library 11 + Song 4）。
          *
-         * MasterAgent 专属 enrich_* 工具（5 个）由 MasterAgent 在拿到 ToolRegistry 后
-         * 调 `registry.register(EnrichStartTool(facade), ...)` 自行注册——打破 Koin 循环依赖。
+         * MasterAgent SubAgent 生命周期（enrich 系列 / radio 系列）已重构为内建意图路由，
+         * 不再作为 LLM 工具注册——由 MasterAgent.handleUserMessage() 直接识别并调原生方法。
          */
         fun create(deps: ToolDependencies): ToolRegistry {
             val baseTools = listOf(
@@ -90,9 +90,9 @@ class ToolRegistry(
                 GetListenStatsTool(deps),         // library_stats
                 GetRecentHistoryTool(deps),       // library_recent_history
 
-                // ── Song 富化 ──
+                // ── Song 标签 ──
                 SongTagsGetTool(deps),            // song_tags_get
-                EnrichSongTool(deps),             // song_enrich_llm
+                // song_enrich_llm 已移除：EnrichSubAgent 富化管道内化到自循环
                 // ── Batch B ──
                 PlaybackEnqueueTool(deps),       // playback_enqueue
                 LibraryTagsTool(deps),           // library_tags

@@ -4,6 +4,7 @@ import co.touchlab.kermit.Logger
 import com.hmp.domain.agent.runtime.AgentContextBudget
 import com.hmp.domain.agent.runtime.AgentRunState
 import com.hmp.domain.agent.runtime.ToolRegistryView
+import com.hmp.platform.Volatile
 
 /**
  * T1 基础设施：SubAgent 抽象基类。

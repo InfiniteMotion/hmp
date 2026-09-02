@@ -19,6 +19,12 @@ data class AgentResult(
     val stepsUsed: Int,
     val toolCalls: List<ToolExecutionRecord>,
     val terminatedBy: TerminationReason,
+    /**
+     * 内建意图路由命中标记（MasterAgent.handleUserMessage 内部确定性匹配）。
+     * 非 null 表示 Master 直接处理了子 Agent 生命周期，不走 LLM ReActLoop。
+     * 值如 "radio_start" / "radio_stop" / "enrich_pause" / "enrich_resume" / "enrich_status"。
+     */
+    val intentHandled: String? = null,
 )
 
 /**

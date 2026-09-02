@@ -218,11 +218,6 @@ class FakeMusicRepository : MusicRepository {
     override val isScanning: Flow<Boolean> = _isScanning.asStateFlow()
 
     override suspend fun syncMusicFromDeviceIncremental(): Result<Unit> = Result.success(Unit)
-
-    override suspend fun fetchMusicExtraInfoWithProvider(
-        config: AiEndpointConfig, title: String, artist: String
-    ): Result<DailyMusicInfo> = Result.failure(NotImplementedError())
-
     override suspend fun validateProviderApiKey(config: AiEndpointConfig): Result<Boolean> =
         Result.success(true)
 
@@ -323,6 +318,26 @@ class FakeMusicRepository : MusicRepository {
             .distinct()
         val lowConfSet = lowConfIds.toSet()
         return musicList.filter { it.music.id in lowConfSet }.take(limit)
+    }
+
+    override suspend fun fetchNextEnrichWorkUnit(bigArtistThreshold: Int, mixGroupSize: Int): com.hmp.domain.agent.enrich.EnrichWorkUnit? {
+        val allLabels = allDataLabels()
+        val enrichedIds = allLabels
+            .filter { it.source == SOURCE_LLM || it.source == SOURCE_AGENT }
+            .map { it.musicId }.toSet()
+        val unenriched = musicList.filter { it.music.id !in enrichedIds }
+        if (unenriched.isEmpty()) return null
+
+        val byArtist = unenriched.groupBy { it.music.artist }
+        val sortedArtists = byArtist.entries.sortedByDescending { it.value.size }
+
+        val bigArtist = sortedArtists.firstOrNull { it.value.size >= bigArtistThreshold }
+        if (bigArtist != null) {
+            return com.hmp.domain.agent.enrich.EnrichWorkUnit.ArtistGroup(bigArtist.key, bigArtist.value)
+        }
+        val mixed = sortedArtists.flatMap { it.value }
+        if (mixed.isEmpty()) return null
+        return com.hmp.domain.agent.enrich.EnrichWorkUnit.MixedGroup(if (mixed.size >= mixGroupSize) mixed.take(mixGroupSize) else mixed)
     }
 
     override suspend fun getRecentEnrichResults(since: Long): EnrichBatchResult {

@@ -103,6 +103,10 @@ fun navigationGraph(
         )
     }
 
+    entry<Routes.Settings.AuditLog> {
+        com.hearablemusic.player.ui.agent.AuditLogScreen(navController = navController)
+    }
+
     // Library 模块
     entry<Routes.Library.Search> {
         SearchScreen(

@@ -315,8 +315,8 @@ shared-ui（三端共享 Compose）——伙伴的脸：对话页 · 确认卡�
 :shared / domain/agent/
 ┌─────────────────────────────────────────────────────┐
 │ 人格平面   CompanionProfile(滑杆+称呼+persona) × 预设常量表    │
-│ 引擎平面   AgentOrchestrator(唯一循环, 步数预算 8)             │
-│            Scheduler(触发+冷却) · PolicyGuard(四级许可)       │
+│ 引擎平面   MasterAgent(唯一大脑: 对话 handleUserMessage + Enrich/Radio SubAgent 生命周期)│
+│            AgentScheduler(全局纯规则 pause/resume) · PolicyGuard(四级许可)       │
 │            TrustLedger(信任状态机) · ContextBudget · SessionStore│
 │ 工具平面   ToolSpec DSL(手写 schema+校验) · ToolRegistry · 十项工具│
 │ 端口平面   LlmTransport(手动 SSE) · RealtimeVoiceTransport(WebSocket) │
@@ -328,7 +328,7 @@ data 层：Room v2（agent_task/agent_audit_log/agent_message 三表 + MusicLabe
 
 **双平面思想**：引擎平面拥有全部安全基建（预算、许可、审计），人格平面只做呈现——人格可以随便换，安全不随人格松动。**预算两层**：步数预算（单任务）与**云端调用频率/额度配额**（跨任务，防电台与高频对话的日成本累积）——额度耗尽触发本地兜底（2.3 降级兜底），能力受限但永不失能。
 
-**双模式**：`AgentOrchestrator`（文本模式，客户端组装上下文+tool loop）与 `VoiceSessionController`（语音模式，会话建立时注入快照，服务端管上下文）并存，共享工具/记忆/呈现/策略四层；ContextBudget 前者每次调用裁剪、后者会话开启选快照+时长监护。
+**双模式**：`MasterAgent.handleUserMessage()`（文本模式，客户端组装上下文+tool loop）与 `VoiceSessionController`（语音模式，会话建立时注入快照，服务端管上下文）并存，共享工具/记忆/呈现/策略四层；AgentContextBudget 前者每次调用裁剪、后者会话开启选快照+时长监护。
 
 ### 7.2 六项选型（全部零新增第三方依赖，含语音——WebSocket 是 Ktor 既有能力）
 

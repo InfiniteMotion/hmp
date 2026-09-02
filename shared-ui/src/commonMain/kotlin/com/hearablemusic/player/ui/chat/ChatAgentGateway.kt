@@ -37,6 +37,17 @@ sealed interface ChatAgentEvent {
         val toolCalls: List<ToolExecutionRecord>,
         val terminatedBy: TerminationReason,
     ) : ChatAgentEvent
+    /** 电台启动：携带 songlist 曲目 + 种子标签摘要（M6-T1）。 */
+    data class RadioStarted(
+        val songs: List<com.hmp.domain.music.MusicInfo>,
+        val seedLabels: List<String>,
+        val summary: String,
+    ) : ChatAgentEvent
+    /** 电台状态变更（续歌/停止/耗尽）。 */
+    data class RadioStateChanged(
+        val isPlaying: Boolean,
+        val trackCount: Int,
+    ) : ChatAgentEvent
 
     data class Failed(val message: String) : ChatAgentEvent
 }
@@ -77,33 +88,42 @@ class ConfirmBridge {
 
 /** 对话引擎接缝（M5-T1）：把一次用户输入换算为面向 UI 的事件流。 */
 interface ChatAgentGateway {
-    /**
-     * 启动一轮对话。
-     * @param input 用户输入
-     * @param config 生效 AI 端点配置（FREE 内置 / CUSTOM）
-     * @param bridge 确认桥（本轮引擎 — UI 握手）；NeedConfirm 事件出现时 UI 用其 [ConfirmBridge.submit] 恢复者
-     * @return 事件流；消费协程取消即取消引擎（步数预算熔断以 cancel 实现）
-     */
     fun run(
         input: String,
         config: AiEndpointConfig,
         bridge: ConfirmBridge,
         ctx: RunContextInput = RunContextInput(),
     ): Flow<ChatAgentEvent>
+
+    /**
+     * 启动 AI 电台（M6-T1）。
+     * 返回 songlist 曲目列表，ChatViewModel 据此渲染 SONGLIST 气泡。
+     * 内部经 MasterAgent.startRadio() → RadioSubAgent 三轮协作管道。
+     */
+    suspend fun startRadio(seed: String? = null): ChatAgentEvent.RadioStarted?
+
+    /** 停电台 */
+    suspend fun stopRadio()
+
+    /** 查询电台状态（供 UI 轮询徽标态） */
+    fun queryRadioState(): Pair<Boolean, Int>
 }
 
 // ═══════════════════════════════════════════════════════════════════════
 // T 阶段整合：MasterChatGateway —— 薄壳，对话能力由 MasterAgent 直接提供
 // 不创建 ToolRegistry / PolicyGuard / Transport / ContextBudget 等
-// —— 全从注入的 masterAgent 拿（已在 Koin 里构造好，ToolRegistry 含 5 个 enrich_*）
+// —— 全从注入的 masterAgent 拿；SubAgent 生命周期走内建意图路由
 // ═══════════════════════════════════════════════════════════════════════
 
 /**
  * 唯一网关：对话能力由 MasterAgent.handleUserMessage() 提供。
  *
- * Gateway 只做 UI 侧的上下文组装（首轮/跨轮记忆合并）+ ConfirmGate 桥接；
- * 全链路 Token 统一走 GlobalTokenCounter（MasterAgent 内部），
- * ToolRegistry 含 27 基础 + 5 enrich_* 工具（MasterAgent.init{} 自动注册）。
+ * Gateway 只做 UI 侧的上下文组装（首轮/跨轮记忆合并）+ ConfirmGate 桥接 +
+ * AgentResult → ChatAgentEvent 的转换（如电台启动后查 MusicInfo 渲染 songlist bubble）。
+ *
+ * SubAgent 生命周期管理（enrich pause/resume/status、radio start/stop）
+ * 由 MasterAgent.handleUserMessage() 内建意图路由处理——命中后返回 AgentResult.intentHandled，
+ * Gateway 根据此字段决定 UI 渲染。
  */
 class MasterChatGateway(
     private val masterAgent: MasterAgent,
@@ -120,12 +140,46 @@ class MasterChatGateway(
         ctx: RunContextInput,
     ): Flow<ChatAgentEvent> = kotlinx.coroutines.flow.flow {
         bridge.onRequest = { turnId, requests -> emit(ChatAgentEvent.NeedConfirm(turnId, requests)) }
+
         val confirmGate = ConfirmGate { requests -> bridge.awaitApprovals(requests) }
         try {
             val effectiveCtx = mergeFirstTurnContext(ctx, input)
             val result = masterAgent.handleUserMessage(input, config, effectiveCtx, confirmGate)
-            result.toolCalls.forEach { emit(ChatAgentEvent.ToolExecuted(it)) }
-            emit(ChatAgentEvent.Finished(result.text, result.toolCalls, result.terminatedBy))
+
+            // ── Master 内建意图路由命中（SubAgent 生命周期管理）──
+            // 电台启动需要 Gateway 额外组装 RadioStarted event（查 MusicInfo 渲染 songlist bubble）
+            when (result.intentHandled) {
+                "radio_start" -> {
+                    val playlist = masterAgent.queryRadioPlaylist()
+                    if (playlist != null && playlist.isNotEmpty()) {
+                        val ids = playlist.map { it.musicId }
+                        val musicInfos = runCatching {
+                            musicRepository.getAllMusicInfoAsList("id", "asc")
+                                .filter { it.music.id in ids }
+                        }.getOrDefault(emptyList())
+                        val radioEvent = ChatAgentEvent.RadioStarted(
+                            songs = musicInfos,
+                            seedLabels = playlist.map { it.why },
+                            summary = result.text,
+                        )
+                        Logger.i("Agent.Gateway") { "run: intentHandled=radio_start tracks=${playlist.size}→resolved=${musicInfos.size}" }
+                        emit(radioEvent)
+                        emit(ChatAgentEvent.Finished(result.text, emptyList(), result.terminatedBy))
+                    } else {
+                        Logger.w("Agent.Gateway") { "run: intentHandled=radio_start but playlist empty" }
+                        emit(ChatAgentEvent.Failed(result.text))
+                    }
+                }
+                "radio_stop", "enrich_start", "enrich_stop", "enrich_pause", "enrich_resume", "enrich_rescan", "enrich_status" -> {
+                    // 其他内建意图：直接用 Master 返回的文本渲染回复气泡
+                    emit(ChatAgentEvent.Finished(result.text, emptyList(), result.terminatedBy))
+                }
+                else -> {
+                    // 正常 LLM 对话
+                    result.toolCalls.forEach { emit(ChatAgentEvent.ToolExecuted(it)) }
+                    emit(ChatAgentEvent.Finished(result.text, result.toolCalls, result.terminatedBy))
+                }
+            }
         } catch (ce: kotlinx.coroutines.CancellationException) {
             throw ce
         } catch (e: Exception) {
@@ -193,4 +247,44 @@ class MasterChatGateway(
             topPlayedSongs = analytics.topPlayedSongs.map { it.title to it.artist },
         )
     }
+
+    // ── Radio 电台（M6-T1） ────────────────────────────────────────
+
+    override suspend fun startRadio(seed: String?): ChatAgentEvent.RadioStarted? {
+        val tracks = masterAgent.startRadio(seed)
+        if (tracks.isEmpty()) {
+            Logger.w("Agent.Gateway") { "startRadio: empty result" }
+            return null
+        }
+        // 把 RadioTrack.musicId 批量查 MusicInfo
+        val ids = tracks.map { it.musicId }
+        val musicInfos = runCatching {
+            musicRepository.getAllMusicInfoAsList("id", "asc")
+                .filter { it.music.id in ids }
+        }.getOrDefault(emptyList())
+
+        // 种子标签（从 MasterAgent 或 RadioSubAgent 拿——暂用 playlist 的 why 字段提取）
+        val summary = if (!seed.isNullOrBlank()) "「$seed」电台 · ${tracks.size} 首备选"
+                      else "今夜电台 · ${tracks.size} 首备选"
+
+        Logger.i("Agent.Gateway") { "startRadio: ${tracks.size} tracks → ${musicInfos.size} resolved" }
+        return ChatAgentEvent.RadioStarted(
+            songs = musicInfos,
+            seedLabels = tracks.map { it.why },  // why 暂当 labels 用（简单）
+            summary = summary,
+        )
+    }
+
+    override suspend fun stopRadio() {
+        masterAgent.stopRadio()
+        Logger.i("Agent.Gateway") { "stopRadio: done" }
+    }
+
+    override fun queryRadioState(): Pair<Boolean, Int> {
+        val state = masterAgent.queryRadioState()
+        val playlist = masterAgent.queryRadioPlaylist()
+        return (state == com.hmp.domain.agent.sub.RadioState.PLAYING) to playlist?.size.orZero()
+    }
+
+    private fun Int?.orZero() = this ?: 0
 }

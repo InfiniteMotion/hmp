@@ -59,6 +59,7 @@ import com.hearablemusic.player.ui.generated.resources.lyrics_settings
 import com.hearablemusic.player.ui.generated.resources.music
 import com.hearablemusic.player.ui.generated.resources.music_note_list
 import com.hearablemusic.player.ui.generated.resources.identify_song
+import com.hearablemusic.player.ui.generated.resources.list_bullet
 import com.hearablemusic.player.ui.generated.resources.skipped_count
 import com.hearablemusic.player.ui.generated.resources.slider_vertical_3
 import com.hearablemusic.player.ui.generated.resources.sort_play_count
@@ -81,7 +82,7 @@ import org.koin.compose.viewmodel.koinViewModel
 import kotlin.math.abs
 
 private data class SettingsEntry(
-    val titleRes: StringResource,
+    val title: Any,  // StringResource | String
     val icon: DrawableResource,
     val route: NavKey
 )
@@ -93,6 +94,8 @@ private val settingsItems = listOf(
     SettingsEntry(Res.string.lyrics_settings, Res.drawable.music_note_list, Routes.Settings.LyricsSettings),
     SettingsEntry(Res.string.backup_settings, Res.drawable.externaldrive, Routes.Settings.BackupSettings),
     SettingsEntry(Res.string.library_settings, Res.drawable.music, Routes.Settings.LibrarySettings),
+    // M6-T4：AI 伙伴操作审计日志入口（内联文字，后续补 composeResources string）
+    SettingsEntry("伙伴操作日志", Res.drawable.list_bullet, Routes.Settings.AuditLog),
 )
 
 @Composable
@@ -109,7 +112,7 @@ private fun SettingsListCard(
         modifier = modifier
     ) {
         Column(modifier = Modifier.fillMaxWidth().padding(vertical = dimens.spacing.sm)) {
-            settingsItems.forEachIndexed { index, (titleRes, icon, route) ->
+            settingsItems.forEachIndexed { index, (title, icon, route) ->
                 if (index > 0) {
                     HorizontalDivider(
                         color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
@@ -133,7 +136,11 @@ private fun SettingsListCard(
                     )
                     Spacer(modifier = Modifier.weight(1f))
                     Text(
-                        text = stringResource(titleRes),
+                        text = when (title) {
+                            is StringResource -> stringResource(title)
+                            is String -> title
+                            else -> title.toString()
+                        },
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurface
                     )
