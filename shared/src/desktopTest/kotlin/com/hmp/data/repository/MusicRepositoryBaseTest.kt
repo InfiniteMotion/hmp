@@ -42,6 +42,15 @@ private class InMemoryMusicRepository(db: AppDatabase) : MusicRepositoryBase(
     override suspend fun getAllMusicInfoAsList(orderBy: String, orderType: String): List<MusicInfo> = emptyList()
     override suspend fun getRandomMusicInfoWithExtra(): MusicInfo? = null
     override suspend fun getDeletedMusicIdsGroupedByFolder(): List<Pair<String, List<Long>>> = emptyList()
+
+    // ═══ W0 HelloSubAgent stub ═══
+    override suspend fun getRecentSkipRate(limit: Int, days: Int): List<Long> = emptyList()
+    override suspend fun getRecentPlayRate(limit: Int, days: Int): List<Long> = emptyList()
+    override suspend fun getForgottenTracks(days: Int): List<Long> = emptyList()
+    override suspend fun getAnniversaryTracks(date: String): List<Triple<Long, Long, Int>> = emptyList()
+    override suspend fun getGlobalTopLabels(limit: Int): List<com.hmp.domain.enum.LabelName> = emptyList()
+    override suspend fun getMusicInfoByIds(ids: List<Long>): List<MusicInfo> = emptyList()
+    override suspend fun getAvgDailyListeningMinutes(days: Int): Float = 0f
 }
 
 /**

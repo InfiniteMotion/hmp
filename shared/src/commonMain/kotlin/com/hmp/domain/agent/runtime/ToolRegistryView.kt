@@ -82,5 +82,17 @@ class ToolRegistryView(
             delegate = delegate,
             allowedPrefixes = prefixes,
         )
+
+        /**
+         * HelloSubAgent 等不需要任何工具的 Agent 使用——全空白名单，delegate 可传 null 占位。
+         * 实际实现用一个不可见的空 ToolRegistry，避免 NPE。
+         */
+        fun empty(delegate: ToolRegistry?): ToolRegistryView = ToolRegistryView(
+            delegate = delegate ?: emptyToolRegistry(),
+            allowedPrefixes = emptySet(),
+        )
     }
 }
+
+/** 内部用：ToolRegistry 空实现（HelloSubAgent 等不需要工具的场景）。 */
+private fun emptyToolRegistry(): ToolRegistry = ToolRegistry(emptyList())

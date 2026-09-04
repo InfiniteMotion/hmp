@@ -127,6 +127,9 @@ object Routes {
 
         /** M6-T4：Agent 操作审计日志页 */
         @Serializable object AuditLog : NavKey
+
+        /** W1-P4：Agent 运行态监控 + 撤销（当前占位，P4 实施时接 AuditLog Screen） */
+        @Serializable object AgentMonitor : NavKey
     }
     
     /**

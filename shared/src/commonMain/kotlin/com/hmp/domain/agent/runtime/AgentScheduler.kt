@@ -20,6 +20,7 @@ enum class AgentPriority(val value: Int) {
     MASTER(1),
     RADIO(2),
     ENRICH(3),
+    HELLO(4),
 }
 
 /** Agent 注册请求（Scheduler.registerAgent 的参数） */
@@ -53,6 +54,7 @@ enum class AgentRunState { RUNNING, PAUSED, UNREGISTERED }
  * | MASTER (1) | 永不暂停（硬编码兜底） |
  * | RADIO (2) | 电量≥20% 或 WiFi |
  * | ENRICH (3) | 电量≥50% 且 WiFi 且 日配额剩≥10% |
+ * | HELLO (4) | 永不暂停（门面副驾驶，最靠近用户） |
  */
 class AgentScheduler(
     private val timeProvider: TimeProvider,
@@ -148,8 +150,12 @@ class AgentScheduler(
             AgentPriority.MASTER -> AgentRunState.RUNNING // 永不暂停
             AgentPriority.RADIO -> decideRadioState()
             AgentPriority.ENRICH -> decideEnrichState()
+            AgentPriority.HELLO -> decideHelloState()
         }
     }
+
+    /** Hello (4): 永不暂停——门面副驾驶，最靠近用户 */
+    private fun decideHelloState(): AgentRunState = AgentRunState.RUNNING
 
     /** Radio (2): 电量≥20% 或 WiFi */
     private fun decideRadioState(): AgentRunState {

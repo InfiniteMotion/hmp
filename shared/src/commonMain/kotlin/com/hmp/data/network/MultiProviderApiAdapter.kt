@@ -126,11 +126,13 @@ class OpenAiCompatibleAdapter(
         }
 
         SseParser.parse(response.bodyAsChannel()) { payload ->
-            if (payload == "[DONE]" || payload == "done") return@parse
+            val trimmed = payload.trim()
+            // [DONE] 是 OpenAI 兼容 SSE 流的结束标记——可能带前缀空白或被 SseParser 追加 \n，统一 trim 后比较
+            if (trimmed == "[DONE]" || trimmed == "done") return@parse
             val chunk = try {
-                json.decodeFromString<OpenAiStreamChunk>(payload.trim())
+                json.decodeFromString<OpenAiStreamChunk>(trimmed)
             } catch (e: Exception) {
-                Logger.w("Network.ApiAdapter", e) { "SSE chunk 解析失败，跳过: ${e.message}" }
+                Logger.d("Network.ApiAdapter") { "SSE chunk skipped (not a JSON object): ${trimmed.take(40)}" }
                 return@parse
             }
             emit(chunk)

@@ -31,7 +31,7 @@
 ## 2. 阶段总览与依赖图
 
 ```
-M0 地基与还债 ──▶ M2 协议层 ──▶ M3 工具层 ──▶ M4 引擎循环 ──▶ M5 对话与锚点二期 ──▶ U Kermit 日志治理 ──▶ M6 电台与事件 ──▶ V Enrich v2 批次加固 ──▶ M7 报告与语音
+M0 地基与还债 ──▶ M2 协议层 ──▶ M3 工具层 ──▶ M4 引擎循环 ──▶ M5 对话与锚点二期 ──▶ U Kermit 日志治理 ──▶ M6 电台与事件 ──▶ V Enrich v2 批次加固 ──▶ W Agent UI 呈现层 ──▶ M7 报告与语音
    (B0)            (B1)          (B2)           (B3)              (B4)                       (横切)              (B5)                                   (B6)
                                                                       ▲                          ▲                  ▲                                       ▲
                                                              R 债务清零 ─┘                          │                  │                                       │
@@ -52,7 +52,8 @@ M1 锚点层一期（B4 的前置 UI 骨架，Fake 数据驱动，与 M0-M7 完�
 | M5 | 对话页 + 五类气泡 + 确认流 + 门面二期 + 漏斗（B4） | M4 + M1     | 纯文字完整体验三端可用                             |
 | M6 | Radio SubAgent 完整实现 + 电台三轮协作 + 跳过感知 + DJ 衔接 + 审计页（B5）  | M5 + T（SubAgent 基类 + AgentScheduler + ToolRegistryView） | Radio SubAgent 独立运行 + FakeLlm+FakePlaybackCommandPort 电台确定性测试 |
 | V  | Enrich SubAgent v2：批次策略重写（Repository 层 ArtistGroup/MixedGroup 拉活 + chunk 拆分）+ 6 轮编排 + 两轮深度 review（13 个修复：chunk history 隔离/预热清 history/EMPTY_FACT_MARKERS 统一/JSON 兜底扩展/隐式依赖清除）✅ 2026-09-02 | T | 批次拆分确定性 + history 零污染 + 空值标记 13 项统一 + JSON 兜底不误伤 + compileKotlinDesktop + desktopTest 绿 |
-| M7 | 报告角色 + 伙伴设置页 + 语音档（B6）           | M6 + V      | 语音为独立 gate，可整体延期不影响 v1 完整性              |
+| W  | **Agent UI 呈现层**：六个表面 + 存在感四形态 + 锚点系统接线——把 Master/SubAgent/PresenceBus/AuditLog 全链路引擎能力转化为可交互界面 | M6（DJ/跳过/电台后端已就绪）+ V（对话气泡确认卡已就绪） | Compose 三端编译 + 桌面真机核验：① 底栏胶囊徽标实时反映 Enrich/Radio 状态 ② 门面问候 DJ 衔接语（LLM 或 fallback）③ 对话页五类气泡 + 流式打字机效果 ④ 轻量浮层 C 键/长按唤起 + 带话进对话页 ⑤ AgentNoticeBar 4s 侧条 + 撤销 ⑥ 审计页撤销动作 STRONG_CONFIRM 降级 ⑦ 正在听卡常驻对话页顶部 |
+| M7 | 报告角色 + 伙伴设置页 + 语音档（B6）           | M6 + W      | 语音为独立 gate，可整体延期不影响 v1 完整性              |
 | R  | 债务清零与交互地基修复（首轮注入/漏斗/真实播放端口/多确认/会话持久/M5 收尾 UI）✅ 2026-08-30 | M5 未完成 + 定义级漏项 | 交互主干（触发→理解→执行→呈现→反馈→审计）闭环；三端编译 |
 | S  | 工具层终局：批次 A 域前缀统一重命名拆分（17 原子工具）+ 批次 B 追加 Library 聚合/Song USER 标签写入闭环/PlaybackEnqueue（+10 = 27 原子工具）✅ 2026-08-31 | M3 首次交付 + R 阶段暴露出的工具层遗留 | ToolNames.ALL 27 ↔ ToolRegistry 27 注册 1:1；desktopTest 677 全绿；compileAndroidMain/compileKotlinDesktop 通过 |
 | T  | Agent 体系终局——Master Agent（唯一大脑：派发/验收/生命周期）+ Enrich SubAgent（纯被动执行器）+ 两层基础设施（AgentContextBudget 每 Agent 独立 + AgentScheduler 全局纯规则仲裁）✅ 2026-08-31 | S（27 原子工具）+ R（感知锚点） | Enrich SubAgent 端到端跑通 + Master 唯一决策铁则 + 两层 ContextBudget 生效 + Scheduler pause/resume 自动触发 + Radio SubAgent 基类预留（M6 填实现） |
@@ -267,6 +268,95 @@ MusicRepositoryBase.fetchNextEnrichWorkUnit():
 | MixedGroup 安全 | ✅ `chunked(20)` 兜底，隐式依赖消除 |
 | 空值 13 项统一 | ✅ `applyPatch` 与 `normalizeFacts` 共享 `EMPTY_FACT_MARKERS` |
 | JSON 兜底不误伤 | ✅ 三路分流 |
+
+### W 阶段：Agent UI 呈现层——六个表面 + 存在感四形态（\~10 人天）
+
+> **前置**：依赖 M6（DJ 衔接语 / 跳过感知 / PresenceBus 事件全链路已 emit）+ V（Enrich v2 批次 + 对话气泡确认卡已就绪）。引擎侧能力已经齐了——PresenceBus 在发 `NoticeAvailable` / `SkipDetected` / `TaskProgress` / `CompanionBadge`，MasterAgent 有 `handleDjBlank` + `generateDjSegue` + `fallbackGreetings` 轮换，ChatScreen 有五类气泡，AgentNoticeBar / AgentQuickSheet / CompanionCapsule 三个骨架组件已写好但接线只做了一半。**本阶段的核心工作是把引擎事件接到 UI 消费点上，让用户能真正感知到**。
+>
+> **引擎→UI 映射总表**：
+>
+> | 引擎产出（已存在） | 消费 UI（本阶段做） |
+> |-------------------|-------------------|
+> | `PresenceBus.badgeState`（CompanionBadge） | 底栏伙伴胶囊徽标（未读红点 / 待确认脉冲 / 电台运行小绿点） |
+> | `PresenceEvent.NoticeAvailable`（MasterAgent.handleDjBlank emit） | AgentNoticeBar 侧条（带撤销） |
+> | `PresenceEvent.SkipDetected`（MasterAgent skip listener emit） | AgentNoticeBar 侧条 "跳过了《XX》，正在换一批…" |
+> | `PresenceEvent.DjBlank`（trackChange emit） | 门面问候区触发 `generateDjSegue()` 或 fallback |
+> | `PresenceEvent.TaskProgress`（ReActLoop.run emit） | 对话页三点脉动 |
+> | `PresenceEvent.AgentProgress`（Enrich emit） | 胶囊徽标脉冲 + 门面"富化进行中"提示 |
+> | `PresenceEvent.CloudQuotaExhausted`（GlobalTokenCounter） | AgentNoticeBar "云端额度耗尽，已切换本地模式" |
+
+**引擎→UI 接线现状**（AppRoot.kt LaunchedEffect 当前消费的事件）：
+
+```
+PresenceEvent.NoticeAvailable   → ✅ 已接 AgentNoticeBar（但 showUndo=false 硬编码）
+PresenceEvent.SkipDetected      → ✅ 已接 AgentNoticeBar（同上）
+PresenceEvent.DjBlank           → ❌ 未接（门面问候区没写）
+PresenceEvent.CompanionBadge    → ❌ 未接（胶囊徽标状态没渲染）
+PresenceEvent.TaskProgress      → ❌ 未接（对话页三点脉动没写）
+PresenceEvent.AgentProgress     → ❌ 未接（后台状态胶囊徽标没反映）
+PresenceEvent.CloudQuotaExhausted → ❌ 未接（本地兜底无 UI 提示）
+```
+
+骨架组件现状（已存在但接线不完整）：
+
+```
+CompanionCapsule.kt   ✅ 114 行完整实现（detectTapGestures + haze + 36dp 胶囊形态）
+                       ❌ AppRoot 只传了 onClick 没传 onLongPress，徽标状态参数未加
+AgentQuickSheet.kt    ✅ 126 行完整实现（单行输入 + 28dp 圆角 + focusRequester 自动聚焦）
+                       ❌ C 键全局监听没做；Esc/点外/浮层关闭没做；回复二分法没实现
+AgentNoticeBar.kt     ✅ 91 行完整实现（haze 侧条 + 4s 自动退场 + 撤销点按位）
+                       ❌ AppRoot showUndo=false 硬编码；撤销回调未接反向工具
+```
+
+**页面与组件清单**（按 agent.md 第 5 章「交互语言」的六条总则，嫁接优于新建）：
+
+| 载体 | 形态 | 现有/需新建 | 后端依赖 | 备注 |
+|------|------|-----------|---------|------|
+| **底栏胶囊徽标** | CompanionCapsule 改造：`CompanionBadge` StateFlow → 红点（有未读/待确认）/ 脉冲圈（Enrich 运行）/ 小绿点（Radio 运行） | 已有骨架 CompanionCapsule.kt（114 行）+ AppRoot LaunchedEffect 收事件，徽标状态还没渲染 | `PresenceBus.badgeState`（StateFlow） | **锚点总则③：Tab 不加第五位**——胶囊是对底栏第三格的改造 |
+| **门面问候区** | Home 第 0 页改造：一行文案区，`PresenceEvent.DjBlank` → 显示 `fallbackGreetings` 轮换句（LLM 可用时调 `generateDjSegue`） | 需新建门面问候组件（~80 行）；`MasterAgent.fallbackGreetings + greetingIndex` 已就绪 | `PresenceEvent.DjBlank` + `handleDjBlank` | agent.md 5.1 总则①：六个表面之一——门面不是功能区是伙伴的脸 |
+| **轻量浮层 AgentQuickSheet** | 底栏上方单行条；长按胶囊 600ms / C 键 / 播放页按钮唤起；回复二分法（一句话直接浮层内显 / 卡片摘要带"查看"进对话页） | 已有骨架 AgentQuickSheet.kt（126 行），AppRoot 里接了 CompanionCapsule 的 onClick 但**没接长按**；C 键全局监听没做 | ChatAgentGateway / MasterAgent.handleUserMessage | agent.md 3.3 回复二分法 |
+| **对话页 ChatScreen 增强** | ① 流式打字机：接收 ReActLoop/Enrich 的 TextDelta 增量渲染 ② 正在听卡：对话页顶部常驻 NowPlayingContextProvider ③ CONFIRM 执行中 loading 态 + ticket 号 ④ TaskProgress 阶段指示（三点脉动） | ChatScreen.kt（299 行）+ ChatViewModel.kt（318 行）已有五类气泡，**缺流式增量、正在听卡、执行中态** | ChatAgentGateway 需接 LlmEvent.TextDelta 流；AgentContextBudget 需 emit TaskProgress | agent.md 5.3 |
+| **AgentNoticeBar 侧条** | 底栏上方 haze 侧条，4s 自动退场 + 撤销点按；撤销窗口过期→入口转审计页 | 已有骨架 AgentNoticeBar.kt（91 行）+ AgentNotice data class；AppRoot LaunchedEffect 已收 NoticeAvailable/SkipDetected → **没接撤销**（showUndo=false 硬编码） | `PresenceEvent.NoticeAvailable`（MasterAgent.handleDjBlank emit）；撤销需要 ToolRegistry 加反向工具（playlist_delete / song_label_remove） | agent.md 5.4.1：撤销边界——被后续修改过的降级为 STRONG_CONFIRM |
+| **锚点系统（手势 + C 键）** | CompanionCapsule 长按 600ms → 浮层；点按 → 门面；C 键 → 浮层；播放页重排（用户决策 2026-08-27：播放页不重排，浮层贴屏底） | CompanionCapsule 骨架已写 `detectTapGestures(onTap/onLongPress)` → **但 AppRoot 没传 onLongPress 回调**；全局 C 键监听没做 | 纯 UI | agent.md 5.2 总则③：一锚之外零占位 |
+| **审计页增强** | AuditLogScreen（280 行）：**只读→可撤销**——每行右侧加撤销钮 + 边界判定（被后续修改过的动作降级为 STRONG_CONFIRM 二次确认） | AuditLogScreen 已有时间倒序展示，**缺撤销入口 + 边界判定** | ToolRegistry 需新增反向工具（playlist_delete / playlist_revert / song_label_remove_llm）；AuditEntry 已有 argsHash + reason | agent.md 5.4.1：撤销边界 |
+| **胶囊正在听卡** | 门面或对话页顶部常驻：当前播放歌曲 + 简短标签摘要；`NowPlayingContextProvider` 已有 | 需新建 ~60 行；ChatScreen 顶部插一条 | MasterAgent.startRadio 已注入 nowPlayingProvider | agent.md 5.5 存在感四形态之三 |
+
+**存在感四形态覆盖检查**：
+
+| 形态 | 说明 | 本阶段做 |
+|------|------|---------|
+| 通知侧条 | NOTIFY 完成（建歌单/重排/跳过） | ✅ AgentNoticeBar 撤销接入 |
+| DJ 线 | 曲间预生成一句衔接 | ✅ 门面问候区 + 对话页 text 沉淀 |
+| 正在听卡 | 对话页顶部常驻 | ✅ 新建组件 + 插 ChatScreen 顶部 |
+| 胶囊徽标 | 未读/待确认/电台运行 | ✅ CompanionBadge StateFlow → CompanionCapsule 渲染 |
+
+**严格不做什么**：
+- ❌ 不做新路由——全部嫁接既有六面（门面 / 对话 / 浮层 / 侧条 / 设置 / 审计）
+- ❌ 不做语音（M7 独立 gate）
+- ❌ 不做报告叙事（M7-T1）
+- ❌ 不做 agent_memory DAO 持久化（T 阶段明确留后续）
+- ❌ 不做跨会话历史恢复（M7-T2 会话持久已覆盖）
+- ❌ 播放中不弹伙伴浮面——**唯一硬纪律：用户手势进行中永远闭嘴**（agent.md 5.5）
+
+| ID    | 任务 | 涉及文件 | 验收 |
+| ----- | ---- | ------- | ---- |
+| W-T1 | **胶囊徽标接线**：AppRoot.LaunchedEffect 收 `PresenceBus.badgeState`（StateFlow），CompanionCapsule 渲染三种徽标态——红点（有未读确认）/ 脉冲圈（Enrich 运行中）/ 小绿点（Radio 运行中）。CompanionCapsule 新增可选 `badgeState` 参数 + `BadgeOverlay` composable | `CompanionCapsule.kt`（改）、`AppRoot.kt`（LaunchedEffect + 参数传递） | 桌面端核验：启动 Rich 状态 → 胶囊变绿点；暂停 Enrich → 绿点消失；Radio 跑 → 绿点变脉冲 |
+| W-T2 | **门面问候区**：Home 第 0 页 `HomeScreen` 顶部插 `CompanionGreetingBar`——一行文案区 + 动画淡入淡出 + 自动轮询 `fallbackGreetings`（5 句）。收到 `PresenceEvent.DjBlank` 优先触发 `MasterAgent.generateDjSegue()`（有 enrichConfig 时），失败 fallback。门面问候**不阻塞播放**（agent.md 5.5 铁则：播放中不弹浮面，但门面问候是常驻轻量区不算"弹"） | 新建 `ui/common/components/CompanionGreetingBar.kt`（~80 行）+ `HomeScreen.kt`（插一行）+ `AppRoot.kt`（LaunchedEffect 收 DjBlank 事件 → 触发 Gateway 取问候语） | 桌面端核验：切歌 → 门面问候句刷新（LLM 可用时 15-20 字中文衔接；LLM 不可用时 fallback 轮换） |
+| W-T3 | **锚点手势 + C 键全局监听**：① CompanionCapsule.onLongPress 接入 AppRoot → 唤起 AgentQuickSheet（当前 CompanionCapsule 只传了 onClick）。② 全局 C 键监听 `Modifier.onKeyEvent`（AppRoot Scaffold 根节点）→ 唤起 AgentQuickSheet，输入框自动 focus（AgentQuickSheet.focusRequester 已就绪） | `AppRoot.kt`（Scaffold 根节点加 onKeyEvent + CompanionCapsule 参数）、`CompanionCapsule.kt`（onLongPress callback 透传）、`AgentQuickSheet.kt`（onSubmit → Gateway 带话进对话页逻辑已做） | 桌面端核验：① 长按胶囊 600ms → 浮层弹出 + 输入框已聚焦；② 按 C → 同上；③ Esc / 点浮层外 / 发送后 → 浮层关闭 |
+| W-T4 | **对话页增强：流式打字机 + 正在听卡 + 执行中态**：① ChatGateway → ChatViewModel → ChatScreen 接 LlmEvent.TextDelta 流（ReActLoop 已 emit），Assistant 气泡增量渲染。② 对话页顶部插 `NowPlayingCard`（新建 ~60 行）：封面 + 歌曲名 + "正在听"标签。③ ConfirmCard 加三态：勾选→`submitting`（loading spinner + "正在执行…"）→ receipt（回执文案） | `ChatAgentGateway.kt`（ReActLoop 接流式）、`ChatViewModel.kt`（StateFlow 加 streaming 标志 + nowPlaying state）、`ChatScreen.kt`（顶部插卡 + 打字机动画 + ConfirmCard 三态）、新建 `NowPlayingCard.kt` | 桌面端核验：① 电台启动 → ChatScreen 流式渲染 `songlist` 卡（打字机效果）；② 对话页顶部常驻当前播放歌曲；③ 确认卡点"照做" → 转 loading → 回执 |
+| W-T5 | **AgentNoticeBar 撤销接线 + AgentNotice 模型扩展**：AppRoot LaunchedEffect 收 NoticeAvailable/SkipDetected → AgentNotice 的 `showUndo` 从硬编码 false 改为 true（撤销入口）。撤销回调 → ToolCallExecutor 反向工具（`playlist_delete / song_label_remove_llm`）。撤销窗口过期（4s）→ Gateway 写审计日志 `undo_expired` 标签 → 审计页入口 | `AppRoot.kt`（showUndo + onUndo callback）、`AgentNoticeBar.kt`（onUndo 透传）、`ToolRegistry`（新增 2 反向工具 + expect 工具定义）、`MasterAgent.handleDjBlank`（emit NoticeAvailable 时带可撤销标签） | 桌面端核验：① Radio 跳过重排 → AgentNoticeBar 4s 侧条 + "撤销"钮 → 点撤销 → 歌单回滚；② 4s 内不操作 → 侧条消失 + 审计页可见 undo_expired |
+| W-T6 | **审计页撤销入口 + 边界判定**：AuditLogScreen 每行 ToolExecutionRecord 右侧加撤销钮。边界判定：被用户后续修改过的动作（song_label 含 source=USER 覆盖）→ 撤销降级为 STRONG_CONFIRM 二次确认；playlist_reorder 始终可撤销。撤销调用反向工具 + AuditLogPort 写 `action_undone` 标签 | `AuditLogScreen.kt`（每行加撤销按钮 + 边界判定逻辑 + STRONG_CONFIRM 弹窗）、`ToolRegistry`（反向工具已在 W-T5 注册） | 桌面端核验：① 审计页电台重排动作 → 撤销按钮 → 歌单恢复；② 手动改了某歌单名字 → 该歌单创建动作撤销 → STRONG_CONFIRM 弹窗 |
+
+**退出**：
+
+| 项 | 验收标准 |
+|----|---------|
+| `:shared-ui:compileKotlinDesktop` | ✅ |
+| `:shared-ui:compileAndroidMain` | ✅（iOS 留 macOS） |
+| `:shared-ui:desktopTest` | ✅ |
+| 桌面真机核验 W-T1~T6 | 每个任务描述的核验点全部跑通 |
+| 存在感四形态全覆盖 | 胶囊徽标 / 门面问候 / 正在听卡 / AgentNoticeBar 撤销 |
+| 交互纪律不违规 | 播放中无浮面、胶囊不是新 Tab、新路由零新增 |
 
 ### M7 报告角色与语音档（B6，\~7 人天，语音独立 gate）
 

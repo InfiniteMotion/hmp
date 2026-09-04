@@ -61,6 +61,9 @@ data class MusicIdPath(val id: Long, val path: String)
 
 data class MusicExtraIdDate(val id: Long, val date: Long?)
 
+/** FORGOTTEN 卡候选：曲目 ID + 上次播放时间（null=从未播放） */
+data class ForgottenRow(val id: Long, val lastPlayed: Long?)
+
 data class MusicInfo(
     @Embedded val music: Music,
 
@@ -255,6 +258,15 @@ interface UserInfoDao {
 
     @Query("SELECT * FROM userInfo")
     suspend fun getAllUserInfos(): List<UserInfo>
+
+    /** days 天内未播放的曲目 (id, lastPlayedMs)。lastPlayed 为 null 表示从未播放过。按最久未播排序。 */
+    @Query("""
+        SELECT id, lastPlayed FROM userInfo
+        WHERE isDeleted = 0 AND (lastPlayed IS NULL OR lastPlayed < :thresholdMs)
+        ORDER BY lastPlayed ASC
+        LIMIT :limit
+    """)
+    suspend fun getForgottenIds(thresholdMs: Long, limit: Int): List<ForgottenRow>
 }
 
 @Dao

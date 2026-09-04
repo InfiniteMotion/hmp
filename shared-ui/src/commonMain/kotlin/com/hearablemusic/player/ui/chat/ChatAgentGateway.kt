@@ -283,7 +283,7 @@ class MasterChatGateway(
     override fun queryRadioState(): Pair<Boolean, Int> {
         val state = masterAgent.queryRadioState()
         val playlist = masterAgent.queryRadioPlaylist()
-        return (state == com.hmp.domain.agent.sub.RadioState.PLAYING) to playlist?.size.orZero()
+        return (state is com.hmp.domain.agent.sub.RadioState.PLAYING) to playlist?.size.orZero()
     }
 
     private fun Int?.orZero() = this ?: 0

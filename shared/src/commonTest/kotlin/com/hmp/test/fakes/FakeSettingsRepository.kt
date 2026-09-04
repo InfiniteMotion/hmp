@@ -96,13 +96,14 @@ class FakeSettingsRepository : SettingsRepository {
     override suspend fun getAiAccessMode(): AiAccessMode = _aiAccessMode.value
     override suspend fun saveAiAccessMode(mode: AiAccessMode) { _aiAccessMode.value = mode }
 
-    private var customAiConfig = AiEndpointConfig()
-    override suspend fun getCustomAiConfig(): AiEndpointConfig = customAiConfig
-    override suspend fun saveCustomAiConfig(config: AiEndpointConfig) { customAiConfig = config }
+    private val _customAiConfig = kotlinx.coroutines.flow.MutableStateFlow(AiEndpointConfig())
+    override val customAiConfig: kotlinx.coroutines.flow.Flow<AiEndpointConfig> = _customAiConfig
+    override suspend fun getCustomAiConfig(): AiEndpointConfig = _customAiConfig.value
+    override suspend fun saveCustomAiConfig(config: AiEndpointConfig) { _customAiConfig.value = config }
 
     override suspend fun getActiveAiConfig(): AiEndpointConfig = when (_aiAccessMode.value) {
         AiAccessMode.FREE -> AiEndpointConfig(isConfigured = true)
-        AiAccessMode.CUSTOM -> customAiConfig
+        AiAccessMode.CUSTOM -> _customAiConfig.value
         AiAccessMode.PAID -> AiEndpointConfig()
     }
 

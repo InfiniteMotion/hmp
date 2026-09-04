@@ -29,9 +29,11 @@ expect object AppDatabaseConstructor : RoomDatabaseConstructor<AppDatabase> {
         ListeningDuration::class,
         AgentTask::class,
         AgentAuditLog::class,
-        AgentMessage::class
+        AgentMessage::class,
+        HelloCardCache::class,
+        HelloReportNarrativeEntity::class,
     ],
-    version = 3,
+    version = 4,
     exportSchema = true
 )
 @TypeConverters(LabelConverters::class)
@@ -48,6 +50,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun agentTaskDao(): AgentTaskDao
     abstract fun agentAuditLogDao(): AgentAuditLogDao
     abstract fun agentMessageDao(): AgentMessageDao
+    abstract fun helloCardCacheDao(): HelloCardCacheDao
+    abstract fun helloReportNarrativeDao(): HelloReportNarrativeDao
 
     companion object {
         /**
@@ -87,6 +91,34 @@ abstract class AppDatabase : RoomDatabase() {
         val MIGRATION_2_3 = object : Migration(2, 3) {
             override fun migrate(connection: SQLiteConnection) {
                 connection.execSQL("ALTER TABLE `agent_message` ADD COLUMN `data_json` TEXT")
+            }
+        }
+
+        /**
+         * v3 → v4（W0 HelloSubAgent）：
+         * - 新增 hello_card_cache 表（推荐卡缓存）
+         * - 新增 hello_report_narrative 表（报告叙事段，P5 用）
+         */
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(connection: SQLiteConnection) {
+                connection.execSQL(
+                    """CREATE TABLE IF NOT EXISTS `hello_card_cache` (
+                    `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    `cardType` TEXT NOT NULL,
+                    `cardContentJson` TEXT NOT NULL,
+                    `generatedAt` INTEGER NOT NULL,
+                    `generatedForDate` TEXT NOT NULL
+                )"""
+                )
+                connection.execSQL(
+                    """CREATE TABLE IF NOT EXISTS `hello_report_narrative` (
+                    `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    `timeRange` TEXT NOT NULL,
+                    `narrative` TEXT NOT NULL,
+                    `generatedAt` INTEGER NOT NULL,
+                    `avg_daily_minutes` REAL
+                )"""
+                )
             }
         }
     }

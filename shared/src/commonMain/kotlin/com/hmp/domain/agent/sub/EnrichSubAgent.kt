@@ -50,8 +50,8 @@ class EnrichSubAgent(
     private val musicRepository: MusicRepository,
     /** 存在感总线（emit 进度） */
     private val presenceBus: PresenceBus? = null,
-    /** LLM API 端点配置（null 表示开发模式跳过 LLM 调用） */
-    private val enrichConfig: AiEndpointConfig? = null,
+    /** LLM API 端点配置（热更新：MasterAgent.updateAiConfig 可动态替换） */
+    private var enrichConfig: AiEndpointConfig? = null,
     /** 目标覆盖率（0.0 - 1.0） */
     @Volatile private var targetCoverage: Float = 0.9f,
     /** 停止/暂停信号（类型收紧：只接受 SchedulerStopSignal） */
@@ -928,6 +928,12 @@ $textSummary
 只返回 JSON，不要加任何解释。
 """.trimIndent()
         }
+    }
+
+    /** 热更新 AI 配置——由 MasterAgent.updateAiConfig 推送。下次 chunk 处理时用新 config。 */
+    fun updateAiConfig(enrichConfig: AiEndpointConfig?) {
+        this.enrichConfig = enrichConfig
+        Logger.i("Agent.Enrich") { "updateAiConfig: config=${enrichConfig != null}" }
     }
 }
 

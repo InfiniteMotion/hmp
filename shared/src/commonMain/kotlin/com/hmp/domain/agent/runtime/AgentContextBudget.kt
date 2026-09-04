@@ -21,10 +21,11 @@ import com.hmp.domain.setting.model.AiEndpointConfig
 class AgentContextBudget(
     /** Agent 唯一标识（如 "master" / "enrich" / "radio"） */
     val agentId: String,
-    /** 该 Agent 的 LLM 窗口 token 上限（Master 128K，Enrich 32K，Radio 64K） */
+    /** 该 Agent 的 LLM 窗口 token 上限（Master 128K，Enrich 32K，Radio 64K，Hello 128K） */
     val maxContextTokens: Int,
-    /** 绑定的独立 LlmTransport 实例（与其他 Agent 物理隔离；暴露供 LlmCallExecutor 复用） */
-    val llmClient: LlmTransport,
+    /** 绑定的独立 LlmTransport 实例（与其他 Agent 物理隔离；暴露供 LlmCallExecutor 复用）。
+     *  HelloSubAgent 等不调 LLM 的 Agent 可传 null。 */
+    val llmClient: LlmTransport?,
     /** 窗口占用触发压缩的阈值（默认 85%） */
     private val compressionThreshold: Float = 0.85f,
     /** 压缩时保留的最新消息条数（不压缩，直接保留） */
@@ -77,9 +78,10 @@ class AgentContextBudget(
         tools: List<LlmToolSpec>? = null,
         temperature: Float = 0.3f,
     ): kotlinx.coroutines.flow.Flow<com.hmp.domain.agent.port.LlmEvent> {
-        appendMessages(newMessages)                    // newMessages 进 estimatedHistory
-        val messages = buildMessages(systemPrompt)     // 从 estimatedHistory 构建（已包含 newMessages）
-        return llmClient.streamChat(
+        appendMessages(newMessages)
+        val messages = buildMessages(systemPrompt)
+        val client = llmClient ?: error("AgentContextBudget[$agentId] llmClient is null, cannot call LLM")
+        return client.streamChat(
             config = config,
             messages = messages,
             tools = tools,

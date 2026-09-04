@@ -3,6 +3,8 @@ package com.hmp.di
 import com.hmp.data.database.AppDatabase
 import com.hmp.data.database.AgentMessageDao
 import com.hmp.data.database.AgentAuditLogDao
+import com.hmp.data.database.HelloCardCacheDao
+import com.hmp.data.database.HelloReportNarrativeDao
 import com.hmp.data.database.AgentTaskDao
 import com.hmp.data.database.ListeningDurationDao
 import com.hmp.data.database.MusicAllDao
@@ -52,7 +54,9 @@ val iosPlatformModule = module {
 single<AgentTaskDao> { get<AppDatabase>().agentTaskDao() }
 single<AgentAuditLogDao> { get<AppDatabase>().agentAuditLogDao() }
 single<AgentMessageDao> { get<AppDatabase>().agentMessageDao() }
-single<AuditLogPort> { RoomAuditLogAdapter(get<AgentAuditLogDao>()) }
+    single<HelloCardCacheDao> { get<AppDatabase>().helloCardCacheDao() }
+    single<HelloReportNarrativeDao> { get<AppDatabase>().helloReportNarrativeDao() }
+    single<AuditLogPort> { RoomAuditLogAdapter(get<AgentAuditLogDao>()) }
 single<AgentMessageStore> { RoomAgentMessageStore(get<AgentMessageDao>()) }
 
     single { BuiltInApiKeyProvider() } // iOS: 占位符，后续可通过配置注入

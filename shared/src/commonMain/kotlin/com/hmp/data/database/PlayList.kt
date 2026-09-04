@@ -69,4 +69,16 @@ interface PlaylistDao {
 
     @Query("SELECT * FROM playlist ORDER BY isPinned DESC, updatedAt DESC")
     fun getAllPlaylistsFlow(): Flow<List<Playlist>>
+
+    /** 歌单创建纪念日候选：createdAt 的月-日匹配今天，按 createdAt 升序（最久在前）。 */
+    @Query("""
+        SELECT * FROM playlist
+        WHERE strftime('%m-%d', createdAt / 1000, 'unixepoch', 'localtime') = :mmdd
+        ORDER BY createdAt ASC
+    """)
+    suspend fun getAnniversaryPlaylists(mmdd: String): List<Playlist>
+
+    /** 某歌单累计被播放次数（PlaybackHistory.source == 歌单名）。 */
+    @Query("SELECT COUNT(*) FROM PlaybackHistory WHERE source = :playlistName")
+    suspend fun countPlaybackForPlaylist(playlistName: String): Int
 }

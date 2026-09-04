@@ -1,7 +1,6 @@
 package com.hearablemusic.player
 
 import android.app.Application
-import co.touchlab.kermit.Logger
 import co.touchlab.kermit.Severity
 import com.hearablemusic.player.player.di.playerModule
 import com.hearablemusic.player.ui.di.uiModule
@@ -10,14 +9,8 @@ import com.hmp.data.di.androidPlatformModule
 import com.hmp.data.di.sharedModule
 import com.hmp.data.network.BuiltInApiKeyProvider
 import com.hmp.data.util.MusicTagEditor
-import com.hmp.domain.agent.runtime.MasterAgent
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.launch
 import org.koin.android.ext.koin.androidContext
 import org.koin.android.ext.koin.androidLogger
-import org.koin.core.context.GlobalContext
 import org.koin.core.context.startKoin
 import org.koin.core.logger.Level
 import org.koin.dsl.module
@@ -49,14 +42,8 @@ class MusicApplication : Application() {
             modules(sharedModule, androidPlatformModule, builtInAiModule, playerModule, uiModule)
         }
 
-        // App 启动后静默启动 MasterAgent 后台（Scheduler + Enrich 健康检测）
-        CoroutineScope(SupervisorJob() + Dispatchers.Default).launch {
-            try {
-                val masterAgent: MasterAgent = GlobalContext.get().get()
-                masterAgent.initialize()
-            } catch (e: Exception) {
-                Logger.e(e, tag = "Agent.Master") { "silent initialize failed" }
-            }
-        }
+        // MasterAgent.initialize() 已在 ChatKoinModule 的 single 注册里
+        // 通过 .also { lifecycleScope.launch { initialize() } } 自动执行，
+        // 无需在此手动调——手动调会导致 Scheduler + startEnrich + startHello 全部执行两次
     }
 }
