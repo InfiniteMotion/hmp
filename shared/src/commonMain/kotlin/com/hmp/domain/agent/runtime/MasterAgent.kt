@@ -29,6 +29,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -63,8 +65,8 @@ class MasterAgent(
     private val musicRepository: MusicRepository? = null,
 
     // ── 对话能力依赖（T 阶段整合，默认 null 表示不启用对话） ──
-    /** 对话 LLM 传输实例 */
-    private val chatTransport: LlmTransport? = null,
+    /** 对话 LLM 传输实例（热更新：startHello 后用户改配置要能生效） */
+    private var chatTransport: LlmTransport? = null,
     /** 对话工具注册表（完整 32 工具：27 基础 + 5 enrich_* 专属） */
     private val chatToolRegistry: ToolRegistry? = null,
     /** 对话许可护栏（PolicyGuard + TrustLedger） */
@@ -81,8 +83,8 @@ class MasterAgent(
     // ── Enrich 后台能力依赖（默认 null；startEnrich 时可单独传入覆盖） ──
     /** EnrichSubAgent 的独立 LLM 传输实例（null 则退化用 chatTransport） */
     private val enrichTransport: LlmTransport? = null,
-    /** Enrich LLM API 端点配置（null 表示开发模式跳过 LLM 调用） */
-    private val enrichConfig: AiEndpointConfig? = null,
+    /** Enrich LLM API 端点配置（热更新：startHello 后用户改配置要能生效） */
+    private var enrichConfig: AiEndpointConfig? = null,
 
     // ── Radio 电台能力依赖（M6-T1；默认 null，startRadio 时需要非 null） ──
     /** 播放控制端口（电台续歌 SILENT） */
@@ -105,8 +107,17 @@ class MasterAgent(
     @Volatile private var consecutiveSkipCount: Int = 0
     /** 标记 Radio 事件监听是否已启动（避免多次 startRadio 重复 launch） */
     @Volatile private var radioListenersStarted: Boolean = false
-    /** 门面问候轮换索引（M6-T3c LLM 不可用时轮退） */
+
+    /** handleDjBlank 衔接语兜底轮换索引（LLM 不可用时 MasterAgent.handleDjBlank 使用） */
     private var greetingIndex: Int = 0
+    /** handleDjBlank 衔接语兜底列表（与 HelloSubAgent 的 GREETING fallbackForType 独立） */
+    private val fallbackGreetings = listOf(
+        "下一首也不错哦～",
+        "继续享受音乐吧！",
+        "听听这首怎么样？",
+        "为你选了一首好歌",
+        "这首特别适合此刻",
+    )
 
     /** 全局唯一调度器（F3） */
     val scheduler = AgentScheduler(timeProvider, tokenCounter, systemConditions)
@@ -166,6 +177,11 @@ class MasterAgent(
 
     // ===== 生命周期 =====
 
+    /** Master 生命周期作用域——供 ChatKoinModule 等外部组件 launch 协程用。
+     *  shutdown() 时会 cancel 此 scope，防止热监听协程泄漏。 */
+    val lifecycleScope: kotlinx.coroutines.CoroutineScope =
+        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Default + kotlinx.coroutines.SupervisorJob())
+
     /**
      * Master 初始化（应用启动时调用）：
      * ① 启动 Scheduler 仲裁循环
@@ -223,6 +239,7 @@ class MasterAgent(
         scheduler.stopArbitration()
         _subAgents.values.forEach { it.shutdown() }
         _subAgents.clear()
+        lifecycleScope.coroutineContext[kotlinx.coroutines.Job]?.cancel()
     }
 
     // ===== Enrich 管理（F1：Master 唯一决策） =====
@@ -465,7 +482,7 @@ class MasterAgent(
         val helloSystemPrompt = DefaultCompanionProfiles.DEFAULT.personaPrompt
 
         // ④ 实例化 HelloSubAgent → _subAgents["hello"]
-        val enableLlm = chatTransport != null && enrichConfig != null
+        val enableLlm = chatTransport != null && enrichConfig?.isConfigured == true
         val helloAgent = HelloSubAgent(
             agentId = "hello",
             contextBudget = AgentContextBudget(
@@ -481,7 +498,6 @@ class MasterAgent(
             nowPlayingProvider = nowPlayingProvider,
             stopSignal = stopSignal,
             enrichConfig = enrichConfig,
-            fallbackGreetings = fallbackGreetings,
             enableLlm = enableLlm,
             radioPlaylistProvider = { queryRadioPlaylist() },
         )
@@ -501,7 +517,7 @@ class MasterAgent(
         // ⑥ 启动 runLoop
         scope.launch { helloAgent.runLoop() }
 
-        Logger.i("Agent.Master") { "[Master] HelloSubAgent created (fallbackGreetings=${fallbackGreetings.size}, llm=${helloTransport != null})" }
+        Logger.i("Agent.Master") { "[Master] HelloSubAgent created (llm=${helloTransport != null})" }
         return helloAgent
     }
 
@@ -515,18 +531,34 @@ class MasterAgent(
         }
     }
 
+    // ═══ 热更新 AI 配置 ═══
+
+    /**
+     * 热更新 AI 配置——用户在设置页改完 API Key/端点后调此方法。
+     * 自动推送给已启动的 HelloSubAgent / EnrichSubAgent / RadioSubAgent。
+     */
+    fun updateAiConfig(
+        newTransport: LlmTransport?,
+        newConfig: AiEndpointConfig?,
+    ) {
+        val effectiveConfig = newConfig?.takeIf { it.isConfigured }
+        Logger.i("Agent.Master") { "[Master] updateAiConfig: transport=${newTransport != null}, config=${effectiveConfig != null}" }
+        // 注：chatTransport 是 Koin 注入的固定 Ktor client 实例，endpoint/apiKey 全在 config 里，
+        // 不需要每次热更新都重新赋值——SubAgent 收到 effectiveConfig 后自然用新端点。
+        enrichConfig = effectiveConfig
+
+        // 推给所有已启动的 SubAgent
+        (_subAgents["hello"] as? HelloSubAgent)?.updateAiConfig(
+            enableLlm = newTransport != null && effectiveConfig != null,
+            enrichConfig = effectiveConfig,
+        )
+        (_subAgents["enrich"] as? com.hmp.domain.agent.sub.EnrichSubAgent)?.updateAiConfig(effectiveConfig)
+        (_subAgents["radio"] as? com.hmp.domain.agent.sub.RadioSubAgent)?.updateAiConfig(effectiveConfig)
+    }
+
     // ═══════════════════════════════════════════════════════════════
     // M6-T2 跳过感知重排 + M6-T3 DJ 衔接预生成
     // ═══════════════════════════════════════════════════════════════
-
-    /** 门面问候轮换列表（M6-T3c：LLM 不可用时退化为硬编码轮换） */
-    private val fallbackGreetings = listOf(
-        "下一首也不错哦～",
-        "继续享受音乐吧！",
-        "听听这首怎么样？",
-        "为你选了一首好歌",
-        "这首特别适合此刻",
-    )
 
     /**
      * 启动 Radio 事件监听协程：skip events + DjBlank events。
@@ -639,8 +671,30 @@ class MasterAgent(
     fun queryRadioPlaylist(): List<com.hmp.domain.agent.sub.RadioTrack>? =
         (_subAgents["radio"] as? com.hmp.domain.agent.sub.RadioSubAgent)?.queryPlaylist()
 
+    /** 电台主题（用户 seed 或自动提取的风格关键词，null=自动电台） */
+    fun queryRadioStationTheme(): String? =
+        (_subAgents["radio"] as? com.hmp.domain.agent.sub.RadioSubAgent)?.stationTheme
+
     /** 获取 HelloSubAgent 实例（UI 层用于 collect cards StateFlow） */
     fun helloAgent(): HelloSubAgent? = _subAgents["hello"] as? HelloSubAgent
+
+    /** UI 层轮询播放快照（ANCHOR 卡直接读）*/
+    suspend fun queryNowPlayingContext(): com.hmp.domain.agent.port.NowPlayingContext? =
+        nowPlayingProvider?.runCatching { getNowPlaying() }?.getOrNull()
+
+    /**
+     * 电台运行态 StateFlow（UI 层直接观察）。
+     *
+     * radio sub-agent 未初始化时返回永远为 null 的 StateFlow；
+     * PLAYING/BUILDING/IDLE 实时反映 RadioSubAgent 内部状态。
+     * 不直接暴露 RadioSubAgent.radioState 以免 UI 层耦合到 SubAgent 实现细节。
+     */
+    val radioState: StateFlow<com.hmp.domain.agent.sub.RadioState?>
+        get() {
+            val radio = _subAgents["radio"] as? RadioSubAgent
+            return radio?.radioState
+                ?: MutableStateFlow(null)
+        }
 
     /** Hello 当前卡片列表快照（同步返回，测试/日志用） */
     fun queryHelloCards(): List<com.hmp.domain.agent.sub.SlideCard>? =

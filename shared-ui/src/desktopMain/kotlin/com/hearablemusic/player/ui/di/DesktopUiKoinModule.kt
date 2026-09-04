@@ -31,17 +31,22 @@ import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
 
 /**
- * desktopMain �?UI Koin 模块�? *
- * 注册面镜�?androidMain UiKoinModule（commonMain �?VM 类完全相同，构造参数一致）�? * 差异仅平台桥三件�? * - PlaybackController �?FFmpeg 引擎适配器（DesktopMusicController �? *   :desktop:core-player �?desktopPlayerModule 注册�? * - AlbumArtPixelsLoader �?skiko 实现（无 Context 依赖�? * - PlatformServices �?桌面聚合实现（无宿主 Activity，可直接注册；Android 侧因
- *   launcher 需�?Activity registry 而在 MainActivity 动态注册）
+ * desktopMain 专属 UI Koin 模块。
+ * 注册面镜 androidMain UiKoinModule（commonMain 中 VM 类完全相同，构造参数一致）。
+ * 差异仅平台桥三件套：
+ * - PlaybackController → FFmpeg 引擎适配器（DesktopMusicController 由 :desktop:core-player 的 desktopPlayerModule 注册）
+ * - AlbumArtPixelsLoader → skiko 实现（无 Context 依赖）
+ * - PlatformServices → 桌面聚合实现（无宿主 Activity，可直接注册；Android 侧因 launcher 需 Activity registry 而在 MainActivity 动态注册）
  *
- * 装配时机：desktop/app 壳连�?desktopPlayerModule 等既有模块一起加载�? */
+ * 装配时机：desktop/app 壳连同 desktopPlayerModule 等既有模块一起加载。
+ */
 val desktopUiModule = module {
     includes(chatGatewayModule)
 
     single { DialogManager() }
 
-    // 平台桥三�?    single<PlaybackController> { DesktopMusicControllerPlaybackAdapter(get()) }
+    // 平台桥三件套
+    single<PlaybackController> { DesktopMusicControllerPlaybackAdapter(get()) }
     single<AlbumArtPixelsLoader> { SkiaAlbumArtPixelsLoader() }
     single<PlatformServices> { DesktopPlatformServices() }
 

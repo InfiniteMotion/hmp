@@ -252,10 +252,13 @@ fun AppRoot(darkTheme: Boolean) {
     LaunchedEffect(pagerState.currentPage) {
         savedTabIndex.intValue = pagerState.currentPage
     }
+    // TabPageIndicator：3 条（音乐库/歌单/个人），门面页(index 0)不参与
+    val indicatorTotal = 3
+    val indicatorPage = (pagerState.currentPage - 1).coerceIn(0, indicatorTotal - 1)
     val tabHeader: @Composable () -> Unit = {
         TabPageIndicator(
-            currentPage = pagerState.currentPage,
-            totalPages = tabCount,
+            currentPage = indicatorPage,
+            totalPages = indicatorTotal,
             modifier = Modifier
                 .fillMaxWidth()
         )
@@ -443,7 +446,7 @@ fun AppRoot(darkTheme: Boolean) {
                                         // TabPageIndicator
                                         val isInTabs = navController.size == 1 && navController.lastOrNull() is Routes.Main.Tabs
                                         AnimatedVisibility(
-                                            visible = isInTabs && !windowSizeInfo.useFusionSidebar && !windowSizeInfo.isLandscape,
+                                            visible = isInTabs && !windowSizeInfo.useFusionSidebar && !windowSizeInfo.isLandscape && pagerState.currentPage > 0,
                                             enter = fadeIn(
                                                 animationSpec = tween(300, easing = AnimationTokens.EASE_OUT)
                                             ) + scaleIn(

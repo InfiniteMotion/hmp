@@ -233,6 +233,14 @@ class SettingsRepositoryImpl(
         return try { AiAccessMode.valueOf(dataStore.data.first()[PreferencesKeys.AI_ACCESS_MODE] ?: "FREE") } catch (e: Exception) { AiAccessMode.FREE }
     }
     override suspend fun saveAiAccessMode(mode: AiAccessMode) { dataStore.edit { prefs -> prefs[PreferencesKeys.AI_ACCESS_MODE] = mode.name } }
+    override val customAiConfig: kotlinx.coroutines.flow.Flow<AiEndpointConfig>
+        get() = dataStore.data.map { prefs ->
+            val endpoint = prefs[PreferencesKeys.CUSTOM_AI_ENDPOINT] ?: ""
+            val encryptedKey = prefs[PreferencesKeys.CUSTOM_AI_API_KEY]
+            val apiKey = encryptedKey?.let { SecureStorageHelper.decrypt(it) } ?: ""
+            val model = prefs[PreferencesKeys.CUSTOM_AI_MODEL] ?: ""
+            AiEndpointConfig(endpoint = endpoint, apiKey = apiKey, selectedModel = model, isConfigured = endpoint.isNotBlank() && apiKey.isNotBlank())
+        }
     override suspend fun getCustomAiConfig(): AiEndpointConfig {
         val prefs = dataStore.data.first()
         val endpoint = prefs[PreferencesKeys.CUSTOM_AI_ENDPOINT] ?: ""

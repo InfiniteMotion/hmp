@@ -52,8 +52,19 @@ interface MusicLabelDao {
     SELECT musicId
     FROM musicLabel
     WHERE label = :label
+    LIMIT :limit
 """)
-    suspend fun getMusicIdListByType(label: LabelName): List<Long>
+    suspend fun getMusicIdListByType(label: LabelName, limit: Int = 100): List<Long>
+
+    /** SQL GROUP BY 查 top N label（替代 getAllLabels + 内存 groupBy）。 */
+    @Query("""
+    SELECT label, COUNT(*) as cnt
+    FROM musicLabel
+    GROUP BY label
+    ORDER BY cnt DESC
+    LIMIT :limit
+""")
+    suspend fun getTopLabels(limit: Int): List<LabelCountPair>
 
     @Query("SELECT * FROM musicLabel")
     suspend fun getAllLabels(): List<MusicLabel>
@@ -65,3 +76,9 @@ interface MusicLabelDao {
     @Query("DELETE FROM musicLabel WHERE musicId = :musicId AND label = :label AND source = 'USER'")
     suspend fun deleteUserLabel(musicId: Long, label: LabelName)
 }
+
+/** DAO SQL GROUP BY 返回的 label+数量对。 */
+data class LabelCountPair(
+    val label: LabelName,
+    val cnt: Int,
+)

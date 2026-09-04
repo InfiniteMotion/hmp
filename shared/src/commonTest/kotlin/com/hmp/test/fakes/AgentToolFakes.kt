@@ -60,7 +60,7 @@ class FakeAgentMusicRepository : MusicRepository {
     override suspend fun addMusicLabel(label: MusicLabel) {}
     override suspend fun addUserMusicLabel(label: MusicLabel, confidence: Double) {}
     override fun getLabelNamesByType(type: LabelCategory): Flow<List<LabelName>> = flowOf(emptyList())
-    override suspend fun getMusicIdListByType(label: LabelName): List<Long> = musicIdsByLabel[label] ?: emptyList()
+    override suspend fun getMusicIdListByType(label: LabelName, limit: Int): List<Long> = (musicIdsByLabel[label] ?: emptyList()).take(limit)
     override suspend fun getMusicLabels(musicId: Long): List<MusicLabel> = emptyList()
     override suspend fun removeUserMusicLabel(musicId: Long, label: LabelName) {}
     override suspend fun updateMusicTags(musicId: Long, tags: EditableMusicTags): Result<Unit> = Result.success(Unit)
@@ -118,11 +118,15 @@ class FakeAgentMusicRepository : MusicRepository {
     override suspend fun getRecentSkipRate(limit: Int, days: Int): List<Long> = emptyList()
     override suspend fun getRecentPlayRate(limit: Int, days: Int): List<Long> = emptyList()
     override suspend fun getForgottenTracks(days: Int): List<Long> = emptyList()
-    override suspend fun getAnniversaryTracks(date: String): List<Pair<Long, Long>> = emptyList()
+    override suspend fun getAnniversaryTracks(date: String): List<Triple<Long, Long, Int>> = emptyList()
     override suspend fun getGlobalTopLabels(limit: Int): List<com.hmp.domain.enum.LabelName> = emptyList()
     override suspend fun getMusicInfoByIds(ids: List<Long>): List<MusicInfo> =
         ids.mapNotNull { songs[it] }
     override suspend fun getAvgDailyListeningMinutes(days: Int): Float = 0f
+    override suspend fun getAnniversaryPlaylists(date: String): List<com.hmp.domain.music.PlaylistAnniversaryRow> = emptyList()
+    override suspend fun getAllMusicDurations(): List<com.hmp.domain.music.MusicDurationRow> = emptyList()
+    override suspend fun getMusicIdsPlayedOn(date: String): List<Long> = emptyList()
+    override suspend fun getPlaybackCountForPlaylist(playlistName: String): Int = 0
 }
 
 /** M3 工具层专用内存 Fake：PlaylistRepository。 */

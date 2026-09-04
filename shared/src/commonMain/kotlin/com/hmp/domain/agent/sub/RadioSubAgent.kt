@@ -20,6 +20,8 @@ import com.hmp.domain.setting.model.AiEndpointConfig
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.isActive
 import com.hmp.platform.Volatile
 
@@ -68,16 +70,22 @@ class RadioSubAgent(
     private val nowPlayingProvider: NowPlayingContextProvider,
     private val presenceBus: PresenceBus? = null,
     private val auditLog: AuditLogPort? = null,
-    private val radioConfig: AiEndpointConfig? = null,
+    /** AI 端点配置（热更新：MasterAgent.updateAiConfig 可动态替换） */
+    private var radioConfig: AiEndpointConfig? = null,
     private val targetCount: Int = 12,
     private val stopSignal: StopSignal? = null,
 ) : SubAgent(agentId, contextBudget, toolRegistryView) {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
-    @Volatile private var radioState: RadioState = RadioState.IDLE
+    /** UI 观察电台运行态。所有赋值点同步更新此 StateFlow。 */
+    private val _radioState = MutableStateFlow<RadioState>(RadioState.IDLE)
+    val radioState: StateFlow<RadioState> = _radioState
+
     @Volatile private var currentPlaylist: List<RadioTrack> = emptyList()
     @Volatile private var seed: String? = null
+    /** 暴露给 UI：电台主题（用户 seed / 提取的标签关键词，null=自动电台） */
+    val stationTheme: String? get() = seed?.takeIf { it.isNotBlank() }
 
     override suspend fun runLoop() {
         Logger.i("Agent.Radio") { "runLoop start (targetCount=$targetCount, hasLLM=${radioConfig != null})" }
@@ -115,16 +123,24 @@ class RadioSubAgent(
     suspend fun startRadio(seed: String? = null): List<RadioTrack> {
         Logger.i("Agent.Radio") { "startRadio(seed=$seed)" }
         this.seed = seed
-        radioState = RadioState.BUILDING
+        _radioState.value = RadioState.BUILDING(
+            progressPercent = 10, actionText = "AI 正在理解你的喜好...", targetCount = targetCount,
+        )
         presenceBus?.emit(com.hmp.domain.agent.infra.PresenceEvent.CompanionBadge(visible = true, label = "电台"))
 
         // Step 0 + Step 1：提取种子 + 本地保底（零阻塞，必返回）
         val seedLabels = extractSeedLabels(seed)
+        _radioState.value = RadioState.BUILDING(
+            progressPercent = 30, actionText = "从曲库里筛选好歌...", targetCount = targetCount,
+        )
         val local = buildLocalFallback(seedLabels)
         Logger.i("Agent.Radio") { "startRadio: local fallback ${local.size} tracks, seedLabels=${seedLabels.map { it.name }}" }
 
         // Step 2 + Step 3：LLM 补充 + diff 仲裁（有 LLM 才跑，无则降级用本地）
         val final = if (radioConfig != null && local.isNotEmpty()) {
+            _radioState.value = RadioState.BUILDING(
+                progressPercent = 50, actionText = "AI 正在为你挑选好歌...", targetCount = targetCount,
+            )
             runCatching { enrichWithLlm(seed, seedLabels, local) }
                 .getOrElse { e ->
                     Logger.w("Agent.Radio", e) { "LLM enrich failed, falling back to local only" }
@@ -135,9 +151,14 @@ class RadioSubAgent(
         }
 
         // 去重仲裁 + 写审计日志
+        _radioState.value = RadioState.BUILDING(
+            progressPercent = 95, actionText = "整理播放列表...", targetCount = targetCount,
+        )
         val arbitrated = diffArbitration(final)
         this.currentPlaylist = arbitrated
-        radioState = RadioState.PLAYING
+        _radioState.value = RadioState.PLAYING(
+            currentCount = arbitrated.size, targetCount = arbitrated.size.coerceAtLeast(targetCount),
+        )
 
         auditLog?.logRadioStart(seedLabels.map { it.name }, arbitrated.size)
         Logger.i("Agent.Radio") { "startRadio: done → ${arbitrated.size} tracks (local=${arbitrated.count { it.source == RadioTrackSource.LOCAL }}, cloud=${arbitrated.count { it.source == RadioTrackSource.CLOUD }})" }
@@ -147,15 +168,10 @@ class RadioSubAgent(
     /** Master 下令停电台 */
     suspend fun stopRadio() {
         Logger.i("Agent.Radio") { "stopRadio()" }
-        radioState = RadioState.IDLE
+        _radioState.value = RadioState.IDLE
         currentPlaylist = emptyList()
         presenceBus?.emit(com.hmp.domain.agent.infra.PresenceEvent.CompanionBadge(visible = false))
-        // W0: emit AgentProgress(total=0) → HelloSubAgent pop RADIO_STATUS 卡
-        presenceBus?.emit(com.hmp.domain.agent.infra.PresenceEvent.AgentProgress(
-            agentId = "radio",
-            processed = 0,
-            total = 0,
-        ))
+        // 注：RADIO_STATUS 卡已由 UI 层直接订阅 radioState，IDLE 即自动隐藏，无需再发事件
     }
 
     /**
@@ -163,8 +179,8 @@ class RadioSubAgent(
      * 列表耗尽时自动重跑三轮协作（用当前播放曲目作为新种子）。
      */
     suspend fun continueRadio(): List<RadioTrack> {
-        if (radioState != RadioState.PLAYING) {
-            Logger.w("Agent.Radio") { "continueRadio: radio not PLAYING (state=$radioState), skip" }
+        if (_radioState.value !is RadioState.PLAYING) {
+            Logger.w("Agent.Radio") { "continueRadio: radio not PLAYING (state=${_radioState.value}), skip" }
             return currentPlaylist
         }
         // 简单策略：已经播过前半段 → 取后半段；不足则重新 startRadio
@@ -179,7 +195,7 @@ class RadioSubAgent(
         }
     }
 
-    fun queryState(): RadioState = radioState
+    fun queryState(): RadioState = _radioState.value
     fun queryPlaylist(): List<RadioTrack> = currentPlaylist
 
     // ── M6-T2 跳过感知重排 ──────────────────────────────────
@@ -193,7 +209,7 @@ class RadioSubAgent(
      */
     suspend fun reorder(seedLabels: List<com.hmp.domain.enum.LabelName> = emptyList()): List<RadioTrack> {
         Logger.i("Agent.Radio") { "reorder triggered: seedLabels=${seedLabels.map { it.name }}" }
-        radioState = RadioState.BUILDING
+        _radioState.value = RadioState.BUILDING(progressPercent = 10, actionText = "正在重新为你选歌...", targetCount = targetCount)
         // ① 清空旧播放队列
         runCatching { playbackPort.execute(PlaybackCommand.SKIP_ALL) }
         // ② 用 seedLabels 作为偏好种子重新构建（不传 seed → extractSeedLabels 会用 seedLabels）
@@ -419,13 +435,42 @@ class RadioSubAgent(
         val seen = mutableSetOf<Long>()
         return tracks.filter { seen.add(it.musicId) }.take(targetCount)
     }
+
+    /** 热更新 AI 配置——由 MasterAgent.updateAiConfig 推送。下次 startRadio/continueRadio 时用新 config。 */
+    fun updateAiConfig(radioConfig: AiEndpointConfig?) {
+        this.radioConfig = radioConfig
+        Logger.i("Agent.Radio") { "updateAiConfig: config=${radioConfig != null}" }
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════
 // 电台数据模型
 // ═══════════════════════════════════════════════════════════════════
 
-enum class RadioState { IDLE, BUILDING, PLAYING }
+sealed class RadioState {
+    /** 电台空闲（未启动 / 已停止） */
+    data object IDLE : RadioState()
+
+    /** 电台正在构建 playlist（进度真实数据来自 RadioSubAgent 内部步骤） */
+    data class BUILDING(
+        /** 进度百分比 0-100（阶段性跳变，非实时） */
+        val progressPercent: Int = 0,
+        /** 当前动作文字（如"AI 正在理解你的喜好..."、"LLM 补充..."） */
+        val actionText: String = "正在初始化...",
+        /** 目标曲目数 */
+        val targetCount: Int = 8,
+        /** 已生成曲目数（BUILDING 阶段通常 0，PLAYING 阶段等于 currentCount） */
+        val currentCount: Int = 0,
+    ) : RadioState()
+
+    /** 电台播放中 */
+    data class PLAYING(
+        /** 当前 playlist 曲目数 */
+        val currentCount: Int,
+        /** 目标曲目数（通常等于 currentCount） */
+        val targetCount: Int,
+    ) : RadioState()
+}
 
 data class RadioTrack(
     val musicId: Long,

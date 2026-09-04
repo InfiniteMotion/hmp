@@ -1,150 +1,81 @@
 package com.hmp.domain.agent.sub
 
 import co.touchlab.kermit.Logger
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
+import com.hmp.data.database.currentTimeMillis
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 
 /**
  * HelloSubAgent 卡片池（W0）。
  *
  * 设计：
- * - 同类型只保留一张（replace 语义）
- * - push 到栈顶（列表头），只有头卡可见
- * - 倒计时到期自动 pop（协程 delay 实现，无 Android CountDownTimer 依赖）
- * - 卡展开时暂停倒计时，收起时恢复
- * - 常驻卡（displayDurationMs=0）不创建 timer
+ * - 同类型只保留一张（replace 语义，原位置替换）
+ * - push 到栈顶（列表头）
+ * - 所有卡常驻，无自动 pop；可见性由 SlideCard.visible 控制
+ * - replace 时引擎层决定要不要 setFocus=true → UI 聚焦展示并暂停轮播
  *
  * 线程安全：
  * - cards 通过 StateFlow.update {} 原子化
- * - timerJobs / pausedCards 由 Mutex 保护（D1 修复：iOS/Kotlin Native 上 mutableMapOf 不是线程安全的）
  */
-class CardPool(
-    private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
-) {
+class CardPool {
     private val _cards = MutableStateFlow<List<SlideCard>>(emptyList())
     val cards: StateFlow<List<SlideCard>> = _cards.asStateFlow()
 
-    /** cardId → timerJob（用于取消倒计时），Mutex 保护 */
-    private val timerJobs = mutableMapOf<String, kotlinx.coroutines.Job>()
-
-    /** 正在展开（暂停倒计时）的 cardId 集合，Mutex 保护 */
-    private val pausedCards = mutableSetOf<String>()
-
-    /** 保护 timerJobs / pausedCards 的互斥锁（D1） */
-    private val poolMutex = Mutex()
-
     // ═══ 核心操作 ═══
 
-    /** 同类型只保留一张：先 pop 同类型旧卡 + 停它的 timer，再 push 新卡 */
-    fun replace(type: SlideType, card: SlideCard) {
-        popByType(type)
-        push(card)
+    /**
+     * 同类型只保留一张——在原位置替换（不是 push 到栈顶）。
+     * 没找到同类型 → push 到栈顶（新卡）。
+     *
+     * setFocus=true 时新卡 focusedAt 设为当前时间 → UI 聚焦展示。
+     * setFocus=false 时 focusedAt 保持 0（ANCHOR 每秒刷新用这个，不抢焦点）。
+     *
+     * 原位置语义：RECOMMEND 时段变化时内容变了但位置不变 → 轮播稳定。
+     */
+    fun replace(type: SlideType, card: SlideCard, setFocus: Boolean = true) {
+        val focusedCard = card.copy(focusedAt = if (setFocus) currentTimeMillis() else 0L)
+        val oldExist = _cards.value.any { it.type == type }
+        if (oldExist) {
+            _cards.update { it.map { c -> if (c.type == type) focusedCard else c } }
+            Logger.d("Agent.Hello") {
+                "CardPool replace in-place: type=$type id=${focusedCard.cardId} setFocus=$setFocus"
+            }
+        } else {
+            _cards.update { listOf(focusedCard) + it }
+            Logger.d("Agent.Hello") {
+                "CardPool replace (new): type=$type id=${focusedCard.cardId} setFocus=$setFocus"
+            }
+        }
     }
 
-    /** push 到栈顶（列表头），同时启动倒计时 */
+    /** push 到栈顶（列表头） */
     fun push(card: SlideCard) {
         _cards.update { listOf(card) + it }
-        if (card.displayDurationMs > 0) {
-            startTimer(card)
-        }
-        Logger.d("Agent.Hello") { "CardPool push: type=${card.type} id=${card.cardId} dur=${card.displayDurationMs}ms" }
+        Logger.d("Agent.Hello") { "CardPool push: type=${card.type} id=${card.cardId}" }
     }
 
-    /** 按类型 pop */
+    /** 按类型设置 visible（今日无数据时 setVisible(type, false) 即可，不用 pop） */
+    fun setVisible(type: SlideType, visible: Boolean) {
+        _cards.update { it.map { c -> if (c.type == type) c.copy(visible = visible) else c } }
+        Logger.d("Agent.Hello") { "CardPool setVisible: type=$type visible=$visible" }
+    }
+
+    /** 按类型 pop（彻底从 CardPool 移除，很少用——大多用 setVisible(false)） */
     fun popByType(type: SlideType) {
         val removed = _cards.value.filter { it.type == type }
-        removed.forEach { stopTimer(it.cardId) }
         _cards.update { it.filter { c -> c.type != type } }
         if (removed.isNotEmpty()) {
             Logger.d("Agent.Hello") { "CardPool popByType: type=$type removed=${removed.size}" }
         }
     }
 
-    /** 按 cardId pop（倒计时到期时调用） */
-    internal fun pop(cardId: String) {
-        stopTimer(cardId)
-        _cards.update { it.filter { c -> c.cardId != cardId } }
-        Logger.d("Agent.Hello") { "CardPool pop: id=$cardId" }
-    }
+    /** 某类型是否存在（缺失重试守卫用） */
+    fun containsType(type: SlideType): Boolean = _cards.value.any { it.type == type && it.visible }
 
     /** 清空所有卡（shutdown 用） */
     fun clear() {
-        timerJobs.values.forEach { it.cancel() }
-        timerJobs.clear()
-        pausedCards.clear()
         _cards.value = emptyList()
-    }
-
-    // ═══ 暂停/恢复倒计时 ═══
-
-    /** 卡展开时暂停倒计时 */
-    suspend fun pauseTimer(cardId: String) {
-        poolMutex.withLock {
-            if (pausedCards.add(cardId)) {
-                stopTimerInternal(cardId)
-                Logger.d("Agent.Hello") { "CardPool pauseTimer: id=$cardId" }
-            }
-        }
-    }
-
-    /** 卡收起时恢复倒计时（从头开始计时） */
-    suspend fun resumeTimer(cardId: String) {
-        poolMutex.withLock {
-            if (pausedCards.remove(cardId)) {
-                val card = _cards.value.firstOrNull { it.cardId == cardId }
-                if (card != null && card.displayDurationMs > 0) {
-                    startTimerInternal(card)
-                    Logger.d("Agent.Hello") { "CardPool resumeTimer: id=$cardId" }
-                }
-            }
-        }
-    }
-
-    // ═══ 内部：倒计时实现（协程 delay，跨平台） ═══
-
-    private suspend fun startTimerInternal(card: SlideCard) {
-        stopTimerInternal(card.cardId)
-        val job = scope.launch {
-            delay(card.displayDurationMs)
-            if (!scope.isActive) return@launch
-            // 再次确认没被暂停（Mutex 内检查）
-            val isPaused = poolMutex.withLock { card.cardId in pausedCards }
-            if (!isPaused) {
-                pop(card.cardId)
-            }
-        }
-        timerJobs[card.cardId] = job
-    }
-
-    private suspend fun stopTimerInternal(cardId: String) {
-        timerJobs.remove(cardId)?.cancel()
-    }
-
-    /** 非 suspend 版本（push/pop/replace 内部用，调用方保证不会与 pause/resume 并发） */
-    private fun startTimer(card: SlideCard) {
-        stopTimer(card.cardId)
-        val job = scope.launch {
-            delay(card.displayDurationMs)
-            if (!scope.isActive) return@launch
-            val isPaused = poolMutex.withLock { card.cardId in pausedCards }
-            if (!isPaused) {
-                pop(card.cardId)
-            }
-        }
-        timerJobs[card.cardId] = job
-    }
-
-    private fun stopTimer(cardId: String) {
-        timerJobs.remove(cardId)?.cancel()
     }
 }

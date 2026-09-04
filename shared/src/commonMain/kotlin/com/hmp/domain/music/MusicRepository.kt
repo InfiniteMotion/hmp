@@ -56,7 +56,7 @@ interface MusicRepository {
     suspend fun addUserMusicLabel(label: MusicLabel, confidence: Double = 1.0)
 
     fun getLabelNamesByType(type: LabelCategory): Flow<List<LabelName>>
-    suspend fun getMusicIdListByType(label: LabelName): List<Long>
+    suspend fun getMusicIdListByType(label: LabelName, limit: Int = 100): List<Long>
 
     /** 删除某首歌的 USER 源标签（只删 source=USER 的；LLM 富化标签不受影响）。 */
     suspend fun removeUserMusicLabel(musicId: Long, label: LabelName)
@@ -150,15 +150,28 @@ interface MusicRepository {
     /** 7 天内播放率最高的 N 首歌 ID（RECOMMEND 正推该推荐什么） */
     suspend fun getRecentPlayRate(limit: Int, days: Int = 7): List<Long>
 
-    /** days 天内未播放的曲目（30 / 90 天未播 → FORGOTTEN 卡） */
-    suspend fun getForgottenTracks(days: Int): List<Long>
+    /** days 天内未播放的曲目 (musicId, lastPlayedMs)。lastPlayedMs 为 null 表示从未播放过。按最久未播排序。 */
+    suspend fun getForgottenTracks(days: Int, limit: Int = 10): List<Pair<Long, Long?>>
 
-    /** N 年前的今天首次播放的曲目（ANNIVERSARY 卡；date 参数格式 yyyy-MM-dd，和 todayDateString() 一致）。返回 (musicId, firstPlayedAtMs) */
-    suspend fun getAnniversaryTracks(date: String): List<Pair<Long, Long>>;
+    /** N 年前的今天首次播放的曲目（ANNIVERSARY 卡；date 参数格式 yyyy-MM-dd，和 todayDateString() 一致）。
+     * 按 firstPlayedAt 升序（最久的在前），返回 (musicId, firstPlayedAtMs, thatDayPlays)。 */
+    suspend fun getAnniversaryTracks(date: String): List<Triple<Long, Long, Int>>;
+
+    /** 歌单创建纪念日候选（ANNIVERSARY 卡）。按 createdAt 升序（最久在前）。 */
+    suspend fun getAnniversaryPlaylists(date: String): List<PlaylistAnniversaryRow>;
+
+    /** 所有歌的累计时长 + 播放次数视图（播放里程碑 + 时长里程碑候选）。 */
+    suspend fun getAllMusicDurations(): List<MusicDurationRow>;
+
+    /** 今日有新播放的 musicId 集合（用于检查今天是否跨过播放里程碑）。 */
+    suspend fun getMusicIdsPlayedOn(date: String): List<Long>;
+
+    /** 某歌单累计被播放次数。 */
+    suspend fun getPlaybackCountForPlaylist(playlistName: String): Int;
 
     /** 某风格 label 下的曲目（DISCOVER 兜底 + RECOMMEND 时段匹配；等价于 getMusicIdListByType，额外提供别名） */
     suspend fun getRecentTracksByLabel(label: LabelName, limit: Int): List<Long> =
-        getMusicIdListByType(label).take(limit)
+        getMusicIdListByType(label, limit)
 
     /** 最近 30 天活跃过的风格 label 排序（DISCOVER 兜底 + RadioSubAgent 共用） */
     suspend fun getGlobalTopLabels(limit: Int): List<LabelName>
@@ -169,3 +182,19 @@ interface MusicRepository {
     /** 最近 days 天的日均听歌时长（分钟），报告叙事段自适应频率判断用 */
     suspend fun getAvgDailyListeningMinutes(days: Int = 30): Float
 }
+
+/** 歌单创建纪念日候选。 */
+data class PlaylistAnniversaryRow(
+    val playlistId: Long,
+    val playlistName: String,
+    val createdAt: Long,
+    val songCount: Int,
+    val playbackCount: Int,
+)
+
+/** 单首歌累计时长 + 播放次数（用于播放/时长里程碑候选）。 */
+data class MusicDurationRow(
+    val musicId: Long,
+    val totalMs: Long,
+    val playCount: Int,
+)

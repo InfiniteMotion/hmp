@@ -31,6 +31,7 @@ fun TabScreen(
     hasSearchBotton: Boolean = false,
     navController: NavBackStack<NavKey>? = null,
     trailing: @Composable (() -> Unit)? = null,
+    showHeader: Boolean = true,
     content: @Composable () -> Unit
 ) {
     val isLandscape = LocalWindowSizeInfo.current.isLandscape
@@ -48,7 +49,7 @@ fun TabScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier.fillMaxSize()
         ) {
-            if (!isLandscape) {
+            if (showHeader && !isLandscape) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -70,6 +71,19 @@ fun TabScreen(
                         if (trailing != null) trailing()
                         if (hasSearchBotton && navController != null) {
                             Spacer(modifier = Modifier.width(8.dp))
+                            SearchButton(navController)
+                        }
+                    }
+                } else {
+                    // 无 title 但有 trailing/search → 只渲染右侧操作区
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        if (trailing != null) trailing()
+                        if (hasSearchBotton && navController != null) {
+                            if (trailing != null) Spacer(modifier = Modifier.width(8.dp))
                             SearchButton(navController)
                         }
                     }

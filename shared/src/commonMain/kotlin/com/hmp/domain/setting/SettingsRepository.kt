@@ -77,6 +77,7 @@ interface SettingsRepository {
     suspend fun saveAiAccessMode(mode: AiAccessMode)
 
     // Custom AI Config (user-provided endpoint + key + model)
+    val customAiConfig: Flow<AiEndpointConfig>
     suspend fun getCustomAiConfig(): AiEndpointConfig
     suspend fun saveCustomAiConfig(config: AiEndpointConfig)
 

@@ -38,7 +38,9 @@ import com.hmp.domain.backup.UserInfoSnapshot
 import com.hmp.domain.enum.LabelCategory
 import com.hmp.domain.enum.LabelName
 import com.hmp.domain.music.EditableMusicTags
+import com.hmp.domain.music.MusicDurationRow
 import com.hmp.domain.music.MusicInfo
+import com.hmp.domain.music.PlaylistAnniversaryRow
 import com.hmp.domain.music.MusicLabel
 import com.hmp.domain.music.MusicRepository
 import com.hmp.domain.setting.model.AiEndpointConfig
@@ -254,13 +256,13 @@ abstract class MusicRepositoryBase(
         }
     }
 
-    override suspend fun getMusicIdListByType(label: LabelName): List<Long> {
+    override suspend fun getMusicIdListByType(label: LabelName, limit: Int): List<Long> {
         val dataLabel = try {
             DataLabelName.valueOf(label.name)
         } catch (e: Exception) {
             return emptyList()
         }
-        return musicLabelDao.getMusicIdListByType(dataLabel)
+        return musicLabelDao.getMusicIdListByType(dataLabel, limit)
     }
 
     override suspend fun getMusicLabels(musicId: Long): List<MusicLabel> =
@@ -914,40 +916,73 @@ abstract class MusicRepositoryBase(
         return all.sortedByDescending { it.playCount ?: 0 }.take(limit).map { it.id }
     }
 
-    /** days 天内未播放的曲目（FORGOTTEN 卡）。 */
-    override suspend fun getForgottenTracks(days: Int): List<Long> {
+    /** days 天内未播放的曲目 (id, lastPlayedMs)（FORGOTTEN 卡）。用 DAO SQL 直接查 LIMIT。 */
+    override suspend fun getForgottenTracks(days: Int, limit: Int): List<Pair<Long, Long?>> {
         val threshold = currentTimeMillis() - days * 86_400_000L
-        return userInfoDao.getAllUserInfos()
-            .filter { !it.isDeleted && (it.lastPlayed == null || it.lastPlayed < threshold) }
-            .map { it.id }
+        return userInfoDao.getForgottenIds(threshold, limit).map { it.id to it.lastPlayed }
     }
 
-    /** N 年前的今天首次播放的曲目（ANNIVERSARY 卡）。
-     * 用 PlaybackHistory 首次 playedAt 的月-日匹配。 */
-    override suspend fun getAnniversaryTracks(date: String): List<Pair<Long, Long>> {
+    /** N 年前的今天首次播放的曲目（ANNIVERSARY 卡）。用 DAO SQL 直接查 GROUP BY，避免全量加载。 */
+    override suspend fun getAnniversaryTracks(date: String): List<Triple<Long, Long, Int>> {
         val mmdd = date.substring(5) // "MM-dd" from "yyyy-MM-dd"
-        val allHistory = playbackHistoryDao.getAllHistory()
-        if (allHistory.isEmpty()) return emptyList()
-        // 每首歌取最早 playedAt（首次播放时间），返回 (musicId, firstPlayedAtMs)
-        return allHistory
-            .groupBy { it.musicId }
-            .mapValues { (_, records) -> records.minOf { it.playedAt } }
-            .entries
-            .filter { (_, firstPlayAt) -> formatMmddFromMillis(firstPlayAt) == mmdd }
-            .map { it.key to it.value }
+        val candidates = playbackHistoryDao.getAnniversaryCandidates(mmdd)
+        if (candidates.isEmpty()) return emptyList()
+
+        val now = currentTimeMillis()
+        return candidates.map { row ->
+            val thatDayPlays = playbackHistoryDao.countPlaysInRange(
+                row.musicId,
+                row.firstPlayedAt,
+                row.firstPlayedAt + 86_400_000L,
+            )
+            Triple(row.musicId, row.firstPlayedAt, thatDayPlays)
+        }
+        // candidates 已经按 firstPlayedAt ASC（最久在前），无需额外排序
     }
 
-    /** 全局 top N 风格 label（DISCOVER 卡 + RadioSubAgent 共用）。 */
+    /** 歌单创建纪念日候选。 */
+    override suspend fun getAnniversaryPlaylists(date: String): List<PlaylistAnniversaryRow> {
+        val mmdd = date.substring(5)
+        val playlists = playlistDao.getAnniversaryPlaylists(mmdd)
+        return playlists.map { pl ->
+            val playCount = runCatching { playlistDao.countPlaybackForPlaylist(pl.name) }.getOrDefault(0)
+            PlaylistAnniversaryRow(
+                playlistId = pl.id,
+                playlistName = pl.name,
+                createdAt = pl.createdAt,
+                songCount = pl.songCount,
+                playbackCount = playCount,
+            )
+        }
+    }
+
+    /** 所有歌的累计时长 + 播放次数（DAO 层 GROUP BY SQL，单次查询，避免全表拉取）。 */
+    override suspend fun getAllMusicDurations(): List<MusicDurationRow> {
+        return runCatching { playbackHistoryDao.getAllMusicDurationsGrouped() }.getOrDefault(emptyList()).map { daoRow ->
+            MusicDurationRow(
+                musicId = daoRow.musicId,
+                totalMs = daoRow.totalMs,
+                playCount = daoRow.playCount,
+            )
+        }
+    }
+
+    /** 今日有新播放的 musicId（DAO strftime SQL，单次查询）。 */
+    override suspend fun getMusicIdsPlayedOn(date: String): List<Long> {
+        val mmdd = date.substring(5) // "MM-dd"
+        return runCatching { playbackHistoryDao.getMusicIdsPlayedOn(mmdd) }.getOrDefault(emptyList())
+    }
+
+    /** 某歌单累计被播放次数。 */
+    override suspend fun getPlaybackCountForPlaylist(playlistName: String): Int =
+        runCatching { playlistDao.countPlaybackForPlaylist(playlistName) }.getOrDefault(0)
+
+    /** 全局 top N 风格 label（DISCOVER 卡 + RadioSubAgent 共用）—— SQL GROUP BY 替代全表拉取。 */
     override suspend fun getGlobalTopLabels(limit: Int): List<LabelName> {
-        val all = musicLabelDao.getAllLabels()
-        return all
-            .groupBy { it.label }
-            .mapValues { it.value.size }
-            .toList()
-            .sortedByDescending { it.second }
-            .take(limit)
-            .mapNotNull { (dataLabel, _) ->
-                runCatching { LabelName.valueOf(dataLabel.name) }.getOrNull()
+        return runCatching { musicLabelDao.getTopLabels(limit) }
+            .getOrDefault(emptyList())
+            .mapNotNull { pair ->
+                runCatching { LabelName.valueOf(pair.label.name) }.getOrNull()
             }
     }
 

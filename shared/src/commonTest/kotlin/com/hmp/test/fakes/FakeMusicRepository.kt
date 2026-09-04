@@ -167,10 +167,11 @@ class FakeMusicRepository : MusicRepository {
         return flowOf(names)
     }
 
-    override suspend fun getMusicIdListByType(labelName: LabelName): List<Long> =
+    override suspend fun getMusicIdListByType(labelName: LabelName, limit: Int): List<Long> =
         labels.entries
             .filter { (_, labelList) -> labelList.any { it.label == labelName } }
             .map { it.key }
+            .take(limit)
 
     override suspend fun getMusicLabels(musicId: Long): List<MusicLabel> =
         labels[musicId] ?: emptyList()
@@ -350,8 +351,8 @@ class FakeMusicRepository : MusicRepository {
     // ═══ W0 HelloSubAgent stub ═══
     override suspend fun getRecentSkipRate(limit: Int, days: Int): List<Long> = emptyList()
     override suspend fun getRecentPlayRate(limit: Int, days: Int): List<Long> = emptyList()
-    override suspend fun getForgottenTracks(days: Int): List<Long> = emptyList()
-    override suspend fun getAnniversaryTracks(date: String): List<Pair<Long, Long>> = emptyList()
+    override suspend fun getForgottenTracks(days: Int, limit: Int): List<Pair<Long, Long?>> = emptyList()
+    override suspend fun getAnniversaryTracks(date: String): List<Triple<Long, Long, Int>> = emptyList()
     override suspend fun getGlobalTopLabels(limit: Int): List<com.hmp.domain.enum.LabelName> = emptyList()
     override suspend fun getMusicInfoByIds(ids: List<Long>): List<com.hmp.domain.music.MusicInfo> {
         if (ids.isEmpty()) return emptyList()
@@ -359,6 +360,13 @@ class FakeMusicRepository : MusicRepository {
         return musicList.filter { it.music.id in idSet }
     }
     override suspend fun getAvgDailyListeningMinutes(days: Int): Float = 0f
+
+    // region ANNIVERSARY 扩展空实现
+    override suspend fun getAnniversaryPlaylists(date: String): List<com.hmp.domain.music.PlaylistAnniversaryRow> = emptyList()
+    override suspend fun getAllMusicDurations(): List<com.hmp.domain.music.MusicDurationRow> = emptyList()
+    override suspend fun getMusicIdsPlayedOn(date: String): List<Long> = emptyList()
+    override suspend fun getPlaybackCountForPlaylist(playlistName: String): Int = 0
+    // endregion
 
     // endregion
 }

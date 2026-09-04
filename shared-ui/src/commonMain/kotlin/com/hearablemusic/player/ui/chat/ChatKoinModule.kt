@@ -17,6 +17,9 @@ import com.hmp.domain.playlist.PlaylistRepository
 import com.hmp.domain.setting.SettingsRepository
 import com.hmp.domain.setting.usecase.UserSettingsUseCase
 import com.hearablemusic.player.ui.platform.currentTimeMillis
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import org.koin.dsl.bind
 import org.koin.dsl.module
 
@@ -65,12 +68,14 @@ val chatGatewayModule = module {
         val enrichConfig = kotlinx.coroutines.runBlocking {
             runCatching { settingsRepo.getActiveAiConfig() }.getOrNull()
         }
+        // chatTransport 在构造时就拿到，后续热更新也复用这个实例（HTTP client 不需要重建）
+        val chatTransport = get<com.hmp.domain.agent.port.LlmTransport>()
         MasterAgent(
             timeProvider = { currentTimeMillis() },
             tokenCounter = com.hmp.domain.agent.runtime.GlobalTokenCounter({ currentTimeMillis() }),
             musicRepository = get(),
             // 对话依赖
-            chatTransport = get(),
+            chatTransport = chatTransport,
             chatToolRegistry = get(),
             chatPolicyGuard = get(),
             chatAuditLog = get(),
@@ -87,7 +92,26 @@ val chatGatewayModule = module {
             helloReportNarrativeDao = get(),
             // Agent 配置持久化（trustLevel + alwaysAllow DataStore 读写）
             settingsRepo = settingsRepo,
-        )
+        ).also { master ->
+            master.lifecycleScope.launch {
+                runCatching { master.initialize() }
+                    .onFailure { e -> co.touchlab.kermit.Logger.e("Agent.Master", e) { "initialize failed (non-fatal)" } }
+            }
+            // AI 配置热监听：combine(aiAccessMode, customAiConfig) → 任何一个变了都推给 MasterAgent
+            master.lifecycleScope.launch {
+                kotlinx.coroutines.flow.combine(
+                    settingsRepo.aiAccessMode,
+                    settingsRepo.customAiConfig,
+                ) { _, _ ->
+                    runCatching { settingsRepo.getActiveAiConfig() }.getOrNull()
+                }.collect { activeConfig ->
+                    master.updateAiConfig(chatTransport, activeConfig)
+                    co.touchlab.kermit.Logger.i("Agent.Master") {
+                        "AI config changed → enableLlm=${chatTransport != null && activeConfig?.isConfigured == true}"
+                    }
+                }
+            }
+        }
     }
 
     // ChatAgentGateway 接口绑定到 MasterChatGateway（薄壳）
