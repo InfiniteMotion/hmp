@@ -43,7 +43,7 @@ var m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute('co
   <div class="hero-orb"></div>
 </div>
 
-<a href="changelog.html" class="ver-badge">v7.1.0</a>
+<a href="changelog.html" class="ver-badge" data-site="version"></a>
 
 <nav class="site-nav" aria-label="站点导航">
   <a href="index.html" aria-current="page">首页</a>
@@ -55,7 +55,7 @@ var m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute('co
 
 <div class="bottom-bar">
   <a href="https://github.com/InfiniteMotion/HMP" class="bottom-link">GitHub</a>
-  <a href="changelog.html" class="top-badge">v7.1.0</a>
+  <a href="changelog.html" class="top-badge" data-site="version"></a>
   <button class="theme-toggle" onclick="toggleTheme()" aria-label="切换主题">
     <span id="themeIcon">&#9789;</span>
   </button>
@@ -319,6 +319,7 @@ var m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute('co
 
 <footer class="bottom-copy">&copy; 2026 Hearable Music Player &middot; By WLYB &middot; <a href="privacy-policy.html">隐私政策</a> &middot; <a href="changelog.html">更新日志</a></footer>
 
+<script src="js/config.js"></script>
 <script src="js/main.js"></script>
 </body>
 </html>

@@ -99,7 +99,7 @@
 <section class="dl-hero" id="main">
   <a href="index.html" class="back-link">&larr; 返回首页</a>
   <h1>了解与获取</h1>
-  <p class="dl-sub">当前版本 v7.1.0 &middot; 2026-08-26 发布</p>
+  <p class="dl-sub" data-site="version-line"></p>
 </section>
 
 <div class="tab-bar" role="tablist" aria-label="选择平台">
@@ -143,7 +143,7 @@
         <li>Android 13+</li>
       </ul>
       <div class="plat-actions">
-        <a href="https://github.com/InfiniteMotion/HMP/releases/download/v7.1.0/HMP-v7.1.0-release.apk" class="btn btn-primary">下载 APK</a>
+        <a data-asset="apk" class="btn btn-primary">下载 APK</a>
       </div>
     </div>
   </div>
@@ -169,7 +169,7 @@
         <li>iOS 26.3+</li>
       </ul>
       <div class="plat-actions">
-        <a href="https://github.com/InfiniteMotion/HMP/releases/tag/v7.1.0" class="btn btn-primary">查看构建指南</a>
+        <a data-release-tag class="btn btn-primary">查看构建指南</a>
       </div>
       <p class="plat-note">iOS 无直链分发，需通过 Xcode 自行构建</p>
     </div>
@@ -211,10 +211,10 @@
         <li>系统托盘</li>
       </ul>
       <div class="plat-actions">
-        <a href="https://github.com/InfiniteMotion/HMP/releases/download/v7.1.0/HMP-v7.1.0-windows.msi" class="btn btn-primary">下载 Windows</a>
-        <a href="https://github.com/InfiniteMotion/HMP/releases/download/v7.1.0/HMP-v7.1.0-macos.dmg" class="btn btn-primary">下载 macOS</a>
-        <a href="https://github.com/InfiniteMotion/HMP/releases/download/v7.1.0/HMP-v7.1.0-linux.deb" class="btn btn-primary">下载 Linux（DEB）</a>
-        <a href="https://github.com/InfiniteMotion/HMP/releases/download/v7.1.0/HMP-v7.1.0-linux.AppImage" class="btn btn-primary">下载 Linux（AppImage）</a>
+        <a data-asset="msi" class="btn btn-primary">下载 Windows</a>
+        <a data-asset="dmg" class="btn btn-primary">下载 macOS</a>
+        <a data-asset="deb" class="btn btn-primary">下载 Linux（DEB）</a>
+        <a data-asset="appimage" class="btn btn-primary">下载 Linux（AppImage）</a>
       </div>
     </div>
   </div>
@@ -229,6 +229,7 @@ function switchTab(platform) {
   document.getElementById(`tab-${platform}`).classList.add('active');
 }
 </script>
+<script src="js/config.js"></script>
 <script src="js/main.js"></script>
 <span class="bottom-copy">&copy; 2026 Hearable Music Player &middot; By WLYB &middot; <a href="changelog.html" style="color:inherit;text-decoration:underline;">更新日志</a></span>
 </body>

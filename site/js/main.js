@@ -477,10 +477,44 @@
     el.setAttribute('aria-expanded', entry.hasAttribute('data-collapsed') ? 'false' : 'true');
   };
 
+  /* ── 站点元信息填充（数据源：js/config.js 的 window.SITE） ── */
+  /* 页面里凡带以下标记的元素都在启动时由配置统一覆盖：
+     data-site="version"      → 文本替换为 "v{版本号}"
+     data-site="version-line" → "当前版本 v{版本} · {日期} 发布"
+     data-asset="apk|msi|..." → href 指向对应 Release 资产
+     data-release-tag         → href 指向 Release tag 页
+     .bottom-copy             → 版权行中的年份/站名/作者按配置修正 */
+  function applySiteMeta() {
+    var S = window.SITE;
+    if (!S) return;
+    var v = S.version;
+
+    document.querySelectorAll('[data-site="version"]').forEach(function (el) {
+      el.textContent = 'v' + v;
+    });
+    document.querySelectorAll('[data-site="version-line"]').forEach(function (el) {
+      el.textContent = '当前版本 v' + v + ' · ' + S.released + ' 发布';
+    });
+    document.querySelectorAll('[data-asset]').forEach(function (a) {
+      var tpl = S.assets[a.getAttribute('data-asset')];
+      if (tpl) a.href = S.repo + '/releases/download/v' + v + '/' + tpl.replace('{v}', v);
+    });
+    document.querySelectorAll('[data-release-tag]').forEach(function (a) {
+      a.href = S.repo + '/releases/tag/v' + v;
+    });
+    document.querySelectorAll('.bottom-copy').forEach(function (el) {
+      el.innerHTML = el.innerHTML.replace(
+        /&copy;\s*\d{4}[^·]*·\s*By\s*[^·]*·/,
+        '&copy; ' + S.year + ' ' + S.name + ' &middot; By ' + S.author + ' &middot;'
+      );
+    });
+  }
+
   /* ── 启动 ─────────────────────────────────────── */
 
   function boot() {
     syncThemeUi(document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark');
+    applySiteMeta();
     initAurora();
     initSlides();
     initPreviews();
