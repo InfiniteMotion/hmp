@@ -58,6 +58,22 @@ a { color: var(--primary); text-decoration:none; }
 :focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; border-radius: 4px; }
 .site-nav a:focus-visible, .theme-toggle:focus-visible, .swipe-dot:focus-visible { outline-offset: 2px; }
 
+/* 语言选择器（i18n，注入 .site-nav 尾部） */
+.lang-select {
+  padding: 6px 10px; border-radius: 100px; align-self: center;
+  background: var(--glass-bg); border: 1px solid var(--glass-border);
+  color: var(--text); font-size: 0.78rem; font-family: inherit;
+  cursor: pointer; outline: none; appearance: none; -webkit-appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, var(--text-secondary) 50%), linear-gradient(135deg, var(--text-secondary) 50%, transparent 50%);
+  background-position: calc(100% - 16px) 55%, calc(100% - 11px) 55%;
+  background-size: 5px 5px;
+  background-repeat: no-repeat;
+  padding-right: 28px;
+  transition: border-color var(--dur-micro) var(--ease-out);
+}
+.lang-select:hover { border-color: rgba(255,255,255,0.25); }
+.lang-select option { color: #1a1a1a; background: #fff; }
+
 /* Glass */
 .glass {
   background: var(--glass-bg);

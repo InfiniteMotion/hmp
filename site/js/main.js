@@ -510,6 +510,111 @@
     });
   }
 
+  /* ── i18n：以 zh.json（SHA1 key）为源，运行时替换文本节点 ── */
+  /* 语言清单在 config.js 的 SITE.langs；各语言词典在 i18n/{lang}.json，
+     由 site/i18n/translate.py 批量生成。切换语言后存 localStorage，
+     阿拉伯语自动 dir=rtl。切回 zh 直接还原首访时的原始文本。 */
+
+  var i18nOriginal = new Map();      /* 文本节点 → 原始 zh 内容 */
+  var i18nLang = null;
+
+  async function sha1(text) {
+    var buf = await crypto.subtle.digest('SHA-1', new TextEncoder().encode(text));
+    return Array.from(new Uint8Array(buf)).map(function (b) {
+      return b.toString(16).padStart(2, '0');
+    }).join('').slice(0, 10);
+  }
+
+  /* 词典通过 <script> 注入加载（i18n/{lang}.js 定义 window.SITE_I18N），
+     而非 fetch JSON——file:// 协议下 fetch 被浏览器禁止，会导致切换语言无效 */
+  function loadDict(lang) {
+    return new Promise(function (resolve) {
+      var w = window;
+      w.SITE_I18N = w.SITE_I18N || {};
+      if (w.SITE_I18N[lang]) return resolve(w.SITE_I18N[lang]);
+      var s = document.createElement('script');
+      s.src = 'i18n/' + lang + '.js';
+      s.onload = function () { resolve(w.SITE_I18N[lang] || null); };
+      s.onerror = function () { resolve(null); };
+      document.head.appendChild(s);
+    });
+  }
+
+  function i18nNodes() {
+    var walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
+      acceptNode: function (n) {
+        var p = n.parentElement;
+        if (!p || /^(SCRIPT|STYLE|CODE|PRE)$/.test(p.tagName)) return NodeFilter.FILTER_REJECT;
+        if (!n.data.trim()) return NodeFilter.FILTER_REJECT;
+        return NodeFilter.FILTER_ACCEPT;
+      }
+    });
+    var out = [];
+    while (walker.nextNode()) out.push(walker.currentNode);
+    return out;
+  }
+
+  async function applyLang(lang) {
+    var S = window.SITE;
+    var lang0 = lang;
+    i18nLang = lang;
+    if (lang === 'zh') {
+      i18nNodes().forEach(function (n) {
+        if (i18nOriginal.has(n)) n.data = i18nOriginal.get(n);
+      });
+      document.documentElement.lang = 'zh-CN';
+      document.documentElement.removeAttribute('dir');
+      return;
+    }
+    var dict = await loadDict(lang);
+    if (!dict) return;                   /* 词典缺失：保持中文原文 */
+    var nodes = i18nNodes();
+    nodes.forEach(function (n) {
+      if (!i18nOriginal.has(n)) i18nOriginal.set(n, n.data);
+    });
+    var keys = await Promise.all(nodes.map(function (n) {
+      return sha1(i18nOriginal.get(n).trim());
+    }));
+    nodes.forEach(function (n, i) {
+      var t = dict[keys[i]];
+      if (!t) return;
+      var orig = i18nOriginal.get(n);
+      var lead = orig.match(/^\s*/)[0], trail = orig.match(/\s*$/)[0];
+      n.data = lead + t + trail;
+    });
+    document.documentElement.lang = lang0 === 'zh' ? 'zh-CN' : lang0;
+    if (lang0 === 'ar') document.documentElement.dir = 'rtl';
+    else document.documentElement.removeAttribute('dir');
+  }
+
+  function initI18n() {
+    var S = window.SITE;
+    if (!S || !S.langs) return;
+
+    /* 语言选择器：注入顶部导航 */
+    var nav = document.querySelector('.site-nav');
+    if (nav && !nav.querySelector('.lang-select')) {
+      var saved = localStorage.getItem('site-lang');
+      var current = saved || (navigator.language || 'zh').slice(0, 2);
+      if (!S.langs.some(function (l) { return l.code === current; })) current = 'zh';
+      var sel = document.createElement('select');
+      sel.className = 'lang-select';
+      sel.setAttribute('aria-label', 'Language');
+      S.langs.forEach(function (l) {
+        var o = document.createElement('option');
+        o.value = l.code; o.textContent = l.name;
+        if (l.code === current) o.selected = true;
+        sel.appendChild(o);
+      });
+      sel.addEventListener('change', function () {
+        localStorage.setItem('site-lang', sel.value);
+        applyLang(sel.value);
+      });
+      nav.appendChild(sel);
+      if (current !== 'zh') applyLang(current);
+    }
+  }
+
   /* ── 启动 ─────────────────────────────────────── */
 
   function boot() {
@@ -518,6 +623,7 @@
     initAurora();
     initSlides();
     initPreviews();
+    initI18n();
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
