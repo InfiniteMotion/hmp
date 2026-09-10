@@ -3,59 +3,118 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="description" content="Hearable Music Player — 纯本地、跨平台音乐播放器。听见你的音乐。">
+<meta name="description" content="Hearable Music Player — 纯本地、跨平台音乐播放器。Android / Desktop / iOS 三端共享一套代码，不做云同步、不需要账号。听见你的音乐。">
 <meta name="theme-color" content="#121212">
 <title>HMP — Hearable Music Player</title>
+<link rel="canonical" href="https://infinitemotion.github.io/HMP/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Hearable Music Player">
+<meta property="og:title" content="HMP — Hearable Music Player">
+<meta property="og:description" content="纯本地、跨平台音乐播放器。Android / Desktop / iOS 三端共享一套业务与界面代码，听见你的音乐。">
+<meta property="og:image" content="https://infinitemotion.github.io/HMP/assets/screenshots/screenshot-home-desktop.jpg">
+<meta property="og:image:width" content="2400">
+<meta property="og:image:height" content="1600">
+<meta property="og:image:alt" content="HMP 桌面端首页界面">
+<meta property="og:locale" content="zh_CN">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="HMP — Hearable Music Player">
+<meta name="twitter:description" content="纯本地、跨平台音乐播放器。Android / Desktop / iOS 三端共享一套业务与界面代码。">
+<meta name="twitter:image" content="https://infinitemotion.github.io/HMP/assets/screenshots/screenshot-home-desktop.jpg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/style.css">
 <link rel="icon" href="assets/ic_launcher_foreground.webp" type="image/webp">
-<script>var st=localStorage.getItem('theme');if(st)document.documentElement.setAttribute('data-theme',st);else if(window.matchMedia('(prefers-color-scheme:dark)').matches)document.documentElement.setAttribute('data-theme','dark');else if(window.matchMedia('(prefers-color-scheme:light)').matches)document.documentElement.setAttribute('data-theme','light');</script>
+<link rel="apple-touch-icon" href="assets/ic_launcher_foreground.webp">
+<script>(function(){var st=null;try{st=localStorage.getItem('theme')}catch(e){}
+var d=st?st==='dark':window.matchMedia('(prefers-color-scheme:dark)').matches;
+document.documentElement.setAttribute('data-theme',d?'dark':'light');
+var m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute('content',d?'#121212':'#F5F5F7');})();</script>
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Hearable Music Player","alternateName":"HMP","applicationCategory":"MultimediaApplication","operatingSystem":"Android, macOS, Windows, Linux, iOS","softwareVersion":"7.1.0","description":"纯本地、跨平台音乐播放器。Android / Desktop / iOS 三端共享一套代码，不做云同步、不需要账号。","url":"https://infinitemotion.github.io/HMP/","license":"https://opensource.org/licenses/MIT","offers":{"@type":"Offer","price":"0","priceCurrency":"CNY"},"author":{"@type":"Person","name":"WLYB"}}
+</script>
 </head>
 <body>
+<a class="skip-link" href="#main">跳到主要内容</a>
 
-<div class="aurora-bg">
+<div class="aurora-bg" aria-hidden="true">
   <div class="hero-orb"></div>
   <div class="hero-orb"></div>
   <div class="hero-orb"></div>
 </div>
 
+<a href="changelog.html" class="ver-badge">v7.1.0</a>
+
+<nav class="site-nav" aria-label="站点导航">
+  <a href="index.html" aria-current="page">首页</a>
+  <a href="features.html">功能</a>
+  <a href="gallery.html">画廊</a>
+  <a href="download.html">下载</a>
+  <a href="changelog.html">更新</a>
+</nav>
+
 <div class="bottom-bar">
   <a href="https://github.com/InfiniteMotion/HMP" class="bottom-link">GitHub</a>
-  <a href="changelog.html" class="top-badge">v6.13.1</a>
+  <a href="changelog.html" class="top-badge">v7.1.0</a>
   <button class="theme-toggle" onclick="toggleTheme()" aria-label="切换主题">
     <span id="themeIcon">&#9789;</span>
   </button>
 </div>
 
-<div class="layout">
-  <aside class="hero-panel">
+<main class="layout" id="main">
+  <header class="hero-panel">
     <div class="hero-panel-inner">
-      <a href="changelog.html" style="text-decoration:none;"><div class="hero-badge">HMP v6.13.1</div></a>
       <h1 class="hero-title">Hearable Music Player</h1>
       <p class="hero-subtitle">听见你的音乐</p>
-      <p class="hero-desc">旋律穿过边境，在眼前响起<br/>隐藏的特征被标记<br/>等待，寻找共振的频率</p>
+      <p class="hero-desc">纯本地播放器 · 不做云同步 · 不需要账号<br/>Android / Desktop / iOS 三端共享一套代码</p>
       <div class="hero-actions">
-        <a href="download.html" class="btn btn-primary">了解与获取</a>
+        <a href="download.html" class="btn btn-primary">下载 HMP</a>
+        <a href="features.html" class="btn btn-outline">功能全景</a>
+      </div>
+      <div class="hero-stats">
+        <div class="hero-stat"><b>3</b><span>平台一套代码</span></div>
+        <div class="hero-stat"><b>14</b><span>种界面语言</span></div>
+        <div class="hero-stat"><b>25</b><span>个迭代版本</span></div>
+        <div class="hero-stat"><b>0</b><span>账号与云同步</span></div>
       </div>
     </div>
-  </aside>
+  </header>
 
-  <main class="features-panel">
+  <section class="features-panel" aria-label="核心特性" aria-roledescription="轮播">
     <div class="feature-slides">
 
-      <!-- Page 1: 沉浸氛围 -->
-      <div class="feature-page active">
+      <!-- 1 / 沉浸氛围 -->
+      <article class="feature-page active">
         <div class="feature-card glass">
-          <div class="feature-card-visual" style="background:#121218; position:relative; overflow:hidden;">
-            <div style="position:absolute; width:160px; height:160px; border-radius:50%; background:radial-gradient(circle, rgba(201,44,44,0.6), transparent 70%); top:10%; left:15%; filter:blur(30px); animation: orbA 6s ease-in-out infinite;"></div>
-            <div style="position:absolute; width:140px; height:140px; border-radius:50%; background:radial-gradient(circle, rgba(0,47,167,0.5), transparent 70%); bottom:15%; right:10%; filter:blur(30px); animation: orbB 8s ease-in-out infinite;"></div>
-            <div style="position:absolute; width:100px; height:100px; border-radius:50%; background:radial-gradient(circle, rgba(108,92,231,0.4), transparent 70%); top:50%; left:50%; filter:blur(25px); animation: orbC 7s ease-in-out infinite;"></div>
-            <div style="position:relative; z-index:1; width:70%; aspect-ratio:16/10; background:rgba(255,255,255,0.04); border-radius:12px; border:1px solid rgba(255,255,255,0.06); display:flex; align-items:center; justify-content:center; font-size:0.7rem; color:rgba(255,255,255,0.3);">App UI</div>
+          <div class="feature-card-visual">
+            <svg class="fv" viewBox="0 0 340 400" role="img" aria-label="示意图：从专辑封面提取色彩，生成随音乐流动的氛围背景">
+              <defs>
+                <filter id="fvBlurA" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="30"/></filter>
+                <linearGradient id="fvCoverA" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0" stop-color="#C92C2C"/><stop offset="1" stop-color="#6C5CE7"/>
+                </linearGradient>
+              </defs>
+              <g filter="url(#fvBlurA)">
+                <circle class="fv-orb-1" cx="112" cy="196" r="66"/>
+                <circle class="fv-orb-2" cx="238" cy="264" r="58"/>
+                <circle class="fv-orb-3" cx="168" cy="330" r="50"/>
+              </g>
+              <rect class="fv-glass" x="108" y="52" width="124" height="124" rx="18"/>
+              <rect x="118" y="62" width="104" height="104" rx="12" fill="url(#fvCoverA)"/>
+              <circle cx="170" cy="114" r="16" fill="rgba(255,255,255,0.28)"/>
+              <g class="fv-line" stroke-dasharray="4 5">
+                <path d="M150 178 C150 200 128 200 118 216"/>
+                <path d="M170 178 L170 200"/>
+                <path d="M190 178 C190 200 214 200 226 232"/>
+              </g>
+              <g class="fv-block">
+                <rect x="88" y="360" width="164" height="6" rx="3"/>
+                <rect x="112" y="374" width="116" height="6" rx="3"/>
+              </g>
+            </svg>
           </div>
           <div class="feature-card-text">
-            <h3>沉浸氛围</h3>
+            <h2 class="feature-card-heading">沉浸氛围</h2>
             <span class="tag">视觉体验</span>
             <p>不只是播放页——整个应用都笼罩在随音乐实时变化的氛围光影中。从专辑封面提取色彩，生成持续流动的动态背景。三种风格可选：流体极光、沉浸光斑、复古模糊。亮色与暗色模式下各有不同的氛围表达。</p>
             <div class="feature-tags">
@@ -66,60 +125,117 @@
             </div>
           </div>
         </div>
-      </div>
+      </article>
 
-      <!-- Page 2: 通透质感 -->
-      <div class="feature-page">
+      <!-- 2 / 通透质感 -->
+      <article class="feature-page">
         <div class="feature-card glass">
-          <div class="feature-card-visual" style="background:#121218; position:relative; overflow:hidden; display:flex; flex-direction:column; gap:12px; padding:20px;">
-            <div style="position:absolute; width:120px; height:120px; border-radius:50%; background:radial-gradient(circle, rgba(0,47,167,0.3), transparent 70%); top:5%; right:10%; filter:blur(30px);"></div>
-            <div class="glass" style="width:85%; padding:12px 16px; border-radius:28px; display:flex; align-items:center; gap:10px; margin-top:10px;">
-              <div style="width:24px; height:24px; border-radius:6px; background:linear-gradient(135deg, var(--red), #e94560);"></div>
-              <div style="width:50%; height:6px; border-radius:3px; background:rgba(255,255,255,0.12);"></div>
-            </div>
-            <div class="glass" style="width:65%; padding:14px 18px; border-radius:20px; text-align:center; font-size:0.7rem; opacity:0.7;">毛玻璃卡片</div>
-            <div class="glass" style="width:55%; padding:6px 14px; border-radius:24px; display:flex; align-items:center; gap:8px; opacity:0.5;">
-              <div style="width:16px; height:16px; border-radius:50%; background:rgba(255,255,255,0.2);"></div>
-              <div style="width:60%; height:4px; border-radius:2px; background:rgba(255,255,255,0.1);"></div>
-            </div>
+          <div class="feature-card-visual">
+            <svg class="fv" viewBox="0 0 340 400" role="img" aria-label="示意图：底栏、迷你播放器与对话框三层毛玻璃卡片悬浮于背景之上">
+              <defs>
+                <filter id="fvBlurB" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="34"/></filter>
+              </defs>
+              <g filter="url(#fvBlurB)">
+                <circle class="fv-orb-2" cx="96" cy="120" r="70"/>
+                <circle class="fv-orb-1" cx="252" cy="300" r="64"/>
+              </g>
+              <g class="fv-glass">
+                <rect x="70" y="86" width="200" height="96" rx="20"/>
+              </g>
+              <g class="fv-block">
+                <rect x="90" y="112" width="88" height="8" rx="4"/>
+                <rect x="90" y="130" width="140" height="8" rx="4"/>
+                <rect x="90" y="148" width="62" height="8" rx="4"/>
+              </g>
+              <g class="fv-glass">
+                <rect x="52" y="204" width="236" height="60" rx="30"/>
+              </g>
+              <rect class="fv-accent" x="76" y="222" width="24" height="24" rx="6"/>
+              <g class="fv-block-strong">
+                <rect x="112" y="226" width="96" height="7" rx="3.5"/>
+                <rect x="112" y="240" width="58" height="6" rx="3"/>
+              </g>
+              <g class="fv-glass">
+                <rect x="52" y="286" width="236" height="60" rx="30"/>
+              </g>
+              <g class="fv-block">
+                <rect x="80" y="306" width="20" height="20" rx="6"/>
+                <rect x="112" y="312" width="70" height="8" rx="4"/>
+                <rect x="196" y="306" width="20" height="20" rx="10"/>
+                <rect x="228" y="306" width="20" height="20" rx="10"/>
+                <rect x="260" y="306" width="20" height="20" rx="10"/>
+              </g>
+            </svg>
           </div>
           <div class="feature-card-text">
-            <h3>通透质感</h3>
+            <h2 class="feature-card-heading">通透质感</h2>
             <span class="tag">UI 设计</span>
-            <p>底部导航栏、迷你播放器、对话框——HMP 的核心交互区全部采用大圆角毛玻璃卡片，悬浮于动态背景之上。模糊半径、噪点纹理、透明度均可调节。Android 和桌面端使用 Haze 库，iOS 端使用原生 ultraThinMaterial。</p>
+            <p>底部导航栏、迷你播放器、对话框——HMP 的核心交互区全部采用大圆角毛玻璃卡片，悬浮于动态背景之上。模糊半径、噪点纹理、透明度均可调节。三端用的是同一套 Compose 界面，观感一致。</p>
             <div class="feature-tags">
-              <span class="feature-tag">Haze</span>
-              <span class="feature-tag">ultraThinMaterial</span>
+              <span class="feature-tag">Haze 毛玻璃</span>
               <span class="feature-tag">可调节参数</span>
+              <span class="feature-tag">三端一致</span>
             </div>
           </div>
         </div>
-      </div>
+      </article>
 
-      <!-- Page 3: 智能推荐 -->
-      <div class="feature-page">
+      <!-- 3 / 智能推荐 -->
+      <article class="feature-page">
         <div class="feature-card glass">
-          <div class="feature-card-visual" style="background:#121218; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:16px; padding:20px;">
-            <div style="display:flex; align-items:center; gap:8px;">
-              <div style="width:40px; height:40px; border-radius:8px; background:linear-gradient(135deg, #e94560, #C92C2C); display:flex; align-items:center; justify-content:center; font-size:1rem;">&#9835;</div>
-              <div>
-                <div style="font-size:0.75rem; font-weight:600;">Blinding Lights</div>
-                <div style="font-size:0.6rem; color:rgba(255,255,255,0.4);">The Weeknd</div>
-              </div>
-            </div>
-            <div style="font-size:0.6rem; color:rgba(255,255,255,0.3);">↓ LLM 自动标注 ↓</div>
-            <div style="display:flex; gap:5px; flex-wrap:wrap; justify-content:center;">
-              <span style="padding:3px 10px; border-radius:100px; background:rgba(144,202,249,0.2); color:#90CAF9; font-size:0.6rem;">流派·Synthwave</span>
-              <span style="padding:3px 10px; border-radius:100px; background:rgba(244,143,177,0.2); color:#F48FB1; font-size:0.6rem;">情绪·亢奋</span>
-              <span style="padding:3px 10px; border-radius:100px; background:rgba(129,199,132,0.2); color:#81C784; font-size:0.6rem;">场景·驾驶</span>
-              <span style="padding:3px 10px; border-radius:100px; background:rgba(255,183,77,0.2); color:#FFB74D; font-size:0.6rem;">年代·2020s</span>
-            </div>
-            <div style="font-size:0.7rem; color:var(--primary);">&#9654; 推荐相似曲目</div>
+          <div class="feature-card-visual">
+            <svg class="fv" viewBox="0 0 340 400" role="img" aria-label="示意图：一首歌经大语言模型标注流派、情绪、场景、年代后匹配出相似曲目">
+              <defs>
+                <linearGradient id="fvCoverC" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0" stop-color="#C92C2C"/><stop offset="1" stop-color="#e94560"/>
+                </linearGradient>
+                <marker id="fvArrow" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+                  <path d="M1 1.5L7 5L1 8.5" fill="none" stroke="#C92C2C" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                </marker>
+              </defs>
+
+              <rect class="fv-glass" x="48" y="34" width="244" height="66" rx="16"/>
+              <rect x="64" y="48" width="38" height="38" rx="9" fill="url(#fvCoverC)"/>
+              <g class="fv-block-strong">
+                <rect x="114" y="56" width="112" height="8" rx="4"/>
+                <rect x="114" y="72" width="70" height="7" rx="3.5"/>
+              </g>
+
+              <g class="fv-text" font-size="11">
+                <rect x="48" y="118" width="118" height="26" rx="13" class="fv-chip-1-bg"/>
+                <text x="107" y="135" text-anchor="middle" class="fv-chip-1">流派·Synthwave</text>
+                <rect x="176" y="118" width="78" height="26" rx="13" class="fv-chip-2-bg"/>
+                <text x="215" y="135" text-anchor="middle" class="fv-chip-2">情绪·亢奋</text>
+                <rect x="48" y="152" width="76" height="26" rx="13" class="fv-chip-3-bg"/>
+                <text x="86" y="169" text-anchor="middle" class="fv-chip-3">场景·驾驶</text>
+                <rect x="134" y="152" width="86" height="26" rx="13" class="fv-chip-4-bg"/>
+                <text x="177" y="169" text-anchor="middle" class="fv-chip-4">年代·2020s</text>
+              </g>
+
+              <path class="fv-arrow-accent" d="M170 192 L170 222" fill="none" marker-end="url(#fvArrow)"/>
+
+              <g class="fv-glass">
+                <rect x="48" y="238" width="244" height="44" rx="12"/>
+                <rect x="48" y="292" width="244" height="44" rx="12"/>
+                <rect x="48" y="346" width="244" height="44" rx="12"/>
+              </g>
+              <g class="fv-block">
+                <rect x="62" y="252" width="16" height="16" rx="4"/>
+                <rect x="88" y="256" width="96" height="8" rx="4"/>
+                <rect x="62" y="306" width="16" height="16" rx="4"/>
+                <rect x="88" y="310" width="72" height="8" rx="4"/>
+                <rect x="62" y="360" width="16" height="16" rx="4"/>
+                <rect x="88" y="364" width="84" height="8" rx="4"/>
+              </g>
+              <circle class="fv-accent" cx="266" cy="260" r="5"/>
+              <circle class="fv-accent" cx="266" cy="314" r="5"/>
+              <circle class="fv-accent" cx="266" cy="368" r="5"/>
+            </svg>
           </div>
           <div class="feature-card-text">
-            <h3>智能推荐</h3>
+            <h2 class="feature-card-heading">智能推荐</h2>
             <span class="tag">AI &middot; 推荐</span>
-            <p>通过大语言模型为每首歌自动打标签——流派、情绪、场景、语言、年代。基于标签驱动推荐。已集成 DeepSeek、OpenAI、Claude、通义千问、文心一言。API Key 由你提供，加密存储于本地。</p>
+            <p>通过大语言模型为每首歌自动打标签——流派、情绪、场景、语言、年代。推荐基于标签权重计算相似度，而不是收集你的听歌数据做协同过滤。已集成 DeepSeek、OpenAI、Claude、通义千问、文心一言，API Key 由你提供并加密存储在本地。</p>
             <div class="feature-tags">
               <span class="feature-tag">DeepSeek</span>
               <span class="feature-tag">OpenAI</span>
@@ -128,111 +244,81 @@
             </div>
           </div>
         </div>
-      </div>
+      </article>
 
-      <!-- Page 4: 自适应布局 -->
-      <div class="feature-page">
+      <!-- 4 / 自适应布局 -->
+      <article class="feature-page">
         <div class="feature-card glass">
-          <div class="feature-card-visual" style="background:#121218; display:flex; align-items:center; justify-content:center; gap:40px; padding:20px;">
-            <div style="display:flex; flex-direction:column; align-items:center; gap:8px;">
-              <div style="width:60px; aspect-ratio:9/16; background:rgba(255,255,255,0.04); border-radius:8px; border:1px solid rgba(255,255,255,0.08); display:flex; flex-direction:column; padding:6px 4px; gap:4px;">
-                <div style="height:8px; border-radius:4px; background:rgba(255,255,255,0.10);"></div>
-                <div style="flex:1; display:flex; flex-direction:column; gap:3px;">
-                  <div style="flex:1; border-radius:4px; background:rgba(255,255,255,0.06);"></div><div style="flex:1; border-radius:4px; background:rgba(255,255,255,0.06);"></div><div style="flex:1; border-radius:4px; background:rgba(255,255,255,0.06);"></div>
-                </div>
-                <div style="height:10px; border-radius:5px; background:rgba(255,255,255,0.12); display:flex; gap:2px; padding:2px 4px;">
-                  <div style="flex:1; border-radius:3px; background:rgba(255,255,255,0.08);"></div><div style="flex:1; border-radius:3px; background:rgba(255,255,255,0.08);"></div>
-                </div>
-              </div>
-              <span style="font-size:0.55rem; opacity:0.35;">竖屏 / 窄窗</span>
-            </div>
-            <span style="font-size:1.2rem; opacity:0.3;">↔</span>
-            <div style="display:flex; flex-direction:column; align-items:center; gap:8px;">
-              <div style="width:110px; aspect-ratio:16/10; background:rgba(255,255,255,0.04); border-radius:8px; border:1px solid rgba(255,255,255,0.08); display:flex; padding:4px; gap:4px;">
-                <div style="width:18px; border-radius:4px; background:rgba(255,255,255,0.06); display:flex; flex-direction:column; padding:4px 2px; gap:3px;">
-                  <div style="width:10px; height:10px; border-radius:2px; background:rgba(255,255,255,0.1); margin:0 auto;"></div>
-                  <div style="width:10px; height:10px; border-radius:2px; background:rgba(255,255,255,0.1); margin:0 auto;"></div>
-                  <div style="width:10px; height:10px; border-radius:2px; background:rgba(255,255,255,0.15); margin:0 auto;"></div>
-                </div>
-                <div style="flex:1; display:flex; flex-direction:column; gap:3px;">
-                  <div style="height:8px; border-radius:4px; background:rgba(255,255,255,0.10);"></div>
-                  <div style="flex:1; border-radius:4px; background:rgba(255,255,255,0.06);"></div>
-                </div>
-              </div>
-              <span style="font-size:0.55rem; opacity:0.35;">横屏 / 宽窗</span>
-            </div>
+          <div class="feature-card-visual">
+            <svg class="fv" viewBox="0 0 340 400" role="img" aria-label="示意图：同一套界面在手机竖屏与桌面宽窗下的两种布局">
+              <defs>
+                <filter id="fvBlurD" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="30"/></filter>
+              </defs>
+              <g filter="url(#fvBlurD)">
+                <circle class="fv-orb-2" cx="90" cy="230" r="62"/>
+                <circle class="fv-orb-1" cx="252" cy="200" r="58"/>
+              </g>
+
+              <g class="fv-wire">
+                <rect x="27" y="116" width="104" height="212" rx="18"/>
+                <rect x="161" y="170" width="152" height="106" rx="10"/>
+              </g>
+
+              <rect class="fv-block-strong" x="37" y="126" width="82" height="10" rx="5"/>
+              <g class="fv-block">
+                <rect x="41" y="152" width="74" height="26" rx="6"/>
+                <rect x="41" y="186" width="74" height="26" rx="6"/>
+                <rect x="41" y="220" width="74" height="26" rx="6"/>
+              </g>
+              <rect class="fv-glass" x="37" y="286" width="82" height="30" rx="15"/>
+              <g class="fv-block">
+                <circle cx="58" cy="301" r="6"/>
+                <circle cx="78" cy="301" r="6"/>
+                <circle cx="98" cy="301" r="6"/>
+              </g>
+
+              <rect class="fv-block" x="171" y="182" width="14" height="82" rx="5"/>
+              <g class="fv-block">
+                <circle cx="178" cy="196" r="4"/>
+                <circle cx="178" cy="212" r="4"/>
+                <circle cx="178" cy="228" r="4"/>
+              </g>
+              <g class="fv-block">
+                <rect x="193" y="182" width="104" height="10" rx="5"/>
+                <rect x="193" y="202" width="49" height="28" rx="6"/>
+                <rect x="249" y="202" width="48" height="28" rx="6"/>
+                <rect x="193" y="238" width="104" height="26" rx="6"/>
+              </g>
+
+              <g class="fv-arrow-muted" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M135 222 L157 222"/>
+                <path d="M135 222 L140 217"/>
+                <path d="M135 222 L140 227"/>
+                <path d="M157 222 L152 217"/>
+                <path d="M157 222 L152 227"/>
+              </g>
+            </svg>
           </div>
           <div class="feature-card-text">
-            <h3>自适应布局</h3>
+            <h2 class="feature-card-heading">自适应布局</h2>
             <span class="tag">平台</span>
-            <p>业务逻辑和数据层通过 Kotlin Multiplatform 在三平台共享。Android 和 iOS 采用底部胶囊导航，桌面端在宽屏下自动切换为侧边 NavigationRail，窗口缩窄时退化为底部布局。UI 层各自遵循原生规范。</p>
+            <p>业务逻辑、数据层与界面层都通过 Kotlin Multiplatform 在三平台共享。手机用底部胶囊导航，桌面端在宽屏下自动切换为侧边导航栏，窗口缩窄时退回底部布局。</p>
             <div class="feature-tags">
               <span class="feature-tag">Kotlin Multiplatform</span>
-              <span class="feature-tag">Compose</span>
-              <span class="feature-tag">SwiftUI</span>
+              <span class="feature-tag">共享 Compose</span>
               <span class="feature-tag">响应式布局</span>
             </div>
           </div>
         </div>
-      </div>
+      </article>
 
     </div>
-    <div class="swipe-dots" id="swipeDots">
-      <span class="swipe-dot active"></span>
-      <span class="swipe-dot"></span>
-      <span class="swipe-dot"></span>
-      <span class="swipe-dot"></span>
-    </div>
-  </main>
-</div>
-<span class="bottom-copy">&copy; 2026 Hearable Music Player &middot; By WLYB &middot; <a href="privacy-policy.html" style="color:inherit;text-decoration:underline;">隐私政策</a> &middot; <a href="changelog.html" style="color:inherit;text-decoration:underline;">更新日志</a></span>
+    <div class="swipe-dots" id="swipeDots"></div>
+  </section>
+</main>
 
-<script>
-function toggleTheme() {
-  const html = document.documentElement;
-  const icon = document.getElementById('themeIcon');
-  const isDark = html.getAttribute('data-theme') === 'dark';
-  const theme = isDark ? 'light' : 'dark';
-  html.setAttribute('data-theme', theme);
-  localStorage.setItem('theme', theme);
-  icon.innerHTML = isDark ? '&#9788;' : '&#9789;';
-}
+<footer class="bottom-copy">&copy; 2026 Hearable Music Player &middot; By WLYB &middot; <a href="privacy-policy.html">隐私政策</a> &middot; <a href="changelog.html">更新日志</a></footer>
 
-let currentPage = 0;
-const totalPages = 4;
-let locked = false;
-let autoPlayTimer;
-
-function goToPage(index) {
-  if (locked) return;
-  index = ((index % totalPages) + totalPages) % totalPages;
-  if (index === currentPage) return;
-  locked = true;
-  document.querySelectorAll('.feature-page').forEach((p,i) => p.classList.toggle('active', i === index));
-  currentPage = index;
-  resetAutoPlay();
-  setTimeout(() => { locked = false; }, 350);
-}
-
-function resetAutoPlay() {
-  clearTimeout(autoPlayTimer);
-  autoPlayTimer = setTimeout(() => goToPage(currentPage + 1), 3000);
-}
-
-if (window.innerWidth > 860) {
-  document.querySelectorAll('.feature-card').forEach(card => {
-    card.addEventListener('mouseenter', () => clearTimeout(autoPlayTimer));
-    card.addEventListener('mouseleave', () => resetAutoPlay());
-  });
-
-  document.addEventListener('wheel', (e) => {
-    if (locked) return;
-    goToPage(currentPage + (e.deltaY > 0 ? 1 : -1));
-  }, { passive: true });
-
-  resetAutoPlay();
-}
-
-</script>
+<script src="js/main.js"></script>
 </body>
 </html>

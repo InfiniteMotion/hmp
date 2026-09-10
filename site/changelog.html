@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-CN" data-theme="dark">
+<html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -13,12 +13,14 @@
 <link rel="icon" href="assets/ic_launcher_foreground.webp" type="image/webp">
 <script>var st=localStorage.getItem('theme');if(st)document.documentElement.setAttribute('data-theme',st);else if(window.matchMedia('(prefers-color-scheme:dark)').matches)document.documentElement.setAttribute('data-theme','dark');else if(window.matchMedia('(prefers-color-scheme:light)').matches)document.documentElement.setAttribute('data-theme','light');</script>
 <style>
-  .changelog-page { position:relative; z-index:1; max-width:760px; margin:0 auto; padding:48px 24px 80px; }
+  .changelog-page { position:relative; z-index:1; padding:48px 48px 64px 48px; }
+  /* 页头靠左（与下载页一致），时间线居中 */
+  .changelog-timeline, .changelog-page > .cta-band { width:100%; max-width:760px; margin-left:auto; margin-right:auto; }
   .changelog-header { margin-bottom:40px; }
-  .changelog-header .back-link { display:inline-block; margin-bottom:12px; color:var(--text-secondary); font-size:0.85rem; transition:color var(--dur-micro); }
+  .changelog-header .back-link { display:inline-block; margin-bottom:8px; color:var(--text-secondary); font-size:0.85rem; transition:color var(--dur-micro); }
   .changelog-header .back-link:hover { color:var(--text); }
-  .changelog-header h1 { font-size:1.6rem; font-weight:800; margin-bottom:6px; }
-  .changelog-header p { color:var(--text-secondary); font-size:0.9rem; }
+  .changelog-header h1 { font-size:1.4rem; font-weight:700; margin-bottom:6px; }
+  .changelog-header p { color:var(--text-secondary); font-size:0.88rem; }
 
   .changelog-timeline { position:relative; padding-left:28px; }
   .changelog-timeline::before { content:''; position:absolute; left:6px; top:8px; bottom:8px; width:2px; background:var(--divider); border-radius:1px; }
@@ -45,14 +47,11 @@
   .cl-entry[data-collapsed] .cl-section:nth-child(n+2) { display:none; }
   .cl-entry[data-collapsed] .cl-toggle .cl-toggle-expanded { display:none; }
   .cl-entry:not([data-collapsed]) .cl-toggle .cl-toggle-collapsed { display:none; }
-  .cl-entry[data-collapsed] .cl-toggle { display:block; }
-  .cl-entry:not([data-collapsed]) .cl-toggle { display:block; }
-
-  .cl-toggle { margin-top:10px; font-size:0.8rem; color:var(--primary); cursor:pointer; transition:color var(--dur-micro); user-select:none; display:none; }
+  .cl-toggle { margin-top:10px; font-size:0.8rem; color:var(--primary); cursor:pointer; transition:color var(--dur-micro); user-select:none; display:block; background:none; border:none; font-family:inherit; padding:0; }
   .cl-toggle:hover { color:var(--text); }
 
-  @media (max-width:600px) {
-    .changelog-page { padding:32px 16px 60px; }
+  @media (max-width:768px) {
+    .changelog-page { padding:48px 24px 48px 24px; }
     .changelog-timeline { padding-left:22px; }
     .cl-entry::before { left:-19px; width:8px; height:8px; }
     .cl-card { padding:16px; }
@@ -61,12 +60,21 @@
 </style>
 </head>
 <body>
+<a class="skip-link" href="#main">跳到主要内容</a>
 
 <div class="aurora-bg">
   <div class="hero-orb"></div>
   <div class="hero-orb"></div>
   <div class="hero-orb"></div>
 </div>
+
+<nav class="site-nav" aria-label="站点导航">
+  <a href="index.html">首页</a>
+  <a href="features.html">功能</a>
+  <a href="gallery.html">画廊</a>
+  <a href="download.html">下载</a>
+  <a href="changelog.html" aria-current="page">更新</a>
+</nav>
 
 <div class="bottom-bar">
   <a href="https://github.com/InfiniteMotion/HMP" class="bottom-link">GitHub</a>
@@ -76,21 +84,77 @@
   </button>
 </div>
 
-<div class="changelog-page">
+<div class="changelog-page" id="main">
   <div class="changelog-header">
     <a href="index.html" class="back-link">&larr; 返回首页</a>
     <h1>版本更新记录</h1>
-    <p>HMP 的功能演进与变更历史</p>
+    <p>HMP 的功能演进与变更历史 · <a href="https://github.com/InfiniteMotion/HMP/releases">GitHub Releases</a></p>
   </div>
 
   <div class="changelog-timeline">
+
+    <!-- v7.1.0 -->
+    <div class="cl-entry">
+      <div class="cl-head">
+        <span class="cl-version">v7.1.0</span>
+        <span class="cl-date">2026-08-26</span>
+        <span class="cl-latest">Latest</span>
+      </div>
+      <div class="cl-card">
+        <div class="cl-section">
+          <div class="cl-section-title">iOS 全面切换到共享层</div>
+          <ul>
+            <li>iOS 默认入口切换到共享层 Compose 界面，<strong>删除 68 个 SwiftUI 页面与组件</strong></li>
+            <li>Swift 侧收敛为 17 个文件，仅保留 AppDelegate、播放引擎、Live Activity 等原生能力</li>
+            <li>Android、桌面端、iOS 三端共用同一套界面代码，新功能默认三端同时交付</li>
+          </ul>
+        </div>
+        <div class="cl-section">
+          <div class="cl-section-title">架构</div>
+          <ul>
+            <li>Koin 升级 4.2.2，与 lifecycle 2.10 稳定 ID 对齐</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- v7.0.0 -->
+    <div class="cl-entry">
+      <div class="cl-head">
+        <span class="cl-version">v7.0.0</span>
+        <span class="cl-date">2026-08-21</span>
+      </div>
+      <div class="cl-card">
+        <div class="cl-section">
+          <div class="cl-section-title">shared-ui 跨平台迁移</div>
+          <ul>
+            <li><strong>118 个 UI 文件</strong>迁入 commonMain，Android 与桌面端共用一套 Compose 界面</li>
+            <li>新增平台桥接三件套：PlaybackController / AlbumArtPixelsLoader / PlatformServices</li>
+            <li>删除旧的 desktop/feature-ui 与 android/feature-ui 模块</li>
+          </ul>
+        </div>
+        <div class="cl-section">
+          <div class="cl-section-title">体积与清理</div>
+          <ul>
+            <li>图标资源迁至编译期 composeResources，58 个 PNG 转为 WebP</li>
+            <li><strong>APK 体积从 46.9MB 降至 13.2MB</strong>（下载包 7.1MB）</li>
+            <li>删除 6 个死文件、约 180 个冗余资源与 18 个空目录，净减 2521 行代码</li>
+          </ul>
+        </div>
+        <div class="cl-section">
+          <div class="cl-section-title">修复</div>
+          <ul>
+            <li>恢复首启 IntroScreen 引导流程</li>
+          </ul>
+        </div>
+      </div>
+    </div>
 
     <!-- v6.13.1 -->
     <div class="cl-entry">
       <div class="cl-head">
         <span class="cl-version">v6.13.1</span>
         <span class="cl-date">2026-08-12</span>
-        <span class="cl-latest">Latest</span>
       </div>
       <div class="cl-card">
         <div class="cl-section">
@@ -537,29 +601,20 @@
     </div>
 
   </div>
+
+  <div class="cta-band" style="margin-top:8px;">
+    <div class="cta-band-text">
+      <h2>保持更新</h2>
+      <p>每个版本都会在 GitHub Releases 同步发布安装包与校验值。</p>
+    </div>
+    <div class="cta-band-actions">
+      <a href="download.html" class="btn btn-primary">去下载</a>
+    </div>
+  </div>
 </div>
 
 <span class="bottom-copy">&copy; 2026 Hearable Music Player &middot; By WLYB &middot; <a href="privacy-policy.html" style="color:inherit;text-decoration:underline;">隐私政策</a></span>
 
-<script>
-function toggleTheme() {
-  const html = document.documentElement;
-  const icon = document.getElementById('themeIcon');
-  const isDark = html.getAttribute('data-theme') === 'dark';
-  const theme = isDark ? 'light' : 'dark';
-  html.setAttribute('data-theme', theme);
-  localStorage.setItem('theme', theme);
-  icon.innerHTML = isDark ? '&#9788;' : '&#9789;';
-}
-
-function toggleEntry(el) {
-  var entry = el.closest('.cl-entry');
-  if (entry.hasAttribute('data-collapsed')) {
-    entry.removeAttribute('data-collapsed');
-  } else {
-    entry.setAttribute('data-collapsed', '');
-  }
-}
-</script>
+<script src="js/main.js"></script>
 </body>
 </html>

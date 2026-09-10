@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-CN" data-theme="dark">
+<html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -31,10 +31,6 @@
     @media (max-width: 960px) {
       .policy-grid { column-count: 2; }
     }
-    @media (max-width: 768px) {
-      .dl-hero { padding: 48px 24px 0 24px; }
-      .policy-section { padding: 20px; }
-    }
     @media (max-width: 640px) {
       .policy-grid { column-count: 1; }
       .policy-wrap { padding: 0 16px 80px; }
@@ -50,6 +46,12 @@
     .dl-hero h1 {
       font-size: 1.4rem;
       font-weight: 700;
+    }
+    /* 移动端：与下载页一致的内距，底栏回到文档流 */
+    @media (max-width: 768px) {
+      .dl-hero { padding: 48px 24px 0 24px; }
+      .policy-section { padding: 20px; }
+      .bottom-bar { position: relative; top: auto; right: auto; left: auto; bottom: auto; z-index: auto; padding: 0 16px; margin-top: 8px; justify-content: flex-start; }
     }
     .back-link {
       display: inline-block;
@@ -89,10 +91,10 @@
     .policy-section ul { padding-left: 1.5rem; }
     .policy-section strong { color: var(--text); }
     .policy-header { margin-bottom: 48px; }
-    .bottom-bar { position:fixed; top:24px; right:24px; left:auto; bottom:auto; z-index:100; }
   </style>
 </head>
 <body>
+<a class="skip-link" href="#main">跳到主要内容</a>
 
   <div class="aurora-bg">
     <div class="hero-orb"></div>
@@ -100,9 +102,18 @@
     <div class="hero-orb"></div>
   </div>
 
-  <div class="bottom-bar">
+  <nav class="site-nav" aria-label="站点导航">
+  <a href="index.html">首页</a>
+  <a href="features.html">功能</a>
+  <a href="gallery.html">画廊</a>
+  <a href="download.html">下载</a>
+  <a href="changelog.html">更新</a>
+</nav>
+
+<div class="bottom-bar">
+  <a href="https://github.com/InfiniteMotion/HMP" class="bottom-link">GitHub</a>
     <button class="theme-toggle" onclick="toggleTheme()" aria-label="切换主题">
-      <span id="themeIcon">&#9788;</span>
+      <span id="themeIcon">&#9789;</span>
     </button>
   </div>
 
@@ -186,23 +197,6 @@
     </div>
   </div>
 
-<script>
-function toggleTheme() {
-  const html = document.documentElement;
-  const icon = document.getElementById('themeIcon');
-  const isDark = html.getAttribute('data-theme') === 'dark';
-  const theme = isDark ? 'light' : 'dark';
-  html.setAttribute('data-theme', theme);
-  localStorage.setItem('theme', theme);
-  icon.innerHTML = isDark ? '&#9788;' : '&#9789;';
-}
-(function() {
-  const saved = localStorage.getItem('theme');
-  if (saved) {
-    document.documentElement.setAttribute('data-theme', saved);
-    document.getElementById('themeIcon').innerHTML = saved === 'dark' ? '&#9788;' : '&#9789;';
-  }
-})();
-</script>
+<script src="js/main.js"></script>
 </body>
 </html>

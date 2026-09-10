@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="HMP 功能全景 — 音乐库扫描、播放控制、逐字歌词、歌单管理、听歌统计、音效调节、AI 标签推荐、跨平台架构。">
+<meta name="theme-color" content="#121212">
+<title>功能全景 — HMP Hearable Music Player</title>
+<link rel="canonical" href="https://infinitemotion.github.io/HMP/features.html">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Hearable Music Player">
+<meta property="og:title" content="功能全景 — HMP Hearable Music Player">
+<meta property="og:description" content="音乐库扫描、播放控制、逐字歌词、歌单管理、听歌统计、音效调节、AI 标签推荐与跨平台架构。">
+<meta property="og:image" content="https://infinitemotion.github.io/HMP/assets/screenshots/screenshot-gallery-desktop.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+<link rel="icon" href="assets/ic_launcher_foreground.webp" type="image/webp">
+<script>var st=localStorage.getItem('theme');if(st)document.documentElement.setAttribute('data-theme',st);else if(window.matchMedia('(prefers-color-scheme:dark)').matches)document.documentElement.setAttribute('data-theme','dark');else if(window.matchMedia('(prefers-color-scheme:light)').matches)document.documentElement.setAttribute('data-theme','light');</script>
+</head>
+<body>
+<a class="skip-link" href="#main">跳到主要内容</a>
+
+<div class="aurora-bg">
+  <div class="hero-orb"></div>
+  <div class="hero-orb"></div>
+  <div class="hero-orb"></div>
+</div>
+
+<nav class="site-nav" aria-label="站点导航">
+  <a href="index.html">首页</a>
+  <a href="features.html" aria-current="page">功能</a>
+  <a href="gallery.html">画廊</a>
+  <a href="download.html">下载</a>
+  <a href="changelog.html">更新</a>
+</nav>
+
+<div class="bottom-bar">
+  <a href="https://github.com/InfiniteMotion/HMP" class="bottom-link">GitHub</a>
+  <button class="theme-toggle" onclick="toggleTheme()" aria-label="切换主题">
+    <span id="themeIcon">&#9789;</span>
+  </button>
+</div>
+
+<div class="content-page" id="main">
+  <div class="content-header">
+    <a href="index.html" class="back-link">&larr; 返回首页</a>
+    <h1>功能全景</h1>
+    <p>纯本地播放器该有的和不该有的，这里都列清楚。<strong>没有账号，没有云同步，没有社交</strong>——只有你的音乐文件和你想连的那个 AI。</p>
+  </div>
+
+  <section class="section" id="library">
+    <div class="section-head"><span class="section-idx">01</span><h2>音乐库与扫描</h2><span class="section-rule" aria-hidden="true"></span><span class="section-count">7 项</span></div>
+    <div class="feature-grid">
+      <div class="feature-item"><h3>本地音乐扫描</h3><p>自动扫描设备中的音乐文件，读取完整 ID3 标签信息。</p></div>
+      <div class="feature-item"><h3>增量同步</h3><p>再次扫描只处理新增与变更，不重复解析整个曲库。</p></div>
+      <div class="feature-item"><h3>标签展示</h3><p>显示音乐文件的详细标签：比特率、采样率、格式、音轨等。</p></div>
+      <div class="feature-item"><h3>标签编辑</h3><p>编辑标题、艺术家、专辑、年份、流派、音轨、歌词与封面，三平台皆可。</p></div>
+      <div class="feature-item"><h3>专辑浏览</h3><p>按专辑分类浏览，支持封面墙与专辑内曲目。</p></div>
+      <div class="feature-item"><h3>按艺术家浏览</h3><p>独立的艺术家页面，汇总其全部曲目与专辑。</p></div>
+      <div class="feature-item"><h3>搜索</h3><p>全曲库搜索，支持拼音排序键，中文曲目按拼音正确归类。</p></div>
+    </div>
+  </section>
+
+  <section class="section" id="playback">
+    <div class="section-head"><span class="section-idx">02</span><h2>播放与队列</h2><span class="section-rule" aria-hidden="true"></span><span class="section-count">6 项</span></div>
+    <div class="feature-grid">
+      <div class="feature-item"><h3>完整播放控制</h3><p>播放、暂停、上一首、下一首、快进、快退与进度拖拽。</p></div>
+      <div class="feature-item"><h3>队列管理</h3><p>查看与调整当前播放队列，支持「下一首播放」插入。</p></div>
+      <div class="feature-item"><h3>睡眠定时</h3><p>定时关闭音乐播放，倒计时在界面上可见。</p></div>
+      <div class="feature-item"><h3>播放历史</h3><p>自动记录播放历史，作为听歌统计与推荐的数据来源。</p></div>
+      <div class="feature-item"><h3>锁屏与远程控制</h3><p>系统控制中心、耳机线控与锁屏界面直接操作播放。</p></div>
+      <div class="feature-item"><h3>音乐分享</h3><p>把音乐文件分享到其他应用。</p></div>
+    </div>
+  </section>
+
+  <section class="section" id="lyrics">
+    <div class="section-head"><span class="section-idx">03</span><h2>歌词</h2><span class="section-rule" aria-hidden="true"></span><span class="section-count">4 项</span></div>
+    <div class="feature-grid">
+      <div class="feature-item"><h3>滚动歌词</h3><p>跟随播放进度自动滚动，点击可跳转到对应位置。</p></div>
+      <div class="feature-item"><h3>逐字高亮</h3><p>卡拉 OK 式逐字跟随，按字的实际时长平滑推进。</p></div>
+      <div class="feature-item"><h3>独立歌词页</h3><p>全屏歌词视图，与播放页分离。</p></div>
+      <div class="feature-item"><h3>显示参数配置</h3><p>字号、行距、对齐方式与高亮颜色均可调。</p></div>
+    </div>
+  </section>
+
+  <section class="section" id="playlist">
+    <div class="section-head"><span class="section-idx">04</span><h2>播放列表</h2><span class="section-rule" aria-hidden="true"></span><span class="section-count">5 项</span></div>
+    <div class="feature-grid">
+      <div class="feature-item"><h3>自定义歌单</h3><p>创建、重命名、删除自己的歌单。</p></div>
+      <div class="feature-item"><h3>拖拽排序</h3><p>歌单内长按拖拽调整曲目顺序。</p></div>
+      <div class="feature-item"><h3>从歌单移除</h3><p>单曲移除而不删除文件本身。</p></div>
+      <div class="feature-item"><h3>智能歌单生成</h3><p>基于标签与听歌行为自动生成场景歌单。</p></div>
+      <div class="feature-item"><h3>系统歌单</h3><p>收藏、最近播放等内置列表，与自定义歌单分开管理。</p></div>
+    </div>
+  </section>
+
+  <section class="section" id="ai">
+    <div class="section-head"><span class="section-idx">05</span><h2>AI 与标签推荐</h2><span class="section-rule" aria-hidden="true"></span><span class="section-count">5 项</span></div>
+    <div class="feature-grid">
+      <div class="feature-item"><h3>自动打标签</h3><p>为每首歌标注流派、情绪、场景、语言、年代五个维度。</p></div>
+      <div class="feature-item"><h3>五个服务商</h3><p>DeepSeek、OpenAI、Claude、通义千问、文心一言，可自由切换。</p></div>
+      <div class="feature-item"><h3>密钥本地加密</h3><p>API Key 由你自己填写，加密存储在设备本地，不经过任何中间服务器。</p></div>
+      <div class="feature-item"><h3>标签驱动推荐</h3><p>基于标签权重计算相似歌曲，而非协同过滤——不需要用户数据。</p></div>
+      <div class="feature-item"><h3>刷新策略</h3><p>每日推荐可按时间、按启动次数或智能策略刷新，全部可配。</p></div>
+    </div>
+  </section>
+
+  <section class="section" id="audio">
+    <div class="section-head"><span class="section-idx">06</span><h2>音效</h2><span class="section-rule" aria-hidden="true"></span><span class="section-count">4 项</span></div>
+    <div class="feature-grid">
+      <div class="feature-item"><h3>均衡器</h3><p>多频段图形均衡器调节。</p></div>
+      <div class="feature-item"><h3>低音增强</h3><p>独立的低频增益控制。</p></div>
+      <div class="feature-item"><h3>环绕音</h3><p>虚拟环绕声场宽度调节。</p></div>
+      <div class="feature-item"><h3>混响</h3><p>空间感混响效果与强度控制。</p></div>
+    </div>
+  </section>
+
+  <section class="section" id="stats">
+    <div class="section-head"><span class="section-idx">07</span><h2>统计与个人</h2><span class="section-rule" aria-hidden="true"></span><span class="section-count">3 项</span></div>
+    <div class="feature-grid">
+      <div class="feature-item"><h3>听歌时长统计</h3><p>累计听歌时长与分时段分布。</p></div>
+      <div class="feature-item"><h3>热力图</h3><p>全年听歌密度热力图，一眼看出哪几天听得多。</p></div>
+      <div class="feature-item"><h3>偏好统计</h3><p>最常听的艺术家、专辑与流派。</p></div>
+    </div>
+  </section>
+
+  <section class="section" id="appearance">
+    <div class="section-head"><span class="section-idx">08</span><h2>外观与本地化</h2><span class="section-rule" aria-hidden="true"></span><span class="section-count">5 项</span></div>
+    <div class="feature-grid">
+      <div class="feature-item"><h3>动态背景</h3><p>从专辑封面提取色彩，生成随播放变化的背景。三种风格：流体极光、沉浸光斑、复古模糊。</p></div>
+      <div class="feature-item"><h3>毛玻璃</h3><p>底栏、迷你播放器与对话框均为毛玻璃卡片，模糊半径、噪点与透明度可调。</p></div>
+      <div class="feature-item"><h3>亮色 / 暗色主题</h3><p>跟随系统或手动指定，两套配色各自独立调校。</p></div>
+      <div class="feature-item"><h3>14 种界面语言</h3><p>中文、英语、日韩、欧洲主要语言与东南亚语言。</p></div>
+      <div class="feature-item"><h3>自定义主题</h3><p>主题色与强调色可自定义。</p></div>
+    </div>
+  </section>
+
+  <section class="section" id="platform">
+    <div class="section-head"><span class="section-idx">09</span><h2>跨平台架构</h2><span class="section-rule" aria-hidden="true"></span><span class="section-count">4 项</span></div>
+    <div class="feature-grid">
+      <div class="feature-item"><h3>Kotlin Multiplatform</h3><p>业务逻辑与数据层在三平台共享，一份代码三处运行。</p></div>
+      <div class="feature-item"><h3>共享界面层</h3><p>Android、桌面端与 iOS 共用同一套 Compose 界面代码，新功能默认三端同时交付。</p></div>
+      <div class="feature-item"><h3>三套播放引擎</h3><p>Android 用 Media3 ExoPlayer，桌面端是自研 FFmpeg 引擎，iOS 用 AVFoundation。</p></div>
+      <div class="feature-item"><h3>响应式布局</h3><p>手机竖屏、平板横屏与桌面宽窗各自适配，桌面端宽屏自动切换侧边导航。</p></div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="cta-band">
+      <div class="cta-band-text">
+        <h2>看完功能，看看实际长什么样</h2>
+        <p>10 张真机截图与两段实机录屏，或者直接装到设备上试试。</p>
+      </div>
+      <div class="cta-band-actions">
+        <a href="gallery.html" class="btn btn-outline">界面画廊</a>
+        <a href="download.html" class="btn btn-primary">下载 HMP</a>
+      </div>
+    </div>
+  </section>
+</div>
+
+<span class="bottom-copy">&copy; 2026 Hearable Music Player &middot; By WLYB &middot; <a href="privacy-policy.html" style="color:inherit;text-decoration:underline;">隐私政策</a> &middot; <a href="changelog.html" style="color:inherit;text-decoration:underline;">更新日志</a></span>
+
+<script src="js/main.js"></script>
+</body>
+</html>

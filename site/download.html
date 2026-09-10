@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-CN" data-theme="dark">
+<html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -67,12 +67,13 @@
     .plat-actions .btn { max-width:240px; }
     .tab-btn { padding:10px 18px; font-size:0.82rem; }
     .dl-hero { padding:48px 24px 0 24px; }
-    .bottom-bar { position:fixed; top:24px; right:24px; left:auto; bottom:auto; z-index:100; padding:0; }
+    .bottom-bar { position:relative; top:auto; right:auto; left:auto; bottom:auto; z-index:auto; padding:0 16px; margin-top:8px; justify-content:flex-start; }
     .bottom-copy { position:relative; bottom:auto; right:auto; display:block; text-align:center; padding:20px 24px 24px; }
   }
 </style>
 </head>
 <body>
+<a class="skip-link" href="#main">跳到主要内容</a>
 
 <div class="aurora-bg">
   <div class="hero-orb"></div>
@@ -80,27 +81,37 @@
   <div class="hero-orb"></div>
 </div>
 
+<nav class="site-nav" aria-label="站点导航">
+  <a href="index.html">首页</a>
+  <a href="features.html">功能</a>
+  <a href="gallery.html">画廊</a>
+  <a href="download.html" aria-current="page">下载</a>
+  <a href="changelog.html">更新</a>
+</nav>
+
 <div class="bottom-bar">
+  <a href="https://github.com/InfiniteMotion/HMP" class="bottom-link">GitHub</a>
   <button class="theme-toggle" onclick="toggleTheme()" aria-label="切换主题">
     <span id="themeIcon">&#9789;</span>
   </button>
 </div>
 
-<section class="dl-hero">
+<section class="dl-hero" id="main">
   <a href="index.html" class="back-link">&larr; 返回首页</a>
   <h1>了解与获取</h1>
+  <p class="dl-sub">当前版本 v7.1.0 &middot; 2026-08-26 发布</p>
 </section>
 
-<div class="tab-bar">
-  <button class="tab-btn active" onclick="switchTab('android')">Android</button>
-  <button class="tab-btn" onclick="switchTab('ios')">iOS</button>
-  <button class="tab-btn" onclick="switchTab('desktop')">Desktop</button>
+<div class="tab-bar" role="tablist" aria-label="选择平台">
+  <button class="tab-btn active" role="tab" aria-selected="true" aria-controls="tab-android" onclick="switchTab('android')">Android</button>
+  <button class="tab-btn" role="tab" aria-selected="false" aria-controls="tab-ios" onclick="switchTab('ios')">iOS</button>
+  <button class="tab-btn" role="tab" aria-selected="false" aria-controls="tab-desktop" onclick="switchTab('desktop')">Desktop</button>
 </div>
 
 <!-- Android -->
-<div class="tab-content active" id="tab-android">
+<div class="tab-content active" id="tab-android" role="tabpanel" aria-label="Android">
   <div class="preview-layout">
-    <div class="preview-group">
+    <div class="preview-group" data-preview>
     <div class="preview-video">
       <div class="device-frame">
         <video autoplay muted loop playsinline preload="metadata" id="androidVideo">
@@ -118,7 +129,7 @@
       </div>
       <div class="preview-screen" id="androidScreen">
         <div class="device-frame">
-          <img src="assets/screenshots/screenshot-home-android.jpg" alt="界面截图" id="androidImg">
+          <img src="assets/screenshots/screenshot-home-android.jpg" alt="界面截图" id="androidImg" width="1440" height="3136">
         </div>
       </div>
     </div>
@@ -132,38 +143,33 @@
         <li>Android 13+</li>
       </ul>
       <div class="plat-actions">
-        <a href="https://github.com/InfiniteMotion/HMP/releases/download/v6.13.1/HMP-v6.13.1-release.apk" class="btn btn-primary">下载 APK</a>
+        <a href="https://github.com/InfiniteMotion/HMP/releases/download/v7.1.0/HMP-v7.1.0-release.apk" class="btn btn-primary">下载 APK</a>
       </div>
     </div>
   </div>
 </div>
 
 <!-- iOS -->
-<div class="tab-content" id="tab-ios">
+<div class="tab-content" id="tab-ios" role="tabpanel" aria-label="iOS">
   <div class="preview-layout">
-    <div class="preview-group">
-    <div class="preview-video">
-      <div class="device-frame" style="height:520px;width:240px;background:var(--surface);border-radius:28px;display:flex;align-items:center;justify-content:center;color:var(--text-secondary);font-size:0.9rem;">截图待补充</div>
-    </div>
-    <div class="preview-detail">
-      <div class="preview-nav" id="iosNav">
-        <button class="preview-nav-item active" style="cursor:default;"><span>预览</span></button>
+    <div class="ios-empty">
+      <h4>iOS 版需要自行构建</h4>
+      <p>iOS 没有直链分发，需用 Xcode 从源码构建到你自己的设备。界面与 Android、桌面端共用同一套 Compose 代码，可以先看画廊了解实际观感。</p>
+      <div class="ios-empty-actions">
+        <a href="gallery.html" class="btn btn-outline">先看界面画廊</a>
+        <a href="https://github.com/InfiniteMotion/HMP" class="btn btn-outline">构建指南</a>
       </div>
-      <div class="preview-screen">
-        <div class="device-frame" style="height:520px;width:240px;background:var(--surface);border-radius:28px;display:flex;align-items:center;justify-content:center;color:var(--text-secondary);font-size:0.9rem;">截图待补充</div>
-      </div>
-    </div>
     </div>
     <div class="dl-info">
       <h3>iOS</h3>
       <ul class="plat-specs">
-        <li>SwiftUI + Liquid Glass</li>
+        <li>共享层 Compose</li>
         <li>AVFoundation</li>
-        <li>ultraThinMaterial</li>
-        <li>iOS 16.0+</li>
+        <li>锁屏控制 / Live Activity</li>
+        <li>iOS 26.3+</li>
       </ul>
       <div class="plat-actions">
-        <a href="https://github.com/InfiniteMotion/HMP/releases/tag/v6.13.1" class="btn btn-primary">查看构建指南</a>
+        <a href="https://github.com/InfiniteMotion/HMP/releases/tag/v7.1.0" class="btn btn-primary">查看构建指南</a>
       </div>
       <p class="plat-note">iOS 无直链分发，需通过 Xcode 自行构建</p>
     </div>
@@ -171,9 +177,9 @@
 </div>
 
 <!-- Desktop -->
-<div class="tab-content" id="tab-desktop">
+<div class="tab-content" id="tab-desktop" role="tabpanel" aria-label="Desktop">
   <div class="preview-layout">
-    <div class="preview-group">
+    <div class="preview-group" data-preview>
     <div class="preview-video">
       <div class="device-frame" style="border-radius:14px;">
         <video autoplay muted loop playsinline preload="metadata" id="desktopVideo" style="height:340px;width:auto;">
@@ -191,7 +197,7 @@
       </div>
       <div class="preview-screen" id="desktopScreen">
         <div class="device-frame" style="border-radius:14px;">
-          <img src="assets/screenshots/screenshot-home-desktop.jpg" alt="界面截图" id="desktopImg" style="height:340px;width:auto;">
+          <img src="assets/screenshots/screenshot-home-desktop.jpg" alt="界面截图" id="desktopImg" style="height:340px;width:auto;" width="2400" height="1600">
         </div>
       </div>
     </div>
@@ -205,68 +211,25 @@
         <li>系统托盘</li>
       </ul>
       <div class="plat-actions">
-        <a href="https://github.com/InfiniteMotion/HMP/releases/download/v6.13.1/HMP-v6.13.1-windows.msi" class="btn btn-primary">下载 Windows</a>
-        <a href="https://github.com/InfiniteMotion/HMP/releases/download/v6.13.1/HMP-v6.13.1-macos.dmg" class="btn btn-primary">下载 macOS</a>
+        <a href="https://github.com/InfiniteMotion/HMP/releases/download/v7.1.0/HMP-v7.1.0-windows.msi" class="btn btn-primary">下载 Windows</a>
+        <a href="https://github.com/InfiniteMotion/HMP/releases/download/v7.1.0/HMP-v7.1.0-macos.dmg" class="btn btn-primary">下载 macOS</a>
+        <a href="https://github.com/InfiniteMotion/HMP/releases/download/v7.1.0/HMP-v7.1.0-linux.deb" class="btn btn-primary">下载 Linux（DEB）</a>
+        <a href="https://github.com/InfiniteMotion/HMP/releases/download/v7.1.0/HMP-v7.1.0-linux.AppImage" class="btn btn-primary">下载 Linux（AppImage）</a>
       </div>
     </div>
   </div>
 </div>
 
 <script>
-function toggleTheme() {
-  const html = document.documentElement;
-  const icon = document.getElementById('themeIcon');
-  const isDark = html.getAttribute('data-theme') === 'dark';
-  const theme = isDark ? 'light' : 'dark';
-  html.setAttribute('data-theme', theme);
-  localStorage.setItem('theme', theme);
-  icon.innerHTML = isDark ? '&#9788;' : '&#9789;';
-}
 function switchTab(platform) {
-  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => { b.classList.remove('active'); b.setAttribute('aria-selected','false'); });
+  document.querySelector(`[onclick="switchTab('${platform}')"]`).setAttribute('aria-selected','true');
   document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
   document.querySelector(`[onclick="switchTab('${platform}')"]`).classList.add('active');
   document.getElementById(`tab-${platform}`).classList.add('active');
 }
-// Preview nav switching (Android tab)
-(function(){
-  var nav = document.getElementById('androidNav');
-  var img = document.getElementById('androidImg');
-  if (!nav || !img) return;
-  nav.addEventListener('click', function(e) {
-    var item = e.target.closest('.preview-nav-item');
-    if (!item || !item.dataset.src) return;
-    nav.querySelectorAll('.preview-nav-item').forEach(function(b){ b.classList.remove('active'); });
-    item.classList.add('active');
-    var newSrc = item.getAttribute('data-src');
-    if (img.src.indexOf(newSrc) !== -1) return;
-    img.classList.add('switching');
-    setTimeout(function(){
-      img.src = newSrc;
-      img.classList.remove('switching');
-    }, 150);
-  });
-})();
-// Preview nav switching (Desktop tab)
-(function(){
-  var nav = document.getElementById('desktopNav');
-  var img = document.getElementById('desktopImg');
-  if (!nav || !img) return;
-  nav.addEventListener('click', function(e) {
-    var item = e.target.closest('.preview-nav-item');
-    if (!item || !item.dataset.src) return;
-    nav.querySelectorAll('.preview-nav-item').forEach(function(b){ b.classList.remove('active'); });
-    item.classList.add('active');
-    var newSrc = item.getAttribute('data-src');
-    if (img.src.indexOf(newSrc) !== -1) return;
-    img.classList.add('switching');
-    setTimeout(function(){
-      img.src = newSrc;
-      img.classList.remove('switching');
-    }, 150);
-  });
-})();
 </script>
+<script src="js/main.js"></script>
 <span class="bottom-copy">&copy; 2026 Hearable Music Player &middot; By WLYB &middot; <a href="changelog.html" style="color:inherit;text-decoration:underline;">更新日志</a></span>
 </body>
 </html>

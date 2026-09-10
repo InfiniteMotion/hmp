@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="HMP 界面画廊 — Android 与桌面端的真实界面截图与演示视频。">
+<meta name="theme-color" content="#121212">
+<title>界面画廊 — HMP Hearable Music Player</title>
+<link rel="canonical" href="https://infinitemotion.github.io/HMP/gallery.html">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Hearable Music Player">
+<meta property="og:title" content="界面画廊 — HMP Hearable Music Player">
+<meta property="og:description" content="Android 与桌面端的真实界面截图与演示视频。">
+<meta property="og:image" content="https://infinitemotion.github.io/HMP/assets/screenshots/screenshot-home-desktop.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+<link rel="icon" href="assets/ic_launcher_foreground.webp" type="image/webp">
+<script>var st=localStorage.getItem('theme');if(st)document.documentElement.setAttribute('data-theme',st);else if(window.matchMedia('(prefers-color-scheme:dark)').matches)document.documentElement.setAttribute('data-theme','dark');else if(window.matchMedia('(prefers-color-scheme:light)').matches)document.documentElement.setAttribute('data-theme','light');</script>
+</head>
+<body>
+<a class="skip-link" href="#main">跳到主要内容</a>
+
+<div class="aurora-bg">
+  <div class="hero-orb"></div>
+  <div class="hero-orb"></div>
+  <div class="hero-orb"></div>
+</div>
+
+<nav class="site-nav" aria-label="站点导航">
+  <a href="index.html">首页</a>
+  <a href="features.html">功能</a>
+  <a href="gallery.html" aria-current="page">画廊</a>
+  <a href="download.html">下载</a>
+  <a href="changelog.html">更新</a>
+</nav>
+
+<div class="bottom-bar">
+  <a href="https://github.com/InfiniteMotion/HMP" class="bottom-link">GitHub</a>
+  <button class="theme-toggle" onclick="toggleTheme()" aria-label="切换主题">
+    <span id="themeIcon">&#9789;</span>
+  </button>
+</div>
+
+<div class="content-page" id="main">
+  <div class="content-header">
+    <a href="index.html" class="back-link">&larr; 返回首页</a>
+    <h1>界面画廊</h1>
+    <p>Android 与桌面端的真实界面。两边跑的是同一套业务代码与同一套 Compose 界面，差别只在窗口形态——手机是底部胶囊导航，桌面在宽屏下自动换成侧边导航栏。</p>
+  </div>
+
+  <section class="section">
+    <div class="section-head">
+      <h2>动态演示</h2>
+      <span class="section-count">实机录屏</span>
+    </div>
+    <div class="shot-row">
+      <figure class="shot-figure">
+        <div class="shot-frame" style="border-radius:28px;">
+          <video autoplay muted loop playsinline preload="metadata" width="1440" height="3136">
+            <source src="assets/demo.mp4" type="video/mp4">
+          </video>
+        </div>
+        <figcaption class="shot-figcaption"><span class="platform-chip">Android</span>播放、切歌与动态背景跟随</figcaption>
+      </figure>
+      <figure class="shot-figure">
+        <div class="shot-frame" style="border-radius:14px;">
+          <video autoplay muted loop playsinline preload="metadata" width="2392" height="1592">
+            <source src="assets/demo-desktop.mp4" type="video/mp4">
+          </video>
+        </div>
+        <figcaption class="shot-figcaption"><span class="platform-chip">Desktop</span>窗口缩放与响应式布局切换</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="section-head">
+      <h2>首页 · 每日推荐</h2>
+      <span class="section-count">同一个界面，两种窗口形态</span>
+    </div>
+    <div class="shot-row">
+      <figure class="shot-figure">
+        <div class="shot-frame" style="border-radius:28px;"><a class="shot-link" href="assets/screenshots/screenshot-home-android.jpg" target="_blank" rel="noopener"><img src="assets/screenshots/screenshot-home-android.jpg" alt="Android 首页" loading="lazy" decoding="async" width="1440" height="3136"></a></div>
+        <figcaption class="shot-figcaption"><span class="platform-chip">Android</span>每日推荐卡片 + 心动歌单入口</figcaption>
+      </figure>
+      <figure class="shot-figure">
+        <div class="shot-frame" style="border-radius:14px;"><a class="shot-link" href="assets/screenshots/screenshot-home-desktop.jpg" target="_blank" rel="noopener"><img src="assets/screenshots/screenshot-home-desktop.jpg" alt="桌面端首页" loading="lazy" decoding="async" width="2400" height="1600"></a></div>
+        <figcaption class="shot-figcaption"><span class="platform-chip">Desktop</span>宽屏下的多面板布局</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="section-head">
+      <h2>音乐库</h2>
+      <span class="section-count">扫描 · 分类 · 搜索</span>
+    </div>
+    <div class="shot-row">
+      <figure class="shot-figure">
+        <div class="shot-frame" style="border-radius:28px;"><a class="shot-link" href="assets/screenshots/screenshot-gallery-android.jpg" target="_blank" rel="noopener"><img src="assets/screenshots/screenshot-gallery-android.jpg" alt="Android 音乐库" loading="lazy" decoding="async" width="1440" height="3136"></a></div>
+        <figcaption class="shot-figcaption"><span class="platform-chip">Android</span>按歌曲、艺术家、专辑、流派浏览</figcaption>
+      </figure>
+      <figure class="shot-figure">
+        <div class="shot-frame" style="border-radius:14px;"><a class="shot-link" href="assets/screenshots/screenshot-gallery-desktop.jpg" target="_blank" rel="noopener"><img src="assets/screenshots/screenshot-gallery-desktop.jpg" alt="桌面端音乐库" loading="lazy" decoding="async" width="2400" height="1600"></a></div>
+        <figcaption class="shot-figcaption"><span class="platform-chip">Desktop</span>网格布局与侧边导航</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="section-head">
+      <h2>播放器</h2>
+      <span class="section-count">封面取色 · 歌词 · 控制</span>
+    </div>
+    <div class="shot-row">
+      <figure class="shot-figure">
+        <div class="shot-frame" style="border-radius:28px;"><a class="shot-link" href="assets/screenshots/screenshot-player-android.jpg" target="_blank" rel="noopener"><img src="assets/screenshots/screenshot-player-android.jpg" alt="Android 播放器" loading="lazy" decoding="async" width="1440" height="3136"></a></div>
+        <figcaption class="shot-figcaption"><span class="platform-chip">Android</span>随封面色彩流动的动态背景</figcaption>
+      </figure>
+      <figure class="shot-figure">
+        <div class="shot-frame" style="border-radius:14px;"><a class="shot-link" href="assets/screenshots/screenshot-player-desktop.jpg" target="_blank" rel="noopener"><img src="assets/screenshots/screenshot-player-desktop.jpg" alt="桌面端播放器" loading="lazy" decoding="async" width="2400" height="1600"></a></div>
+        <figcaption class="shot-figcaption"><span class="platform-chip">Desktop</span>横屏下的封面与控制区并排</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="section-head">
+      <h2>播放列表</h2>
+      <span class="section-count">自定义 · 智能生成 · 拖拽排序</span>
+    </div>
+    <div class="shot-row">
+      <figure class="shot-figure">
+        <div class="shot-frame" style="border-radius:28px;"><a class="shot-link" href="assets/screenshots/screenshot-list-android.jpg" target="_blank" rel="noopener"><img src="assets/screenshots/screenshot-list-android.jpg" alt="Android 播放列表" loading="lazy" decoding="async" width="1440" height="3136"></a></div>
+        <figcaption class="shot-figcaption"><span class="platform-chip">Android</span>用户歌单与场景歌单</figcaption>
+      </figure>
+      <figure class="shot-figure">
+        <div class="shot-frame" style="border-radius:14px;"><a class="shot-link" href="assets/screenshots/screenshot-list-desktop.jpg" target="_blank" rel="noopener"><img src="assets/screenshots/screenshot-list-desktop.jpg" alt="桌面端播放列表" loading="lazy" decoding="async" width="2400" height="1600"></a></div>
+        <figcaption class="shot-figcaption"><span class="platform-chip">Desktop</span>列表内拖拽排序</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="section-head">
+      <h2>个人中心</h2>
+      <span class="section-count">听歌统计 · 热力图</span>
+    </div>
+    <div class="shot-row">
+      <figure class="shot-figure">
+        <div class="shot-frame" style="border-radius:28px;"><a class="shot-link" href="assets/screenshots/screenshot-user-android.jpg" target="_blank" rel="noopener"><img src="assets/screenshots/screenshot-user-android.jpg" alt="Android 个人中心" loading="lazy" decoding="async" width="1440" height="3136"></a></div>
+        <figcaption class="shot-figcaption"><span class="platform-chip">Android</span>听歌时长与偏好统计</figcaption>
+      </figure>
+      <figure class="shot-figure">
+        <div class="shot-frame" style="border-radius:14px;"><a class="shot-link" href="assets/screenshots/screenshot-user-desktop.jpg" target="_blank" rel="noopener"><img src="assets/screenshots/screenshot-user-desktop.jpg" alt="桌面端个人中心" loading="lazy" decoding="async" width="2400" height="1600"></a></div>
+        <figcaption class="shot-figcaption"><span class="platform-chip">Desktop</span>年度热力图</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="cta-band">
+      <div class="cta-band-text">
+        <h2>想看更多？</h2>
+        <p>完整功能清单一览，或直接下载到你的设备上自己看。</p>
+      </div>
+      <div class="cta-band-actions">
+        <a href="features.html" class="btn btn-outline">功能全景</a>
+        <a href="download.html" class="btn btn-primary">下载 HMP</a>
+      </div>
+    </div>
+  </section>
+</div>
+
+<span class="bottom-copy">&copy; 2026 Hearable Music Player &middot; By WLYB &middot; <a href="privacy-policy.html" style="color:inherit;text-decoration:underline;">隐私政策</a> &middot; <a href="changelog.html" style="color:inherit;text-decoration:underline;">更新日志</a></span>
+
+<script src="js/main.js"></script>
+</body>
+</html>
