@@ -1,5 +1,9 @@
 package com.hearablemusic.player.ui.chat
 
+import com.hmp.data.di.AGENT_CHAT
+import com.hmp.data.di.AGENT_ENRICH
+import com.hmp.data.di.AGENT_HELLO
+import com.hmp.data.di.AGENT_RADIO
 import com.hmp.domain.agent.runtime.EngineDefaults
 import com.hmp.domain.agent.policy.PolicyGuard
 import com.hmp.domain.agent.infra.PresenceBus
@@ -20,6 +24,7 @@ import com.hearablemusic.player.ui.platform.currentTimeMillis
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import org.koin.core.qualifier.named
 import org.koin.dsl.bind
 import org.koin.dsl.module
 
@@ -68,8 +73,11 @@ val chatGatewayModule = module {
         val enrichConfig = kotlinx.coroutines.runBlocking {
             runCatching { settingsRepo.getActiveAiConfig() }.getOrNull()
         }
-        // chatTransport 在构造时就拿到，后续热更新也复用这个实例（HTTP client 不需要重建）
-        val chatTransport = get<com.hmp.domain.agent.port.LlmTransport>()
+        // 方案 B：4 个独立 Transport 实例（共享同一个 HttpClient 连接池）
+        val chatTransport = get<LlmTransport>(named(AGENT_CHAT))
+        val enrichTransport = get<LlmTransport>(named(AGENT_ENRICH))
+        val helloTransport = get<LlmTransport>(named(AGENT_HELLO))
+        val radioTransport = get<LlmTransport>(named(AGENT_RADIO))
         MasterAgent(
             timeProvider = { currentTimeMillis() },
             tokenCounter = com.hmp.domain.agent.runtime.GlobalTokenCounter({ currentTimeMillis() }),
@@ -82,11 +90,15 @@ val chatGatewayModule = module {
             chatSessionStore = get(),
             chatPresenceBus = get(),
             stepBudget = EngineDefaults.STEP_BUDGET,
-            // Enrich 后台依赖
+            // Enrich 后台依赖（独立 Transport）
+            enrichTransport = enrichTransport,
             enrichConfig = enrichConfig,
-            // Radio 电台依赖（M6-T1）
+            // Radio 电台依赖（独立 Transport）
+            radioTransport = radioTransport,
             playbackPort = get(),
             nowPlayingProvider = get(),
+            // Hello 门面依赖（独立 Transport）
+            helloTransport = helloTransport,
             // W0: HelloSubAgent 持久化 DAO（启用则卡片池 + 报告叙事段落 Room；不注入自动降级内存）
             helloCardCacheDao = get(),
             helloReportNarrativeDao = get(),

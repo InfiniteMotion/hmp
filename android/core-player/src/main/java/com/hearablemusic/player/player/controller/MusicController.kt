@@ -41,6 +41,7 @@ import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 
 @UnstableApi
@@ -377,7 +378,7 @@ class MusicController(
         lastDurationRecordTime = playStartTime
         val path = currentMusicPath()
         if (path != null && isMusicLoaded(path) == true) {
-            playControl?.proceedMusic()
+            scope.launch { playControl?.proceedMusic() }
             showToast("继续")
             // 如果是从暂停状态恢复，确保UI进度与Service同步
             scope.launch {
@@ -416,7 +417,7 @@ class MusicController(
                 }
             }
         }
-        playControl?.pause()
+        scope.launch { playControl?.pause() }
         showToast("暂停")
         playStartTime = 0L
         lastDurationRecordTime = 0L
@@ -533,13 +534,13 @@ class MusicController(
             Log.e("MusicController", "playCurrentTrack: playControl is null")
             return
         }
-        
+
         // 结束上一个会话（如果有的话）
         endCurrentPlaybackSession(isCompleted = false)
 
         stopProgressTracking()
         val track = _currentPlaylist.value.getOrNull(_currentIndex.value) ?: return
-        
+
         scope.launch {
             try {
                 val recentId = withTimeoutOrNull(1000) {
@@ -555,17 +556,21 @@ class MusicController(
 
         persistCurrentMusic(track.music.id)
         _currentPosition.value = startPosition
-        playControl?.playSingleMusic(track.music)
-        if (startPosition > 0) {
-            playControl?.seekTo(startPosition)
-        }
         _duration.value = track.music.duration
-        
+
+        // Media3 操作必须在 Main dispatcher
+        scope.launch {
+            playControl?.playSingleMusic(track.music)
+            if (startPosition > 0) {
+                playControl?.seekTo(startPosition)
+            }
+        }
+
         // 重置会话追踪数据
         playStartTime = System.currentTimeMillis()
         lastDurationRecordTime = playStartTime
         totalPlayedDurationInSession = 0L
-        
+
         startProgressTracking()
         startNewPlaybackSession(track.music.id, source)
     }

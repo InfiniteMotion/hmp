@@ -20,6 +20,7 @@ import com.hmp.domain.agent.persona.DefaultCompanionProfiles
 import com.hmp.domain.agent.sub.EnrichSubAgent
 import com.hmp.domain.agent.sub.HelloSubAgent
 import com.hmp.domain.agent.sub.RadioSubAgent
+import com.hmp.domain.agent.sub.RadioTrigger
 import com.hmp.domain.agent.sub.SubAgent
 import com.hmp.domain.agent.tool.ToolRegistry
 import com.hmp.domain.enum.LabelName
@@ -34,6 +35,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.joinAll
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
 import com.hmp.platform.Volatile
@@ -81,16 +85,22 @@ class MasterAgent(
     private val stepBudget: Int = EngineDefaults.STEP_BUDGET,
 
     // ── Enrich 后台能力依赖（默认 null；startEnrich 时可单独传入覆盖） ──
-    /** EnrichSubAgent 的独立 LLM 传输实例（null 则退化用 chatTransport） */
+    /** EnrichSubAgent 的独立 LLM 传输实例（方案 B：每 Agent 一 Transport） */
     private val enrichTransport: LlmTransport? = null,
     /** Enrich LLM API 端点配置（热更新：startHello 后用户改配置要能生效） */
     private var enrichConfig: AiEndpointConfig? = null,
 
     // ── Radio 电台能力依赖（M6-T1；默认 null，startRadio 时需要非 null） ──
+    /** RadioSubAgent 的独立 LLM 传输实例（方案 B：每 Agent 一 Transport） */
+    private val radioTransport: LlmTransport? = null,
     /** 播放控制端口（电台续歌 SILENT） */
     private val playbackPort: com.hmp.domain.agent.port.PlaybackCommandPort? = null,
     /** 当前播放上下文提供者（电台种子自动提取） */
     private val nowPlayingProvider: com.hmp.domain.agent.port.NowPlayingContextProvider? = null,
+
+    // ── Hello 门面副驾驶能力依赖 ──
+    /** HelloSubAgent 的独立 LLM 传输实例（方案 B：每 Agent 一 Transport） */
+    private val helloTransport: LlmTransport? = null,
 
     // ── Agent 配置持久化（可选；null 则 config 只在 MasterAgent 实例存活期间有效） ──
     /** AgentPolicyConfig DataStore 读写（per-Agent 信任档位 + 永远允许白名单） */
@@ -105,8 +115,19 @@ class MasterAgent(
     // ═══ M6-T2/M6-T3：Radio 事件监听状态 ═══
     /** 连续跳过计数（MasterAgent skip event 监听协程维护） */
     @Volatile private var consecutiveSkipCount: Int = 0
+    @Volatile private var consecutiveSkipTitles: MutableList<String> = mutableListOf()
     /** 标记 Radio 事件监听是否已启动（避免多次 startRadio 重复 launch） */
     @Volatile private var radioListenersStarted: Boolean = false
+    /** skipEvents listener 协程引用（stopRadio 时 cancel） */
+    private var radioSkipListenerJob: kotlinx.coroutines.Job? = null
+    /** trackChangeEvents (DjBlank) listener 协程引用（stopRadio 时 cancel） */
+    private var radioTrackChangeListenerJob: kotlinx.coroutines.Job? = null
+
+    /** radio 运行时，RadioSubAgent.radioState 的值会被转发到这里。固定实例（UI 层 remember 缓存的是同一个）。 */
+    private val _radioState = MutableStateFlow<com.hmp.domain.agent.sub.RadioState?>(null)
+    val radioState: StateFlow<com.hmp.domain.agent.sub.RadioState?> = _radioState
+    /** 转发协程——把 RadioSubAgent.radioState → _radioState。stopRadio 时 cancel。 */
+    private var radioStateForwarderJob: kotlinx.coroutines.Job? = null
 
     /** handleDjBlank 衔接语兜底轮换索引（LLM 不可用时 MasterAgent.handleDjBlank 使用） */
     private var greetingIndex: Int = 0
@@ -175,6 +196,18 @@ class MasterAgent(
     private val _subAgents = mutableMapOf<String, com.hmp.domain.agent.sub.SubAgent>()
     val subAgents: Map<String, com.hmp.domain.agent.sub.SubAgent> get() = _subAgents.toMap()
 
+    // ── SubAgent 生命周期保护 ──
+    /** startEnrich/stopEnrich 的 Mutex——防止并发创建多个 EnrichSubAgent */
+    private val enrichLifecycleMutex = Mutex()
+    /** Enrich runLoop 协程 Job 跟踪——旧实例完全退出后才能启动新的 */
+    private var enrichRunLoopJob: kotlinx.coroutines.Job? = null
+    /** Hello 生命周期保护（同上） */
+    private val helloLifecycleMutex = Mutex()
+    private var helloRunLoopJob: kotlinx.coroutines.Job? = null
+    /** Radio 生命周期保护（同上） */
+    private val radioLifecycleMutex = Mutex()
+    private var radioRunLoopJob: kotlinx.coroutines.Job? = null
+
     // ===== 生命周期 =====
 
     /** Master 生命周期作用域——供 ChatKoinModule 等外部组件 launch 协程用。
@@ -233,13 +266,38 @@ class MasterAgent(
         }
     }
 
-    /** 应用销毁时调用，清理所有 SubAgent */
+    /** 应用销毁时调用，清理所有 SubAgent（suspend 版本——内部调 scheduler/SubAgent.shutdown 需协程） */
     suspend fun shutdown() {
         Logger.i("Agent.Master") { "[Master] shutdown" }
         scheduler.stopArbitration()
         _subAgents.values.forEach { it.shutdown() }
+        cancelAllRunLoopJobs()
         _subAgents.clear()
         lifecycleScope.coroutineContext[kotlinx.coroutines.Job]?.cancel()
+        Logger.i("Agent.Master") { "[Master] shutdown complete" }
+    }
+
+    /**
+     * 应用生命周期绑定用的非 suspend 清理。
+     * 各平台终止入口（Android onTerminate / Desktop close / iOS deinit）可直接调，
+     * JVM shutdown hook 里用 runBlocking 包一下也可以。
+     * 核心逻辑就是 cancel 所有 runLoop Job —— runLoop 里的 while(isActive) 会自然退出。
+     */
+    fun close() {
+        Logger.i("Agent.Master") { "[Master] close (non-suspend)" }
+        cancelAllRunLoopJobs()
+        _subAgents.clear()
+        lifecycleScope.coroutineContext[kotlinx.coroutines.Job]?.cancel()
+        Logger.i("Agent.Master") { "[Master] close complete" }
+    }
+
+    private fun cancelAllRunLoopJobs() {
+        enrichRunLoopJob?.cancel()
+        enrichRunLoopJob = null
+        radioRunLoopJob?.cancel()
+        radioRunLoopJob = null
+        helloRunLoopJob?.cancel()
+        helloRunLoopJob = null
     }
 
     // ===== Enrich 管理（F1：Master 唯一决策） =====
@@ -261,88 +319,100 @@ class MasterAgent(
      * @param task 任务单（含 targetCoverage / maxBatchSize）
      */
     suspend fun startEnrich(task: EnrichTask, enrichTransport: LlmTransport? = null) {
-        // 幂等清理：已有 inactive 实例 → 先清理
-        _subAgents["enrich"]?.let { existing ->
-            if (existing !is com.hmp.domain.agent.sub.EnrichSubAgent) {
-                Logger.w("Agent.Master") { "[Master] existing enrich is not EnrichSubAgent, force cleanup" }
-                stopEnrich()
-            } else {
-                // 活跃中 → 跳过
-                Logger.w("Agent.Master") { "[Master] Enrich already active, skip create" }
+        enrichLifecycleMutex.withLock {
+            // 等待旧 runLoop 协程完全退出（如果有），再创建新实例
+            enrichRunLoopJob?.join()
+            enrichRunLoopJob = null
+
+            // 幂等检查：已有活跃实例 → 跳过
+            _subAgents["enrich"]?.let { existing ->
+                if (existing !is com.hmp.domain.agent.sub.EnrichSubAgent) {
+                    Logger.w("Agent.Master") { "[Master] existing enrich is not EnrichSubAgent, force cleanup" }
+                    stopEnrich()
+                } else if (existing.state() == com.hmp.domain.agent.runtime.AgentRunState.RUNNING) {
+                    Logger.w("Agent.Master") { "[Master] Enrich already active, skip create" }
+                    return
+                } else {
+                    // 旧实例非活跃但未清理干净 → 先停再重建
+                    stopEnrich()
+                }
+            }
+
+            val repo = musicRepository
+            val registry = chatToolRegistry
+            if (repo == null || registry == null) {
+                Logger.e("Agent.Master") { "[Master] Cannot start Enrich: musicRepository=${repo != null} chatToolRegistry=${registry != null}" }
                 return
             }
-        }
 
-        val repo = musicRepository
-        val registry = chatToolRegistry
-        if (repo == null || registry == null) {
-            Logger.e("Agent.Master") { "[Master] Cannot start Enrich: musicRepository=${repo != null} chatToolRegistry=${registry != null}" }
-            return
-        }
+            // 优先用 startEnrich() 传入参数，否则用构造函数的 enrichTransport（独立 Agent Transport）
+            val effectiveEnrichTransport = enrichTransport ?: this.enrichTransport
+            if (effectiveEnrichTransport == null) {
+                Logger.e("Agent.Master") { "[Master] No LlmTransport for Enrich — enrichTransport not injected in MasterAgent ctor" }
+                return
+            }
 
-        // 优先用传入的 enrichTransport，退化到构造函数的 enrichTransport，最后退化到 chatTransport
-        val effectiveEnrichTransport = enrichTransport ?: this.enrichTransport ?: chatTransport
-        if (effectiveEnrichTransport == null) {
-            Logger.e("Agent.Master") { "[Master] No LlmTransport available for Enrich; aborting startEnrich" }
-            return
-        }
-
-        // ① 创建 Enrich 的独立 AgentContextBudget（32K）
-        val contextBudget = AgentContextBudget(
-            agentId = "enrich",
-            maxContextTokens = 32_000,
-            llmClient = effectiveEnrichTransport,
-        )
-
-        // ② 创建 SchedulerStopSignal——桥接 Scheduler pause/resume ↔ Enrich runLoop 的 waitResume()
-        val enrichStopSignal = SchedulerStopSignal(tokenCounter)
-
-        // ③ 构造 system prompt（F5：Master 注入，Enrich 不自演化角色）
-        val systemPrompt = com.hmp.domain.agent.sub.EnrichSubAgent.buildSystemPrompt(
-            task.targetCoverage,
-        )
-
-        // ④ 构造 ToolRegistryView（基类 SubAgent 需要；Enrich 自循环不用 tools，但 F2 铁则保留）
-        val toolView = ToolRegistryView.enrich(registry)
-
-        // ⑤ 实例化 EnrichSubAgent（自循环 Worker，管道完全内化——prompt 和 LLM 调用都在 Enrich 内部）
-        val enrichAgent = com.hmp.domain.agent.sub.EnrichSubAgent(
-            agentId = "enrich",
-            contextBudget = contextBudget,
-            toolRegistryView = toolView,
-            systemPrompt = systemPrompt,
-            musicRepository = repo,
-            presenceBus = chatPresenceBus,
-            enrichConfig = enrichConfig,
-            targetCoverage = task.targetCoverage,
-            stopSignal = enrichStopSignal,
-        )
-        _subAgents["enrich"] = enrichAgent
-
-        // ⑥ 注册到 Scheduler（priority=3）
-        scheduler.registerAgent(
-            AgentRegistration(
+            // ① 创建 Enrich 的独立 AgentContextBudget（32K）
+            val contextBudget = AgentContextBudget(
                 agentId = "enrich",
-                priority = AgentPriority.ENRICH,
-                tokenUsagePerMin = 1_000L,
-                onPause = { enrichStopSignal.onSchedulerPaused() },
-                onResume = { enrichStopSignal.onSchedulerResumed() },
+                maxContextTokens = 32_000,
+                llmClient = effectiveEnrichTransport,
             )
-        )
 
-        // ⑦ 启动 runLoop（Enrich 自管理内部循环，不需要 Master enrichTaskLoop）
-        scope.launch { enrichAgent.runLoop() }
+            // ② 创建 SchedulerStopSignal——桥接 Scheduler pause/resume ↔ Enrich runLoop 的 waitResume()
+            val enrichStopSignal = SchedulerStopSignal(tokenCounter)
 
-        Logger.i("Agent.Master") { "[Master] EnrichSubAgent created (batch=${task.maxBatchSize}, targetCoverage=${task.targetCoverage}, config=${enrichConfig != null})" }
+            // ③ 构造 system prompt（F5：Master 注入，Enrich 不自演化角色）
+            val systemPrompt = com.hmp.domain.agent.sub.EnrichSubAgent.buildSystemPrompt(
+                task.targetCoverage,
+            )
+
+            // ④ 构造 ToolRegistryView（基类 SubAgent 需要；Enrich 自循环不用 tools，但 F2 铁则保留）
+            val toolView = ToolRegistryView.enrich(registry)
+
+            // ⑤ 实例化 EnrichSubAgent（自循环 Worker，管道完全内化——prompt 和 LLM 调用都在 Enrich 内部）
+            val enrichAgent = com.hmp.domain.agent.sub.EnrichSubAgent(
+                agentId = "enrich",
+                contextBudget = contextBudget,
+                toolRegistryView = toolView,
+                systemPrompt = systemPrompt,
+                musicRepository = repo,
+                presenceBus = chatPresenceBus,
+                enrichConfig = enrichConfig,
+                targetCoverage = task.targetCoverage,
+                stopSignal = enrichStopSignal,
+            )
+            _subAgents["enrich"] = enrichAgent
+
+            // ⑥ 注册到 Scheduler（priority=3）
+            scheduler.registerAgent(
+                AgentRegistration(
+                    agentId = "enrich",
+                    priority = AgentPriority.ENRICH,
+                    tokenUsagePerMin = 1_000L,
+                    onPause = { enrichStopSignal.onSchedulerPaused() },
+                    onResume = { enrichStopSignal.onSchedulerResumed() },
+                )
+            )
+
+            // ⑦ 启动 runLoop（跟踪 Job——旧 Job join 完才会到这里，所以一定是单协程）
+            enrichRunLoopJob = scope.launch { enrichAgent.runLoop() }
+
+            Logger.i("Agent.Master") { "[Master] EnrichSubAgent created (batch=${task.maxBatchSize}, targetCoverage=${task.targetCoverage}, config=${enrichConfig != null})" }
+        }
     }
 
     /** Master 下令销毁 Enrich（F1：只有 Master 能下令） */
     suspend fun stopEnrich() {
-        _subAgents["enrich"]?.let { enrich ->
-            enrich.shutdown()
-            scheduler.unregisterAgent("enrich")
-            _subAgents.remove("enrich")
-            Logger.i("Agent.Master") { "[Master] Enrich stopped" }
+        enrichLifecycleMutex.withLock {
+            _subAgents["enrich"]?.let { enrich ->
+                enrich.shutdown()
+                scheduler.unregisterAgent("enrich")
+                _subAgents.remove("enrich")
+                Logger.i("Agent.Master") { "[Master] Enrich stopped" }
+            }
+            enrichRunLoopJob?.cancel()
+            enrichRunLoopJob = null
         }
     }
 
@@ -361,89 +431,154 @@ class MasterAgent(
      * @param seed 用户种子（null = 自动从 nowPlaying 提取）
      * @return 本地保底队列（立即返回，零等待开听）；Radio 未创建成功时返回 emptyList()
      */
-    suspend fun startRadio(seed: String? = null): List<com.hmp.domain.agent.sub.RadioTrack> {
-        if (_subAgents.containsKey("radio")) {
-            Logger.w("Agent.Master") { "[Master] Radio already exists, delegating to existing" }
-            val radio = _subAgents["radio"] as? com.hmp.domain.agent.sub.RadioSubAgent
-            return radio?.startRadio(seed) ?: emptyList()
-        }
+    suspend fun startRadio(
+        seed: String? = null,
+        trigger: RadioTrigger = RadioTrigger.HOME_CLICK,
+        chatContext: String? = null,
+    ): List<com.hmp.domain.agent.sub.RadioTrack> {
+        return radioLifecycleMutex.withLock {
+            // 等待旧 runLoop 协程完全退出
+            radioRunLoopJob?.join()
+            radioRunLoopJob = null
 
-        val repo = musicRepository
-        val registry = chatToolRegistry
-        val playback = playbackPort
-        val nowPlaying = nowPlayingProvider
-        if (repo == null || registry == null || playback == null || nowPlaying == null) {
-            Logger.e("Agent.Master") { "[Master] Cannot start Radio: deps missing repo=${repo != null} registry=${registry != null} playback=${playback != null} nowPlaying=${nowPlaying != null}" }
-            return emptyList()
-        }
+            // 幂等：已有活跃实例 → 委托给它
+            _subAgents["radio"]?.let { existing ->
+                val radio = existing as? com.hmp.domain.agent.sub.RadioSubAgent
+                if (radio != null && radio.state() == com.hmp.domain.agent.runtime.AgentRunState.RUNNING) {
+                    Logger.w("Agent.Master") { "[Master] Radio already active, delegating to existing" }
+                    return@withLock radio.startRadio(seed, trigger, chatContext)
+                }
+                // 非活跃实例 → 先停再重建
+                stopRadio()
+            }
 
-        // ① AgentContextBudget(64K)——电台决策比 Enrich 复杂但比 Master 对话轻
-        val radioTransport = chatTransport  // 电台复用 chatTransport（可后续独立出来）
-        if (radioTransport == null) {
-            Logger.e("Agent.Master") { "[Master] No LlmTransport available for Radio; aborting startRadio" }
-            return emptyList()
-        }
-        val contextBudget = AgentContextBudget(
-            agentId = "radio",
-            maxContextTokens = 64_000,
-            llmClient = radioTransport,
-        )
+            val repo = musicRepository
+            val registry = chatToolRegistry
+            val playback = playbackPort
+            val nowPlaying = nowPlayingProvider
+            if (repo == null || registry == null || playback == null || nowPlaying == null) {
+                Logger.e("Agent.Master") { "[Master] Cannot start Radio: deps missing repo=${repo != null} registry=${registry != null} playback=${playback != null} nowPlaying=${nowPlaying != null}" }
+                return emptyList()
+            }
 
-        // ② 权限过滤视图：Radio 可碰所有工具（MASTER 级，因为电台是 Master 发起的）
-        val toolView = ToolRegistryView.radio(registry)
-
-        // ③ StopSignal——桥接 Scheduler pause/resume
-        val radioStopSignal = SchedulerStopSignal(tokenCounter)
-
-        // ④ 实例化 RadioSubAgent
-        val radioAgent = com.hmp.domain.agent.sub.RadioSubAgent(
-            agentId = "radio",
-            contextBudget = contextBudget,
-            toolRegistryView = toolView,
-            toolRegistry = registry,
-            musicRepository = repo,
-            playbackPort = playback,
-            nowPlayingProvider = nowPlaying,
-            presenceBus = chatPresenceBus,
-            auditLog = chatAuditLog,
-            radioConfig = enrichConfig,  // 暂复用 enrichConfig（同端点），后续可独立
-            targetCount = 12,
-            stopSignal = radioStopSignal,
-        )
-        _subAgents["radio"] = radioAgent
-
-        // ⑤ 注册到 Scheduler（priority=2，比 Master 低、比 Enrich 高）
-        scheduler.registerAgent(
-            AgentRegistration(
+            // ① AgentContextBudget(64K)——电台决策比 Enrich 复杂但比 Master 对话轻
+            val effectiveRadioTransport = radioTransport
+            if (effectiveRadioTransport == null) {
+                Logger.e("Agent.Master") { "[Master] No LlmTransport for Radio — radioTransport not injected in MasterAgent ctor" }
+                return emptyList()
+            }
+            val contextBudget = AgentContextBudget(
                 agentId = "radio",
-                priority = AgentPriority.RADIO,
-                tokenUsagePerMin = 1_500L,
-                onPause = { radioStopSignal.onSchedulerPaused() },
-                onResume = { radioStopSignal.onSchedulerResumed() },
+                maxContextTokens = 64_000,
+                llmClient = effectiveRadioTransport,
             )
-        )
 
-        // ⑥ 启动 runLoop（后台协程）
-        scope.launch { radioAgent.runLoop() }
+            // ② 权限过滤视图：Radio 可碰所有工具（MASTER 级，因为电台是 Master 发起的）
+            val toolView = ToolRegistryView.radio(registry)
 
-        // ⑥-2 启动 Radio 事件监听协程（M6-T2 skip 感知 + M6-T3 DjBlank → 衔接语）
-        setupRadioEventListeners()
+            // ③ StopSignal——桥接 Scheduler pause/resume
+            val radioStopSignal = SchedulerStopSignal(tokenCounter)
 
-        // ⑦ 立即调 startRadio → 本地保底队列（同步返回给 ChatAgentGateway 渲染 songlist 卡）
-        val tracks = radioAgent.startRadio(seed)
-        Logger.i("Agent.Master") { "[Master] RadioSubAgent created + started (targetCount=12, tracks=${tracks.size})" }
-        return tracks
+            // ④ 实例化 RadioSubAgent
+            val radioAgent = com.hmp.domain.agent.sub.RadioSubAgent(
+                agentId = "radio",
+                contextBudget = contextBudget,
+                toolRegistryView = toolView,
+                toolRegistry = registry,
+                musicRepository = repo,
+                playbackPort = playback,
+                nowPlayingProvider = nowPlaying,
+                presenceBus = chatPresenceBus,
+                auditLog = chatAuditLog,
+                radioConfig = enrichConfig,  // 暂复用 enrichConfig（同端点），后续可独立
+                targetCount = 12,
+                stopSignal = radioStopSignal,
+            )
+            _subAgents["radio"] = radioAgent
+
+            // ⑤ 注册到 Scheduler（priority=2，比 Master 低、比 Enrich 高）
+            scheduler.registerAgent(
+                AgentRegistration(
+                    agentId = "radio",
+                    priority = AgentPriority.RADIO,
+                    tokenUsagePerMin = 1_500L,
+                    onPause = { radioStopSignal.onSchedulerPaused() },
+                    onResume = { radioStopSignal.onSchedulerResumed() },
+                )
+            )
+
+            // ⑥ 启动 runLoop（跟踪 Job）
+            radioRunLoopJob = scope.launch { radioAgent.runLoop() }
+
+            // ⑥-2 启动 Radio 事件监听协程（M6-T2 skip 感知 + M6-T3 DjBlank → 衔接语）
+            setupRadioEventListeners()
+
+            // ⑥-3 转发 RadioSubAgent.radioState → 固定的 _radioState（UI 层 remember 缓存这个固定实例）
+            radioStateForwarderJob?.cancel()
+            radioStateForwarderJob = scope.launch {
+                radioAgent.radioState.collect { _radioState.value = it }
+            }
+
+            // ⑦ 立即调 startRadio → 本地保底队列（同步返回给 ChatAgentGateway 渲染 songlist 卡）
+            val tracks = radioAgent.startRadio(seed, trigger, chatContext)
+            Logger.i("Agent.Master") { "[Master] RadioSubAgent created + started (targetCount=12, tracks=${tracks.size})" }
+            return tracks
+        }
     }
 
     /** Master 下令停电台 */
     suspend fun stopRadio() {
-        _subAgents["radio"]?.let { radio ->
-            (radio as? com.hmp.domain.agent.sub.RadioSubAgent)?.stopRadio()
-            radio.shutdown()
-            scheduler.unregisterAgent("radio")
-            _subAgents.remove("radio")
-            Logger.i("Agent.Master") { "[Master] Radio stopped" }
+        radioLifecycleMutex.withLock {
+            // ① 先 cancel listener 协程（防止电台已关但 skipEvents 还在累积 consecutiveSkipCount）
+            radioSkipListenerJob?.cancel()
+            radioSkipListenerJob = null
+            radioTrackChangeListenerJob?.cancel()
+            radioTrackChangeListenerJob = null
+            radioListenersStarted = false   // 重置守卫，下次 startRadio 会重新注册
+            consecutiveSkipCount = 0        // 重置 skip 计数
+            consecutiveSkipTitles.clear()
+            // ② 停 SubAgent
+            _subAgents["radio"]?.let { radio ->
+                (radio as? com.hmp.domain.agent.sub.RadioSubAgent)?.stopRadio()
+                radio.shutdown()
+                scheduler.unregisterAgent("radio")
+                _subAgents.remove("radio")
+                Logger.i("Agent.Master") { "[Master] Radio stopped" }
+            }
+            // ③ 停播放引擎（RadioSubAgent 已剥离播放控制，由 MasterAgent 统一处理）
+            playbackPort?.execute(com.hmp.domain.agent.port.PlaybackCommand.PAUSE, com.hmp.domain.agent.port.CommandSource.AGENT_INTERNAL)
+            playbackPort?.execute(com.hmp.domain.agent.port.PlaybackCommand.SKIP_ALL, com.hmp.domain.agent.port.CommandSource.AGENT_INTERNAL)
+            radioRunLoopJob?.cancel()
+            radioRunLoopJob = null
+            // ④ 停转发协程 + 清固定 _radioState（UI 层据此隐藏 RADIO_STATUS 卡）
+            radioStateForwarderJob?.cancel()
+            radioStateForwarderJob = null
+            _radioState.value = null
         }
+    }
+
+    /** Master 下令暂停电台：播放引擎 PAUSE → SubAgent 内部状态切 PAUSED（runLoop + playlist 保留） */
+    suspend fun pauseRadio() {
+        val radio = _subAgents["radio"] as? com.hmp.domain.agent.sub.RadioSubAgent ?: run {
+            Logger.w("Agent.Master") { "[Master] pauseRadio: no radio agent" }
+            return
+        }
+        // 先停播放引擎（RadioSubAgent 已剥离播放控制）
+        playbackPort?.execute(com.hmp.domain.agent.port.PlaybackCommand.PAUSE, com.hmp.domain.agent.port.CommandSource.AGENT_INTERNAL)
+        radio.pauseRadio()
+        Logger.i("Agent.Master") { "[Master] Radio paused" }
+    }
+
+    /** Master 下令恢复电台：先启播放引擎 → SubAgent 内部状态切 PLAYING */
+    suspend fun resumeRadio() {
+        val radio = _subAgents["radio"] as? com.hmp.domain.agent.sub.RadioSubAgent ?: run {
+            Logger.w("Agent.Master") { "[Master] resumeRadio: no radio agent" }
+            return
+        }
+        // 先启播放引擎（RadioSubAgent 已剥离播放控制）
+        playbackPort?.execute(com.hmp.domain.agent.port.PlaybackCommand.PLAY, com.hmp.domain.agent.port.CommandSource.AGENT_INTERNAL)
+        radio.resumeRadio()
+        Logger.i("Agent.Master") { "[Master] Radio resumed" }
     }
 
     // ===== Hello 门面副驾驶管理（W0 · F1：Master 唯一决策） =====
@@ -462,72 +597,86 @@ class MasterAgent(
      * H1 骨架：先跑非 LLM 版本（enableLlm=false）。H3 再补 LLM 生成。
      */
     suspend fun startHello(): HelloSubAgent? {
-        // ① 幂等守卫
-        _subAgents["hello"]?.let { existing ->
-            return (existing as? HelloSubAgent).also {
-                Logger.w("Agent.Master") { "[Master] Hello already active, skip create" }
+        return helloLifecycleMutex.withLock {
+            // 等待旧 runLoop 协程完全退出
+            helloRunLoopJob?.join()
+            helloRunLoopJob = null
+
+            // ① 幂等守卫：活跃实例 → 跳过
+            _subAgents["hello"]?.let { existing ->
+                val hello = existing as? HelloSubAgent
+                if (hello != null && hello.state() != com.hmp.domain.agent.runtime.AgentRunState.UNREGISTERED) {
+                    Logger.w("Agent.Master") { "[Master] Hello already active, skip create" }
+                    return@withLock hello
+                }
+                // 非活跃实例 → 先停再重建
+                stopHello()
             }
-        }
 
-        // ② 前置依赖 null check —— Hello 没有 Repository/播放上下文就跑不起来
-        val repo = musicRepository ?: run {
-            Logger.w("Agent.Master") { "[Master] musicRepository null, skip startHello" }
-            return null
-        }
+            // ② 前置依赖 null check —— Hello 没有 Repository/播放上下文就跑不起来
+            val repo = musicRepository ?: run {
+                Logger.w("Agent.Master") { "[Master] musicRepository null, skip startHello" }
+                return@withLock null
+            }
 
-        // ③ 构造 AgentContextBudget(128K) + ToolRegistryView.empty()
-        val helloTransport = enrichConfig?.let { chatTransport }
-        val toolView = ToolRegistryView.empty(chatToolRegistry)
-        val stopSignal = SchedulerStopSignal(tokenCounter)
-        val helloSystemPrompt = DefaultCompanionProfiles.DEFAULT.personaPrompt
+            // ③ 构造 AgentContextBudget(128K) + ToolRegistryView.empty()
+            // helloTransport 独立于 chatTransport（方案 B：每 Agent 一 Transport）
+            val toolView = ToolRegistryView.empty(chatToolRegistry)
+            val stopSignal = SchedulerStopSignal(tokenCounter)
+            val helloSystemPrompt = DefaultCompanionProfiles.DEFAULT.personaPrompt
 
-        // ④ 实例化 HelloSubAgent → _subAgents["hello"]
-        val enableLlm = chatTransport != null && enrichConfig?.isConfigured == true
-        val helloAgent = HelloSubAgent(
-            agentId = "hello",
-            contextBudget = AgentContextBudget(
+            // ④ 实例化 HelloSubAgent → _subAgents["hello"]
+            val enableLlm = helloTransport != null && enrichConfig?.isConfigured == true
+            val helloAgent = HelloSubAgent(
                 agentId = "hello",
-                maxContextTokens = 128_000,
-                llmClient = helloTransport,
-            ),
-            toolRegistryView = toolView,
-            cardCacheDao = helloCardCacheDao,
-            narrativeDao = helloReportNarrativeDao,
-            musicRepository = repo,
-            presenceBus = chatPresenceBus,
-            nowPlayingProvider = nowPlayingProvider,
-            stopSignal = stopSignal,
-            enrichConfig = enrichConfig,
-            enableLlm = enableLlm,
-            radioPlaylistProvider = { queryRadioPlaylist() },
-        )
-        _subAgents["hello"] = helloAgent
-
-        // ⑤ 注册 Scheduler（priority=HELLO=4，永不暂停）
-        scheduler.registerAgent(
-            AgentRegistration(
-                agentId = "hello",
-                priority = AgentPriority.HELLO,
-                tokenUsagePerMin = 500L,  // Hello token 消耗极低（每分钟 tick 不调 LLM）
-                onPause = { stopSignal.onSchedulerPaused() },
-                onResume = { stopSignal.onSchedulerResumed() },
+                contextBudget = AgentContextBudget(
+                    agentId = "hello",
+                    maxContextTokens = 128_000,
+                    llmClient = helloTransport,
+                ),
+                toolRegistryView = toolView,
+                cardCacheDao = helloCardCacheDao,
+                narrativeDao = helloReportNarrativeDao,
+                musicRepository = repo,
+                presenceBus = chatPresenceBus,
+                nowPlayingProvider = nowPlayingProvider,
+                stopSignal = stopSignal,
+                enrichConfig = enrichConfig,
+                enableLlm = enableLlm,
+                radioPlaylistProvider = { queryRadioPlaylist() },
             )
-        )
+            _subAgents["hello"] = helloAgent
 
-        // ⑥ 启动 runLoop
-        scope.launch { helloAgent.runLoop() }
+            // ⑤ 注册 Scheduler（priority=HELLO=4，永不暂停）
+            scheduler.registerAgent(
+                AgentRegistration(
+                    agentId = "hello",
+                    priority = AgentPriority.HELLO,
+                    tokenUsagePerMin = 500L,  // Hello token 消耗极低（每分钟 tick 不调 LLM）
+                    onPause = { stopSignal.onSchedulerPaused() },
+                    onResume = { stopSignal.onSchedulerResumed() },
+                )
+            )
 
-        Logger.i("Agent.Master") { "[Master] HelloSubAgent created (llm=${helloTransport != null})" }
-        return helloAgent
+            // ⑥ 启动 runLoop（跟踪 Job）
+            helloRunLoopJob = scope.launch { helloAgent.runLoop() }
+
+            Logger.i("Agent.Master") { "[Master] HelloSubAgent created (llm=${helloTransport != null})" }
+            return helloAgent
+        }
     }
 
     /** Master 下令销毁 Hello */
     suspend fun stopHello() {
-        _subAgents["hello"]?.let { hello ->
-            hello.shutdown()
-            scheduler.unregisterAgent("hello")
-            _subAgents.remove("hello")
-            Logger.i("Agent.Master") { "[Master] Hello stopped" }
+        helloLifecycleMutex.withLock {
+            _subAgents["hello"]?.let { hello ->
+                hello.shutdown()
+                scheduler.unregisterAgent("hello")
+                _subAgents.remove("hello")
+                Logger.i("Agent.Master") { "[Master] Hello stopped" }
+            }
+            helloRunLoopJob?.cancel()
+            helloRunLoopJob = null
         }
     }
 
@@ -572,10 +721,12 @@ class MasterAgent(
         val port = playbackPort
         val presence = chatPresenceBus
         if (port != null && presence != null) {
-            scope.launch {
+            radioSkipListenerJob = scope.launch {
                 Logger.i("Agent.Master") { "[Master] skipEvents listener started" }
-                port.skipEvents.collectLatest { skippedTitle ->
+                port.skipEvents.collect { skippedTitle ->   // collect（不用 collectLatest，跳过事件不能丢）
                     consecutiveSkipCount++
+                    consecutiveSkipTitles.add(skippedTitle)
+                    if (consecutiveSkipTitles.size > 5) consecutiveSkipTitles.removeAt(0)  // 只保留最近 5 个
                     Logger.i("Agent.Master") { "[Master] skip detected: '$skippedTitle' consecutive=$consecutiveSkipCount" }
 
                     // 通知 PresenceBus
@@ -585,10 +736,12 @@ class MasterAgent(
                         // 连跳 2+ 首 → 重排
                         Logger.i("Agent.Master") { "[Master] consecutive skip threshold reached (≥2) → reorder" }
                         chatAuditLog?.logSkipReorder(consecutiveSkipCount, skippedTitle)
-                        consecutiveSkipCount = 0  // 重置，重排完成后再累积
+                        val titlesSnapshot = consecutiveSkipTitles.toList()
+                        consecutiveSkipCount = 0  // 重置
+                        consecutiveSkipTitles.clear()
                         val radio = _subAgents["radio"] as? RadioSubAgent
                         if (radio != null) {
-                            runCatching { radio.reorder(emptyList()) }
+                            runCatching { radio.reorder(titlesSnapshot) }
                                 .onFailure { e -> Logger.e("Agent.Master", e) { "reorder failed" } }
                         }
                     }
@@ -596,14 +749,17 @@ class MasterAgent(
             }
         }
 
-        // ── M6-T3：DjBlank 事件监听 → LLM 生成衔接语 / 门面问候轮换 ──
+        // ── M6-T3：DjBlank 事件监听 + 累计播放进度（续歌逻辑依赖） ──
         if (port != null && presence != null) {
-            scope.launch {
+            radioTrackChangeListenerJob = scope.launch {
                 Logger.i("Agent.Master") { "[Master] DjBlank listener started (trackChangeEvents)" }
                 port.trackChangeEvents.collectLatest { newTitle ->
                     Logger.i("Agent.Master") { "[Master] trackChange → emit DjBlank for \"$newTitle\"" }
                     presence.emit(PresenceEvent.DjBlank)
                     handleDjBlank()
+                    // 通知 RadioSubAgent 累计播放计数（续歌逻辑用 playedCount >= threshold 判断）
+                    val radio = _subAgents["radio"] as? RadioSubAgent
+                    radio?.onTrackPlayed(newTitle)
                 }
             }
         }
@@ -675,26 +831,21 @@ class MasterAgent(
     fun queryRadioStationTheme(): String? =
         (_subAgents["radio"] as? com.hmp.domain.agent.sub.RadioSubAgent)?.stationTheme
 
+    /** 电台短时消息流——emit 后 4s 自动消失，UI 层 collect 后直接渲染在 RADIO_STATUS 卡右侧 */
+    fun radioMessageFlow(): kotlinx.coroutines.flow.StateFlow<com.hmp.domain.agent.sub.RadioMessage?> =
+        (_subAgents["radio"] as? com.hmp.domain.agent.sub.RadioSubAgent)?.messageFlow
+            ?: kotlinx.coroutines.flow.MutableStateFlow(null)
+
     /** 获取 HelloSubAgent 实例（UI 层用于 collect cards StateFlow） */
     fun helloAgent(): HelloSubAgent? = _subAgents["hello"] as? HelloSubAgent
+
+    /** Enrich 进度 StateFlow（UI 层 EnrichTracking 卡用）。无 Enrich 时返回 null。 */
+    fun enrichProgressState(): kotlinx.coroutines.flow.StateFlow<com.hmp.domain.agent.sub.EnrichSubAgent.EnrichProgress>? =
+        (_subAgents["enrich"] as? com.hmp.domain.agent.sub.EnrichSubAgent)?.progressState
 
     /** UI 层轮询播放快照（ANCHOR 卡直接读）*/
     suspend fun queryNowPlayingContext(): com.hmp.domain.agent.port.NowPlayingContext? =
         nowPlayingProvider?.runCatching { getNowPlaying() }?.getOrNull()
-
-    /**
-     * 电台运行态 StateFlow（UI 层直接观察）。
-     *
-     * radio sub-agent 未初始化时返回永远为 null 的 StateFlow；
-     * PLAYING/BUILDING/IDLE 实时反映 RadioSubAgent 内部状态。
-     * 不直接暴露 RadioSubAgent.radioState 以免 UI 层耦合到 SubAgent 实现细节。
-     */
-    val radioState: StateFlow<com.hmp.domain.agent.sub.RadioState?>
-        get() {
-            val radio = _subAgents["radio"] as? RadioSubAgent
-            return radio?.radioState
-                ?: MutableStateFlow(null)
-        }
 
     /** Hello 当前卡片列表快照（同步返回，测试/日志用） */
     fun queryHelloCards(): List<com.hmp.domain.agent.sub.SlideCard>? =
@@ -816,7 +967,8 @@ class MasterAgent(
         // ── 电台启动 ──
         if (isRadioIntent(lower)) {
             val seed = extractSeed(input)
-            val tracks = runCatching { startRadio(seed) }
+            val trigger = RadioTrigger.fromChatInput(input)
+            val tracks = runCatching { startRadio(seed, trigger) }
                 .onFailure { Logger.e("Agent.Master", it) { "[Master] builtin: startRadio failed" } }
                 .getOrNull()
             val summary = if (tracks != null && tracks.isNotEmpty()) {

@@ -63,8 +63,10 @@ fun RadioCard(
 
     // ✅ 主路径：直接 collect MasterAgent 暴露的 radioState StateFlow
     val radioState by masterAgent.radioState.collectAsState()
-    val isActive = radioState is RadioState.PLAYING || radioState is RadioState.BUILDING
+    val isPlaying = radioState is RadioState.PLAYING
+    val isPaused = radioState is RadioState.PAUSED
     val isBuilding = radioState is RadioState.BUILDING
+    val isActive = isPlaying || isPaused || isBuilding  // 任何非 IDLE 都高亮
 
     // 丰富信息（可选）：从 HelloSubAgent.cards 拿 RADIO_STATUS 卡的门面内容
     val helloAgent = masterAgent.helloAgent()
@@ -80,7 +82,12 @@ fun RadioCard(
             .clickable {
                 haptic.performClick()
                 scope.launch {
-                    if (isActive) masterAgent.stopRadio() else masterAgent.startRadio()
+                    when {
+                        isPlaying -> masterAgent.pauseRadio()
+                        isPaused -> masterAgent.resumeRadio()
+                        isBuilding -> masterAgent.stopRadio()  // 启动中 → 点击取消
+                        else -> masterAgent.startRadio()  // IDLE
+                    }
                 }
             },
         shape = RoundedCornerShape(20.dp),
@@ -123,7 +130,8 @@ fun RadioCard(
                     Text(
                         text = when {
                             isBuilding -> "📻 电台启动中..."
-                            isActive -> "📻 电台运行中"
+                            isPlaying -> "📻 电台运行中"
+                            isPaused -> "📻 电台已暂停"
                             else -> "📻 电台"
                         },
                         style = MaterialTheme.typography.titleMedium,

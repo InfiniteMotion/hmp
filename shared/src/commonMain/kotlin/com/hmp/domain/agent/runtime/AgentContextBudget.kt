@@ -34,6 +34,10 @@ class AgentContextBudget(
     private val estimatedHistory = mutableListOf<LlmMessage>()
     private var estimatedTokenCount: Int = 0
 
+    // 说明：不同 Agent 之间的 LLM 调用是并发的（Enrich 跑的时候 Radio 也可以生成推荐），
+    // 只防止**同一个 Agent 多实例并发**（由 MasterAgent 层的 lifecycleMutex + Job join 保证）。
+    // rate limit 是 per-key per-minute 的，Agent 间并发不会打爆；多实例才会光速重试耗尽配额。
+
     /** 当前估算上下文 token 数 */
     fun currentEstimatedTokens(): Int = estimatedTokenCount
 
@@ -105,6 +109,7 @@ class AgentContextBudget(
         val flow = callLlm(config, systemPrompt, newMessages, tools, temperature)
         val textBuffer = StringBuilder()
         var failedMessage: String? = null
+        // 不串行化：不同 Agent 之间并发调用 LLM，只靠 MasterAgent 层的单实例保护防多实例
         flow.collect { event ->
             when (event) {
                 is LlmEvent.TextDelta -> textBuffer.append(event.text)

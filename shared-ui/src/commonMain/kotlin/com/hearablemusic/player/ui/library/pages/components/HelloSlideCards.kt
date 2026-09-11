@@ -18,12 +18,14 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.VerticalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -51,10 +53,14 @@ import com.hearablemusic.player.ui.generated.resources.Res
 import com.hearablemusic.player.ui.generated.resources.none
 import com.hearablemusic.player.ui.generated.resources.unknown
 import com.hearablemusic.player.ui.platform.PlaybackController
+import com.hmp.data.database.currentTimeMillis
+import com.hmp.domain.agent.runtime.AgentRunState
 import com.hmp.domain.agent.sub.AnchorContent
 import com.hmp.domain.agent.sub.AnniversaryContent
 import com.hmp.domain.agent.sub.AnniversarySubtype
 import com.hmp.domain.agent.sub.DiscoverContent
+import com.hmp.domain.agent.sub.EnrichSubAgent
+import com.hmp.domain.agent.sub.EnrichTrackingContent
 import com.hmp.domain.agent.sub.ForgottenContent
 import com.hmp.domain.agent.sub.GreetingContent
 import com.hmp.domain.agent.sub.RadioStatusContent
@@ -62,7 +68,6 @@ import com.hmp.domain.agent.sub.RecommendContent
 import com.hmp.domain.agent.sub.SlideCard
 import com.hmp.domain.agent.sub.SlideType
 import com.hmp.domain.agent.sub.TimePhase
-import com.hmp.domain.agent.sub.zhName
 import com.hmp.domain.lyrics.LrcParser
 import com.hmp.domain.lyrics.findCurrentLyricIndex
 import com.hmp.domain.music.MusicRepository
@@ -93,41 +98,68 @@ fun HelloSlideCardStack(
         masterAgent?.helloAgent()?.cards ?: emptyFlow
     }.collectAsState()
 
-    // ② ANCHOR — UI 层独立 poll 播放引擎（每秒一次，比 agent 分钟级快 60 倍）
+    // ② ANCHOR — 监听 PlaybackController StateFlow（切歌/暂停/进度变化自动触发重建）
     var anchorCard by remember { mutableStateOf<SlideCard?>(null) }
     var lastSongKey by remember { mutableStateOf("") }
     var lastPlaying by remember { mutableStateOf(false) }
-    LaunchedEffect(masterAgent) {
-        while (isActive) {
-            val ctx = masterAgent?.queryNowPlayingContext()
-            val newCard = buildAnchorCardFromContext(ctx)
-            val ac = newCard.content as? AnchorContent
-            val songKey = "${ac?.trackTitle}|${ac?.artistName}"
-            val isPlaying = ac?.isPlaying == true
-            // 聚焦触发：切歌 或 暂停→播放 转换
-            val shouldFocus = (songKey != lastSongKey && lastSongKey.isNotEmpty()) ||
-                (!lastPlaying && isPlaying && lastSongKey.isNotEmpty())
-            anchorCard = if (shouldFocus) {
-                newCard.copy(focusedAt = System.currentTimeMillis())
-            } else {
-                newCard
-            }
-            lastSongKey = songKey
-            lastPlaying = isPlaying
-            delay(1000L)
-        }
+    val pbCtrl = koinInject<PlaybackController>()
+    val currentMusic by pbCtrl.currentPlayingMusic.collectAsState()
+    val isPlayingNow by pbCtrl.isPlaying.collectAsState()
+    val positionMs by pbCtrl.currentPosition.collectAsState()
+    val durationMs by pbCtrl.duration.collectAsState()
+    LaunchedEffect(currentMusic, isPlayingNow, positionMs, durationMs) {
+        val newCard = buildAnchorCardFromContext(
+            com.hmp.domain.agent.port.NowPlayingContext(
+                currentMusicId = currentMusic?.music?.id,
+                currentMusicInfo = currentMusic,
+                isPlaying = isPlayingNow,
+                currentPositionMs = positionMs,
+                durationMs = durationMs,
+            )
+        )
+        val ac = newCard.content as? AnchorContent
+        val songKey = "${ac?.trackTitle}|${ac?.artistName}"
+        val shouldFocus = (songKey != lastSongKey && lastSongKey.isNotEmpty()) ||
+            (!lastPlaying && isPlayingNow && lastSongKey.isNotEmpty())
+        anchorCard = if (shouldFocus) newCard.copy(focusedAt = currentTimeMillis()) else newCard
+        lastSongKey = songKey
+        lastPlaying = isPlayingNow
     }
 
     // ③ RADIO_STATUS — 订阅 radioState StateFlow + 同步 queryPlaylist
     val radioState by remember(masterAgent) {
-        masterAgent?.radioState ?: kotlinx.coroutines.flow.MutableStateFlow<com.hmp.domain.agent.sub.RadioState?>(null)
+        masterAgent?.radioState ?: MutableStateFlow<com.hmp.domain.agent.sub.RadioState?>(null)
     }.collectAsState()
     var radioStatusCard by remember { mutableStateOf<SlideCard?>(null) }
     val radioActive = radioState !is com.hmp.domain.agent.sub.RadioState.IDLE && radioState != null
 
-    // state 变化 → 重建卡片；permanentLock（电台激活）直接从 radioActive 计算，
-    // 传给 RotatingPersistentCards 控制轮播，不再需要每秒续 focusedAt
-    LaunchedEffect(radioState) {
+    // ④ ENRICH_TRACKING — 订阅 Enrich 进度 StateFlow（活跃时显示，完成后隐藏）
+    val enrichProgressState = remember(masterAgent) {
+        masterAgent?.enrichProgressState()
+    }
+    val enrichProgress by enrichProgressState?.collectAsState()
+        ?: remember { mutableStateOf(EnrichSubAgent.EnrichProgress(0, 0, 0, 0, AgentRunState.UNREGISTERED, null, 0, 0, "idle")) }
+    val enrichTrackingCard = if (enrichProgress.state != AgentRunState.UNREGISTERED) {
+        SlideCard(
+            cardId = "enrich_tracking",
+            type = SlideType.ENRICH_TRACKING,
+            content = EnrichTrackingContent(
+                state = enrichProgress.state.name,
+                processed = enrichProgress.processed,
+                success = enrichProgress.success,
+                failed = enrichProgress.failed,
+                currentUnitSize = enrichProgress.currentUnitSize,
+                active = enrichProgress.state == AgentRunState.RUNNING,
+                currentArtist = enrichProgress.currentArtist,
+                chunkIndex = enrichProgress.chunkIndex,
+                chunkTotal = enrichProgress.chunkTotal,
+                phase = enrichProgress.phase,
+            ),
+        )
+    } else null
+
+    // RADIO_STATUS 重建：radioState 变化 + 切歌时 currentPlayingMusic emit 新值（复用 ANCHOR 的 pbCtrl）
+    LaunchedEffect(radioState, currentMusic) {
         radioStatusCard = buildRadioStatusCard(masterAgent, radioState)
     }
     val cardList = buildList {
@@ -135,16 +167,18 @@ fun HelloSlideCardStack(
         addAll(
             agentCards.filter {
                 it.visible && it.type != SlideType.ANCHOR && it.type != SlideType.RADIO_STATUS &&
+                    it.type != SlideType.ENRICH_TRACKING &&
                     // DISCOVER trackIds 为空时跳过
                     !(it.type == SlideType.DISCOVER && (it.content as? DiscoverContent)?.trackIds?.isEmpty() == true)
             }
         )
         radioStatusCard?.let { add(it) }
+        enrichTrackingCard?.let { add(it) }
     }
 
     Box(modifier = modifier) {
         RotatingPersistentCards(
-            cards = if (cardList.isEmpty()) listOf(HelloFallbackCard()) else cardList,
+            cards = cardList.ifEmpty { listOf(helloFallBackCard()) },
             permanentLock = radioActive,
             modifier = Modifier.fillMaxSize(),
             onCardClick = onCardClick,
@@ -204,39 +238,50 @@ private suspend fun buildRadioStatusCard(
     return when (rs) {
         com.hmp.domain.agent.sub.RadioState.IDLE -> null
 
-        is com.hmp.domain.agent.sub.RadioState.BUILDING -> SlideCard(
-            cardId = "radio_status",
-            type = SlideType.RADIO_STATUS,
-            content = RadioStatusContent(
-                stationTheme = stationTheme,
-                actionText = rs.actionText,
-                nowPlayingTitle = null,
-                nowPlayingArtist = null,
-                nextTrackTitle = null,
-                nextTrackWhy = null,
-                playlistCount = null,
-                progressPercent = rs.progressPercent,
-                targetCount = rs.targetCount,
-            ),
-        )
+        is com.hmp.domain.agent.sub.RadioState.BUILDING -> {
+            // BUILDING 极短——本地 fallback 已经构建好并推入播放引擎，能拿到 nowPlaying 封面
+            val playlist = masterAgent?.queryRadioPlaylist() ?: emptyList()
+            val nowPlaying = runCatching { masterAgent?.queryNowPlayingContext() }.getOrNull()
+            val first = playlist.firstOrNull()
+            SlideCard(
+                cardId = "radio_status",
+                type = SlideType.RADIO_STATUS,
+                content = RadioStatusContent(
+                    stationTheme = stationTheme,
+                    actionText = rs.actionText,
+                    nowPlayingTitle = nowPlaying?.currentMusicInfo?.music?.title ?: first?.title,
+                    nowPlayingArtist = nowPlaying?.currentMusicInfo?.music?.artist ?: first?.artist,
+                    albumArtUri = nowPlaying?.currentMusicInfo?.music?.albumArtUri,
+                    nowPlayingWhy = null,
+                    nextTrackTitle = playlist.getOrNull(1)?.title,
+                    nextTrackWhy = null,
+                    playlistCount = playlist.size,
+                    progressPercent = rs.progressPercent,
+                    targetCount = rs.targetCount,
+                ),
+            )
+        }
 
         is com.hmp.domain.agent.sub.RadioState.PLAYING -> {
             val playlist = masterAgent?.queryRadioPlaylist() ?: emptyList()
             val nowPlaying = runCatching { masterAgent?.queryNowPlayingContext() }.getOrNull()
             val currentId = nowPlaying?.currentMusicId
-            val firstOrNull = playlist.firstOrNull()
 
             // 找出 playlist 里哪首正在播（按 musicId 匹配）
             val nowPlayingTrack = playlist.find { it.musicId == currentId }
             val currentTitle = nowPlaying?.currentMusicInfo?.music?.title
                 ?: nowPlayingTrack?.title
             val currentArtist = nowPlaying?.currentMusicInfo?.music?.artist
-            // 下一首 = 当前播放曲目的下一首；找不到就取 playlist.first
+                ?: nowPlayingTrack?.artist
+            val albumArtUri = nowPlaying?.currentMusicInfo?.music?.albumArtUri
+            val currentWhy = nowPlayingTrack?.why?.takeIf { it.isNotBlank() && !it.startsWith("标签匹配") }
+
+            // 下一首 = 当前播放曲目下一首；找不到就取 playlist.first
             val currentIdx = nowPlayingTrack?.let { playlist.indexOf(it) }
             val nextTrack = if (currentIdx != null && currentIdx >= 0 && currentIdx + 1 < playlist.size) {
                 playlist[currentIdx + 1]
             } else {
-                firstOrNull
+                playlist.getOrNull(0)
             }
 
             SlideCard(
@@ -247,6 +292,39 @@ private suspend fun buildRadioStatusCard(
                     actionText = "播放中",
                     nowPlayingTitle = currentTitle,
                     nowPlayingArtist = currentArtist,
+                    albumArtUri = albumArtUri,
+                    nowPlayingWhy = currentWhy,
+                    nextTrackTitle = nextTrack?.title,
+                    nextTrackWhy = nextTrack?.why?.takeIf { it.isNotBlank() && !it.startsWith("标签匹配") },
+                    playlistCount = playlist.size,
+                    progressPercent = null,
+                    targetCount = null,
+                ),
+            )
+        }
+
+        is com.hmp.domain.agent.sub.RadioState.PAUSED -> {
+            // PAUSED：复用 PLAYING 分支结构，封面/标题/why 保留（用户知道自己停了什么）
+            val playlist = masterAgent?.queryRadioPlaylist() ?: emptyList()
+            val nowPlaying = runCatching { masterAgent?.queryNowPlayingContext() }.getOrNull()
+            val currentId = nowPlaying?.currentMusicId
+            val nowPlayingTrack = playlist.find { it.musicId == currentId }
+            val nextTrack = nowPlayingTrack?.let { playlist.indexOf(it) }?.let { idx ->
+                playlist.getOrNull(idx + 1) ?: playlist.firstOrNull()
+            } ?: playlist.firstOrNull()
+
+            SlideCard(
+                cardId = "radio_status",
+                type = SlideType.RADIO_STATUS,
+                content = RadioStatusContent(
+                    stationTheme = stationTheme,
+                    actionText = "已暂停",
+                    nowPlayingTitle = nowPlaying?.currentMusicInfo?.music?.title
+                        ?: nowPlayingTrack?.title,
+                    nowPlayingArtist = nowPlaying?.currentMusicInfo?.music?.artist
+                        ?: nowPlayingTrack?.artist,
+                    albumArtUri = nowPlaying?.currentMusicInfo?.music?.albumArtUri,
+                    nowPlayingWhy = nowPlayingTrack?.why?.takeIf { it.isNotBlank() && !it.startsWith("标签匹配") },
                     nextTrackTitle = nextTrack?.title,
                     nextTrackWhy = nextTrack?.why?.takeIf { it.isNotBlank() && !it.startsWith("标签匹配") },
                     playlistCount = playlist.size,
@@ -281,7 +359,7 @@ private fun RotatingPersistentCards(
     cardsState = cards
 
     // —— while 循环内部状态（Composable 层不用读，只在协程内读写）——
-    var lastAutoRotateAt by remember { mutableStateOf(System.currentTimeMillis()) }
+    var lastAutoRotateAt by remember { mutableStateOf(currentTimeMillis()) }
     var userLockUntil by remember { mutableStateOf(0L) }
     var lastFocusHandled by remember { mutableStateOf(0L) }
     var lastSeenSize by remember { mutableStateOf(0) }
@@ -292,7 +370,7 @@ private fun RotatingPersistentCards(
         launch { snapshotFlow { cardsState }.collect { cardsSnapshot = it } }
 
         while (isActive) {
-            val now = System.currentTimeMillis()
+            val now = currentTimeMillis()
             val size = cardsSnapshot.size
 
             // 卡数量变化 → 重置轮播计时（避免旧值导致立即翻页或跳过）
@@ -315,7 +393,7 @@ private fun RotatingPersistentCards(
             }
 
             // ② 临时锁到期自动解除（用户锁或聚焦锁过期）
-            if (userLockUntil > 0 && now > userLockUntil) {
+            if (userLockUntil in 1..<now) {
                 userLockUntil = 0L
             }
 
@@ -431,6 +509,7 @@ private fun FamilyDispatch(
         is DiscoverContent -> FamilyDiscoverCard(card, modifier, onCardClick, onLongClick)
         is RadioStatusContent -> FamilyRadioStatusCard(card, modifier, onCardClick, onLongClick)
         is GreetingContent -> FamilyGreetingCard(card, modifier, onCardClick, onLongClick)
+        is EnrichTrackingContent -> FamilyEnrichTrackingCard(card, modifier, onCardClick, onLongClick)
     }
 }
 
@@ -480,11 +559,11 @@ private fun FamilyAnchorCard(
     val clickMod = when {
         onLongClick != null -> modifier.pointerInput(card.cardId) {
             detectTapGestures(
-                onLongPress = { onLongClick?.invoke(card) },
+                onLongPress = { onLongClick.invoke(card) },
                 onTap = { /* 短按留给 Pager 手势 */ },
             )
         }
-        onCardClick != null -> modifier.clickable { onCardClick?.invoke(card) }
+        onCardClick != null -> modifier.clickable { onCardClick.invoke(card) }
         else -> modifier
     }
 
@@ -565,7 +644,7 @@ private fun FamilyAnchorCard(
                     if (c.durationSec > 0) {
                         Column {
                             LinearProgressIndicator(
-                                progress = { c.progressPercent!! / 100f },
+                                progress = { c.progressPercent / 100f },
                                 modifier = Modifier.fillMaxWidth().height(3.dp),
                                 color = Color.White.copy(alpha = 0.8f),
                                 trackColor = Color.White.copy(alpha = 0.15f),
@@ -610,20 +689,20 @@ private data class AnniversaryVisual(
 private fun AnniversaryContent.resolveVisual(): AnniversaryVisual = when (subtype) {
     AnniversarySubtype.FIRST_PLAY -> AnniversaryVisual(
         themeColor = Color(0xFFFFA000),
-        label = "${yearsAgo} 年前的今天",
+        label = "$yearsAgo 年前的今天",
         badgeMain = (yearsAgo ?: 1).toString(),
         badgeSub = "年前",
         footerParts = buildList {
             // 只取日期部分，"N 年前" 已由 label + 徽章表达
             specificDate?.substringBefore("·")?.trim()?.let { add(it) }
-            if ((thatDayPlays ?: 0) > 0) add("那天听了 ${thatDayPlays} 遍")
+            if ((thatDayPlays ?: 0) > 0) add("那天听了 $thatDayPlays 遍")
             add("累计 $totalPlays 次")
             totalListenHours?.let { if (it > 0) add("${it}h") }
         },
     )
     AnniversarySubtype.PLAYLIST_CREATE -> AnniversaryVisual(
         themeColor = Color(0xFFAB47BC),
-        label = "${yearsAgo} 年前建的歌单",
+        label = "$yearsAgo 年前建的歌单",
         badgeMain = "歌单",
         badgeSub = null,
         footerParts = buildList {
@@ -668,11 +747,11 @@ private fun FamilyAnniversaryCard(
     val clickMod = when {
         onLongClick != null -> modifier.pointerInput(card.cardId) {
             detectTapGestures(
-                onLongPress = { onLongClick?.invoke(card) },
+                onLongPress = { onLongClick.invoke(card) },
                 onTap = { /* 短按留给 Pager 手势 */ },
             )
         }
-        onCardClick != null -> modifier.clickable { onCardClick?.invoke(card) }
+        onCardClick != null -> modifier.clickable { onCardClick.invoke(card) }
         else -> modifier
     }
 
@@ -856,11 +935,11 @@ private fun FamilySingleTrackCard(
     val clickMod = when {
         onLongClick != null -> modifier.pointerInput(card.cardId) {
             detectTapGestures(
-                onLongPress = { onLongClick?.invoke(card) },
+                onLongPress = { onLongClick.invoke(card) },
                 onTap = { /* 短按留给 Pager 手势 */ },
             )
         }
-        onCardClick != null -> modifier.clickable { onCardClick?.invoke(card) }
+        onCardClick != null -> modifier.clickable { onCardClick.invoke(card) }
         else -> modifier
     }
 
@@ -1083,19 +1162,19 @@ private fun FamilyDiscoverCard(
     val clickMod = when {
         onLongClick != null -> modifier.pointerInput(card.cardId) {
             detectTapGestures(
-                onLongPress = { onLongClick?.invoke(card) },
+                onLongPress = { onLongClick.invoke(card) },
                 onTap = { /* 短按留给 Pager 手势 */ },
             )
         }
-        onCardClick != null -> modifier.clickable { onCardClick?.invoke(card) }
+        onCardClick != null -> modifier.clickable { onCardClick.invoke(card) }
         else -> modifier
     }
 
     // Agent 预取字段为空（旧 Room 缓存兼容）→ UI 层异步补全 title/artist/albumArt
     val repo: MusicRepository = koinInject()
     val albumUris = remember(c.trackIds) { mutableStateOf<List<String?>>(List(c.trackIds.size) { null }) }
-    val liveTitles = remember(c.trackIds) { mutableStateOf<List<String>>(c.trackIds.map { "" }) }
-    val liveArtists = remember(c.trackIds) { mutableStateOf<List<String>>(c.trackIds.map { "" }) }
+    val liveTitles = remember(c.trackIds) { mutableStateOf(c.trackIds.map { "" }) }
+    val liveArtists = remember(c.trackIds) { mutableStateOf(c.trackIds.map { "" }) }
     LaunchedEffect(c.trackIds) {
         runCatching { repo.getMusicInfoByIds(c.trackIds) }
             .onSuccess { infos ->
@@ -1144,7 +1223,7 @@ private fun FamilyDiscoverCard(
                 )
 
                 // ③ 曲目预览列表（最多 3 首，紧凑布局）
-                c.trackIds.take(3).forEachIndexed { idx, trackId ->
+                c.trackIds.take(3).forEachIndexed { idx, _ ->
                     val uri = albumUris.value.getOrNull(idx)
                     val title = (c.trackTitles.getOrNull(idx).orEmpty().ifBlank { liveTitles.value.getOrNull(idx).orEmpty() }).ifBlank { "未知曲目" }
                     val artist = (c.trackArtists.getOrNull(idx).orEmpty().ifBlank { liveArtists.value.getOrNull(idx).orEmpty() }).ifBlank { "未知艺术家" }
@@ -1221,7 +1300,7 @@ private fun FamilyDiscoverCard(
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// 家族 D：RADIO_STATUS —— 电台运行态
+// 家族 D：RADIO_STATUS —— 电台运行态（左 ANCHOR + 右 Radio 状态）
 // ═══════════════════════════════════════════════════════════════════
 
 @Composable
@@ -1235,13 +1314,32 @@ private fun FamilyRadioStatusCard(
     val clickMod = when {
         onLongClick != null -> modifier.pointerInput(card.cardId) {
             detectTapGestures(
-                onLongPress = { onLongClick?.invoke(card) },
+                onLongPress = { onLongClick.invoke(card) },
                 onTap = { /* 短按留给 Pager 手势 */ },
             )
         }
-        onCardClick != null -> modifier.clickable { onCardClick?.invoke(card) }
+        onCardClick != null -> modifier.clickable { onCardClick.invoke(card) }
         else -> modifier
     }
+
+    // 短时消息（4s 自动消失，RadioSubAgent 内部管理生命周期）
+    val masterAgent = koinInject<com.hmp.domain.agent.runtime.MasterAgent>()
+    val radioMessage by masterAgent.radioMessageFlow().collectAsState()
+
+    // 取当前播放封面主色做背景渐变（跟 FamilyAnchorCard 一致，切歌时平滑过渡）
+    val themeVM: com.hearablemusic.player.ui.common.viewmodel.ThemeViewModel =
+        org.koin.compose.viewmodel.koinViewModel()
+    val palette by themeVM.paletteColors.collectAsState()
+    val defaultPrimary = Color(0xFF3D5AFE)
+    val defaultBg = Color(0xFF1A237E)
+    val primaryAnimated by androidx.compose.animation.animateColorAsState(
+        targetValue = if (palette.background != defaultBg) palette.primary else defaultPrimary,
+        label = "radio-primary",
+    )
+    val bgAnimated by androidx.compose.animation.animateColorAsState(
+        targetValue = if (palette.background != defaultBg) palette.background else defaultBg,
+        label = "radio-bg",
+    )
 
     Card(
         modifier = clickMod.clip(RoundedCornerShape(25.dp)),
@@ -1253,97 +1351,175 @@ private fun FamilyRadioStatusCard(
                 .fillMaxSize()
                 .background(
                     brush = Brush.linearGradient(
-                        colors = listOf(Color(0xFF00C853).copy(alpha = 0.95f), Color(0xFF00695C).copy(alpha = 0.90f))
+                        colors = listOf(
+                            primaryAnimated.copy(alpha = 0.95f),
+                            bgAnimated.copy(alpha = 0.90f)
+                        )
                     )
                 )
                 .padding(horizontal = 20.dp, vertical = 18.dp),
-            contentAlignment = Alignment.Center,
         ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                // —— 电台标题：🎵 主题 · 状态 ——
-                val titleMain = c.stationTheme?.let { "🎵 ${it}电台" } ?: "🎵 电台"
+            Column(modifier = Modifier.fillMaxSize()) {
+                // —— 顶部主题栏（横跨全宽）——
+                val titleMain = c.stationTheme?.let { "${it}电台" } ?: "电台"
                 Text(
-                    text = if (c.actionText == "播放中") "$titleMain · 播放中" else titleMain,
+                    text = "$titleMain · ${c.actionText}",
                     color = Color.White,
                     fontSize = 15.sp,
                     fontWeight = FontWeight.SemiBold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
+                Spacer(Modifier.height(12.dp))
 
-                Spacer(Modifier.height(14.dp))
-
-                if (c.progressPercent != null) {
-                    // —— BUILDING：加载态 ——
-                    LinearProgressIndicator(
-                        progress = { c.progressPercent!! / 100f },
-                        modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)),
-                        color = Color.White.copy(alpha = 0.9f),
-                        trackColor = Color.White.copy(alpha = 0.15f),
-                    )
-                    Text(
-                        text = c.actionText,
-                        color = Color.White.copy(alpha = 0.75f),
-                        fontSize = 12.sp,
-                        modifier = Modifier.padding(top = 8.dp),
-                    )
-                } else {
-                    // —— PLAYING：核心态 ——
-                    // 正在播
-                    c.nowPlayingTitle?.let { title ->
-                        Text(
-                            text = "正在播",
-                            color = Color.White.copy(alpha = 0.6f),
-                            fontSize = 11.sp,
-                        )
-                        Text(
-                            text = buildString {
-                                append(title)
-                                c.nowPlayingArtist?.takeIf { it.isNotBlank() }?.let { append(" — $it") }
-                            },
-                            color = Color.White,
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.Medium,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
+                // —— 始终左右分栏（BUILDING/PLAYING/PAUSED 统一结构）——
+                Row(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    // ══ 左半：简化 ANCHOR（封面 + 标题 + 歌手，BUILDING 时可能为空） ══
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        // 圆形封面
+                        Box(
+                            modifier = Modifier
+                                .size(120.dp)
+                                .clip(androidx.compose.foundation.shape.CircleShape)
+                                .background(Color.White.copy(alpha = 0.1f)),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            if (!c.albumArtUri.isNullOrEmpty()) {
+                                AsyncImage(
+                                    model = c.albumArtUri,
+                                    contentDescription = null,
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.fillMaxSize(),
+                                )
+                            } else {
+                                Image(
+                                    painter = painterResource(Res.drawable.unknown),
+                                    contentDescription = null,
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.fillMaxSize(),
+                                )
+                            }
+                        }
                         Spacer(Modifier.height(10.dp))
-                    }
-
-                    // 下一首 + why（🌟 电台灵魂）
-                    c.nextTrackTitle?.let { nextTitle ->
-                        val hasWhy = !c.nextTrackWhy.isNullOrBlank()
-                        Text(
-                            text = if (hasWhy) "下一首 · $nextTitle" else "下一首：$nextTitle",
-                            color = Color.White.copy(alpha = if (hasWhy) 0.65f else 0.85f),
-                            fontSize = if (hasWhy) 11.sp else 13.sp,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                        if (hasWhy) {
+                        c.nowPlayingTitle?.let {
                             Text(
-                                text = "「${c.nextTrackWhy}」",
-                                color = Color.White.copy(alpha = 0.88f),
+                                text = it,
+                                color = Color.White,
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Medium,
-                                textAlign = TextAlign.Center,
-                                maxLines = 2,
+                                maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
-                                lineHeight = 18.sp,
-                                modifier = Modifier.padding(top = 2.dp),
+                            )
+                        }
+                        c.nowPlayingArtist?.let {
+                            Text(
+                                text = it,
+                                color = Color.White.copy(alpha = 0.7f),
+                                fontSize = 12.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
                             )
                         }
                     }
-                }
 
-                // —— 底部概览 ——
-                c.playlistCount?.let { count ->
-                    Spacer(Modifier.height(12.dp))
-                    Text(
-                        text = "· 共 $count 首 · 电台为你选",
-                        color = Color.White.copy(alpha = 0.5f),
-                        fontSize = 11.sp,
-                    )
+                    Spacer(Modifier.width(16.dp))
+
+                    // ══ 右半：Radio 专属状态区（BUILDING 显示 loading，PLAYING/PAUSED 显示 why/下一首/短时消息） ══
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        horizontalAlignment = Alignment.Start,
+                    ) {
+                        if (c.progressPercent != null) {
+                            // —— BUILDING：右半显示 loading 进度 ——
+                            LinearProgressIndicator(
+                                progress = { c.progressPercent!! / 100f },
+                                modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)),
+                                color = Color.White.copy(alpha = 0.9f),
+                                trackColor = Color.White.copy(alpha = 0.15f),
+                            )
+                            Spacer(Modifier.height(10.dp))
+                            Text(
+                                text = c.actionText,
+                                color = Color.White.copy(alpha = 0.8f),
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Medium,
+                                lineHeight = 18.sp,
+                            )
+                            c.nowPlayingTitle?.let {
+                                Spacer(Modifier.height(6.dp))
+                                Text(
+                                    text = "候选：$it",
+                                    color = Color.White.copy(alpha = 0.55f),
+                                    fontSize = 11.sp,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                        } else {
+                            // why —— 电台灵魂（大字体核心差异化）
+                            c.nowPlayingWhy?.let { why ->
+                                Text(
+                                    text = "「$why」",
+                                    color = Color.White,
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    lineHeight = 20.sp,
+                                )
+                                Spacer(Modifier.height(10.dp))
+                            }
+
+                            // 下一首预告
+                            c.nextTrackTitle?.let { next ->
+                                Text(
+                                    text = "下一首：$next",
+                                    color = Color.White.copy(alpha = 0.85f),
+                                    fontSize = 12.sp,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                                c.nextTrackWhy?.let { why ->
+                                    Text(
+                                        text = "「$why」",
+                                        color = Color.White.copy(alpha = 0.55f),
+                                        fontSize = 10.sp,
+                                        maxLines = 2,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                }
+                            }
+
+                            // 底部伸缩 + 短时消息
+                            Spacer(Modifier.weight(1f))
+
+                            radioMessage?.let { msg ->
+                                val msgText = when (msg) {
+                                    is com.hmp.domain.agent.sub.RadioMessage.ReorderSkipped ->
+                                        "跳过 ${msg.count} 首，正在重选..."
+                                    is com.hmp.domain.agent.sub.RadioMessage.EnrichOptimizing ->
+                                        "AI 正在优化歌单..."
+                                    is com.hmp.domain.agent.sub.RadioMessage.TrackContinuing ->
+                                        "续播「${msg.title}」"
+                                    is com.hmp.domain.agent.sub.RadioMessage.ThemeChanged ->
+                                        "${msg.theme} 已就绪"
+                                }
+                                Text(
+                                    text = msgText,
+                                    color = Color.White.copy(alpha = 0.8f),
+                                    fontSize = 11.sp,
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(Color.White.copy(alpha = 0.12f))
+                                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -1365,11 +1541,11 @@ private fun FamilyGreetingCard(
     val clickMod = when {
         onLongClick != null -> modifier.pointerInput(card.cardId) {
             detectTapGestures(
-                onLongPress = { onLongClick?.invoke(card) },
+                onLongPress = { onLongClick.invoke(card) },
                 onTap = { /* 短按留给 Pager 手势 */ },
             )
         }
-        onCardClick != null -> modifier.clickable { onCardClick?.invoke(card) }
+        onCardClick != null -> modifier.clickable { onCardClick.invoke(card) }
         else -> modifier
     }
 
@@ -1442,7 +1618,7 @@ private fun formatDurationSec(sec: Int): String {
 // Fallback 卡池为空时的兜底卡
 // ═══════════════════════════════════════════════════════════════════
 
-private fun HelloFallbackCard() = SlideCard(
+private fun helloFallBackCard() = SlideCard(
     cardId = "fallback",
     type = SlideType.ANCHOR,
     content = AnchorContent(
@@ -1458,3 +1634,107 @@ private fun HelloFallbackCard() = SlideCard(
     ),
 )
 
+
+// ═══════════════════════════════════════════════════════════════════
+// 家族 E：ENRICH_TRACKING —— 富化进度追踪卡
+// ═══════════════════════════════════════════════════════════════════
+
+@Composable
+private fun FamilyEnrichTrackingCard(
+    card: SlideCard,
+    modifier: Modifier = Modifier,
+    onCardClick: ((SlideCard) -> Unit)? = null,
+    onLongClick: ((SlideCard) -> Unit)? = null,
+) {
+    val c = card.content as EnrichTrackingContent
+    val pct = if (c.currentUnitSize > 0) (c.processed * 100 / c.currentUnitSize) else 0
+    val isRunning = c.active
+    val artistLabel = c.currentArtist?.let { if (it == "MIXED_GROUP") "混合组" else it }
+    val chunkLabel = if (c.chunkTotal > 0) " · chunk ${c.chunkIndex}/${c.chunkTotal}" else ""
+
+    // 点击手势统一处理（RadioStatus 同款）
+    val clickMod = when {
+        onLongClick != null -> modifier.pointerInput(card.cardId) {
+            detectTapGestures(
+                onLongPress = { onLongClick.invoke(card) },
+                onTap = { onCardClick?.invoke(card) },
+            )
+        }
+        onCardClick != null -> modifier.clickable { onCardClick.invoke(card) }
+        else -> modifier
+    }
+
+    Card(
+        modifier = clickMod.clip(RoundedCornerShape(25.dp)),
+        shape = RoundedCornerShape(25.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    brush = Brush.linearGradient(
+                        colors = if (isRunning) {
+                            listOf(
+                                MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                                MaterialTheme.colorScheme.primary.copy(alpha = 0.05f),
+                            )
+                        } else {
+                            listOf(
+                                MaterialTheme.colorScheme.outline.copy(alpha = 0.12f),
+                                MaterialTheme.colorScheme.outline.copy(alpha = 0.04f),
+                            )
+                        }
+                    )
+                )
+                .padding(horizontal = 20.dp, vertical = 18.dp),
+        ) {
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Column {
+                    // 标题
+                    Text(
+                        text = if (isRunning) "富化进行中" else "富化已暂停",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = if (isRunning) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Spacer(Modifier.height(6.dp))
+                    // 歌手 + chunk
+                    if (artistLabel != null) {
+                        Text(
+                            text = "$artistLabel$chunkLabel",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        Spacer(Modifier.height(2.dp))
+                    }
+                    // 当前阶段
+                    Text(
+                        text = c.phase,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (isRunning) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
+                    )
+                }
+                Column {
+                    LinearProgressIndicator(
+                        progress = { pct / 100f },
+                        modifier = Modifier.fillMaxWidth().height(6.dp),
+                        color = if (isRunning) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
+                        trackColor = MaterialTheme.colorScheme.surfaceVariant,
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = "处理 ${c.processed} · 成功 ${c.success} · 失败 ${c.failed} · ${pct}%",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
+    }
+}

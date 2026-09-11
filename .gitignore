@@ -178,3 +178,4 @@ releases/
 .env.production.local
 clean-feature-ui.bat
 gradle/gradle-daemon-jvm.properties
+workbuddy/

@@ -85,10 +85,19 @@ class ControllerPlaybackCommandPort(
             is PlaybackCommand.REPEAT_ONE_ON -> setMode(PlaybackMode.REPEAT_ONE)
             is PlaybackCommand.REPEAT_ALL_ON -> setMode(PlaybackMode.SEQUENTIAL) // 全部循环无对应，退回顺序
             is PlaybackCommand.REPEAT_OFF -> setMode(PlaybackMode.SEQUENTIAL)
-            is PlaybackCommand.ADD_TO_QUEUE -> false to "播放控制器暂不支持直接入队，建议使用播放列表功能"
+            is PlaybackCommand.ADD_TO_QUEUE -> {
+                val music = musicRepository.getMusicInfoById(command.musicId).first()
+                if (music == null) false to "未找到该曲目"
+                else {
+                    controller.addToPlaylist(music); true to "已追加到队列"
+                }
+            }
             is PlaybackCommand.SKIP_ALL -> {
                 pendingTrackChange = true
                 controller.clearPlaylist(); true to "播放队列已清空"
+            }
+            is PlaybackCommand.REPLACE_QUEUE -> {
+                replaceQueueWith(command.musicIds); true to "播放队列已替换 (${command.musicIds.size} 首)"
             }
         }
 
@@ -120,6 +129,51 @@ class ControllerPlaybackCommandPort(
         is PlaybackCommand.PLAY_BY_ID,
         is PlaybackCommand.SKIP_ALL -> true
         else -> false
+    }
+
+    /**
+     * REPLACE_QUEUE 实现：
+     * 保持当前正在播放的曲目不动（position 也保持），用新列表替换后续曲目。
+     * 当前播放曲在新列表里 → 放到队列首位，后面接新列表剩余曲目。
+     * 当前播放曲不在新列表里 → 取新列表第一首继续播，position 重置 0。
+     * 当前没有播放曲 → 直接替换整个队列。
+     *
+     * 操作序列：getMusicInfoByIds → clearPlaylist → add 当前播放曲 → addAll 新列表 → playAt → seekTo
+     */
+    private suspend fun replaceQueueWith(musicIds: List<Long>) {
+        if (musicIds.isEmpty()) {
+            controller.clearPlaylist()
+            return
+        }
+        val current = controller.currentPlayingMusic.value
+        val currentId = current?.music?.id
+
+        // 查 MusicInfo（批量，避免 N 次单独查询）
+        val idToMusic = musicRepository.getMusicInfoByIds(musicIds).associateBy { it.music.id }
+
+        controller.clearPlaylist()
+
+        val currentInNewList = currentId != null && idToMusic.containsKey(currentId)
+        if (current != null && currentInNewList) {
+            // 当前播放曲保留在首位
+            controller.addToPlaylist(current)
+            // 追加新列表剩余曲目
+            val restIds = musicIds.filter { it != currentId }
+            val rest = restIds.mapNotNull { idToMusic[it] }
+            if (rest.isNotEmpty()) controller.addAllToPlaylistInOrder(rest)
+            // 回到当前播放位置（clearPlaylist 可能中断了，重触发 playAt 让 Media3 恢复）
+            controller.playAt(current)
+            // 恢复 position（如果引擎因为 clearPlaylist 把 position 重置了）
+            val pos = controller.currentPosition.value
+            if (pos > 100) controller.seekTo(pos)
+        } else {
+            // 当前没在播 / 当前播放曲不在新列表 → 直接放新列表，第一首开始播
+            val all = musicIds.mapNotNull { idToMusic[it] }
+            if (all.isNotEmpty()) {
+                controller.addAllToPlaylistInOrder(all)
+                controller.playAt(all.first())
+            }
+        }
     }
 
     /** 通过 [PlaybackController.togglePlaybackModeByOrder] 循环切换至目标；3 态循环至多 2 次必达。 */

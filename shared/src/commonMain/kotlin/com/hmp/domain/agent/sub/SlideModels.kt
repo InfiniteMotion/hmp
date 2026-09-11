@@ -49,6 +49,7 @@ enum class SlideType {
     DISCOVER,       // 歌手/风格探索（12s）
     FORGOTTEN,      // 遗忘唤醒（12s）
     ANNIVERSARY,    // 纪念日（15s）
+    ENRICH_TRACKING,// Enrich 富化进度（活跃时显示，完成后隐藏）
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -183,24 +184,30 @@ data class DiscoverContent(
 ) : SlideContent
 
 // ────────────────────────────────────────────────────────────────────
-// 家族 D：RADIO_STATUS —— 电台运行态
+// 家族 D：RADIO_STATUS —— 电台运行态（左 ANCHOR + 右 Radio 状态）
 // ────────────────────────────────────────────────────────────────────
 
 @Serializable
 data class RadioStatusContent(
     /** 电台主题（"蓝调" / seed 提取的风格关键词，null=自动电台） */
     val stationTheme: String?,
-    /** 状态文字：BUILDING 时面向用户的提示 / PLAYING 时 "播放中" */
+    /** 状态文字："播放中" / "已暂停" / BUILDING 时面向用户的提示 */
     val actionText: String,
 
-    // —— PLAYING 专属（BUILDING 时全部 null）——
+    // —— 左侧简化 ANCHOR ——
     /** 当前正在播的歌名 */
     val nowPlayingTitle: String?,
     /** 当前正在播的歌手 */
     val nowPlayingArtist: String?,
+    /** 封面 URI（null=无封面，UI 显示 fallback 图标） */
+    val albumArtUri: String?,
+
+    // —— 右侧常驻核心区 ——
+    /** 当前播放曲目的 LLM 推荐理由（🌟 电台核心差异化） */
+    val nowPlayingWhy: String?,
     /** 下一首歌名 */
     val nextTrackTitle: String?,
-    /** 下一首的 LLM 推荐理由（🌟 电台核心差异化） */
+    /** 下一首的 LLM 推荐理由 */
     val nextTrackWhy: String?,
     /** playlist 总曲目数 */
     val playlistCount: Int?,
@@ -282,3 +289,31 @@ data class SlideCard(
         }
     }
 }
+
+// ────────────────────────────────────────────────────────────────────
+// 家族 E：ENRICH_TRACKING —— 富化进度追踪
+// ────────────────────────────────────────────────────────────────────
+
+@Serializable
+data class EnrichTrackingContent(
+    /** 当前状态名：RUNNING / PAUSED / UNREGISTERED */
+    val state: String,
+    /** 已处理歌曲数 */
+    val processed: Int,
+    /** 成功富化歌曲数 */
+    val success: Int,
+    /** 失败歌曲数 */
+    val failed: Int,
+    /** 当前工作单元大小 */
+    val currentUnitSize: Int,
+    /** 是否活跃（RUNNING 或 PAUSED = true） */
+    val active: Boolean,
+    /** 当前处理的 artist 名（混合组为 GROUP_KEY_MIXED） */
+    val currentArtist: String?,
+    /** 当前 chunk 序号（1-based） */
+    val chunkIndex: Int,
+    /** 当前 workUnit 总 chunk 数 */
+    val chunkTotal: Int,
+    /** 当前阶段文本（Round 1/2a/2b/3 等） */
+    val phase: String,
+) : SlideContent

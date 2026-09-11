@@ -76,6 +76,9 @@ class HelloSubAgent(
     /** 卡片池（StateFlow 暴露给 UI collect） */
     private val cardPool = CardPool()
 
+    /** 记忆协调层：Room 持久化 + 内存缓存，跨卡片/跨天/跨周去重 */
+    private val memory = HelloMemory(cardCacheDao)
+
     /** UI collect 的 StateFlow */
     val cards: StateFlow<List<SlideCard>> get() = cardPool.cards
 
@@ -124,7 +127,11 @@ class HelloSubAgent(
         runState = AgentRunState.RUNNING
 
         // ── 同步初始化（协程启动前先铺好初始状态，避免 race） ──
-        // ① 从 DAO 恢复今日缓存卡（用 replace，保证顺序稳定）
+        // ① 从 Room 恢复今日记忆缓存
+        runCatching { memory.loadToday() }
+            .onFailure { e -> Logger.w("Agent.Hello", e) { "memory.loadToday failed (non-fatal)" } }
+
+        // ② 从 DAO 恢复今日缓存卡（用 replace，保证顺序稳定）
         runCatching { initializeFromDao() }
             .onFailure { e -> Logger.w("Agent.Hello", e) { "initializeFromDao failed (non-fatal)" } }
 
@@ -275,24 +282,15 @@ class HelloSubAgent(
             cardPool.setVisible(SlideType.ANNIVERSARY, false)
         }
 
-        // ⑤ 写入 DAO（先删同类型旧行，避免 append 导致脏数据残留；没生成的类型也要清）
+        // ⑤ 写入 DAO（同日同类型删旧 + 插新；保留全量历史）+ 更新 memory 缓存
         runCatching {
-            val generatedTypes = allCards.map { it.type.name }.toSet()
-            // 先清掉"已知类型但本次没生成"的旧数据
-            listOf("RECOMMEND", "DISCOVER", "FORGOTTEN", "ANNIVERSARY").forEach { type ->
-                if (type !in generatedTypes) cardCacheDao?.deleteByType(type)
-            }
-            // 再删 + 插本次生成的
             allCards.forEach { card ->
-                cardCacheDao?.deleteByType(card.type.name)
-                cardCacheDao?.insert(
-                    HelloCardCache(
-                        cardType = card.type.name,
-                        cardContentJson = cardContentToString(card.content),
-                        generatedAt = currentTimeMillis(),
-                        generatedForDate = today,
-                    )
-                )
+                val now = currentTimeMillis()
+                val today = todayString()
+                cardCacheDao?.deleteSameDaySameType(card.type.name, today)
+                val cache = buildHelloCardCache(card, now, today, llmUsed = enableLlm)
+                cardCacheDao?.insert(cache)
+                memory.record(cache)  // 内存缓存同步更新（DAO=null 时也能工作）
             }
         }.onFailure { e -> Logger.w("Agent.Hello", e) { "DAO insert failed (non-fatal)" } }
 
@@ -419,6 +417,16 @@ class HelloSubAgent(
             SlideType.GREETING,
             SlideCard(SlideCard.newId(), SlideType.GREETING, content)
         )
+        // GREETING 也写 DAO + memory：App 重启后 recentGreetingTypes 内存丢了，
+        // 靠 Room 恢复 todayCache.greetingTypes 来避免重复同类型。
+        runCatching {
+            val card = SlideCard(SlideCard.newId(), SlideType.GREETING, content)
+            val today = todayString()
+            cardCacheDao?.deleteSameDaySameType(SlideType.GREETING.name, today)
+            val cache = buildHelloCardCache(card, now, today, llmUsed = enableLlm)
+            cardCacheDao?.insert(cache)
+            memory.record(cache)
+        }.onFailure { e -> Logger.w("Agent.Hello", e) { "GREETING dao write failed (non-fatal)" } }
         Logger.i("Agent.Hello") { "GREETING refreshed: type=${content.type} reason=$reason" }
     }
 
@@ -442,22 +450,13 @@ class HelloSubAgent(
         recentGreetingTypes.addLast(type)
         if (recentGreetingTypes.size > 3) recentGreetingTypes.removeFirst()
 
-        val (text, fromFallback) = (if (enableLlm) {
-            runCatching {
-                val cfg = enrichConfig ?: return@runCatching null
-                val prompt = buildGreetingPrompt(type, phase, nowPlayingStr, annivHint, signalHint)
-                val temp = typeTemperature(type)
-                contextBudget.callLlmText(
-                    config = cfg,
-                    systemPrompt = typeSystemPrompt(type),
-                    newMessages = listOf(LlmMessage(role = "user", content = prompt)),
-                    temperature = temp,
-                )?.trim()?.let { text ->
-                    text.trim('\u0022', '\u300C', '\u300D', '\u201C', '\u201D')
-                }
-            }.getOrNull()?.let { it to false }
-        } else null) ?: (null to true)
-
+        val text = callHelloLlm(
+            cardType = "GREETING",
+            systemPrompt = typeSystemPrompt(type),
+            userPrompt = buildGreetingPrompt(type, phase, nowPlayingStr, annivHint, signalHint),
+            temperature = typeTemperature(type),
+        )
+        val fromFallback = text == null
         val finalText = text ?: fallbackForType(type)
         if (finalText.isNotBlank()) {
             recentGreetingContents.addLast(finalText.take(30))
@@ -538,13 +537,14 @@ class HelloSubAgent(
             cachedAnniversaryHint = null
             return null
         }
-        val hint = runCatching {
-            val cfg = enrichConfig ?: return@runCatching null
-            val parts = today.split("-")
-            if (parts.size < 3) return@runCatching null
-            val month = parts[1].toIntOrNull() ?: return@runCatching null
-            val day = parts[2].toIntOrNull() ?: return@runCatching null
-            val prompt = """今天是 $month 月 $day 日。请判断音乐史上今天是否有重要事件发生。
+        val parts = today.split("-")
+        val month = parts.getOrNull(1)?.toIntOrNull() ?: run {
+            cachedAnniversaryHint = null; return null
+        }
+        val day = parts.getOrNull(2)?.toIntOrNull() ?: run {
+            cachedAnniversaryHint = null; return null
+        }
+        val prompt = """今天是 $month 月 $day 日。请判断音乐史上今天是否有重要事件发生。
 
 返回 JSON：
 {"hasEvent": true/false, "eventType": "诞辰/逝世/发行/成立/解散", "subject": "主体名称", "year": 年份}
@@ -553,13 +553,14 @@ class HelloSubAgent(
 - 必须是真实可查证的音乐事件，流行、古典、摇滚、爵士、华语乐坛都可以
 - 如果不确定或没有，请返回 {"hasEvent": false}
 - 不要编造，不确定就说没有"""
-            contextBudget.callLlmText(
-                config = cfg,
-                systemPrompt = "你是音乐史专家，擅长准确回忆具体日期的音乐事件。",
-                newMessages = listOf(LlmMessage(role = "user", content = prompt)),
-                temperature = 0.2f,
-            )?.trim()?.let { text ->
-                // 简单解析 hasEvent + subject
+        val hint = callHelloLlm(
+            cardType = null,  // ANNIVERSARY 已有 isAnniversaryQueriedToday 短路拦截
+            systemPrompt = "你是音乐史专家，擅长准确回忆具体日期的音乐事件。",
+            userPrompt = prompt,
+            temperature = 0.2f,
+            postProcess = { raw ->
+                // 先提取 JSON 块：处理 markdown fenced code / 前后夹杂额外文字
+                val text = extractJsonBlock(raw.trim())
                 if (text.contains("\"hasEvent\"\\s*:\\s*true".toRegex())) {
                     val subject = "\"subject\"\\s*:\\s*\"([^\"]+)\"".toRegex().find(text)?.groupValues?.get(1)
                     val eventType = "\"eventType\"\\s*:\\s*\"([^\"]+)\"".toRegex().find(text)?.groupValues?.get(1)
@@ -575,10 +576,25 @@ class HelloSubAgent(
                         "$month 月 $day 日 · $subject 的${typeZh}纪念日"
                     } else null
                 } else null
-            }
-        }.getOrNull()
+            },
+        )
         cachedAnniversaryHint = hint
         return hint
+    }
+
+    /**
+     * 从 LLM 返回文本中提取 JSON 块：优先 markdown ```json fenced block，
+     * 否则取第一个 { 或 [ 到最后一个 } 或 ] 之间的子串。
+     * 与 EnrichSubAgent.extractJsonBlock 同逻辑，工具型 Agent 共用。
+     */
+    private fun extractJsonBlock(text: String): String {
+        val codeBlockRegex = Regex("""```(?:json)?\s*([\s\S]*?)\s*```""")
+        val match = codeBlockRegex.find(text)
+        if (match != null) return match.groupValues[1].trim()
+        val firstBrace = text.indexOfAny(charArrayOf('{', '['))
+        val lastBrace = text.lastIndexOfAny(charArrayOf('}', ']'))
+        if (firstBrace >= 0 && lastBrace > firstBrace) return text.substring(firstBrace, lastBrace + 1)
+        return text.trim()
     }
 
     /** 按类型组装完整 LLM prompt */
@@ -1229,51 +1245,45 @@ class HelloSubAgent(
         playCount: Int,
         lyricSummary: String?,
     ): String {
-        if (enableLlm) {
-            val llmReason = runCatching {
-                val cfg = enrichConfig ?: return@runCatching null
-                val phaseDesc = phase.zhName()
-                val artistPart = if (!artist.isNullOrBlank()) "艺术家：$artist" else ""
-                val historyPart = when {
-                    playCount <= 0 -> "用户从未播放过这首歌"
-                    playCount < 5 -> "用户仅播放过 $playCount 次"
-                    playCount < 20 -> "用户播放过 $playCount 次"
-                    else -> "用户曾循环播放 $playCount 次，是用户的心头好"
-                }
-                val prompt = buildString {
-                    appendLine("请为以下歌曲写一段完整的中文推荐语。")
-                    appendLine("")
-                    appendLine("歌曲信息：")
-                    appendLine("  标题：$trackTitle")
-                    if (artistPart.isNotBlank()) appendLine("  $artistPart")
-                    appendLine("  适合时段：$phaseDesc（${label.name}）")
-                    appendLine("  $historyPart")
-                    if (!lyricSummary.isNullOrBlank()) {
-                        appendLine("")
-                        appendLine("完整歌词：")
-                        lyricSummary.lines().forEach { appendLine("  $it") }
-                    }
-                    appendLine("")
-                    appendLine("写作要求：")
-                    appendLine("  · 篇幅约 300-500 字，完整段落，不要分行列点")
-                    appendLine("  · 从歌词中提取核心意象、情感基调或标志性语句作为切入点")
-                    appendLine("  · 结合当前时段场景（$phaseDesc），描述这首歌在此时此地能给听者带来什么")
-                    appendLine("  · 适当提及播放历史（$historyPart），让推荐有温度")
-                    appendLine("  · 语气像一个真正听过这首歌、懂你的朋友在认真推荐")
-                    appendLine("  · 开头可以用一句歌词或一个画面抓眼球，中间展开感受，结尾落在当下时段的收听建议上")
-                    appendLine("  · 直接输出正文，不要标题、引号、前缀或解释")
-                }
-                contextBudget.callLlmText(
-                    config = cfg,
-                    systemPrompt = "你是一个资深音乐评论人兼知心朋友，擅长结合歌词、场景和听众历史，写出有温度有画面感的中文推荐文字。",
-                    newMessages = listOf(LlmMessage(role = "user", content = prompt)),
-                    temperature = 0.6f,
-                )?.trim()?.let { text ->
-                    text.trim('\u0022', '\u300C', '\u300D', '\u201C', '\u201D')
-                }
-            }.getOrNull()
-            if (!llmReason.isNullOrBlank()) return llmReason
+        val phaseDesc = phase.zhName()
+        val artistPart = if (!artist.isNullOrBlank()) "艺术家：$artist" else ""
+        val historyPart = when {
+            playCount <= 0 -> "用户从未播放过这首歌"
+            playCount < 5 -> "用户仅播放过 $playCount 次"
+            playCount < 20 -> "用户播放过 $playCount 次"
+            else -> "用户曾循环播放 $playCount 次，是用户的心头好"
         }
+        val prompt = buildString {
+            appendLine("请为以下歌曲写一段完整的中文推荐语。")
+            appendLine("")
+            appendLine("歌曲信息：")
+            appendLine("  标题：$trackTitle")
+            if (artistPart.isNotBlank()) appendLine("  $artistPart")
+            appendLine("  适合时段：$phaseDesc（${label.name}）")
+            appendLine("  $historyPart")
+            if (!lyricSummary.isNullOrBlank()) {
+                appendLine("")
+                appendLine("完整歌词：")
+                lyricSummary.lines().forEach { appendLine("  $it") }
+            }
+            appendLine("")
+            appendLine("写作要求：")
+            appendLine("  · 篇幅约 300-500 字，完整段落，不要分行列点")
+            appendLine("  · 从歌词中提取核心意象、情感基调或标志性语句作为切入点")
+            appendLine("  · 结合当前时段场景（$phaseDesc），描述这首歌在此时此地能给听者带来什么")
+            appendLine("  · 适当提及播放历史（$historyPart），让推荐有温度")
+            appendLine("  · 语气像一个真正听过这首歌、懂你的朋友在认真推荐")
+            appendLine("  · 开头可以用一句歌词或一个画面抓眼球，中间展开感受，结尾落在当下时段的收听建议上")
+            appendLine("  · 直接输出正文，不要标题、引号、前缀或解释")
+            appendLine("  · 如果记忆上下文提到某歌手或 label 近期已被其他卡覆盖，避免在推荐语中重复提及")
+        }
+        val llmReason = callHelloLlm(
+            cardType = "RECOMMEND",
+            systemPrompt = "你是一个资深音乐评论人兼知心朋友，擅长结合歌词、场景和听众历史，写出有温度有画面感的中文推荐文字。",
+            userPrompt = prompt,
+            temperature = 0.6f,
+        )
+        if (!llmReason.isNullOrBlank()) return llmReason
         // 兜底（LLM 不可用 / 调用失败）—— 仍然结合歌曲名
         val artistSuffix = artist?.takeIf { it.isNotBlank() }?.let { " · $it" } ?: ""
         return when (label) {
@@ -1297,15 +1307,12 @@ class HelloSubAgent(
             ?: return false
         cardPool.replace(card.type, card)
         runCatching {
-            cardCacheDao?.deleteByType(SlideType.RECOMMEND.name)
-            cardCacheDao?.insert(
-                HelloCardCache(
-                    cardType = SlideType.RECOMMEND.name,
-                    cardContentJson = cardContentToString(card.content),
-                    generatedAt = currentTimeMillis(),
-                    generatedForDate = todayString(),
-                )
-            )
+            val now = currentTimeMillis()
+            val today = todayString()
+            cardCacheDao?.deleteSameDaySameType(SlideType.RECOMMEND.name, today)
+            val cache = buildHelloCardCache(card, now, today, llmUsed = enableLlm)
+            cardCacheDao?.insert(cache)
+            memory.record(cache)
         }.onFailure { e -> Logger.w("Agent.Hello", e) { "refreshRecommendCard: dao write failed" } }
         Logger.i("Agent.Hello") { "refreshRecommendCard: OK phase=$phase" }
         return true
@@ -1313,21 +1320,13 @@ class HelloSubAgent(
 
     /** DISCOVER 发现理由——支持 LLM 个性化，兜底固定文案 */
     private suspend fun reasonForDiscover(label: LabelName): String {
-        if (enableLlm) {
-            val llmReason = runCatching {
-                val cfg = enrichConfig ?: return@runCatching null
-                val prompt = "用一句话（≤20字）推荐用户重新发现「${label.name}」风格的音乐，语气温暖。直接返回中文句子。"
-                contextBudget.callLlmText(
-                    config = cfg,
-                    systemPrompt = "你是一个懂音乐的朋友，负责用温暖简洁的中文推荐音乐。",
-                    newMessages = listOf(LlmMessage(role = "user", content = prompt)),
-                    temperature = 0.6f,
-                )?.trim()?.let { text ->
-                    text.trim('\u0022', '\u300C', '\u300D', '\u201C', '\u201D')
-                }
-            }.getOrNull()
-            if (!llmReason.isNullOrBlank()) return llmReason
-        }
+        val llmReason = callHelloLlm(
+            cardType = "DISCOVER",
+            systemPrompt = "你是一个懂音乐的朋友，负责用温暖简洁的中文推荐音乐。",
+            userPrompt = "用一句话（≤20字）推荐用户重新发现「${label.name}」风格的音乐，语气温暖。直接返回中文句子。",
+            temperature = 0.6f,
+        )
+        if (!llmReason.isNullOrBlank()) return llmReason
         // 兜底
         return when (label) {
             LabelName.POP -> "你好像很久没听 POP 了，来回顾一下"
@@ -1347,56 +1346,49 @@ class HelloSubAgent(
         playCount: Int,
         lyricSummary: String?,
     ): String {
-        if (enableLlm) {
-            val llmText = runCatching {
-                val cfg = enrichConfig ?: return@runCatching null
-                val artistPart = if (!artist.isNullOrBlank()) "艺术家：$artist" else ""
-                val historyPart = when {
-                    playCount <= 0 -> "用户从未播放过这首歌"
-                    playCount < 5 -> "用户仅播放过 $playCount 次"
-                    playCount < 20 -> "用户曾播放过 $playCount 次"
-                    else -> "用户曾循环播放 $playCount 次，是当时的心头好"
-                }
-                val timePart = when {
-                    daysSince >= 365 -> "超过一年没听了"
-                    daysSince >= 180 -> "半年多没听了"
-                    daysSince >= 90 -> "三个月没听了"
-                    else -> "${daysSince} 天没听了"
-                }
-                val prompt = buildString {
-                    appendLine("请生成一段中文怀旧文案，唤醒用户对一首老歌的记忆。")
-                    appendLine("")
-                    appendLine("歌曲信息：")
-                    appendLine("  标题：$trackTitle")
-                    if (artistPart.isNotBlank()) appendLine("  $artistPart")
-                    appendLine("  遗忘时长：$timePart")
-                    appendLine("  播放历史：$historyPart")
-                    if (!lyricSummary.isNullOrBlank()) {
-                        appendLine("")
-                        appendLine("完整歌词：")
-                        lyricSummary.lines().forEach { appendLine("  $it") }
-                    }
-                    appendLine("")
-                    appendLine("写作要求：")
-                    appendLine("  · 篇幅约 300-500 字，完整段落，不要分行列点")
-                    appendLine("  · 从歌词中提取最触动的几句或最核心的意象，以此为引子")
-                    appendLine("  · 结合遗忘时长（$timePart）和播放历史（$historyPart），勾勒出这首歌在用户人生中的位置")
-                    appendLine("  · 不要直接说「XX 天没听了」，要让时间跨度自然地体现在情绪和语气里")
-                    appendLine("  · 语气像一个温柔的老朋友，轻声提醒一段被遗忘的时光")
-                    appendLine("  · 开头从一句歌词或一个画面切入，中间展开回忆的质感，结尾轻轻落在「再听一次」的邀请上")
-                    appendLine("  · 直接输出正文，不要标题、引号、前缀或解释")
-                }
-                contextBudget.callLlmText(
-                    config = cfg,
-                    systemPrompt = "你是一个擅长写怀旧随笔的音乐人，能从一句歌词、一段旋律、一个时间跨度里，写出让人心头一暖的中文文字。",
-                    newMessages = listOf(LlmMessage(role = "user", content = prompt)),
-                    temperature = 0.7f,
-                )?.trim()?.let { text ->
-                    text.trim('\u0022', '\u300C', '\u300D', '\u201C', '\u201D')
-                }
-            }.getOrNull()
-            if (!llmText.isNullOrBlank()) return llmText
+        val artistPart = if (!artist.isNullOrBlank()) "艺术家：$artist" else ""
+        val historyPart = when {
+            playCount <= 0 -> "用户从未播放过这首歌"
+            playCount < 5 -> "用户仅播放过 $playCount 次"
+            playCount < 20 -> "用户曾播放过 $playCount 次"
+            else -> "用户曾循环播放 $playCount 次，是当时的心头好"
         }
+        val timePart = when {
+            daysSince >= 365 -> "超过一年没听了"
+            daysSince >= 180 -> "半年多没听了"
+            daysSince >= 90 -> "三个月没听了"
+            else -> "${daysSince} 天没听了"
+        }
+        val prompt = buildString {
+            appendLine("请生成一段中文怀旧文案，唤醒用户对一首老歌的记忆。")
+            appendLine("")
+            appendLine("歌曲信息：")
+            appendLine("  标题：$trackTitle")
+            if (artistPart.isNotBlank()) appendLine("  $artistPart")
+            appendLine("  遗忘时长：$timePart")
+            appendLine("  播放历史：$historyPart")
+            if (!lyricSummary.isNullOrBlank()) {
+                appendLine("")
+                appendLine("完整歌词：")
+                lyricSummary.lines().forEach { appendLine("  $it") }
+            }
+            appendLine("")
+            appendLine("写作要求：")
+            appendLine("  · 篇幅约 300-500 字，完整段落，不要分行列点")
+            appendLine("  · 从歌词中提取最触动的几句或最核心的意象，以此为引子")
+            appendLine("  · 结合遗忘时长（$timePart）和播放历史（$historyPart），勾勒出这首歌在用户人生中的位置")
+            appendLine("  · 不要直接说「XX 天没听了」，要让时间跨度自然地体现在情绪和语气里")
+            appendLine("  · 语气像一个温柔的老朋友，轻声提醒一段被遗忘的时光")
+            appendLine("  · 开头从一句歌词或一个画面切入，中间展开回忆的质感，结尾轻轻落在「再听一次」的邀请上")
+            appendLine("  · 直接输出正文，不要标题、引号、前缀或解释")
+        }
+        val llmText = callHelloLlm(
+            cardType = "FORGOTTEN",
+            systemPrompt = "你是一个擅长写怀旧随笔的音乐人，能从一句歌词、一段旋律、一个时间跨度里，写出让人心头一暖的中文文字。",
+            userPrompt = prompt,
+            temperature = 0.7f,
+        )
+        if (!llmText.isNullOrBlank()) return llmText
         // 兜底——仍然结合歌曲名
         val artistSuffix = artist?.takeIf { it.isNotBlank() }?.let { " · $it" } ?: ""
         return when {
@@ -1407,38 +1399,29 @@ class HelloSubAgent(
         }
     }
 
-    /** ANNIVERSARY 情感文案——支持 LLM，兜底固定模板 */
     /** ANNIVERSARY 情感化文案——按 subtype 分 4 种 prompt + 兜底模板。 */
     private suspend fun generateAnniversaryEmotionText(
         subtype: com.hmp.domain.agent.sub.AnniversarySubtype,
         value: Int,  // 含义随 subtype 变：yearsAgo / milestoneValue
         total: Int,  // 累计播放
     ): String {
-        // LLM 分支
-        if (enableLlm) {
-            val llmText = runCatching {
-                val cfg = enrichConfig ?: return@runCatching null
-                val prompt = when (subtype) {
-                    com.hmp.domain.agent.sub.AnniversarySubtype.FIRST_PLAY ->
-                        "用一句话（≤25字）庆祝「${value}年前的今天」第一次收藏一首歌。累计播放 ${total} 次。温暖带感动。"
-                    com.hmp.domain.agent.sub.AnniversarySubtype.PLAYLIST_CREATE ->
-                        "用一句话（≤25字）庆祝「${value}年前的今天」创建了一个歌单。累计被播放 ${total} 次。温暖。"
-                    com.hmp.domain.agent.sub.AnniversarySubtype.PLAY_MILESTONE ->
-                        "用一句话（≤25字）庆祝一首歌累计播放达到第 ${value} 次。当前共 ${total} 次。有成就感。"
-                    com.hmp.domain.agent.sub.AnniversarySubtype.DURATION_MILESTONE ->
-                        "用一句话（≤25字）庆祝一首歌累计听了 ${value} 小时。共播放 ${total} 次。有成就感。"
-                }
-                contextBudget.callLlmText(
-                    config = cfg,
-                    systemPrompt = "你是一个懂音乐的朋友，擅长用温暖简洁的文字唤起听众的回忆。",
-                    newMessages = listOf(LlmMessage(role = "user", content = prompt)),
-                    temperature = 0.6f,
-                )?.trim()?.let { text ->
-                    text.trim('\u0022', '\u300C', '\u300D', '\u201C', '\u201D')
-                }
-            }.getOrNull()
-            if (!llmText.isNullOrBlank()) return llmText
+        val prompt = when (subtype) {
+            com.hmp.domain.agent.sub.AnniversarySubtype.FIRST_PLAY ->
+                "用一句话（≤25字）庆祝「${value}年前的今天」第一次收藏一首歌。累计播放 ${total} 次。温暖带感动。"
+            com.hmp.domain.agent.sub.AnniversarySubtype.PLAYLIST_CREATE ->
+                "用一句话（≤25字）庆祝「${value}年前的今天」创建了一个歌单。累计被播放 ${total} 次。温暖。"
+            com.hmp.domain.agent.sub.AnniversarySubtype.PLAY_MILESTONE ->
+                "用一句话（≤25字）庆祝一首歌累计播放达到第 ${value} 次。当前共 ${total} 次。有成就感。"
+            com.hmp.domain.agent.sub.AnniversarySubtype.DURATION_MILESTONE ->
+                "用一句话（≤25字）庆祝一首歌累计听了 ${value} 小时。共播放 ${total} 次。有成就感。"
         }
+        val llmText = callHelloLlm(
+            cardType = null,  // 里程碑文案，不参与跨卡协调
+            systemPrompt = "你是一个懂音乐的朋友，擅长用温暖简洁的文字唤起听众的回忆。",
+            userPrompt = prompt,
+            temperature = 0.6f,
+        )
+        if (!llmText.isNullOrBlank()) return llmText
         // 兜底模板
         return when (subtype) {
             com.hmp.domain.agent.sub.AnniversarySubtype.FIRST_PLAY -> "第一次听到这首，已是 $value 年前"
@@ -1449,6 +1432,44 @@ class HelloSubAgent(
     }
 
     private fun todayString(): String = todayDateString()
+
+    // ═══ Hello 卡片生成统一 LLM 调用入口 ═══
+    //
+    // 封装样板：enableLlm 检查 + cfg 检查 + memory context 注入 + runCatching + trim + clearHistory
+    // 6 处 callLlmText 调用统一收口在此。
+    //
+    // @param cardType 卡片类型名，用于 memory.buildContextForCard 做跨卡协调。
+    //                 传 null 表示不需要记忆注入（ANNIVERSARY 的 JSON 查询有短路拦截兜底）。
+    // @param postProcess 可选后处理：LLM 原始输出 → 最终文本。默认 trim + 去中英文引号。
+    // @return LLM 最终文本，或 null（LLM 不可用 / 调用失败 / 空返回）
+
+    private suspend fun callHelloLlm(
+        cardType: String? = null,
+        systemPrompt: String,
+        userPrompt: String,
+        temperature: Float = 0.6f,
+        postProcess: ((String) -> String?) = { it.trim().trim('\u0022', '\u300C', '\u300D', '\u201C', '\u201D') },
+    ): String? {
+        if (!enableLlm) return null
+        val cfg = enrichConfig ?: return null
+        val result = runCatching {
+            val finalPrompt = runCatching {
+                if (cardType != null) {
+                    val ctx = memory.buildContextForCard(cardType)
+                    if (ctx.isNotBlank()) "$userPrompt\n\n$ctx" else userPrompt
+                } else userPrompt
+            }.getOrDefault(userPrompt)
+            val raw = contextBudget.callLlmText(
+                config = cfg,
+                systemPrompt = systemPrompt,
+                newMessages = listOf(LlmMessage(role = "user", content = finalPrompt)),
+                temperature = temperature,
+            ) ?: return@runCatching null
+            postProcess(raw)
+        }
+        contextBudget.clearHistory()  // Hello 各任务独立，清 history 防串味（无论成功失败）
+        return result.getOrNull()
+    }
 
     // ═══ SlideContent JSON 序列化/反序列化 ═══
 
@@ -1474,8 +1495,37 @@ class HelloSubAgent(
                 SlideType.DISCOVER -> json.decodeFromString(DiscoverContent.serializer(), jsonStr)
                 SlideType.FORGOTTEN -> json.decodeFromString(ForgottenContent.serializer(), jsonStr)
                 SlideType.ANNIVERSARY -> json.decodeFromString(AnniversaryContent.serializer(), jsonStr)
+                SlideType.ENRICH_TRACKING -> json.decodeFromString(EnrichTrackingContent.serializer(), jsonStr)
             }
         }.getOrNull()
+    }
+
+    /** 从 SlideCard 提取 HelloCardCache，含记忆协调所需的扩展字段 */
+    private fun buildHelloCardCache(
+        card: SlideCard,
+        now: Long,
+        today: String,
+        llmUsed: Boolean,
+    ): HelloCardCache {
+        val c = card.content
+        return HelloCardCache(
+            cardType = card.type.name,
+            cardContentJson = cardContentToString(c),
+            generatedAt = now,
+            generatedForDate = today,
+            llmUsed = llmUsed,
+            // 按卡片类型提取记忆字段
+            recommendSongIds = (c as? RecommendContent)?.trackId?.toString()?.let { listOf(it) },
+            recommendArtists = null,       // TODO: 生成时补充 artist 名
+            recommendLabels = null,        // TODO: 生成时补充时段 label
+            greetingType = (c as? GreetingContent)?.type?.name,
+            greetingMentionedArtists = null,
+            discoverLabels = (c as? DiscoverContent)?.target?.let { listOf(it) },
+            forgottenArtists = null,       // TODO: 生成时补充 artist 名
+            forgottenSongIds = (c as? ForgottenContent)?.trackId?.toString()?.let { listOf(it) },
+            anniversaryArtist = null,      // TODO: 生成时补充
+            anniversarySubject = null,     // TODO: 生成时补充
+        )
     }
 
     companion object {
