@@ -241,6 +241,10 @@ interface UserInfoDao {
     @Query("SELECT liked FROM userInfo WHERE id = :id")
     suspend fun getLikedStatus(id: Long): Boolean
 
+    /** G6：批量取全部已收藏（liked=1）且未删除的曲目 id */
+    @Query("SELECT id FROM userInfo WHERE liked = 1 AND isDeleted = 0")
+    suspend fun getLikedMusicIds(): List<Long>
+
     @Query("DELETE FROM userInfo WHERE id IN (:ids)")
     suspend fun deleteUserInfoByIds(ids: List<Long>)
 

@@ -5,6 +5,15 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
 
 /**
+ * 命令来源——决定端口层是否 emit 用户意图事件（skipEvents / trackChangeEvents）。
+ *
+ * USER：用户主动操作（UI 点按钮 / Chat 发命令）→ 正常 emit 事件，MasterAgent 感知
+ * AGENT_INTERNAL：子 Agent 内部原子操作（Radio 重建队列 / Enrich 后台换歌）→ 吞掉事件，
+ *   这些是实现细节，不该被 MasterAgent 当成用户意图来处理
+ */
+enum class CommandSource { USER, AGENT_INTERNAL }
+
+/**
  * 播放控制端口（M3-M4：工具层不反向依赖 shared-ui，接口定义于此，三端适配由各平台完成）。
  *
  * 设计：密封指令集枚举，简化不同服务商返回文本匹配误差，工具解析为明确指令后交付三端实现。
@@ -33,6 +42,21 @@ sealed interface PlaybackCommand {
     }
     /** 跳过当前播放队列的所有曲目（M6-T2 电台重排时清空旧队列）。 */
     data object SKIP_ALL : PlaybackCommand { override val displayName: String get() = "清空播放队列" }
+
+    /**
+     * 保持当前正在播放的曲目不动，用给定曲目列表替换队列中剩余的曲目。
+     * 用于电台秒开场景：先用本地保底队列立即开听（PLAY_BY_ID + ADD_TO_QUEUE），
+     * 等 LLM enrich 跑完后 REPLACE_QUEUE 后台无缝换歌序 + 更新每首的 why 理由。
+     *
+     * 语义：
+     *  - 当前播放曲：不中断、不重置、position 保持
+     *  - 队列中当前播放曲之后的所有曲目：全部移除
+     *  - 给定的新曲目列表：逐条追加到当前播放曲之后
+     *  - 如果当前没有播放任何曲目，则退化为 SKIP_ALL + 新队列
+     */
+    data class REPLACE_QUEUE(val musicIds: List<Long>) : PlaybackCommand {
+        override val displayName: String get() = "替换播放队列 (${musicIds.size} 首)"
+    }
 }
 
 /**
@@ -40,8 +64,17 @@ sealed interface PlaybackCommand {
  * 三端各自注入实现（Android 绑定 Media3，Desktop 绑定 FFmpeg 播放引擎，iOS 绑定 AVPlayer）。
  */
 interface PlaybackCommandPort {
-    /** 执行给定指令，返回执行结果摘要（true=成功）+ human-readable 文本。 */
-    suspend fun execute(command: PlaybackCommand): Pair<Boolean, String>
+    /**
+     * 执行给定指令。
+     *
+     * @param command 要执行的播放命令
+     * @param source 命令来源——USER（默认）会触发 skipEvents/trackChangeEvents，
+     *               AGENT_INTERNAL 则吞掉事件（子 Agent 内部原子操作不应被 MasterAgent 误判为用户意图）
+     */
+    suspend fun execute(
+        command: PlaybackCommand,
+        source: CommandSource = CommandSource.USER,
+    ): Pair<Boolean, String>
 
     /**
      * 用户跳过（NEXT/PREVIOUS/PLAY_BY_ID/SKIP_ALL）事件流：emit 被跳过曲目的 title。
@@ -58,6 +91,24 @@ interface PlaybackCommandPort {
      * trackChangeEvents emit"刚切过去的新曲目"——两者可能先后到达同一轮切歌。
      */
     val trackChangeEvents: Flow<String> get() = emptyFlow()
+
+    /**
+     * **观测面**：一首歌的结算事件流 —— 「播完了」还是「被切走了」，以及**实际播了多久**。
+     *
+     * 与 [skipEvents] 的区别（这也是它必须存在的原因）：
+     * - [skipEvents] 只覆盖**经本端口下发**的命令，UI 直连控制器、通知栏、耳机按键的路径全都不在内；
+     * - 本流来自**三端播放控制器的会话结算点**，覆盖所有来源，且**带播放进度**。
+     *
+     * 带进度是硬要求：没有它分不清「刚开就跳」与「快听完才换」，判断会系统性失准
+     * （见 `docs/7_x/agent-radio-spec.md` §2.2）。
+     */
+    val trackSettled: Flow<TrackSettledEvent> get() = emptyFlow()
+
+    /**
+     * **观测面**：暂停 / 继续。
+     * 不触发判断（暂停不是表态），但必须进上下文 —— 否则「听满 90% 才换」会被误判成不喜欢。
+     */
+    val pauseEvents: Flow<PauseEvent> get() = emptyFlow()
 }
 
 /**
@@ -70,6 +121,14 @@ data class NowPlayingContext(
     val isPlaying: Boolean,
     val currentPositionMs: Long,
     val durationMs: Long,
+    /**
+     * 播放器当前队列的曲目 id 序列（用于判断"环境有没有被改动"）。
+     *
+     * 电台关闭只暂停不清队列，重开时要判断能不能续上上次对话 ——
+     * 光看当前曲目不够：用户可能换了歌单，而新歌单里恰好也有那首歌。
+     * 拿不到时给空列表，判定会自动退化为只看当前曲目。
+     */
+    val queueIds: List<Long> = emptyList(),
 )
 
 interface NowPlayingContextProvider {
@@ -84,7 +143,12 @@ interface NowPlayingContextProvider {
 object FakePlaybackCommandPort : PlaybackCommandPort {
     override val skipEvents: Flow<String> = emptyFlow()
     override val trackChangeEvents: Flow<String> = emptyFlow()
-    override suspend fun execute(command: PlaybackCommand): Pair<Boolean, String> =
+    override val trackSettled: Flow<TrackSettledEvent> = emptyFlow()
+    override val pauseEvents: Flow<PauseEvent> = emptyFlow()
+    override suspend fun execute(
+        command: PlaybackCommand,
+        source: CommandSource,
+    ): Pair<Boolean, String> =
         true to "（测试环境）[${command.displayName}] 已接收指令"
 }
 

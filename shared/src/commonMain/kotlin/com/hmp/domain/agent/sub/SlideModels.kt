@@ -1,5 +1,6 @@
 package com.hmp.domain.agent.sub
 
+import com.hmp.domain.music.MusicInfo
 import kotlinx.serialization.Serializable
 
 // ═══════════════════════════════════════════════════════════════════
@@ -49,6 +50,8 @@ enum class SlideType {
     DISCOVER,       // 歌手/风格探索（12s）
     FORGOTTEN,      // 遗忘唤醒（12s）
     ANNIVERSARY,    // 纪念日（15s）
+    ENRICH_TRACKING,// Enrich 富化进度（活跃时显示，完成后隐藏）
+    NARRATIVE,      // 听歌报告叙事段（常驻；文案来自 hello_report_narrative）
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -100,6 +103,49 @@ data class RecommendContent(
     /** 时长（秒，0=未知） */
     val durationSec: Int,
 ) : SlideContent
+
+// ────────────────────────────────────────────────────────────────────
+// G6：推荐列表（每日推荐 / 私人推荐二级页）
+// ────────────────────────────────────────────────────────────────────
+
+/** 推荐列表来源 */
+@Serializable
+enum class RecommendSource { DAILY, PRIVATE }
+
+/** 该来源在 `hello_card_cache` 中的 cardType（用于持久化 + `HelloMemory` 记忆去重） */
+fun RecommendSource.cardType(): String = "RECOMMEND_LIST_$name"
+
+/**
+ * 持久化存储单元：只存 id + 文案，避免整存 MusicInfo（大对象）。
+ * 两个列表整体以列表 JSON 落 `HelloCardCache.cardContentJson`
+ * （cardType = RECOMMEND_LIST_DAILY / RECOMMEND_LIST_PRIVATE），复用其持久化 + 记忆去重。
+ */
+@Serializable
+data class RecommendItemRecord(
+    val trackId: Long,
+    /** 每首按语（reasonForTrack 生成，LLM 缺失有模板兜底） */
+    val reason: String,
+)
+
+/** 一个推荐列表的完整负载（持久化 payload） */
+@Serializable
+data class RecommendListPayload(
+    val source: RecommendSource,
+    /** 顶部总述（HelloAgent 生成的场景文案） */
+    val overview: String,
+    val phase: TimePhase?,
+    val generatedAt: Long,
+    val generatedForDate: String,
+    val items: List<RecommendItemRecord>,
+)
+
+/** UI 展示模型：读时由 `MusicRepository.getMusicInfoByIds` hydrate 出 MusicInfo */
+data class RecommendItem(
+    val musicInfo: MusicInfo,
+    val reason: String,
+    val source: RecommendSource,
+    val phase: TimePhase?,
+)
 
 // ────────────────────────────────────────────────────────────────────
 // 家族 B2：FORGOTTEN —— 遗忘唤醒
@@ -183,24 +229,30 @@ data class DiscoverContent(
 ) : SlideContent
 
 // ────────────────────────────────────────────────────────────────────
-// 家族 D：RADIO_STATUS —— 电台运行态
+// 家族 D：RADIO_STATUS —— 电台运行态（左 ANCHOR + 右 Radio 状态）
 // ────────────────────────────────────────────────────────────────────
 
 @Serializable
 data class RadioStatusContent(
     /** 电台主题（"蓝调" / seed 提取的风格关键词，null=自动电台） */
     val stationTheme: String?,
-    /** 状态文字：BUILDING 时面向用户的提示 / PLAYING 时 "播放中" */
+    /** 状态文字："播放中" / "已暂停" / BUILDING 时面向用户的提示 */
     val actionText: String,
 
-    // —— PLAYING 专属（BUILDING 时全部 null）——
+    // —— 左侧简化 ANCHOR ——
     /** 当前正在播的歌名 */
     val nowPlayingTitle: String?,
     /** 当前正在播的歌手 */
     val nowPlayingArtist: String?,
+    /** 封面 URI（null=无封面，UI 显示 fallback 图标） */
+    val albumArtUri: String?,
+
+    // —— 右侧常驻核心区 ——
+    /** 当前播放曲目的 LLM 推荐理由（🌟 电台核心差异化） */
+    val nowPlayingWhy: String?,
     /** 下一首歌名 */
     val nextTrackTitle: String?,
-    /** 下一首的 LLM 推荐理由（🌟 电台核心差异化） */
+    /** 下一首的 LLM 推荐理由 */
     val nextTrackWhy: String?,
     /** playlist 总曲目数 */
     val playlistCount: Int?,
@@ -281,4 +333,57 @@ data class SlideCard(
             return "card_${ts}_${seq}_$rnd"
         }
     }
+}
+
+// ────────────────────────────────────────────────────────────────────
+// 家族 E：ENRICH_TRACKING —— 富化进度追踪
+// ────────────────────────────────────────────────────────────────────
+
+@Serializable
+data class EnrichTrackingContent(
+    /** 当前状态名：RUNNING / PAUSED / UNREGISTERED */
+    val state: String,
+    /** 已处理歌曲数 */
+    val processed: Int,
+    /** 成功富化歌曲数 */
+    val success: Int,
+    /** 失败歌曲数 */
+    val failed: Int,
+    /** 当前工作单元大小 */
+    val currentUnitSize: Int,
+    /** 是否活跃（RUNNING 或 PAUSED = true） */
+    val active: Boolean,
+    /** 当前处理的 artist 名（混合组为 GROUP_KEY_MIXED） */
+    val currentArtist: String?,
+    /** 当前 chunk 序号（1-based） */
+    val chunkIndex: Int,
+    /** 当前 workUnit 总 chunk 数 */
+    val chunkTotal: Int,
+    /** 当前阶段文本（Round 1/2a/2b/3 等） */
+    val phase: String,
+) : SlideContent
+
+// ────────────────────────────────────────────────────────────────────
+// 家族 F：NARRATIVE —— 听歌报告叙事段（常驻卡，文案来自 DAO 缓存）
+// ────────────────────────────────────────────────────────────────────
+
+@Serializable
+data class NarrativeContent(
+    /** 叙事段正文（LLM 生成的散文式总结） */
+    val narrative: String,
+    /** 时间维度（ALL / DAY / WEEK / MONTH / YEAR） */
+    val timeRange: NarrativeTimeRange,
+    /** 生成时间戳（毫秒），UI 用于展示「X 天前生成」 */
+    val generatedAt: Long,
+    /** 生成当时的日均听歌时长（分钟），null=未知 */
+    val avgDailyMinutes: Float? = null,
+) : SlideContent
+
+/** NarrativeTimeRange → 中文显示名（UI 用） */
+fun NarrativeTimeRange.zhName(): String = when (this) {
+    NarrativeTimeRange.ALL -> "全部"
+    NarrativeTimeRange.DAY -> "今日"
+    NarrativeTimeRange.WEEK -> "本周"
+    NarrativeTimeRange.MONTH -> "本月"
+    NarrativeTimeRange.YEAR -> "今年"
 }

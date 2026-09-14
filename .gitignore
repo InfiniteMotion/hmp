@@ -178,3 +178,8 @@ releases/
 .env.production.local
 clean-feature-ui.bat
 gradle/gradle-daemon-jvm.properties
+
+# AI 助手工作目录
+.workbuddy/
+.cursor/
+.trae/

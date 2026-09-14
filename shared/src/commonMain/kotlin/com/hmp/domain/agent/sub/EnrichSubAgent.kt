@@ -18,6 +18,9 @@ import com.hmp.domain.setting.model.AiEndpointConfig
 import com.hmp.domain.setting.model.DailyMusicInfo
 import com.hmp.platform.Volatile
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
@@ -76,6 +79,22 @@ class EnrichSubAgent(
     @Volatile
     private var currentUnitSize: Int = 0
 
+    /** 当前处理的 artist 名（混合组为 GROUP_KEY_MIXED） */
+    @Volatile
+    private var currentArtist: String? = null
+
+    /** 当前 chunk 在本 workUnit 中的序号（1-based） */
+    @Volatile
+    private var chunkIndex: Int = 0
+
+    /** 当前 workUnit 总共拆成多少个 chunk */
+    @Volatile
+    private var chunkTotal: Int = 0
+
+    /** 当前阶段文本（给 UI 展示） */
+    @Volatile
+    private var currentPhase: String = "idle"
+
     /** 当前进度快照 */
     data class EnrichProgress(
         val processed: Int,
@@ -83,7 +102,21 @@ class EnrichSubAgent(
         val failed: Int,
         val currentUnitSize: Int,
         val state: AgentRunState,
+        val currentArtist: String?,
+        val chunkIndex: Int,
+        val chunkTotal: Int,
+        val phase: String,
     )
+
+    /** UI 订阅的进度 StateFlow（每次 chunk 完成更新） */
+    private val _progressState = MutableStateFlow(
+        EnrichProgress(0, 0, 0, 0, AgentRunState.UNREGISTERED, null, 0, 0, "idle")
+    )
+    val progressState: StateFlow<EnrichProgress> = _progressState.asStateFlow()
+
+    private fun updateProgressState() {
+        _progressState.value = getProgress()
+    }
 
     /** Master 更新目标覆盖率（rescanEnrich 触发） */
     fun updateTarget(newTarget: Float) {
@@ -98,6 +131,10 @@ class EnrichSubAgent(
         failed = failCount,
         currentUnitSize = currentUnitSize,
         state = runState,
+        currentArtist = currentArtist,
+        chunkIndex = chunkIndex,
+        chunkTotal = chunkTotal,
+        phase = currentPhase,
     )
 
     override suspend fun shutdown() {
@@ -126,9 +163,13 @@ class EnrichSubAgent(
         Logger.i("Agent.Enrich") { "[$agentId] runLoop start: target=${targetCoverage} config=${enrichConfig != null}" }
         isActive = true
         runState = AgentRunState.RUNNING
+        currentPhase = "拉活工作单元"
+        updateProgressState()
 
         // 预热缓存：同一歌手多个 chunk 只预热一次
         var preheatCache: Pair<String, String?>? = null  // artist → preheat text (nullable)
+        // 连续 chunk 失败计数——用来检测网络/API 不可用，避免光速死循环
+        var consecutiveChunkFails = 0
 
         while (isActive) {
             stopSignal?.waitResume()
@@ -154,6 +195,8 @@ class EnrichSubAgent(
 
                 // coverage 未达标但 unenriched 已清空 → 等一会儿再查
                 Logger.w("Agent.Enrich") { "[$agentId] no unenriched but coverage ${health.coverageRate} < ${targetCoverage} — waiting" }
+                currentPhase = "等待更多歌曲"
+                updateProgressState()
                 repeat(20) {
                     if (!isActive) break
                     stopSignal?.waitResume()
@@ -164,6 +207,7 @@ class EnrichSubAgent(
             }
 
             currentUnitSize = workUnit.size
+            var anyChunkSucceeded = false
 
             when (workUnit) {
                 is EnrichWorkUnit.ArtistGroup -> {
@@ -175,6 +219,12 @@ class EnrichSubAgent(
                     // 超大歌手拆 chunk（≤ CHUNK_SPLIT_SIZE 首/块）
                     val chunks = allSongs.chunked(CHUNK_SPLIT_SIZE)
                     Logger.i("Agent.Enrich") { "[$agentId] '$artist' split into ${chunks.size} chunk(s): ${chunks.map { it.size }}" }
+
+                    // 设置 workUnit 级追踪字段
+                    currentArtist = artist
+                    chunkTotal = chunks.size
+                    chunkIndex = 0
+                    currentPhase = "Round 0 预热"
 
                     // 预热缓存：同一歌手只预热一次
                     val (cachedArtist, cachedText) = preheatCache ?: (null to null)
@@ -202,6 +252,9 @@ class EnrichSubAgent(
                         if (stopSignal?.shouldSoftStop() == true) break
 
                         Logger.i("Agent.Enrich") { "[$agentId] '$artist' chunk ${chunkIdx + 1}/${chunks.size} (${chunk.size} songs)" }
+                        chunkIndex = chunkIdx + 1
+                        currentPhase = "Round 1 枚举中"
+                        updateProgressState()
 
                         // 每个 chunk 开头注入预热（配对 user+assistant，保持历史对称）
                         if (preheatText != null) {
@@ -211,7 +264,8 @@ class EnrichSubAgent(
                             ))
                         }
 
-                        processChunk(chunk, artist, isMixed = false)
+                        val chunkOk = processChunk(chunk, artist, isMixed = false)
+                        if (chunkOk) anyChunkSucceeded = true else consecutiveChunkFails++
 
                         // chunk 结束后清 history，防止 chunk N-1 的输出污染 chunk N 的 LLM 上下文
                         clearHistory()
@@ -226,20 +280,51 @@ class EnrichSubAgent(
                     // 混合组跳过 Round 0 —— 没有共同歌手可以预热
                     // 同样加 chunk 拆分保护（Repository 层 mixGroupSize 通常已 < CHUNK_SPLIT_SIZE，但兜底）
                     val chunks = workUnit.songs.chunked(CHUNK_SPLIT_SIZE)
-                    for (chunk in chunks) {
+                    currentArtist = GROUP_KEY_MIXED
+                    chunkTotal = chunks.size
+                    chunkIndex = 0
+                    for ((chunkIdx, chunk) in chunks.withIndex()) {
                         if (!isActive) break
                         stopSignal?.waitResume()
                         if (stopSignal?.shouldSoftStop() == true) break
 
-                        processChunk(chunk, GROUP_KEY_MIXED, isMixed = true)
+                        chunkIndex = chunkIdx + 1
+                        currentPhase = "Round 1 枚举中"
+                        updateProgressState()
+                        val chunkOk = processChunk(chunk, GROUP_KEY_MIXED, isMixed = true)
+                        if (chunkOk) anyChunkSucceeded = true else consecutiveChunkFails++
                         clearHistory()
                     }
                 }
+            }
+
+            if (anyChunkSucceeded) consecutiveChunkFails = 0
+
+            // ── 连续失败保护：LLM/网络不可用时最多重试 5 轮就退避 15s ──
+            if (consecutiveChunkFails >= 5) {
+                Logger.e("Agent.Enrich") { "[$agentId] consecutiveChunkFails=$consecutiveChunkFails (LLM/API unreachable) → backoff 15s" }
+                currentPhase = "网络异常退避中"
+                updateProgressState()
+                consecutiveChunkFails = 0
+                repeat(30) {
+                    if (!isActive) break
+                    stopSignal?.waitResume()
+                    if (stopSignal?.shouldSoftStop() == true) break
+                    delay(500)
+                }
+            } else if (!anyChunkSucceeded) {
+                // 有失败但没到阈值 → 小退避 2s 防止光速重试
+                delay(2000)
             }
         }
 
         isActive = false
         runState = AgentRunState.UNREGISTERED
+        currentArtist = null
+        chunkIndex = 0
+        chunkTotal = 0
+        currentPhase = "完成"
+        updateProgressState()
         Logger.i("Agent.Enrich") { "[$agentId] runLoop exited (processed=$processedCount success=$successCount failed=$failCount)" }
     }
 
@@ -256,7 +341,7 @@ class EnrichSubAgent(
      *
      * 预热（Round 0）已在 runLoop 里统一注入到 contextBudget history（配对 user+assistant）。
      */
-    private suspend fun processChunk(songs: List<MusicInfo>, groupKey: String, isMixed: Boolean) {
+    private suspend fun processChunk(songs: List<MusicInfo>, groupKey: String, isMixed: Boolean): Boolean {
         val config = enrichConfig
 
         processedCount += songs.size
@@ -264,27 +349,31 @@ class EnrichSubAgent(
         if (config == null) {
             Logger.w("Agent.Enrich") { "[$agentId] No AiEndpointConfig, skipping chunk '$groupKey' (${songs.size} songs)" }
             failCount += songs.size
-            return
+            return false
         }
 
         Logger.i("Agent.Enrich") { "[$agentId] processing chunk '$groupKey' (${songs.size} songs, mixed=$isMixed)" }
 
         // ========== Round 1: 枚举批量 ==========
+        currentPhase = "Round 1 枚举中"
+        updateProgressState()
         val enumText = callAndLog(config, "Round 1 enum", buildEnumPrompt(songs, groupKey, isMixed))
         if (enumText == null) {
             Logger.e("Agent.Enrich") { "[$agentId] chunk '$groupKey' Round 1 failed — aborting chunk" }
             failCount += songs.size
-            return
+            return false
         }
         val enumMap = runCatching { parseEnumBatch(enumText, songs).toMutableMap() }
             .getOrElse { e ->
                 Logger.e("Agent.Enrich", e) { "[$agentId] chunk '$groupKey' Round 1 parse failed: ${e.message}" }
                 failCount += songs.size
-                return
+                return false
             }
 
         // ========== Round 1.5: 枚举自检 ==========
         // 失败不致命——只是少了一道安全网
+        currentPhase = "Round 1.5 自检中"
+        updateProgressState()
         runCatching {
             val selfCheckText = callAndLog(config, "Round 1.5 enum self-check",
                 buildEnumSelfCheckPrompt(songs, enumMap, groupKey, isMixed))
@@ -298,6 +387,8 @@ class EnrichSubAgent(
         }
 
         // ========== Round 2a: 自由文本 Easy（description + singerIntroduce） ==========
+        currentPhase = "Round 2a 自由文本"
+        updateProgressState()
         val easyText = callAndLog(config, "Round 2a freeText-easy",
             buildFreeTextEasyPrompt(songs, enumMap, groupKey, isMixed))
         val easyMap = if (easyText != null) {
@@ -312,6 +403,8 @@ class EnrichSubAgent(
         }
 
         // ========== Round 2b: 自由文本 Facts（极易编造，强化 -暂无） ==========
+        currentPhase = "Round 2b Facts"
+        updateProgressState()
         val factsText = callAndLog(config, "Round 2b freeText-facts",
             buildFreeTextFactsPrompt(songs, enumMap, groupKey, isMixed))
         val factsMap = if (factsText != null) {
@@ -326,6 +419,8 @@ class EnrichSubAgent(
         }
 
         // ========== Round 3: 总体反思 ==========
+        currentPhase = "Round 3 反思"
+        updateProgressState()
         // 先构造中间 DailyMusicInfo（枚举 + easy + facts），让反思轮能看到"完整"状态再 patch
         val draftResults = songs.associate { song ->
             val daily = mergeAll(
@@ -349,12 +444,21 @@ class EnrichSubAgent(
         }
 
         // ========== 最终写 DB ==========
+        currentPhase = "写入数据库"
+        updateProgressState()
+        var chunkSuccess = 0
+        var chunkFail = 0
         songs.forEach { song ->
             val daily = draftResults[song.music.id]
-            if (daily != null && enumMap.containsKey(song.music.id)) {
+            val hasEnum = enumMap.containsKey(song.music.id)
+            if (daily != null && hasEnum) {
                 writeSongResult(song, daily)
+                chunkSuccess++
+                Logger.d("Agent.Enrich") { "[$agentId] WRITE OK: id=${song.music.id} title=${song.music.title.take(20)} genre=${daily.genre.take(2)} language=${daily.language}" }
             } else {
+                chunkFail++
                 failCount++
+                Logger.w("Agent.Enrich") { "[$agentId] SKIP: id=${song.music.id} title=${song.music.title.take(20)} reason=daily=${daily != null} hasEnum=$hasEnum" }
             }
         }
 
@@ -364,7 +468,9 @@ class EnrichSubAgent(
             total = currentUnitSize,
         ))
 
-        Logger.i("Agent.Enrich") { "[$agentId] chunk '$groupKey' done: success=$successCount fail=$failCount" }
+        Logger.i("Agent.Enrich") { "[$agentId] chunk '$groupKey' done: chunkSuccess=$chunkSuccess chunkFail=$chunkFail runningTotal success=$successCount fail=$failCount" }
+        updateProgressState()
+        return chunkSuccess > 0 || chunkFail == 0
     }
 
     /** 便捷封装：callLlmText + 日志。返回 null 表示失败。 */
@@ -375,7 +481,9 @@ class EnrichSubAgent(
             newMessages = listOf(LlmMessage(role = "user", content = userPrompt)),
         )
         if (text == null) {
-            Logger.w("Agent.Enrich") { "[$agentId] $roundLabel → null" }
+            Logger.w("Agent.Enrich") { "[$agentId] $roundLabel → null (call failed or timeout)" }
+        } else {
+            Logger.i("Agent.Enrich") { "[$agentId] $roundLabel raw(${text.length}): ${text.take(600)}" }
         }
         return text
     }
@@ -392,6 +500,7 @@ class EnrichSubAgent(
     /** Round 1 枚举批量 */
     private fun parseEnumBatch(text: String, songs: List<MusicInfo>): Map<Long, EnumOnlyResult> {
         val elements = extractJsonArrayElements(text)
+        Logger.i("Agent.Enrich") { "[$agentId] parseEnumBatch: extracted ${elements.size} JSON elements, expecting ${songs.size} songs" }
         val result = mutableMapOf<Long, EnumOnlyResult>()
         for ((index, elementText) in elements.withIndex()) {
             if (index >= songs.size) break
@@ -399,9 +508,10 @@ class EnrichSubAgent(
             runCatching { json.decodeFromString<EnumOnlyResult>(elementText) }
                 .onSuccess { result[song.music.id] = it }
                 .onFailure { e ->
-                    Logger.w("Agent.Enrich", e) { "[$agentId] song ${song.music.id} (${song.music.title}) Round 1 parse failed: ${e.message}" }
+                    Logger.w("Agent.Enrich") { "[$agentId] song ${song.music.id} (${song.music.title}) Round 1 parse failed: ${e.message}" }
                 }
         }
+        Logger.i("Agent.Enrich") { "[$agentId] parseEnumBatch: ${result.size}/${songs.size} songs parsed OK" }
         return result
     }
 
@@ -575,14 +685,18 @@ class EnrichSubAgent(
         val lastBracket = cleaned.lastIndexOf(']')
         if (firstBracket >= 0 && lastBracket > firstBracket) {
             val arrayContent = cleaned.substring(firstBracket + 1, lastBracket)
-            return splitJsonObjects(arrayContent)
+            val objs = splitJsonObjects(arrayContent)
+            Logger.i("Agent.Enrich") { "[$agentId] extractJsonArrayElements: found array [$firstBracket..$lastBracket], split → ${objs.size} objects" }
+            return objs
         }
         // 没有正确的数组包装 → 尝试兜底解析
-        return when {
+        val fallback = when {
             cleaned.startsWith('{') -> listOf(cleaned)
             cleaned.contains('}') && cleaned.contains('{') -> splitJsonObjects(cleaned)
             else -> emptyList()
         }
+        Logger.w("Agent.Enrich") { "[$agentId] extractJsonArrayElements: NO array wrapper! cleaned(prefix)=${cleaned.take(200)}, fallback → ${fallback.size} objects" }
+        return fallback
     }
 
     private fun splitJsonObjects(content: String): List<String> {
@@ -630,13 +744,18 @@ class EnrichSubAgent(
     private fun extractJsonBlock(text: String): String {
         val codeBlockRegex = Regex("""```(?:json)?\s*([\s\S]*?)\s*```""")
         val match = codeBlockRegex.find(text)
-        if (match != null) return match.groupValues[1].trim()
+        if (match != null) {
+            Logger.d("Agent.Enrich") { "[$agentId] extractJsonBlock: found markdown code block, length=${match.groupValues[1].length}" }
+            return match.groupValues[1].trim()
+        }
 
         val firstBrace = text.indexOfAny(charArrayOf('{', '['))
         val lastBrace = text.lastIndexOfAny(charArrayOf('}', ']'))
         if (firstBrace >= 0 && lastBrace > firstBrace) {
+            Logger.d("Agent.Enrich") { "[$agentId] extractJsonBlock: no markdown fence, using raw range [$firstBrace..$lastBrace]" }
             return text.substring(firstBrace, lastBrace + 1)
         }
+        Logger.w("Agent.Enrich") { "[$agentId] extractJsonBlock: NO JSON found! text(prefix)=${text.take(150)}" }
         return text.trim()
     }
 
@@ -940,6 +1059,7 @@ $textSummary
 // ===== 内部数据类 =====
 
 /** Round 1 枚举字段结果 */
+@Serializable
 internal data class EnumOnlyResult(
     val genre: List<String>,
     val mood: List<String>,
@@ -949,12 +1069,14 @@ internal data class EnumOnlyResult(
 )
 
 /** Round 2a 自由文本 Easy —— description + singerIntroduce */
+@Serializable
 internal data class FreeTextEasyResult(
     val description: String = "",
     val singerIntroduce: String = "",
 )
 
 /** Round 2b 自由文本 Facts —— 极易编造的字段 */
+@Serializable
 internal data class FreeTextFactsResult(
     val rewards: String = "",
     val lyric: String = "",
@@ -965,7 +1087,7 @@ internal data class FreeTextFactsResult(
 /** Round 3 总体反思 patch —— 只修单字段 */
 @Serializable
 internal data class ReflectionPatch(
-    val index: Int,     // 歌曲在组内的序号（prompt 里从 1 开始；parse 后会规整为 0-based）
-    val field: String,  // 字段名
-    val fix: String,    // 修正值；"-暂无" 或 blank 表示置空
+    val index: Int = 0,     // 歌曲在组内的序号（prompt 里从 1 开始；parse 后会规整为 0-based）
+    val field: String = "",  // 字段名
+    val fix: String = "",    // 修正值；"-暂无" 或 blank 表示置空
 )

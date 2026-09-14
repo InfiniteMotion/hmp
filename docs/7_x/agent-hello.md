@@ -354,11 +354,11 @@ fun resumeTimer(cardId: String) { ... }
 enum class SlideType {
     ANCHOR,         // 正在听（常驻）
     RADIO_STATUS,   // 电台运行态（0=常驻，Radio 停止时 pop）
-    GREETING,       // 问候 + DJ 衔接语（10s）
-    RECOMMEND,      // 可解释推荐（15s）
-    DISCOVER,       // 歌手/风格探索（12s）
-    FORGOTTEN,      // 遗忘唤醒（12s）
-    ANNIVERSARY,    // 纪念日（15s）
+    GREETING,       // 问候 + DJ 衔接语（统一 4s 轮播，原设计 10s 已关闭）
+    RECOMMEND,      // 可解释推荐（统一 4s 轮播，原设计 15s 已关闭）
+    DISCOVER,       // 歌手/风格探索（统一 4s 轮播，原设计 12s 已关闭）
+    FORGOTTEN,      // 遗忘唤醒（统一 4s 轮播，原设计 12s 已关闭）
+    ANNIVERSARY,    // 纪念日（统一 4s 轮播，原设计 15s 已关闭）
 }
 
 // 每种卡的内容 sealed interface
@@ -453,7 +453,7 @@ data class SlideCard(
 
 - **兜底**：无 LLM + 无 fallback → 硬编码「嗨，继续听歌？」
 
-### RECOMMEND（可解释推荐，15s）
+### RECOMMEND（可解释推荐，统一 4s 轮播）
 
 - **触发**：每日凌晨 + 时段切换
 
@@ -478,7 +478,7 @@ data class SlideCard(
 
 - **兜底**：无 LLM → random 一个 label + 固定文案「你好像很久没听 X 了」
 
-### FORGOTTEN（遗忘唤醒，12s）
+### FORGOTTEN（遗忘唤醒，统一 4s 轮播）
 
 - **触发**：每日凌晨扫历史
 

@@ -167,4 +167,16 @@ object Routes {
         /** 对话页路由（M5 确认卡片流宿主界面） */
         @Serializable object Chat : NavKey
     }
+
+    /**
+     * 推荐列表模块路由（G6）
+     * 首页堆叠卡下方区域② 两个入口 → 两个同构推荐二级页
+     */
+    object Recommend {
+        /** 每日推荐页路由 */
+        @Serializable object Daily : NavKey
+
+        /** 私人推荐页路由 */
+        @Serializable object Private : NavKey
+    }
 }

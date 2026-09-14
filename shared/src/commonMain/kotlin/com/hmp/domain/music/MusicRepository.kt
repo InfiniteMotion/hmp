@@ -37,6 +37,9 @@ interface MusicRepository {
     suspend fun updateLikedStatus(id: Long, liked: Boolean)
     suspend fun getLikedStatus(id: Long): Boolean
 
+    /** G6：批量取全部已收藏曲目 id（私人推荐种子源） */
+    suspend fun getLikedMusicIds(): List<Long>
+
     /** 从曲库软删除：标记指定 id 的 music / musicExtra / userInfo 为已删除，列表查询将不再返回。 */
     suspend fun removeFromLibrary(ids: List<Long>)
 

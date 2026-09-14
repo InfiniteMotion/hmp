@@ -164,7 +164,12 @@ class ToolCallExecutor(
                 taskId = taskId,
             ))
             messages?.appendToolResult(tc, result.summary)
-            ToolExecutionRecord(tc.name, if (result.success) "success" else "failed", result.summary)
+            ToolExecutionRecord(
+                toolName = tc.name,
+                outcome = if (result.success) "success" else "failed",
+                summary = result.summary,
+                detail = result.detail,
+            )
         } catch (e: Exception) {
             auditLog?.record(AuditEntry(
                 tool = tc.name, outcome = "failed",

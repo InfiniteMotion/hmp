@@ -35,6 +35,8 @@
 | P4 | 🟠 整体升级 | AuditLogScreen → AgentMonitorScreen | `Routes.Settings.AgentMonitor`  | 280 行只读 ToolExecutionRecord 列表                           |
 | P5 | 🟠 整体升级 | UserUsageDataScreen → 听歌报告页         | `Routes.UserData.UserUsageData` | 纯数字图表（Overview + Taste + Ranking + PieChart）             |
 
+> **[W1 进度快照 2026-09-14]** P1 [已完成]（未提交 diff）；P3 [待增强]（基础落地，`ConfirmMatrixCard` 仍在对话流内未迁原生 Dialog、无 `TextDelta` 打字机）；P2 [待增强]（基础版已落地，五分区演进归 M7-T2）；P4 [未落地]（仍为 `AuditLogScreen`，依赖 W0#4 引擎统一运行态接口 `enrichStatusSummary()`）。区域③ 三目的地页面 = P3 对话 / P2 配置 / P4 看板。收尾序列：P3 → P2 → P4 → M7 报告 + 语音。详见 `agent-task-book.md` §3 W 阶段进度快照。
+
 ***
 
 ## P1 · HomeScreen → Agent 主交互页
@@ -45,7 +47,7 @@
 
 | # | 区域       | 形态                   | 内容                             | 备注                                  |
 | - | -------- | -------------------- | ------------------------------ | ----------------------------------- |
-| ① | 动态信息展示区  | 堆叠卡组件                | HelloSubAgent 管理卡片生命周期         | 竖屏 3:2 卡片；月度叙事卡融入此处；仅栈顶可见           |
+| ① | 动态信息展示区  | 堆叠卡组件（VerticalPager 轮播） | HelloSubAgent 管理卡片生命周期         | 竖屏 3:2 卡片；月度叙事卡融入此处；上下轮播、所有卡同时可见（缩放/透明渐隐）+ 右侧指示点           |
 | ② | 电台 + 推荐区 | 左 1:1 收音机卡 + 右侧两行歌单卡 | 📻收音机（开关）+ 🎵今日推荐歌单 + ❤️最近收藏歌单 | 收音机 1:1 正方形独立开关；右侧歌单卡（点击播放 · 箭头进详情） |
 | ③ | 功能入口区    | 横向等宽卡片 Row           | 💬对话 / ⚙️配置 / 📊看板             | 固定高度                                |
 
@@ -54,7 +56,7 @@
 
 ### 区域① · 动态信息展示区
 
-**形态**：z-axis 堆叠（overlay），多卡叠加，**仅栈顶可见**。HelloSubAgent 管理生命周期（push / pop / 显示时长），UI 渲染 `Stack + AnimatedVisibility`。
+**形态**：竖向 `VerticalPager` 上下轮播（2026-09-14 G4 关闭：维持 VerticalPager，原 z-axis overlay 堆叠形态作废）。所有卡同时可见（缩放 / 透明渐隐）+ 右侧指示点。HelloSubAgent 管理卡片生命周期（push / pop 决定卡池成员），UI 渲染 `VerticalPager`（`RotatingPersistentCards`）。
 
 ```
         ┌──────────────────────────────┐
@@ -79,11 +81,13 @@ top →   │ 💬 问候（10s，可展开暂停）      │ ← DjBlank → pu
 | ----------- | -------- | ------------------------------------------------------ |
 | 正在听锚定卡      | 0（常驻）    | `PlaylistQueueViewModel.cards` 变化时刷新内容                 |
 | 电台运行态       | 0（运行时常驻） | `RadioSubAgent` emit `AgentProgress` → push；stop → pop |
-| 问候 + DJ 衔接语 | 10s      | DjBlank 切歌 → push（替换列表中已有旧问候卡）                         |
-| 可解释推荐       | 15s      | 每日凌晨批量生成                                               |
-| 歌手/风格探索     | 12s      | 每日凌晨批量生成                                               |
-| 遗忘唤醒        | 12s      | 查 30/90 天未播曲目 → 有则 push                                |
-| 纪念日         | 15s      | 每日凌晨扫历史 → 有则 push                                      |
+| 问候 + DJ 衔接语 | 统一 4s   | DjBlank 切歌 → push（替换列表中已有旧问候卡）                         |
+| 可解释推荐       | 统一 4s   | 每日凌晨批量生成                                               |
+| 歌手/风格探索     | 统一 4s   | 每日凌晨批量生成                                               |
+| 遗忘唤醒        | 统一 4s   | 查 30/90 天未播曲目 → 有则 push                                |
+| 纪念日         | 统一 4s   | 每日凌晨扫历史 → 有则 push                                      |
+
+> ⚠️ **2026-09-14 G3 关闭**：原设计分卡时长（GREETING 10s / RECOMMEND 15s / DISCOVER 12s / FORGOTTEN 12s / ANNIVERSARY 15s）**不再实现**。所有卡统一 `AUTO_ROTATE_MS = 4000L` 全局轮播，不做按卡型差异化时长。`SlideType` 注释中的 10s/15s/12s 描述已同步回改为「统一 4s」（见 `agent-hello.md`）。
 
 **可展开暂停**：展开状态下自动暂停倒计时，收起后恢复。展开后可看推荐理由、遗忘卡的循环次数、纪念日的详细统计。
 
@@ -110,7 +114,7 @@ data class SlideCard(
 
 * 每分钟 tick → 检查时段变化 → `replace(RECOMMEND, 适合当前时段的新卡)`
 
-* 卡片到时 → `CountDownTimer` 触发 `pop(cardId)`
+* 卡片到时 → `CountDownTimer` 触发 `pop(cardId)`（⚠️ G3 关闭后此计时已不再是分卡时长；非常驻卡的轮播由 `RotatingPersistentCards` 的 `AUTO_ROTATE_MS = 4000L` 统一驱动，卡池层不再按卡型维护独立倒计时）
 
 ### 区域② · 电台 + 推荐区
 

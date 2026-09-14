@@ -1,5 +1,6 @@
 package com.hearablemusic.player.ui.library.pages
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -15,46 +16,122 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
+import com.hmp.domain.agent.sub.SlideCard
+import com.hmp.domain.music.MusicRepository
+import com.hearablemusic.player.ui.common.design.dimens.LocalHMPDimens
 import com.hearablemusic.player.ui.common.layout.LocalWindowSizeInfo
 import com.hearablemusic.player.ui.common.pages.base.TabScreen
 import com.hearablemusic.player.ui.generated.resources.Res
 import com.hearablemusic.player.ui.generated.resources.magnifyingglass
-import com.hearablemusic.player.ui.generated.resources.music_note_list
+import com.hearablemusic.player.ui.generated.resources.play_fill
 import com.hearablemusic.player.ui.generated.resources.search_placeholder
 import com.hearablemusic.player.ui.library.pages.components.FeatureEntryRow
 import com.hearablemusic.player.ui.library.pages.components.HelloSlideCardStack
-import com.hearablemusic.player.ui.library.pages.components.PlaylistEntryCard
 import com.hearablemusic.player.ui.library.pages.components.RadioCard
 import com.hearablemusic.player.ui.player.viewmodel.PlaylistQueueViewModel
-import com.hearablemusic.player.ui.settings.viewmodel.RecommendationViewModel
 import com.hearablemusic.player.ui.common.util.activityViewModel
 import com.hearablemusic.player.ui.common.navigation.Routes as NavRoutes
+import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
+import org.koin.compose.koinInject
 
 @Composable
 fun HomeScreen(
-    recommendationViewModel: RecommendationViewModel = activityViewModel(),
     playlistQueueViewModel: PlaylistQueueViewModel = activityViewModel(),
     navController: NavBackStack<NavKey>
 ) {
     val isLandscape = LocalWindowSizeInfo.current.isLandscape
-    val heartbeatList by recommendationViewModel.heartbeatList.collectAsState()
+
+    // ── G6：两个推荐入口数据（agent 生成的每日 / 私人推荐列表） ──
+    // payload==null → 生成中（入口置灰）；payload 空 items → 无数据（入口隐藏）；否则正常。
+    val masterAgent: com.hmp.domain.agent.runtime.MasterAgent = koinInject()
+    // MasterAgent 持有的固定转发流（内部镜像 Hello 子代理）——首帧即可拿到，
+    // 不会像透传子代理那样缓存到 null / 旧实例。
+    val dailyPayload by masterAgent.dailyRecommendList.collectAsState()
+    val privatePayload by masterAgent.privateRecommendList.collectAsState()
+
+    // ── G2：堆叠卡短按 → 直接接入播放 ──
+    // 按卡型分流：能播的播、能跳的跳、纯文案卡不响应。
+    // 长按事件本次不做（骨架保留）。叙事卡（NARRATIVE）点击落点暂空，待 P5 报告页。
+    // 卡片 content 只带 trackId，需按 id 查回 MusicInfo 才能入队播放（playWith 要 MusicInfo）。
+    val musicRepository: MusicRepository = koinInject()
+    val cardScope = rememberCoroutineScope()
+
+    // G6：播放某个推荐列表（整组入队，从第一首播起）
+    fun playRecommend(source: com.hmp.domain.agent.sub.RecommendSource) {
+        val payload = when (source) {
+            com.hmp.domain.agent.sub.RecommendSource.DAILY -> dailyPayload
+            com.hmp.domain.agent.sub.RecommendSource.PRIVATE -> privatePayload
+        }
+        val ids = payload?.items?.map { it.trackId }.orEmpty()
+        if (ids.isEmpty()) return
+        cardScope.launch {
+            val infos = runCatching { musicRepository.getMusicInfoByIds(ids) }.getOrNull().orEmpty()
+            if (infos.isNotEmpty()) {
+                playlistQueueViewModel.clearPlaylist()
+                playlistQueueViewModel.addAllToPlaylistInOrder(infos)
+                playlistQueueViewModel.playWith(infos.first())
+                navController.add(NavRoutes.Player.Player)
+            }
+        }
+    }
+
+    val onSlideCardClick: (SlideCard) -> Unit = { card ->
+        // 抽出「按 id 集合播放」的公共路径：查 MusicInfo → 清队 → 全量入队 → 从首曲播起 → 进播放页
+        fun playIds(ids: List<Long>) {
+            if (ids.isEmpty()) return
+            cardScope.launch {
+                val infos = runCatching { musicRepository.getMusicInfoByIds(ids) }.getOrNull().orEmpty()
+                if (infos.isNotEmpty()) {
+                    playlistQueueViewModel.clearPlaylist()
+                    playlistQueueViewModel.addAllToPlaylistInOrder(infos)
+                    playlistQueueViewModel.playWith(infos.first())
+                    navController.add(NavRoutes.Player.Player)
+                }
+            }
+        }
+        when (val content = card.content) {
+            is com.hmp.domain.agent.sub.RecommendContent -> playIds(listOf(content.trackId))
+            is com.hmp.domain.agent.sub.ForgottenContent -> playIds(listOf(content.trackId))
+            // 纪念日：PLAYLIST_CREATE 无单曲（trackId=0），其余直接播
+            is com.hmp.domain.agent.sub.AnniversaryContent ->
+                if (content.trackId > 0L) playIds(listOf(content.trackId))
+            // 探索卡：整组入队，从第一首播起
+            is com.hmp.domain.agent.sub.DiscoverContent -> playIds(content.trackIds)
+            // 正在听卡 / 电台卡：进播放页
+            is com.hmp.domain.agent.sub.AnchorContent ->
+                navController.add(NavRoutes.Player.Player)
+            is com.hmp.domain.agent.sub.RadioStatusContent ->
+                navController.add(NavRoutes.Player.Player)
+            // GREETING / ENRICH_TRACKING / NARRATIVE：暂不响应
+            else -> Unit
+        }
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         Box(modifier = Modifier.fillMaxSize()) {
@@ -75,6 +152,7 @@ fun HomeScreen(
                             modifier = Modifier
                                 .weight(0.8f)
                                 .fillMaxHeight().padding(bottom = 80.dp),
+                            onCardClick = onSlideCardClick,
                         )
 
                         // ── 右栏：搜索框 + 推荐 + 探索 ──
@@ -106,41 +184,19 @@ fun HomeScreen(
                                     modifier = Modifier.fillMaxSize(),
                                     verticalArrangement = Arrangement.spacedBy(20.dp),
                                 ) {
-                                    PlaylistEntryCard(
+                                    RecommendEntryCard(
                                         modifier = Modifier.weight(1f).fillMaxWidth(),
-                                        icon = Res.drawable.music_note_list,
-                                        title = "🎵 今日推荐",
-                                        subtitle = "AI 为你精选",
-                                        count = heartbeatList.size,
-                                        onClickPlay = {
-                                            if (heartbeatList.isNotEmpty()) {
-                                                playlistQueueViewModel.clearPlaylist()
-                                                playlistQueueViewModel.addAllToPlaylistInOrder(heartbeatList)
-                                                playlistQueueViewModel.playWith(heartbeatList.first())
-                                                navController.add(NavRoutes.Player.Player)
-                                            }
-                                        },
-                                        onClickDetails = {
-                                            navController.add(NavRoutes.Playlist.Playlist("今日推荐"))
-                                        },
+                                        source = com.hmp.domain.agent.sub.RecommendSource.DAILY,
+                                        payload = dailyPayload,
+                                        onOpen = { navController.add(NavRoutes.Recommend.Daily) },
+                                        onPlay = { playRecommend(com.hmp.domain.agent.sub.RecommendSource.DAILY) },
                                     )
-                                    PlaylistEntryCard(
+                                    RecommendEntryCard(
                                         modifier = Modifier.weight(1f).fillMaxWidth(),
-                                        icon = Res.drawable.music_note_list,
-                                        title = "❤️ 最近收藏",
-                                        subtitle = "WIP · 后续接 MusicRepository",
-                                        count = heartbeatList.size, // 批次 B 占位
-                                        onClickPlay = {
-                                            if (heartbeatList.isNotEmpty()) {
-                                                playlistQueueViewModel.clearPlaylist()
-                                                playlistQueueViewModel.addAllToPlaylistInOrder(heartbeatList)
-                                                playlistQueueViewModel.playWith(heartbeatList.first())
-                                                navController.add(NavRoutes.Player.Player)
-                                            }
-                                        },
-                                        onClickDetails = {
-                                            navController.add(NavRoutes.Playlist.Playlist("最近收藏"))
-                                        },
+                                        source = com.hmp.domain.agent.sub.RecommendSource.PRIVATE,
+                                        payload = privatePayload,
+                                        onOpen = { navController.add(NavRoutes.Recommend.Private) },
+                                        onPlay = { playRecommend(com.hmp.domain.agent.sub.RecommendSource.PRIVATE) },
                                     )
                                 }
                             }
@@ -172,7 +228,8 @@ fun HomeScreen(
                         HelloSlideCardStack(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .aspectRatio(10f / 9f)
+                                .aspectRatio(10f / 9f),
+                            onCardClick = onSlideCardClick,
                         )
                         Spacer(modifier = Modifier.height(16.dp))
                         // 区域② 快速播放
@@ -194,41 +251,19 @@ fun HomeScreen(
                                 modifier = Modifier.fillMaxSize(),
                                 verticalArrangement = Arrangement.spacedBy(20.dp),
                             ) {
-                                PlaylistEntryCard(
+                                RecommendEntryCard(
                                     modifier = Modifier.weight(1f).fillMaxWidth(),
-                                    icon = Res.drawable.music_note_list,
-                                    title = "🎵 今日推荐",
-                                    subtitle = "AI 为你精选",
-                                    count = heartbeatList.size,
-                                    onClickPlay = {
-                                        if (heartbeatList.isNotEmpty()) {
-                                            playlistQueueViewModel.clearPlaylist()
-                                            playlistQueueViewModel.addAllToPlaylistInOrder(heartbeatList)
-                                            playlistQueueViewModel.playWith(heartbeatList.first())
-                                            navController.add(NavRoutes.Player.Player)
-                                        }
-                                    },
-                                    onClickDetails = {
-                                        navController.add(NavRoutes.Playlist.Playlist("今日推荐"))
-                                    },
+                                    source = com.hmp.domain.agent.sub.RecommendSource.DAILY,
+                                    payload = dailyPayload,
+                                    onOpen = { navController.add(NavRoutes.Recommend.Daily) },
+                                    onPlay = { playRecommend(com.hmp.domain.agent.sub.RecommendSource.DAILY) },
                                 )
-                                PlaylistEntryCard(
+                                RecommendEntryCard(
                                     modifier = Modifier.weight(1f).fillMaxWidth(),
-                                    icon = Res.drawable.music_note_list,
-                                    title = "❤️ 最近收藏",
-                                    subtitle = "WIP · 后续接 MusicRepository",
-                                    count = heartbeatList.size, // 批次 B 占位
-                                    onClickPlay = {
-                                        if (heartbeatList.isNotEmpty()) {
-                                            playlistQueueViewModel.clearPlaylist()
-                                            playlistQueueViewModel.addAllToPlaylistInOrder(heartbeatList)
-                                            playlistQueueViewModel.playWith(heartbeatList.first())
-                                            navController.add(NavRoutes.Player.Player)
-                                        }
-                                    },
-                                    onClickDetails = {
-                                        navController.add(NavRoutes.Playlist.Playlist("最近收藏"))
-                                    },
+                                    source = com.hmp.domain.agent.sub.RecommendSource.PRIVATE,
+                                    payload = privatePayload,
+                                    onOpen = { navController.add(NavRoutes.Recommend.Private) },
+                                    onPlay = { playRecommend(com.hmp.domain.agent.sub.RecommendSource.PRIVATE) },
                                 )
                             }
                         }
@@ -278,5 +313,84 @@ private fun HomeSearchBar(
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
+    }
+}
+
+/**
+ * G6：区域②右侧推荐入口卡（每日 / 私人）。
+ *
+ * 容器对齐 TitleWidget / User·Setting 页卡片：透明底 + `outlineVariant` 50% 描边 + `dimens.corner.md` 圆角。
+ * 内容 = 标题 + 尾部播放按钮（无前置图标、无副文案、无指示箭头 —— 整卡可点，箭头冗余）。
+ *
+ * 三态：payload==null → 生成中（标题与播放按钮置灰，不可点）；已生成但空 → 不显示；否则正常。
+ * 语义：点卡片 = 进二级页；播放按钮 = 直接播放整组。
+ */
+@Composable
+private fun RecommendEntryCard(
+    modifier: Modifier,
+    source: com.hmp.domain.agent.sub.RecommendSource,
+    payload: com.hmp.domain.agent.sub.RecommendListPayload?,
+    onOpen: () -> Unit,
+    onPlay: () -> Unit,
+) {
+    // 无数据（已生成但为空）→ 入口不显示
+    if (payload != null && payload.items.isEmpty()) return
+
+    val ready = payload != null && payload.items.isNotEmpty()
+    val title = when (source) {
+        com.hmp.domain.agent.sub.RecommendSource.DAILY -> "今日推荐"
+        com.hmp.domain.agent.sub.RecommendSource.PRIVATE -> "私人推荐"
+    }
+
+    // 容器对齐 TitleWidget / User·Setting 页卡片：透明底 + outlineVariant 50% 描边 + dimens.corner.md
+    val dimens = LocalHMPDimens.current
+    val corner = RoundedCornerShape(dimens.corner.md)
+
+    Card(
+        // 入口卡语义：点卡片 = 进二级页；右侧播放按钮 = 直接播放
+        modifier = modifier
+            .clip(corner)
+            .clickable(enabled = ready) { onOpen() },
+        shape = corner,
+        colors = CardDefaults.cardColors(
+            containerColor = Color.Transparent,
+        ),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                color = if (ready) {
+                    MaterialTheme.colorScheme.onSurface
+                } else {
+                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                },
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+            )
+            Spacer(Modifier.width(10.dp))
+            FilledIconButton(
+                onClick = { if (ready) onPlay() },
+                enabled = ready,
+                colors = IconButtonDefaults.filledIconButtonColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                    disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                ),
+            ) {
+                Icon(
+                    painter = painterResource(Res.drawable.play_fill),
+                    contentDescription = "播放全部",
+                )
+            }
+        }
     }
 }

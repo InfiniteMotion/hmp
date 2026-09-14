@@ -23,6 +23,13 @@ class FakeChatAgentGateway : ChatAgentGateway {
         ctx: RunContextInput,
     ): Flow<ChatAgentEvent> = events
 
+    override suspend fun startRadio(seed: String?): ChatAgentEvent.RadioStarted? = null
+
+    override suspend fun stopRadio() = Unit
+
+    /** (是否活跃, 队列曲目数)——测试默认未启动电台。 */
+    override fun queryRadioState(): Pair<Boolean, Int> = false to 0
+
     suspend fun emitEvent(event: ChatAgentEvent) = events.emit(event)
 }
 
@@ -92,6 +99,15 @@ class MinimalSettingsRepository : SettingsRepository {
     override suspend fun getCustomAiConfig(): AiEndpointConfig = AiEndpointConfig(isConfigured = true)
     override suspend fun saveCustomAiConfig(config: AiEndpointConfig) = unused()
     override suspend fun getActiveAiConfig(): AiEndpointConfig = AiEndpointConfig(isConfigured = true, selectedModel = "test")
+    override val customAiConfig: Flow<AiEndpointConfig>
+        get() = kotlinx.coroutines.flow.flowOf(AiEndpointConfig(isConfigured = true))
+
+    override suspend fun getAgentPolicyConfig(agentRole: String): com.hmp.domain.agent.policy.AgentPolicyConfig =
+        com.hmp.domain.agent.policy.AgentPolicyConfig()
+    override suspend fun saveAgentPolicyConfig(
+        agentRole: String,
+        config: com.hmp.domain.agent.policy.AgentPolicyConfig,
+    ) = unused()
 
     override val aiFreeTrialRemainingCount: Flow<Int> get() = kotlinx.coroutines.flow.flowOf(100)
     override suspend fun getAiFreeTrialRemainingCount(): Int = 100

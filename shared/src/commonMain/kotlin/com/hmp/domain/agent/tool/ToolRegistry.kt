@@ -60,7 +60,9 @@ class ToolRegistry(
 
     companion object {
         /**
-         * 构造基础工具集（27 个：Playback 4 + Playlist 8 + Library 11 + Song 4）。
+         * 构造基础工具集（34 个实例 = 26 主域 + 8 DJ）。
+         * 主域：Playback 3 + Playlist CRUD 5 + Playlist 曲目 3 + Library 4 + Song 标签 1 + Batch B 10。
+         * DJ 组（dj_*）只出现在 ToolRegistryView.radio() 白名单——Master 视图按前缀过滤后看不到。
          *
          * MasterAgent SubAgent 生命周期（enrich 系列 / radio 系列）已重构为内建意图路由，
          * 不再作为 LLM 工具注册——由 MasterAgent.handleUserMessage() 直接识别并调原生方法。
@@ -104,6 +106,16 @@ class ToolRegistry(
                 AgentBudgetTool(deps),           // agent_budget
                 SongTagUserAddTool(deps),        // song_tag_user_add
                 SongTagUserRemoveTool(deps),      // song_tag_user_remove
+
+                // ── DJ（电台专属 8 个；仅 ToolRegistryView.radio() 可见）──
+                DjCurrentSongTool(deps),          // dj_current_song
+                DjLibraryStatsTool(deps),         // dj_library_stats
+                DjSearchByTagsTool(deps),         // dj_search_by_tags
+                DjGetTopArtistsTool(deps),        // dj_get_top_artists
+                DjGetTopLabelsTool(deps),         // dj_get_top_labels
+                DjRecentlySkippedTool(deps),      // dj_recently_skipped
+                DjQueuePeekTool(deps),            // dj_queue_peek
+                DjQueueReplaceNextTool(deps),     // dj_queue_replace_next
             )
             return ToolRegistry(baseTools)
         }

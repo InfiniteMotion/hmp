@@ -186,6 +186,13 @@ class ToolArgs internal constructor(
             ?: throw ToolParamError("参数 '$name' 应为整数数组")
     }
 
+    /** 可选字符串数组：缺省 / 非数组 / 空数组一律返回 emptyList（调用方自行判断长度语义）。 */
+    fun optionalStringList(name: String): List<String> {
+        val elem = values[name] ?: return emptyList()
+        val arr = elem as? kotlinx.serialization.json.JsonArray ?: return emptyList()
+        return arr.mapNotNull { (it as? JsonPrimitive)?.content }
+    }
+
     private fun requirePrimitive(name: String): JsonPrimitive =
         optionalPrimitive(name) ?: throw ToolParamError("缺少必需参数 '$name'")
 

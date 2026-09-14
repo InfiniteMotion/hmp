@@ -13,6 +13,7 @@ import com.hearablemusic.player.ui.library.pages.ArtistScreen
 import com.hearablemusic.player.ui.settings.pages.AudioEffectsScreen
 import com.hearablemusic.player.ui.library.pages.CustomScreen
 import com.hearablemusic.player.ui.library.pages.EditMusicTagsScreen
+import com.hearablemusic.player.ui.library.pages.RecommendListScreen
 import com.hearablemusic.player.ui.library.pages.SearchScreen
 import com.hearablemusic.player.ui.library.pages.SongDetailScreen
 import com.hearablemusic.player.ui.settings.pages.UserUsageDataScreen
@@ -177,5 +178,19 @@ fun navigationGraph(
     // Companion（听歌伙伴对话）
     entry<Routes.Companion.Chat> {
         ChatScreen(navController = navController)
+    }
+
+    // Recommend（G6：每日推荐 / 私人推荐，同构页面）
+    entry<Routes.Recommend.Daily> {
+        RecommendListScreen(
+            source = com.hmp.domain.agent.sub.RecommendSource.DAILY,
+            navController = navController,
+        )
+    }
+    entry<Routes.Recommend.Private> {
+        RecommendListScreen(
+            source = com.hmp.domain.agent.sub.RecommendSource.PRIVATE,
+            navController = navController,
+        )
     }
 }

@@ -54,6 +54,7 @@ class FakeAgentMusicRepository : MusicRepository {
     override suspend fun getRandomMusicInfoWithExtra(): MusicInfo? = null
     override suspend fun updateLikedStatus(id: Long, liked: Boolean) {}
     override suspend fun getLikedStatus(id: Long): Boolean = false
+    override suspend fun getLikedMusicIds(): List<Long> = emptyList()
     override suspend fun removeFromLibrary(ids: List<Long>) {}
     override suspend fun restoreToLibrary(ids: List<Long>) {}
     override suspend fun getDeletedMusicIdsGroupedByFolder(): List<Pair<String, List<Long>>> = emptyList()
@@ -117,7 +118,7 @@ class FakeAgentMusicRepository : MusicRepository {
     // ═══ W0 HelloSubAgent stub ═══
     override suspend fun getRecentSkipRate(limit: Int, days: Int): List<Long> = emptyList()
     override suspend fun getRecentPlayRate(limit: Int, days: Int): List<Long> = emptyList()
-    override suspend fun getForgottenTracks(days: Int): List<Long> = emptyList()
+    override suspend fun getForgottenTracks(days: Int, limit: Int): List<Pair<Long, Long?>> = emptyList()
     override suspend fun getAnniversaryTracks(date: String): List<Triple<Long, Long, Int>> = emptyList()
     override suspend fun getGlobalTopLabels(limit: Int): List<com.hmp.domain.enum.LabelName> = emptyList()
     override suspend fun getMusicInfoByIds(ids: List<Long>): List<MusicInfo> =

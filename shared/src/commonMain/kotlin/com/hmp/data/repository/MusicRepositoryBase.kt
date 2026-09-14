@@ -147,6 +147,8 @@ abstract class MusicRepositoryBase(
 
     override suspend fun getLikedStatus(id: Long): Boolean = userInfoDao.getLikedStatus(id)
 
+    override suspend fun getLikedMusicIds(): List<Long> = userInfoDao.getLikedMusicIds()
+
     override suspend fun removeFromLibrary(ids: List<Long>) {
         if (ids.isEmpty()) return
         musicDao.markDeletedByIds(ids)
@@ -865,7 +867,9 @@ abstract class MusicRepositoryBase(
             .filter { it.source == SOURCE_LLM || it.source == SOURCE_AGENT }
             .map { it.musicId }
             .toSet()
-        return allIds.filter { it !in enrichedIds }
+        val result = allIds.filter { it !in enrichedIds }
+        co.touchlab.kermit.Logger.i("Agent.Enrich") { "getAllUnenrichedIds: allActive=${allIds.size} enriched=${enrichedIds.size} → unenriched=${result.size}" }
+        return result
     }
 
     /** 获取之前富化失败的歌曲：low confidence 的。 */

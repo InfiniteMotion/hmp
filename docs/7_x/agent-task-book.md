@@ -52,8 +52,8 @@ M1 锚点层一期（B4 的前置 UI 骨架，Fake 数据驱动，与 M0-M7 完�
 | M5 | 对话页 + 五类气泡 + 确认流 + 门面二期 + 漏斗（B4） | M4 + M1     | 纯文字完整体验三端可用                             |
 | M6 | Radio SubAgent 完整实现 + 电台三轮协作 + 跳过感知 + DJ 衔接 + 审计页（B5）  | M5 + T（SubAgent 基类 + AgentScheduler + ToolRegistryView） | Radio SubAgent 独立运行 + FakeLlm+FakePlaybackCommandPort 电台确定性测试 |
 | V  | Enrich SubAgent v2：批次策略重写（Repository 层 ArtistGroup/MixedGroup 拉活 + chunk 拆分）+ 6 轮编排 + 两轮深度 review（13 个修复：chunk history 隔离/预热清 history/EMPTY_FACT_MARKERS 统一/JSON 兜底扩展/隐式依赖清除）✅ 2026-09-02 | T | 批次拆分确定性 + history 零污染 + 空值标记 13 项统一 + JSON 兜底不误伤 + compileKotlinDesktop + desktopTest 绿 |
-| W  | **Agent UI 呈现层**：六个表面 + 存在感四形态 + 锚点系统接线——把 Master/SubAgent/PresenceBus/AuditLog 全链路引擎能力转化为可交互界面 | M6（DJ/跳过/电台后端已就绪）+ V（对话气泡确认卡已就绪） | Compose 三端编译 + 桌面真机核验：① 底栏胶囊徽标实时反映 Enrich/Radio 状态 ② 门面问候 DJ 衔接语（LLM 或 fallback）③ 对话页五类气泡 + 流式打字机效果 ④ 轻量浮层 C 键/长按唤起 + 带话进对话页 ⑤ AgentNoticeBar 4s 侧条 + 撤销 ⑥ 审计页撤销动作 STRONG_CONFIRM 降级 ⑦ 正在听卡常驻对话页顶部 |
-| M7 | 报告角色 + 伙伴设置页 + 语音档（B6）           | M6 + W      | 语音为独立 gate，可整体延期不影响 v1 完整性              |
+| W  | **Agent UI 呈现层**：六个表面 + 存在感四形态 + 锚点系统接线——把 Master/SubAgent/PresenceBus/AuditLog 全链路引擎能力转化为可交互界面 | M6（DJ/跳过/电台后端已就绪）+ V（对话气泡确认卡已就绪） | Compose 三端编译 + 桌面真机核验：① 底栏胶囊徽标实时反映 Enrich/Radio 状态 ② 门面问候 DJ 衔接语（LLM 或 fallback）③ 对话页五类气泡 + 流式打字机效果 ④ 轻量浮层 C 键/长按唤起 + 带话进对话页 ⑤ AgentNoticeBar 4s 侧条 + 撤销 ⑥ 审计页撤销动作 STRONG_CONFIRM 降级 ⑦ 正在听卡常驻对话页顶部 ｜ [进行中 2026-09-14]：P1 完成；P3/P2 基础已落地待增强；P4 看板未落地（见本节进度快照） |
+| M7 | 报告角色 + 伙伴设置页 + 语音档（B6）           | M6 + W      | 语音为独立 gate，可整体延期不影响 v1 完整性              ｜ [顺序 2026-09-14]：W 收尾（P3增强/P2演进/P4看板）→ M7；报告页壳 `UserUsageDataScreen` 已存在，M7-T1 实为加 Agent 叙事段（叙事源 G5 月度叙事卡已做完）；语音 M7-T3/T4 为唯一新增传输层，独立 gate 正确 |
 | R  | 债务清零与交互地基修复（首轮注入/漏斗/真实播放端口/多确认/会话持久/M5 收尾 UI）✅ 2026-08-30 | M5 未完成 + 定义级漏项 | 交互主干（触发→理解→执行→呈现→反馈→审计）闭环；三端编译 |
 | S  | 工具层终局：批次 A 域前缀统一重命名拆分（17 原子工具）+ 批次 B 追加 Library 聚合/Song USER 标签写入闭环/PlaybackEnqueue（+10 = 27 原子工具）✅ 2026-08-31 | M3 首次交付 + R 阶段暴露出的工具层遗留 | ToolNames.ALL 27 ↔ ToolRegistry 27 注册 1:1；desktopTest 677 全绿；compileAndroidMain/compileKotlinDesktop 通过 |
 | T  | Agent 体系终局——Master Agent（唯一大脑：派发/验收/生命周期）+ Enrich SubAgent（纯被动执行器）+ 两层基础设施（AgentContextBudget 每 Agent 独立 + AgentScheduler 全局纯规则仲裁）✅ 2026-08-31 | S（27 原子工具）+ R（感知锚点） | Enrich SubAgent 端到端跑通 + Master 唯一决策铁则 + 两层 ContextBudget 生效 + Scheduler pause/resume 自动触发 + Radio SubAgent 基类预留（M6 填实现） |
@@ -273,7 +273,16 @@ MusicRepositoryBase.fetchNextEnrichWorkUnit():
 
 > **前置**：依赖 M6（DJ 衔接语 / 跳过感知 / PresenceBus 事件全链路已 emit）+ V（Enrich v2 批次 + 对话气泡确认卡已就绪）。引擎侧能力已经齐了——PresenceBus 在发 `NoticeAvailable` / `SkipDetected` / `TaskProgress` / `CompanionBadge`，MasterAgent 有 `handleDjBlank` + `generateDjSegue` + `fallbackGreetings` 轮换，ChatScreen 有五类气泡，AgentNoticeBar / AgentQuickSheet / CompanionCapsule 三个骨架组件已写好但接线只做了一半。**本阶段的核心工作是把引擎事件接到 UI 消费点上，让用户能真正感知到**。
 >
-> **引擎→UI 映射总表**：
+> > **[W 阶段进度快照 2026-09-14]** 引擎侧 W0 已落地（HelloSubAgent / RadioSubAgent / EnrichSubAgent / MasterAgent，含 G1–G16 收尾，均在未提交 diff 中，尚未跑统一编译）。页面级 W1 呈现层与 `agent-w1.md` 的 P1–P5 对齐，真实状态如下：
+> - **P1 主页（区域①堆叠卡 + 区域②电台/推荐 + 区域③入口）**：[已完成] HomeScreen 改造 + HelloSlideCards + RadioCard 重设计 + RecommendListScreen，均在未提交 diff。
+> - **P3 对话页 ChatScreen**：[待增强] 五类气泡 + 回看滚动 + 问候区已就位；`ConfirmMatrixCard` 仍在对话流内未迁原生 Dialog，`TextDelta` 流式打字机未接——即 W-T4 三项目（打字机 / 正在听卡 / 执行中态）未做。
+> - **P2 伙伴设置页 AIScreen**：[待增强] 路由 `Routes.AI.AI` 与屏幕均在，现有「AI 服务配置三 tab」形态；P2 规划的「全局/Master/Hello/Enrich/Radio 五分区 + 按 agent 信任档位/Temperature」演进未做（归 M7-T2）。**是演进不是从零建。**
+> - **P4 看板 AgentMonitorScreen**：[未落地] `Routes.Settings.AgentMonitor` 仅占位路由，屏幕文件仍是旧 `AuditLogScreen.kt`（280 行只读列表）；P4 改名 + 概览仪表板（Token/Trust/运行态）+「只看异常」Filter 未做。⚠️ **硬依赖 W0 前置 #4**：`MasterAgent.enrichStatusSummary()` 统一运行态接口须先落地，否则仪表板无数据源。
+>
+> **收尾序列**：P3 增强（W-T4）→ P2 演进（M7-T2）→ P4 看板（依赖 W0#4）→ 然后 M7 报告 + 语音。
+> **风险**：当前所有改动在未提交 diff 中，提交前须跑 `:shared-ui:compileKotlinDesktop :shared:desktopTest` 兜底（G8/G15 此前编译被中断未验）。
+
+**引擎→UI 映射总表**：
 >
 > | 引擎产出（已存在） | 消费 UI（本阶段做） |
 > |-------------------|-------------------|
@@ -368,6 +377,8 @@ AgentNoticeBar.kt     ✅ 91 行完整实现（haze 侧条 + 4s 自动退场 + �
 | M7-T4 | 语音会话：transcript 双向流→一 UI 两形态（语音气泡=文字+内存内重放）、会话模式（VoiceSessionController）+CONFIRM 口头化、混排                       | ChatScreen 气泡扩展                                            | 会话协议测试；语音会话写操作有文字记录（可审计）                   |
 
 **gate 规则**：M7-T3/T4 端点不可用或验证不过→**B6 语音整体延期**，报告角色+设置页照常交付——v1 完整性不依赖语音。
+
+> **[M7 进度快照 2026-09-14]** ① 报告页（P5）**非从零建**——`UserUsageDataScreen` 壳 + 图表已存在，M7-T1 仅是在顶部加「Agent 叙事段」并接 DAO 缓存；叙事内容源（G5 月度叙事卡 / HelloSubAgent 报告叙事段）已落地，故报告工作量小于「扩展功能」字面。② 伙伴设置页（P2/M7-T2）为演进而非新建（见 W 快照）。③ 语音（M7-T3/T4）是 B6 唯一真正新增的传输层（`RealtimeVoiceTransport` 当前代码缺失），放最后合理。④ 顺序纪律提醒：总纲原定「B4 对话页 在 B5 电台 之前」作隐性接受的校准基线，但电台（G1 等）已先发货；现补 P3 增强时，建议把「确认卡流」当作电台隐式接受的对照校准。
 
 ### R 阶段：债务清零与交互地基修复（还债阶段，横切；先于 M5 完成态）✅ 2026-08-30 代码层完成
 

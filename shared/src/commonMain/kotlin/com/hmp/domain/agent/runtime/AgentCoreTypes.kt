@@ -11,6 +11,12 @@ data class ToolExecutionRecord(
     val toolName: String,
     val outcome: String, // success / failed / refused / skipped
     val summary: String,
+    /**
+     * 结构化回传（可解析 JSON 文本）——工具把机器可读结果放在这里，`summary` 保持人读。
+     * 首个消费者：电台 `dj_queue_replace_next` 写队列后回传实际入队的曲目清单，
+     * RadioSubAgent 据此收口 `currentPlaylist`（含每首 why）。无结构化结果时为 null。
+     */
+    val detail: String? = null,
 )
 
 /** Agent 任务结果。 */

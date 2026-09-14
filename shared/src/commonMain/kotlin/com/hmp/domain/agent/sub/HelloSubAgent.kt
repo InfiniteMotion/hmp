@@ -25,6 +25,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
@@ -76,8 +77,21 @@ class HelloSubAgent(
     /** 卡片池（StateFlow 暴露给 UI collect） */
     private val cardPool = CardPool()
 
+    /** 记忆协调层：Room 持久化 + 内存缓存，跨卡片/跨天/跨周去重 */
+    private val memory = HelloMemory(cardCacheDao)
+
     /** UI collect 的 StateFlow */
     val cards: StateFlow<List<SlideCard>> get() = cardPool.cards
+
+    // ═══ G6：每日推荐 / 私人推荐列表 ═══
+    /** null=尚未生成（UI 视为"生成中"）；空 items=无数据（入口隐藏） */
+    private val _dailyRecommendList = MutableStateFlow<RecommendListPayload?>(null)
+    private val _privateRecommendList = MutableStateFlow<RecommendListPayload?>(null)
+    val dailyRecommendList: StateFlow<RecommendListPayload?> get() = _dailyRecommendList
+    val privateRecommendList: StateFlow<RecommendListPayload?> get() = _privateRecommendList
+
+    /** 推荐列表目标条数 */
+    private val recommendListSize = 8
 
     /** 上次检测到的播放曲目 ID（用于切歌 → GREETING 刷新检测） */
     @Volatile private var lastTrackId: Long? = null
@@ -124,9 +138,17 @@ class HelloSubAgent(
         runState = AgentRunState.RUNNING
 
         // ── 同步初始化（协程启动前先铺好初始状态，避免 race） ──
-        // ① 从 DAO 恢复今日缓存卡（用 replace，保证顺序稳定）
+        // ① 从 Room 恢复今日记忆缓存
+        runCatching { memory.loadToday() }
+            .onFailure { e -> Logger.w("Agent.Hello", e) { "memory.loadToday failed (non-fatal)" } }
+
+        // ② 从 DAO 恢复今日缓存卡（用 replace，保证顺序稳定）
         runCatching { initializeFromDao() }
             .onFailure { e -> Logger.w("Agent.Hello", e) { "initializeFromDao failed (non-fatal)" } }
+
+        // ②.1 G6：恢复今日推荐列表（跨重启不重算）
+        runCatching { restoreRecommendLists() }
+            .onFailure { e -> Logger.w("Agent.Hello", e) { "restoreRecommendLists failed (non-fatal)" } }
 
         // ② 检查今日卡是否已生成（one-shot，同步跑完退出）
         runCatching { dailyRefreshLoop() }
@@ -204,22 +226,37 @@ class HelloSubAgent(
     /** 核心逻辑：检查今日是否需要跑 dailyRefreshOnce，需要则跑 */
     private suspend fun checkAndRunDailyRefresh() {
         val today = todayString()
-        val hasTodayCards = cardCacheDao?.let { dao ->
-            val allTodayTypes = runCatching {
-                dao.getLatestCardTypesByDate(today)
-            }.getOrDefault(emptySet())
+        val dao = cardCacheDao
+        val allTodayTypes: Set<String> = if (dao != null) {
+            runCatching { dao.getLatestCardTypesByDate(today) }.getOrDefault(emptyList()).toSet()
+        } else {
+            emptySet()
+        }
+        val hasTodayCards = if (dao != null) {
             SlideType.RECOMMEND.name in allTodayTypes
                 || SlideType.DISCOVER.name in allTodayTypes
                 || SlideType.FORGOTTEN.name in allTodayTypes
                 || SlideType.ANNIVERSARY.name in allTodayTypes
-        } ?: todayCardsGenerated
+        } else {
+            todayCardsGenerated
+        }
 
         if (!hasTodayCards) {
             Logger.i("Agent.Hello") { "dailyRefresh: today=$today not yet generated → run" }
             runCatching { dailyRefreshOnce() }
                 .onFailure { e -> Logger.e("Agent.Hello", e) { "dailyRefreshOnce failed" } }
-            if (cardCacheDao == null) {
+            if (dao == null) {
                 todayCardsGenerated = true
+            }
+        } else if (dao != null) {
+            // G6：卡片已在，但两个推荐列表可能缺失（升级新增 / 上次生成失败）→ 只补列表，不重跑整批卡片
+            val missingLists = RecommendSource.entries.filter { it.cardType() !in allTodayTypes }
+            if (missingLists.isNotEmpty()) {
+                Logger.i("Agent.Hello") { "dailyRefresh: cards exist but lists missing=$missingLists → refill" }
+                missingLists.forEach { src ->
+                    runCatching { refreshRecommendList(src) }
+                        .onFailure { e -> Logger.w("Agent.Hello", e) { "refill recommend list $src failed" } }
+                }
             }
         }
         // 报告叙事段也在此时检查
@@ -275,26 +312,23 @@ class HelloSubAgent(
             cardPool.setVisible(SlideType.ANNIVERSARY, false)
         }
 
-        // ⑤ 写入 DAO（先删同类型旧行，避免 append 导致脏数据残留；没生成的类型也要清）
+        // ⑤ 写入 DAO（同日同类型删旧 + 插新；保留全量历史）+ 更新 memory 缓存
         runCatching {
-            val generatedTypes = allCards.map { it.type.name }.toSet()
-            // 先清掉"已知类型但本次没生成"的旧数据
-            listOf("RECOMMEND", "DISCOVER", "FORGOTTEN", "ANNIVERSARY").forEach { type ->
-                if (type !in generatedTypes) cardCacheDao?.deleteByType(type)
-            }
-            // 再删 + 插本次生成的
             allCards.forEach { card ->
-                cardCacheDao?.deleteByType(card.type.name)
-                cardCacheDao?.insert(
-                    HelloCardCache(
-                        cardType = card.type.name,
-                        cardContentJson = cardContentToString(card.content),
-                        generatedAt = currentTimeMillis(),
-                        generatedForDate = today,
-                    )
-                )
+                val now = currentTimeMillis()
+                val today = todayString()
+                cardCacheDao?.deleteSameDaySameType(card.type.name, today)
+                val cache = buildHelloCardCache(card, now, today, llmUsed = enableLlm)
+                cardCacheDao?.insert(cache)
+                memory.record(cache)  // 内存缓存同步更新（DAO=null 时也能工作）
             }
         }.onFailure { e -> Logger.w("Agent.Hello", e) { "DAO insert failed (non-fatal)" } }
+
+        // ⑥ G6：两个推荐列表（每日 / 私人）——种子 + 扩列，一次性产出
+        runCatching { refreshRecommendList(RecommendSource.DAILY) }
+            .onFailure { e -> Logger.w("Agent.Hello", e) { "refreshRecommendList DAILY failed" } }
+        runCatching { refreshRecommendList(RecommendSource.PRIVATE) }
+            .onFailure { e -> Logger.w("Agent.Hello", e) { "refreshRecommendList PRIVATE failed" } }
 
         Logger.i("Agent.Hello") { "dailyRefreshOnce: done, ${allCards.size} cards generated" }
     }
@@ -419,6 +453,16 @@ class HelloSubAgent(
             SlideType.GREETING,
             SlideCard(SlideCard.newId(), SlideType.GREETING, content)
         )
+        // GREETING 也写 DAO + memory：App 重启后 recentGreetingTypes 内存丢了，
+        // 靠 Room 恢复 todayCache.greetingTypes 来避免重复同类型。
+        runCatching {
+            val card = SlideCard(SlideCard.newId(), SlideType.GREETING, content)
+            val today = todayString()
+            cardCacheDao?.deleteSameDaySameType(SlideType.GREETING.name, today)
+            val cache = buildHelloCardCache(card, now, today, llmUsed = enableLlm)
+            cardCacheDao?.insert(cache)
+            memory.record(cache)
+        }.onFailure { e -> Logger.w("Agent.Hello", e) { "GREETING dao write failed (non-fatal)" } }
         Logger.i("Agent.Hello") { "GREETING refreshed: type=${content.type} reason=$reason" }
     }
 
@@ -442,22 +486,13 @@ class HelloSubAgent(
         recentGreetingTypes.addLast(type)
         if (recentGreetingTypes.size > 3) recentGreetingTypes.removeFirst()
 
-        val (text, fromFallback) = (if (enableLlm) {
-            runCatching {
-                val cfg = enrichConfig ?: return@runCatching null
-                val prompt = buildGreetingPrompt(type, phase, nowPlayingStr, annivHint, signalHint)
-                val temp = typeTemperature(type)
-                contextBudget.callLlmText(
-                    config = cfg,
-                    systemPrompt = typeSystemPrompt(type),
-                    newMessages = listOf(LlmMessage(role = "user", content = prompt)),
-                    temperature = temp,
-                )?.trim()?.let { text ->
-                    text.trim('\u0022', '\u300C', '\u300D', '\u201C', '\u201D')
-                }
-            }.getOrNull()?.let { it to false }
-        } else null) ?: (null to true)
-
+        val text = callHelloLlm(
+            cardType = "GREETING",
+            systemPrompt = typeSystemPrompt(type),
+            userPrompt = buildGreetingPrompt(type, phase, nowPlayingStr, annivHint, signalHint),
+            temperature = typeTemperature(type),
+        )
+        val fromFallback = text == null
         val finalText = text ?: fallbackForType(type)
         if (finalText.isNotBlank()) {
             recentGreetingContents.addLast(finalText.take(30))
@@ -483,18 +518,18 @@ class HelloSubAgent(
 
         // ① 当前播放歌曲（强信号）
         if (nowPlayingMusic != null) {
-            TYPE_PREFS_NOW_PLAYING.forEach { (t, w) -> scores.merge(t, w * 100.0) { a, b -> a + b } }
+            TYPE_PREFS_NOW_PLAYING.forEach { (t, w) -> scores[t] = (scores[t] ?: 0.0) + w * 100.0 }
         }
 
         // ② 音乐纪念日（强信号）
         if (!annivHint.isNullOrBlank()) {
-            TYPE_PREFS_ANNIV.forEach { (t, w) -> scores.merge(t, w * 100.0) { a, b -> a + b } }
+            TYPE_PREFS_ANNIV.forEach { (t, w) -> scores[t] = (scores[t] ?: 0.0) + w * 100.0 }
         }
 
         // ③ 时段（稳定信号）
         val phasePrefs = TYPE_PREFS_PHASE[phase]
         if (phasePrefs != null) {
-            phasePrefs.forEach { (t, w) -> scores.merge(t, w * 60.0) { a, b -> a + b } }
+            phasePrefs.forEach { (t, w) -> scores[t] = (scores[t] ?: 0.0) + w * 60.0 }
         }
 
         // ④ Top artist/genre（弱信号，暂不查 DB 避免额外开销）—— 留空
@@ -512,7 +547,7 @@ class HelloSubAgent(
         }
 
         // 随机扰动（0.9-1.1）
-        scores.forEach { (t, v) -> scores[t] = v * (0.9 + Math.random() * 0.2) }
+        scores.forEach { (t, v) -> scores[t] = v * (0.9 + kotlin.random.Random.nextDouble() * 0.2) }
 
         val winner = scores.entries.maxByOrNull { it.value }?.key ?: GreetingType.QUOTE
 
@@ -538,13 +573,14 @@ class HelloSubAgent(
             cachedAnniversaryHint = null
             return null
         }
-        val hint = runCatching {
-            val cfg = enrichConfig ?: return@runCatching null
-            val parts = today.split("-")
-            if (parts.size < 3) return@runCatching null
-            val month = parts[1].toIntOrNull() ?: return@runCatching null
-            val day = parts[2].toIntOrNull() ?: return@runCatching null
-            val prompt = """今天是 $month 月 $day 日。请判断音乐史上今天是否有重要事件发生。
+        val parts = today.split("-")
+        val month = parts.getOrNull(1)?.toIntOrNull() ?: run {
+            cachedAnniversaryHint = null; return null
+        }
+        val day = parts.getOrNull(2)?.toIntOrNull() ?: run {
+            cachedAnniversaryHint = null; return null
+        }
+        val prompt = """今天是 $month 月 $day 日。请判断音乐史上今天是否有重要事件发生。
 
 返回 JSON：
 {"hasEvent": true/false, "eventType": "诞辰/逝世/发行/成立/解散", "subject": "主体名称", "year": 年份}
@@ -553,13 +589,14 @@ class HelloSubAgent(
 - 必须是真实可查证的音乐事件，流行、古典、摇滚、爵士、华语乐坛都可以
 - 如果不确定或没有，请返回 {"hasEvent": false}
 - 不要编造，不确定就说没有"""
-            contextBudget.callLlmText(
-                config = cfg,
-                systemPrompt = "你是音乐史专家，擅长准确回忆具体日期的音乐事件。",
-                newMessages = listOf(LlmMessage(role = "user", content = prompt)),
-                temperature = 0.2f,
-            )?.trim()?.let { text ->
-                // 简单解析 hasEvent + subject
+        val hint = callHelloLlm(
+            cardType = null,  // ANNIVERSARY 不注入记忆：纪念日查询走 HelloMemory.isAnniversaryQueriedToday 独立短路（仅 dailyRefreshOnce 每日调一次），不依赖 cardType 注入
+            systemPrompt = "你是音乐史专家，擅长准确回忆具体日期的音乐事件。",
+            userPrompt = prompt,
+            temperature = 0.2f,
+            postProcess = { raw ->
+                // 先提取 JSON 块：处理 markdown fenced code / 前后夹杂额外文字
+                val text = extractJsonBlock(raw.trim())
                 if (text.contains("\"hasEvent\"\\s*:\\s*true".toRegex())) {
                     val subject = "\"subject\"\\s*:\\s*\"([^\"]+)\"".toRegex().find(text)?.groupValues?.get(1)
                     val eventType = "\"eventType\"\\s*:\\s*\"([^\"]+)\"".toRegex().find(text)?.groupValues?.get(1)
@@ -575,10 +612,25 @@ class HelloSubAgent(
                         "$month 月 $day 日 · $subject 的${typeZh}纪念日"
                     } else null
                 } else null
-            }
-        }.getOrNull()
+            },
+        )
         cachedAnniversaryHint = hint
         return hint
+    }
+
+    /**
+     * 从 LLM 返回文本中提取 JSON 块：优先 markdown ```json fenced block，
+     * 否则取第一个 { 或 [ 到最后一个 } 或 ] 之间的子串。
+     * 与 EnrichSubAgent.extractJsonBlock 同逻辑，工具型 Agent 共用。
+     */
+    private fun extractJsonBlock(text: String): String {
+        val codeBlockRegex = Regex("""```(?:json)?\s*([\s\S]*?)\s*```""")
+        val match = codeBlockRegex.find(text)
+        if (match != null) return match.groupValues[1].trim()
+        val firstBrace = text.indexOfAny(charArrayOf('{', '['))
+        val lastBrace = text.lastIndexOfAny(charArrayOf('}', ']'))
+        if (firstBrace >= 0 && lastBrace > firstBrace) return text.substring(firstBrace, lastBrace + 1)
+        return text.trim()
     }
 
     /** 按类型组装完整 LLM prompt */
@@ -1229,51 +1281,45 @@ class HelloSubAgent(
         playCount: Int,
         lyricSummary: String?,
     ): String {
-        if (enableLlm) {
-            val llmReason = runCatching {
-                val cfg = enrichConfig ?: return@runCatching null
-                val phaseDesc = phase.zhName()
-                val artistPart = if (!artist.isNullOrBlank()) "艺术家：$artist" else ""
-                val historyPart = when {
-                    playCount <= 0 -> "用户从未播放过这首歌"
-                    playCount < 5 -> "用户仅播放过 $playCount 次"
-                    playCount < 20 -> "用户播放过 $playCount 次"
-                    else -> "用户曾循环播放 $playCount 次，是用户的心头好"
-                }
-                val prompt = buildString {
-                    appendLine("请为以下歌曲写一段完整的中文推荐语。")
-                    appendLine("")
-                    appendLine("歌曲信息：")
-                    appendLine("  标题：$trackTitle")
-                    if (artistPart.isNotBlank()) appendLine("  $artistPart")
-                    appendLine("  适合时段：$phaseDesc（${label.name}）")
-                    appendLine("  $historyPart")
-                    if (!lyricSummary.isNullOrBlank()) {
-                        appendLine("")
-                        appendLine("完整歌词：")
-                        lyricSummary.lines().forEach { appendLine("  $it") }
-                    }
-                    appendLine("")
-                    appendLine("写作要求：")
-                    appendLine("  · 篇幅约 300-500 字，完整段落，不要分行列点")
-                    appendLine("  · 从歌词中提取核心意象、情感基调或标志性语句作为切入点")
-                    appendLine("  · 结合当前时段场景（$phaseDesc），描述这首歌在此时此地能给听者带来什么")
-                    appendLine("  · 适当提及播放历史（$historyPart），让推荐有温度")
-                    appendLine("  · 语气像一个真正听过这首歌、懂你的朋友在认真推荐")
-                    appendLine("  · 开头可以用一句歌词或一个画面抓眼球，中间展开感受，结尾落在当下时段的收听建议上")
-                    appendLine("  · 直接输出正文，不要标题、引号、前缀或解释")
-                }
-                contextBudget.callLlmText(
-                    config = cfg,
-                    systemPrompt = "你是一个资深音乐评论人兼知心朋友，擅长结合歌词、场景和听众历史，写出有温度有画面感的中文推荐文字。",
-                    newMessages = listOf(LlmMessage(role = "user", content = prompt)),
-                    temperature = 0.6f,
-                )?.trim()?.let { text ->
-                    text.trim('\u0022', '\u300C', '\u300D', '\u201C', '\u201D')
-                }
-            }.getOrNull()
-            if (!llmReason.isNullOrBlank()) return llmReason
+        val phaseDesc = phase.zhName()
+        val artistPart = if (!artist.isNullOrBlank()) "艺术家：$artist" else ""
+        val historyPart = when {
+            playCount <= 0 -> "用户从未播放过这首歌"
+            playCount < 5 -> "用户仅播放过 $playCount 次"
+            playCount < 20 -> "用户播放过 $playCount 次"
+            else -> "用户曾循环播放 $playCount 次，是用户的心头好"
         }
+        val prompt = buildString {
+            appendLine("请为以下歌曲写一段完整的中文推荐语。")
+            appendLine("")
+            appendLine("歌曲信息：")
+            appendLine("  标题：$trackTitle")
+            if (artistPart.isNotBlank()) appendLine("  $artistPart")
+            appendLine("  适合时段：$phaseDesc（${label.name}）")
+            appendLine("  $historyPart")
+            if (!lyricSummary.isNullOrBlank()) {
+                appendLine("")
+                appendLine("完整歌词：")
+                lyricSummary.lines().forEach { appendLine("  $it") }
+            }
+            appendLine("")
+            appendLine("写作要求：")
+            appendLine("  · 篇幅约 300-500 字，完整段落，不要分行列点")
+            appendLine("  · 从歌词中提取核心意象、情感基调或标志性语句作为切入点")
+            appendLine("  · 结合当前时段场景（$phaseDesc），描述这首歌在此时此地能给听者带来什么")
+            appendLine("  · 适当提及播放历史（$historyPart），让推荐有温度")
+            appendLine("  · 语气像一个真正听过这首歌、懂你的朋友在认真推荐")
+            appendLine("  · 开头可以用一句歌词或一个画面抓眼球，中间展开感受，结尾落在当下时段的收听建议上")
+            appendLine("  · 直接输出正文，不要标题、引号、前缀或解释")
+            appendLine("  · 如果记忆上下文提到某歌手或 label 近期已被其他卡覆盖，避免在推荐语中重复提及")
+        }
+        val llmReason = callHelloLlm(
+            cardType = "RECOMMEND",
+            systemPrompt = "你是一个资深音乐评论人兼知心朋友，擅长结合歌词、场景和听众历史，写出有温度有画面感的中文推荐文字。",
+            userPrompt = prompt,
+            temperature = 0.6f,
+        )
+        if (!llmReason.isNullOrBlank()) return llmReason
         // 兜底（LLM 不可用 / 调用失败）—— 仍然结合歌曲名
         val artistSuffix = artist?.takeIf { it.isNotBlank() }?.let { " · $it" } ?: ""
         return when (label) {
@@ -1297,37 +1343,197 @@ class HelloSubAgent(
             ?: return false
         cardPool.replace(card.type, card)
         runCatching {
-            cardCacheDao?.deleteByType(SlideType.RECOMMEND.name)
-            cardCacheDao?.insert(
-                HelloCardCache(
-                    cardType = SlideType.RECOMMEND.name,
-                    cardContentJson = cardContentToString(card.content),
-                    generatedAt = currentTimeMillis(),
-                    generatedForDate = todayString(),
-                )
-            )
+            val now = currentTimeMillis()
+            val today = todayString()
+            cardCacheDao?.deleteSameDaySameType(SlideType.RECOMMEND.name, today)
+            val cache = buildHelloCardCache(card, now, today, llmUsed = enableLlm)
+            cardCacheDao?.insert(cache)
+            memory.record(cache)
         }.onFailure { e -> Logger.w("Agent.Hello", e) { "refreshRecommendCard: dao write failed" } }
         Logger.i("Agent.Hello") { "refreshRecommendCard: OK phase=$phase" }
         return true
     }
 
+    // ═══════════════════════════════════════════════════════════════════
+    // G6：每日推荐 / 私人推荐列表（种子 + "类似 radio"扩列，一次性产出）
+    // ═══════════════════════════════════════════════════════════════════
+
+    /** 生成 + 持久化 + 发射一个推荐列表。 */
+    private suspend fun refreshRecommendList(source: RecommendSource) {
+        val repo = musicRepository ?: return
+        val built = runCatching { buildRecommendList(source, repo) }
+            .onFailure { e -> Logger.w("Agent.Hello", e) { "buildRecommendList failed source=$source" } }
+            .getOrNull()
+
+        if (built == null) {
+            // 明确置空 payload：UI 据此区分「无数据」与「生成中（null）」
+            emitRecommendList(
+                RecommendListPayload(
+                    source = source,
+                    overview = "",
+                    phase = null,
+                    generatedAt = currentTimeMillis(),
+                    generatedForDate = todayString(),
+                    items = emptyList(),
+                )
+            )
+            return
+        }
+
+        val (payload, cache) = built
+        runCatching {
+            cardCacheDao?.deleteSameDaySameType(payload.source.cardType(), payload.generatedForDate)
+            cardCacheDao?.insert(cache)
+            memory.record(cache)  // 并入 recommend* 桶（跨列表 / 跨卡去重）
+        }.onFailure { e -> Logger.w("Agent.Hello", e) { "recommend list DAO write failed" } }
+        emitRecommendList(payload)
+        Logger.i("Agent.Hello") { "refreshRecommendList: source=$source items=${payload.items.size}" }
+    }
+
+    private fun emitRecommendList(payload: RecommendListPayload) {
+        when (payload.source) {
+            RecommendSource.DAILY -> _dailyRecommendList.value = payload
+            RecommendSource.PRIVATE -> _privateRecommendList.value = payload
+        }
+    }
+
+    /** 构建一个推荐列表：选种子 → 扩列 → 每首按语 → 总述 → 持久化实体 */
+    private suspend fun buildRecommendList(
+        source: RecommendSource,
+        repo: com.hmp.domain.music.MusicRepository,
+    ): Pair<RecommendListPayload, HelloCardCache>? {
+        val phase = detectTimePhase(currentHour())
+        val phaseLabel = labelForPhase(phase)
+
+        // ① 选 1 首种子
+        val seedId: Long = when (source) {
+            // 每日：与滑动卡 RECOMMEND 同源（同 label 取第一首）
+            RecommendSource.DAILY ->
+                phaseLabel?.let { runCatching { repo.getMusicIdListByType(it, limit = 1).firstOrNull() }.getOrNull() }
+            // 私人：收藏优先，其次近期高频播放
+            RecommendSource.PRIVATE -> {
+                val liked = runCatching { repo.getLikedMusicIds() }.getOrDefault(emptyList())
+                liked.firstOrNull()
+                    ?: runCatching { repo.getRecentPlayRate(limit = 5, days = 30).firstOrNull() }.getOrNull()
+            }
+        } ?: return null
+
+        // ② 记忆排除集：昨日已推（跨天去重；记忆里是 String，转 Long 比较）
+        val excluded: Set<Long> = runCatching { memory.getYesterdayRecommendSongIds() }
+            .getOrDefault(emptySet())
+            .mapNotNull { it.toLongOrNull() }
+            .toSet()
+
+        // ③ 扩列（种子本身由 getSimilarSongsByWeightedLabels 内部排除）
+        val expanded = runCatching { repo.getSimilarSongsByWeightedLabels(seedId, limit = recommendListSize * 2) }
+            .getOrDefault(emptyList())
+
+        val ordered = LinkedHashSet<Long>()
+        ordered += seedId  // 种子恒为首项
+        expanded.forEach { if (it.music.id !in excluded) ordered += it.music.id }
+
+        // 兜底补齐：扩列不足时用当前时段 label 列表填充
+        if (ordered.size < recommendListSize && phaseLabel != null) {
+            runCatching { repo.getMusicIdListByType(phaseLabel, limit = recommendListSize * 2) }
+                .getOrDefault(emptyList())
+                .forEach { if (ordered.size < recommendListSize && it !in excluded) ordered += it }
+        }
+
+        val finalIds = ordered.take(recommendListSize).toList()
+        if (finalIds.isEmpty()) return null
+
+        // ④ hydrate + 每首按语
+        val infos = runCatching { repo.getMusicInfoByIds(finalIds) }
+            .getOrDefault(emptyList())
+            .associateBy { it.music.id }
+        val reasonLabel = phaseLabel ?: LabelName.CALM
+        val items = ArrayList<RecommendItemRecord>(finalIds.size)
+        val artists = ArrayList<String>(finalIds.size)
+        for (id in finalIds) {
+            val info = infos[id] ?: continue
+            val playCount = info.userInfo?.playCount ?: 0
+            val lyric = runCatching { fetchLyricSummary(id) }.getOrNull()
+            val reason = reasonForTrack(
+                label = reasonLabel,
+                phase = phase,
+                trackTitle = info.music.title,
+                artist = info.music.artist,
+                playCount = playCount,
+                lyricSummary = lyric,
+            )
+            items += RecommendItemRecord(trackId = id, reason = reason)
+            info.music.artist?.takeIf { it.isNotBlank() }?.let { artists += it }
+        }
+        if (items.isEmpty()) return null
+
+        // ⑤ 总述
+        val overview = buildListOverview(source, phase, items.size)
+
+        val now = currentTimeMillis()
+        val payload = RecommendListPayload(
+            source = source,
+            overview = overview,
+            phase = phase,
+            generatedAt = now,
+            generatedForDate = todayString(),
+            items = items,
+        )
+        val cache = HelloCardCache(
+            cardType = source.cardType(),
+            cardContentJson = runCatching {
+                json.encodeToString(RecommendListPayload.serializer(), payload)
+            }.getOrElse { "" },
+            generatedAt = now,
+            generatedForDate = payload.generatedForDate,
+            llmUsed = enableLlm,
+            recommendSongIds = items.map { it.trackId.toString() },
+            recommendArtists = artists.distinct(),
+        )
+        return payload to cache
+    }
+
+    /** 顶部总述：LLM 优先，模板兜底 */
+    private suspend fun buildListOverview(source: RecommendSource, phase: TimePhase, count: Int): String {
+        val phaseDesc = phase.zhName()
+        val sourceDesc = when (source) {
+            RecommendSource.DAILY -> "今天的每日推荐"
+            RecommendSource.PRIVATE -> "根据你的收藏与收听做的私人推荐"
+        }
+        val llm = callHelloLlm(
+            cardType = null,
+            systemPrompt = "你是一个懂音乐的朋友，用温暖简洁的中文写一句推荐开场白。",
+            userPrompt = "用一句话（≤40字）为「$sourceDesc」写个开场总述，当前时段：$phaseDesc，共 $count 首。直接返回中文句子。",
+            temperature = 0.7f,
+        )
+        if (!llm.isNullOrBlank()) return llm
+        return when (source) {
+            RecommendSource.DAILY -> "$phaseDesc，为你精选 $count 首"
+            RecommendSource.PRIVATE -> "依你的收藏与收听，挑了 $count 首"
+        }
+    }
+
+    /** 启动时从 DAO 恢复今日推荐列表（跨重启不重算） */
+    private suspend fun restoreRecommendLists() {
+        val dao = cardCacheDao ?: return
+        val today = todayString()
+        for (source in RecommendSource.entries) {
+            val cache = runCatching { dao.getLatest(source.cardType(), today) }.getOrNull() ?: continue
+            val payload = runCatching {
+                json.decodeFromString(RecommendListPayload.serializer(), cache.cardContentJson)
+            }.getOrNull() ?: continue
+            emitRecommendList(payload)
+        }
+    }
+
     /** DISCOVER 发现理由——支持 LLM 个性化，兜底固定文案 */
     private suspend fun reasonForDiscover(label: LabelName): String {
-        if (enableLlm) {
-            val llmReason = runCatching {
-                val cfg = enrichConfig ?: return@runCatching null
-                val prompt = "用一句话（≤20字）推荐用户重新发现「${label.name}」风格的音乐，语气温暖。直接返回中文句子。"
-                contextBudget.callLlmText(
-                    config = cfg,
-                    systemPrompt = "你是一个懂音乐的朋友，负责用温暖简洁的中文推荐音乐。",
-                    newMessages = listOf(LlmMessage(role = "user", content = prompt)),
-                    temperature = 0.6f,
-                )?.trim()?.let { text ->
-                    text.trim('\u0022', '\u300C', '\u300D', '\u201C', '\u201D')
-                }
-            }.getOrNull()
-            if (!llmReason.isNullOrBlank()) return llmReason
-        }
+        val llmReason = callHelloLlm(
+            cardType = "DISCOVER",
+            systemPrompt = "你是一个懂音乐的朋友，负责用温暖简洁的中文推荐音乐。",
+            userPrompt = "用一句话（≤20字）推荐用户重新发现「${label.name}」风格的音乐，语气温暖。直接返回中文句子。",
+            temperature = 0.6f,
+        )
+        if (!llmReason.isNullOrBlank()) return llmReason
         // 兜底
         return when (label) {
             LabelName.POP -> "你好像很久没听 POP 了，来回顾一下"
@@ -1347,56 +1553,49 @@ class HelloSubAgent(
         playCount: Int,
         lyricSummary: String?,
     ): String {
-        if (enableLlm) {
-            val llmText = runCatching {
-                val cfg = enrichConfig ?: return@runCatching null
-                val artistPart = if (!artist.isNullOrBlank()) "艺术家：$artist" else ""
-                val historyPart = when {
-                    playCount <= 0 -> "用户从未播放过这首歌"
-                    playCount < 5 -> "用户仅播放过 $playCount 次"
-                    playCount < 20 -> "用户曾播放过 $playCount 次"
-                    else -> "用户曾循环播放 $playCount 次，是当时的心头好"
-                }
-                val timePart = when {
-                    daysSince >= 365 -> "超过一年没听了"
-                    daysSince >= 180 -> "半年多没听了"
-                    daysSince >= 90 -> "三个月没听了"
-                    else -> "${daysSince} 天没听了"
-                }
-                val prompt = buildString {
-                    appendLine("请生成一段中文怀旧文案，唤醒用户对一首老歌的记忆。")
-                    appendLine("")
-                    appendLine("歌曲信息：")
-                    appendLine("  标题：$trackTitle")
-                    if (artistPart.isNotBlank()) appendLine("  $artistPart")
-                    appendLine("  遗忘时长：$timePart")
-                    appendLine("  播放历史：$historyPart")
-                    if (!lyricSummary.isNullOrBlank()) {
-                        appendLine("")
-                        appendLine("完整歌词：")
-                        lyricSummary.lines().forEach { appendLine("  $it") }
-                    }
-                    appendLine("")
-                    appendLine("写作要求：")
-                    appendLine("  · 篇幅约 300-500 字，完整段落，不要分行列点")
-                    appendLine("  · 从歌词中提取最触动的几句或最核心的意象，以此为引子")
-                    appendLine("  · 结合遗忘时长（$timePart）和播放历史（$historyPart），勾勒出这首歌在用户人生中的位置")
-                    appendLine("  · 不要直接说「XX 天没听了」，要让时间跨度自然地体现在情绪和语气里")
-                    appendLine("  · 语气像一个温柔的老朋友，轻声提醒一段被遗忘的时光")
-                    appendLine("  · 开头从一句歌词或一个画面切入，中间展开回忆的质感，结尾轻轻落在「再听一次」的邀请上")
-                    appendLine("  · 直接输出正文，不要标题、引号、前缀或解释")
-                }
-                contextBudget.callLlmText(
-                    config = cfg,
-                    systemPrompt = "你是一个擅长写怀旧随笔的音乐人，能从一句歌词、一段旋律、一个时间跨度里，写出让人心头一暖的中文文字。",
-                    newMessages = listOf(LlmMessage(role = "user", content = prompt)),
-                    temperature = 0.7f,
-                )?.trim()?.let { text ->
-                    text.trim('\u0022', '\u300C', '\u300D', '\u201C', '\u201D')
-                }
-            }.getOrNull()
-            if (!llmText.isNullOrBlank()) return llmText
+        val artistPart = if (!artist.isNullOrBlank()) "艺术家：$artist" else ""
+        val historyPart = when {
+            playCount <= 0 -> "用户从未播放过这首歌"
+            playCount < 5 -> "用户仅播放过 $playCount 次"
+            playCount < 20 -> "用户曾播放过 $playCount 次"
+            else -> "用户曾循环播放 $playCount 次，是当时的心头好"
         }
+        val timePart = when {
+            daysSince >= 365 -> "超过一年没听了"
+            daysSince >= 180 -> "半年多没听了"
+            daysSince >= 90 -> "三个月没听了"
+            else -> "${daysSince} 天没听了"
+        }
+        val prompt = buildString {
+            appendLine("请生成一段中文怀旧文案，唤醒用户对一首老歌的记忆。")
+            appendLine("")
+            appendLine("歌曲信息：")
+            appendLine("  标题：$trackTitle")
+            if (artistPart.isNotBlank()) appendLine("  $artistPart")
+            appendLine("  遗忘时长：$timePart")
+            appendLine("  播放历史：$historyPart")
+            if (!lyricSummary.isNullOrBlank()) {
+                appendLine("")
+                appendLine("完整歌词：")
+                lyricSummary.lines().forEach { appendLine("  $it") }
+            }
+            appendLine("")
+            appendLine("写作要求：")
+            appendLine("  · 篇幅约 300-500 字，完整段落，不要分行列点")
+            appendLine("  · 从歌词中提取最触动的几句或最核心的意象，以此为引子")
+            appendLine("  · 结合遗忘时长（$timePart）和播放历史（$historyPart），勾勒出这首歌在用户人生中的位置")
+            appendLine("  · 不要直接说「XX 天没听了」，要让时间跨度自然地体现在情绪和语气里")
+            appendLine("  · 语气像一个温柔的老朋友，轻声提醒一段被遗忘的时光")
+            appendLine("  · 开头从一句歌词或一个画面切入，中间展开回忆的质感，结尾轻轻落在「再听一次」的邀请上")
+            appendLine("  · 直接输出正文，不要标题、引号、前缀或解释")
+        }
+        val llmText = callHelloLlm(
+            cardType = "FORGOTTEN",
+            systemPrompt = "你是一个擅长写怀旧随笔的音乐人，能从一句歌词、一段旋律、一个时间跨度里，写出让人心头一暖的中文文字。",
+            userPrompt = prompt,
+            temperature = 0.7f,
+        )
+        if (!llmText.isNullOrBlank()) return llmText
         // 兜底——仍然结合歌曲名
         val artistSuffix = artist?.takeIf { it.isNotBlank() }?.let { " · $it" } ?: ""
         return when {
@@ -1407,38 +1606,29 @@ class HelloSubAgent(
         }
     }
 
-    /** ANNIVERSARY 情感文案——支持 LLM，兜底固定模板 */
     /** ANNIVERSARY 情感化文案——按 subtype 分 4 种 prompt + 兜底模板。 */
     private suspend fun generateAnniversaryEmotionText(
         subtype: com.hmp.domain.agent.sub.AnniversarySubtype,
         value: Int,  // 含义随 subtype 变：yearsAgo / milestoneValue
         total: Int,  // 累计播放
     ): String {
-        // LLM 分支
-        if (enableLlm) {
-            val llmText = runCatching {
-                val cfg = enrichConfig ?: return@runCatching null
-                val prompt = when (subtype) {
-                    com.hmp.domain.agent.sub.AnniversarySubtype.FIRST_PLAY ->
-                        "用一句话（≤25字）庆祝「${value}年前的今天」第一次收藏一首歌。累计播放 ${total} 次。温暖带感动。"
-                    com.hmp.domain.agent.sub.AnniversarySubtype.PLAYLIST_CREATE ->
-                        "用一句话（≤25字）庆祝「${value}年前的今天」创建了一个歌单。累计被播放 ${total} 次。温暖。"
-                    com.hmp.domain.agent.sub.AnniversarySubtype.PLAY_MILESTONE ->
-                        "用一句话（≤25字）庆祝一首歌累计播放达到第 ${value} 次。当前共 ${total} 次。有成就感。"
-                    com.hmp.domain.agent.sub.AnniversarySubtype.DURATION_MILESTONE ->
-                        "用一句话（≤25字）庆祝一首歌累计听了 ${value} 小时。共播放 ${total} 次。有成就感。"
-                }
-                contextBudget.callLlmText(
-                    config = cfg,
-                    systemPrompt = "你是一个懂音乐的朋友，擅长用温暖简洁的文字唤起听众的回忆。",
-                    newMessages = listOf(LlmMessage(role = "user", content = prompt)),
-                    temperature = 0.6f,
-                )?.trim()?.let { text ->
-                    text.trim('\u0022', '\u300C', '\u300D', '\u201C', '\u201D')
-                }
-            }.getOrNull()
-            if (!llmText.isNullOrBlank()) return llmText
+        val prompt = when (subtype) {
+            com.hmp.domain.agent.sub.AnniversarySubtype.FIRST_PLAY ->
+                "用一句话（≤25字）庆祝「${value}年前的今天」第一次收藏一首歌。累计播放 ${total} 次。温暖带感动。"
+            com.hmp.domain.agent.sub.AnniversarySubtype.PLAYLIST_CREATE ->
+                "用一句话（≤25字）庆祝「${value}年前的今天」创建了一个歌单。累计被播放 ${total} 次。温暖。"
+            com.hmp.domain.agent.sub.AnniversarySubtype.PLAY_MILESTONE ->
+                "用一句话（≤25字）庆祝一首歌累计播放达到第 ${value} 次。当前共 ${total} 次。有成就感。"
+            com.hmp.domain.agent.sub.AnniversarySubtype.DURATION_MILESTONE ->
+                "用一句话（≤25字）庆祝一首歌累计听了 ${value} 小时。共播放 ${total} 次。有成就感。"
         }
+        val llmText = callHelloLlm(
+            cardType = null,  // 里程碑文案，不参与跨卡协调
+            systemPrompt = "你是一个懂音乐的朋友，擅长用温暖简洁的文字唤起听众的回忆。",
+            userPrompt = prompt,
+            temperature = 0.6f,
+        )
+        if (!llmText.isNullOrBlank()) return llmText
         // 兜底模板
         return when (subtype) {
             com.hmp.domain.agent.sub.AnniversarySubtype.FIRST_PLAY -> "第一次听到这首，已是 $value 年前"
@@ -1449,6 +1639,44 @@ class HelloSubAgent(
     }
 
     private fun todayString(): String = todayDateString()
+
+    // ═══ Hello 卡片生成统一 LLM 调用入口 ═══
+    //
+    // 封装样板：enableLlm 检查 + cfg 检查 + memory context 注入 + runCatching + trim + clearHistory
+    // 6 处 callLlmText 调用统一收口在此。
+    //
+    // @param cardType 卡片类型名，用于 memory.buildContextForCard 做跨卡协调。
+    //                 传 null 表示不需要记忆注入（ANNIVERSARY 的 JSON 查询有短路拦截兜底）。
+    // @param postProcess 可选后处理：LLM 原始输出 → 最终文本。默认 trim + 去中英文引号。
+    // @return LLM 最终文本，或 null（LLM 不可用 / 调用失败 / 空返回）
+
+    private suspend fun callHelloLlm(
+        cardType: String? = null,
+        systemPrompt: String,
+        userPrompt: String,
+        temperature: Float = 0.6f,
+        postProcess: ((String) -> String?) = { it.trim().trim('\u0022', '\u300C', '\u300D', '\u201C', '\u201D') },
+    ): String? {
+        if (!enableLlm) return null
+        val cfg = enrichConfig ?: return null
+        val result = runCatching {
+            val finalPrompt = runCatching {
+                if (cardType != null) {
+                    val ctx = memory.buildContextForCard(cardType)
+                    if (ctx.isNotBlank()) "$userPrompt\n\n$ctx" else userPrompt
+                } else userPrompt
+            }.getOrDefault(userPrompt)
+            val raw = contextBudget.callLlmText(
+                config = cfg,
+                systemPrompt = systemPrompt,
+                newMessages = listOf(LlmMessage(role = "user", content = finalPrompt)),
+                temperature = temperature,
+            ) ?: return@runCatching null
+            postProcess(raw)
+        }
+        contextBudget.clearHistory()  // Hello 各任务独立，清 history 防串味（无论成功失败）
+        return result.getOrNull()
+    }
 
     // ═══ SlideContent JSON 序列化/反序列化 ═══
 
@@ -1474,8 +1702,54 @@ class HelloSubAgent(
                 SlideType.DISCOVER -> json.decodeFromString(DiscoverContent.serializer(), jsonStr)
                 SlideType.FORGOTTEN -> json.decodeFromString(ForgottenContent.serializer(), jsonStr)
                 SlideType.ANNIVERSARY -> json.decodeFromString(AnniversaryContent.serializer(), jsonStr)
+                SlideType.ENRICH_TRACKING -> json.decodeFromString(EnrichTrackingContent.serializer(), jsonStr)
+                // 叙事卡不进卡池 DAO（直接读 hello_report_narrative 表），此处不参与反序列化
+                SlideType.NARRATIVE -> json.decodeFromString(NarrativeContent.serializer(), jsonStr)
             }
         }.getOrNull()
+    }
+
+    /** 从 SlideCard 提取 HelloCardCache，含记忆协调所需的扩展字段。
+     *  suspend：需按 trackId 反查歌手名（G7 方案 A，musicRepository 为 null 时优雅降级为空）。 */
+    private suspend fun buildHelloCardCache(
+        card: SlideCard,
+        now: Long,
+        today: String,
+        llmUsed: Boolean,
+    ): HelloCardCache {
+        val c = card.content
+        // 按 trackId 反查歌手名（RECOMMEND/FORGOTTEN/ANNIVERSARY 用）；repo 为 null 或查不到时返回 null
+        suspend fun artistOf(trackId: Long): String? =
+            musicRepository?.getMusicInfoByIds(listOf(trackId))
+                ?.firstOrNull()?.music?.artist
+                ?.takeIf { it.isNotBlank() }
+
+        val recommendTrackId = (c as? RecommendContent)?.trackId
+        val forgottenTrackId = (c as? ForgottenContent)?.trackId
+        // PLAYLIST_CREATE 子类型 trackId=0，不是单曲，不反查 artist
+        val anniversaryTrackId = (c as? AnniversaryContent)?.trackId?.takeIf { it != 0L }
+
+        return HelloCardCache(
+            cardType = card.type.name,
+            cardContentJson = cardContentToString(c),
+            generatedAt = now,
+            generatedForDate = today,
+            llmUsed = llmUsed,
+            // 按卡片类型提取记忆字段
+            recommendSongIds = recommendTrackId?.toString()?.let { listOf(it) },
+            recommendArtists = recommendTrackId?.let { artistOf(it) }?.let { listOf(it) },
+            recommendLabels = (c as? RecommendContent)?.currentPhase?.zhName()?.let { listOf(it) },
+            greetingType = (c as? GreetingContent)?.type?.name,
+            // GreetingContent 不绑定单曲（金句/歌词/冷知识卡），无 artist 可反查；
+            // 要填需改模型 + LLM 生成吐 artist（G7 范围外），保持 null
+            greetingMentionedArtists = null,
+            discoverLabels = (c as? DiscoverContent)?.target?.let { listOf(it) },
+            forgottenArtists = forgottenTrackId?.let { artistOf(it) }?.let { listOf(it) },
+            forgottenSongIds = forgottenTrackId?.toString()?.let { listOf(it) },
+            anniversaryArtist = anniversaryTrackId?.let { artistOf(it) },
+            // 预留（G14 死列）：全仓无读取，保持 null
+            anniversarySubject = null,
+        )
     }
 
     companion object {

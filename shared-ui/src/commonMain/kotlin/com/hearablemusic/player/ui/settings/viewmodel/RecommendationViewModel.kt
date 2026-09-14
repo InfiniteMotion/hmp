@@ -35,10 +35,6 @@ class RecommendationViewModel(
     private val _dailyMusicLabel = MutableStateFlow<List<MusicLabel?>>(emptyList())
     val dailyMusicLabel: StateFlow<List<MusicLabel?>> = _dailyMusicLabel
 
-    // 心动歌单（相似歌曲）
-    private val _heartbeatList = MutableStateFlow<List<MusicInfo>>(emptyList())
-    val heartbeatList: StateFlow<List<MusicInfo>> = _heartbeatList
-
     // 待处理音乐数量
     val pendingMusicCount: StateFlow<Int> = getAllMusicUseCase
         .getMusicWithMissingExtraCount()
@@ -181,13 +177,5 @@ class RecommendationViewModel(
     init {
         _isProcessingExtraInfo.value = false
         _processingProgress.value = BatchProcessingProgress()
-
-        // 监听每日推荐变化，自动获取相似歌曲
-        viewModelScope.launch {
-            dailyMusic.filterNotNull().collectLatest { music ->
-                _heartbeatList.value = listOf(music) +
-                        currentPlaybackUseCase.getSimilarSongsByWeightedLabels(music.music.id, 10)
-            }
-        }
     }
 }

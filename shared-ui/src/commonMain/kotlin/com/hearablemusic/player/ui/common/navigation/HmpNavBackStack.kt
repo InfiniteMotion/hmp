@@ -55,6 +55,9 @@ private val HMP_NAV_KEY_SERIALIZERS = SerializersModule {
         subclass(serializer = Routes.UserData.UserUsageData.serializer())
         // Companion（听歌伙伴对话）
         subclass(serializer = Routes.Companion.Chat.serializer())
+        // Recommend（G6 每日/私人推荐页）
+        subclass(serializer = Routes.Recommend.Daily.serializer())
+        subclass(serializer = Routes.Recommend.Private.serializer())
     }
 }
 

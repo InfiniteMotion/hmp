@@ -94,6 +94,13 @@ fun main() {
 
     stamp("Koin init done")
 
+    // MasterAgent 生命周期绑定：进程退出时清理 SubAgent（正常退出 + 杀进程都覆盖）
+    Runtime.getRuntime().addShutdownHook(Thread {
+        runCatching {
+            GlobalContext.get().get<com.hmp.domain.agent.runtime.MasterAgent>().close()
+        }
+    })
+
     // Pre-warm JNA native library on background thread so the first
     // DwmHelper call in detectSystemDarkMode() doesn't pay the DLL load cost.
     thread(name = "hmp-jna-prewarm", isDaemon = true) {

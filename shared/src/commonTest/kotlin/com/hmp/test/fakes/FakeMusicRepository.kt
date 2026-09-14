@@ -111,6 +111,9 @@ class FakeMusicRepository : MusicRepository {
 
     override suspend fun getLikedStatus(id: Long): Boolean = likedStatus[id] ?: false
 
+    override suspend fun getLikedMusicIds(): List<Long> =
+        likedStatus.filterValues { it }.keys.toList()
+
     override suspend fun removeFromLibrary(ids: List<Long>) {
         val toRemove = musicList.filter { it.music.id in ids }
         musicList.removeAll(toRemove)
