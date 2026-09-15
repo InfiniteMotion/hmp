@@ -1,0 +1,33 @@
+#!/usr/bin/env sh
+#
+# HMP 低内存构建包装脚本 (macOS / Linux / Git Bash)
+#
+# 与 gradlew-lowmem.bat 等价，见该文件顶部的说明。
+#
+# 为什么需要：
+#   内存受限的机器（尤其同时开着 IDE）上，gradle.properties 默认的
+#   -Xmx4096m + org.gradle.parallel=true 会让 Gradle daemon 与 Kotlin
+#   daemon 合计超出可用内存，被操作系统静默杀死，报
+#   "gradle daemon disappeared unexpectedly"。
+#
+#   注意：jvmargs / parallel / workers.max 是 Gradle 启动期属性，
+#   无法在 build.gradle.kts 里条件化覆盖 —— 只能用包装脚本。
+#
+# 用法：
+#   ./gradlew-lowmem testCore
+#   ./gradlew-lowmem compileUi
+#   ./gradlew-lowmem testAll
+#
+# 参数取值的实测依据（2026-09-15 在本机反复验证）：
+#   Gradle daemon 堆 1024m 是本机唯一能连测试一起跑通的值。
+#   用 1536m / 2048m 时编译能过，但进入 :shared:desktopTest（要 fork 测试 JVM）
+#   时 daemon 就被 OS 杀掉（"daemon disappeared"，无 hs_err）。
+#   另需 kotlin.compiler.execution.strategy=in-process，避免再起 Kotlin daemon 抢内存。
+set -e
+DIRNAME=$(dirname "$0")
+exec "$DIRNAME/gradlew" "$@" \
+  --no-daemon --console=plain \
+  -Dorg.gradle.parallel=false \
+  -Dorg.gradle.workers.max=1 \
+  -Dorg.gradle.jvmargs="-Xmx1024m -XX:MaxMetaspaceSize=384m -Dfile.encoding=UTF-8" \
+  -Dkotlin.compiler.execution.strategy=in-process

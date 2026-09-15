@@ -47,8 +47,7 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
 
       - name: Run unit tests
-        continue-on-error: true
-        run: ./gradlew :shared:test :shared-ui:testDebugUnitTest --no-daemon --no-configuration-cache
+        run: ./gradlew testAll --no-daemon --no-configuration-cache
 
       - name: Validate version
         run: |

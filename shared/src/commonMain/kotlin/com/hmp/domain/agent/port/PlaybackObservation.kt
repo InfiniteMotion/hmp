@@ -11,7 +11,7 @@ import kotlin.time.TimeSource
  * 一首歌的结局。
  *
  * 这是**观测事实**，不含任何判断 —— 「不喜欢」是模型的事，这里只记「用户做了什么、播了多久」。
- * 见 `docs/7_x/agent-radio-spec.md` §2.4。
+ * 见 `docs/7_x/B agent-build/design/agent-radio.md` §2.4。
  */
 enum class TrackOutcome {
     /** 自然播完 */

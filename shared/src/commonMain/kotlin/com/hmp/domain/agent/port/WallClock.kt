@@ -11,7 +11,7 @@ package com.hmp.domain.agent.port
  * **为什么返回结构而不是毫秒**：本地时区 / 日历换算在 commonMain 里手写极易出错，
  * 交给各端系统 API 做（Android & Desktop 用 `java.time`，iOS 用 Foundation）。
  *
- * 见 `docs/7_x/agent-radio-spec.md` §7.0.1（开启情境）。
+ * 见 `docs/7_x/B agent-build/design/agent-radio.md` §7.0.1（开启情境）。
  */
 data class LocalMoment(
     /** 本地时间的小时，0-23 */

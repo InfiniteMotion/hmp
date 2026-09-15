@@ -13,7 +13,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
- * 按 `docs/7_x/agent-radio-spec.md` §4 的剧本验收决策内核。
+ * 按 `docs/7_x/B agent-build/design/agent-radio.md` §4 的剧本验收决策内核。
  *
  * 这里验的是**我们这一侧的契约**：事实有没有被忠实记录、进度有没有传给模型、
  * 模型的 none 会不会真的什么都不做、在播那首有没有被标注为不可动。

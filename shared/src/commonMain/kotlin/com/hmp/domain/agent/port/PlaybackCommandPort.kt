@@ -100,7 +100,7 @@ interface PlaybackCommandPort {
      * - 本流来自**三端播放控制器的会话结算点**，覆盖所有来源，且**带播放进度**。
      *
      * 带进度是硬要求：没有它分不清「刚开就跳」与「快听完才换」，判断会系统性失准
-     * （见 `docs/7_x/agent-radio-spec.md` §2.2）。
+     * （见 `docs/7_x/B agent-build/design/agent-radio.md` §2.2）。
      */
     val trackSettled: Flow<TrackSettledEvent> get() = emptyFlow()
 

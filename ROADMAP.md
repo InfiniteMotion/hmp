@@ -233,6 +233,16 @@
   - 单测基建修复（AGP 9 KMP 库插件 host test 接入）
   - 双端编译验证通过，单测 81/81 全绿
 
+### v7.1.0 (2026-08-26)
+- **iOS 切换到共享层 Compose UI（方向 A A1–A10）**：
+  - 地基（A1–A5）：`shared-ui` 增加 iOS targets（`iosArm64` / `iosSimulatorArm64`；`iosX64` 因 navigation3-ui 无构件排除）；`shared-ios` 聚合框架把 `shared` + `shared-ui` 链接为单一 `sharedIos.framework` 接入 CocoaPods，规避双静态框架 duplicate symbol 与动态框架 Koin 全局分裂
+  - `iosMain` 桥接层：`PlaybackController` 双桥（状态汇聚 + 命令闭包）/ `AlbumArtPixelsLoader` / `PlatformServices` / Taptic Engine 触觉 / 状态栏 / 对话框 + `iosUiModule`；Swift 侧 `PlaybackBridge`（Observation 状态镜像）+ `PlatformServicesBridge`（分享 / 选图 / 备份文件）
+  - 全面替换（A6–A10）：默认入口切到共享层 Compose `AppRoot`（`ContentView` 承载），全模块以共享 UI 运行；**删除 67 个 SwiftUI 页面 / 组件 / Design / Swift ViewModel**，壳收敛至 17 个原生层文件（AppDelegate / 播放引擎 / MediaSession / LiveActivity / 桥 / 解析桥）
+  - `IntroScreen` / `MusicScanDialog` 从 `androidMain` 迁移到 `commonMain`（权限走 `PlatformServices` 桥），iOS 首启引导与 Android 同步
+- **依赖升级**：Kotlin 2.2.21 → **2.3.21**（navigation3 全系 iOS klib 为 2.3 ABI）；Koin 4.0.4 → **4.2.2**（修复 nav3 entry VM 创建时 `SavedStateHandle` IrLinkageError）；commonMain 去 JVM 化（`CommonFormat` 替代 `String.format` 等 10 处）
+- **工程与真机**：iOS bundle id `com.hmp.HMP` → `com.hearablemusic.HMP`（免费团队唯一标识注册要求）；Podfile 适配 Kotlin 2.3（`linkPodFramework` 任务 + composeResources 打包布局）；真机（iPhone 13）构建 / 安装 / 启动验证通过
+- **修复**：底部融合栏 Tab 常驻（移除显示条件对 `isMiniPlayerVisible` 的依赖，无歌曲时导航可见）；shared 模块绝对路径任务（`schemaDirectory` / `copyIconsToIos`）导致的 iOS 任务图校验失败
+
 ## 🛠️ 关键技术演进
 
 ### 架构演进
@@ -278,14 +288,14 @@
    - 实现多平台HTTP客户端
 
 5. **UI框架**
-   - 全面采用Jetpack Compose (Android)
-   - 实现SwiftUI (iOS)
+   - 全面采用 Jetpack Compose (Android)
+   - **共享 UI 层 `shared-ui`**：Compose Multiplatform 三端共用（v7.0 Android/Desktop → v7.1 iOS 全面替换 SwiftUI，旧 SwiftUI 层删除，壳只留原生层 17 个文件）
    - 实现动态主题切换
    - 优化无障碍支持
 
 6. **跨平台开发**
    - 实现Kotlin Multiplatform Mobile (KMM)
-   - 配置CocoaPods集成
+   - 聚合框架 `shared-ios`（shared + shared-ui → 单一 `sharedIos.framework`）+ CocoaPods 集成
    - 实现expect/actual平台特定代码
    - 共享核心业务逻辑
 
@@ -326,7 +336,7 @@
 - ✅ 单元测试覆盖（650+ 用例）
 
 ### 计划中功能（v7.x 三大方向，详见「未来发展方向」）
-- 🔄 方向 A：KMP 重写 iOS UI（Compose 取代 SwiftUI）
+- 🔄 方向 A：KMP 重写 iOS UI（Compose 取代 SwiftUI）—— **主线已于 v7.1.0 完成**（iOS 已切共享层 Compose UI，SwiftUI 旧层删除）；剩余观感打磨 / 真机交互级核验
 - 🔄 方向 B：AI 功能 Agent 化（工具调用 + 编排）
 - 🔄 方向 C：播放增强（播放速度 / Gapless / ReplayGain / 交叉淡入 / Desktop 音效 / 格式扩展）
 - 🔄 桌面小组件 / 手势操作（README 既定承诺）
@@ -384,6 +394,11 @@
 - iOS 真机验证（锁屏控制 + Live Activity）保留（重写后播放引擎仍为 Swift 层）
 - Repository 通用逻辑提取到 commonMain 共享基类（T3，持续）
 
+### 阶段9：共享 UI 与 iOS 双实现债务清除 (v7.0 ~ v7.1)
+- v7.0.0：shared-ui 跨平台架构迁移 —— UI 层迁入 commonMain，Android/Desktop 共用一套 UI，删除两套旧 feature-ui
+- v7.1.0：iOS 切换共享层 Compose UI —— `shared-ui` 增加 iOS targets，删除 67 个 SwiftUI 页面/组件，三端共用同一套 UI
+- 收益：v6.x 遗留的「iOS 双实现对齐」债务永久消失，新功能默认三端交付
+
 ## 🚀 未来发展方向
 
 **产品边界**：坚持纯本地，不做在线/云同步、不引入账号、不做社交；仅保留用户自填 API 的 AI 推荐。
@@ -401,7 +416,8 @@
   删除 68 个 SwiftUI 页面/组件/Swift ViewModel（A9），壳收敛至 AppDelegate/播放引擎/LiveActivity
   等原生层 17 个 Swift 文件（A10）；无真机环境的交互级核验（播放/歌词/歌单操作、P10.1 锁屏/Live Activity）记录待办
 - 收益：P8/P9/P10 一类「iOS 双实现对齐」债务永久消失，新功能默认三端交付
-- 决策点（进行中）：Liquid Glass 观感取舍（Compose Haze 近似 vs 关键页保留 SwiftUI，随 A6-A9 逐页决策）；渐进双轨 vs 一次性替换（当前试点为双轨共存模式验证）
+- **已完成（v7.1.0）**：iOS A1–A10 —— 共享层 Compose UI 全面替换，67 个 SwiftUI 文件删除，壳收敛至 17 个原生文件；真机（iPhone 13）构建/安装/启动验证通过
+- 残留项：Liquid Glass 观感取舍（Compose Haze 近似 vs 关键页保留 SwiftUI）；无真机环境的交互级核验（播放/歌词/歌单操作、P10.1 锁屏/Live Activity）记录待办
 
 **方向 B — AI 功能 Agent 化**
 > **进度（2026-09-01）**：B0-B4 + R + S + **T** 代码层全完成（M0-M4 + R 债务清零 + S 工具层终局 27 原子工具 + T 阶段 Master 内核/Enrich SubAgent/权限体系/四层组件解耦）。**T 阶段代码层 8/8 退出条件达成**（E1/E2 待手动冒烟，E4 开发阶段放开额度）——四层组件 LlmCallExecutor/ToolCallExecutor/ReActLoop/StopSignal 彻底解耦，权限体系简化 9→6 概念（TrustTier→trustLevel Int、AgentPolicyConfig 2 字段、TrustLedger 复活），AgentPolicyConfig DataStore 三端持久化闭环，EnrichSubAgent 接入 ToolCallExecutor + PolicyGuard（不再 DirectToolExecutor 裸跑），ConfirmGate "总是允许" UI 全链路。**可进入 M6 阶段**：B5 电台三轮协作 + 跳过感知重排 + DJ 衔接预生成 + AuditLogScreen + STRONG_CONFIRM 双确认链；B6 报告/语音仍是独立 gate。审计页/撤销、本地化横切待跟进。
@@ -416,7 +432,7 @@
 - 格式支持：三端白名单统一到 commonMain 常量；Desktop 放行 DSD/APE/WV（FFmpeg 原生可解）；iOS 补 opus
 - 进阶（待评估）：bit-perfect 输出（WASAPI 独占等，发烧友向）
 
-**版本编排**：7.1 地基与快赢（A-Phase1 + C-批1）→ 7.2 迁移主线（A-Phase2/3 + C-批2）→ 7.3 智能化（B）→ 7.4 收尾打磨（遗留 SwiftUI 清理 / 观感 / 真机验证）
+**版本编排**：**7.1.0 已发布**（方向 A 主线全量完成 + C 批 1）→ 7.2 收尾打磨（A 残留观感 / 真机交互核验 + C 批 2）→ 7.3 智能化（方向 B）→ 7.4 遗留清理
 
 ### 中期目标
 1. 桌面小组件与手势操作（README 既定承诺，穿插于 v7.x）
@@ -429,8 +445,8 @@
 
 ---
 
-**最后更新时间**: 2026-08-21
-**当前版本**: v7.0.0
+**最后更新时间**: 2026-09-15
+**当前版本**: v7.1.0
 
 ---
 

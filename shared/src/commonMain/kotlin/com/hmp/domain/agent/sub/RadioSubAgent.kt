@@ -42,7 +42,7 @@ import kotlinx.coroutines.launch
 import com.hmp.platform.Volatile
 
 /**
- * RadioSubAgent：AI 电台执行器（spec 驱动 —— `docs/7_x/agent-radio-spec.md`）。
+ * RadioSubAgent：AI 电台执行器（spec 驱动 —— `docs/7_x/B agent-build/design/agent-radio.md`）。
  *
  * ═══ 核心原则 ═══
  *
@@ -453,7 +453,7 @@ class RadioSubAgent(
      *
      * ⚠️ 此 API 当前无调用点——它只把本地镜像列表重新切一刀，并不真正推进播放队列，
      * 队列见底时实际补歌由 G1(`refillQueue`) 经 PlaybackObservation 的 QueueLow 事件负责。
-     * 保留仅供 R-Phase 3「回合化」重做参考（见 agent-radio-persona.md / agent-radio-interaction-model.md）。
+     * 保留仅供 R-Phase 3「回合化」重做参考（见 docs/7_x/B agent-build/design/agent-radio.md 附录 A.2 决策轨迹）。
      */
     @Deprecated(
         message = "续歌由 refillQueue 经 PlaybackObservation.QueueLow 负责，此 API 仅保留供 R-Phase 3 回合化重做",

@@ -17,6 +17,24 @@ val versionName: String = findProperty("hmp.versionName")?.toString() ?: "unknow
 val versionCode: String = findProperty("hmp.versionCode")?.toString() ?: "0"
 val projectDirFile: File = projectDir
 val isMacOS: Boolean = org.gradle.internal.os.OperatingSystem.current().isMacOsX
+val buildTargetLabel: String = System.getenv("HMP_BUILD_TARGET") ?: "all"
+
+// ── Helper: 按模块存在性挂依赖 ──────────────────────────────────────────
+//
+// settings.gradle.kts 按环境变量 HMP_BUILD_TARGET 决定 include 哪些模块：
+//   "desktop" → 含 :desktop:* 但**不含** :android:app
+//   "android" → 含 :android:* 但**不含** :desktop:app
+//   未设置    → 全部 7 个模块
+//
+// 因此跨平台任务**不能写死 dependsOn 目标**，否则在目标切换后会出现
+// "Task with path '...' not found in root project" 的悬空依赖
+// （历史上 releaseStorybook 就是这样失效的）。
+//
+// 用 findProject() 判断比硬编码模块集更稳 —— 模块列表变了也不用改任务定义。
+fun Task.maybeDepends(path: String) {
+    val projectPath = path.substringBeforeLast(':')
+    if (rootProject.findProject(projectPath) != null) dependsOn(path)
+}
 
 // ── Helper: copy file to releases/ ──────────────────────────────────────
 
@@ -29,6 +47,148 @@ fun copyToReleases(src: File, destName: String, category: String) {
     } else {
         println("!! Not found: $src")
     }
+}
+
+// ── 验证：单元测试 ──────────────────────────────────────────────────────
+//
+// 测试 JVM 内存限制：
+//   本机内存受限时，测试任务会 fork 一个测试 JVM，它与 Gradle daemon 的堆叠加
+//   后可能触发 OS 杀进程（典型现象：日志停在 "> Task :xxx:desktopTest"，
+//   报 "gradle daemon disappeared unexpectedly"）。
+//   这里把测试 JVM 堆限制在 1G 以内，给 daemon 留出余量。
+//   需要更大堆的个别测试可在模块脚本里覆盖 maxHeapSize。
+allprojects {
+    tasks.withType<Test>().configureEach {
+        maxHeapSize = "1024m"
+        minHeapSize = "256m"
+    }
+}
+//
+// 背景：release.yml 原先调用 `:shared:test :shared-ui:testDebugUnitTest`，
+// 但这两个任务名在当前构建中**都不存在**（shared 是 KMP 模块，无 `test`；
+// shared-ui 无 android 变体的 `testDebugUnitTest`）。该步骤带
+// `continue-on-error: true`，任务名报错被吞掉，导致 CI 名义上在跑测试、
+// 实际从未执行过任何单元测试。
+//
+// 实测可用的测试任务（gradlew tasks --all，2026-09-15）：
+//   shared        : desktopTest / allTests
+//   shared-ui     : desktopTest / allTests / testAndroid / testAndroidHostTest
+//   shared-ios    : allTests
+//   android:app   : test / testDebugUnitTest / connectedDebugAndroidTest
+//   android:core-player : test / testDebugUnitTest / connectedDebugAndroidTest
+//   desktop:app / desktop:core-player : desktopTest / allTests
+//
+// 选型说明：
+//   - 用 desktopTest 而非 allTests：allTests 在 shared/shared-ui 上会连带
+//     iOS 目标，Windows 上因缺 iOS 工具链会失败。
+//   - 不纳入 connectedDebugAndroidTest：需真机/模拟器，不属于单元测试。
+
+tasks.register("testAll") {
+    group = "verification"
+    description = "运行当前构建目标下全部单元测试（自动跳过未纳入构建的模块）"
+    notCompatibleWithConfigurationCache("test fan-out task")
+
+    // KMP 侧（shared / shared-ui 恒在构建中）
+    // 注：shared-ui 的 desktopTest 为空，真正的用例在 androidHostTest
+    dependsOn(":shared:desktopTest", ":shared-ui:desktopTest", ":shared-ui:testAndroidHostTest")
+
+    // 平台侧（按目标存在性过滤，见文件顶部 maybeDepends 说明）
+    maybeDepends(":android:app:testDebugUnitTest")
+    maybeDepends(":android:core-player:testDebugUnitTest")
+    maybeDepends(":desktop:app:desktopTest")
+    maybeDepends(":desktop:core-player:desktopTest")
+
+    doLast {
+        println("OK 全部单元测试通过（HMP_BUILD_TARGET=$buildTargetLabel）")
+    }
+}
+
+tasks.register("testCore") {
+    group = "verification"
+    description = "只测 :shared（Domain / Agent / Data 纯逻辑层）"
+    dependsOn(":shared:desktopTest")
+}
+
+tasks.register("testQuick") {
+    group = "verification"
+    description = "快速冒烟：只跑 :shared 单元测试（改 Domain/Agent 时用）"
+    dependsOn(":shared:desktopTest")
+}
+
+tasks.register("testUi") {
+    group = "verification"
+    description = "只测 :shared-ui（Compose UI 与平台桥接）"
+    // 注意：shared-ui 的 desktopTest 源集**目前为空**（只有 androidHostTest 有测试，
+    // 8 个文件），因此单挂 desktopTest 会 NO-SOURCE 空过。这里把 androidHostTest
+    // 一并挂上，否则 shared-ui 的测试实际上没人跑。
+    // androidHostTest 不需要真机/模拟器（它是 JVM 上的 Robolectric 风格宿主测试），
+    // 但仍需 Android SDK —— Android SDK 缺失的环境可改用 testUiDesktop。
+    dependsOn(":shared-ui:desktopTest")
+    dependsOn(":shared-ui:testAndroidHostTest")
+}
+
+tasks.register("testUiDesktop") {
+    group = "verification"
+    description = "只测 :shared-ui 的 desktop 源集（不依赖 Android SDK）"
+    dependsOn(":shared-ui:desktopTest")
+}
+
+tasks.register("testDesktop") {
+    group = "verification"
+    description = "只测 Desktop 侧（需构建目标含 desktop）"
+    maybeDepends(":desktop:app:desktopTest")
+    maybeDepends(":desktop:core-player:desktopTest")
+}
+
+tasks.register("testAndroid") {
+    group = "verification"
+    description = "只测 Android 侧（需构建目标含 android）"
+    maybeDepends(":android:app:testDebugUnitTest")
+    maybeDepends(":android:core-player:testDebugUnitTest")
+}
+
+// ── 验证：编译（不含打包）──────────────────────────────────────────────
+//
+// 用途：改 shared 的公共 API 可能只让 shared-ui 编译失败，而这种破坏在
+// 跑测试时未必暴露。per-module 编译是廉价的「契约破坏检测」，比全量测试快。
+//
+// 实测注意（2026-09-15）：android:app / android:core-player **不暴露任何
+// compile* 任务**（它们使用 AGP 内置 Kotlin，见 gradle.properties 的
+// android.disallowKotlinSourceSets=false）。因此 Android 侧编译校验改用
+// assembleDebug —— 它含编译但不做 release 打包。
+
+tasks.register("compileCore") {
+    group = "build"
+    description = "只编译 :shared"
+    dependsOn(":shared:compileKotlinDesktop")
+}
+
+tasks.register("compileUi") {
+    group = "build"
+    description = "只编译 :shared-ui（desktop 源集）"
+    dependsOn(":shared-ui:compileKotlinDesktop")
+}
+
+tasks.register("compileDesktop") {
+    group = "build"
+    description = "编译 Desktop 侧各模块（需构建目标含 desktop）"
+    maybeDepends(":desktop:app:compileKotlinDesktop")
+    maybeDepends(":desktop:core-player:compileKotlinDesktop")
+}
+
+tasks.register("compileAndroid") {
+    group = "build"
+    description = "编译 Android 侧各模块（需构建目标含 android）"
+    // 注：这些模块无 compile* 任务，用 assembleDebug 作编译校验
+    maybeDepends(":android:app:assembleDebug")
+    maybeDepends(":android:core-player:assembleDebug")
+}
+
+tasks.register("compileAll") {
+    group = "build"
+    description = "编译当前构建目标下全部模块（不含发布打包）"
+    dependsOn("compileCore", "compileUi", "compileDesktop")
+    if (rootProject.findProject(":android:app") != null) dependsOn("compileAndroid")
 }
 
 // ── Android ──────────────────────────────────────────────────────────────
@@ -139,39 +299,19 @@ tasks.register("copyDesktopJar") {
 }
 
 // ── Storybook ────────────────────────────────────────────────────────────
-
-tasks.register("releaseStorybook") {
-    group = "release"
-    description = "构建 Storybook 离线包，输出到 releases/storybook/"
-    notCompatibleWithConfigurationCache("release copy task")
-
-    dependsOn(":storybook:wasmJsBrowserProductionWebpack")
-
-    doLast {
-        val outDir = projectDirFile.resolve("releases/storybook")
-        outDir.deleteRecursively()
-        outDir.mkdirs()
-
-        val webpackDir = projectDirFile.resolve("storybook/build/kotlin-webpack/wasmJs/productionExecutable")
-        val resDir = projectDirFile.resolve("storybook/build/processedResources/wasmJs/main")
-
-        webpackDir.listFiles()?.forEach { f ->
-            Files.copy(f.toPath(), outDir.resolve(f.name).toPath(), StandardCopyOption.REPLACE_EXISTING)
-        }
-
-        val indexHtml = resDir.resolve("index.html")
-        if (indexHtml.exists()) {
-            Files.copy(indexHtml.toPath(), outDir.resolve("index.html").toPath(), StandardCopyOption.REPLACE_EXISTING)
-        }
-
-        val composeRes = resDir.resolve("composeResources")
-        if (composeRes.exists()) {
-            composeRes.copyRecursively(outDir.resolve("composeResources"), overwrite = true)
-        }
-
-        println("OK Storybook -> releases/storybook/")
-    }
-}
+//
+// 已移除：原 releaseStorybook 任务依赖 ":storybook:wasmJsBrowserProductionWebpack"，
+// 但 :storybook 模块早在 380f225「refactor(build): 阶段性关闭 storybook 模块」中
+// 就从 settings.gradle.kts 移出，导致该任务依赖无法解析、并连带 ./gradlew release 失败。
+//
+// 恢复步骤（待 storybook 模块重新纳入构建时）：
+//   1. settings.gradle.kts 的三个 buildTarget 分支中补 include(":storybook")
+//   2. 在此处恢复 releaseStorybook（依赖 :storybook:wasmJsBrowserProductionWebpack，
+//      产物目录 storybook/build/kotlin-webpack/wasmJs/productionExecutable 与
+//      storybook/build/processedResources/wasmJs/main，输出到 releases/storybook/）
+//   3. 在下方 release 任务的 dependsOn 中重新加入 "releaseStorybook"
+//
+// storybook/ 源码与构建脚本保留未动。
 
 // ── 总入口 ───────────────────────────────────────────────────────────────
 
@@ -180,7 +320,8 @@ tasks.register("release") {
     description = "构建所有平台 Release 产物"
     notCompatibleWithConfigurationCache("release copy task")
 
-    dependsOn("releaseAndroid", "releaseDesktop", "releaseStorybook")
+    // 注：releaseStorybook 已随 :storybook 模块移出构建而移除，见上方「Storybook」节
+    dependsOn("releaseAndroid", "releaseDesktop")
     if (isMacOS) dependsOn("releaseIos")
 
     doLast {
@@ -193,7 +334,124 @@ tasks.register("release") {
         println("  Android:   releases/android/")
         println("  Desktop:   releases/desktop/")
         println("  iOS:       releases/ios/${iosNote}")
-        println("  Storybook: releases/storybook/")
         println("=====================================")
+    }
+}
+
+// ── 发布前预检 ──────────────────────────────────────────────────────────
+
+tasks.register("checkVersion") {
+    group = "release"
+    description = "校验版本号未与已有 git tag 重复（对齐 CI 的 validate 步骤）"
+
+    doLast {
+        // 本机 bash shim 损坏，不能走 shell，直接进程调用
+        val pb = ProcessBuilder("git", "tag", "--sort=-v:refname")
+        pb.directory(projectDirFile)
+        pb.redirectErrorStream(true)
+        val out = pb.start().inputStream.bufferedReader().use { it.readText() }
+        val latestTag = out.lineSequence()
+            .map { it.trim() }
+            .firstOrNull { it.isNotEmpty() }
+            ?.removePrefix("v")
+
+        println("当前版本: $versionName")
+        println("最新 tag: ${latestTag ?: "(无)"}")
+
+        if (latestTag != null && versionName == latestTag) {
+            throw GradleException(
+                "版本号 $versionName 与已有 tag v$latestTag 重复！" +
+                    "请先更新 gradle.properties 的 hmp.versionName / hmp.versionCode。"
+            )
+        }
+        println("OK 版本号未重复")
+    }
+}
+
+tasks.register("preflight") {
+    group = "release"
+    description = "发布前预检：版本号校验 + 全量单元测试 + 当前平台可产出产物告知"
+    notCompatibleWithConfigurationCache("release preflight")
+
+    dependsOn("checkVersion", "testAll")
+
+    doLast {
+        println("")
+        println("=====================================")
+        println("  发布前预检 (HMP v$versionName)")
+        println("=====================================")
+        println("  [OK] 版本号未与已有 tag 重复")
+        println("  [OK] 全部单元测试通过")
+        println("")
+        println("  构建目标: $buildTargetLabel")
+        println("  当前平台: ${if (isMacOS) "macOS" else "Windows/Linux"}")
+        println("  可产出:   Android (APK+AAB) / Desktop (当前平台格式)")
+        if (isMacOS) {
+            println("            iOS (xcarchive)")
+        } else {
+            println("            iOS —— 不可产出（需 macOS）")
+        }
+        println("=====================================")
+    }
+}
+
+// ── 清理 ────────────────────────────────────────────────────────────────
+
+tasks.register("cleanReleases") {
+    group = "build"
+    description = "清理 releases/ 下的所有产物文件（保留目录本身与 .gitkeep）"
+
+    doLast {
+        val releasesDir = projectDirFile.resolve("releases")
+        if (!releasesDir.exists()) {
+            println("releases/ 不存在，跳过")
+            return@doLast
+        }
+        // 注：releases/ 是 copyToReleases() 配置的输出目录（内部有 mkdirs()，
+        //     目录会自重建），因此只删文件、保留 .gitkeep，不动目录结构。
+        var count = 0
+        var bytes = 0L
+        releasesDir.walkTopDown()
+            .filter { it.isFile && it.name != ".gitkeep" }
+            .forEach { f ->
+                bytes += f.length()
+                if (f.delete()) count++
+            }
+        val mb = String.format("%.1f", bytes / 1024.0 / 1024.0)
+        println("已清理 $count 个文件，释放 $mb MB（保留 .gitkeep）")
+    }
+}
+
+tasks.register("cleanOrphans") {
+    group = "build"
+    description = "列出孤儿 build 目录（父模块已不在构建中）—— 只打印清单，不自动删除"
+
+    doLast {
+        // 判定：父模块目录下有 build/，但该模块不在 settings.gradle.kts 中
+        val knownModules = setOf(
+            "android/app", "android/core-player",
+            "desktop/app", "desktop/core-player",
+            "shared", "shared-ui", "shared-ios",
+        )
+        val scanRoots = listOf("android", "desktop", "shared", "shared-ui")
+        println("孤儿 build 目录扫描结果：")
+        var found = 0
+        scanRoots.forEach { root ->
+            val dir = projectDirFile.resolve(root)
+            if (!dir.isDirectory) return@forEach
+            dir.listFiles()?.filter { it.isDirectory }?.forEach { sub ->
+                val rel = "$root/${sub.name}"
+                if (sub.resolve("build").exists() && rel !in knownModules) {
+                    println("  [孤儿] $rel/build  （父模块不在 settings.gradle.kts 中）")
+                    found++
+                }
+            }
+        }
+        if (found == 0) {
+            println("  未发现孤儿 build 目录")
+        } else {
+            println("")
+            println("共 $found 个。确认后请手动删除；本任务不会自动删。")
+        }
     }
 }

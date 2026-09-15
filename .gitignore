@@ -183,3 +183,9 @@ gradle/gradle-daemon-jvm.properties
 .workbuddy/
 .cursor/
 .trae/
+
+# DevEco Studio 构建缓存（HarmonyOS 工具链，本项目不使用）
+.hvigor/
+
+# 文档重组归档（临时）
+*.md.bak

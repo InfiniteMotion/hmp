@@ -120,7 +120,7 @@ class MasterAgent(
     /**
      * 队列见底阈值：低于此值触发补歌。
      *
-     * 见 `docs/7_x/agent-radio-spec.md` §7.5（D2）—— 补歌是**保底出声**，不走模型判断：
+     * 见 `docs/7_x/B agent-build/design/agent-radio.md` §7.5（D2）—— 补歌是**保底出声**，不走模型判断：
      * 无端点时直接本地补，有端点时第 3 步接入 judge 后先问风格、失败退回本地。
      * 当前决策内核尚未落地，因此这里只有本地补歌一条路径。
      */
@@ -841,7 +841,7 @@ class MasterAgent(
     /**
      * 启动 Radio 事件采集协程。
      *
-     * **当前是过渡形态**：决策内核（`docs/7_x/agent-radio-spec.md` §7）尚未落地，
+     * **当前是过渡形态**：决策内核（`docs/7_x/B agent-build/design/agent-radio.md` §7）尚未落地，
      * 观测面（`TrackSettled` 事件流）也还没接，因此这里只保留两件不依赖判断的事：
      *
      * 1. 切歌 → 通知 Hello 门面 + 累计电台已播曲目（供 `remainingHint` 算队列余量）

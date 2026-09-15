@@ -14,9 +14,9 @@
 
 - [UI 差异对照](docs/5_10/ios-android-ui-diff.md) — iOS vs Android UI 原生优势与简化策略
 
-- [Agent 设计总纲](docs/7_x/agent.md) — 音乐伙伴方案单一事实来源（定位/本体/认识论/能力面/交互实施/工程）
+- [Agent 设计总纲](docs/7_x/B agent-build/design/agent.md) — 音乐伙伴方案单一事实来源（定位/本体/认识论/能力面/交互实施/工程）
 
-- [Agent 落地任务书](docs/7_x/agent-task-book.md) — 阶段制 M0-M7 实施规划（不绑定版本号，含验收标准与挂起参数默认值）
+- [Agent 落地计划书](docs/7_x/B agent-build/taskbook/README.md) — 按阶段族推进的实施规划（f1–f9 九章，含验收标准与挂起参数默认值）
 
 ***
 
@@ -338,7 +338,7 @@ v5.10 是 v5 系列的最后一个版本，标志着跨平台架构搭建完成�
 
 ## v7.x 阶段：三大方向任务分解（2026-08 制定）
 
-> 方向论证见 ROADMAP.md「未来发展方向 · v7.x 阶段」。版本编排：**7.1** = A-Phase1 + C-批1；**7.2** = A-Phase2/3 + C-批2；**7.3** = B；**7.4** = 收尾。
+> 方向论证见 ROADMAP.md「未来发展方向 · v7.x 阶段」。版本编排：**7.1.0 已发布**（方向 A Phase 1 地基 + Phase 2/3 全面替换 + C 批 1）→ **7.2** = A 残留观感 / 真机交互核验 + C 批 2 → **7.3** = B → **7.4** = 遗留清理。
 
 ### 方向 A：KMP 重写 iOS UI（Compose 取代 SwiftUI）
 
@@ -362,7 +362,7 @@ v5.10 是 v5 系列的最后一个版本，标志着跨平台架构搭建完成�
 
 - 试点已删除的 XcodeGen shared scheme（HMP/HMPNowPlayingExtension .xcscheme）由 xcodegen 自动生成替代，archive 流程需回归确认
 
-**Phase 2/3 — 按模块迁移（7.2）**
+**Phase 2/3 — 按模块迁移（已随 v7.1.0 发布）**
 
 > ✅ 2026-08-23 全面替换完成（模拟器验证通过）：
 >
@@ -391,7 +391,7 @@ v5.10 是 v5 系列的最后一个版本，标志着跨平台架构搭建完成�
 
 ### 方向 B：AI 功能 Agent 化（7.3）
 
-> 方案定稿见 [docs/7\_x/agent.md](docs/7_x/agent.md)；落地任务分解（含验收标准、文件落点、挂起参数默认值）见 [docs/7\_x/agent-task-book.md](docs/7_x/agent-task-book.md)（阶段制 M0-M7，不绑定版本号）。编号已对齐 B0-B6 体系；B0 无 agent 依赖，可提前还债。
+> 方案定稿见 [docs/7\_x/design/agent.md](docs/7_x/B agent-build/design/agent.md)；落地任务分解（含验收标准、文件落点、挂起参数默认值）见 [docs/7\_x/taskbook/README.md](docs/7_x/B agent-build/taskbook/README.md)（按阶段族 f1–f9 组织，不绑定版本号）。编号已对齐 B0-B6 体系；B0 无 agent 依赖，可提前还债。
 
 - [x] **B0** AI 管道三端去重 + Room v2 迁移——MusicRepositoryImpl 三份（1034/910/899 行）中 AI 方法上提 commonMain（去重目标 30-40%，扫描/存储/标签写入等平台特强方法留 actual）+ 新建 agent\_task/agent\_audit\_log/agent\_message 三表 + MusicLabel 加 source/confidence/created\_at/updated\_at（标签溯源先行，迁移测试先行）（M0）
 
@@ -399,7 +399,7 @@ v5.10 是 v5 系列的最后一个版本，标志着跨平台架构搭建完成�
 
 - [x] **B2** 工具层——ToolSpec DSL + 十项工具（M3 首次交付）+ ToolRegistry + 回填语义 → **S 阶段终局**：批次 A 域前缀统一重命名/拆分（17）+ 批次 B 追加 10（library 聚合 6 + song\_tag\_user\_add/remove + playback\_enqueue + agent\_budget stub）= 27 原子工具 ✅
 
-- [x] **T 阶段 Master 内核 + Enrich SubAgent + 权限体系**——让 agent 从"被动 chatbot"→"有生命的音乐伙伴"（方案见 docs/7\_x/agent-task-book.md T1-T4）：
+- [x] **T 阶段 Master 内核 + Enrich SubAgent + 权限体系**——让 agent 从"被动 chatbot"→"有生命的音乐伙伴"（方案见 docs/7\_x/taskbook/f5-体系重塑.md）：
   - ✅ T1 基础设施：两层 ContextBudget（AgentContextBudget + GlobalTokenCounter）+ AgentScheduler（三档 priority）+ SubAgent 基类 + ToolRegistryView 权限过滤 + StopSignal（Mutex 暂停/恢复）
 
   - ✅ T2 Master 内核：富化健康度检测 + enrichTaskLoop 派活/验收轻量协程循环 + 5 enrich\_\* 工具动态注册 + AgentPolicyConfig DataStore 持久化（三端）
@@ -410,7 +410,7 @@ v5.10 是 v5 系列的最后一个版本，标志着跨平台架构搭建完成�
 
   - 💡 架构额外收益：四层组件 LlmCallExecutor/ToolCallExecutor/ReActLoop/StopSignal 彻底解耦；权限体系简化 9→6 概念（TrustTier→trustLevel Int、AgentPolicyConfig 2 字段）；TrustLedger 复活为真正驱动 trustLevel 升降档的组件
 
-- [x] **U 阶段 Kermit 日志体系统一** ✅ 2026-09-01——三端原生日志桥接 + Release 级别裁剪（方案见 docs/7\_x/agent-task-book.md U-T1\~U-T4）：
+- [x] **U 阶段 Kermit 日志体系统一** ✅ 2026-09-01——三端原生日志桥接 + Release 级别裁剪（方案见 docs/7\_x/taskbook/f5-体系重塑.md）：
   - [x] U-T1 依赖引入：libs.versions.toml Kermit 2.1.0 + shared/shared-ui/desktop/app/desktop/core-player 四模块依赖
 
   - [x] U-T2 三端初始化：`initKermit()` 三端入口 + Android BuildConfig / Desktop 系统属性 / iOS `#if DEBUG` Release 级别裁剪

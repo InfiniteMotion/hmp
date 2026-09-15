@@ -906,7 +906,7 @@ abstract class MusicRepositoryBase(
 
     // endregion
 
-    // region W0: HelloSubAgent 依赖（agent-hello.md §9）
+    // region W0: HelloSubAgent 依赖（docs/7_x/B agent-build/design/agent-w.md §W0）
 
     /** 7 天内跳过次数最多的 N 首歌（RECOMMEND 反推不该推荐什么）。 */
     override suspend fun getRecentSkipRate(limit: Int, days: Int): List<Long> {

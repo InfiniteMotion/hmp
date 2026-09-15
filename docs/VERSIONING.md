@@ -1,6 +1,6 @@
 # Hearable Music Player — 版本命名与发布规范
 
-本文档为项目**版本号格式、发版流程与分支策略**的正式约定。**自 v5.6.1 起施行**，v6.11.1 起更新发版流程。
+本文档为项目**版本号格式、发版流程与分支策略**的正式约定。**自 v5.6.1 起施行**。
 
 ---
 
@@ -30,12 +30,12 @@
 版本号集中维护在 `gradle.properties`：
 
 ```properties
-hmp.versionCode=61101
-hmp.versionName=6.11.1
+hmp.versionCode=71000
+hmp.versionName=7.1.0
 ```
 
 - **versionName**：与三位版本号一致。各模块通过 `project.findProperty("hmp.versionName")` 引用。
-- **versionCode**：每次发布**严格递增**的整数。建议按 `MAJOR*10000 + MINOR*1000 + PATCH` 换算。
+- **versionCode**：每次发布**严格递增**的整数，按 `MAJOR*10000 + MINOR*1000 + PATCH` 换算（如 `7.1.0` → `71000`）。
 
 ## 4. 分支策略
 
@@ -224,7 +224,7 @@ CI 会自动检查 `gradle.properties` 中的版本号是否与已有 tag 重复
 
 ---
 
-**适用范围**：本规范自 **v5.6.1** 起施行，**v6.11.1** 起更新发版流程。分支策略自 **v6.0** 起调整为按平台拆分的 develop 分支模式。
+**适用范围**：本规范自 **v5.6.1** 起施行。分支策略自 **v6.0** 起调整为按平台拆分的 develop 分支模式。
 
 ---
 

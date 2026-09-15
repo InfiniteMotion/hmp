@@ -77,7 +77,7 @@ class MusicController(
      *
      * 注意：这里**只报事实**（播了多久、怎么结束的），不做任何"算不算跳过"的判断 ——
      * 本项目里已有的 `skipThresholdMs` / `skipThresholdPercent` 是给播放历史统计用的，
-     * agent 侧明确不复用（见 `docs/7_x/agent-radio-spec.md` §2.2）。
+     * agent 侧明确不复用（见 `docs/7_x/B agent-build/design/agent-radio.md` §2.2）。
      */
     var playbackObserver: com.hmp.domain.agent.port.PlaybackObservationSink? = null
 
