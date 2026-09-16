@@ -77,6 +77,13 @@ data class RunContextInput(
     val timeOfDayText: String? = null,
     val nowPlayingText: String? = null,
     val userTitle: String? = null,
+    /**
+     * 用户认识模块渲染出的画像块（自带「仅供参考」标题，见 `agent-profile.md` §7.1）。
+     *
+     * ⚠️ 它进的是 **system prompt**，因此**整场任务的每一轮都可见** ——
+     * 这正是 C2 从"会话内不读画像"改为"读了但不作为指令"的原因（契约 §8）。
+     */
+    val userProfileText: String? = null,
     // —— 跨轮记忆：上一轮及以前的 user/assistant 文本消息（按时间正序，越新越靠后）——
     val history: List<LlmMessage> = emptyList(),
 )

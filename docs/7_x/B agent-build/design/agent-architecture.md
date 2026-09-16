@@ -102,6 +102,11 @@
 └──────────────────────────────────────────────────────────────────┘
 ```
 
+> ⚠️ **`AgentMemory` 的归属已定（2026-09-15）**：图中的 `AgentMemory（持久化，跨会话）`
+> 曾是空承诺（全仓零实现）。现由 **用户认识模块** 承接 —— 契约见 [`agent-profile.md`](agent-profile.md)，
+> 权威用词为「用户认识 / 偏好画像」，登记为 F9-T0。该模块采用**条目式**持久化（`user_profile` 表，
+> 逐条带 source/confidence/审计四问），而非"一张记忆快照"。
+
 ### ContextBudget 两层结构对比（修正之前的混淆）
 
 | 维度 | AgentContextBudget（每 Agent 独立） | AgentScheduler（全局唯一） |
@@ -127,7 +132,7 @@
 | **生命周期** | 应用启动时初始化，随应用销毁；用户对话时激活 LLM，闲置时 LLM 挂起但派活循环常驻 |
 | **触发源** | 用户发消息 → LLM 循环激活；富化健康度不足 → 自动派活循环启动 |
 | **目标** | ① 理解用户意图 → 执行一次性任务 ② 创建/管理/验收/销毁 SubAgent ③ 把子Agent 状态翻译给用户 |
-| **system prompt** | persona（知音/DJ/馆长）+ Recall 偏好画像 + 曲库概况 + 认识进度 |
+| **system prompt** | persona（知音/DJ/馆长）+ 偏好画像（见 [`agent-profile.md`](agent-profile.md)）+ 曲库概况 + 认识进度 |
 | **上下文** | 用户对话历史（自己的 AgentContextBudget 管） |
 | **LLM 实例** | 独立 LlmTransport（windowSize=128K，对话专用模型） |
 | **能做什么** | 调 27 原子工具 + 所有 SubAgent 管理工具（enrich_start/status 等） |
@@ -468,7 +473,7 @@ T1 基础设施重构 ──▶ T2 Master 内核改造 ──▶ T3 Enrich 实�
 | AgentMemory 跨会话持久化（Master 派活/验收循环的状态） | T 阶段 Master 的派活验收循环用临时内存状态，跨会话持久化留到后续 |
 | 用户可配置的富化目标覆盖率 UI | 先用 DataStore 默认值 90%，后续加设置界面 |
 | iOS 端编译验证 | 当前开发环境是 Windows，iOS 端留到后续 macOS 环境验证 |
-| Feedback → Recall → 推荐闭环 | M6 Radio Agent 实现时才需要，T 不做 |
+| Feedback → Recall → 推荐闭环 | M6 Radio Agent 实现时才需要，T 不做 —— **后续（2026-09-15）：M6 走的是会话内方案（C2），此闭环改由用户认识模块承接，见 [`agent-profile.md`](agent-profile.md)** |
 | 撤销 UI（Agent 操作的可撤销） | M6 审计页 + M7 伙伴设置页做 |
 | agent_budget 全局查询工具 | T 只实现 GlobalTokenCounter 数据层，agent_budget 工具 UI 留后续 |
 

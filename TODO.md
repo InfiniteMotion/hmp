@@ -18,6 +18,8 @@
 
 - [Agent 落地计划书](docs/7_x/B agent-build/taskbook/README.md) — 按阶段族推进的实施规划（f1–f9 九章，含验收标准与挂起参数默认值）
 
+- [Agent 用户认识模块契约](docs/7_x/B agent-build/design/agent-profile.md) — 画像（F9-T0 前置任务）：两层数据模型（含 Room v6 迁移 DDL）/ 槽位闭集 / 分级记忆 / C2 定稿（画像可读、仅供参考非指令）/ 审计四问 / 验收剧本 P1–P21
+
 ***
 
 ## v5.10：iOS 平台适配与双平台架构（v5 系列最终版本）
@@ -441,6 +443,8 @@ v5.10 是 v5 系列的最后一个版本，标志着跨平台架构搭建完成�
   - [x] 跨平台基础设施：com.hmp.platform.Volatile/Synchronized expect/actual 桥接（commonMain expect + androidMain/desktopMain/iosMain actual）——修复 Kotlin/Native 不支持 kotlin.jvm 注解问题
 
   - 三端编译全绿 + desktopTest 通过
+
+- [x] **B6-T0（F9 前置）** 用户认识模块（画像）—— agent 的长期用户模型，隶属 `MasterAgent` 的常驻模块。**两层画像**：侧写层（预设骨架 + 槽位闭集 + 证据反链，产品面向）+ 证据层（逐条带 `source`/`confidence`/四列溯源，审计面向）；Room v5→v6（两张表）。**两个平级建模器**：`LibraryModeler`（曲库，按认知深度成熟 —— 扫描完成→**形态建模** 0.4 / 覆盖率达标→**内容建模** 0.55，**阶段二是纠正而非补全**）+ `BehaviorModeler`（行为与状态，按数据积累成熟 —— **定时读 `PlaybackHistory` + 状态快照 diff，不细到单个操作、零新埋点**）。**分级记忆** L1 当下态 / L2 情境态 / L3 性情态 + 跨层晋升衰减 + 反例保护。**对话侧写门槛已放开**，配三条约束并确立「**对话给假设，行为给确证**」。**认知准入**三档：A 类 5 个侧写 / B 类 3 个（只能"你在音乐里表现出的…"）/ C 明确不做（**拒绝 MBTI 等类型学**）。**消费面**：自有音乐人格卡（三轴八型，**换轴不换皮**），不得回流决策面。**C2 再修订**为「电台判断回路只用会话内」。**认领架构文档悬空的两处承诺**（`agent-architecture.md:130`「偏好画像」、组件图 `AgentMemory`）与 `f5` 未闭环的「Feedback → Recall → 推荐闭环」。**实施分档**：T0a 地基+MVP（判据 = 新用户导入曲库后第一次对话就有内容）→ T0b 后置（人格卡优先）；F9-T1/T2 依赖只挂 T0a。契约见 `docs/7_x/B agent-build/design/agent-profile.md`（v3；PF1–PF12 待拍板）　**✅ 已完成（2026-09-16，契约 v3.8：T0a 地基+MVP / T0b 人格卡·B类·对话抽取；归属收编 Master 定名 UserMemory；测试 821 例全绿）**
 
 - [ ] **B6** 报告角色与语音档——听歌报告 / 遗忘唤醒 + 伙伴设置页六分区（AI 页演进）+ RealtimeVoiceTransport 实时语音（**独立 gate**：端点不可用即整体延期，v1 完整性不依赖语音）（M7）
 

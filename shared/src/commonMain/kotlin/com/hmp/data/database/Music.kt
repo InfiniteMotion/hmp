@@ -245,6 +245,14 @@ interface UserInfoDao {
     @Query("SELECT id FROM userInfo WHERE liked = 1 AND isDeleted = 0")
     suspend fun getLikedMusicIds(): List<Long>
 
+    /** 画像·状态快照：明确不喜欢的数量（负向信号，比"喜欢什么"更能收紧推荐） */
+    @Query("SELECT COUNT(*) FROM userInfo WHERE disLiked = 1 AND isDeleted = 0")
+    suspend fun countDisliked(): Int
+
+    /** 画像·状态快照：打过分的数量（用户显式给的分，T1 强度） */
+    @Query("SELECT COUNT(*) FROM userInfo WHERE userRating IS NOT NULL AND isDeleted = 0")
+    suspend fun countRated(): Int
+
     @Query("DELETE FROM userInfo WHERE id IN (:ids)")
     suspend fun deleteUserInfoByIds(ids: List<Long>)
 

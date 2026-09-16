@@ -75,6 +75,26 @@ interface PlaybackHistoryDao {
     """)
     suspend fun getAllMusicDurationsGrouped(): List<MusicDurationDaoRow>
 
+    /**
+     * 画像·行为建模：窗口内的播放明细（**带曲目时长**，用于算"跳过点"）。
+     *
+     * 跳过点 = `playDuration / trackDuration` —— 没有这个 JOIN 就只有绝对秒数，
+     * 而"听了 30 秒"在 3 分钟的歌和 8 分钟的歌里含义完全不同。
+     */
+    @Query("""
+        SELECT h.musicId AS musicId, h.playedAt AS playedAt, h.playDuration AS playDuration,
+               h.isCompleted AS isCompleted, COALESCE(m.duration, 0) AS trackDuration
+        FROM PlaybackHistory h
+        LEFT JOIN music m ON m.id = h.musicId
+        WHERE h.playedAt >= :sinceMs
+        ORDER BY h.playedAt ASC
+    """)
+    suspend fun getPlayRowsSince(sinceMs: Long): List<PlaybackRow>
+
+    /** 画像·行为建模：每首歌的**首次**播放时间（判断窗口内新歌 vs 老歌回归）。 */
+    @Query("SELECT musicId, MIN(playedAt) AS firstPlayedAt FROM PlaybackHistory GROUP BY musicId")
+    suspend fun getFirstPlayedAtPerTrack(): List<AnniversaryCandidateRow>
+
     /** 今日播放过的 musicId（SQL strftime，避免 getAllHistory 全表拉取）。 */
     @Query("""
         SELECT DISTINCT musicId FROM PlaybackHistory
@@ -88,6 +108,15 @@ data class MusicDurationDaoRow(
     val musicId: Long,
     val totalMs: Long,
     val playCount: Int,
+)
+
+/** Room 查询结果行：画像行为建模用的播放明细（含曲目时长）。 */
+data class PlaybackRow(
+    val musicId: Long,
+    val playedAt: Long,
+    val playDuration: Long,
+    val isCompleted: Boolean,
+    val trackDuration: Long,
 )
 
 /** Room 查询结果中间行：ANNIVERSARY 候选。 */

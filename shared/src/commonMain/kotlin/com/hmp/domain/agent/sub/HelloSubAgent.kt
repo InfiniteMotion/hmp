@@ -70,6 +70,11 @@ class HelloSubAgent(
     private var enableLlm: Boolean = false,
     /** 电台查询代理（nullable；MasterAgent.queryRadioPlaylist 直接传进来，避免循环依赖） */
     private val radioPlaylistProvider: suspend () -> List<RadioTrack>? = { null },
+    /**
+     * 画像简报（契约 v3.8，MasterAgent.startHello 从 `userMemory.helloBriefing()` 取）：
+     * 门面卡片与推荐的听众参考 —— 自带「仅供参考」口径，null = 冷启动无画像。
+     */
+    private val memoryBriefing: String? = null,
 ) : SubAgent(agentId, contextBudget, toolRegistryView) {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -1659,6 +1664,9 @@ class HelloSubAgent(
     ): String? {
         if (!enableLlm) return null
         val cfg = enrichConfig ?: return null
+        // 画像简报（v3.8）统一追加到 system —— 自带「仅供参考」口径，是背景不是指令
+        val systemWithMemory = memoryBriefing?.takeIf { it.isNotBlank() }
+            ?.let { "$systemPrompt\n\n$it" } ?: systemPrompt
         val result = runCatching {
             val finalPrompt = runCatching {
                 if (cardType != null) {
@@ -1668,7 +1676,7 @@ class HelloSubAgent(
             }.getOrDefault(userPrompt)
             val raw = contextBudget.callLlmText(
                 config = cfg,
-                systemPrompt = systemPrompt,
+                systemPrompt = systemWithMemory,
                 newMessages = listOf(LlmMessage(role = "user", content = finalPrompt)),
                 temperature = temperature,
             ) ?: return@runCatching null

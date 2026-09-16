@@ -66,6 +66,13 @@ interface MusicLabelDao {
 """)
     suspend fun getTopLabels(limit: Int): List<LabelCountPair>
 
+    /**
+     * 按来源计数 —— 画像·状态快照用：`source = "USER"` 的数量即"用户亲手修正过几条标签"，
+     * 它同时暴露分类偏好与**模型的系统性错法**（契约 §4.3）。
+     */
+    @Query("SELECT COUNT(*) FROM musicLabel WHERE source = :source")
+    suspend fun countBySource(source: String): Int
+
     @Query("SELECT * FROM musicLabel")
     suspend fun getAllLabels(): List<MusicLabel>
 

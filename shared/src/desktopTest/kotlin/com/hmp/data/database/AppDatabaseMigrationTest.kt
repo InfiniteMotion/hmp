@@ -127,8 +127,143 @@ class AppDatabaseMigrationTest {
             assertNotNull(db.agentTaskDao())
             assertNotNull(db.agentAuditLogDao())
             assertNotNull(db.agentMessageDao())
+            assertNotNull(db.userProfileEvidenceDao())
+            assertNotNull(db.userProfilePortraitDao())
         } finally {
             db.close()
         }
+    }
+
+    /**
+     * v5 → v6 迁移（F9-T0 用户认识模块，契约 agent-profile.md v3.1 §2.4）。
+     *
+     * 验三件事：① 存量表数据完好；② 两张新表建成且可写；③ 证据表的三元组**唯一索引**真的生效
+     * —— 这条索引是"同一事实只累积不重复建行"的保证，漏了它自增 id 就会膨胀、反链会漂。
+     */
+    @Test
+    fun migrate_5_6_createsUserProfileTables_andEnforcesUniqueTriple() {
+        // 1. 以 v5 schema 建库并写入存量数据
+        val v5 = helper.createDatabase(5)
+        v5.execSQL(
+            "INSERT INTO `music` (id, title, artist, album, duration, path, albumArtUri, isDeleted) " +
+                "VALUES (11, 'Song', 'Artist', 'Album', 200000, '/m/11.mp3', '', 0)"
+        )
+        v5.close()
+
+        // 2. 迁移到 v6 并验证 schema（对照 KSP 导出的 schemas/6.json）
+        val v6 = helper.runMigrationsAndValidate(6, listOf(AppDatabase.MIGRATION_5_6))
+
+        // 3. 存量表数据保留
+        v6.prepare("SELECT COUNT(*) FROM `music` WHERE id = 11").use { stmt ->
+            assertTrue(stmt.step(), "查询应有结果行")
+            assertEquals(1L, stmt.getLong(0), "存量 music 行应保留")
+        }
+
+        // 4. 证据表可写；自增 id 生效
+        v6.execSQL(
+            "INSERT INTO `user_profile_evidence` " +
+                "(subject, predicate, value, source, confidence, created_at, updated_at, " +
+                "evidence_count, distinct_sessions, last_session_id) " +
+                "VALUES ('USER', 'time_portrait.primaryPart', 'NIGHT', 'T0_BEHAVIOR', 0.6, 1000, 1000, 1, 1, 's1')"
+        )
+        v6.prepare("SELECT id FROM `user_profile_evidence` WHERE predicate = 'time_portrait.primaryPart'")
+            .use { stmt ->
+                assertTrue(stmt.step())
+                assertTrue(stmt.getLong(0) > 0, "自增主键应生成非 0 id")
+            }
+
+        // 5. 同一 (subject, predicate, value) 再插一次 → 必须被唯一索引拒绝
+        val duplicate = runCatching {
+            v6.execSQL(
+                "INSERT INTO `user_profile_evidence` " +
+                    "(subject, predicate, value, source, confidence, created_at, updated_at, " +
+                    "evidence_count, distinct_sessions, last_session_id) " +
+                    "VALUES ('USER', 'time_portrait.primaryPart', 'NIGHT', 'T0_BEHAVIOR', 0.7, 2000, 2000, 1, 1, 's2')"
+            )
+        }
+        assertTrue(duplicate.isFailure, "重复的三元组应被唯一索引拒绝（违反则说明索引没建成）")
+
+        // 6. 换个 value 则可插 —— 确认拒绝的是三元组而非整表
+        v6.execSQL(
+            "INSERT INTO `user_profile_evidence` " +
+                "(subject, predicate, value, source, confidence, created_at, updated_at, " +
+                "evidence_count, distinct_sessions, last_session_id) " +
+                "VALUES ('USER', 'time_portrait.secondaryPart', 'EVENING', 'T0_BEHAVIOR', 0.5, 1000, 1000, 1, 1, 's1')"
+        )
+        v6.prepare("SELECT COUNT(*) FROM `user_profile_evidence`").use { stmt ->
+            assertTrue(stmt.step())
+            assertEquals(2L, stmt.getLong(0), "两条不同谓词的证据应共存")
+        }
+
+        // 7. 侧写表：type 是主键，可空列 coverage_at_modeling 允许 NULL
+        v6.execSQL(
+            "INSERT INTO `user_profile_portrait` " +
+                "(type, tier, slots_json, evidence_refs, confidence, created_at, updated_at, coverage_at_modeling) " +
+                "VALUES ('time_portrait', 'L2', '{\"primaryPart\":\"NIGHT\"}', '1', 0.6, 1000, 1000, NULL)"
+        )
+        v6.prepare("SELECT coverage_at_modeling IS NULL, evidence_refs FROM `user_profile_portrait`")
+            .use { stmt ->
+                assertTrue(stmt.step())
+                assertEquals(1L, stmt.getLong(0), "coverage_at_modeling 应允许 NULL")
+                assertEquals("1", stmt.getText(1), "evidence_refs 存的是证据行 id")
+            }
+
+        // 8. 侧写按 type 覆盖（REPLACE 语义），不该出现两行
+        v6.execSQL(
+            "INSERT OR REPLACE INTO `user_profile_portrait` " +
+                "(type, tier, slots_json, evidence_refs, confidence, created_at, updated_at, coverage_at_modeling) " +
+                "VALUES ('time_portrait', 'L3', '{}', '1,2', 0.7, 1000, 3000, 0.9)"
+        )
+        v6.prepare("SELECT COUNT(*), tier FROM `user_profile_portrait` WHERE type = 'time_portrait'")
+            .use { stmt ->
+                assertTrue(stmt.step())
+                assertEquals(1L, stmt.getLong(0), "同一 type 只应有一行")
+                assertEquals("L3", stmt.getText(1), "覆盖后应取新值")
+            }
+        v6.close()
+    }
+
+    /** v6 → v7（画像叙事表，契约 v3.5 §7.4）：建表 + 单行 REPLACE 语义 + 存量数据保留。 */
+    @Test
+    fun migrate_6_7_createsNarrativeTable_withSingleRowSemantics() {
+        val v6 = helper.createDatabase(6)
+        v6.execSQL(
+            "INSERT INTO `music` (id, title, artist, album, duration, path, albumArtUri, isDeleted) " +
+                "VALUES (21, 'Song', 'Artist', 'Album', 200000, '/m/21.mp3', '', 0)"
+        )
+        v6.close()
+
+        val v7 = helper.runMigrationsAndValidate(7, listOf(AppDatabase.MIGRATION_6_7))
+
+        v7.prepare("SELECT COUNT(*) FROM `music` WHERE id = 21").use { stmt ->
+            assertTrue(stmt.step())
+            assertEquals(1L, stmt.getLong(0), "存量 music 行应保留")
+        }
+
+        // 叙事表可写，指纹与时间戳原样读回
+        v7.execSQL(
+            "INSERT INTO `user_profile_narrative` (id, text, facts_hash, generated_at) " +
+                "VALUES (1, '你常在夜里听歌，很少中途跳过。', 42, 1000)"
+        )
+        v7.prepare("SELECT text, facts_hash, generated_at FROM `user_profile_narrative` WHERE id = 1")
+            .use { stmt ->
+                assertTrue(stmt.step())
+                assertEquals("你常在夜里听歌，很少中途跳过。", stmt.getText(0))
+                assertEquals(42L, stmt.getLong(1))
+                assertEquals(1000L, stmt.getLong(2))
+            }
+
+        // 单行表：同 id REPLACE 覆盖，不产生第二行
+        v7.execSQL(
+            "INSERT OR REPLACE INTO `user_profile_narrative` (id, text, facts_hash, generated_at) " +
+                "VALUES (1, '你听得杂而广，经常听一段就切走。', 43, 2000)"
+        )
+        v7.prepare("SELECT COUNT(*), text, facts_hash FROM `user_profile_narrative`").use { stmt ->
+            assertTrue(stmt.step())
+            assertEquals(1L, stmt.getLong(0), "单行表 REPLACE 后应只有一行")
+            assertEquals("你听得杂而广，经常听一段就切走。", stmt.getText(1))
+            assertEquals(43L, stmt.getLong(2), "指纹应随重生成更新")
+        }
+        v7.close()
     }
 }

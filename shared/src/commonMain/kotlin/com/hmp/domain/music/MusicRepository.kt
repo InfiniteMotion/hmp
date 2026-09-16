@@ -6,6 +6,9 @@ import com.hmp.domain.agent.enrich.EnrichWorkUnit
 import com.hmp.domain.setting.model.AiEndpointConfig
 import com.hmp.domain.setting.model.DailyMusicInfo
 import com.hmp.domain.setting.model.ListeningDuration
+import com.hmp.domain.agent.profile.BehaviorSnapshot
+import com.hmp.domain.agent.profile.LibraryContentSnapshot
+import com.hmp.domain.agent.profile.LibraryStateSnapshot
 import com.hmp.domain.setting.model.PlaybackHistory
 import com.hmp.domain.setting.model.UserUsageAnalytics
 import com.hmp.domain.enum.LabelCategory
@@ -184,6 +187,20 @@ interface MusicRepository {
 
     /** 最近 days 天的日均听歌时长（分钟），报告叙事段自适应频率判断用 */
     suspend fun getAvgDailyListeningMinutes(days: Int = 30): Float
+
+    // ── 用户认识模块（画像）的三个快照 —— 见 design/agent-profile.md §4.1 / §4.2 / §4.3 ──
+
+    /**
+     * 曲库内容快照（阶段二建模输入）：标签分布 + 覆盖率。
+     * 覆盖率同时用于判断"该不该跑内容建模"与给置信度打折。
+     */
+    suspend fun getLibraryContentSnapshot(): LibraryContentSnapshot
+
+    /** 曲库状态快照：收藏 / 明确不喜欢 / 手工歌单 / 隐藏文件夹 / 用户修正标签。 */
+    suspend fun getLibraryStateSnapshot(): LibraryStateSnapshot
+
+    /** 行为快照：窗口内的播放明细聚合（时段 / 完播 / 跳过点 / 重复度 / 新歌比）。 */
+    suspend fun getBehaviorSnapshot(windowDays: Int = 90): BehaviorSnapshot
 }
 
 /** 歌单创建纪念日候选。 */

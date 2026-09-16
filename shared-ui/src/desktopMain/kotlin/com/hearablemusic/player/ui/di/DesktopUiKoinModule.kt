@@ -53,7 +53,7 @@ val desktopUiModule = module {
     viewModel { DialogManagerViewModel(get()) }
     viewModel { DialogViewModel(get(), get(), get(), get(), get(), get()) }
 
-    viewModel { LibraryViewModel(get(), get(), get(), get(), get(), get(), get()) }
+    viewModel { LibraryViewModel(get(), get(), get(), get(), get(), get(), get(), get<com.hmp.domain.agent.runtime.MasterAgent>()) }
     viewModel { SearchViewModel(get()) }
     viewModel { SongDetailViewModel(get(), get()) }
     viewModel { EditMusicTagsViewModel(get(), get(), get()) }

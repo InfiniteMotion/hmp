@@ -8,6 +8,9 @@ import com.hmp.domain.backup.MusicUserStateSnapshot
 import com.hmp.domain.music.EditableMusicTags
 import com.hmp.domain.music.MusicInfo
 import com.hmp.domain.music.MusicLabel
+import com.hmp.domain.agent.profile.BehaviorSnapshot
+import com.hmp.domain.agent.profile.LibraryContentSnapshot
+import com.hmp.domain.agent.profile.LibraryStateSnapshot
 import com.hmp.domain.music.MusicRepository
 import com.hmp.domain.enum.LabelCategory
 import com.hmp.domain.enum.LabelName
@@ -124,6 +127,17 @@ class FakeAgentMusicRepository : MusicRepository {
     override suspend fun getMusicInfoByIds(ids: List<Long>): List<MusicInfo> =
         ids.mapNotNull { songs[it] }
     override suspend fun getAvgDailyListeningMinutes(days: Int): Float = 0f
+
+    // ── 用户认识模块（画像）快照：替身默认返回空，忘传即等于测"无数据退化" ──
+
+    override suspend fun getLibraryContentSnapshot(): LibraryContentSnapshot =
+        LibraryContentSnapshot(totalSongs = 0, enrichedSongs = 0)
+
+    override suspend fun getLibraryStateSnapshot(): LibraryStateSnapshot =
+        LibraryStateSnapshot(totalSongs = 0, likedCount = 0, dislikedCount = 0, hiddenFolderCount = 0)
+
+    override suspend fun getBehaviorSnapshot(windowDays: Int): BehaviorSnapshot =
+        BehaviorSnapshot(windowDays = windowDays, totalPlays = 0, activeDays = 0)
     override suspend fun getAnniversaryPlaylists(date: String): List<com.hmp.domain.music.PlaylistAnniversaryRow> = emptyList()
     override suspend fun getAllMusicDurations(): List<com.hmp.domain.music.MusicDurationRow> = emptyList()
     override suspend fun getMusicIdsPlayedOn(date: String): List<Long> = emptyList()

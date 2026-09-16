@@ -57,6 +57,10 @@ val sharedModule = module {
     // 控制器侧拿 Sink（只写），agent 侧拿 Bus（订阅 Flow）。
     singleOf(::PlaybackObservationBus)
 
+    // 用户认识模块（画像）自 v3.6 起**归属 MasterAgent**（`masterAgent.userMemory`）：
+    // 不再单独注册 Koin 单例 —— 装配方只需注入三个 DAO，Master 负责构建与暴露。
+    // 注入路径由三条收敛为一条：`masterAgent.userMemory`。
+
     // ① 1 个 HttpClient 实例 + 1 个 Adapter（所有 Agent 共享底层连接池和 Adapter）
     single { createHttpClient(get()) }
     single { OpenAiCompatibleAdapter(get(), get()) }

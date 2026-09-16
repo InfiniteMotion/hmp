@@ -95,9 +95,20 @@ object ContextAssembler {
         timeOfDay: String?,
         nowPlaying: String?,
         userTitle: String? = null,
+        /**
+         * 用户认识模块渲染出的画像块（`agent-profile.md` §7）。
+         *
+         * 注意它**自带标题与「仅供参考」声明**（`UserProfileRenderer` 产出），
+         * 所以这里不再包 `【】` —— 免得出现两层标题。
+         *
+         * 位置紧随 persona：成像是"他是谁"，比"在听什么"更基础。
+         * 为空则整块省略（冷启动不留空壳）。
+         */
+        userProfile: String? = null,
     ): String = buildString {
         append(personaText.trim())
         userTitle?.takeIf { it.isNotBlank() }?.let { append("\n称呼为「$it」。") }
+        if (!userProfile.isNullOrBlank()) append("\n").append(userProfile.trim())
         if (!nowPlaying.isNullOrBlank()) append("\n【当前曲目】\n").append(nowPlaying.trim())
         if (!timeOfDay.isNullOrBlank()) append("\n【时段】\n").append(timeOfDay.trim())
         if (!libraryOverview.isNullOrBlank()) append("\n【曲库概况】\n").append(libraryOverview.trim())

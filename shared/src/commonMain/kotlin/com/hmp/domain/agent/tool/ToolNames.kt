@@ -29,6 +29,14 @@ object ToolNames {
     const val LIBRARY_SIMILAR = "library_similar"
     const val LIBRARY_STATS = "library_stats"
     const val LIBRARY_RECENT_HISTORY = "library_recent_history"
+
+    // ── 用户认识模块（画像）──
+    /** 只读：伙伴对用户的印象（子 Agent 用，如电台选种子） */
+    const val PROFILE_READ = "profile_read"
+    /** 写入（CONFIRM）：记下用户显式陈述的偏好 */
+    const val PROFILE_NOTE = "profile_note"
+    /** 写入（CONFIRM）：否决一类印象 */
+    const val PROFILE_FORGET = "profile_forget"
     const val LIBRARY_ARTISTS = "library_artists"
     const val LIBRARY_ALBUMS = "library_albums"
     const val LIBRARY_TAGS = "library_tags"
@@ -69,6 +77,8 @@ object ToolNames {
         PLAYLIST_LIST, PLAYLIST_DETAIL, PLAYLIST_CREATE, PLAYLIST_RENAME, PLAYLIST_DELETE,
         PLAYLIST_ADD_SONG, PLAYLIST_REMOVE_SONG, PLAYLIST_REORDER,
         LIBRARY_SEARCH, LIBRARY_SIMILAR, LIBRARY_STATS, LIBRARY_RECENT_HISTORY,
+        // 用户认识模块（画像）
+        PROFILE_READ, PROFILE_NOTE, PROFILE_FORGET,
         SONG_TAGS_GET,
         // Batch B
         PLAYBACK_ENQUEUE,

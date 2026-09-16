@@ -26,6 +26,16 @@
 | [`agent.md`](agent.md) | **设计总纲 · 单一事实来源**。定位 / 本体 / 认识论 / 能力面 / 交互实施 / 工程。冲突时以此为准 |
 | [`agent-architecture.md`](agent-architecture.md) | 架构详解：设计铁则 F1-F6、两层结构（每 Agent 预算 + 全局调度器）、各 Agent 详解、源码位置索引 |
 
+### 用户认识模块（画像）
+
+| 文件 | 内容 |
+|------|------|
+| [`agent-profile.md`](agent-profile.md) | **用户认识模块的唯一依据（v2）**。两层结构（侧写层 = 预设骨架 + 槽位闭集 + 证据反链／证据层 = 可审计事实行）、**分级记忆 L1-L3 与跨层流动规则**、认知准入三档（A 可硬确证 / B 可弱确证降级表达 / C 明确不做，含**拒绝 MBTI 的论证**）、C2 修订、信息来源三档、验收剧本 P1-P11、待拍板 PF1-PF6 |
+
+> 本模块认领了架构文档里两处**悬空承诺**：`agent-architecture.md:130` 的「Recall 偏好画像」与组件图的 `AgentMemory（持久化，跨会话）`
+> —— 两者此前均无代码实现（全仓 `AgentMemory` / `agent_memory` / `UserProfile` / `SeedProfile` 零命中），
+> 以及 `f5` 登记却未闭环的「Feedback → Recall → 推荐闭环」。登记为 **F9-T0（F9 前置）**。
+
 ### 电台子系统
 
 | 文件 | 内容 |

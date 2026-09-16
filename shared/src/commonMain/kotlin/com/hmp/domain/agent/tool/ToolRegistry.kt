@@ -92,6 +92,11 @@ class ToolRegistry(
                 GetListenStatsTool(deps),         // library_stats
                 GetRecentHistoryTool(deps),       // library_recent_history
 
+                // ── 用户认识模块（画像）：1 只读 + 2 写入（CONFIRM）──
+                ProfileReadTool(deps),            // profile_read
+                ProfileNoteTool(deps),            // profile_note
+                ProfileForgetTool(deps),          // profile_forget
+
                 // ── Song 标签 ──
                 SongTagsGetTool(deps),            // song_tags_get
                 // song_enrich_llm 已移除：EnrichSubAgent 富化管道内化到自循环

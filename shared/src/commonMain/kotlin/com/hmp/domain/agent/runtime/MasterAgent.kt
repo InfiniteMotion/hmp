@@ -113,8 +113,44 @@ class MasterAgent(
     // ── W0: HelloSubAgent 持久化 DAO（可选；null 降级内存卡池 + 内存报告叙事） ──
     private val helloCardCacheDao: com.hmp.data.database.HelloCardCacheDao? = null,
     private val helloReportNarrativeDao: com.hmp.data.database.HelloReportNarrativeDao? = null,
+
+    // ── 用户认识模块（画像）—— Master 的常驻子系统（契约 v3.6 §4.6）──
+    /**
+     * v3.6 起画像**归属 Master**：不再单独注册 Koin 单例、不再以"可空引用"挂靠，
+     * 三个 DAO 由装配方注入、实例在这里构建，经 [userMemory] 对外暴露。
+     * 依赖不齐（musicRepository 或 DAO 缺位，测试/旧装配路径）则为 null ——
+     * 所有画像链路对 null 静默跳过，画像失败永不拖垮 Master。
+     */
+    private val userProfileEvidenceDao: com.hmp.data.database.UserProfileEvidenceDao? = null,
+    private val userProfilePortraitDao: com.hmp.data.database.UserProfilePortraitDao? = null,
+    private val userProfileNarrativeDao: com.hmp.data.database.UserProfileNarrativeDao? = null,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
+    /**
+     * 用户认识模块（画像）—— Master 的**常驻子系统**（契约 v3.6 §4.6）。
+     *
+     * 规则与存储全在 [UserMemory]；Master 只负责两条 LLM 链路（叙事重生成、
+     * 对话抽取）的发起与 system prompt 注入的搬运。UI / 工具 / Gateway 统一从
+     * 这里取（`masterAgent.userMemory`），不再有第二条注入路径。
+     */
+    val userMemory: com.hmp.domain.agent.profile.UserMemory? = run {
+        val repo = musicRepository
+        val evidence = userProfileEvidenceDao
+        val portrait = userProfilePortraitDao
+        if (repo != null && evidence != null && portrait != null) {
+            com.hmp.domain.agent.profile.UserMemory(
+                musicRepository = repo,
+                evidenceDao = evidence,
+                portraitDao = portrait,
+                narrativeDao = userProfileNarrativeDao,
+                auditLog = chatAuditLog,
+                timeProvider = timeProvider,
+            )
+        } else {
+            null
+        }
+    }
 
     // ═══ M6-T2/M6-T3：Radio 事件监听状态 ═══
     /**
@@ -269,6 +305,20 @@ class MasterAgent(
      *  shutdown() 时会 cancel 此 scope，防止热监听协程泄漏。 */
     val lifecycleScope: kotlinx.coroutines.CoroutineScope =
         kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Default + kotlinx.coroutines.SupervisorJob())
+
+    /**
+     * 库变更通知（契约 §4.1.4 事件驱动，v3.6 收口）。
+     *
+     * UI 层（LibraryViewModel）只发「库变了」这个**命令**，不直接触碰 [userMemory] 的
+     * 内部方法 —— 怎么协调画像重建是 Master 的内部事务（重建曲库侧写 + 顺手重算行为，
+     * 后者自带 20 小时闸门）。fire-and-forget：画像失败不影响库操作本身。
+     */
+    fun onLibraryMutated() {
+        scope.launch {
+            userMemory?.refreshFromLibrary()
+            userMemory?.refreshBehavior()
+        }
+    }
 
     /**
      * Master 初始化（应用启动时调用）：
@@ -550,6 +600,8 @@ class MasterAgent(
                 radioConfig = enrichConfig,  // 暂复用 enrichConfig（同端点），后续可独立
                 targetCount = 12,
                 stopSignal = radioStopSignal,
+                // 画像简报（v3.8）：时段/口味/听法/探索的摘录，供选种与编排参考
+                memoryBriefing = userMemory?.radioBriefing(),
             )
             _subAgents["radio"] = radioAgent
 
@@ -760,6 +812,8 @@ class MasterAgent(
                 enrichConfig = enrichConfig,
                 enableLlm = enableLlm,
                 radioPlaylistProvider = { queryRadioPlaylist() },
+                // 画像简报（v3.8）：曲库/口味/探索的摘录，供推荐与 DISCOVER 参考
+                memoryBriefing = userMemory?.helloBriefing(),
             )
             _subAgents["hello"] = helloAgent
 
@@ -1370,6 +1424,10 @@ class MasterAgent(
         val taskId = chatSessionStore?.apply { startNewSession() }?.currentSessionId()
         val systemPrompt = buildChatSystemPrompt(ctx)
 
+        // 画像叙事的维护（契约 v3.5 §7.4）：侧写指纹与落库叙事不一致即过期，
+        // 异步重生成（不阻塞本轮对话；本轮用旧叙事或无叙事，下一轮换新）。
+        maybeRegenerateNarrative(config)
+
         Logger.i("Agent.Master") { "handleUserMessage start (task=$taskId): input=${userMessage.take(119)}… history=${ctx.history.size} steps_budget=$stepBudget" }
 
         // ═══ per-Agent AgentPolicy：复用 MasterAgent 实例字段 masterPolicyConfig ═══
@@ -1391,7 +1449,7 @@ class MasterAgent(
             presenceBus = chatPresenceBus,
             stopSignal = AlwaysRunningStopSignal(tokenCounter),  // Master 永不暂停
         )
-        return loop.run(
+        val result = loop.run(
             agentPolicy = agentPolicy,
             transport = transport,
             config = config,
@@ -1402,6 +1460,70 @@ class MasterAgent(
             taskId = taskId,
             onSessionComplete = { persistMasterPolicy() },
         )
+        // 对话结束 → 抽取音乐偏好写 T2_DIALOGUE（契约 §10.1「会话事件」行）。
+        // 异步、非致命：抽取失败不影响本次对话结果；线索闸门不过则零 LLM 成本。
+        maybeExtractDialogue(userMessage, transport, config, taskId?.toString())
+        return result
+    }
+
+    /**
+     * 画像叙事的过期检查与重生成（契约 v3.5 §7.4）。
+     *
+     * MasterAgent 是这条维护链的发起方（它持有 transport 与 config）；画像内容的
+     * 生成闸门与落库都在 [com.hmp.domain.agent.profile.UserMemory]。
+     * fire-and-forget：失败静默保留旧叙事（宁旧勿假），绝不拖垮对话。
+     */
+    private fun maybeRegenerateNarrative(config: AiEndpointConfig) {
+        val profile = userMemory ?: return
+        val transport = chatTransport ?: return
+        if (config.isConfigured != true) return
+        scope.launch {
+            runCatching {
+                val fingerprint = profile.factsFingerprint()
+                val state = profile.narrativeState()
+                if (state != null && state.factsHash == fingerprint) return@runCatching
+                val facts = profile.factsRenderForNarrative() ?: return@runCatching
+                val reply = LlmCallExecutor().call(
+                    transport = transport,
+                    config = config,
+                    messages = com.hmp.domain.agent.profile.ProfileNarrative.buildMessages(facts),
+                    tools = null,
+                    temperature = 0.4f,
+                )
+                if (!reply.failed) {
+                    profile.updateNarrative(reply.text, fingerprint)
+                    Logger.i("Agent.Master") { "profile narrative regenerated (fingerprint updated)" }
+                }
+            }.onFailure { e ->
+                Logger.w("Agent.Master", e) { "narrative regeneration failed (non-fatal, keep old)" }
+            }
+        }
+    }
+
+    /** 对话结束后的偏好抽取（T0b）。全部 runCatching —— 画像失败不得拖垮对话。 */
+    private fun maybeExtractDialogue(userMessage: String, transport: LlmTransport, config: AiEndpointConfig, sessionId: String?) {
+        val profile = userMemory ?: return
+        if (!com.hmp.domain.agent.profile.DialogueExtractor.shouldExtract(userMessage)) return
+        scope.launch {
+            runCatching {
+                val reply = LlmCallExecutor().call(
+                    transport = transport,
+                    config = config,
+                    messages = com.hmp.domain.agent.profile.DialogueExtractor.buildMessages(userMessage),
+                    tools = null,
+                    temperature = 0.2f,
+                )
+                if (!reply.failed) {
+                    val extractions = com.hmp.domain.agent.profile.DialogueExtractor.parse(reply.text)
+                    if (extractions.isNotEmpty()) {
+                        profile.ingestDialogueEvidence(extractions, sessionId)
+                        Logger.i("Agent.Master") { "dialogue extraction: ${extractions.size} item(s) written" }
+                    }
+                }
+            }.onFailure { e ->
+                Logger.w("Agent.Master", e) { "dialogue extraction failed (non-fatal)" }
+            }
+        }
     }
 
     /** SystemPrompt 组装（原 AgentOrchestrator.buildSystemPrompt + 旧 ContextBudget.assemble） */
@@ -1413,6 +1535,7 @@ class MasterAgent(
             timeOfDay = ctx.timeOfDayText,
             nowPlaying = ctx.nowPlayingText,
             userTitle = ctx.userTitle,
+            userProfile = ctx.userProfileText,
         )
         return buildString {
             append(firstTurn.trim())

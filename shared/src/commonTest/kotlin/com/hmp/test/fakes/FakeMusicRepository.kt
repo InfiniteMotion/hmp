@@ -10,6 +10,9 @@ import com.hmp.domain.enum.LabelName
 import com.hmp.domain.music.EditableMusicTags
 import com.hmp.domain.music.MusicInfo
 import com.hmp.domain.music.MusicLabel
+import com.hmp.domain.agent.profile.BehaviorSnapshot
+import com.hmp.domain.agent.profile.LibraryContentSnapshot
+import com.hmp.domain.agent.profile.LibraryStateSnapshot
 import com.hmp.domain.music.MusicRepository
 import com.hmp.domain.setting.model.AiEndpointConfig
 import com.hmp.domain.setting.model.DailyMusicInfo
@@ -363,6 +366,25 @@ class FakeMusicRepository : MusicRepository {
         return musicList.filter { it.music.id in idSet }
     }
     override suspend fun getAvgDailyListeningMinutes(days: Int): Float = 0f
+
+    // ── 用户认识模块（画像）快照：替身默认返回空，忘传即等于测"无数据退化" ──
+
+    /** 测试可注入：内容快照（默认空 → 等于测"没有标签时的退化路径"） */
+    var contentSnapshot: LibraryContentSnapshot = LibraryContentSnapshot(totalSongs = 0, enrichedSongs = 0)
+
+    /** 测试可注入：状态快照（默认全空） */
+    var stateSnapshot: LibraryStateSnapshot =
+        LibraryStateSnapshot(totalSongs = 0, likedCount = 0, dislikedCount = 0, hiddenFolderCount = 0)
+
+    /** 测试可注入：行为快照（默认无播放） */
+    var behaviorSnapshot: BehaviorSnapshot? = null
+
+    override suspend fun getLibraryContentSnapshot(): LibraryContentSnapshot = contentSnapshot
+
+    override suspend fun getLibraryStateSnapshot(): LibraryStateSnapshot = stateSnapshot
+
+    override suspend fun getBehaviorSnapshot(windowDays: Int): BehaviorSnapshot =
+        behaviorSnapshot ?: BehaviorSnapshot(windowDays = windowDays, totalPlays = 0, activeDays = 0)
 
     // region ANNIVERSARY 扩展空实现
     override suspend fun getAnniversaryPlaylists(date: String): List<com.hmp.domain.music.PlaylistAnniversaryRow> = emptyList()

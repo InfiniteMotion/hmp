@@ -100,6 +100,11 @@ class RadioSubAgent(
     private var radioConfig: AiEndpointConfig? = null,
     private val targetCount: Int = 12,
     private val stopSignal: StopSignal? = null,
+    /**
+     * 画像简报（契约 v3.8，MasterAgent.startRadio 从 `userMemory.radioBriefing()` 取）：
+     * 开播选种与编排仲裁的听众参考 —— 自带「仅供参考」口径，null = 冷启动无画像。
+     */
+    private val memoryBriefing: String? = null,
 ) : SubAgent(agentId, contextBudget, toolRegistryView) {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -945,7 +950,13 @@ class RadioSubAgent(
         val res = LlmCallExecutor().call(
             transport = transport,
             config = config,
-            messages = messages,
+            // 画像简报（v3.8）注入所有裁决调用的 system —— 单一收口，开播与逐轮仲裁都能看到；
+            // 文本自带「仅供参考」口径，是背景信息不是指令（C2 定稿语义）
+            messages = messages.map { msg ->
+                if (msg.role == "system" && !memoryBriefing.isNullOrBlank()) {
+                    msg.copy(content = listOfNotNull(msg.content, memoryBriefing).joinToString("\n\n"))
+                } else msg
+            },
             tools = null,          // 判断阶段不给工具：它只能三选一，不能自己去改队列
             temperature = 0.2f,
         )

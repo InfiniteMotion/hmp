@@ -62,6 +62,8 @@ val chatGatewayModule = module {
             nowPlayingContextProvider = get(),
             playbackCommandPort = get(),
             enrichPort = get(),
+            // v3.6：画像归属 Master（masterAgent.userMemory），工具面从这里取同一份
+            userMemory = get<MasterAgent>().userMemory,
         )
     }
     single { ToolRegistry.create(get()) }
@@ -105,6 +107,11 @@ val chatGatewayModule = module {
             helloReportNarrativeDao = get(),
             // Agent 配置持久化（trustLevel + alwaysAllow DataStore 读写）
             settingsRepo = settingsRepo,
+            // 用户认识模块（画像）—— v3.6 起归属 Master：传三 DAO 由其内部装配，
+            // 上面的 ToolDependencies / 下面的 Gateway 都从 `masterAgent.userMemory` 取同一份
+            userProfileEvidenceDao = get(),
+            userProfilePortraitDao = get(),
+            userProfileNarrativeDao = get(),
         ).also { master ->
             master.lifecycleScope.launch {
                 runCatching { master.initialize() }
@@ -135,6 +142,8 @@ val chatGatewayModule = module {
             nowPlayingProvider = get(),
             musicRepository = get(),
             agentMessageStore = get(),
+            // v3.6：画像归属 Master，Gateway 从 masterAgent.userMemory 取同一份
+            userMemory = get<MasterAgent>().userMemory,
         )
     }
 }

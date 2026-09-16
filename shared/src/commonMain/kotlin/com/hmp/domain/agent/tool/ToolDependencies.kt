@@ -20,4 +20,9 @@ data class ToolDependencies(
     val nowPlayingContextProvider: NowPlayingContextProvider,
     val playbackCommandPort: PlaybackCommandPort,
     val enrichPort: AiExtraEnrichPort,
+    /**
+     * 用户认识模块（画像）—— 可空：测试与旧装配路径不传也能编译，
+     * 画像工具在缺省时返回"模块未启用"，而不是崩。
+     */
+    val userMemory: com.hmp.domain.agent.profile.UserMemory? = null,
 )

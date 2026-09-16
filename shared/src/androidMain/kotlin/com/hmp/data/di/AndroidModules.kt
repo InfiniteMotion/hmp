@@ -6,6 +6,8 @@ import com.hmp.data.database.AgentMessageDao
 import com.hmp.data.database.AgentAuditLogDao
 import com.hmp.data.database.HelloCardCacheDao
 import com.hmp.data.database.HelloReportNarrativeDao
+import com.hmp.data.database.UserProfileEvidenceDao
+import com.hmp.data.database.UserProfilePortraitDao
 import com.hmp.data.database.AgentTaskDao
 import com.hmp.data.database.ListeningDurationDao
 import com.hmp.data.database.MusicAllDao
@@ -57,6 +59,8 @@ val androidPlatformModule = module {
     single<AgentMessageDao> { get<AppDatabase>().agentMessageDao() }
     single<HelloCardCacheDao> { get<AppDatabase>().helloCardCacheDao() }
     single<HelloReportNarrativeDao> { get<AppDatabase>().helloReportNarrativeDao() }
+    single<UserProfileEvidenceDao> { get<AppDatabase>().userProfileEvidenceDao() }
+    single<UserProfilePortraitDao> { get<AppDatabase>().userProfilePortraitDao() }
     single<AuditLogPort> { RoomAuditLogAdapter(get<AgentAuditLogDao>()) }
     single<AgentMessageStore> { RoomAgentMessageStore(get<AgentMessageDao>()) }
 

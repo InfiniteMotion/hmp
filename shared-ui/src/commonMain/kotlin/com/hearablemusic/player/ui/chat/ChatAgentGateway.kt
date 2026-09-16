@@ -9,6 +9,7 @@ import com.hmp.domain.agent.runtime.RunContextInput
 import com.hmp.domain.agent.runtime.TerminationReason
 import com.hmp.domain.agent.runtime.ToolExecutionRecord
 import com.hmp.domain.agent.persona.DefaultCompanionProfiles
+import com.hmp.domain.agent.profile.UserMemory
 import com.hmp.domain.agent.port.AgentMessageStore
 import com.hmp.domain.agent.port.AuditLogPort
 import com.hmp.domain.agent.port.LlmMessage
@@ -131,6 +132,13 @@ class MasterChatGateway(
     private val nowPlayingProvider: com.hmp.domain.agent.port.NowPlayingContextProvider,
     private val musicRepository: MusicRepository,
     private val agentMessageStore: com.hmp.domain.agent.port.AgentMessageStore,
+    /**
+     * 用户认识模块（`agent-profile.md` v3.6）。**归属 MasterAgent**：
+     * 从 `masterAgent.userMemory` 取同一份（不再单独注册 Koin 单例）。
+     * 首轮上下文块本来就由 Gateway 组装（persona / 曲库概况 / 认识进度都在这条路上），
+     * 画像没有理由走另一条路。null 表示装配方未给齐 DAO（测试路径），画像相关步骤静默跳过。
+     */
+    private val userMemory: UserMemory?,
 ) : ChatAgentGateway {
 
     override fun run(
@@ -195,6 +203,7 @@ class MasterChatGateway(
             timeOfDayText = ctx.timeOfDayText ?: first.timeOfDayText,
             nowPlayingText = ctx.nowPlayingText ?: first.nowPlayingText,
             libraryOverviewText = ctx.libraryOverviewText ?: first.libraryOverviewText,
+            userProfileText = ctx.userProfileText ?: first.userProfileText,
             history = ctx.history.ifEmpty { buildHistory(input) },
         )
     }
@@ -228,13 +237,19 @@ class MasterChatGateway(
         val recognitionText = ContextAssembler.buildRecognitionProgress(known, total)
         val hour = ((currentTimeMillis() / 3_600_000L) % 24).toInt()
         val overviewText = ContextAssembler.buildLibraryOverview(buildLibraryOverview())
-        Logger.i("Agent.Gateway") { "first-turn ctx: persona=${DefaultCompanionProfiles.DEFAULT.personaName} nowPlaying=${now.currentMusicInfo?.music?.title ?: "无"} recognized=$known/$total" }
+        // 对话开始时顺手推进行为画像 —— 契约 §4.2 说"定时聚合"，本项目没有常驻调度器，
+        // 改成"低频闸门 + 事件触发"（间隔 20h，见 ProfileConfig）；这里是最自然的事件点。
+        userMemory?.refreshBehavior()
+        // 画像块：没有任何可说的时返回 null → 首轮块整块省略（冷启动不留空壳，剧本 P1）
+        val userProfileText = userMemory?.renderForContext()
+        Logger.i("Agent.Gateway") { "first-turn ctx: persona=${DefaultCompanionProfiles.DEFAULT.personaName} nowPlaying=${now.currentMusicInfo?.music?.title ?: "无"} recognized=$known/$total portrait=${if (userProfileText != null) "yes" else "no"}" }
         return RunContextInput(
             personaText = DefaultCompanionProfiles.DEFAULT.personaPrompt,
             recognitionText = recognitionText,
             timeOfDayText = ContextAssembler.buildTimeOfDay(hour),
             nowPlayingText = nowPlayingText,
             libraryOverviewText = overviewText,
+            userProfileText = userProfileText,
         )
     }
 

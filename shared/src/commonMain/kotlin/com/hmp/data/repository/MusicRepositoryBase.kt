@@ -9,6 +9,10 @@ import com.hmp.data.database.MusicDao
 import com.hmp.data.database.MusicExtra
 import com.hmp.data.database.MusicExtraDao
 import com.hmp.data.database.MusicLabelDao
+import com.hmp.domain.agent.profile.BehaviorModeler
+import com.hmp.domain.agent.profile.BehaviorSnapshot
+import com.hmp.domain.agent.profile.LibraryContentSnapshot
+import com.hmp.domain.agent.profile.LibraryStateSnapshot
 import com.hmp.data.database.PlaybackHistoryDao
 import com.hmp.data.database.PlaylistDao
 import com.hmp.data.database.PlaylistItemDao
@@ -389,11 +393,11 @@ abstract class MusicRepositoryBase(
     // region Similarity
 
     private val labelCategoryWeight = mapOf(
-        LabelCategory.GENRE to 3,
-        LabelCategory.MOOD to 4,
+        com.hmp.data.database.myenum.LabelCategory.GENRE to 3,
+        com.hmp.data.database.myenum.LabelCategory.MOOD to 4,
         LabelCategory.SCENARIO to 2,
-        LabelCategory.LANGUAGE to 1,
-        LabelCategory.ERA to 1
+        com.hmp.data.database.myenum.LabelCategory.LANGUAGE to 1,
+        com.hmp.data.database.myenum.LabelCategory.ERA to 1
     )
 
     private fun calcSimilarity(
@@ -1003,6 +1007,141 @@ abstract class MusicRepositoryBase(
         val totalMs = all.sumOf { it.duration }
         return (totalMs / 60_000f) / days.coerceAtLeast(1)
     }
+
+    // region Agent F9-T0: 用户认识模块（画像）的三个快照
+
+    /**
+     * 曲库内容快照 —— 阶段二建模的输入（契约 agent-profile.md §4.1）。
+     *
+     * 用的是 `MusicLabel` 而非 `MusicExtra`：富化产物就是标签，且 `LabelCategory` 已含
+     * `LANGUAGE` / `ERA`，不必再去读 `MusicExtra` 的两个字段（两处口径不一致会更麻烦）。
+     *
+     * 覆盖率与 `getEnrichHealth().coverageRate` 同口径（有 AI 源标签的歌 / 总歌数）。
+     */
+    override suspend fun getLibraryContentSnapshot(): LibraryContentSnapshot {
+        val labels = musicLabelDao.getAllLabels()
+        val total = musicDao.getAllActiveIds().size
+        val enriched = labels
+            .filter { it.source == SOURCE_LLM || it.source == SOURCE_AGENT }
+            .map { it.musicId }
+            .distinct()
+            .size
+
+        // ⚠️ 用实体侧的 myenum.LabelCategory —— 项目里存在两个同名枚举
+        //（`data.database.myenum` 给 Room 实体用，`domain.enum` 给业务用），不比会编译错
+        fun distribution(category: DataLabelCategory): Map<String, Int> =
+            labels.filter { it.type == category }
+                .groupBy { it.label.name }
+                .mapValues { (_, rows) -> rows.map { it.musicId }.distinct().size }
+
+        return LibraryContentSnapshot(
+            totalSongs = total,
+            enrichedSongs = enriched,
+            genreCounts = distribution(com.hmp.data.database.myenum.LabelCategory.GENRE),
+            moodCounts = distribution(com.hmp.data.database.myenum.LabelCategory.MOOD),
+            languageCounts = distribution(com.hmp.data.database.myenum.LabelCategory.LANGUAGE),
+            eraCounts = distribution(com.hmp.data.database.myenum.LabelCategory.ERA),
+        )
+    }
+
+    /** 曲库状态快照 —— 用户显式给的东西（契约 §4.3）。这些不产生事件，只能反复重算。 */
+    override suspend fun getLibraryStateSnapshot(): LibraryStateSnapshot {
+        val total = musicDao.getAllActiveIds().size
+        return LibraryStateSnapshot(
+            totalSongs = total,
+            likedCount = userInfoDao.getLikedMusicIds().size,
+            dislikedCount = userInfoDao.countDisliked(),
+            playlistNames = playlistDao.getAllPlaylists().map { it.name }.filter { it.isNotBlank() },
+            hiddenFolderCount = getDeletedMusicIdsGroupedByFolder().size,
+            userCorrectedLabelCount = musicLabelDao.countBySource(SOURCE_USER),
+        )
+    }
+
+    /**
+     * 行为快照 —— 契约 §4.2：**只读播放记录，零新埋点**。
+     *
+     * 两次查询搞定，不做全表拉取：
+     * - `getPlayRowsSince` 取窗口内明细（带曲目时长，跳过点算得出比例）
+     * - `getFirstPlayedAtPerTrack` 取每首首播时间（判断窗口内新歌）
+     */
+    override suspend fun getBehaviorSnapshot(windowDays: Int): BehaviorSnapshot {
+        val days = windowDays.coerceAtLeast(1)
+        val now = currentTimeMillis()
+        val sinceMs = now - days.toLong() * 24 * 3600 * 1000
+        val rows = playbackHistoryDao.getPlayRowsSince(sinceMs)
+        if (rows.isEmpty()) return BehaviorSnapshot(windowDays = days, totalPlays = 0, activeDays = 0)
+
+        val hourHistogram = rows.groupingBy { hourOf(it.playedAt) }.eachCount()
+        val activeDays = rows.map { dayKey(it.playedAt) }.distinct().size
+        val completed = rows.count { it.isCompleted }
+
+        // 跳过点分桶：只统计"没听完且确实播过"的行 —— playDuration=0 是异常行，掺进来会把分布压扁
+        val skipped = rows.filter { !it.isCompleted && it.playDuration > 0 }
+        val skipBuckets = skipped.groupingBy { skipBucketOf(it.playDuration, it.trackDuration) }.eachCount()
+
+        val distinctTracks = rows.map { it.musicId }.distinct()
+        val firstPlayed = playbackHistoryDao.getFirstPlayedAtPerTrack().associate { it.musicId to it.firstPlayedAt }
+        val novelTracks = distinctTracks.count { (firstPlayed[it] ?: 0L) >= sinceMs }
+
+        // 会话推断（B 类注意力模式的输入）：间隔 > 30 分钟即新会话。
+        // rows 已按 playedAt ASC 排序（DAO 保证），净听时长按 playDuration 累加、不含切歌间隙。
+        val sessionBounds = mutableListOf<Int>() // 每个会话的结束索引（不含）
+        var sessionStart = 0
+        for (i in 1 until rows.size) {
+            if (rows[i].playedAt - rows[i - 1].playedAt > BehaviorSnapshot.SESSION_GAP_MS) {
+                sessionBounds += i
+                sessionStart = i
+            }
+        }
+        sessionBounds += rows.size
+        val sessionDurationsMs = mutableListOf<Long>()
+        var sessionCursor = 0
+        val sessionTrackCounts = sessionBounds.map { end ->
+            val slice = rows.subList(sessionCursor, end)
+            sessionDurationsMs += slice.sumOf { it.playDuration }
+            sessionCursor = end
+            slice.size
+        }
+
+        return BehaviorSnapshot(
+            windowDays = days,
+            totalPlays = rows.size,
+            activeDays = activeDays,
+            hourHistogram = hourHistogram,
+            completedPlays = completed,
+            skipPointBuckets = skipBuckets,
+            distinctTracks = distinctTracks.size,
+            novelTracks = novelTracks,
+            sessionCount = sessionTrackCounts.size,
+            avgSessionMinutes = if (sessionTrackCounts.isEmpty()) 0f else
+                (sessionDurationsMs.sum().toFloat() / sessionTrackCounts.size) / 60_000f,
+            avgTracksPerSession = if (sessionTrackCounts.isEmpty()) 0f else
+                sessionTrackCounts.average().toFloat(),
+        )
+    }
+
+    /**
+     * 跳过点分桶（契约 §13 PF5：**不复用**播放历史统计那套 `skipThresholdPercent`，
+     * 判断权不该在代码里，本模块另定）：
+     * - `INTRO`：听到 < 15% 或 < 20 秒 —— **选曲不对**
+     * - `MIDDLE`：15%~80% —— 歌不耐听
+     * - `LATE`：> 80% 但没听完 —— 接近听完就切了，多半是外部打断
+     */
+    private fun skipBucketOf(playDurationMs: Long, trackDurationMs: Long): String {
+        if (trackDurationMs <= 0L) return BehaviorModeler.SKIP_MIDDLE
+        val ratio = playDurationMs.toDouble() / trackDurationMs
+        return when {
+            ratio < 0.15 || playDurationMs < 20_000L -> BehaviorModeler.SKIP_INTRO
+            ratio < 0.8 -> BehaviorModeler.SKIP_MIDDLE
+            else -> BehaviorModeler.SKIP_LATE
+        }
+    }
+
+    private fun hourOf(epochMs: Long): Int = ((epochMs / 3_600_000L) % 24).toInt().let { if (it < 0) it + 24 else it }
+
+    private fun dayKey(epochMs: Long): Long = epochMs / (24L * 3600 * 1000)
+
+    // endregion
 
     // endregion
 

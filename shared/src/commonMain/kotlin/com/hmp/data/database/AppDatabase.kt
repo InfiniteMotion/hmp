@@ -31,8 +31,11 @@ expect object AppDatabaseConstructor : RoomDatabaseConstructor<AppDatabase> {
         AgentMessage::class,
         HelloCardCache::class,
         HelloReportNarrativeEntity::class,
+        UserProfileEvidenceEntity::class,
+        UserProfilePortraitEntity::class,
+        UserProfileNarrativeEntity::class,
     ],
-    version = 5,
+    version = 7,
     exportSchema = true
 )
 @TypeConverters(LabelConverters::class, HelloCardConverters::class)
@@ -51,6 +54,9 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun agentMessageDao(): AgentMessageDao
     abstract fun helloCardCacheDao(): HelloCardCacheDao
     abstract fun helloReportNarrativeDao(): HelloReportNarrativeDao
+    abstract fun userProfileEvidenceDao(): UserProfileEvidenceDao
+    abstract fun userProfilePortraitDao(): UserProfilePortraitDao
+    abstract fun userProfileNarrativeDao(): UserProfileNarrativeDao
 
     companion object {
         /**
@@ -148,6 +154,74 @@ abstract class AppDatabase : RoomDatabase() {
                 // ANNIVERSARY 专用
                 connection.execSQL("ALTER TABLE `hello_card_cache` ADD COLUMN `anniversary_artist` TEXT")
                 connection.execSQL("ALTER TABLE `hello_card_cache` ADD COLUMN `anniversary_subject` TEXT")
+            }
+        }
+
+        /**
+         * v5 → v6（F9-T0 用户认识模块 / 画像，契约 agent-profile.md v3.1 §2.4）：
+         * - 新增 `user_profile_evidence` 表（证据层：可审计的事实行）+ 三元组唯一索引
+         * - 新增 `user_profile_portrait` 表（侧写层：由证据派生的压缩印象）
+         *
+         * 纯 `CREATE TABLE` + 一个索引，**无列变更**，不动任何存量表。
+         *
+         * ⚠️ 证据表用**自增主键**：侧写的 `evidence_refs` 存的是证据行 id，
+         * 而 `(subject, predicate, value)` 降为唯一索引 —— 有 id 才能被反链指到。
+         * 唯一索引名必须是 Room 生成的格式，否则 schema 校验会失败。
+         */
+        val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(connection: SQLiteConnection) {
+                connection.execSQL(
+                    """CREATE TABLE IF NOT EXISTS `user_profile_evidence` (
+                    `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    `subject` TEXT NOT NULL,
+                    `predicate` TEXT NOT NULL,
+                    `value` TEXT NOT NULL,
+                    `source` TEXT NOT NULL,
+                    `confidence` REAL NOT NULL,
+                    `created_at` INTEGER NOT NULL,
+                    `updated_at` INTEGER NOT NULL,
+                    `evidence_count` INTEGER NOT NULL,
+                    `distinct_sessions` INTEGER NOT NULL,
+                    `last_session_id` TEXT
+                )"""
+                )
+                connection.execSQL(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS `index_user_profile_evidence_subject_predicate_value` " +
+                        "ON `user_profile_evidence` (`subject`, `predicate`, `value`)"
+                )
+                connection.execSQL(
+                    """CREATE TABLE IF NOT EXISTS `user_profile_portrait` (
+                    `type` TEXT NOT NULL,
+                    `tier` TEXT NOT NULL,
+                    `slots_json` TEXT NOT NULL,
+                    `evidence_refs` TEXT NOT NULL,
+                    `confidence` REAL NOT NULL,
+                    `created_at` INTEGER NOT NULL,
+                    `updated_at` INTEGER NOT NULL,
+                    `coverage_at_modeling` REAL,
+                    PRIMARY KEY(`type`)
+                )"""
+                )
+            }
+        }
+
+        /**
+         * v6 → v7（画像叙事，契约 v3.5 §7.4）：
+         * - 新增 `user_profile_narrative` 单行表（LLM 依据侧写渲染生成的描述性文本，两面共用）。
+         *
+         * 纯 `CREATE TABLE`，无列变更，不动存量表。重生成失败保留旧文本，迁移只管建表。
+         */
+        val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(connection: SQLiteConnection) {
+                connection.execSQL(
+                    """CREATE TABLE IF NOT EXISTS `user_profile_narrative` (
+                    `id` INTEGER NOT NULL,
+                    `text` TEXT NOT NULL,
+                    `facts_hash` INTEGER NOT NULL,
+                    `generated_at` INTEGER NOT NULL,
+                    PRIMARY KEY(`id`)
+                )"""
+                )
             }
         }
     }
