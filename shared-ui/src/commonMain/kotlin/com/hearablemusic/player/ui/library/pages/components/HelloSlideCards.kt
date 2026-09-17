@@ -605,19 +605,21 @@ private fun FamilyAnchorCard(
         }
     }
 
-    val clickMod = when {
-        onLongClick != null -> modifier.pointerInput(card.cardId) {
-            detectTapGestures(
-                onLongPress = { onLongClick.invoke(card) },
-                onTap = { /* 短按留给 Pager 手势 */ },
-            )
+    val clickMod = modifier.clip(RoundedCornerShape(25.dp)).let { m ->
+        when {
+            onLongClick != null -> m.pointerInput(card.cardId) {
+                detectTapGestures(
+                    onLongPress = { onLongClick.invoke(card) },
+                    onTap = { /* 短按留给 Pager 手势 */ },
+                )
+            }
+            onCardClick != null -> m.clickable { onCardClick.invoke(card) }
+            else -> m
         }
-        onCardClick != null -> modifier.clickable { onCardClick.invoke(card) }
-        else -> modifier
     }
 
     Card(
-        modifier = clickMod.clip(RoundedCornerShape(25.dp)),
+        modifier = clickMod,
         shape = RoundedCornerShape(25.dp),
         colors = CardDefaults.cardColors(containerColor = Color.Transparent),
     ) {
@@ -793,19 +795,21 @@ private fun FamilyAnniversaryCard(
     val content = card.content as? AnniversaryContent ?: return
     val visual = content.resolveVisual()
 
-    val clickMod = when {
-        onLongClick != null -> modifier.pointerInput(card.cardId) {
-            detectTapGestures(
-                onLongPress = { onLongClick.invoke(card) },
-                onTap = { /* 短按留给 Pager 手势 */ },
-            )
+    val clickMod = modifier.clip(RoundedCornerShape(25.dp)).let { m ->
+        when {
+            onLongClick != null -> m.pointerInput(card.cardId) {
+                detectTapGestures(
+                    onLongPress = { onLongClick.invoke(card) },
+                    onTap = { /* 短按留给 Pager 手势 */ },
+                )
+            }
+            onCardClick != null -> m.clickable { onCardClick.invoke(card) }
+            else -> m
         }
-        onCardClick != null -> modifier.clickable { onCardClick.invoke(card) }
-        else -> modifier
     }
 
     Card(
-        modifier = clickMod.clip(RoundedCornerShape(25.dp)),
+        modifier = clickMod,
         shape = RoundedCornerShape(25.dp),
         colors = CardDefaults.cardColors(containerColor = Color.Transparent),
     ) {
@@ -981,15 +985,17 @@ private fun FamilySingleTrackCard(
     onCardClick: ((SlideCard) -> Unit)? = null,
     onLongClick: ((SlideCard) -> Unit)? = null,
 ) {
-    val clickMod = when {
-        onLongClick != null -> modifier.pointerInput(card.cardId) {
-            detectTapGestures(
-                onLongPress = { onLongClick.invoke(card) },
-                onTap = { /* 短按留给 Pager 手势 */ },
-            )
+    val clickMod = modifier.clip(RoundedCornerShape(25.dp)).let { m ->
+        when {
+            onLongClick != null -> m.pointerInput(card.cardId) {
+                detectTapGestures(
+                    onLongPress = { onLongClick.invoke(card) },
+                    onTap = { /* 短按留给 Pager 手势 */ },
+                )
+            }
+            onCardClick != null -> m.clickable { onCardClick.invoke(card) }
+            else -> m
         }
-        onCardClick != null -> modifier.clickable { onCardClick.invoke(card) }
-        else -> modifier
     }
 
     val meta = buildSingleTrackMeta(card)
@@ -1007,7 +1013,7 @@ private fun FamilySingleTrackCard(
     }
 
     Card(
-        modifier = clickMod.clip(RoundedCornerShape(25.dp)),
+        modifier = clickMod,
         shape = RoundedCornerShape(25.dp),
         colors = CardDefaults.cardColors(containerColor = Color.Transparent),
     ) {
@@ -1208,15 +1214,17 @@ private fun FamilyDiscoverCard(
     onLongClick: ((SlideCard) -> Unit)? = null,
 ) {
     val c = card.content as DiscoverContent
-    val clickMod = when {
-        onLongClick != null -> modifier.pointerInput(card.cardId) {
-            detectTapGestures(
-                onLongPress = { onLongClick.invoke(card) },
-                onTap = { /* 短按留给 Pager 手势 */ },
-            )
+    val clickMod = modifier.clip(RoundedCornerShape(25.dp)).let { m ->
+        when {
+            onLongClick != null -> m.pointerInput(card.cardId) {
+                detectTapGestures(
+                    onLongPress = { onLongClick.invoke(card) },
+                    onTap = { /* 短按留给 Pager 手势 */ },
+                )
+            }
+            onCardClick != null -> m.clickable { onCardClick.invoke(card) }
+            else -> m
         }
-        onCardClick != null -> modifier.clickable { onCardClick.invoke(card) }
-        else -> modifier
     }
 
     // Agent 预取字段为空（旧 Room 缓存兼容）→ UI 层异步补全 title/artist/albumArt
@@ -1235,7 +1243,7 @@ private fun FamilyDiscoverCard(
     }
 
     Card(
-        modifier = clickMod.clip(RoundedCornerShape(25.dp)),
+        modifier = clickMod,
         shape = RoundedCornerShape(25.dp),
         colors = CardDefaults.cardColors(containerColor = Color.Transparent),
     ) {
@@ -1360,15 +1368,17 @@ private fun FamilyRadioStatusCard(
     onLongClick: ((SlideCard) -> Unit)? = null,
 ) {
     val c = card.content as RadioStatusContent
-    val clickMod = when {
-        onLongClick != null -> modifier.pointerInput(card.cardId) {
-            detectTapGestures(
-                onLongPress = { onLongClick.invoke(card) },
-                onTap = { /* 短按留给 Pager 手势 */ },
-            )
+    val clickMod = modifier.clip(RoundedCornerShape(25.dp)).let { m ->
+        when {
+            onLongClick != null -> m.pointerInput(card.cardId) {
+                detectTapGestures(
+                    onLongPress = { onLongClick.invoke(card) },
+                    onTap = { /* 短按留给 Pager 手势 */ },
+                )
+            }
+            onCardClick != null -> m.clickable { onCardClick.invoke(card) }
+            else -> m
         }
-        onCardClick != null -> modifier.clickable { onCardClick.invoke(card) }
-        else -> modifier
     }
 
     // 短时消息（4s 自动消失，RadioSubAgent 内部管理生命周期）
@@ -1395,7 +1405,7 @@ private fun FamilyRadioStatusCard(
     )
 
     Card(
-        modifier = clickMod.clip(RoundedCornerShape(25.dp)),
+        modifier = clickMod,
         shape = RoundedCornerShape(25.dp),
         colors = CardDefaults.cardColors(containerColor = Color.Transparent),
     ) {
@@ -1596,19 +1606,21 @@ private fun FamilyGreetingCard(
     onLongClick: ((SlideCard) -> Unit)? = null,
 ) {
     val c = card.content as GreetingContent
-    val clickMod = when {
-        onLongClick != null -> modifier.pointerInput(card.cardId) {
-            detectTapGestures(
-                onLongPress = { onLongClick.invoke(card) },
-                onTap = { /* 短按留给 Pager 手势 */ },
-            )
+    val clickMod = modifier.clip(RoundedCornerShape(25.dp)).let { m ->
+        when {
+            onLongClick != null -> m.pointerInput(card.cardId) {
+                detectTapGestures(
+                    onLongPress = { onLongClick.invoke(card) },
+                    onTap = { /* 短按留给 Pager 手势 */ },
+                )
+            }
+            onCardClick != null -> m.clickable { onCardClick.invoke(card) }
+            else -> m
         }
-        onCardClick != null -> modifier.clickable { onCardClick.invoke(card) }
-        else -> modifier
     }
 
     Card(
-        modifier = clickMod.clip(RoundedCornerShape(25.dp)),
+        modifier = clickMod,
         shape = RoundedCornerShape(25.dp),
         colors = CardDefaults.cardColors(containerColor = Color.Transparent),
     ) {
@@ -1668,19 +1680,21 @@ private fun FamilyNarrativeCard(
     onLongClick: ((SlideCard) -> Unit)? = null,
 ) {
     val c = card.content as NarrativeContent
-    val clickMod = when {
-        onLongClick != null -> modifier.pointerInput(card.cardId) {
-            detectTapGestures(
-                onLongPress = { onLongClick.invoke(card) },
-                onTap = { /* 短按留给 Pager 手势 */ },
-            )
+    val clickMod = modifier.clip(RoundedCornerShape(25.dp)).let { m ->
+        when {
+            onLongClick != null -> m.pointerInput(card.cardId) {
+                detectTapGestures(
+                    onLongPress = { onLongClick.invoke(card) },
+                    onTap = { /* 短按留给 Pager 手势 */ },
+                )
+            }
+            onCardClick != null -> m.clickable { onCardClick.invoke(card) }
+            else -> m
         }
-        onCardClick != null -> modifier.clickable { onCardClick.invoke(card) }
-        else -> modifier
     }
 
     Card(
-        modifier = clickMod.clip(RoundedCornerShape(25.dp)),
+        modifier = clickMod,
         shape = RoundedCornerShape(25.dp),
         colors = CardDefaults.cardColors(containerColor = Color.Transparent),
     ) {
@@ -1830,19 +1844,21 @@ private fun FamilyEnrichTrackingCard(
     val chunkLabel = if (c.chunkTotal > 0) " · chunk ${c.chunkIndex}/${c.chunkTotal}" else ""
 
     // 点击手势统一处理（RadioStatus 同款）
-    val clickMod = when {
-        onLongClick != null -> modifier.pointerInput(card.cardId) {
-            detectTapGestures(
-                onLongPress = { onLongClick.invoke(card) },
-                onTap = { /* 短按留给 Pager 手势 */ },
-            )
+    val clickMod = modifier.clip(RoundedCornerShape(25.dp)).let { m ->
+        when {
+            onLongClick != null -> m.pointerInput(card.cardId) {
+                detectTapGestures(
+                    onLongPress = { onLongClick.invoke(card) },
+                    onTap = { /* 短按留给 Pager 手势 */ },
+                )
+            }
+            onCardClick != null -> m.clickable { onCardClick.invoke(card) }
+            else -> m
         }
-        onCardClick != null -> modifier.clickable { onCardClick.invoke(card) }
-        else -> modifier
     }
 
     Card(
-        modifier = clickMod.clip(RoundedCornerShape(25.dp)),
+        modifier = clickMod,
         shape = RoundedCornerShape(25.dp),
         colors = CardDefaults.cardColors(containerColor = Color.Transparent),
     ) {

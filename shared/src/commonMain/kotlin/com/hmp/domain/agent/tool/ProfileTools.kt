@@ -24,10 +24,10 @@ import com.hmp.domain.agent.profile.ProfileSources
 // ---------------- profile_read (read/silent) ----------------
 
 class ProfileReadTool(
-    deps: ToolDependencies,
+    private val deps: ToolDependencies,
 ) : AgentTool {
 
-    private val profile = deps.userMemory
+    private val profile get() = deps.userMemory()
 
     override val name = ToolNames.PROFILE_READ
     override val description =
@@ -53,10 +53,10 @@ class ProfileReadTool(
 // ---------------- profile_note (write/confirm) ----------------
 
 class ProfileNoteTool(
-    deps: ToolDependencies,
+    private val deps: ToolDependencies,
 ) : AgentTool {
 
-    private val profile = deps.userMemory
+    private val profile get() = deps.userMemory()
 
     override val name = ToolNames.PROFILE_NOTE
     override val description =
@@ -89,10 +89,10 @@ class ProfileNoteTool(
 // ---------------- profile_forget (write/confirm) ----------------
 
 class ProfileForgetTool(
-    deps: ToolDependencies,
+    private val deps: ToolDependencies,
 ) : AgentTool {
 
-    private val profile = deps.userMemory
+    private val profile get() = deps.userMemory()
 
     override val name = ToolNames.PROFILE_FORGET
     override val description =

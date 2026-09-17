@@ -19,7 +19,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
@@ -38,12 +37,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.unit.dp
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
 import com.hearablemusic.player.ui.common.pages.base.SubScreen
+import com.hearablemusic.player.ui.common.components.base.HMPTextField
 import com.hearablemusic.player.ui.generated.resources.Res
 import com.hearablemusic.player.ui.generated.resources.chevron_up
 import com.hearablemusic.player.ui.platform.PlaybackController
@@ -244,39 +243,18 @@ private fun ChatInputBar(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 8.dp),
+            .padding(horizontal = 12.dp)
+            .padding(top = 8.dp, bottom = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        // 紧凑自绘输入框（高 44dp，无内部空白）
-        Box(
-            modifier = Modifier
-                .weight(1f)
-                .height(44.dp)
-                .clip(RoundedCornerShape(22.dp))
-                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(22.dp))
-                .padding(horizontal = 14.dp),
-            contentAlignment = Alignment.CenterStart,
-        ) {
-            if (input.isEmpty()) {
-                Text(
-                    text = "想找歌、整理歌单，或看看听歌排行？",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                )
-            }
-            BasicTextField(
-                value = input,
-                onValueChange = onInputChange,
-                textStyle = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onSurface),
-                singleLine = true,
-                enabled = !running,
-                cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .onFocusChanged { onFocusChanged(it.isFocused) },
-            )
-        }
+        HMPTextField(
+            value = input,
+            onValueChange = onInputChange,
+            placeholder = "想找歌、整理歌单，或看看听歌排行？",
+            modifier = Modifier.weight(1f),
+            enabled = !running,
+            onFocusChanged = onFocusChanged,
+        )
         Spacer(Modifier.width(10.dp))
         FilledIconButton(
             onClick = onSend,

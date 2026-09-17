@@ -17,14 +17,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TextField
-import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -33,7 +30,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color.Companion.Transparent
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -41,6 +37,7 @@ import org.koin.compose.viewmodel.koinViewModel
 import org.koin.compose.koinInject
 import com.hearablemusic.player.ui.chat.ChatEntryBroker
 import com.hearablemusic.player.ui.common.navigation.Routes as NavRoutes
+import com.hearablemusic.player.ui.common.components.base.HMPTextField
 import com.hmp.domain.agent.funnel.CommandLexicon
 import com.hmp.domain.agent.funnel.FunnelResult
 import com.hearablemusic.player.ui.common.util.activityViewModel
@@ -153,36 +150,25 @@ fun SearchScreenContent(
                 .padding(top = 16.dp),
             verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
-            TextField(
+            HMPTextField(
                 value = searchQuery,
                 onValueChange = onSearchQueryChange,
-                label = {
-                    Text(
-                        stringResource(Res.string.search_placeholder),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                },
-                leadingIcon = {
+                placeholder = stringResource(Res.string.search_placeholder),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+                leadingContent = {
                     Icon(
                         painter = painterResource(Res.drawable.magnifyingglass),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        contentDescription = stringResource(Res.string.search)
+                        contentDescription = stringResource(Res.string.search),
+                        modifier = Modifier.padding(end = 10.dp).size(18.dp),
                     )
                 },
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Text,
                     imeAction = ImeAction.Search
                 ),
-                singleLine = true,
-                colors = TextFieldDefaults.colors(
-                    focusedIndicatorColor = Transparent,
-                    unfocusedIndicatorColor = Transparent,
-                    disabledIndicatorColor = Transparent
-                ),
-                shape = RoundedCornerShape(28.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp)
             )
             // 两级漏斗第一级未命中 + 意图特征 → 伙伴条带（交给伙伴 / 只是搜索）
             if (isIntent) {

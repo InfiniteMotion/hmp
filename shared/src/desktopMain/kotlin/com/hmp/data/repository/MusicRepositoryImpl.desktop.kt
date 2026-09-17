@@ -3,6 +3,7 @@ package com.hmp.data.repository
 import co.touchlab.kermit.Logger
 import com.hmp.data.database.ListeningDuration
 import com.hmp.data.database.AgentAuditLogDao
+import com.hmp.data.database.ForgottenDeliveryDao
 import com.hmp.data.database.ListeningDurationDao
 import com.hmp.data.database.Music
 import com.hmp.data.database.MusicAllDao
@@ -49,6 +50,7 @@ class MusicRepositoryImpl(
     openAiCompatibleAdapter: OpenAiCompatibleAdapter,
     json: Json,
     agentAuditLogDao: AgentAuditLogDao,
+    forgottenDeliveryDao: ForgottenDeliveryDao,
     private val settingsRepository: SettingsRepository
 ) : MusicRepositoryBase(
     musicDao = musicDao,
@@ -62,6 +64,7 @@ class MusicRepositoryImpl(
     playlistItemDao = playlistItemDao,
     openAiCompatibleAdapter = openAiCompatibleAdapter,
     agentAuditLogDao = agentAuditLogDao,
+    forgottenDeliveryDao = forgottenDeliveryDao,
     json = json
 ) {
 

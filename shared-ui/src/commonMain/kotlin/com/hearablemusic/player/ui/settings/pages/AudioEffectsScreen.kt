@@ -2,6 +2,7 @@ package com.hearablemusic.player.ui.settings.pages
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -227,6 +228,7 @@ fun EqualizerPresetSelector(
                     Box(
                         modifier = Modifier
                             .weight(1f)
+                            .clip(RoundedCornerShape(12.dp))
                             .background(
                                 color = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.2f) else Transparent,
                                 shape = RoundedCornerShape(12.dp)
@@ -351,6 +353,7 @@ fun ReverbSettings(
                     Box(
                         modifier = Modifier
                             .weight(1f)
+                            .clip(RoundedCornerShape(8.dp))
                             .background(
                                 color = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.2f) else Transparent,
                                 shape = RoundedCornerShape(8.dp)
@@ -381,6 +384,7 @@ fun ReverbSettings(
                     Box(
                         modifier = Modifier
                             .weight(1f)
+                            .clip(RoundedCornerShape(8.dp))
                             .background(
                                 color = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.2f) else Transparent,
                                 shape = RoundedCornerShape(8.dp)
@@ -449,6 +453,7 @@ fun CustomEqualizer(
         ) {
             Box(
                 modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
                     .background(
                         color = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f),
                         shape = RoundedCornerShape(8.dp)

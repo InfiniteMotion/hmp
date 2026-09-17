@@ -36,12 +36,12 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
 import com.hearablemusic.player.ui.common.components.Avatar
+import com.hearablemusic.player.ui.common.components.base.HMPCard
 import com.hearablemusic.player.ui.common.design.dimens.LocalHMPDimens
 import com.hearablemusic.player.ui.common.layout.LocalWindowSizeInfo
 import com.hearablemusic.player.ui.common.layout.WindowWidthSizeClass
 import com.hearablemusic.player.ui.common.navigation.Routes
 import com.hearablemusic.player.ui.common.pages.base.TabScreen
-import com.hearablemusic.player.ui.common.util.UiState
 import com.hearablemusic.player.ui.common.util.activityViewModel
 import com.hearablemusic.player.ui.common.util.rememberHapticFeedback
 import com.hearablemusic.player.ui.generated.resources.Res
@@ -72,8 +72,8 @@ import com.hearablemusic.player.ui.settings.components.ListeningChart
 import com.hearablemusic.player.ui.settings.viewmodel.RecommendationViewModel
 import com.hearablemusic.player.ui.settings.viewmodel.SettingsViewModel
 import com.hearablemusic.player.ui.settings.viewmodel.UserUsageDataViewModel
+import com.hearablemusic.player.ui.settings.viewmodel.WindowedBundle
 import com.hmp.domain.setting.model.ListeningDuration
-import com.hmp.domain.setting.model.UserUsageAnalytics
 import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.painterResource
@@ -105,14 +105,11 @@ private fun SettingsListCard(
 ) {
     val haptic = rememberHapticFeedback()
     val dimens = LocalHMPDimens.current
-    Card(
-        shape = RoundedCornerShape(dimens.corner.md),
-        colors = CardDefaults.cardColors(containerColor = Transparent),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
-        modifier = modifier
+    HMPCard(
+        modifier = modifier,
+        contentPadding = Modifier.padding(vertical = dimens.spacing.sm)
     ) {
-        Column(modifier = Modifier.fillMaxWidth().padding(vertical = dimens.spacing.sm)) {
-            settingsItems.forEachIndexed { index, (title, icon, route) ->
+        settingsItems.forEachIndexed { index, (title, icon, route) ->
                 if (index > 0) {
                     HorizontalDivider(
                         color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
@@ -153,7 +150,6 @@ private fun SettingsListCard(
                     )
                 }
             }
-        }
     }
 }
 
@@ -167,7 +163,7 @@ fun UserScreen(
     val userName by settingsViewModel.userName.collectAsState("")
     val avatarUri by settingsViewModel.avatarUri.collectAsState("")
     val listeningData by recommendationViewModel.recentListeningDurations.collectAsState()
-    val usageState by usageDataViewModel.uiState.collectAsState()
+    val windowed by usageDataViewModel.windowed.collectAsState()
 
     LaunchedEffect(Unit) {
         settingsViewModel.getAvatarUri()
@@ -177,7 +173,7 @@ fun UserScreen(
         userName = userName,
         avatarUri = avatarUri,
         listeningData = listeningData,
-        usageState = usageState,
+        windowed = windowed,
         navController = navController
     )
 }
@@ -187,7 +183,7 @@ fun UserScreenContent(
     userName: String?,
     avatarUri: String,
     listeningData: List<ListeningDuration>,
-    usageState: UiState<UserUsageAnalytics>,
+    windowed: WindowedBundle,
     navController: NavBackStack<NavKey>
 ) {
     TabScreen{
@@ -204,18 +200,16 @@ fun UserScreenContent(
         val haptic = rememberHapticFeedback()
 
         val profileCard: @Composable () -> Unit = {
-            Card(
-                shape = RoundedCornerShape(dimens.corner.md),
-                colors = CardDefaults.cardColors(containerColor = Transparent),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
-                modifier = Modifier.clip(RoundedCornerShape(dimens.corner.md))
+            HMPCard(
+                modifier = Modifier
                     .clickable {
                         haptic.performClick()
                         navController.add(Routes.Settings.ProfileSettings)
-                    }
+                    },
+                contentPadding = Modifier.padding(dimens.spacing.md)
             ) {
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(dimens.spacing.md),
+                    modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
                 ){
                     Avatar(aSize = dimens.component.sm.value.toInt(), imageUri = avatarUri)
@@ -260,21 +254,17 @@ fun UserScreenContent(
                     Column(
                         modifier = Modifier.weight(1f).fillMaxHeight(),
                     ) {
-                        Card(
-                            shape = RoundedCornerShape(dimens.corner.md),
-                            colors = CardDefaults.cardColors(containerColor = Transparent),
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+                        HMPCard(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .fillMaxHeight()
-                                .clip(RoundedCornerShape(dimens.corner.md))
                                 .clickable {
                                     haptic.performClick()
                                     navController.add(Routes.UserData.UserUsageData)
-                                }
+                                },
+                            contentPadding = Modifier.padding(dimens.spacing.lg)
                         ) {
                             Column(
-                                modifier = Modifier.fillMaxSize().padding(dimens.spacing.lg),
                                 verticalArrangement = Arrangement.SpaceEvenly,
                             ) {
                                 Text(
@@ -285,12 +275,7 @@ fun UserScreenContent(
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
 
-                                val analytics = (usageState as? UiState.Success)?.data
-                                if (analytics != null) {
-                                    val weekTrendPct = if (analytics.lastWeekMinutes > 0) {
-                                        ((analytics.thisWeekMinutes - analytics.lastWeekMinutes).toFloat() / analytics.lastWeekMinutes * 100).toInt()
-                                    } else null
-
+                                windowed.analytics?.let { a ->
                                     Column(verticalArrangement = Arrangement.spacedBy(dimens.spacing.sm)) {
                                         Row(
                                             modifier = Modifier.fillMaxWidth(),
@@ -305,19 +290,11 @@ fun UserScreenContent(
                                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                                 )
                                                 Text(
-                                                    text = "${analytics.totalListeningMinutes}",
+                                                    text = "${a.totalListeningMinutes}",
                                                     style = MaterialTheme.typography.headlineLarge,
                                                     fontSize = dimens.type.xl,
                                                     fontWeight = FontWeight.Bold,
                                                     color = MaterialTheme.colorScheme.onSurface
-                                                )
-                                            }
-                                            if (weekTrendPct != null) {
-                                                Text(
-                                                    text = "${stringResource(Res.string.this_week_minutes)} ${analytics.thisWeekMinutes}${if (weekTrendPct >= 0) " ↑" else " ↓"} ${abs(weekTrendPct)}%",
-                                                    style = MaterialTheme.typography.bodySmall,
-                                                    fontSize = dimens.type.sm,
-                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                                 )
                                             }
                                         }
@@ -326,16 +303,8 @@ fun UserScreenContent(
                                             modifier = Modifier.fillMaxWidth(),
                                             horizontalArrangement = Arrangement.spacedBy(dimens.spacing.sm)
                                         ) {
-                                            InsightPill(Modifier.weight(1f), stringResource(Res.string.this_week_minutes), "${analytics.thisWeekMinutes}")
-                                            InsightPill(Modifier.weight(1f), stringResource(Res.string.last_week_minutes), "${analytics.lastWeekMinutes}")
-                                        }
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.spacedBy(dimens.spacing.sm)
-                                        ) {
-                                            InsightPill(Modifier.weight(1f), stringResource(Res.string.sort_play_count), "${analytics.totalPlayCount}")
-                                            InsightPill(Modifier.weight(1f), stringResource(Res.string.skipped_count), "${analytics.totalSkipCount}")
-                                            InsightPill(Modifier.weight(1f), stringResource(Res.string.liked_status), "${analytics.likedCount}")
+                                            InsightPill(Modifier.weight(1f), stringResource(Res.string.sort_play_count), "${a.totalPlayCount}")
+                                            InsightPill(Modifier.weight(1f), stringResource(Res.string.skipped_count), "${a.totalSkipCount}")
                                         }
                                     }
                                 }
@@ -359,39 +328,34 @@ fun UserScreenContent(
                 ) {
                     profileCard()
 
-                    Card(
-                        shape = RoundedCornerShape(dimens.corner.md),
-                        colors = CardDefaults.cardColors(containerColor = Transparent),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+                    HMPCard(
                         modifier = Modifier.fillMaxWidth()
-                            .clip(RoundedCornerShape(dimens.corner.md))
                             .clickable {
                                 haptic.performClick()
                                 navController.add(Routes.UserData.UserUsageData)
-                            }
+                            },
+                        contentPadding = Modifier.padding(vertical = dimens.spacing.md)
                     ) {
-                        Column(modifier = Modifier.fillMaxWidth().padding(vertical = dimens.spacing.md)) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth().padding(horizontal = dimens.spacing.md),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = stringResource(Res.string.title_user_usage_data),
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontSize = dimens.type.md,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                                Icon(
-                                    painter = painterResource(Res.drawable.square_fill_grid_2x2),
-                                    contentDescription = null,
-                                    modifier = Modifier.size(dimens.icon.sm),
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                            Spacer(modifier = Modifier.height(dimens.spacing.sm))
-                            ListeningChart(data = chartData)
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = dimens.spacing.md),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = stringResource(Res.string.title_user_usage_data),
+                                style = MaterialTheme.typography.titleMedium,
+                                fontSize = dimens.type.md,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Icon(
+                                painter = painterResource(Res.drawable.square_fill_grid_2x2),
+                                contentDescription = null,
+                                modifier = Modifier.size(dimens.icon.sm),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
+                        Spacer(modifier = Modifier.height(dimens.spacing.sm))
+                        ListeningChart(data = chartData)
                     }
 
                     SettingsListCard(navController = navController)

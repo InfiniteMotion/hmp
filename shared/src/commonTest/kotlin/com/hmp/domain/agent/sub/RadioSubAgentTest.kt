@@ -126,19 +126,6 @@ class RadioSubAgentTest {
         )
     }
 
-    private fun writeQueueCall(ids: List<Long>, reasons: List<String>): LlmEvent.ToolCall =
-        LlmEvent.ToolCall(
-            id = "call_queue",
-            name = ToolNames.DJ_QUEUE_REPLACE_NEXT,
-            argumentsJson = buildString {
-                append("{\"music_ids\":[")
-                append(ids.joinToString(","))
-                append("],\"reasons\":[")
-                append(reasons.joinToString(",") { "\"$it\"" })
-                append("]}")
-            },
-        )
-
     /**
      * §7.0 Start 流程：本地秒开 → 模型定队列 → 只替换「当前播放曲之后」。
      *

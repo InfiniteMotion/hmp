@@ -57,6 +57,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.hearablemusic.player.ui.common.components.AgentQuickSheet
+import com.hearablemusic.player.ui.common.components.base.HMPCard
+import com.hearablemusic.player.ui.common.design.dimens.LocalHMPDimens
 import com.hearablemusic.player.ui.common.components.base.GeneratePlaylistComboButtons
 import com.hearablemusic.player.ui.common.dialogs.TimerDialog
 import com.hearablemusic.player.ui.common.layout.LocalWindowSizeInfo
@@ -888,7 +890,10 @@ private fun PlaylistTabContent(
             GeneratePlaylistComboButtons(seedMusicId, defaultAlgorithmType, defaultTemplate, onGeneratePlaylist, onSaveDefaultConfig ?: { _, _, _ -> })
             Spacer(Modifier.height(16.dp))
         }
-        Surface(Modifier.fillMaxWidth().weight(1f).clip(RoundedCornerShape(20.dp)).border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), RoundedCornerShape(20.dp)), color = Transparent) {
+        HMPCard(
+            modifier = Modifier.fillMaxWidth().weight(1f),
+            contentPadding = Modifier
+        ) {
             if (playlist.isNotEmpty()) {
                 val callbacks = object : MusicListCallbacksAdapter() {
                     override fun onItemClick(musicInfo: MusicInfo, index: Int) { haptic.performClick(); onPlayItem(musicInfo) }
@@ -932,7 +937,16 @@ private fun SongDetailInfoTab(songDetailState: UiState<SongDetailData>, musicExt
 
 @Composable
 private fun InfoCard(title: String, content: @Composable () -> Unit) {
-    Surface(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), RoundedCornerShape(16.dp)), color = Transparent) { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) { Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface); content() } }
+    HMPCard(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(LocalHMPDimens.current.corner.sm),
+        contentPadding = Modifier.padding(16.dp)
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
+            content()
+        }
+    }
 }
 
 @Composable

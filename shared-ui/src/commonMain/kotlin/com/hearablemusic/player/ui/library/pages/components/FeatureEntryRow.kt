@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
 import com.hearablemusic.player.ui.common.design.dimens.LocalHMPDimens
+import com.hearablemusic.player.ui.common.components.base.HMPCard
 import com.hearablemusic.player.ui.common.navigation.Routes as NavRoutes
 import com.hearablemusic.player.ui.common.util.HapticFeedbackHelper
 import com.hearablemusic.player.ui.common.util.rememberHapticFeedback
@@ -89,21 +90,14 @@ private fun FeatureEntryCard(
     title: String,
     onClick: () -> Unit,
 ) {
-    val corner = RoundedCornerShape(LocalHMPDimens.current.corner.md)
-    Card(
-        // 容器对齐区域② / TitleWidget：透明底 + outlineVariant 50% 描边 + dimens.corner.md
+    HMPCard(
         modifier = modifier
-            .clip(corner)
             .clickable(onClick = onClick)
             .aspectRatio(1.2f),
-        shape = corner,
-        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+        contentPadding = Modifier.padding(vertical = 16.dp, horizontal = 12.dp)
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(vertical = 16.dp, horizontal = 12.dp),
+            modifier = Modifier.fillMaxSize(),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceEvenly,
         ) {

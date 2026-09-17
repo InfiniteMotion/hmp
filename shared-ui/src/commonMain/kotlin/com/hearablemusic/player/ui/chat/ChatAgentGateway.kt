@@ -239,7 +239,9 @@ class MasterChatGateway(
         val overviewText = ContextAssembler.buildLibraryOverview(buildLibraryOverview())
         // 对话开始时顺手推进行为画像 —— 契约 §4.2 说"定时聚合"，本项目没有常驻调度器，
         // 改成"低频闸门 + 事件触发"（间隔 20h，见 ProfileConfig）；这里是最自然的事件点。
-        userMemory?.refreshBehavior()
+        // F9-T1: 统一走 MasterAgent 入口（ensureProfileReadyForFirstTurn → refreshFromLibrary → refreshBehavior → maybeRegenerateNarrative），
+        // Gateway 不再直调 UserMemory 的内部方法。
+        masterAgent.ensureProfileReadyForFirstTurn()
         // 画像块：没有任何可说的时返回 null → 首轮块整块省略（冷启动不留空壳，剧本 P1）
         val userProfileText = userMemory?.renderForContext()
         Logger.i("Agent.Gateway") { "first-turn ctx: persona=${DefaultCompanionProfiles.DEFAULT.personaName} nowPlaying=${now.currentMusicInfo?.music?.title ?: "无"} recognized=$known/$total portrait=${if (userProfileText != null) "yes" else "no"}" }

@@ -42,6 +42,7 @@ import com.hmp.domain.backup.UserInfoSnapshot
 import com.hmp.domain.enum.LabelCategory
 import com.hmp.domain.enum.LabelName
 import com.hmp.domain.music.EditableMusicTags
+import com.hmp.domain.music.HourlyDistributionRow
 import com.hmp.domain.music.MusicDurationRow
 import com.hmp.domain.music.MusicInfo
 import com.hmp.domain.music.PlaylistAnniversaryRow
@@ -56,6 +57,8 @@ import com.hmp.domain.setting.model.PlaybackHistory
 import com.hmp.domain.setting.model.RecentPlaybackEntry
 import com.hmp.domain.setting.model.TopPlayedEntry
 import com.hmp.domain.setting.model.UserUsageAnalytics
+import com.hmp.domain.setting.model.WindowedUsageAnalytics
+import com.hmp.domain.agent.sub.daysToCutoffMs
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.firstOrNull
@@ -90,6 +93,7 @@ abstract class MusicRepositoryBase(
     protected val openAiCompatibleAdapter: OpenAiCompatibleAdapter,
     protected val json: Json,
     protected val agentAuditLogDao: AgentAuditLogDao,
+    protected val forgottenDeliveryDao: com.hmp.data.database.ForgottenDeliveryDao,
 ) : MusicRepository {
 
     // region Query
@@ -1008,6 +1012,36 @@ abstract class MusicRepositoryBase(
         return (totalMs / 60_000f) / days.coerceAtLeast(1)
     }
 
+    // region F9-T1：时段分布 + 遗忘唤醒送达标记
+
+    /**
+     * 时段分布：窗口内按小时分桶的播放次数 + 累计时长。
+     * 只返回实际有数据的桶，UI 层补零位。
+     */
+    override suspend fun getHourlyDistribution(windowDays: Int): List<HourlyDistributionRow> {
+        val sinceMs = currentTimeMillis() - windowDays.coerceAtLeast(1) * 86_400_000L
+        return playbackHistoryDao.getHourlyDistribution(sinceMs).map { row ->
+            HourlyDistributionRow(hour = row.hour, playCount = row.playCount, totalMs = row.totalMs)
+        }
+    }
+
+    override suspend fun markForgottenDelivered(musicId: Long) {
+        forgottenDeliveryDao.markDelivered(
+            com.hmp.data.database.ForgottenDeliveryEntity(
+                musicId = musicId,
+                deliveredAt = currentTimeMillis(),
+            )
+        )
+        val cutoff = currentTimeMillis() - 30 * 86_400_000L
+        runCatching { forgottenDeliveryDao.cleanupExpired(cutoff) }
+    }
+
+    override suspend fun isForgottenDelivered(musicId: Long): Boolean {
+        return forgottenDeliveryDao.exists(musicId) > 0
+    }
+
+    // endregion
+
     // region Agent F9-T0: 用户认识模块（画像）的三个快照
 
     /**
@@ -1119,6 +1153,69 @@ abstract class MusicRepositoryBase(
                 sessionTrackCounts.average().toFloat(),
         )
     }
+
+    // region Windowed Analytics（方案 B：每条独立 SQL，零内存聚合）
+
+    override suspend fun getWindowedAnalytics(days: Int): WindowedUsageAnalytics {
+        val cutoff = daysToCutoffMs(days)
+        val totalMs = playbackHistoryDao.getTotalDurationSince(cutoff)
+        val countRow = playbackHistoryDao.getWindowedPlaybackCount(cutoff)
+        val total = countRow.total
+        val skipped = countRow.skipped
+        val completionRate = countRow.completionRate.toFloat()
+        val skipRate = if (total > 0) skipped.toFloat() / total else 0f
+        return WindowedUsageAnalytics(
+            totalListeningMinutes = totalMs / 60_000,
+            completionRate = completionRate,
+            skipRate = skipRate,
+            totalPlayCount = total,
+            totalSkipCount = skipped,
+        )
+    }
+
+    override suspend fun getWindowedSourceBreakdown(days: Int): Map<String, Int> {
+        val cutoff = daysToCutoffMs(days)
+        return playbackHistoryDao.getSourceBreakdownSince(cutoff).associate { it.source to it.cnt }
+    }
+
+    override suspend fun getWindowedTopLabels(
+        days: Int,
+        category: com.hmp.data.database.myenum.LabelCategory,
+        limit: Int
+    ): List<LabelCountEntry> {
+        val cutoff = daysToCutoffMs(days)
+        val pairs = musicLabelDao.getTopLabelsSince(cutoff, category, limit)
+        return pairs.map { LabelCountEntry(labelDisplayName = it.label.name, count = it.cnt) }
+    }
+
+    override suspend fun getWindowedTopSongs(days: Int, limit: Int): List<TopPlayedEntry> {
+        val cutoff = daysToCutoffMs(days)
+        return playbackHistoryDao.getTopSongsSince(cutoff, limit).map { row ->
+            TopPlayedEntry(
+                musicId = row.musicId,
+                title = row.title ?: "",
+                artist = row.artist ?: "",
+                playCount = row.playCnt,
+            )
+        }
+    }
+
+    override suspend fun getWindowedRecentPlayback(days: Int, limit: Int): List<RecentPlaybackEntry> {
+        val cutoff = daysToCutoffMs(days)
+        return playbackHistoryDao.getRecentPlaybackSince(cutoff, limit).map { row ->
+            RecentPlaybackEntry(
+                musicId = row.musicId,
+                title = row.title ?: "",
+                artist = row.artist ?: "",
+                playedAt = row.playedAt,
+                playDuration = row.playDuration,
+                isCompleted = row.isCompleted,
+                source = row.source,
+            )
+        }
+    }
+
+    // endregion
 
     /**
      * 跳过点分桶（契约 §13 PF5：**不复用**播放历史统计那套 `skipThresholdPercent`，

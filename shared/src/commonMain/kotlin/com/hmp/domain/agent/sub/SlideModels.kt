@@ -36,6 +36,21 @@ fun detectTimePhase(hour: Int): TimePhase = when (hour) {
 @Serializable
 enum class NarrativeTimeRange { ALL, DAY, WEEK, MONTH, YEAR }
 
+/** NarrativeTimeRange → Windowed 查询用的 days 参数。-1 表示"全部"。 */
+fun NarrativeTimeRange.toDays(): Int = when (this) {
+    NarrativeTimeRange.DAY -> 1
+    NarrativeTimeRange.WEEK -> 7
+    NarrativeTimeRange.MONTH -> 30
+    NarrativeTimeRange.YEAR -> 365
+    NarrativeTimeRange.ALL -> -1
+}
+
+/** days → sinceMs。days=-1 时返回 10 年前时间戳（近似全部）。 */
+fun daysToCutoffMs(days: Int): Long = when (days) {
+    -1 -> com.hmp.data.database.currentTimeMillis() - 3650L * 86_400_000L
+    else -> com.hmp.data.database.currentTimeMillis() - days.toLong() * 86_400_000L
+}
+
 // ═══════════════════════════════════════════════════════════════════
 // SlideType + SlideContent 密封接口 + SlideCard
 // ═══════════════════════════════════════════════════════════════════

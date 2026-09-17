@@ -1,6 +1,7 @@
 package com.hmp.domain.agent.tool
 
 import com.hmp.domain.agent.port.LlmToolSpec
+import com.hmp.domain.agent.runtime.Capability
 import kotlinx.serialization.json.JsonObject
 
 /**
@@ -58,6 +59,16 @@ class ToolRegistry(
         }
     }
 
+    /**
+     * F9-A0：MasterAgent 构造完后调用，注册依赖 Capability Map 的工具。
+     * Capability Map 从 MasterAgent.capabilities 派生（_subAgents 中实现 Capability 的实例）。
+     */
+    fun bindCapabilityTools(capabilitiesProvider: () -> Map<String, Capability>) {
+        register(
+            CapabilityStatusTool(capabilitiesProvider),
+        )
+    }
+
     companion object {
         /**
          * 构造基础工具集（34 个实例 = 26 主域 + 8 DJ）。
@@ -111,18 +122,53 @@ class ToolRegistry(
                 AgentBudgetTool(deps),           // agent_budget
                 SongTagUserAddTool(deps),        // song_tag_user_add
                 SongTagUserRemoveTool(deps),      // song_tag_user_remove
-
-                // ── DJ（电台专属 8 个；仅 ToolRegistryView.radio() 可见）──
-                DjCurrentSongTool(deps),          // dj_current_song
-                DjLibraryStatsTool(deps),         // dj_library_stats
-                DjSearchByTagsTool(deps),         // dj_search_by_tags
-                DjGetTopArtistsTool(deps),        // dj_get_top_artists
-                DjGetTopLabelsTool(deps),         // dj_get_top_labels
-                DjRecentlySkippedTool(deps),      // dj_recently_skipped
-                DjQueuePeekTool(deps),            // dj_queue_peek
-                DjQueueReplaceNextTool(deps),     // dj_queue_replace_next
+                // Dj 工具已在 F9-A0 删除——电台控制权完全收归 RadioSubAgent runLoop
             )
             return ToolRegistry(baseTools)
         }
+    }
+}
+
+/**
+ * F9-A0：查询所有后台能力（电台 / 富化 / 门面）的当前状态。
+ *
+ * 依赖 Capability Map（MasterAgent 构造完后动态绑定），
+ * 让 LLM 在对话中能看到 BUILDING / PAUSED 等 SubAgent 内部状态
+ * （之前 playback_state 只查播放器，看不到电台正在启动中）。
+ */
+class CapabilityStatusTool(
+    private val capabilitiesProvider: () -> Map<String, Capability>,
+) : AgentTool {
+    override val name = ToolNames.CAPABILITY_STATUS
+    override val description = "查询后台能力（电台 / 富化 / 门面）的当前状态。不传 name 返回全部能力的状态摘要"
+    override val params = listOf(
+        StringParam(name = "name", description = "能力名：radio / enrich / hello（可选，不传返回全部）", required = false),
+    )
+    override val permissionLevel = ToolPermissionLevel.SILENT
+
+    override suspend fun run(args: ToolArgs): ToolResult {
+        val capabilities = capabilitiesProvider()
+        if (capabilities.isEmpty()) {
+            return ToolResult.success("当前没有运行中的后台能力")
+        }
+
+        val target = args.optionalString("name")
+        val targets = if (target != null) {
+            listOfNotNull(capabilities[target])
+        } else {
+            capabilities.values.toList()
+        }
+
+        if (targets.isEmpty()) {
+            return ToolResult.failure("未找到能力：$target，可用能力：${capabilities.keys.joinToString()}")
+        }
+
+        val summary = targets.joinToString("\n") { cap ->
+            val state = cap.stateFlow.value
+            val status = state.status.name.lowercase()
+            val detail = if (state.detail.isNotEmpty()) " — ${state.detail}" else ""
+            "${cap.capabilityName}: $status$detail"
+        }
+        return ToolResult.success(summary)
     }
 }

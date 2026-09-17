@@ -1,6 +1,5 @@
 package com.hearablemusic.player.ui.common.components
 
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -18,12 +17,13 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color.Companion.Transparent
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.hearablemusic.player.ui.common.components.base.HMPCard
+import com.hearablemusic.player.ui.common.design.dimens.LocalHMPDimens
 
 // ==================== 增强版 Segmented Control 组件 ====================
 
@@ -39,15 +39,15 @@ fun SegmentedControl(
     onOptionSelected: (String) -> Unit,
     showIcons: Boolean = false
 ) {
-    Surface(
-        modifier = modifier.height(52.dp)
-            .clip(RoundedCornerShape(16.dp))
-            .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), RoundedCornerShape(16.dp)),
-        color = Transparent
+    val dimens = LocalHMPDimens.current
+    HMPCard(
+        modifier = modifier.height(52.dp),
+        shape = RoundedCornerShape(dimens.corner.sm),
+        borderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+        contentPadding = Modifier.padding(4.dp)
     ) {
         Row(
-            modifier = Modifier
-                .padding(4.dp),
+            modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(2.dp)
         ) {
             options.forEach { option ->
@@ -116,15 +116,15 @@ fun VerticalSegmentedControl(
     onOptionSelected: (String) -> Unit,
     itemHeight: Int = 44 // 每个选项的高度
 ) {
-    Surface(
-        modifier = modifier
-            .clip(RoundedCornerShape(16.dp))
-            .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f), RoundedCornerShape(16.dp)),
-        color = Transparent
+    val dimens = LocalHMPDimens.current
+    HMPCard(
+        modifier = modifier,
+        shape = RoundedCornerShape(dimens.corner.sm),
+        borderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
+        contentPadding = Modifier.padding(4.dp)
     ) {
         Column(
-            modifier = Modifier
-                .padding(4.dp),
+            modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(2.dp)
         ) {
             options.forEach { option ->

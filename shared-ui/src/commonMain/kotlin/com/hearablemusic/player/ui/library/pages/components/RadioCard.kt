@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import com.hmp.domain.agent.runtime.MasterAgent
 import com.hmp.domain.agent.sub.RadioState
 import com.hearablemusic.player.ui.common.design.dimens.LocalHMPDimens
+import com.hearablemusic.player.ui.common.components.base.HMPCard
 import com.hearablemusic.player.ui.common.util.HapticFeedbackHelper
 import com.hearablemusic.player.ui.common.util.rememberHapticFeedback
 import com.hearablemusic.player.ui.generated.resources.Res
@@ -117,31 +118,21 @@ fun RadioCard(
     }
     val actionFg = MaterialTheme.colorScheme.onPrimary
 
-    // 容器对齐 TitleWidget / User·Setting 页卡片：透明底 + outlineVariant 50% 描边 + dimens.corner.md
-    val dimens = LocalHMPDimens.current
-    val corner = RoundedCornerShape(dimens.corner.md)
     val borderColor = if (isActive) {
-        MaterialTheme.colorScheme.primary.copy(alpha = 0.5f) // 运行中：描边转主色
+        MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
     } else {
         MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
     }
 
-    Card(
-        // 整卡与底部按钮绑为一体：点击卡内任意处（含按钮）统一触发开关；按钮仅反映状态
+    HMPCard(
         modifier = modifier
             .aspectRatio(1f)
-            .clip(corner)
             .clickable { toggle() },
-        shape = corner,
-        colors = CardDefaults.cardColors(
-            containerColor = Color.Transparent,
-        ),
-        border = BorderStroke(1.dp, borderColor),
+        borderColor = borderColor,
+        contentPadding = Modifier.padding(14.dp)
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(14.dp),
+            modifier = Modifier.fillMaxSize(),
             verticalArrangement = Arrangement.SpaceBetween,
         ) {
             // 顶部：左 = 入口图标；右 = 圆形状态按钮（无文字，仅反映状态，非独立点击目标）

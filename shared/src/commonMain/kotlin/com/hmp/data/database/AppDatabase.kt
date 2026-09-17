@@ -34,8 +34,9 @@ expect object AppDatabaseConstructor : RoomDatabaseConstructor<AppDatabase> {
         UserProfileEvidenceEntity::class,
         UserProfilePortraitEntity::class,
         UserProfileNarrativeEntity::class,
+        ForgottenDeliveryEntity::class,
     ],
-    version = 7,
+    version = 8,
     exportSchema = true
 )
 @TypeConverters(LabelConverters::class, HelloCardConverters::class)
@@ -57,6 +58,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun userProfileEvidenceDao(): UserProfileEvidenceDao
     abstract fun userProfilePortraitDao(): UserProfilePortraitDao
     abstract fun userProfileNarrativeDao(): UserProfileNarrativeDao
+    abstract fun forgottenDeliveryDao(): ForgottenDeliveryDao
 
     companion object {
         /**
@@ -220,6 +222,23 @@ abstract class AppDatabase : RoomDatabase() {
                     `facts_hash` INTEGER NOT NULL,
                     `generated_at` INTEGER NOT NULL,
                     PRIMARY KEY(`id`)
+                )"""
+                )
+            }
+        }
+
+        /**
+         * v7 → v8（F9-T1）：
+         * - 新增 `forgotten_delivery` 极简表——遗忘唤醒送达标记（musicId PK + deliveredAt）。
+         * 只加表，不动存量表。
+         */
+        val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(connection: SQLiteConnection) {
+                connection.execSQL(
+                    """CREATE TABLE IF NOT EXISTS `forgotten_delivery` (
+                    `musicId` INTEGER NOT NULL,
+                    `deliveredAt` INTEGER NOT NULL,
+                    PRIMARY KEY(`musicId`)
                 )"""
                 )
             }

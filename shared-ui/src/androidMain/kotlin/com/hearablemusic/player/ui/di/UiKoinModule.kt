@@ -51,7 +51,7 @@ val uiModule = module {
     viewModel { AiSettingsViewModel(get(), get()) }
     viewModel { LyricsSettingsViewModel(get()) }
     viewModel { RecommendationViewModel(get(), get(), get(), get(), get()) }
-    viewModel { UserUsageDataViewModel(get()) }
+    viewModel { UserUsageDataViewModel(get<com.hmp.domain.music.MusicRepository>(), get<com.hmp.domain.agent.runtime.MasterAgent>()) }
     viewModel { ChatViewModel(get(), get(), get(), get()) }
     single<AlbumArtPixelsLoader> { CoilAlbumArtPixelsLoader(androidContext()) }
     viewModel { ThemeViewModel(get(), get()) }

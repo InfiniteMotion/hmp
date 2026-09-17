@@ -43,6 +43,8 @@ import androidx.navigation3.runtime.NavKey
 import com.hmp.domain.agent.sub.SlideCard
 import com.hmp.domain.music.MusicRepository
 import com.hearablemusic.player.ui.common.design.dimens.LocalHMPDimens
+import com.hearablemusic.player.ui.common.components.base.HMPCard
+import com.hearablemusic.player.ui.common.components.base.HMPTextField
 import com.hearablemusic.player.ui.common.layout.LocalWindowSizeInfo
 import com.hearablemusic.player.ui.common.pages.base.TabScreen
 import com.hearablemusic.player.ui.generated.resources.Res
@@ -285,35 +287,19 @@ private fun HomeSearchBar(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(44.dp)
-            .background(
-                color = MaterialTheme.colorScheme.surfaceVariant,
-                shape = RoundedCornerShape(22.dp)
+    HMPTextField(
+        onClick = onClick,
+        placeholder = stringResource(Res.string.search_placeholder),
+        modifier = modifier.fillMaxWidth(),
+        leadingContent = {
+            Icon(
+                painter = painterResource(Res.drawable.magnifyingglass),
+                contentDescription = null,
+                modifier = Modifier.padding(end = 10.dp).size(18.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = onClick
-            )
-            .padding(horizontal = 16.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
-        Icon(
-            painter = painterResource(Res.drawable.magnifyingglass),
-            contentDescription = null,
-            modifier = Modifier.size(18.dp),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Text(
-            text = stringResource(Res.string.search_placeholder),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-    }
+        },
+    )
 }
 
 /**
@@ -343,24 +329,13 @@ private fun RecommendEntryCard(
     }
 
     // 容器对齐 TitleWidget / User·Setting 页卡片：透明底 + outlineVariant 50% 描边 + dimens.corner.md
-    val dimens = LocalHMPDimens.current
-    val corner = RoundedCornerShape(dimens.corner.md)
-
-    Card(
-        // 入口卡语义：点卡片 = 进二级页；右侧播放按钮 = 直接播放
+    HMPCard(
         modifier = modifier
-            .clip(corner)
             .clickable(enabled = ready) { onOpen() },
-        shape = corner,
-        colors = CardDefaults.cardColors(
-            containerColor = Color.Transparent,
-        ),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+        contentPadding = Modifier.padding(horizontal = 14.dp, vertical = 12.dp)
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 14.dp, vertical = 12.dp),
+            modifier = Modifier.fillMaxSize(),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(

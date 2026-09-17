@@ -51,14 +51,13 @@ class ToolRegistryView(
             )
         )
 
-        /** Radio SubAgent 视图：playback_* + playlist_* + library_* + dj_*（DJ Agent 专属） */
+        /** Radio SubAgent 视图：playback_* + playlist_* + library_*（电台自循环 runLoop 拉歌单用） */
         fun radio(delegate: ToolRegistry): ToolRegistryView = ToolRegistryView(
             delegate = delegate,
             allowedPrefixes = setOf(
                 "playback_",
                 "playlist_",
                 "library_",
-                "dj_",
             )
         )
 

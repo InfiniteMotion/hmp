@@ -127,6 +127,9 @@ class FakeAgentMusicRepository : MusicRepository {
     override suspend fun getMusicInfoByIds(ids: List<Long>): List<MusicInfo> =
         ids.mapNotNull { songs[it] }
     override suspend fun getAvgDailyListeningMinutes(days: Int): Float = 0f
+    override suspend fun getHourlyDistribution(windowDays: Int): List<com.hmp.domain.music.HourlyDistributionRow> = emptyList()
+    override suspend fun markForgottenDelivered(musicId: Long) {}
+    override suspend fun isForgottenDelivered(musicId: Long): Boolean = false
 
     // ── 用户认识模块（画像）快照：替身默认返回空，忘传即等于测"无数据退化" ──
 
@@ -142,6 +145,18 @@ class FakeAgentMusicRepository : MusicRepository {
     override suspend fun getAllMusicDurations(): List<com.hmp.domain.music.MusicDurationRow> = emptyList()
     override suspend fun getMusicIdsPlayedOn(date: String): List<Long> = emptyList()
     override suspend fun getPlaybackCountForPlaylist(playlistName: String): Int = 0
+
+    // ═══ Windowed 查询 stub（UserUsageDataScreen 双轴筛选重构）═══
+    override suspend fun getWindowedAnalytics(days: Int): com.hmp.domain.setting.model.WindowedUsageAnalytics =
+        com.hmp.domain.setting.model.WindowedUsageAnalytics(0, 0f, 0f, 0, 0)
+    override suspend fun getWindowedSourceBreakdown(days: Int): Map<String, Int> = emptyMap()
+    override suspend fun getWindowedTopLabels(
+        days: Int,
+        category: com.hmp.data.database.myenum.LabelCategory,
+        limit: Int
+    ): List<com.hmp.domain.setting.model.LabelCountEntry> = emptyList()
+    override suspend fun getWindowedTopSongs(days: Int, limit: Int): List<com.hmp.domain.setting.model.TopPlayedEntry> = emptyList()
+    override suspend fun getWindowedRecentPlayback(days: Int, limit: Int): List<com.hmp.domain.setting.model.RecentPlaybackEntry> = emptyList()
 }
 
 /** M3 工具层专用内存 Fake：PlaylistRepository。 */
@@ -190,3 +205,4 @@ class FakeAiExtraEnrichPort(
 ) : AiExtraEnrichPort {
     override suspend fun enrich(title: String, artist: String): Result<DailyMusicInfo> = result
 }
+

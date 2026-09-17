@@ -2,6 +2,8 @@ package com.hearablemusic.player.ui.chat
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -16,6 +18,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import com.hearablemusic.player.ui.common.design.dimens.LocalHMPDimens
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.draw.clip
 import androidx.compose.material3.Card
@@ -94,16 +97,20 @@ fun CompanionBubble(
     }
 }
 
-/** 气泡容器：用户=品牌实底+白字(右对齐，右上小圆角尾)；伙伴=浅底+深字(左对齐，左上小圆角尾)。 */
+/** 气泡容器：用户=primary 半透明底+primary 边框(右对齐尾)；伙伴=surfaceContainer 半透明底+outlineVariant 边框(左对齐尾)。 */
 @Composable
 private fun BubbleContainer(message: CompanionMessage, callbacks: CompanionCallbacks, user: Boolean) {
-    val shape = if (user) RoundedCornerShape(20.dp, 6.dp, 20.dp, 20.dp)
-    else RoundedCornerShape(6.dp, 20.dp, 20.dp, 20.dp)
-    val bg = if (user) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHigh
-    val content = if (user) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
+    val shape = if (user) RoundedCornerShape(LocalHMPDimens.current.corner.md, 6.dp, LocalHMPDimens.current.corner.md, LocalHMPDimens.current.corner.md)
+    else RoundedCornerShape(6.dp, LocalHMPDimens.current.corner.md, LocalHMPDimens.current.corner.md, LocalHMPDimens.current.corner.md)
+    val bg = if (user) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
+    else MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.15f)
+    val border = if (user) BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.6f))
+    else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+    val content = if (user) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
     Column(
         modifier = Modifier
             .widthIn(max = 320.dp)
+            .border(border, shape)
             .background(bg, shape)
             .padding(horizontal = 16.dp, vertical = 12.dp),
     ) {

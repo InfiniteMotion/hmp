@@ -188,7 +188,24 @@ interface MusicRepository {
     /** 最近 days 天的日均听歌时长（分钟），报告叙事段自适应频率判断用 */
     suspend fun getAvgDailyListeningMinutes(days: Int = 30): Float
 
-    // ── 用户认识模块（画像）的三个快照 —— 见 design/agent-profile.md §4.1 / §4.2 / §4.3 ──
+    // ── F9-T1：时段分布 + 遗忘唤醒送达标记 ──
+
+    /**
+     * 时段分布：窗口内按小时分桶的播放次数 + 累计时长。
+     * 给报告页时段分布 chart 用。**只返回实际有数据的桶**（UI 层补零位）。
+     */
+    suspend fun getHourlyDistribution(windowDays: Int): List<HourlyDistributionRow>
+
+    /**
+     * 遗忘唤醒送达标记：把一首被推送过的"遗忘曲目"标记为已送达，
+     * 后续 getForgottenTracks 会排除它（或 30 天内不再推送同一首）。
+     */
+    suspend fun markForgottenDelivered(musicId: Long)
+
+    /** 查询某首歌是否在送达标记里（排除查询辅助）。 */
+    suspend fun isForgottenDelivered(musicId: Long): Boolean
+
+    // ── 用户认识模块（画像）的三个快照 ── 见 design/agent-profile.md §4.1 / §4.2 / §4.3 ──
 
     /**
      * 曲库内容快照（阶段二建模输入）：标签分布 + 覆盖率。
@@ -201,6 +218,30 @@ interface MusicRepository {
 
     /** 行为快照：窗口内的播放明细聚合（时段 / 完播 / 跳过点 / 重复度 / 新歌比）。 */
     suspend fun getBehaviorSnapshot(windowDays: Int = 90): BehaviorSnapshot
+
+    // ═══════════════════════════════════════════════════════════════
+    // 带时间窗口的统计查询（方案 B：维度拆分，每条独立 SQL）
+    // days=-1 表示"全部"
+    // ═══════════════════════════════════════════════════════════════
+
+    /** 窗口内总时长 / 完播率 / 跳过率 / 播放次数 / 跳过次数。 */
+    suspend fun getWindowedAnalytics(days: Int): com.hmp.domain.setting.model.WindowedUsageAnalytics
+
+    /** 窗口内播放来源分布（source → 次数）。 */
+    suspend fun getWindowedSourceBreakdown(days: Int): Map<String, Int>
+
+    /** 窗口内 Top N 标签（按播放次数加权）。category 为 GENRE/MOOD/SCENARIO。 */
+    suspend fun getWindowedTopLabels(
+        days: Int,
+        category: com.hmp.data.database.myenum.LabelCategory,
+        limit: Int = 5
+    ): List<com.hmp.domain.setting.model.LabelCountEntry>
+
+    /** 窗口内 Top N 歌曲（歌名 + 歌手 + 播放次数）。 */
+    suspend fun getWindowedTopSongs(days: Int, limit: Int = 5): List<com.hmp.domain.setting.model.TopPlayedEntry>
+
+    /** 窗口内最近 N 条播放（歌名 + 歌手 + 播放时间）。 */
+    suspend fun getWindowedRecentPlayback(days: Int, limit: Int = 10): List<com.hmp.domain.setting.model.RecentPlaybackEntry>
 }
 
 /** 歌单创建纪念日候选。 */
@@ -217,4 +258,11 @@ data class MusicDurationRow(
     val musicId: Long,
     val totalMs: Long,
     val playCount: Int,
+)
+
+/** F9-T1：时段分布行（窗口内某小时的播放次数 + 累计时长）。 */
+data class HourlyDistributionRow(
+    val hour: Int,      // 0-23
+    val playCount: Int,
+    val totalMs: Long,
 )

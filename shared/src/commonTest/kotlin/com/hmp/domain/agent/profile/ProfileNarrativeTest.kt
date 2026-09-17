@@ -7,21 +7,23 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
- * 画像叙事规则单测 —— 契约 v3.5 §7.4（两面共用 → 生成闸门是安全性的全部来源）。
+ * 画像叙事规则单测 —— Prompt v2（放松版：允许合理推断，但禁止编造数据 / 禁止性格情绪推断 / 禁止起称号）。
  *
- * 铁律：叙事只能是侧写渲染的复述。这里验证语言层闸门（禁称号 / 禁类型学 / 长度）
- * 与指纹的确定性；语义层的"不加新事实"靠生成输入只含事实渲染（buildMessages）压制。
+ * 闸门分层：语言层（禁编造 / 禁类型学 / 长度 / 禁称号）+ 指纹确定性。
+ * "不加新事实"靠 validate 闸门 + 输入只含槽位事实句双重压制。
  */
 class ProfileNarrativeTest {
 
     // ── 生成输入 ─────────────────────────────────────────────────────
 
     @Test
-    fun prompt_demandsRestatement_andBansPersonInference() {
+    fun prompt_allowsReasonableInference_butBansFabrication_andPersonInference() {
         val messages = ProfileNarrative.buildMessages("- 主要在夜里听\n- 很少中途跳歌")
         val system = messages.first().content!!
-        assertTrue(system.contains("只能复述"), "铁律必须写进 prompt")
-        assertTrue(system.contains("禁止推断性格、情绪、处境、人格类型"))
+        // Prompt v2：允许合理推断（"你偏好深夜听歌"这类基于数据的归纳），但禁止编造数据
+        assertTrue(system.contains("合理推断"), "Prompt 应明确允许基于数据的推断")
+        assertTrue(system.contains("不许编造数据"), "禁止编造数据是铁律")
+        assertTrue(system.contains("不许推断性格、情绪、处境"), "性格情绪推断仍然禁止")
         assertTrue(messages.last().content!!.contains("很少中途跳歌"))
     }
 

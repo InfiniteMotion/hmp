@@ -18,6 +18,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color.Companion.Transparent
 import androidx.compose.ui.unit.dp
 import com.hmp.domain.music.MusicExtra
+import com.hearablemusic.player.ui.common.components.base.HMPCard
+import com.hearablemusic.player.ui.common.design.dimens.LocalHMPDimens
 import com.hearablemusic.player.ui.generated.resources.Res
 import com.hearablemusic.player.ui.generated.resources.bitrate
 import com.hearablemusic.player.ui.generated.resources.file_size
@@ -30,19 +32,12 @@ fun TechnicalInfoCard(
     extra: MusicExtra?,
     modifier: Modifier = Modifier
 ) {
-    Surface (
-        modifier = modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(0.5f), RoundedCornerShape(16.dp)),
-        color = Transparent
+    HMPCard(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(LocalHMPDimens.current.corner.sm),
+        contentPadding = Modifier.padding(16.dp)
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             // 第一行：比特率和采样率
             Row(
                 modifier = Modifier.fillMaxWidth(),

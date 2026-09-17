@@ -35,6 +35,7 @@ private class InMemoryMusicRepository(db: AppDatabase) : MusicRepositoryBase(
     openAiCompatibleAdapter = OpenAiCompatibleAdapter(HttpClient(), Json),
     json = Json,
     agentAuditLogDao = db.agentAuditLogDao(),
+    forgottenDeliveryDao = db.forgottenDeliveryDao(),
 ) {
     override val isScanning: Flow<Boolean> = flowOf(false)
     override suspend fun loadMusicFromDevice(): Result<Unit> = Result.success(Unit)

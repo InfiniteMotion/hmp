@@ -63,7 +63,8 @@ val chatGatewayModule = module {
             playbackCommandPort = get(),
             enrichPort = get(),
             // v3.6：画像归属 Master（masterAgent.userMemory），工具面从这里取同一份
-            userMemory = get<MasterAgent>().userMemory,
+            // 用 Provider lambda 延迟取值——打破 ToolDependencies → MasterAgent → ToolRegistry → ToolDependencies 静态循环
+            userMemory = { get<MasterAgent>().userMemory },
         )
     }
     single { ToolRegistry.create(get()) }
@@ -113,6 +114,8 @@ val chatGatewayModule = module {
             userProfilePortraitDao = get(),
             userProfileNarrativeDao = get(),
         ).also { master ->
+            // F9-A0: bindCapabilityTools 已移到 MasterAgent.initialize() 里
+            // （避免在 Koin single 创建过程中再 get<ToolRegistry>() 引发循环依赖）
             master.lifecycleScope.launch {
                 runCatching { master.initialize() }
                     .onFailure { e -> co.touchlab.kermit.Logger.e("Agent.Master", e) { "initialize failed (non-fatal)" } }

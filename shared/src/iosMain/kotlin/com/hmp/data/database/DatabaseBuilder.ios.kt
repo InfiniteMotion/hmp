@@ -26,6 +26,7 @@ actual fun getRoomDatabase(builder: androidx.room.RoomDatabase.Builder<AppDataba
             AppDatabase.MIGRATION_4_5,
             AppDatabase.MIGRATION_5_6,
             AppDatabase.MIGRATION_6_7,
+            AppDatabase.MIGRATION_7_8,
         )
         .fallbackToDestructiveMigration(dropAllTables = true)
         .setDriver(BundledSQLiteDriver())

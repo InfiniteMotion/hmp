@@ -16,6 +16,8 @@ import com.hmp.domain.agent.port.dayPart
 import com.hmp.domain.agent.port.describe
 import com.hmp.domain.agent.runtime.AgentContextBudget
 import com.hmp.domain.agent.runtime.AgentRunState
+import com.hmp.domain.agent.runtime.Capability
+import com.hmp.domain.agent.runtime.CapabilityState
 import com.hmp.domain.agent.runtime.LlmCallExecutor
 import com.hmp.domain.agent.runtime.StopSignal
 import com.hmp.domain.agent.runtime.ToolRegistryView
@@ -36,6 +38,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -105,7 +108,7 @@ class RadioSubAgent(
      * 开播选种与编排仲裁的听众参考 —— 自带「仅供参考」口径，null = 冷启动无画像。
      */
     private val memoryBriefing: String? = null,
-) : SubAgent(agentId, contextBudget, toolRegistryView) {
+) : SubAgent(agentId, contextBudget, toolRegistryView), Capability {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
@@ -1574,6 +1577,46 @@ class RadioSubAgent(
     fun updateAiConfig(radioConfig: AiEndpointConfig?) {
         this.radioConfig = radioConfig
         Logger.i("Agent.Radio") { "updateAiConfig: config=${radioConfig != null}" }
+    }
+
+    // ── Capability 接口实现（F9-A0） ──
+
+    override val capabilityName = "radio"
+
+    /** RadioState → CapabilityState 统一映射——Tool 层和 UI 层从这里读 */
+    override val stateFlow: StateFlow<CapabilityState> = _radioState.map { rs ->
+        when (rs) {
+            is RadioState.IDLE -> CapabilityState(CapabilityState.Status.IDLE, raw = rs)
+            is RadioState.BUILDING -> CapabilityState(
+                status = CapabilityState.Status.BUILDING,
+                detail = rs.actionText,
+                raw = rs,
+            )
+            is RadioState.PLAYING -> CapabilityState(
+                status = CapabilityState.Status.RUNNING,
+                detail = "正在播放，共 ${rs.currentCount} 首",
+                raw = rs,
+            )
+            is RadioState.PAUSED -> CapabilityState(
+                status = CapabilityState.Status.PAUSED,
+                detail = "暂停中，共 ${rs.currentCount} 首",
+                raw = rs,
+            )
+        }
+    }.stateIn(scope, SharingStarted.Eagerly, CapabilityState(CapabilityState.Status.IDLE))
+
+    override suspend fun start(): String {
+        val tracks = startRadio(null, RadioTrigger.CHAT_INPUT)
+        return if (tracks.isNotEmpty()) {
+            "电台启动了，为你选了 ${tracks.size} 首"
+        } else {
+            "电台没有找到足够的曲目"
+        }
+    }
+
+    override suspend fun stop(): String {
+        stopRadio()
+        return "电台已停止"
     }
 }
 

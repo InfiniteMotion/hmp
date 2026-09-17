@@ -13,6 +13,8 @@ import com.hmp.domain.agent.port.NowPlayingContextProvider
 import com.hmp.domain.agent.port.LlmMessage
 import com.hmp.domain.agent.runtime.AgentContextBudget
 import com.hmp.domain.agent.runtime.AgentRunState
+import com.hmp.domain.agent.runtime.Capability
+import com.hmp.domain.agent.runtime.CapabilityState
 import com.hmp.domain.agent.runtime.StopSignal
 import com.hmp.domain.agent.runtime.ToolRegistryView
 import com.hmp.domain.music.MusicInfo
@@ -75,7 +77,14 @@ class HelloSubAgent(
      * 门面卡片与推荐的听众参考 —— 自带「仅供参考」口径，null = 冷启动无画像。
      */
     private val memoryBriefing: String? = null,
-) : SubAgent(agentId, contextBudget, toolRegistryView) {
+    /**
+     * UserMemory 引用（契约 v3.4 + F9-T1）：报告叙事生成时取画像侧写片段（`factsRenderForNarrative`）。
+     * nullable —— 画像链路静默跳过，不拖垮 HelloSubAgent。
+     * 与 memoryBriefing 互补：memoryBriefing 是预渲染的摘录（LLM system prompt 注入用），
+     * userMemory 是实时引用（报告叙事生成时按需取最新侧写）。
+     */
+    private val userMemory: com.hmp.domain.agent.profile.UserMemory? = null,
+) : SubAgent(agentId, contextBudget, toolRegistryView), Capability {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
@@ -1149,12 +1158,14 @@ class HelloSubAgent(
 
     // ═══ 报告叙事段（H4） ═══
 
-    /** 自适应报告叙事生成——根据日均听歌时长判断频率 */
+    /** 自适应报告叙事生成——根据日均听歌时长判断频率 + F9-T1 升级：多维度差异化 + 画像侧写引用 */
     suspend fun regenerateReportNarrative(timeRange: NarrativeTimeRange): HelloReportNarrativeEntity? {
         val repo = musicRepository ?: return null
         val dao = narrativeDao ?: return null
 
-        val avgMinutes = runCatching { repo.getAvgDailyListeningMinutes(30) }.getOrDefault(0f)
+        // ① 按时间维度取对应的天数窗口
+        val windowDays = rangeToDays(timeRange)
+        val avgMinutes = runCatching { repo.getAvgDailyListeningMinutes(windowDays) }.getOrDefault(0f)
         val frequency = adaptiveFrequency(avgMinutes)
         val range = timeRange.name
 
@@ -1165,8 +1176,12 @@ class HelloSubAgent(
             return existing
         }
 
-        // H2 骨架：生成极简统计叙事（后续 H4 补 LLM + 完整统计维度）
-        val narrative = buildStatisticsNarrative(timeRange, avgMinutes)
+        // ② 扩展取数：完整统计 + 画像侧写片段
+        val analytics = runCatching { repo.getUserUsageAnalytics() }.getOrNull()
+        val factsSnapshot = runCatching { userMemory?.factsRenderForNarrative() }.getOrNull()
+
+        // ③ 生成叙事（先纯统计模板，画像侧写可选叠加，enableLlm 时 LLM 润色）
+        val narrative = buildStatisticsNarrative(timeRange, avgMinutes, analytics, factsSnapshot)
         val entity = HelloReportNarrativeEntity(
             timeRange = range,
             narrative = narrative,
@@ -1178,6 +1193,15 @@ class HelloSubAgent(
         }
         Logger.i("Agent.Hello") { "report[$range] regenerated (avgDaily=${avgMinutes}min, freq=$frequency)" }
         return entity
+    }
+
+    /** NarrativeTimeRange → days 窗口（给 getAvgDailyListeningMinutes / 后续时段分布查询用） */
+    private fun rangeToDays(range: NarrativeTimeRange): Int = when (range) {
+        NarrativeTimeRange.DAY -> 1
+        NarrativeTimeRange.WEEK -> 7
+        NarrativeTimeRange.MONTH -> 30
+        NarrativeTimeRange.YEAR -> 365
+        NarrativeTimeRange.ALL -> 3650  // 10 年兜底（"全部"近似长期平均）
     }
 
     /** 确保所有时间维度的报告叙事段都是最新的（dailyRefreshLoop 末尾调） */
@@ -1207,15 +1231,97 @@ class HelloSubAgent(
         return ageMs > frequencyHours * 3_600_000L
     }
 
-    /** H2 骨架极简统计叙事——后续 H4 补 LLM 生成 */
-    private fun buildStatisticsNarrative(timeRange: NarrativeTimeRange, avgMinutes: Float): String {
-        val activeDesc = when {
-            avgMinutes <= 15f -> "最近听的不多"
-            avgMinutes <= 30f -> "每天都有在听"
-            avgMinutes <= 120f -> "音乐陪伴还不错"
-            else -> "音乐成了你生活的背景"
+    /**
+     * F9-T1 报告叙事生成——统计解读 + 可选画像侧写引用（纯模板，无 LLM）。
+     *
+     * 边界：报告叙事 = 对"某段时间数据"的解读。画像侧写是**可选引用**（如"你偏好深夜"），
+     * 不生成画像散文本身（那是 UserMemory.narrativeState 的职责）。
+     * enableLlm=true 时可接 callHelloLlm 润色（H4 阶段补齐，当前模板兜底已可用）。
+     */
+    private suspend fun buildStatisticsNarrative(
+        timeRange: NarrativeTimeRange,
+        avgMinutes: Float,
+        analytics: com.hmp.domain.setting.model.UserUsageAnalytics?,
+        factsSnapshot: String?,
+    ): String {
+        val rangeLabel = timeRange.zhName()
+        val sb = StringBuilder()
+
+        // ① 时间维度差异化开场
+        val (durationText, frequencyDesc) = timeRangeToLabel(timeRange, avgMinutes)
+        sb.append("${rangeLabel}${durationText}")
+        if (frequencyDesc != null) sb.append(frequencyDesc)
+        sb.append("。")
+
+        // ② 口味侧（仅 MONTH+：DAY/WEEK 窗口太短，全量 analytics 无法代表近期偏好）
+        if (timeRange != NarrativeTimeRange.DAY && timeRange != NarrativeTimeRange.WEEK) {
+            analytics?.topGenres?.takeIf { it.isNotEmpty() }?.firstOrNull()?.let { topGenre ->
+                sb.append("主打")
+                sb.append(topGenre.labelDisplayName)
+                sb.append("。")
+            }
         }
-        return "（$activeDesc）日均听歌 ${avgMinutes.toInt()} 分钟。"
+
+        // ③ 情绪侧（同上）
+        if (timeRange != NarrativeTimeRange.DAY && timeRange != NarrativeTimeRange.WEEK) {
+            analytics?.topMoods?.takeIf { it.isNotEmpty() }?.firstOrNull()?.let { topMood ->
+                sb.append("情绪基调是")
+                sb.append(topMood.labelDisplayName)
+                sb.append("。")
+            }
+        }
+
+        // ④ 行为侧（完播率 / 跳过率描述——完播率相对稳定，DAY 也可看）
+        if (analytics != null && analytics.completionRate > 0f) {
+            val completionDesc = when {
+                analytics.completionRate >= 0.8f -> "听完率很高"
+                analytics.completionRate >= 0.5f -> "听完率一般"
+                else -> "经常切歌"
+            }
+            sb.append(completionDesc)
+            sb.append("。")
+        }
+
+        // ⑤ 画像侧写引用（可选，截断到 200 字避免过长）
+        factsSnapshot?.takeIf { it.isNotBlank() }?.let { facts ->
+            val truncated = facts.take(200)
+            sb.append("${truncated}")
+            if (facts.length > 200) sb.append("…")
+        }
+
+        // enableLlm=true 时接 LLM 润色（H4 补齐，当前模板兜底已可用）
+        return sb.toString()
+    }
+
+    /** 时间维度 → "听了 N 小时" + 频度描述 */
+    private fun timeRangeToLabel(range: NarrativeTimeRange, avgMinutes: Float): Pair<String, String?> {
+        val totalMinutes = when (range) {
+            NarrativeTimeRange.DAY -> avgMinutes
+            NarrativeTimeRange.WEEK -> avgMinutes * 7
+            NarrativeTimeRange.MONTH -> avgMinutes * 30
+            NarrativeTimeRange.YEAR -> avgMinutes * 365
+            NarrativeTimeRange.ALL -> avgMinutes * 3650
+        }
+        val duration = formatTotalMinutes(totalMinutes.toLong())
+        val freqDesc = when (range) {
+            NarrativeTimeRange.DAY -> null  // "今日" + "听了 X 小时" 够了，不追加
+            NarrativeTimeRange.WEEK -> if (avgMinutes > 0f) "日均 ${avgMinutes.toInt()} 分钟" else null
+            NarrativeTimeRange.MONTH -> if (avgMinutes > 0f) "日均 ${avgMinutes.toInt()} 分钟" else null
+            NarrativeTimeRange.YEAR -> if (avgMinutes > 0f) "日均 ${avgMinutes.toInt()} 分钟" else null
+            NarrativeTimeRange.ALL -> if (avgMinutes > 0f) "日均 ${avgMinutes.toInt()} 分钟" else null
+        }
+        return duration to freqDesc
+    }
+
+    /** 总分钟数 → "听了 X 小时" / "听了 N 小时 M 分钟" */
+    private fun formatTotalMinutes(totalMinutes: Long): String {
+        val totalMinutes = totalMinutes.coerceAtLeast(0)
+        return when {
+            totalMinutes == 0L -> "几乎没听歌"
+            totalMinutes < 60L -> "听了 ${totalMinutes} 分钟"
+            totalMinutes < 600L -> "听了 ${totalMinutes / 60} 小时"
+            else -> "听了 ${totalMinutes / 60} 小时"
+        }
     }
 
     // ═══ 对外查询接口（MasterAgent / P5 报告页） ═══
@@ -1770,5 +1876,20 @@ class HelloSubAgent(
         val mmdd = runCatching { com.hmp.data.util.formatMmddFromMillis(ms) }.getOrDefault("")
         return if (mmdd.isBlank()) "${yearsAgo} 年前" else "$mmdd · ${yearsAgo} 年前"
     }
+
+    // ── Capability 接口实现（F9-A0） ──
+
+    override val capabilityName = "hello"
+
+    /** HelloSubAgent 自动启动/停止——用 SubAgent 基类 runState 映射 */
+    override val stateFlow: StateFlow<CapabilityState> = kotlinx.coroutines.flow.MutableStateFlow(
+        CapabilityState(
+            status = when (state()) {
+                AgentRunState.RUNNING -> CapabilityState.Status.RUNNING
+                else -> CapabilityState.Status.IDLE
+            },
+            detail = if (state() == AgentRunState.RUNNING) "运行中" else "未启动",
+        )
+    )
 }
 

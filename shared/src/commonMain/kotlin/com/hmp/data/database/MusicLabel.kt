@@ -82,6 +82,21 @@ interface MusicLabelDao {
     /** 删除指定 (musicId, label) 的 USER 源标签（domain 层 removeUserMusicLabel 调用）。 */
     @Query("DELETE FROM musicLabel WHERE musicId = :musicId AND label = :label AND source = 'USER'")
     suspend fun deleteUserLabel(musicId: Long, label: LabelName)
+
+    /**
+     * 窗口内 Top N 标签（按窗口内播放次数加权）。
+     * JOIN PlaybackHistory 只统计窗口内被播放过的标签。
+     */
+    @Query("""
+        SELECT l.label AS label, COUNT(h.id) AS cnt
+        FROM musicLabel l
+        INNER JOIN PlaybackHistory h ON h.musicId = l.musicId
+        WHERE h.playedAt >= :cutoff AND l.type = :category
+        GROUP BY l.label
+        ORDER BY cnt DESC
+        LIMIT :limit
+    """)
+    suspend fun getTopLabelsSince(cutoff: Long, category: LabelCategory, limit: Int): List<LabelCountPair>
 }
 
 /** DAO SQL GROUP BY 返回的 label+数量对。 */

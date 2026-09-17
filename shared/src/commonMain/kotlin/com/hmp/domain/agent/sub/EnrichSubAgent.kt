@@ -7,6 +7,8 @@ import com.hmp.domain.agent.infra.PresenceEvent
 import com.hmp.domain.agent.port.LlmMessage
 import com.hmp.domain.agent.runtime.AgentContextBudget
 import com.hmp.domain.agent.runtime.AgentRunState
+import com.hmp.domain.agent.runtime.Capability
+import com.hmp.domain.agent.runtime.CapabilityState
 import com.hmp.domain.agent.runtime.SchedulerStopSignal
 import com.hmp.domain.agent.runtime.ToolRegistryView
 import com.hmp.domain.enum.LabelCategory
@@ -17,10 +19,15 @@ import com.hmp.domain.music.MusicRepository
 import com.hmp.domain.setting.model.AiEndpointConfig
 import com.hmp.domain.setting.model.DailyMusicInfo
 import com.hmp.platform.Volatile
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
@@ -59,7 +66,10 @@ class EnrichSubAgent(
     @Volatile private var targetCoverage: Float = 0.9f,
     /** 停止/暂停信号（类型收紧：只接受 SchedulerStopSignal） */
     private val stopSignal: SchedulerStopSignal? = null,
-) : SubAgent(agentId, contextBudget, toolRegistryView) {
+) : SubAgent(agentId, contextBudget, toolRegistryView), Capability {
+
+    // Capability 接口实现需要一个独立 scope（SubAgent 基类不提供）
+    private val scope = CoroutineScope(SupervisorJob() + kotlinx.coroutines.Dispatchers.Default)
 
     private val json = Json { ignoreUnknownKeys = true }
 
@@ -1054,6 +1064,28 @@ $textSummary
         this.enrichConfig = enrichConfig
         Logger.i("Agent.Enrich") { "updateAiConfig: config=${enrichConfig != null}" }
     }
+
+    // ── Capability 接口实现（F9-A0） ──
+
+    override val capabilityName = "enrich"
+
+    /** progressState → CapabilityState 统一映射 */
+    override val stateFlow: StateFlow<CapabilityState> = _progressState.map { progress ->
+        val status = when (progress.state) {
+            AgentRunState.RUNNING -> CapabilityState.Status.RUNNING
+            AgentRunState.PAUSED -> CapabilityState.Status.PAUSED
+            AgentRunState.UNREGISTERED -> CapabilityState.Status.IDLE
+        }
+        CapabilityState(
+            status = status,
+            detail = "${progress.phase} ${progress.processed}/${progress.currentUnitSize}",
+            raw = progress,
+        )
+    }.stateIn(
+        scope = scope,
+        started = SharingStarted.Eagerly,
+        initialValue = CapabilityState(CapabilityState.Status.IDLE, detail = "idle"),
+    )
 }
 
 // ===== 内部数据类 =====

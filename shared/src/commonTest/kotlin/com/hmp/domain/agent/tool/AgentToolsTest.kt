@@ -52,7 +52,7 @@ class AgentToolsTest {
             playbackCommandPort = FakePlaybackCommandPort,
             enrichPort = enrich,
         )
-        val registry = ToolRegistry.create(deps)
+        val registry = ToolRegistry.create(deps).also { it.bindCapabilityTools { emptyMap() } }
     }
 
     // ---------- searchLibrary ----------

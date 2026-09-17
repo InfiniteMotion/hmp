@@ -21,8 +21,9 @@ data class ToolDependencies(
     val playbackCommandPort: PlaybackCommandPort,
     val enrichPort: AiExtraEnrichPort,
     /**
-     * 用户认识模块（画像）—— 可空：测试与旧装配路径不传也能编译，
+     * 用户认识模块（画像）—— 可空 Provider：默认 `{ null }`，测试与旧装配路径不传也能编译，
      * 画像工具在缺省时返回"模块未启用"，而不是崩。
+     * 用 Provider 是为了打破 Koin 循环依赖：ToolDependencies → MasterAgent → ToolRegistry → ToolDependencies。
      */
-    val userMemory: com.hmp.domain.agent.profile.UserMemory? = null,
+    val userMemory: () -> com.hmp.domain.agent.profile.UserMemory? = { null },
 )

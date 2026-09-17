@@ -287,6 +287,14 @@ class MasterAgent(
     private val _subAgents = mutableMapOf<String, com.hmp.domain.agent.sub.SubAgent>()
     val subAgents: Map<String, com.hmp.domain.agent.sub.SubAgent> get() = _subAgents.toMap()
 
+    /** F9-A0：所有实现了 Capability 接口的 SubAgent —— Tool 层和 UI 层从这里读统一状态 */
+    val capabilities: Map<String, Capability> get() =
+        _subAgents.values.filterIsInstance<Capability>().associateBy { it.capabilityName }
+
+    /** F9-A0：按名字取 Capability（工具层和 Koin 注入用） */
+    fun capability(name: String): Capability? =
+        _subAgents[name] as? Capability
+
     // ── SubAgent 生命周期保护 ──
     /** startEnrich/stopEnrich 的 Mutex——防止并发创建多个 EnrichSubAgent */
     private val enrichLifecycleMutex = Mutex()
@@ -310,13 +318,51 @@ class MasterAgent(
      * 库变更通知（契约 §4.1.4 事件驱动，v3.6 收口）。
      *
      * UI 层（LibraryViewModel）只发「库变了」这个**命令**，不直接触碰 [userMemory] 的
-     * 内部方法 —— 怎么协调画像重建是 Master 的内部事务（重建曲库侧写 + 顺手重算行为，
-     * 后者自带 20 小时闸门）。fire-and-forget：画像失败不影响库操作本身。
+     * 内部方法 —— 统一走 [ensureProfileReady] 让 Master 协调完整的画像重建链路
+     * （曲库侧写 → 行为侧写 → 叙事过期检查）。fire-and-forget：画像失败不影响库操作本身。
      */
     fun onLibraryMutated() {
-        scope.launch {
-            userMemory?.refreshFromLibrary()
-            userMemory?.refreshBehavior()
+        scope.launch { ensureProfileReady(forceBehavior = true, source = "library_mutated") }
+    }
+
+    /**
+     * 对话首轮上下文组装时的画像预刷新（F9-T1）。
+     *
+     * ChatAgentGateway.buildFirstTurnContext() 需要**同步**拿到最新画像（先刷新再读），
+     * 所以这个入口是 suspend 阻塞版本，不是 fire-and-forget。
+     * 内部走 [ensureProfileReady] 完整链路，但**不传 forceBehavior**（20h 闸门自然起作用，
+     * 避免每次对话都重跑行为建模）。
+     */
+    suspend fun ensureProfileReadyForFirstTurn() {
+        ensureProfileReady(source = "first_turn")
+    }
+
+    /**
+     * 画像链路统一入口（F9-T1 冷启动收口）。
+     *
+     * 任何需要"确保画像就绪"的场景（库变更 / 对话结束 / 应用启动）都走这里，
+     * 外部不直接调 [UserMemory] 的 refresh* 方法。
+     *
+     * 内部协调顺序：
+     * 1. refreshFromLibrary   —— 曲库侧写（幂等：没变化零写）
+     * 2. refreshBehavior      —— 行为侧写（默认 20h 闸门；force=true 可破）
+     * 3. maybeRegenerateNarrative —— 叙事过期检查（有 AI endpoint + factsHash 变了才跑）
+     */
+    private suspend fun ensureProfileReady(forceBehavior: Boolean = false, source: String = "unknown") {
+        val profile = userMemory ?: run {
+            Logger.w("Agent.Master") { "ensureProfileReady($source): userMemory null, skip" }
+            return
+        }
+        runCatching {
+            val libCount = profile.refreshFromLibrary()
+            val behCount = profile.refreshBehavior(force = forceBehavior)
+            Logger.i("Agent.Master") { "ensureProfileReady($source): lib=$libCount, beh=$behCount, forceBeh=$forceBehavior" }
+            // 有侧写数据才检查叙事（没有就不浪费 AI 调用）
+            if (profile.currentPortraits().isNotEmpty()) {
+                maybeRegenerateNarrativeSync()
+            }
+        }.onFailure { e ->
+            Logger.e("Agent.Master", e) { "ensureProfileReady($source) failed (non-fatal)" }
         }
     }
 
@@ -328,6 +374,11 @@ class MasterAgent(
      */
     suspend fun initialize(enrichTransport: LlmTransport? = null) {
         Logger.i("Agent.Master") { "[Master] initialize start" }
+
+        // F9-A0：绑定 CapabilityStatusTool 到 ToolRegistry
+        // 使用 chatToolRegistry 字段（Koin 构造时注入），避免在 Koin .also 块里再 get() 引发循环
+        chatToolRegistry?.bindCapabilityTools { capabilities }
+        Logger.i("Agent.Master") { "[Master] CapabilityStatusTool bound (capabilities=${capabilities.keys})" }
 
         // ① 启动 Scheduler
         scheduler.startArbitration()
@@ -369,6 +420,10 @@ class MasterAgent(
         } else {
             Logger.w("Agent.Master") { "[Master] MusicRepository null, skip auto startHello" }
         }
+
+        // ⑤ F9-T1 冷启动：首次画像建模（曲库侧写 + 行为侧写 + 叙事过期检查）。
+        // fire-and-forget：ensureProfileReady 内部自带 runCatching，失败不拖垮 initialize。
+        scope.launch { ensureProfileReady(source = "initialize") }
     }
 
     /** 应用销毁时调用，清理所有 SubAgent（suspend 版本——内部调 scheduler/SubAgent.shutdown 需协程） */
@@ -814,6 +869,8 @@ class MasterAgent(
                 radioPlaylistProvider = { queryRadioPlaylist() },
                 // 画像简报（v3.8）：曲库/口味/探索的摘录，供推荐与 DISCOVER 参考
                 memoryBriefing = userMemory?.helloBriefing(),
+                // UserMemory 引用（F9-T1）：报告叙事生成时按需取最新侧写
+                userMemory = userMemory,
             )
             _subAgents["hello"] = helloAgent
 
@@ -1060,12 +1117,12 @@ class MasterAgent(
         return runCatching { hello.regenerateReportNarrative(timeRange) }.getOrNull()
     }
 
-    /** P5 页面加载时读 DAO——零阻塞 */
+    /** P5 页面加载时读 DAO——零阻塞；直接查 Master 自持有的 DAO，不依赖 HelloSubAgent 是否启动 */
     suspend fun getReportNarrative(
         timeRange: com.hmp.domain.agent.sub.NarrativeTimeRange
     ): com.hmp.data.database.HelloReportNarrativeEntity? {
-        val hello = helloAgent() ?: return null
-        return runCatching { hello.getReportNarrative(timeRange) }.getOrNull()
+        val dao = helloReportNarrativeDao ?: return null
+        return runCatching { dao.getLatest(timeRange.name) }.getOrNull()
     }
 
     // ═══ SubAgent 状态查询 & 原生生命周期方法 ═══
@@ -1426,7 +1483,8 @@ class MasterAgent(
 
         // 画像叙事的维护（契约 v3.5 §7.4）：侧写指纹与落库叙事不一致即过期，
         // 异步重生成（不阻塞本轮对话；本轮用旧叙事或无叙事，下一轮换新）。
-        maybeRegenerateNarrative(config)
+        // F9-T1: 无参版本，内部从 settingsRepo.getActiveAiConfig() 取 config。
+        maybeRegenerateNarrative()
 
         Logger.i("Agent.Master") { "handleUserMessage start (task=$taskId): input=${userMessage.take(119)}… history=${ctx.history.size} steps_budget=$stepBudget" }
 
@@ -1467,37 +1525,50 @@ class MasterAgent(
     }
 
     /**
-     * 画像叙事的过期检查与重生成（契约 v3.5 §7.4）。
+     * 画像叙事的过期检查与重生成 —— **suspend 核心**（契约 v3.5 §7.4）。
      *
      * MasterAgent 是这条维护链的发起方（它持有 transport 与 config）；画像内容的
      * 生成闸门与落库都在 [com.hmp.domain.agent.profile.UserMemory]。
-     * fire-and-forget：失败静默保留旧叙事（宁旧勿假），绝不拖垮对话。
+     *
+     * 闸门：profile.factsFingerprint 没变（叙事已经是最新）→ 直接 return，零 LLM 成本。
+     * 失败：runCatching 吞掉，静默保留旧叙事（宁旧勿假）。
+     *
+     * 注意：是 **suspend 函数**，不自己 scope.launch —— 调用方已经在协程里时可以直接调，
+     * 避免双重 launch（见 fire-and-forget 版本 [maybeRegenerateNarrative]）。
      */
-    private fun maybeRegenerateNarrative(config: AiEndpointConfig) {
+    private suspend fun maybeRegenerateNarrativeSync() {
         val profile = userMemory ?: return
         val transport = chatTransport ?: return
-        if (config.isConfigured != true) return
-        scope.launch {
-            runCatching {
-                val fingerprint = profile.factsFingerprint()
-                val state = profile.narrativeState()
-                if (state != null && state.factsHash == fingerprint) return@runCatching
-                val facts = profile.factsRenderForNarrative() ?: return@runCatching
-                val reply = LlmCallExecutor().call(
-                    transport = transport,
-                    config = config,
-                    messages = com.hmp.domain.agent.profile.ProfileNarrative.buildMessages(facts),
-                    tools = null,
-                    temperature = 0.4f,
-                )
-                if (!reply.failed) {
-                    profile.updateNarrative(reply.text, fingerprint)
-                    Logger.i("Agent.Master") { "profile narrative regenerated (fingerprint updated)" }
-                }
-            }.onFailure { e ->
-                Logger.w("Agent.Master", e) { "narrative regeneration failed (non-fatal, keep old)" }
+        runCatching {
+            val settings = settingsRepo ?: return@runCatching
+            val config = settings.getActiveAiConfig()
+            if (!config.isConfigured) return@runCatching
+            val fingerprint = profile.factsFingerprint()
+            val state = profile.narrativeState()
+            if (state != null && state.factsHash == fingerprint) return@runCatching
+            val facts = profile.factsRenderForNarrative() ?: return@runCatching
+            val reply = LlmCallExecutor().call(
+                transport = transport,
+                config = config,
+                messages = com.hmp.domain.agent.profile.ProfileNarrative.buildMessages(facts),
+                tools = null,
+                temperature = 0.4f,
+            )
+            if (!reply.failed) {
+                profile.updateNarrative(reply.text, fingerprint)
+                Logger.i("Agent.Master") { "profile narrative regenerated (fingerprint updated)" }
             }
+        }.onFailure { e ->
+            Logger.w("Agent.Master", e) { "narrative regeneration failed (non-fatal, keep old)" }
         }
+    }
+
+    /**
+     * 画像叙事的 fire-and-forget 包装（给 handleUserMessage 末尾这种"不想阻塞对话"的场景用）。
+     * 内部直接 [scope.launch] 一层，核心逻辑走 [maybeRegenerateNarrativeSync]。
+     */
+    private fun maybeRegenerateNarrative() {
+        scope.launch { maybeRegenerateNarrativeSync() }
     }
 
     /** 对话结束后的偏好抽取（T0b）。全部 runCatching —— 画像失败不得拖垮对话。 */
