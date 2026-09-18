@@ -81,7 +81,7 @@ class AgentScheduler(
         if (initialState == AgentRunState.RUNNING) {
             scope.launch { runCatching { registration.onResume() } }
         }
-        HmpLog.i(LogTag.AgentScheduler) { "[Scheduler] registered ${registration.agentId} priority=${registration.priority} initial=$initialState" }
+        HmpLog.i(LogTag.AgentScheduler) { "⏱️ [Scheduler] registered ${registration.agentId} priority=${registration.priority} initial=$initialState" }
         return initialState
     }
 
@@ -89,7 +89,7 @@ class AgentScheduler(
     fun unregisterAgent(agentId: String) {
         agents.remove(agentId)
         states.remove(agentId)
-        HmpLog.i(LogTag.AgentScheduler) { "[Scheduler] unregistered $agentId" }
+        HmpLog.i(LogTag.AgentScheduler) { "⏱️ [Scheduler] unregistered $agentId" }
     }
 
     /** 查询 Agent 当前状态 */
@@ -106,7 +106,7 @@ class AgentScheduler(
         if (arbitrationStarted) return
         arbitrationStarted = true
         scope.launch { arbitrationLoop() }
-        HmpLog.i(LogTag.AgentScheduler) { "[Scheduler] arbitration loop started" }
+        HmpLog.i(LogTag.AgentScheduler) { "⏱️ [Scheduler] arbitration loop started" }
     }
 
     /** 停止仲裁循环（应用销毁时调用） */
@@ -117,7 +117,7 @@ class AgentScheduler(
             scope.launch { runCatching { reg.onPause() } }
             states[id] = AgentRunState.PAUSED
         }
-        HmpLog.i(LogTag.AgentScheduler) { "[Scheduler] arbitration loop stopped" }
+        HmpLog.i(LogTag.AgentScheduler) { "⏱️ [Scheduler] arbitration loop stopped" }
     }
 
     private suspend fun arbitrationLoop() {
@@ -129,11 +129,11 @@ class AgentScheduler(
                     states[agentId] = newState
                     when (newState) {
                         AgentRunState.RUNNING -> {
-                            HmpLog.i(LogTag.AgentScheduler) { "[Scheduler] $agentId RESUMED (priority=${registration.priority})" }
+                            HmpLog.i(LogTag.AgentScheduler) { "⏱️ [Scheduler] $agentId RESUMED (priority=${registration.priority})" }
                             runCatching { registration.onResume() }
                         }
                         AgentRunState.PAUSED -> {
-                            HmpLog.i(LogTag.AgentScheduler) { "[Scheduler] $agentId PAUSED (priority=${registration.priority})" }
+                            HmpLog.i(LogTag.AgentScheduler) { "⏱️ [Scheduler] $agentId PAUSED (priority=${registration.priority})" }
                             runCatching { registration.onPause() }
                         }
                         AgentRunState.UNREGISTERED -> Unit

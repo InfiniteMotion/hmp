@@ -1,6 +1,5 @@
 package com.hmp.domain.music.usecase
 
-import co.touchlab.kermit.Logger
 import com.hmp.domain.setting.model.DailyMusicInfo
 import com.hmp.domain.setting.model.ListeningDuration
 import com.hmp.domain.music.MusicInfo
@@ -10,6 +9,8 @@ import com.hmp.domain.setting.SettingsRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.withTimeoutOrNull
+import com.hmp.log.HmpLog
+import com.hmp.log.LogTag
 
 class GetDailyMusicRecommendationUseCase(
     private val musicRepository: MusicRepository,
@@ -34,7 +35,7 @@ class GetDailyMusicRecommendationUseCase(
             val musicInfo = withTimeoutOrNull(2000) {
                 musicRepository.getMusicInfoById(musicId).firstOrNull()
             } ?: run {
-                Logger.w("UseCase.DailyRec") { "getMusicWithExtraById: Timeout or null for id $musicId" }
+                HmpLog.w(LogTag.DataMusicRepo) { "🎵 getMusicWithExtraById | timeout or null | musicId=$musicId | timeoutMs=2000" }
                 return null
             }
 
@@ -42,7 +43,7 @@ class GetDailyMusicRecommendationUseCase(
             val labels = musicRepository.getMusicLabels(musicId)
             return MusicRecommendation(musicInfo, dailyMusicInfo, labels)
         } catch (e: Exception) {
-            Logger.e("UseCase.DailyRec", e) { "Error fetching music by id: $musicId" }
+            HmpLog.e(LogTag.DataMusicRepo, e) { "🎵 getMusicWithExtraById failed | musicId=$musicId | reason=${e.message}" }
             return null
         }
     }

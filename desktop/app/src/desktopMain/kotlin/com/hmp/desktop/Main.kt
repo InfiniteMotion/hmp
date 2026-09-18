@@ -45,8 +45,9 @@ import java.time.format.DateTimeFormatter
 import java.util.concurrent.CountDownLatch
 import kotlin.concurrent.thread
 import com.hmp.initKermit
-import co.touchlab.kermit.Logger
 import co.touchlab.kermit.Severity
+import com.hmp.log.HmpLog
+import com.hmp.log.LogTag
 
 fun main() {
     val releaseBuild = System.getProperty("hmp.release-build")?.toBooleanStrictOrNull() ?: false
@@ -62,14 +63,14 @@ fun main() {
         logFile.createNewFile()
         logFile
     } catch (e: Throwable) {
-        Logger.w(null, "Startup") { "Cannot create startup log file: ${e.message}" }
+        HmpLog.w(LogTag.SystemLifecycle) { "🚀 Cannot create startup log file: ${e.message}" }
         null
     }
 
     fun stamp(label: String) {
         val line = "[Startup] +${System.currentTimeMillis() - t0}ms — $label"
-        Logger.i(null, "Startup") { line }
-        fileLog?.appendText(line + "\n")
+        HmpLog.i(LogTag.SystemLifecycle) { "🚀 $line" }
+        fileLog?.appendText(line + "🚀 \n")
     }
 
     // HiDPI scaling: must be set before any AWT/Compose class is loaded
@@ -83,7 +84,7 @@ fun main() {
 
     // Single-instance guard: exit immediately if another instance is running
     if (!SingleInstanceGuard.tryAcquire()) {
-        Logger.w(null, "Startup") { "HMP is already running. Exiting." }
+        HmpLog.w(LogTag.SystemLifecycle) { "🚀 HMP is already running. Exiting." }
         return
     }
 
@@ -377,10 +378,10 @@ private fun getHwndFromAwt(window: java.awt.Window): WinDef.HWND? {
         if (hwndPtr != null) {
             return WinDef.HWND(com.sun.jna.Pointer(hwndPtr))
         }
-        Logger.w(null, "Main") { "Could not find hwnd field on peer" }
+        HmpLog.w(LogTag.SystemLifecycle) { "🚀 Could not find hwnd field on peer" }
         null
     } catch (e: Throwable) {
-        Logger.e(e, "Main") { "Could not extract HWND from AWT: ${e.message}" }
+        HmpLog.e(LogTag.SystemLifecycle, e) { "🚀 Could not extract HWND from AWT: ${e.message}" }
         null
     }
 }

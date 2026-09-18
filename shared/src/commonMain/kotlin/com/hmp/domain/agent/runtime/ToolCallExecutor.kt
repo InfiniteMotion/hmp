@@ -75,10 +75,10 @@ class ToolCallExecutor(
         if (pending.isNotEmpty()) {
             if (confirmGate == null) {
                 // 后台 Agent 无 confirmGate → RequireConfirm 级工具直接 Denied（安全兜底）
-                HmpLog.w(LogTag.AgentTool) { "no confirmGate for agent=${agentPolicy.role}, denying ${pending.size} pending toolCalls" }
+                HmpLog.w(LogTag.AgentTool) { "🛠️ no confirmGate for agent=${agentPolicy.role}, denying ${pending.size} pending toolCalls" }
                 pending.forEach { approvals[it.id] = false }
             } else {
-                HmpLog.i(LogTag.AgentTool) { "confirm request: ${pending.map { it.name }} (${pending.size} 项)" }
+                HmpLog.i(LogTag.AgentTool) { "🛠️ confirm request: ${pending.map { it.name }} (${pending.size} 项)" }
                 val outcomes = confirmGate.request(
                     pending.map { tc ->
                         ConfirmRequest(
@@ -88,7 +88,7 @@ class ToolCallExecutor(
                         )
                     }
                 )
-                HmpLog.d(LogTag.AgentTool) { "confirm outcomes=$outcomes" }
+                HmpLog.d(LogTag.AgentTool) { "🛠️ confirm outcomes=$outcomes" }
 
                 val trustLedger = agentPolicy.trustLedger
                 val alwaysAllowCandidates = mutableSetOf<String>()

@@ -143,7 +143,7 @@ class EnrichSubAgent(
     /** Master 更新目标覆盖率（rescanEnrich 触发） */
     fun updateTarget(newTarget: Float) {
         targetCoverage = newTarget
-        HmpLog.i(LogTag.AgentEnrich) { "[$agentId] targetCoverage updated to $newTarget" }
+        HmpLog.i(LogTag.AgentEnrich) { "📚 [$agentId] targetCoverage updated to $newTarget" }
     }
 
     /** 查询当前进度（Master status 用） */
@@ -161,19 +161,19 @@ class EnrichSubAgent(
 
     override suspend fun shutdown() {
         super.shutdown()
-        HmpLog.i(LogTag.AgentEnrich) { "[$agentId] shutdown complete (processed=$processedCount success=$successCount failed=$failCount)" }
+        HmpLog.i(LogTag.AgentEnrich) { "📚 [$agentId] shutdown complete (processed=$processedCount success=$successCount failed=$failCount)" }
     }
 
     override suspend fun pause() {
         stopSignal?.onSchedulerPaused()
         runState = AgentRunState.PAUSED
-        HmpLog.i(LogTag.AgentEnrich) { "[$agentId] manually paused" }
+        HmpLog.i(LogTag.AgentEnrich) { "📚 [$agentId] manually paused" }
     }
 
     override suspend fun resume() {
         stopSignal?.onSchedulerResumed()
         runState = AgentRunState.RUNNING
-        HmpLog.i(LogTag.AgentEnrich) { "[$agentId] manually resumed" }
+        HmpLog.i(LogTag.AgentEnrich) { "📚 [$agentId] manually resumed" }
     }
 
     // ===== 自循环 runLoop（内部状态机） =====
@@ -182,7 +182,7 @@ class EnrichSubAgent(
      * Enrich 自循环：fetchNextWorkUnit → chunk 拆分 → 每 chunk 6 轮编排 → 验收 → 自退出。
      */
     override suspend fun runLoop() {
-        HmpLog.i(LogTag.AgentEnrich) { "[$agentId] runLoop start: target=${targetCoverage} config=${enrichConfig != null}" }
+        HmpLog.i(LogTag.AgentEnrich) { "📚 [$agentId] runLoop start: target=${targetCoverage} config=${enrichConfig != null}" }
         isActive = true
         runState = AgentRunState.RUNNING
         currentPhase = "拉活工作单元"
@@ -198,7 +198,7 @@ class EnrichSubAgent(
             if (!isActive) break
 
             if (stopSignal?.shouldSoftStop() == true) {
-                HmpLog.i(LogTag.AgentEnrich) { "[$agentId] stopSignal.shouldSoftStop() → exiting runLoop" }
+                HmpLog.i(LogTag.AgentEnrich) { "📚 [$agentId] stopSignal.shouldSoftStop() → exiting runLoop" }
                 break
             }
 
@@ -208,15 +208,15 @@ class EnrichSubAgent(
             if (workUnit == null) {
                 // ── 全部富化完了，验收 ──
                 val health = musicRepository.getEnrichHealth()
-                HmpLog.i(LogTag.AgentEnrich) { "[$agentId] health: coverage=${health.coverageRate}/${targetCoverage} enriched=${health.enrichedSongCount}/${health.totalSongCount}" }
+                HmpLog.i(LogTag.AgentEnrich) { "📚 [$agentId] health: coverage=${health.coverageRate}/${targetCoverage} enriched=${health.enrichedSongCount}/${health.totalSongCount}" }
 
                 if (health.coverageRate >= targetCoverage) {
-                    HmpLog.i(LogTag.AgentEnrich) { "[$agentId] target achieved (${health.coverageRate} >= ${targetCoverage}), self-exiting" }
+                    HmpLog.i(LogTag.AgentEnrich) { "📚 [$agentId] target achieved (${health.coverageRate} >= ${targetCoverage}), self-exiting" }
                     break
                 }
 
                 // coverage 未达标但 unenriched 已清空 → 等一会儿再查
-                HmpLog.w(LogTag.AgentEnrich) { "[$agentId] no unenriched but coverage ${health.coverageRate} < ${targetCoverage} — waiting" }
+                HmpLog.w(LogTag.AgentEnrich) { "📚 [$agentId] no unenriched but coverage ${health.coverageRate} < ${targetCoverage} — waiting" }
                 currentPhase = "等待更多歌曲"
                 updateProgressState()
                 repeat(20) {
@@ -236,11 +236,11 @@ class EnrichSubAgent(
                     val artist = workUnit.artist
                     val allSongs = workUnit.songs
 
-                    HmpLog.i(LogTag.AgentEnrich) { "[$agentId] ArtistGroup: '$artist' (${allSongs.size} songs)" }
+                    HmpLog.i(LogTag.AgentEnrich) { "📚 [$agentId] ArtistGroup: '$artist' (${allSongs.size} songs)" }
 
                     // 超大歌手拆 chunk（≤ CHUNK_SPLIT_SIZE 首/块）
                     val chunks = allSongs.chunked(CHUNK_SPLIT_SIZE)
-                    HmpLog.i(LogTag.AgentEnrich) { "[$agentId] '$artist' split into ${chunks.size} chunk(s): ${chunks.map { it.size }}" }
+                    HmpLog.i(LogTag.AgentEnrich) { "📚 [$agentId] '$artist' split into ${chunks.size} chunk(s): ${chunks.map { it.size }}" }
 
                     // 设置 workUnit 级追踪字段
                     currentArtist = artist
@@ -251,14 +251,14 @@ class EnrichSubAgent(
                     // 预热缓存：同一歌手只预热一次
                     val (cachedArtist, cachedText) = preheatCache ?: (null to null)
                     val preheatText = if (cachedArtist == artist && cachedText != null) {
-                        HmpLog.i(LogTag.AgentEnrich) { "[$agentId] '$artist' using cached preheat" }
+                        HmpLog.i(LogTag.AgentEnrich) { "📚 [$agentId] '$artist' using cached preheat" }
                         cachedText
                     } else {
                         val text = enrichConfig?.let { callAndLog(it, "Round 0 preheat", buildPreheatPrompt(artist)) }
                         if (text != null) {
                             preheatCache = artist to text
                         } else {
-                            HmpLog.w(LogTag.AgentEnrich) { "[$agentId] '$artist' Round 0 preheat failed — will continue without preheat" }
+                            HmpLog.w(LogTag.AgentEnrich) { "📚 [$agentId] '$artist' Round 0 preheat failed — will continue without preheat" }
                         }
                         text
                     }
@@ -273,7 +273,7 @@ class EnrichSubAgent(
                         stopSignal?.waitResume()
                         if (stopSignal?.shouldSoftStop() == true) break
 
-                        HmpLog.i(LogTag.AgentEnrich) { "[$agentId] '$artist' chunk ${chunkIdx + 1}/${chunks.size} (${chunk.size} songs)" }
+                        HmpLog.i(LogTag.AgentEnrich) { "📚 [$agentId] '$artist' chunk ${chunkIdx + 1}/${chunks.size} (${chunk.size} songs)" }
                         chunkIndex = chunkIdx + 1
                         currentPhase = "Round 1 枚举中"
                         updateProgressState()
@@ -298,7 +298,7 @@ class EnrichSubAgent(
                 }
 
                 is EnrichWorkUnit.MixedGroup -> {
-                    HmpLog.i(LogTag.AgentEnrich) { "[$agentId] MixedGroup (${workUnit.songs.size} songs)" }
+                    HmpLog.i(LogTag.AgentEnrich) { "📚 [$agentId] MixedGroup (${workUnit.songs.size} songs)" }
                     // 混合组跳过 Round 0 —— 没有共同歌手可以预热
                     // 同样加 chunk 拆分保护（Repository 层 mixGroupSize 通常已 < CHUNK_SPLIT_SIZE，但兜底）
                     val chunks = workUnit.songs.chunked(CHUNK_SPLIT_SIZE)
@@ -324,7 +324,7 @@ class EnrichSubAgent(
 
             // ── 连续失败保护：LLM/网络不可用时最多重试 5 轮就退避 15s ──
             if (consecutiveChunkFails >= 5) {
-                HmpLog.e(LogTag.AgentEnrich) { "[$agentId] consecutiveChunkFails=$consecutiveChunkFails (LLM/API unreachable) → backoff 15s" }
+                HmpLog.e(LogTag.AgentEnrich) { "📚 [$agentId] consecutiveChunkFails=$consecutiveChunkFails (LLM/API unreachable) → backoff 15s" }
                 currentPhase = "网络异常退避中"
                 updateProgressState()
                 consecutiveChunkFails = 0
@@ -347,7 +347,7 @@ class EnrichSubAgent(
         chunkTotal = 0
         currentPhase = "完成"
         updateProgressState()
-        HmpLog.i(LogTag.AgentEnrich) { "[$agentId] runLoop exited (processed=$processedCount success=$successCount failed=$failCount)" }
+        HmpLog.i(LogTag.AgentEnrich) { "📚 [$agentId] runLoop exited (processed=$processedCount success=$successCount failed=$failCount)" }
     }
 
     // ===== 核心编排：processChunk（每 chunk 5 轮 LLM call，预热已在 runLoop 处理） =====
@@ -369,25 +369,25 @@ class EnrichSubAgent(
         processedCount += songs.size
 
         if (config == null) {
-            HmpLog.w(LogTag.AgentEnrich) { "[$agentId] No AiEndpointConfig, skipping chunk '$groupKey' (${songs.size} songs)" }
+            HmpLog.w(LogTag.AgentEnrich) { "📚 [$agentId] No AiEndpointConfig, skipping chunk '$groupKey' (${songs.size} songs)" }
             failCount += songs.size
             return false
         }
 
-        HmpLog.i(LogTag.AgentEnrich) { "[$agentId] processing chunk '$groupKey' (${songs.size} songs, mixed=$isMixed)" }
+        HmpLog.i(LogTag.AgentEnrich) { "📚 [$agentId] processing chunk '$groupKey' (${songs.size} songs, mixed=$isMixed)" }
 
         // ========== Round 1: 枚举批量 ==========
         currentPhase = "Round 1 枚举中"
         updateProgressState()
         val enumText = callAndLog(config, "Round 1 enum", buildEnumPrompt(songs, groupKey, isMixed))
         if (enumText == null) {
-            HmpLog.e(LogTag.AgentEnrich) { "[$agentId] chunk '$groupKey' Round 1 failed — aborting chunk" }
+            HmpLog.e(LogTag.AgentEnrich) { "📚 [$agentId] chunk '$groupKey' Round 1 failed — aborting chunk" }
             failCount += songs.size
             return false
         }
         val enumMap = runCatching { parseEnumBatch(enumText, songs).toMutableMap() }
             .getOrElse { e ->
-                HmpLog.e(LogTag.AgentEnrich, e) { "[$agentId] chunk '$groupKey' Round 1 parse failed: ${e.message}" }
+                HmpLog.e(LogTag.AgentEnrich, e) { "📚 [$agentId] chunk '$groupKey' Round 1 parse failed: ${e.message}" }
                 failCount += songs.size
                 return false
             }
@@ -402,10 +402,10 @@ class EnrichSubAgent(
             if (selfCheckText != null) {
                 val selfCheckPatchMap = parseEnumSelfCheckFullList(selfCheckText, songs)
                 applyEnumReplacements(enumMap, selfCheckPatchMap, songs)
-                HmpLog.i(LogTag.AgentEnrich) { "[$agentId] chunk '$groupKey' Round 1.5 patched ${selfCheckPatchMap.size} song(s)" }
+                HmpLog.i(LogTag.AgentEnrich) { "📚 [$agentId] chunk '$groupKey' Round 1.5 patched ${selfCheckPatchMap.size} song(s)" }
             }
         }.onFailure { e ->
-            HmpLog.w(LogTag.AgentEnrich, e) { "[$agentId] chunk '$groupKey' Round 1.5 self-check failed (non-fatal): ${e.message}" }
+            HmpLog.w(LogTag.AgentEnrich, e) { "📚 [$agentId] chunk '$groupKey' Round 1.5 self-check failed (non-fatal): ${e.message}" }
         }
 
         // ========== Round 2a: 自由文本 Easy（description + singerIntroduce） ==========
@@ -416,11 +416,11 @@ class EnrichSubAgent(
         val easyMap = if (easyText != null) {
             runCatching { parseFreeTextEasyBatch(easyText, songs) }
                 .getOrElse { e ->
-                    HmpLog.e(LogTag.AgentEnrich, e) { "[$agentId] chunk '$groupKey' Round 2a parse failed: ${e.message}" }
+                    HmpLog.e(LogTag.AgentEnrich, e) { "📚 [$agentId] chunk '$groupKey' Round 2a parse failed: ${e.message}" }
                     emptyMap()
                 }
         } else {
-            HmpLog.w(LogTag.AgentEnrich) { "[$agentId] chunk '$groupKey' Round 2a call failed — description/singerIntroduce will be empty" }
+            HmpLog.w(LogTag.AgentEnrich) { "📚 [$agentId] chunk '$groupKey' Round 2a call failed — description/singerIntroduce will be empty" }
             emptyMap()
         }
 
@@ -432,11 +432,11 @@ class EnrichSubAgent(
         val factsMap = if (factsText != null) {
             runCatching { parseFreeTextFactsBatch(factsText, songs) }
                 .getOrElse { e ->
-                    HmpLog.e(LogTag.AgentEnrich, e) { "[$agentId] chunk '$groupKey' Round 2b parse failed: ${e.message}" }
+                    HmpLog.e(LogTag.AgentEnrich, e) { "📚 [$agentId] chunk '$groupKey' Round 2b parse failed: ${e.message}" }
                     emptyMap()
                 }
         } else {
-            HmpLog.w(LogTag.AgentEnrich) { "[$agentId] chunk '$groupKey' Round 2b call failed — facts fields will be empty/-暂无" }
+            HmpLog.w(LogTag.AgentEnrich) { "📚 [$agentId] chunk '$groupKey' Round 2b call failed — facts fields will be empty/-暂无" }
             emptyMap()
         }
 
@@ -459,10 +459,10 @@ class EnrichSubAgent(
             if (reflectionText != null) {
                 val patches = parseReflectionPatches(reflectionText, songs)
                 applyReflectionPatches(draftResults, patches, songs)
-                HmpLog.i(LogTag.AgentEnrich) { "[$agentId] chunk '$groupKey' Round 3 patched ${patches.size} field(s)" }
+                HmpLog.i(LogTag.AgentEnrich) { "📚 [$agentId] chunk '$groupKey' Round 3 patched ${patches.size} field(s)" }
             }
         }.onFailure { e ->
-            HmpLog.w(LogTag.AgentEnrich, e) { "[$agentId] chunk '$groupKey' Round 3 reflection failed (non-fatal): ${e.message}" }
+            HmpLog.w(LogTag.AgentEnrich, e) { "📚 [$agentId] chunk '$groupKey' Round 3 reflection failed (non-fatal): ${e.message}" }
         }
 
         // ========== 最终写 DB ==========
@@ -476,11 +476,11 @@ class EnrichSubAgent(
             if (daily != null && hasEnum) {
                 writeSongResult(song, daily)
                 chunkSuccess++
-                HmpLog.d(LogTag.AgentEnrich) { "[$agentId] WRITE OK: id=${song.music.id} title=${song.music.title.take(20)} genre=${daily.genre.take(2)} language=${daily.language}" }
+                HmpLog.d(LogTag.AgentEnrich) { "📚 [$agentId] WRITE OK: id=${song.music.id} title=${song.music.title.take(20)} genre=${daily.genre.take(2)} language=${daily.language}" }
             } else {
                 chunkFail++
                 failCount++
-                HmpLog.w(LogTag.AgentEnrich) { "[$agentId] SKIP: id=${song.music.id} title=${song.music.title.take(20)} reason=daily=${daily != null} hasEnum=$hasEnum" }
+                HmpLog.w(LogTag.AgentEnrich) { "📚 [$agentId] SKIP: id=${song.music.id} title=${song.music.title.take(20)} reason=daily=${daily != null} hasEnum=$hasEnum" }
             }
         }
 
@@ -490,7 +490,7 @@ class EnrichSubAgent(
             total = currentUnitSize,
         ))
 
-        HmpLog.i(LogTag.AgentEnrich) { "[$agentId] chunk '$groupKey' done: chunkSuccess=$chunkSuccess chunkFail=$chunkFail runningTotal success=$successCount fail=$failCount" }
+        HmpLog.i(LogTag.AgentEnrich) { "📚 [$agentId] chunk '$groupKey' done: chunkSuccess=$chunkSuccess chunkFail=$chunkFail runningTotal success=$successCount fail=$failCount" }
         updateProgressState()
         return chunkSuccess > 0 || chunkFail == 0
     }
@@ -503,9 +503,9 @@ class EnrichSubAgent(
             newMessages = listOf(LlmMessage(role = "user", content = userPrompt)),
         )
         if (text == null) {
-            HmpLog.w(LogTag.AgentEnrich) { "[$agentId] $roundLabel → null (call failed or timeout)" }
+            HmpLog.w(LogTag.AgentEnrich) { "📚 [$agentId] $roundLabel → null (call failed or timeout)" }
         } else {
-            HmpLog.i(LogTag.AgentEnrich) { "[$agentId] $roundLabel raw(${text.length}): ${text.take(600)}" }
+            HmpLog.i(LogTag.AgentEnrich) { "📚 [$agentId] $roundLabel raw(${text.length}): ${text.take(600)}" }
         }
         return text
     }
@@ -522,7 +522,7 @@ class EnrichSubAgent(
     /** Round 1 枚举批量 */
     private fun parseEnumBatch(text: String, songs: List<MusicInfo>): Map<Long, EnumOnlyResult> {
         val elements = extractJsonArrayElements(text)
-        HmpLog.i(LogTag.AgentEnrich) { "[$agentId] parseEnumBatch: extracted ${elements.size} JSON elements, expecting ${songs.size} songs" }
+        HmpLog.i(LogTag.AgentEnrich) { "📚 [$agentId] parseEnumBatch: extracted ${elements.size} JSON elements, expecting ${songs.size} songs" }
         val result = mutableMapOf<Long, EnumOnlyResult>()
         for ((index, elementText) in elements.withIndex()) {
             if (index >= songs.size) break
@@ -530,10 +530,10 @@ class EnrichSubAgent(
             runCatching { json.decodeFromString<EnumOnlyResult>(elementText) }
                 .onSuccess { result[song.music.id] = it }
                 .onFailure { e ->
-                    HmpLog.w(LogTag.AgentEnrich) { "[$agentId] song ${song.music.id} (${song.music.title}) Round 1 parse failed: ${e.message}" }
+                    HmpLog.w(LogTag.AgentEnrich) { "📚 [$agentId] song ${song.music.id} (${song.music.title}) Round 1 parse failed: ${e.message}" }
                 }
         }
-        HmpLog.i(LogTag.AgentEnrich) { "[$agentId] parseEnumBatch: ${result.size}/${songs.size} songs parsed OK" }
+        HmpLog.i(LogTag.AgentEnrich) { "📚 [$agentId] parseEnumBatch: ${result.size}/${songs.size} songs parsed OK" }
         return result
     }
 
@@ -547,7 +547,7 @@ class EnrichSubAgent(
             runCatching { json.decodeFromString<EnumOnlyResult>(elementText) }
                 .onSuccess { result[song.music.id] = it }
                 .onFailure { e ->
-                    HmpLog.w(LogTag.AgentEnrich, e) { "[$agentId] song ${song.music.id} Round 1.5 parse failed: ${e.message}" }
+                    HmpLog.w(LogTag.AgentEnrich, e) { "📚 [$agentId] song ${song.music.id} Round 1.5 parse failed: ${e.message}" }
                 }
         }
         return result
@@ -585,7 +585,7 @@ class EnrichSubAgent(
             runCatching { json.decodeFromString<FreeTextEasyResult>(elementText) }
                 .onSuccess { result[song.music.id] = it }
                 .onFailure { e ->
-                    HmpLog.w(LogTag.AgentEnrich, e) { "[$agentId] song ${song.music.id} Round 2a parse failed: ${e.message}" }
+                    HmpLog.w(LogTag.AgentEnrich, e) { "📚 [$agentId] song ${song.music.id} Round 2a parse failed: ${e.message}" }
                 }
         }
         return result
@@ -601,7 +601,7 @@ class EnrichSubAgent(
             runCatching { json.decodeFromString<FreeTextFactsResult>(elementText) }
                 .onSuccess { result[song.music.id] = it }
                 .onFailure { e ->
-                    HmpLog.w(LogTag.AgentEnrich, e) { "[$agentId] song ${song.music.id} Round 2b parse failed: ${e.message}" }
+                    HmpLog.w(LogTag.AgentEnrich, e) { "📚 [$agentId] song ${song.music.id} Round 2b parse failed: ${e.message}" }
                 }
         }
         return result
@@ -643,7 +643,7 @@ class EnrichSubAgent(
                     }
                 }
                 .onFailure { e ->
-                    HmpLog.w(LogTag.AgentEnrich, e) { "[$agentId] Round 3 patch parse failed: ${e.message}" }
+                    HmpLog.w(LogTag.AgentEnrich, e) { "📚 [$agentId] Round 3 patch parse failed: ${e.message}" }
                 }
         }
         return result
@@ -680,7 +680,7 @@ class EnrichSubAgent(
             "backgroundintroduce" -> current.copy(backgroundIntroduce = if (isEmptyMarker) "" else fix)
             "relevantmusic" -> current.copy(relevantMusic = if (isEmptyMarker) "" else fix)
             else -> {
-                HmpLog.w(LogTag.AgentEnrich) { "[$agentId] Round 3 unknown patch field: ${patch.field} — ignoring" }
+                HmpLog.w(LogTag.AgentEnrich) { "📚 [$agentId] Round 3 unknown patch field: ${patch.field} — ignoring" }
                 current
             }
         }
@@ -708,7 +708,7 @@ class EnrichSubAgent(
         if (firstBracket >= 0 && lastBracket > firstBracket) {
             val arrayContent = cleaned.substring(firstBracket + 1, lastBracket)
             val objs = splitJsonObjects(arrayContent)
-            HmpLog.i(LogTag.AgentEnrich) { "[$agentId] extractJsonArrayElements: found array [$firstBracket..$lastBracket], split → ${objs.size} objects" }
+            HmpLog.i(LogTag.AgentEnrich) { "📚 [$agentId] extractJsonArrayElements: found array [$firstBracket..$lastBracket], split → ${objs.size} objects" }
             return objs
         }
         // 没有正确的数组包装 → 尝试兜底解析
@@ -717,7 +717,7 @@ class EnrichSubAgent(
             cleaned.contains('}') && cleaned.contains('{') -> splitJsonObjects(cleaned)
             else -> emptyList()
         }
-        HmpLog.w(LogTag.AgentEnrich) { "[$agentId] extractJsonArrayElements: NO array wrapper! cleaned(prefix)=${cleaned.take(200)}, fallback → ${fallback.size} objects" }
+        HmpLog.w(LogTag.AgentEnrich) { "📚 [$agentId] extractJsonArrayElements: NO array wrapper! cleaned(prefix)=${cleaned.take(200)}, fallback → ${fallback.size} objects" }
         return fallback
     }
 
@@ -767,17 +767,17 @@ class EnrichSubAgent(
         val codeBlockRegex = Regex("""```(?:json)?\s*([\s\S]*?)\s*```""")
         val match = codeBlockRegex.find(text)
         if (match != null) {
-            HmpLog.d(LogTag.AgentEnrich) { "[$agentId] extractJsonBlock: found markdown code block, length=${match.groupValues[1].length}" }
+            HmpLog.d(LogTag.AgentEnrich) { "📚 [$agentId] extractJsonBlock: found markdown code block, length=${match.groupValues[1].length}" }
             return match.groupValues[1].trim()
         }
 
         val firstBrace = text.indexOfAny(charArrayOf('{', '['))
         val lastBrace = text.lastIndexOfAny(charArrayOf('}', ']'))
         if (firstBrace >= 0 && lastBrace > firstBrace) {
-            HmpLog.d(LogTag.AgentEnrich) { "[$agentId] extractJsonBlock: no markdown fence, using raw range [$firstBrace..$lastBrace]" }
+            HmpLog.d(LogTag.AgentEnrich) { "📚 [$agentId] extractJsonBlock: no markdown fence, using raw range [$firstBrace..$lastBrace]" }
             return text.substring(firstBrace, lastBrace + 1)
         }
-        HmpLog.w(LogTag.AgentEnrich) { "[$agentId] extractJsonBlock: NO JSON found! text(prefix)=${text.take(150)}" }
+        HmpLog.w(LogTag.AgentEnrich) { "📚 [$agentId] extractJsonBlock: NO JSON found! text(prefix)=${text.take(150)}" }
         return text.trim()
     }
 

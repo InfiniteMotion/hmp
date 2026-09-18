@@ -247,7 +247,7 @@ class RadioSession(
     }
 
     private suspend fun run() {
-        HmpLog.i(LogTag.AgentRadio) { "session started" }
+        HmpLog.i(LogTag.AgentRadio) { "📻 session started" }
         for (first in inbox) {
             if (originMs == null) originMs = first.atMs()
 
@@ -275,7 +275,7 @@ class RadioSession(
 
             val turn = ++turnIndex
             HmpLog.i(LogTag.AgentRadio) {
-                "[TURN#$turn] 触发=${cause} 新结算=${batch.count { it is Trigger.Settled }} 条" +
+                "📻 [TURN#$turn] 触发=${cause} 新结算=${batch.count { it is Trigger.Settled }} 条" +
                     "（合并窗口 ${mergeWindowMs}ms 内并批）"
             }
 
@@ -287,41 +287,41 @@ class RadioSession(
                 if (verdict.action != RadioAction.NONE) {
                     val applied = onVerdict(g, verdict)
                     if (applied) {
-                        HmpLog.i(LogTag.AgentRadio) { "[TURN#$turn] 执行=${verdict.action}" }
+                        HmpLog.i(LogTag.AgentRadio) { "📻 [TURN#$turn] 执行=${verdict.action}" }
                     } else {
                         HmpLog.i(LogTag.AgentRadio) {
-                            "[TURN#$turn] 结果已过期（提问后被关闭/暂停）→ 丢弃 ${verdict.action}"
+                            "📻 [TURN#$turn] 结果已过期（提问后被关闭/暂停）→ 丢弃 ${verdict.action}"
                         }
                     }
                 } else if (cause == RadioTriggerCause.QUEUE_LOW) {
                     // D2：模型没给动作，但队列确实见底了 → 本地补歌保底出声
                     // 同样受世代守卫：提问后台已被关闭/暂停 → 不补
                     if (generation() == g) {
-                        HmpLog.i(LogTag.AgentRadio) { "[TURN#$turn] 判定=none 但队列见底 → 本地补歌" }
+                        HmpLog.i(LogTag.AgentRadio) { "📻 [TURN#$turn] 判定=none 但队列见底 → 本地补歌" }
                         runCatching { fallbackRefill() }
                             .onFailure { e ->
                                 if (e is CancellationException) throw e
-                                HmpLog.w(LogTag.AgentRadio, e) { "fallback refill failed" }
+                                HmpLog.w(LogTag.AgentRadio, e) { "📻 fallback refill failed" }
                             }
                     } else {
                         HmpLog.i(LogTag.AgentRadio) {
-                            "[TURN#$turn] 判定=none 但世代已变（期间被关闭/暂停）→ 不补歌"
+                            "📻 [TURN#$turn] 判定=none 但世代已变（期间被关闭/暂停）→ 不补歌"
                         }
                     }
                 }
             } else if (cause == RadioTriggerCause.QUEUE_LOW) {
                 // 判断调用本身失败（模型没看到）→ 事实已撤回，本地补歌保底出声
-                HmpLog.i(LogTag.AgentRadio) { "[TURN#$turn] 判断失败但队列见底 → 本地补歌" }
+                HmpLog.i(LogTag.AgentRadio) { "📻 [TURN#$turn] 判断失败但队列见底 → 本地补歌" }
                 runCatching { fallbackRefill() }
                     .onFailure { e ->
                         if (e is CancellationException) throw e
-                        HmpLog.w(LogTag.AgentRadio, e) { "fallback refill failed" }
+                        HmpLog.w(LogTag.AgentRadio, e) { "📻 fallback refill failed" }
                     }
             }
 
             trimHistory()
         }
-        HmpLog.i(LogTag.AgentRadio) { "session stopped" }
+        HmpLog.i(LogTag.AgentRadio) { "📻 session stopped" }
     }
 
     /** @return 提问时刻的世代 + 判定；null = 调用失败（已撤回 user 消息，事实留待下轮） */
@@ -335,9 +335,9 @@ class RadioSession(
         val userContent = renderUserMessage(cause, queueRemaining, snap)
         // 完整上下文打 d 级（长），摘要打 i 级 —— 追踪时先 grep RadioTrace 看时间线，
         // 需要细看再放开 debug。
-        HmpLog.d(LogTag.AgentRadio) { "[TURN#$turn] 上下文：\n$userContent" }
+        HmpLog.d(LogTag.AgentRadio) { "📻 [TURN#$turn] 上下文：\n$userContent" }
         HmpLog.i(LogTag.AgentRadio) {
-            "[TURN#$turn] 问模型：事实 ${settled.size - sentSettled} 条 / 历史 ${messages.size} 条消息"
+            "📻 [TURN#$turn] 问模型：事实 ${settled.size - sentSettled} 条 / 历史 ${messages.size} 条消息"
         }
         messages += LlmMessage(role = "user", content = userContent)
 
@@ -346,26 +346,26 @@ class RadioSession(
         } catch (e: CancellationException) {
             throw e
         } catch (e: Throwable) {
-            HmpLog.w(LogTag.AgentRadio, e) { "judge failed → silent" }
+            HmpLog.w(LogTag.AgentRadio, e) { "📻 judge failed → silent" }
             null
         }
 
         // 调用失败：模型根本没看到，撤回这条 user 消息，事实下一轮再送
         if (raw.isNullOrBlank()) {
             messages.removeLastOrNull()
-            HmpLog.w(LogTag.AgentRadio) { "[TURN#$turn] 模型没回（调用失败/无端点）→ 沉默，事实留到下一轮" }
+            HmpLog.w(LogTag.AgentRadio) { "📻 [TURN#$turn] 模型没回（调用失败/无端点）→ 沉默，事实留到下一轮" }
             return null
         }
 
         // 模型看到了，事实记为已送达
         sentSettled = settled.size
         sentPauses = pauses.size
-        HmpLog.i(LogTag.AgentRadio) { "[TURN#$turn] 模型回复：${raw.trim().take(200)}" }
+        HmpLog.i(LogTag.AgentRadio) { "📻 [TURN#$turn] 模型回复：${raw.trim().take(200)}" }
 
         val parsed = parseVerdict(raw)
         if (parsed == null) {
             // 输出不可解析 = 沉默。补一条 assistant 回复，保持对话 user/assistant 交替。
-            HmpLog.w(LogTag.AgentRadio) { "unparsable verdict → silent: ${raw.take(120)}" }
+            HmpLog.w(LogTag.AgentRadio) { "📻 unparsable verdict → silent: ${raw.take(120)}" }
             messages += LlmMessage(role = "assistant", content = """{"action":"none"}""")
             return null
         }
@@ -373,7 +373,7 @@ class RadioSession(
         messages += LlmMessage(role = "assistant", content = raw.trim())
         parsed.reason?.let { noteIntent(it) }
         HmpLog.i(LogTag.AgentRadio) {
-            "[TURN#$turn] 判定=${parsed.action}" +
+            "📻 [TURN#$turn] 判定=${parsed.action}" +
                 (if (parsed.action == RadioAction.REPLACE) " (${parsed.musicIds.size} 首)" else "") +
                 " reason=${parsed.reason?.take(60)}"
         }

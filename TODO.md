@@ -425,6 +425,23 @@ v5.10 是 v5 系列的最后一个版本，标志着跨平台架构搭建完成�
 
   - 💡 Release 裁剪：Android BuildConfig.DEBUG → Warn / Desktop `-Dhmp.release-build=true` → Warn / iOS `#if DEBUG` → Warn；CI release.yml Desktop 构建自动带 `-Phmp.release-build=true`
 
+- [x] **统一日志规范（HmpLog）全仓推广** ✅ 2026-09-18——把原只在 agent 模块生效的 `HmpLog` 规范铺到整个应用（规范见 [docs/LOGGING.md](docs/LOGGING.md)）：
+  - [x] 扩充 `LogTag` 枚举：11 → **38 个 tag / 7 个域**（Agent 14 / UI 4 / Data 5 / Player 7 / System 4 / Library 3 / Media 1），新增 UI / Data / Player / System / Library / Media 六域共 26 个 tag
+
+  - [x] 收敛 24 个**平行 tag**（原散落字符串）进枚举：`Agent.Gateway` / `Agent.Chat` / `Agent.Port` / `Repo.Music` / `UseCase.DailyRec` / `BackupFileRepository` / `DwmHelper` / `WindowHelper` / `Main` / `Startup` / `AudioEngine` / `MetadataParser` / `ArtworkExtractor` / `AppDelegate` / `AudioSession` / `MusicPlayerController` / `HMPMediaSession` / `NowPlayingInfo` / `LiveActivityManager` / `MusicPlayService` / `NotificationReceiver` / `MusicController` / `AudioEffectManager` / `Network.ApiAdapter`
+
+  - [x] Kotlin 侧迁移：`shared`（三端 actual 仓库 + 数据层 + 网络层 + use case）+ `shared-ui`（chat 包 + Android 平台服务）Kermit 直调 → `HmpLog`；`android/core-player`（播放服务/控制器/通知/音效）`android.util.Log` → `HmpLog`；`desktop/app` + `desktop/core-player`（DWM 窗口/启动/FFmpeg 引擎）→ `HmpLog`
+
+  - [x] Swift 侧新增门面 `ios/HMP/HMP/Common/HmpLog.swift`（`HmpTag` + `HmpLevel` + `HmpLog`，委托 `platformLog`），已注册进 `project.pbxproj` 四处；8 个 Swift 文件的 51 处 `PlatformLogKt.platformLog` 直调 → `HmpLog.x(HmpTag.y, "…")`，**调用点不再硬编码 tag 字符串**
+
+  - [x] 顺手修规范违规：`ChatKoinModule` 的 `init failed (non-fatal)` 由 ERROR 降为 **WARN**；`AndroidPlatformServices` 两处 `e.printStackTrace()` → `HmpLog.w(tag, e) { "… failed | non-fatal | reason=…" }`
+
+  - [x] `docs/LOGGING.md` 同步：§2 全量 tag 树 + 新增「作用范围」豁免表、§4 域 Token 对照表补全 + Swift 示例、§5 收入 Kotlin/Swift 双门面实现、§6 可执行检查命令 + 覆盖状态表、附录记推广
+
+  - 💡 结果：`HmpLog` 调用点 **309 → 504 处**；残留 Kermit 直调仅剩门面/桥接/初始化三处基础设施（豁免），`android.util.Log` 清零，Swift 侧无裸桥接调用
+
+  - 💡 经验沉淀为 skill `log-convention-rollout`（本机 `~/.workbuddy/skills/`）：测绘 → 定规范 → 分类别批量迁移 → 编译 + 扫描收口，含 Swift 字符串插值 tokenizer 与「迁移前后计数必须相等」等踩坑记录
+
 - [x] **B3** 引擎循环——原 AgentOrchestrator 已由 T 阶段并入 MasterAgent（`handleUserMessage()` 即原 run() 循环）；步数预算 8 + Scheduler/PolicyGuard/TrustLedger/ContextBudget/SessionStore/PresenceBus + PlaybackCommandPort + 双层预算 + FakePlaybackCommandPort 确定性测试（M4）
 
 - [x] **B4** 对话 UI（纯文字完整体验）——ChatScreen + 五类气泡（text/song/songlist/explain/confirm）+ 确认卡片流 + 锚点系统（三胶囊/轻量浮层/播放页重排/C 键）+ 两级漏斗 + 门面二期 + 搜索框条带（M1 + M5）

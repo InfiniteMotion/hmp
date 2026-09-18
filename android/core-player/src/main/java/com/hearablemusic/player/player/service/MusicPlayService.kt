@@ -17,7 +17,6 @@ import android.media.AudioManager
 import android.os.Binder
 import android.os.Build
 import android.os.IBinder
-import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
@@ -36,6 +35,8 @@ import com.hearablemusic.player.player.R
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import com.hmp.log.HmpLog
+import com.hmp.log.LogTag
 
 interface PlayControl {
     fun play()
@@ -113,13 +114,13 @@ class MusicPlayService : Service(), PlayControl {
             when (intent?.action) {
                 AudioManager.ACTION_AUDIO_BECOMING_NOISY -> {
                     // 耳机拔出,暂停播放
-                    Log.d("MusicPlayService", "Audio becoming noisy, pausing playback")
+                    HmpLog.d(LogTag.PlayerService) { "📡 Audio becoming noisy, pausing playback" }
                     exoPlayer.pause()
                     playbackListener?.onPlayStateChanged(false)
                 }
                 BluetoothDevice.ACTION_ACL_DISCONNECTED -> {
                     // 蓝牙断开,暂停播放
-                    Log.d("MusicPlayService", "Bluetooth disconnected, pausing playback")
+                    HmpLog.d(LogTag.PlayerService) { "📡 Bluetooth disconnected, pausing playback" }
                     exoPlayer.pause()
                     playbackListener?.onPlayStateChanged(false)
                 }
@@ -157,7 +158,7 @@ class MusicPlayService : Service(), PlayControl {
     // 绑定播放完成回调
     fun setOnMusicCompleteListener(listener: OnMusicCompleteListener) {
         playbackListener = listener
-        Log.d("MusicPlayService", "OnMusicCompleteListener set: ${true}")
+        HmpLog.d(LogTag.PlayerService) { "📡 OnMusicCompleteListener set: ${true}" }
     }
 
     // 返回 Binder 实例
@@ -284,13 +285,13 @@ class MusicPlayService : Service(), PlayControl {
                     }
                 }
                 override fun onIsPlayingChanged(isPlaying: Boolean) {
-                    Log.d("MusicPlayService", "onIsPlayingChanged: $isPlaying")
+                    HmpLog.d(LogTag.PlayerService) { "📡 onIsPlayingChanged: $isPlaying" }
                     getCurrentPlayingMusic()?.let { updateNotificationPlaybackState(it) }
                     playbackListener?.onPlayStateChanged(isPlaying)
                 }
 
                 override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
-                    Log.e("MusicPlayService", "Player error: ${error.message}", error)
+                    HmpLog.e(LogTag.PlayerService, error) { "📡 Player error: ${error.message}" }
                     playbackListener?.onPlayStateChanged(false)
                 }
             })
@@ -314,13 +315,13 @@ class MusicPlayService : Service(), PlayControl {
 
             // 重写 seekToNext 方法
             override fun seekToNext() {
-                Log.d("MusicPlayService", "ForwardingPlayer.seekToNext() called")
+                HmpLog.d(LogTag.PlayerService) { "📡 ForwardingPlayer.seekToNext() called" }
                 playbackListener?.onPlaybackNext()
             }
 
             // 重写 seekToPrevious 方法
             override fun seekToPrevious() {
-                Log.d("MusicPlayService", "ForwardingPlayer.seekToPrevious() called")
+                HmpLog.d(LogTag.PlayerService) { "📡 ForwardingPlayer.seekToPrevious() called" }
                 playbackListener?.onPlaybackPrev()
             }
 
@@ -354,10 +355,10 @@ class MusicPlayService : Service(), PlayControl {
                     controller: MediaSession.ControllerInfo,
                     playerCommand: Int
                 ): Int {
-                    Log.d("MusicPlayService", "onPlayerCommandRequest: $playerCommand, listener: ${playbackListener != null}")
+                    HmpLog.d(LogTag.PlayerService) { "📡 onPlayerCommandRequest: $playerCommand, listener: ${playbackListener != null}" }
                     when (playerCommand) {
                         Player.COMMAND_SEEK_TO_NEXT, Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM -> {
-                            Log.d("MusicPlayService", "Seek to next requested")
+                            HmpLog.d(LogTag.PlayerService) { "📡 Seek to next requested" }
                             // 在主线程调用 listener
                             CoroutineScope(Dispatchers.Main).launch {
                                 playbackListener?.onPlaybackNext()
@@ -365,7 +366,7 @@ class MusicPlayService : Service(), PlayControl {
                             return SessionResult.RESULT_SUCCESS
                         }
                         Player.COMMAND_SEEK_TO_PREVIOUS, Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM -> {
-                            Log.d("MusicPlayService", "Seek to previous requested")
+                            HmpLog.d(LogTag.PlayerService) { "📡 Seek to previous requested" }
                             // 在主线程调用 listener
                             CoroutineScope(Dispatchers.Main).launch {
                                 playbackListener?.onPlaybackPrev()
@@ -396,7 +397,7 @@ class MusicPlayService : Service(), PlayControl {
             }
             registerReceiver(audioBecomingNoisyReceiver, filter)
             isReceiverRegistered = true
-            Log.d("MusicPlayService", "Audio device receiver registered")
+            HmpLog.d(LogTag.PlayerService) { "📡 Audio device receiver registered" }
         }
     }
 
@@ -406,9 +407,9 @@ class MusicPlayService : Service(), PlayControl {
             try {
                 unregisterReceiver(audioBecomingNoisyReceiver)
                 isReceiverRegistered = false
-                Log.d("MusicPlayService", "Audio device receiver unregistered")
+                HmpLog.d(LogTag.PlayerService) { "📡 Audio device receiver unregistered" }
             } catch (e: IllegalArgumentException) {
-                Log.e("MusicPlayService", "Receiver already unregistered", e)
+                HmpLog.e(LogTag.PlayerService, e) { "📡 Receiver already unregistered" }
             }
         }
     }
@@ -632,18 +633,18 @@ class MusicPlayService : Service(), PlayControl {
                 val success = audioEffectManager.initialize(sessionId)
                 if (success) {
                     isAudioEffectInitialized = true
-                    Log.d("MusicPlayService", "Audio effects initialized successfully")
+                    HmpLog.d(LogTag.PlayerService) { "📡 Audio effects initialized successfully" }
                     
                     // 恢复之前的音效设置
                     restoreAudioEffectSettings()
                 } else {
-                    Log.w("MusicPlayService", "Failed to initialize audio effects (attempt $audioEffectInitRetryCount)")
+                    HmpLog.w(LogTag.PlayerService) { "📡 Failed to initialize audio effects (attempt $audioEffectInitRetryCount)" }
                 }
             } else {
-                Log.w("MusicPlayService", "Invalid audio session ID: $sessionId")
+                HmpLog.w(LogTag.PlayerService) { "📡 Invalid audio session ID: $sessionId" }
             }
         } catch (e: Exception) {
-            Log.e("MusicPlayService", "Error initializing audio effects", e)
+            HmpLog.e(LogTag.PlayerService, e) { "📡 Error initializing audio effects" }
         }
     }
     
@@ -672,9 +673,9 @@ class MusicPlayService : Service(), PlayControl {
     override fun setEqualizerPreset(preset: Int) {
         if (audioEffectManager.setEqualizerPreset(preset)) {
             equalizerPreset = preset
-            Log.d("MusicPlayService", "Set equalizer preset: $preset")
+            HmpLog.d(LogTag.PlayerService) { "📡 Set equalizer preset: $preset" }
         } else {
-            Log.w("MusicPlayService", "Failed to set equalizer preset: $preset")
+            HmpLog.w(LogTag.PlayerService) { "📡 Failed to set equalizer preset: $preset" }
         }
     }
     
@@ -682,27 +683,27 @@ class MusicPlayService : Service(), PlayControl {
         val strength = (level * 10).toShort()
         if (audioEffectManager.setBassBoostStrength(strength)) {
             bassBoostLevel = level
-            Log.d("MusicPlayService", "Set bass boost level: $level (strength: $strength)")
+            HmpLog.d(LogTag.PlayerService) { "📡 Set bass boost level: $level (strength: $strength)" }
         } else {
-            Log.w("MusicPlayService", "Failed to set bass boost level: $level")
+            HmpLog.w(LogTag.PlayerService) { "📡 Failed to set bass boost level: $level" }
         }
     }
     
     override fun setSurroundSound(enabled: Boolean) {
         if (audioEffectManager.setVirtualizerEnabled(enabled)) {
             surroundSoundEnabled = enabled
-            Log.d("MusicPlayService", "Set surround sound: $enabled")
+            HmpLog.d(LogTag.PlayerService) { "📡 Set surround sound: $enabled" }
         } else {
-            Log.w("MusicPlayService", "Failed to set surround sound: $enabled")
+            HmpLog.w(LogTag.PlayerService) { "📡 Failed to set surround sound: $enabled" }
         }
     }
     
     override fun setReverb(preset: Int) {
         if (audioEffectManager.setReverbPreset(preset.toShort())) {
             reverbPreset = preset
-            Log.d("MusicPlayService", "Set reverb preset: $preset")
+            HmpLog.d(LogTag.PlayerService) { "📡 Set reverb preset: $preset" }
         } else {
-            Log.w("MusicPlayService", "Failed to set reverb preset: $preset")
+            HmpLog.w(LogTag.PlayerService) { "📡 Failed to set reverb preset: $preset" }
         }
     }
     
@@ -716,9 +717,9 @@ class MusicPlayService : Service(), PlayControl {
         
         if (success) {
             customEqualizerLevels = bandLevels
-            Log.d("MusicPlayService", "Set custom equalizer levels: ${bandLevels.contentToString()}")
+            HmpLog.d(LogTag.PlayerService) { "📡 Set custom equalizer levels: ${bandLevels.contentToString()}" }
         } else {
-            Log.w("MusicPlayService", "Failed to set some custom equalizer levels")
+            HmpLog.w(LogTag.PlayerService) { "📡 Failed to set some custom equalizer levels" }
         }
     }
     

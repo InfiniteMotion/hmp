@@ -13,9 +13,9 @@ class NowPlayingInfoManager {
     func setupNowPlayingSession(with player: AVPlayer?) {
         if let player = player {
             nowPlayingSession = MPNowPlayingSession(players: [player])
-            PlatformLogKt.platformLog(severity: 1, tag: "NowPlayingInfo", message: "Session created with AVPlayer")
+            HmpLog.i(HmpTag.mediaNowPlaying, "📺 Session created with AVPlayer")
         } else {
-            PlatformLogKt.platformLog(severity: 2, tag: "NowPlayingInfo", message: "WARNING: AVPlayer is nil, will create session when available")
+            HmpLog.w(HmpTag.mediaNowPlaying, "📺 WARNING: AVPlayer is nil, will create session when available")
         }
     }
 
@@ -23,7 +23,7 @@ class NowPlayingInfoManager {
         guard let player = player else { return }
         if nowPlayingSession == nil {
             nowPlayingSession = MPNowPlayingSession(players: [player])
-            PlatformLogKt.platformLog(severity: 1, tag: "NowPlayingInfo", message: "Session created lazily with AVPlayer")
+            HmpLog.i(HmpTag.mediaNowPlaying, "📺 Session created lazily with AVPlayer")
         }
     }
 
@@ -49,20 +49,20 @@ class NowPlayingInfoManager {
 
         MPNowPlayingInfoCenter.default().nowPlayingInfo = info
         MPNowPlayingInfoCenter.default().playbackState = .playing
-        PlatformLogKt.platformLog(severity: 0, tag: "NowPlayingInfo", message: "updateTrack: title=\(title), artist=\(artist), duration=\(duration)s, playbackState=playing")
+        HmpLog.d(HmpTag.mediaNowPlaying, "📺 updateTrack: title=\(title), artist=\(artist), duration=\(duration)s, playbackState=playing")
         lastPositionUpdate = Date().timeIntervalSinceReferenceDate
     }
 
     func updatePlaybackState(isPlaying: Bool, position: TimeInterval) {
         guard var info = MPNowPlayingInfoCenter.default().nowPlayingInfo else {
-            PlatformLogKt.platformLog(severity: 0, tag: "NowPlayingInfo", message: "updatePlaybackState: no nowPlayingInfo set yet")
+            HmpLog.d(HmpTag.mediaNowPlaying, "📺 updatePlaybackState: no nowPlayingInfo set yet")
             return
         }
         info[MPNowPlayingInfoPropertyElapsedPlaybackTime] = position
         info[MPNowPlayingInfoPropertyPlaybackRate] = isPlaying ? 1.0 : 0.0
         MPNowPlayingInfoCenter.default().nowPlayingInfo = info
         MPNowPlayingInfoCenter.default().playbackState = isPlaying ? .playing : .paused
-        PlatformLogKt.platformLog(severity: 0, tag: "NowPlayingInfo", message: "updatePlaybackState: isPlaying=\(isPlaying), position=\(position)s")
+        HmpLog.d(HmpTag.mediaNowPlaying, "📺 updatePlaybackState: isPlaying=\(isPlaying), position=\(position)s")
         lastPositionUpdate = Date().timeIntervalSinceReferenceDate
     }
 

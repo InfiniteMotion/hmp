@@ -5,7 +5,6 @@ import android.content.Context
 import android.media.MediaMetadataRetriever
 import android.provider.MediaStore
 import androidx.core.net.toUri
-import co.touchlab.kermit.Logger
 import com.hmp.data.database.AgentAuditLogDao
 import com.hmp.data.database.ForgottenDeliveryDao
 import com.hmp.data.database.ListeningDurationDao
@@ -35,6 +34,8 @@ import kotlinx.serialization.json.Json
 import org.jaudiotagger.audio.AudioFileIO
 import org.jaudiotagger.tag.FieldKey
 import java.io.File
+import com.hmp.log.HmpLog
+import com.hmp.log.LogTag
 
 /**
  * Android 播放器仓库实现（B0 去重后仅保留平台分叉）：MediaStore 扫描 / SAF 标签写入 /
@@ -153,7 +154,7 @@ class MusicRepositoryImpl(
 
             kotlin.Result.success(Unit)
         } catch (e: Exception) {
-            Logger.e("Repo.Music", e) { "MusicRepository: Music scan failed: ${e.message}" }
+            HmpLog.e(LogTag.DataMusicRepo, e) { "🎵 MusicRepository: Music scan failed: ${e.message}" }
             kotlin.Result.failure(e)
         } finally {
             _isScanning.value = false
@@ -228,7 +229,7 @@ class MusicRepositoryImpl(
 
             kotlin.Result.success(Unit)
         } catch (e: Exception) {
-            Logger.e("Repo.Music", e) { "MusicRepository: Incremental music scan failed: ${e.message}" }
+            HmpLog.e(LogTag.DataMusicRepo, e) { "🎵 MusicRepository: Incremental music scan failed: ${e.message}" }
             kotlin.Result.failure(e)
         } finally {
             _isScanning.value = false
@@ -345,7 +346,7 @@ class MusicRepositoryImpl(
                             )
                         )
                     } catch (e: Exception) {
-                        Logger.e("Repo.Music", e) { "MusicRepository: Error processing music item: ${e.message}" }
+                        HmpLog.e(LogTag.DataMusicRepo, e) { "🎵 MusicRepository: Error processing music item: ${e.message}" }
                     }
                 }
             }

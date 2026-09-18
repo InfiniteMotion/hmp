@@ -120,7 +120,7 @@ class AgentContextBudget(
             }
         }
         return if (failedMessage != null) {
-            HmpLog.e(LogTag.AgentContext) { "[$agentId] callLlmText failed: $failedMessage" }
+            HmpLog.e(LogTag.AgentContext) { "📐 [$agentId] callLlmText failed: $failedMessage" }
             null
         } else {
             textBuffer.toString()
@@ -164,7 +164,7 @@ class AgentContextBudget(
         estimatedTokenCount = estimatedHistory.sumOf { estimateMessageTokens(it) }
 
         val summary = "[历史压缩] 丢弃 ${discarded.size} 条早期消息，保留最近 ${estimatedHistory.size} 条"
-        HmpLog.i(LogTag.AgentContext) { "[$agentId] $summary (${estimatedTokenCount}/${maxContextTokens} tokens)" }
+        HmpLog.i(LogTag.AgentContext) { "📐 [$agentId] $summary (${estimatedTokenCount}/${maxContextTokens} tokens)" }
         return summary
     }
 

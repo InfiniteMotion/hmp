@@ -50,7 +50,7 @@ class HMPMediaSession {
         currentDurationMs = musicInfo.music.duration
 
         let avPlayer = MusicPlayerController.shared.engine.avPlayer
-        PlatformLogKt.platformLog(severity: 0, tag: "HMPMediaSession", message: "onTrackChanged: title=\(musicInfo.music.title), avPlayer=\(avPlayer != nil ? "exists" : "nil"), isCurrentlyPlaying=\(isCurrentlyPlaying)")
+        HmpLog.d(HmpTag.mediaNowPlaying, "📺 onTrackChanged: title=\(musicInfo.music.title), avPlayer=\(avPlayer != nil ? ")
 
         nowPlayingInfo.setupNowPlayingSession(with: avPlayer)
 
@@ -100,7 +100,7 @@ class HMPMediaSession {
     }
 
     func onPlaybackStateChanged(isPlaying: Bool) {
-        PlatformLogKt.platformLog(severity: 0, tag: "HMPMediaSession", message: "onPlaybackStateChanged: isPlaying=\(isPlaying), hasInfo=\(nowPlayingInfo.hasNowPlayingInfo)")
+        HmpLog.d(HmpTag.mediaNowPlaying, "📺 onPlaybackStateChanged: isPlaying=\(isPlaying), hasInfo=\(nowPlayingInfo.hasNowPlayingInfo)")
         isCurrentlyPlaying = isPlaying
 
         if isPlaying {
@@ -108,7 +108,7 @@ class HMPMediaSession {
         }
 
         guard nowPlayingInfo.hasNowPlayingInfo else {
-            PlatformLogKt.platformLog(severity: 0, tag: "HMPMediaSession", message: "Skipping playback state update (no track info yet, will apply in onTrackChanged)")
+            HmpLog.d(HmpTag.mediaNowPlaying, "📺 Skipping playback state update (no track info yet, will apply in onTrackChanged)")
             return
         }
 

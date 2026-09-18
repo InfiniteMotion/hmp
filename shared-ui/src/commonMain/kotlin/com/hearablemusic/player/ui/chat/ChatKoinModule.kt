@@ -27,6 +27,8 @@ import kotlinx.coroutines.launch
 import org.koin.core.qualifier.named
 import org.koin.dsl.bind
 import org.koin.dsl.module
+import com.hmp.log.HmpLog
+import com.hmp.log.LogTag
 
 /**
  * M5-T2 对话引擎接缝的三端共享 Koin 模块。
@@ -118,7 +120,7 @@ val chatGatewayModule = module {
             // （避免在 Koin single 创建过程中再 get<ToolRegistry>() 引发循环依赖）
             master.lifecycleScope.launch {
                 runCatching { master.initialize() }
-                    .onFailure { e -> co.touchlab.kermit.Logger.e("Agent.Master", e) { "initialize failed (non-fatal)" } }
+                    .onFailure { e -> HmpLog.w(LogTag.AgentMaster, e) { "🤖 initialize failed | non-fatal | reason=${e.message}" } }
             }
             // AI 配置热监听：combine(aiAccessMode, customAiConfig) → 任何一个变了都推给 MasterAgent
             master.lifecycleScope.launch {
@@ -129,8 +131,7 @@ val chatGatewayModule = module {
                     runCatching { settingsRepo.getActiveAiConfig() }.getOrNull()
                 }.collect { activeConfig ->
                     master.updateAiConfig()
-                    co.touchlab.kermit.Logger.i("Agent.Master") {
-                        "AI config changed → per-Agent configs reloaded from SettingsRepository"
+                    HmpLog.i(LogTag.AgentMaster) { "🤖 AI config changed → per-Agent configs reloaded from SettingsRepository"
                     }
                 }
             }

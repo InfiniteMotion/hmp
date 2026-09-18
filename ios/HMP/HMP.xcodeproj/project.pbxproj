@@ -49,6 +49,7 @@
 		8251D7D283D1C40F272B20B0 /* pop.png in Resources */ = {isa = PBXBuildFile; fileRef = 6A83C30870213413CA5FF464 /* pop.png */; };
 		83BF653B59F5F6CB5F27673A /* german.png in Resources */ = {isa = PBXBuildFile; fileRef = 76DE66401B8A4032A358832E /* german.png */; };
 		859A160103C810876D675882 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8183BDAC3B63AE695B69F415 /* AppDelegate.swift */; };
+		EED5F9AFCB9C487CC46125A5 /* HmpLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = A85CFDBFB502FA32DB646944 /* HmpLog.swift */; };
 		86F87C363388F1EF714FA34C /* funk.png in Resources */ = {isa = PBXBuildFile; fileRef = A21F8B87FD4E62138F6A50EB /* funk.png */; };
 		87E7F86660053772336B0E33 /* uplifting.png in Resources */ = {isa = PBXBuildFile; fileRef = 0F12054DD877E480A0E6FE01 /* uplifting.png */; };
 		8E10C0308349C51937D552CC /* meditation.png in Resources */ = {isa = PBXBuildFile; fileRef = AAB0B4A7AE6622A14C313BAC /* meditation.png */; };
@@ -126,6 +127,7 @@
 		806D26AAAD48E53DD09FA512 /* classical.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = classical.png; sourceTree = "<group>"; };
 		8130BD644FAD2A7C8657AFAB /* english.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = english.png; sourceTree = "<group>"; };
 		8183BDAC3B63AE695B69F415 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		A85CFDBFB502FA32DB646944 /* HmpLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HmpLog.swift; sourceTree = "<group>"; };
 		8357524872E91180C7C2F85E /* spanish.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = spanish.png; sourceTree = "<group>"; };
 		85781D5C1E4F5E8B29590074 /* morning.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = morning.png; sourceTree = "<group>"; };
 		86C8D49F8C1EA43FDD868CA9 /* hindi.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = hindi.png; sourceTree = "<group>"; };
@@ -188,6 +190,7 @@
 			isa = PBXGroup;
 			children = (
 				5E4F900BBD0EBCA536A3DC0C /* Util */,
+				A85CFDBFB502FA32DB646944 /* HmpLog.swift */,
 			);
 			path = Common;
 			sourceTree = "<group>";
@@ -554,6 +557,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				859A160103C810876D675882 /* AppDelegate.swift in Sources */,
+				EED5F9AFCB9C487CC46125A5 /* HmpLog.swift in Sources */,
 				D9896B70D4E85FF2BFF3E616 /* ArtworkExtractor.swift in Sources */,
 				11200C4F8A2C0C79B8B350EC /* ArtworkLoader.swift in Sources */,
 				734CE123F065BD63D5CB4DD1 /* AudioSessionManager.swift in Sources */,

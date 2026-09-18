@@ -1,6 +1,5 @@
 package com.hmp.data.repository
 
-import co.touchlab.kermit.Logger
 import com.hmp.data.database.ListeningDuration
 import com.hmp.data.database.AgentAuditLogDao
 import com.hmp.data.database.ForgottenDeliveryDao
@@ -28,6 +27,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
+import com.hmp.log.HmpLog
+import com.hmp.log.LogTag
 
 /**
  * iOS 播放器仓库实现（B0 去重后仅保留平台分叉）：NSFileManager 目录扫描（DeviceMusicScanner）/
@@ -72,7 +73,7 @@ class MusicRepositoryImpl(
         _isScanning.value = true
         try {
             val (musicList, extraList, userInfoList) = performMusicScan()
-            Logger.i("Repo.Music") { "scanned ${musicList.size} music files" }
+            HmpLog.i(LogTag.DataMusicRepo) { "🎵 scanned ${musicList.size} music files" }
 
             musicDao.deleteAll()
             musicExtraDao.deleteAll()
@@ -88,10 +89,10 @@ class MusicRepositoryImpl(
                 userInfoDao.insertAll(batch)
             }
 
-            Logger.i("Repo.Music") { "persisted ${musicList.size} tracks to database" }
+            HmpLog.i(LogTag.DataMusicRepo) { "🎵 persisted ${musicList.size} tracks to database" }
             Result.success(Unit)
         } catch (e: Exception) {
-            Logger.e("Repo.Music", e) { "MusicRepository: Music scan failed: ${e.message}" }
+            HmpLog.e(LogTag.DataMusicRepo, e) { "🎵 MusicRepository: Music scan failed: ${e.message}" }
             Result.failure(e)
         } finally {
             _isScanning.value = false
@@ -163,7 +164,7 @@ class MusicRepositoryImpl(
 
             Result.success(Unit)
         } catch (e: Exception) {
-            Logger.e("Repo.Music", e) { "MusicRepository: Incremental music scan failed: ${e.message}" }
+            HmpLog.e(LogTag.DataMusicRepo, e) { "🎵 MusicRepository: Incremental music scan failed: ${e.message}" }
             Result.failure(e)
         } finally {
             _isScanning.value = false
@@ -206,7 +207,7 @@ class MusicRepositoryImpl(
 
                     userInfoList.add(UserInfo(id = file.id))
                 } catch (e: Exception) {
-                    Logger.e("Repo.Music", e) { "MusicRepository: Error processing music item: ${e.message}" }
+                    HmpLog.e(LogTag.DataMusicRepo, e) { "🎵 MusicRepository: Error processing music item: ${e.message}" }
                 }
             }
 

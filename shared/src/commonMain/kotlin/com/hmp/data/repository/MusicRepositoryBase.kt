@@ -66,6 +66,8 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
+import com.hmp.log.HmpLog
+import com.hmp.log.LogTag
 
 /**
  * MusicRepository 三端共享基类（设计总纲 B0 去重）。
@@ -876,7 +878,7 @@ abstract class MusicRepositoryBase(
             .map { it.musicId }
             .toSet()
         val result = allIds.filter { it !in enrichedIds }
-        co.touchlab.kermit.Logger.i("Agent.Enrich") { "getAllUnenrichedIds: allActive=${allIds.size} enriched=${enrichedIds.size} → unenriched=${result.size}" }
+        HmpLog.i(LogTag.AgentEnrich) { "📚 getAllUnenrichedIds | allActive=${allIds.size} | enriched=${enrichedIds.size} | unenriched=${result.size}" }
         return result
     }
 

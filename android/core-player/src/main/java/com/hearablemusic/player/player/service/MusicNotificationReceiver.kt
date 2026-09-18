@@ -3,9 +3,10 @@ package com.hearablemusic.player.player.service
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.util.Log
 import androidx.annotation.OptIn
 import androidx.media3.common.util.UnstableApi
+import com.hmp.log.HmpLog
+import com.hmp.log.LogTag
 
 class MusicNotificationReceiver : BroadcastReceiver() {
     @OptIn(UnstableApi::class)
@@ -14,13 +15,13 @@ class MusicNotificationReceiver : BroadcastReceiver() {
         val serviceIntent = Intent(context, MusicPlayService::class.java).apply {
             this.action = action
         }
-        Log.d("NotificationReceiver", "接收到操作: $action")
+        HmpLog.d(LogTag.PlayerService) { "📡 接收到操作: $action" }
         
         // API 26+ 需要使用 startForegroundService
         try {
             context.startForegroundService(serviceIntent)
         } catch (e: Exception) {
-            Log.e("NotificationReceiver", "启动服务失败: ${e.message}")
+            HmpLog.e(LogTag.PlayerService) { "📡 启动服务失败: ${e.message}" }
         }
     }
 }

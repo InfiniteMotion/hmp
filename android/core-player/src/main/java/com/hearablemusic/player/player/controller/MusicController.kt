@@ -5,7 +5,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
 import android.os.IBinder
-import android.util.Log
 import androidx.media3.common.util.UnstableApi
 import com.hmp.domain.enum.PlaybackMode
 import com.hmp.domain.lyrics.LrcParser
@@ -43,6 +42,8 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
+import com.hmp.log.HmpLog
+import com.hmp.log.LogTag
 
 @UnstableApi
 class MusicController(
@@ -109,7 +110,7 @@ class MusicController(
         try {
             context.unbindService(connection)
         } catch (e: Exception) {
-            Log.e("MusicController", "Error unbinding service", e)
+            HmpLog.e(LogTag.PlayerService, e) { "📡 Error unbinding service" }
         }
         bindPlayControl(null)
     }
@@ -392,7 +393,7 @@ class MusicController(
 
     fun playOrResume() {
         if (playControl == null) {
-            Log.e("MusicController", "playOrResume: playControl is null")
+            HmpLog.e(LogTag.PlayerService) { "📡 playOrResume: playControl is null" }
             return
         }
         playStartTime = System.currentTimeMillis()
@@ -426,7 +427,7 @@ class MusicController(
 
     fun pauseMusic() {
         if (playControl == null) {
-            Log.e("MusicController", "pauseMusic: playControl is null")
+            HmpLog.e(LogTag.PlayerService) { "📡 pauseMusic: playControl is null" }
             return
         }
         if (playStartTime > 0) {
@@ -555,7 +556,7 @@ class MusicController(
 
     private fun playCurrentTrack(source: String, startPosition: Long = 0L) {
         if (playControl == null) {
-            Log.e("MusicController", "playCurrentTrack: playControl is null")
+            HmpLog.e(LogTag.PlayerService) { "📡 playCurrentTrack: playControl is null" }
             return
         }
 
@@ -885,7 +886,7 @@ class MusicController(
                 )
                 
             } catch (e: Exception) {
-                Log.e("MusicController", "Failed to restore audio effect settings", e)
+                HmpLog.e(LogTag.PlayerService, e) { "📡 Failed to restore audio effect settings" }
             }
         }
     }
@@ -975,7 +976,7 @@ class MusicController(
             try {
                 save()
             } catch (e: Exception) {
-                Log.e("MusicController", "Failed to save audio effect setting", e)
+                HmpLog.e(LogTag.PlayerService, e) { "📡 Failed to save audio effect setting" }
             }
         }
     }

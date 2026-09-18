@@ -170,30 +170,30 @@ class HelloSubAgent(
     // ═══ SubAgent.runLoop ═══
 
     override suspend fun runLoop() {
-        HmpLog.i(LogTag.AgentHello) { "runLoop start" }
+        HmpLog.i(LogTag.AgentHello) { "👋 runLoop start" }
         isActive = true
         runState = AgentRunState.RUNNING
 
         // ── 同步初始化（协程启动前先铺好初始状态，避免 race） ──
         // ① 从 Room 恢复今日记忆缓存
         runCatching { memory.loadToday() }
-            .onFailure { e -> HmpLog.w(LogTag.AgentHello, e) { "memory.loadToday failed (non-fatal)" } }
+            .onFailure { e -> HmpLog.w(LogTag.AgentHello, e) { "👋 memory.loadToday failed (non-fatal)" } }
 
         // ② 从 DAO 恢复今日缓存卡（用 replace，保证顺序稳定）
         runCatching { initializeFromDao() }
-            .onFailure { e -> HmpLog.w(LogTag.AgentHello, e) { "initializeFromDao failed (non-fatal)" } }
+            .onFailure { e -> HmpLog.w(LogTag.AgentHello, e) { "👋 initializeFromDao failed (non-fatal)" } }
 
         // ②.1 G6：恢复今日推荐列表（跨重启不重算）
         runCatching { restoreRecommendLists() }
-            .onFailure { e -> HmpLog.w(LogTag.AgentHello, e) { "restoreRecommendLists failed (non-fatal)" } }
+            .onFailure { e -> HmpLog.w(LogTag.AgentHello, e) { "👋 restoreRecommendLists failed (non-fatal)" } }
 
         // ② 检查今日卡是否已生成（one-shot，同步跑完退出）
         runCatching { dailyRefreshLoop() }
-            .onFailure { e -> HmpLog.e(LogTag.AgentHello, e) { "dailyRefreshOnce failed" } }
+            .onFailure { e -> HmpLog.e(LogTag.AgentHello, e) { "👋 dailyRefreshOnce failed" } }
 
         // ③ 立即 push 常驻卡 + 兜底 GREETING + 检查 Radio 状态
         runCatching { initializeAnchorCards() }
-            .onFailure { e -> HmpLog.w(LogTag.AgentHello, e) { "initializeAnchorCards failed (non-fatal)" } }
+            .onFailure { e -> HmpLog.w(LogTag.AgentHello, e) { "👋 initializeAnchorCards failed (non-fatal)" } }
 
         // ── 协程启动（初始状态已铺好，PresenceEvent 不会 race） ──
         val presenceJob = scope.launch { collectPresenceEvents() }
@@ -213,7 +213,7 @@ class HelloSubAgent(
         tickJob.cancel()
         cardPool.clear()
         runState = AgentRunState.PAUSED
-        HmpLog.i(LogTag.AgentHello) { "runLoop exited" }
+        HmpLog.i(LogTag.AgentHello) { "👋 runLoop exited" }
     }
 
     override suspend fun shutdown() {
@@ -221,24 +221,24 @@ class HelloSubAgent(
         cardPool.clear()
         scope.cancel()                              // D3: 取消所有子协程（timer 等）
         super.shutdown()
-        HmpLog.i(LogTag.AgentHello) { "shutdown complete" }
+        HmpLog.i(LogTag.AgentHello) { "👋 shutdown complete" }
     }
 
     // ═══ 工作协程 #1：PresenceBus 事件收集 ═══
 
     private suspend fun collectPresenceEvents() {
         val bus = presenceBus ?: run {
-            HmpLog.w(LogTag.AgentHello) { "presenceBus null, skip collectPresenceEvents" }
+            HmpLog.w(LogTag.AgentHello) { "👋 presenceBus null, skip collectPresenceEvents" }
             return
         }
-        HmpLog.i(LogTag.AgentHello) { "collectPresenceEvents started" }
+        HmpLog.i(LogTag.AgentHello) { "👋 collectPresenceEvents started" }
         bus.events.collect { event ->
             if (agentPaused) return@collect  // D2: runLoop 暂停期间跳过事件
             when (event) {
                 is PresenceEvent.DjBlank -> {
-                    HmpLog.d(LogTag.AgentHello) { "DjBlank → maybe update GREETING" }
+                    HmpLog.d(LogTag.AgentHello) { "👋 DjBlank → maybe update GREETING" }
                     runCatching { refreshGreetingIfNeeded(30_000L, reason = "DjBlank") }
-                        .onFailure { e -> HmpLog.w(LogTag.AgentHello, e) { "DjBlank GREETING refresh failed" } }
+                        .onFailure { e -> HmpLog.w(LogTag.AgentHello, e) { "👋 DjBlank GREETING refresh failed" } }
                 }
                 // 注意：AgentProgress (RADIO_STATUS) 已拆到 UI 层直接订阅 radioState
                 else -> { /* 其他事件忽略 */ }
@@ -254,9 +254,9 @@ class HelloSubAgent(
     //   - 不再 while 循环，启动时跑一次就退出
 
     private suspend fun dailyRefreshLoop() {
-        HmpLog.i(LogTag.AgentHello) { "dailyRefreshLoop: one-shot check on start" }
+        HmpLog.i(LogTag.AgentHello) { "👋 dailyRefreshLoop: one-shot check on start" }
         runCatching { checkAndRunDailyRefresh() }
-            .onFailure { e -> HmpLog.e(LogTag.AgentHello, e) { "dailyRefreshOnce failed" } }
+            .onFailure { e -> HmpLog.e(LogTag.AgentHello, e) { "👋 dailyRefreshOnce failed" } }
         // 跑完即退出——跨天由 minuteTickLoop 兜底
     }
 
@@ -279,9 +279,9 @@ class HelloSubAgent(
         }
 
         if (!hasTodayCards) {
-            HmpLog.i(LogTag.AgentHello) { "dailyRefresh: today=$today not yet generated → run" }
+            HmpLog.i(LogTag.AgentHello) { "👋 dailyRefresh: today=$today not yet generated → run" }
             runCatching { dailyRefreshOnce() }
-                .onFailure { e -> HmpLog.e(LogTag.AgentHello, e) { "dailyRefreshOnce failed" } }
+                .onFailure { e -> HmpLog.e(LogTag.AgentHello, e) { "👋 dailyRefreshOnce failed" } }
             if (dao == null) {
                 todayCardsGenerated = true
             }
@@ -289,16 +289,16 @@ class HelloSubAgent(
             // G6：卡片已在，但两个推荐列表可能缺失（升级新增 / 上次生成失败）→ 只补列表，不重跑整批卡片
             val missingLists = RecommendSource.entries.filter { it.cardType() !in allTodayTypes }
             if (missingLists.isNotEmpty()) {
-                HmpLog.i(LogTag.AgentHello) { "dailyRefresh: cards exist but lists missing=$missingLists → refill" }
+                HmpLog.i(LogTag.AgentHello) { "👋 dailyRefresh: cards exist but lists missing=$missingLists → refill" }
                 missingLists.forEach { src ->
                     runCatching { refreshRecommendList(src) }
-                        .onFailure { e -> HmpLog.w(LogTag.AgentHello, e) { "refill recommend list $src failed" } }
+                        .onFailure { e -> HmpLog.w(LogTag.AgentHello, e) { "👋 refill recommend list $src failed" } }
                 }
             }
         }
         // 报告叙事段也在此时检查
         runCatching { ensureReportNarrativeUpToDate() }
-            .onFailure { e -> HmpLog.w(LogTag.AgentHello, e) { "report narrative ensure failed" } }
+            .onFailure { e -> HmpLog.w(LogTag.AgentHello, e) { "👋 report narrative ensure failed" } }
     }
 
     /** 每日批量生成：RECOMMEND + DISCOVER + FORGOTTEN + ANNIVERSARY + 写入 DAO */
@@ -306,7 +306,7 @@ class HelloSubAgent(
         val repo = musicRepository
         // B3: getMusicCount 轻量判空，不拉全曲库
         if (repo == null || runCatching { repo.getMusicCount().first() }.getOrDefault(0) <= 0) {
-            HmpLog.w(LogTag.AgentHello) { "dailyRefreshOnce: musicRepository null or library empty, skip" }
+            HmpLog.w(LogTag.AgentHello) { "👋 dailyRefreshOnce: musicRepository null or library empty, skip" }
             return
         }
 
@@ -359,21 +359,21 @@ class HelloSubAgent(
                 cardCacheDao?.insert(cache)
                 memory.record(cache)  // 内存缓存同步更新（DAO=null 时也能工作）
             }
-        }.onFailure { e -> HmpLog.w(LogTag.AgentHello, e) { "DAO insert failed (non-fatal)" } }
+        }.onFailure { e -> HmpLog.w(LogTag.AgentHello, e) { "👋 DAO insert failed (non-fatal)" } }
 
         // ⑥ G6：两个推荐列表（每日 / 私人）——种子 + 扩列，一次性产出
         runCatching { refreshRecommendList(RecommendSource.DAILY) }
-            .onFailure { e -> HmpLog.w(LogTag.AgentHello, e) { "refreshRecommendList DAILY failed" } }
+            .onFailure { e -> HmpLog.w(LogTag.AgentHello, e) { "👋 refreshRecommendList DAILY failed" } }
         runCatching { refreshRecommendList(RecommendSource.PRIVATE) }
-            .onFailure { e -> HmpLog.w(LogTag.AgentHello, e) { "refreshRecommendList PRIVATE failed" } }
+            .onFailure { e -> HmpLog.w(LogTag.AgentHello, e) { "👋 refreshRecommendList PRIVATE failed" } }
 
-        HmpLog.i(LogTag.AgentHello) { "dailyRefreshOnce: done, ${allCards.size} cards generated" }
+        HmpLog.i(LogTag.AgentHello) { "👋 dailyRefreshOnce: done, ${allCards.size} cards generated" }
     }
 
     // ═══ 工作协程 #3：每分钟 tick ═══
 
     private suspend fun minuteTickLoop() {
-        HmpLog.i(LogTag.AgentHello) { "minuteTickLoop started" }
+        HmpLog.i(LogTag.AgentHello) { "👋 minuteTickLoop started" }
         var lastDate = todayString()  // 跨天检测
         while (scope.isActive && isActive && !agentPaused) {
             delay(60_000L)
@@ -381,23 +381,23 @@ class HelloSubAgent(
             // ① 跨天兜底：App 长驻到明天 → 补跑今日卡
             val now = todayString()
             if (now != lastDate) {
-                HmpLog.i(LogTag.AgentHello) { "minuteTickLoop: date changed $lastDate → $now, run dailyRefreshOnce" }
+                HmpLog.i(LogTag.AgentHello) { "👋 minuteTickLoop: date changed $lastDate → $now, run dailyRefreshOnce" }
                 lastDate = now
                 runCatching { checkAndRunDailyRefresh() }
-                    .onFailure { e -> HmpLog.w(LogTag.AgentHello, e) { "date-change dailyRefresh failed" } }
+                    .onFailure { e -> HmpLog.w(LogTag.AgentHello, e) { "👋 date-change dailyRefresh failed" } }
             }
 
             // ② 检查时段变化
             val currentPhase = detectTimePhase(currentHour())
             if (currentPhase != lastPhase) {
-                HmpLog.i(LogTag.AgentHello) { "minuteTickLoop: phase changed ${lastPhase} → $currentPhase" }
+                HmpLog.i(LogTag.AgentHello) { "👋 minuteTickLoop: phase changed ${lastPhase} → $currentPhase" }
                 lastPhase = currentPhase
                 // 时段变了 → 刷新 RECOMMEND（内存 + DAO 双写）
                 runCatching { refreshRecommendCard(currentPhase) }
-                    .onFailure { e -> HmpLog.w(LogTag.AgentHello, e) { "phase-change RECOMMEND refresh failed" } }
+                    .onFailure { e -> HmpLog.w(LogTag.AgentHello, e) { "👋 phase-change RECOMMEND refresh failed" } }
                 // 时段变了 → 必刷 GREETING（限频 0，跨变必过）
                 runCatching { refreshGreetingIfNeeded(0L, reason = "phase-change") }
-                    .onFailure { e -> HmpLog.w(LogTag.AgentHello, e) { "phase-change GREETING refresh failed" } }
+                    .onFailure { e -> HmpLog.w(LogTag.AgentHello, e) { "👋 phase-change GREETING refresh failed" } }
             }
 
             // ②.5 RECOMMEND 缺失重试：启动时 label 可能还没打上，导致 dailyRefreshOnce 里
@@ -407,18 +407,18 @@ class HelloSubAgent(
                 runCatching {
                     val phase = detectTimePhase(currentHour())
                     refreshRecommendCard(phase)
-                }.onFailure { e -> HmpLog.w(LogTag.AgentHello, e) { "RECOMMEND missing-retry failed" } }
+                }.onFailure { e -> HmpLog.w(LogTag.AgentHello, e) { "👋 RECOMMEND missing-retry failed" } }
             }
 
             // ③ GREETING 切歌联动（5min 限频）
             runCatching {
                 val ctx = nowPlayingProvider?.getNowPlaying()
                 if (ctx?.isPlaying == true && ctx.currentMusicId != null && ctx.currentMusicId != lastTrackId) {
-                    HmpLog.d(LogTag.AgentHello) { "minuteTickLoop: track changed → try GREETING refresh" }
+                    HmpLog.d(LogTag.AgentHello) { "👋 minuteTickLoop: track changed → try GREETING refresh" }
                     lastTrackId = ctx.currentMusicId
                     refreshGreetingIfNeeded(5 * 60_000L, reason = "track-change", songId = ctx.currentMusicId)
                 }
-            }.onFailure { e -> HmpLog.w(LogTag.AgentHello, e) { "track-change GREETING check failed" } }
+            }.onFailure { e -> HmpLog.w(LogTag.AgentHello, e) { "👋 track-change GREETING check failed" } }
 
             // ④ GREETING 兜底定时（每 2h 检查一次）
             runCatching {
@@ -427,7 +427,7 @@ class HelloSubAgent(
                     lastGreetingPeriodicCheck = nowMs
                     refreshGreetingIfNeeded(30 * 60_000L, reason = "periodic")
                 }
-            }.onFailure { e -> HmpLog.w(LogTag.AgentHello, e) { "periodic GREETING check failed" } }
+            }.onFailure { e -> HmpLog.w(LogTag.AgentHello, e) { "👋 periodic GREETING check failed" } }
             // 注意：ANCHOR 和 RADIO_STATUS 已拆到 UI 层直接订阅数据源，不再由 agent 管理
         }
     }
@@ -454,14 +454,14 @@ class HelloSubAgent(
                 restored++
             }
         }
-        if (restored > 0) HmpLog.i(LogTag.AgentHello) { "initializeFromDao: restored $restored today=$today cards" }
+        if (restored > 0) HmpLog.i(LogTag.AgentHello) { "👋 initializeFromDao: restored $restored today=$today cards" }
     }
 
     /** runLoop 启动时 push GREETING（ANCHOR/RADIO_STATUS 已拆到 UI 层直接订阅数据源） */
     private suspend fun initializeAnchorCards() {
         // 启动时直接生成一次 GREETING（允许，不受限频）
         runCatching { refreshGreetingIfNeeded(0L, reason = "startup") }
-            .onFailure { e -> HmpLog.w(LogTag.AgentHello, e) { "startup GREETING failed" } }
+            .onFailure { e -> HmpLog.w(LogTag.AgentHello, e) { "👋 startup GREETING failed" } }
     }
 
     // ═══ 七种卡型生成（支持 LLM 热更新：enableLlm=true 时进 LLM 分支，否则走兜底模板） ═══
@@ -476,11 +476,11 @@ class HelloSubAgent(
     ) {
         val now = currentTimeMillis()
         if (minIntervalMs > 0 && now - lastGreetingRefreshAt < minIntervalMs) {
-            HmpLog.d(LogTag.AgentHello) { "GREETING skip: too soon (interval=${minIntervalMs}ms, reason=$reason)" }
+            HmpLog.d(LogTag.AgentHello) { "👋 GREETING skip: too soon (interval=${minIntervalMs}ms, reason=$reason)" }
             return
         }
         if (songId != null && songId == lastGreetingSongId) {
-            HmpLog.d(LogTag.AgentHello) { "GREETING skip: same song ($songId)" }
+            HmpLog.d(LogTag.AgentHello) { "👋 GREETING skip: same song ($songId)" }
             return
         }
         val content = generateGreeting()
@@ -499,8 +499,8 @@ class HelloSubAgent(
             val cache = buildHelloCardCache(card, now, today, llmUsed = enableLlm)
             cardCacheDao?.insert(cache)
             memory.record(cache)
-        }.onFailure { e -> HmpLog.w(LogTag.AgentHello, e) { "GREETING dao write failed (non-fatal)" } }
-        HmpLog.i(LogTag.AgentHello) { "GREETING refreshed: type=${content.type} reason=$reason" }
+        }.onFailure { e -> HmpLog.w(LogTag.AgentHello, e) { "👋 GREETING dao write failed (non-fatal)" } }
+        HmpLog.i(LogTag.AgentHello) { "👋 GREETING refreshed: type=${content.type} reason=$reason" }
     }
 
     /** GREETING 核心生成：收集上下文 → 打分路由 → LLM/fallback → 多样性更新 */
@@ -1022,7 +1022,7 @@ class HelloSubAgent(
             repo.getAllMusicDurations().associateBy { it.musicId }
         }.getOrDefault(emptyMap())
 
-        HmpLog.i(LogTag.AgentHello) { "ANNIVERSARY check start today=$today durations=${durationsByMusic.size}" }
+        HmpLog.i(LogTag.AgentHello) { "👋 ANNIVERSARY check start today=$today durations=${durationsByMusic.size}" }
 
         // ── 收集 4 种候选 ──
         val candidates = mutableListOf<AnniversaryCandidate>()
@@ -1033,12 +1033,12 @@ class HelloSubAgent(
                 val yearsAgo = ((now - firstPlayedAt) / (365.25 * 86_400_000L)).toInt()
                 if (yearsAgo <= 0) return@let  // 数据异常 guard：0 或负年数无意义
                 val score = 100 * yearsAgo
-                HmpLog.i(LogTag.AgentHello) { "ANNIVERSARY A: FIRST_PLAY id=$id years=$yearsAgo score=$score" }
+                HmpLog.i(LogTag.AgentHello) { "👋 ANNIVERSARY A: FIRST_PLAY id=$id years=$yearsAgo score=$score" }
                 candidates += AnniversaryCandidate(
                     score = score,
                     buildContent = { buildFirstPlayContent(repo, id, firstPlayedAt, thatDayPlays, yearsAgo) },
                 )
-            } ?: HmpLog.d(LogTag.AgentHello) { "ANNIVERSARY A: no FIRST_PLAY candidate today" }
+            } ?: HmpLog.d(LogTag.AgentHello) { "👋 ANNIVERSARY A: no FIRST_PLAY candidate today" }
 
         // D. PLAYLIST_CREATE —— N 年前的今天创建的歌单
         runCatching { repo.getAnniversaryPlaylists(today).firstOrNull() }
@@ -1102,7 +1102,7 @@ class HelloSubAgent(
             bestDur
         }.getOrNull()?.let { candidates += it }
 
-        HmpLog.i(LogTag.AgentHello) { "ANNIVERSARY candidates count=${candidates.size} scores=${candidates.map { it.score }}" }
+        HmpLog.i(LogTag.AgentHello) { "👋 ANNIVERSARY candidates count=${candidates.size} scores=${candidates.map { it.score }}" }
 
         if (candidates.isEmpty()) return null
         val best = candidates.maxByOrNull { it.score } ?: return null
@@ -1211,7 +1211,7 @@ class HelloSubAgent(
         // 频率守卫：DAO 有未过期缓存就直接返回，不重复生成
         val existing = runCatching { dao.getLatest(range) }.getOrNull()
         if (existing != null && !isNarrativeExpired(existing, frequency)) {
-            HmpLog.d(LogTag.AgentHello) { "report[$range]: fresh cache (avgDaily=$avgMinutes, freq=$frequency), skip" }
+            HmpLog.d(LogTag.AgentHello) { "👋 report[$range]: fresh cache (avgDaily=$avgMinutes, freq=$frequency), skip" }
             return existing
         }
 
@@ -1228,9 +1228,9 @@ class HelloSubAgent(
             avgDailyMinutes = avgMinutes,
         )
         runCatching { dao.insert(entity) }.onFailure { e ->
-            HmpLog.w(LogTag.AgentHello, e) { "report[$range] DAO insert failed (non-fatal)" }
+            HmpLog.w(LogTag.AgentHello, e) { "👋 report[$range] DAO insert failed (non-fatal)" }
         }
-        HmpLog.i(LogTag.AgentHello) { "report[$range] regenerated (avgDaily=${avgMinutes}min, freq=$frequency)" }
+        HmpLog.i(LogTag.AgentHello) { "👋 report[$range] regenerated (avgDaily=${avgMinutes}min, freq=$frequency)" }
         return entity
     }
 
@@ -1254,7 +1254,7 @@ class HelloSubAgent(
         )
         for (range in ranges) {
             runCatching { regenerateReportNarrative(range) }
-                .onFailure { e -> HmpLog.w(LogTag.AgentHello, e) { "report[$range] ensure failed (non-fatal)" } }
+                .onFailure { e -> HmpLog.w(LogTag.AgentHello, e) { "👋 report[$range] ensure failed (non-fatal)" } }
         }
     }
 
@@ -1504,8 +1504,8 @@ class HelloSubAgent(
             val cache = buildHelloCardCache(card, now, today, llmUsed = enableLlm)
             cardCacheDao?.insert(cache)
             memory.record(cache)
-        }.onFailure { e -> HmpLog.w(LogTag.AgentHello, e) { "refreshRecommendCard: dao write failed" } }
-        HmpLog.i(LogTag.AgentHello) { "refreshRecommendCard: OK phase=$phase" }
+        }.onFailure { e -> HmpLog.w(LogTag.AgentHello, e) { "👋 refreshRecommendCard: dao write failed" } }
+        HmpLog.i(LogTag.AgentHello) { "👋 refreshRecommendCard: OK phase=$phase" }
         return true
     }
 
@@ -1517,7 +1517,7 @@ class HelloSubAgent(
     private suspend fun refreshRecommendList(source: RecommendSource) {
         val repo = musicRepository ?: return
         val built = runCatching { buildRecommendList(source, repo) }
-            .onFailure { e -> HmpLog.w(LogTag.AgentHello, e) { "buildRecommendList failed source=$source" } }
+            .onFailure { e -> HmpLog.w(LogTag.AgentHello, e) { "👋 buildRecommendList failed source=$source" } }
             .getOrNull()
 
         if (built == null) {
@@ -1540,9 +1540,9 @@ class HelloSubAgent(
             cardCacheDao?.deleteSameDaySameType(payload.source.cardType(), payload.generatedForDate)
             cardCacheDao?.insert(cache)
             memory.record(cache)  // 并入 recommend* 桶（跨列表 / 跨卡去重）
-        }.onFailure { e -> HmpLog.w(LogTag.AgentHello, e) { "recommend list DAO write failed" } }
+        }.onFailure { e -> HmpLog.w(LogTag.AgentHello, e) { "👋 recommend list DAO write failed" } }
         emitRecommendList(payload)
-        HmpLog.i(LogTag.AgentHello) { "refreshRecommendList: source=$source items=${payload.items.size}" }
+        HmpLog.i(LogTag.AgentHello) { "👋 refreshRecommendList: source=$source items=${payload.items.size}" }
     }
 
     private fun emitRecommendList(payload: RecommendListPayload) {

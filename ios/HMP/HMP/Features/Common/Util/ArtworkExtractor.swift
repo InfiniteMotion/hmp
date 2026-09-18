@@ -205,7 +205,7 @@ class ArtworkExtractor: NSObject, ArtworkBridgeArtworkExtractor {
             try jpeg.write(to: URL(fileURLWithPath: savePath))
             return savePath
         } catch {
-            PlatformLogKt.platformLog(severity: 3, tag: "ArtworkExtractor", message: "save failed: \(error)")
+            HmpLog.e(HmpTag.libraryArtwork, "🖼️ save failed: \(error)")
             return nil
         }
     }
@@ -229,7 +229,7 @@ class ArtworkExtractor: NSObject, ArtworkBridgeArtworkExtractor {
             try jpeg.write(to: URL(fileURLWithPath: savePath))
             return savePath
         } catch {
-            PlatformLogKt.platformLog(severity: 3, tag: "ArtworkExtractor", message: "save failed: \(error)")
+            HmpLog.e(HmpTag.libraryArtwork, "🖼️ save failed: \(error)")
             return nil
         }
     }

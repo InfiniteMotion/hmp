@@ -44,7 +44,7 @@ class LiveActivityManager {
             )
             lastUpdateTime = Date()
         } catch {
-            PlatformLogKt.platformLog(severity: 3, tag: "LiveActivityManager", message: "Failed to start activity: \(error)")
+            HmpLog.e(HmpTag.mediaNowPlaying, "📺 Failed to start activity: \(error)")
         }
     }
 

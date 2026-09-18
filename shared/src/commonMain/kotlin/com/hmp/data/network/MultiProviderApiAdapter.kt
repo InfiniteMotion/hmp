@@ -1,6 +1,5 @@
 package com.hmp.data.network
 
-import co.touchlab.kermit.Logger
 import com.hmp.data.network.dto.ModelsResponse
 import com.hmp.data.network.dto.OpenAiMessage
 import com.hmp.data.network.dto.OpenAiStreamChunk
@@ -16,6 +15,8 @@ import io.ktor.utils.io.*
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.serialization.json.Json
+import com.hmp.log.HmpLog
+import com.hmp.log.LogTag
 
 sealed class AiApiResult<out T> {
     data class Success<T>(val data: T) : AiApiResult<T>()
@@ -132,7 +133,7 @@ class OpenAiCompatibleAdapter(
             val chunk = try {
                 json.decodeFromString<OpenAiStreamChunk>(trimmed)
             } catch (e: Exception) {
-                Logger.d("Network.ApiAdapter") { "SSE chunk skipped (not a JSON object): ${trimmed.take(40)}" }
+                HmpLog.d(LogTag.DataNet) { "🌐 SSE chunk skipped | not a JSON object | head=\"${trimmed.take(40)}\"" }
                 return@parse
             }
             emit(chunk)

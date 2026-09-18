@@ -63,7 +63,7 @@ class LlmCallExecutor {
             failedMessage = e.message
         }
 
-        HmpLog.d(LogTag.AgentLlmCall) { "[LlmCall] text=${text.toString().take(79)}… toolCalls=${calls.size} failed=$failed" }
+        HmpLog.d(LogTag.AgentLlmCall) { "🧠 [LlmCall] text=${text.toString().take(79)}… toolCalls=${calls.size} failed=$failed" }
 
         return CollectedLlmResult(
             text = text.toString(),

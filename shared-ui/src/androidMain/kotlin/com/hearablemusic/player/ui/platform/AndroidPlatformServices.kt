@@ -19,6 +19,8 @@ import com.example.hearablemusicplayer.ui.player.floating.FloatingLyricsService
 import com.hearablemusic.player.ui.R
 import com.hmp.data.util.MusicTagEditor
 import com.hmp.domain.music.EditableMusicTags
+import com.hmp.log.HmpLog
+import com.hmp.log.LogTag
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.FileOutputStream
@@ -144,7 +146,7 @@ class FilePickerServiceImpl(private val context: Context) : FilePickerService {
             outputStream.close()
             file.absolutePath
         } catch (e: IOException) {
-            e.printStackTrace()
+            HmpLog.w(LogTag.UiCommon, e) { "🎨 copyAvatarImage failed | non-fatal | reason=${e.message}" }
             null
         }
     }
@@ -160,7 +162,7 @@ class FilePickerServiceImpl(private val context: Context) : FilePickerService {
             outputStream.close()
             tempFile.absolutePath
         } catch (e: Exception) {
-            e.printStackTrace()
+            HmpLog.w(LogTag.UiSettings, e) { "⚙️ copyBackupToCache failed | non-fatal | reason=${e.message}" }
             null
         }
     }

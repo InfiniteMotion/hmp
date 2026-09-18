@@ -17,7 +17,7 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         ensureDocumentsFolderVisible()
         // shared（业务+平台）+ shared-ui（Compose UI）一次性装配
         IosUiKoinModuleKt.installKoinIosWithSharedUi()
-        PlatformLogKt.platformLog(severity: 0, tag: "AppDelegate", message: "Koin initialized (shared + shared-ui)")
+        HmpLog.d(HmpTag.systemLifecycle, "🚀 Koin initialized (shared + shared-ui)")
         MetadataParserBridge().register(parser: MusicMetadataParser())
         ArtworkBridge().register(extractor: ArtworkExtractor())
 
@@ -49,7 +49,7 @@ class AppDelegate: NSObject, UIApplicationDelegate {
     /// 在 Documents 目录创建一个占位文件，使 HMP 文件夹在文件 App 中可见
     private func ensureDocumentsFolderVisible() {
         guard let documentsURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
-            PlatformLogKt.platformLog(severity: 3, tag: "AppDelegate", message: "cannot get Documents directory")
+            HmpLog.e(HmpTag.systemLifecycle, "🚀 cannot get Documents directory")
             return
         }
 
@@ -57,9 +57,9 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         if !FileManager.default.fileExists(atPath: placeholderFile.path) {
             do {
                 try "HMP Music Player Documents".write(to: placeholderFile, atomically: true, encoding: .utf8)
-                PlatformLogKt.platformLog(severity: 1, tag: "AppDelegate", message: "created placeholder file to make Documents folder visible: \(placeholderFile.path)")
+                HmpLog.i(HmpTag.systemLifecycle, "🚀 created placeholder file to make Documents folder visible: \(placeholderFile.path)")
             } catch {
-                PlatformLogKt.platformLog(severity: 3, tag: "AppDelegate", message: "failed to create placeholder file: \(error)")
+                HmpLog.e(HmpTag.systemLifecycle, "🚀 failed to create placeholder file: \(error)")
             }
         }
     }

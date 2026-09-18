@@ -1,6 +1,5 @@
 package com.hearablemusic.player.ui.chat
 
-import co.touchlab.kermit.Logger
 import com.hmp.domain.agent.runtime.ConfirmGate
 import com.hmp.domain.agent.runtime.ConfirmOutcome
 import com.hmp.domain.agent.runtime.ConfirmRequest
@@ -23,6 +22,8 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
+import com.hmp.log.HmpLog
+import com.hmp.log.LogTag
 
 /**
  * 对话页 UI 面向 Agent 的接缝事件（真实网关经 MasterChatGateway → MasterAgent 产出；单测注入 Fake 网关）。
@@ -71,7 +72,7 @@ class ConfirmBridge {
         val turnId = "confirm_${counter++}"
         val deferred = CompletableDeferred<List<ConfirmOutcome>>()
         pending[turnId] = deferred
-        Logger.i("Agent.Gateway") { "confirm await: turn=$turnId items=${requests.size} waiting..." }
+        HmpLog.i(LogTag.AgentGateway) { "🌉 confirm await: turn=$turnId items=${requests.size} waiting..." }
         onRequest?.invoke(turnId, requests)
         return deferred.await()
     }
@@ -82,9 +83,9 @@ class ConfirmBridge {
      */
     fun submit(turnId: String, outcomes: List<ConfirmOutcome>): Boolean =
         pending.remove(turnId)?.let {
-            Logger.i("Agent.Gateway") { "confirm submit: turn=$turnId outcomes=$outcomes" }
+            HmpLog.i(LogTag.AgentGateway) { "🌉 confirm submit: turn=$turnId outcomes=$outcomes" }
             it.complete(outcomes)
-        } ?: false.also { Logger.w("Agent.Gateway") { "confirm submit: turn=$turnId 已关闭/取消" } }
+        } ?: false.also { HmpLog.w(LogTag.AgentGateway) { "🌉 confirm submit: turn=$turnId 已关闭/取消" } }
 }
 
 /** 对话引擎接缝（M5-T1）：把一次用户输入换算为面向 UI 的事件流。 */
@@ -170,11 +171,11 @@ class MasterChatGateway(
                             seedLabels = playlist.map { it.why },
                             summary = result.text,
                         )
-                        Logger.i("Agent.Gateway") { "run: intentHandled=radio_start tracks=${playlist.size}→resolved=${musicInfos.size}" }
+                        HmpLog.i(LogTag.AgentGateway) { "🌉 run: intentHandled=radio_start tracks=${playlist.size}→resolved=${musicInfos.size}" }
                         emit(radioEvent)
                         emit(ChatAgentEvent.Finished(result.text, emptyList(), result.terminatedBy))
                     } else {
-                        Logger.w("Agent.Gateway") { "run: intentHandled=radio_start but playlist empty" }
+                        HmpLog.w(LogTag.AgentGateway) { "🌉 run: intentHandled=radio_start but playlist empty" }
                         emit(ChatAgentEvent.Failed(result.text))
                     }
                 }
@@ -219,7 +220,7 @@ class MasterChatGateway(
             LlmMessage(role = role, content = m.content)
         }
         val deduped = if (mapped.lastOrNull()?.role == "user" && mapped.lastOrNull()?.content == input) mapped.dropLast(1) else mapped
-        Logger.i("Agent.Gateway") { "history loaded: ${deduped.size} 条（含去重 ${mapped.size - deduped.size}）" }
+        HmpLog.i(LogTag.AgentGateway) { "🌉 history loaded: ${deduped.size} 条（含去重 ${mapped.size - deduped.size}）" }
         return deduped
     }
 
@@ -244,7 +245,7 @@ class MasterChatGateway(
         masterAgent.ensureProfileReadyForFirstTurn()
         // 画像块：没有任何可说的时返回 null → 首轮块整块省略（冷启动不留空壳，剧本 P1）
         val userProfileText = userMemory?.renderForContext()
-        Logger.i("Agent.Gateway") { "first-turn ctx: persona=${DefaultCompanionProfiles.DEFAULT.personaName} nowPlaying=${now.currentMusicInfo?.music?.title ?: "无"} recognized=$known/$total portrait=${if (userProfileText != null) "yes" else "no"}" }
+        HmpLog.i(LogTag.AgentGateway) { "🌉 first-turn ctx: persona=${DefaultCompanionProfiles.DEFAULT.personaName} nowPlaying=${now.currentMusicInfo?.music?.title ?: "无"} recognized=$known/$total portrait=${if (userProfileText != null) "yes" else "no"}" }
         return RunContextInput(
             personaText = DefaultCompanionProfiles.DEFAULT.personaPrompt,
             recognitionText = recognitionText,
@@ -270,7 +271,7 @@ class MasterChatGateway(
     override suspend fun startRadio(seed: String?): ChatAgentEvent.RadioStarted? {
         val tracks = masterAgent.startRadio(seed)
         if (tracks.isEmpty()) {
-            Logger.w("Agent.Gateway") { "startRadio: empty result" }
+            HmpLog.w(LogTag.AgentGateway) { "🌉 startRadio: empty result" }
             return null
         }
         // 把 RadioTrack.musicId 批量查 MusicInfo
@@ -284,7 +285,7 @@ class MasterChatGateway(
         val summary = if (!seed.isNullOrBlank()) "「$seed」电台 · ${tracks.size} 首备选"
                       else "今夜电台 · ${tracks.size} 首备选"
 
-        Logger.i("Agent.Gateway") { "startRadio: ${tracks.size} tracks → ${musicInfos.size} resolved" }
+        HmpLog.i(LogTag.AgentGateway) { "🌉 startRadio: ${tracks.size} tracks → ${musicInfos.size} resolved" }
         return ChatAgentEvent.RadioStarted(
             songs = musicInfos,
             seedLabels = tracks.map { it.why },  // why 暂当 labels 用（简单）
@@ -294,7 +295,7 @@ class MasterChatGateway(
 
     override suspend fun stopRadio() {
         masterAgent.stopRadio()
-        Logger.i("Agent.Gateway") { "stopRadio: done" }
+        HmpLog.i(LogTag.AgentGateway) { "🌉 stopRadio: done" }
     }
 
     override fun queryRadioState(): Pair<Boolean, Int> {

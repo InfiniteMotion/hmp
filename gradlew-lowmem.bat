@@ -40,12 +40,9 @@ set DIRNAME=%~dp0
 if "%DIRNAME%"=="" set DIRNAME=.
 
 @rem 低内存参数：daemon 堆 1024m（实测可 fork 测试 JVM），Kotlin 编译器走 in-process，关并行
-call "%DIRNAME%gradlew.bat" %* ^
-  --no-daemon --console=plain ^
-  -Dorg.gradle.parallel=false ^
-  -Dorg.gradle.workers.max=1 ^
-  -Dorg.gradle.jvmargs="-Xmx1024m -XX:MaxMetaspaceSize=384m -Dfile.encoding=UTF-8" ^
-  -Dkotlin.compiler.execution.strategy=in-process
+@rem 注意：此文件必须保持 CRLF 行尾，否则 cmd.exe 会误解析多行 ^ 续行并陷入乱码循环。
+@rem 为稳妥，call 写成单行。
+call "%DIRNAME%gradlew.bat" %* --no-daemon --console=plain -Dorg.gradle.parallel=false -Dorg.gradle.workers.max=1 -Dorg.gradle.jvmargs="-Xmx1024m -XX:MaxMetaspaceSize=384m -Dfile.encoding=UTF-8" -Dkotlin.compiler.execution.strategy=in-process
 
 endlocal
 exit /b %ERRORLEVEL%

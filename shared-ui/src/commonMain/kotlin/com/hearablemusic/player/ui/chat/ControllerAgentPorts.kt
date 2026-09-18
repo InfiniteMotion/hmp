@@ -1,6 +1,5 @@
 package com.hearablemusic.player.ui.chat
 
-import co.touchlab.kermit.Logger
 import com.hearablemusic.player.ui.platform.PlaybackController
 import com.hmp.domain.agent.port.CommandSource
 import com.hmp.domain.agent.port.NowPlayingContext
@@ -12,10 +11,13 @@ import com.hmp.domain.agent.port.PlaybackObservationBus
 import com.hmp.domain.agent.port.TrackSettledEvent
 import com.hmp.domain.enum.PlaybackMode
 import com.hmp.domain.music.MusicRepository
+import com.hmp.log.HmpLog
+import com.hmp.log.LogTag
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.first
 
 /**
@@ -116,8 +118,7 @@ class ControllerPlaybackCommandPort(
                 val appended = replaceQueueWith(command.musicIds)
                 val wanted = command.musicIds.size
                 if (appended < wanted) {
-                    Logger.w("Agent.Port") {
-                        "REPLACE_QUEUE 未全量入队：请求 $wanted 首，实际追加 $appended 首（部分 id 解析失败被丢弃）"
+                    HmpLog.w(LogTag.AgentPort) { "🔌 REPLACE_QUEUE 未全量入队：请求 $wanted 首，实际追加 $appended 首（部分 id 解析失败被丢弃）"
                     }
                 }
                 (appended >= wanted) to "播放队列已替换 ($appended/$wanted 首)"
@@ -129,7 +130,7 @@ class ControllerPlaybackCommandPort(
         // 否则 MasterAgent 会把 Agent 自己的操作误判为用户跳过意图 → 触发无意义的重排循环。
         if (source == CommandSource.USER && result.first && prevTitle != null && command.isSkipLikeCommand()) {
             _skipEvents.tryEmit(prevTitle)
-            Logger.i("Agent.Port") { "skipEvents emit: \"$prevTitle\" (command=${command.displayName})" }
+            HmpLog.i(LogTag.AgentPort) { "🔌 skipEvents emit: \"$prevTitle\" (command=${command.displayName})" }
         }
 
         // M6-T3：Agent 命令触发切歌 → 等 currentPlayingMusic 确实变化了再 emit
@@ -141,7 +142,7 @@ class ControllerPlaybackCommandPort(
             val newTitle = current?.music?.title
             if (newTitle != null && newTitle != prevTitle) {
                 _agentTrackChanges.tryEmit(newTitle)
-                Logger.i("Agent.Port") { "DjBlank emit: \"$newTitle\"" }
+                HmpLog.i(LogTag.AgentPort) { "🔌 DjBlank emit: \"$newTitle\"" }
             }
         }
 

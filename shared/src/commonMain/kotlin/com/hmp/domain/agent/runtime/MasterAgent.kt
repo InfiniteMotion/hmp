@@ -406,19 +406,19 @@ class MasterAgent(
      */
     private suspend fun ensureProfileReady(forceBehavior: Boolean = false, source: String = "unknown") {
         val profile = userMemory ?: run {
-            HmpLog.w(LogTag.AgentMaster) { "ensureProfileReady($source): userMemory null, skip" }
+            HmpLog.w(LogTag.AgentMaster) { "🤖 ensureProfileReady($source): userMemory null, skip" }
             return
         }
         runCatching {
             val libCount = profile.refreshFromLibrary()
             val behCount = profile.refreshBehavior(force = forceBehavior)
-            HmpLog.i(LogTag.AgentMaster) { "ensureProfileReady($source): lib=$libCount, beh=$behCount, forceBeh=$forceBehavior" }
+            HmpLog.i(LogTag.AgentMaster) { "🤖 ensureProfileReady($source): lib=$libCount, beh=$behCount, forceBeh=$forceBehavior" }
             // 有侧写数据才检查叙事（没有就不浪费 AI 调用）
             if (profile.currentPortraits().isNotEmpty()) {
                 maybeRegenerateNarrativeSync()
             }
         }.onFailure { e ->
-            HmpLog.w(LogTag.AgentMaster, e) { "ensureProfileReady($source) failed (non-fatal)" }
+            HmpLog.w(LogTag.AgentMaster, e) { "🤖 ensureProfileReady($source) failed (non-fatal)" }
         }
     }
 
@@ -429,7 +429,7 @@ class MasterAgent(
      * ③ 检测富化健康度 → 决定是否创建 Enrich
      */
     suspend fun initialize(enrichTransport: LlmTransport? = null) {
-        HmpLog.i(LogTag.AgentMaster) { "[Master] initialize start" }
+        HmpLog.i(LogTag.AgentMaster) { "🤖 [Master] initialize start" }
 
         // ── 加载 Per-Agent LLM Endpoint Config（null = 跟随全局） ──
         settingsRepo?.let { repo ->
@@ -439,16 +439,16 @@ class MasterAgent(
             radioConfig = repo.getAgentEndpointConfig("radio")?.takeIf { it.isConfigured } ?: globalConfig
             helloConfig = repo.getAgentEndpointConfig("hello")?.takeIf { it.isConfigured } ?: globalConfig
             HmpLog.i(LogTag.AgentMaster) {
-                "[Master] per-Agent config loaded: chat=${chatConfig != null}, enrich=${enrichConfig != null}, radio=${radioConfig != null}, hello=${helloConfig != null}"
+                "🤖 [Master] per-Agent config loaded: chat=${chatConfig != null}, enrich=${enrichConfig != null}, radio=${radioConfig != null}, hello=${helloConfig != null}"
             }
         } ?: run {
-            HmpLog.w(LogTag.AgentMaster) { "[Master] settingsRepo null → all per-Agent configs stay null (defer to SubAgent defaults)" }
+            HmpLog.w(LogTag.AgentMaster) { "🤖 [Master] settingsRepo null → all per-Agent configs stay null (defer to SubAgent defaults)" }
         }
 
         // F9-A0：绑定 CapabilityStatusTool 到 ToolRegistry
         // 使用 chatToolRegistry 字段（Koin 构造时注入），避免在 Koin .also 块里再 get() 引发循环
         chatToolRegistry?.bindCapabilityTools { capabilities }
-        HmpLog.i(LogTag.AgentMaster) { "[Master] CapabilityStatusTool bound (capabilities=${capabilities.keys})" }
+        HmpLog.i(LogTag.AgentMaster) { "🤖 [Master] CapabilityStatusTool bound (capabilities=${capabilities.keys})" }
 
         // ① 启动 Scheduler
         scheduler.startArbitration()
@@ -463,32 +463,32 @@ class MasterAgent(
                 onResume = { /* Master 永不暂停 */ },
             )
         )
-        HmpLog.i(LogTag.AgentMaster) { "[Master] registered with Scheduler priority=1" }
+        HmpLog.i(LogTag.AgentMaster) { "🤖 [Master] registered with Scheduler priority=1" }
 
         // ③ 检测富化健康度 → 决定是否创建 Enrich
         musicRepository?.let { repo ->
             val health = repo.getEnrichHealth()
-            HmpLog.i(LogTag.AgentMaster) { "[Master] enrich health: ${health.enrichedSongCount}/${health.totalSongCount} coverage=${health.coverageRate} lowConf=${health.lowConfidenceCount}" }
+            HmpLog.i(LogTag.AgentMaster) { "🤖 [Master] enrich health: ${health.enrichedSongCount}/${health.totalSongCount} coverage=${health.coverageRate} lowConf=${health.lowConfidenceCount}" }
 
             val defaultTarget = enrichPolicyConfig.resolvedFor("enrich").runtimeParams.targetCoverage
             if (health.coverageRate < defaultTarget) {
-                HmpLog.i(LogTag.AgentMaster) { "[Master] coverage ${health.coverageRate} < target $defaultTarget -> creating Enrich" }
+                HmpLog.i(LogTag.AgentMaster) { "🤖 [Master] coverage ${health.coverageRate} < target $defaultTarget -> creating Enrich" }
                 startEnrich(EnrichTask(targetCoverage = defaultTarget), enrichTransport)
             } else {
-                HmpLog.i(LogTag.AgentMaster) { "[Master] coverage ${health.coverageRate} >= target $defaultTarget -> skip Enrich" }
+                HmpLog.i(LogTag.AgentMaster) { "🤖 [Master] coverage ${health.coverageRate} >= target $defaultTarget -> skip Enrich" }
             }
-        } ?: HmpLog.w(LogTag.AgentMaster) { "[Master] MusicRepository null, skipping enrich health check" }
+        } ?: HmpLog.w(LogTag.AgentMaster) { "🤖 [Master] MusicRepository null, skipping enrich health check" }
 
         // ④ W0: 自动启动 HelloSubAgent（门面副驾驶，Master 默认启动的唯一 SubAgent）
         if (musicRepository != null) {
             runCatching { startHello() }
                 .onSuccess { hello ->
-                    if (hello != null) HmpLog.i(LogTag.AgentMaster) { "[Master] HelloSubAgent auto-started (cards available)" }
-                    else HmpLog.w(LogTag.AgentMaster) { "[Master] startHello returned null (missing deps?)" }
+                    if (hello != null) HmpLog.i(LogTag.AgentMaster) { "🤖 [Master] HelloSubAgent auto-started (cards available)" }
+                    else HmpLog.w(LogTag.AgentMaster) { "🤖 [Master] startHello returned null (missing deps?)" }
                 }
-                .onFailure { e -> HmpLog.w(LogTag.AgentMaster, e) { "[Master] startHello failed (non-fatal)" } }
+                .onFailure { e -> HmpLog.w(LogTag.AgentMaster, e) { "🤖 [Master] startHello failed (non-fatal)" } }
         } else {
-            HmpLog.w(LogTag.AgentMaster) { "[Master] MusicRepository null, skip auto startHello" }
+            HmpLog.w(LogTag.AgentMaster) { "🤖 [Master] MusicRepository null, skip auto startHello" }
         }
 
         // ⑤ F9-T1 冷启动：首次画像建模（曲库侧写 + 行为侧写 + 叙事过期检查）。
@@ -498,13 +498,13 @@ class MasterAgent(
 
     /** 应用销毁时调用，清理所有 SubAgent（suspend 版本——内部调 scheduler/SubAgent.shutdown 需协程） */
     suspend fun shutdown() {
-        HmpLog.i(LogTag.AgentMaster) { "[Master] shutdown" }
+        HmpLog.i(LogTag.AgentMaster) { "🤖 [Master] shutdown" }
         scheduler.stopArbitration()
         _subAgents.values.forEach { it.shutdown() }
         cancelAllRunLoopJobs()
         _subAgents.clear()
         lifecycleScope.coroutineContext[kotlinx.coroutines.Job]?.cancel()
-        HmpLog.i(LogTag.AgentMaster) { "[Master] shutdown complete" }
+        HmpLog.i(LogTag.AgentMaster) { "🤖 [Master] shutdown complete" }
     }
 
     /**
@@ -514,11 +514,11 @@ class MasterAgent(
      * 核心逻辑就是 cancel 所有 runLoop Job —— runLoop 里的 while(isActive) 会自然退出。
      */
     fun close() {
-        HmpLog.i(LogTag.AgentMaster) { "[Master] close (non-suspend)" }
+        HmpLog.i(LogTag.AgentMaster) { "🤖 [Master] close (non-suspend)" }
         cancelAllRunLoopJobs()
         _subAgents.clear()
         lifecycleScope.coroutineContext[kotlinx.coroutines.Job]?.cancel()
-        HmpLog.i(LogTag.AgentMaster) { "[Master] close complete" }
+        HmpLog.i(LogTag.AgentMaster) { "🤖 [Master] close complete" }
     }
 
     private fun cancelAllRunLoopJobs() {
@@ -557,10 +557,10 @@ class MasterAgent(
             // 幂等检查：已有活跃实例 → 跳过
             _subAgents["enrich"]?.let { existing ->
                 if (existing !is com.hmp.domain.agent.sub.EnrichSubAgent) {
-                    HmpLog.w(LogTag.AgentMaster) { "[Master] existing enrich is not EnrichSubAgent, force cleanup" }
+                    HmpLog.w(LogTag.AgentMaster) { "🤖 [Master] existing enrich is not EnrichSubAgent, force cleanup" }
                     stopEnrich()
                 } else if (existing.state() == com.hmp.domain.agent.runtime.AgentRunState.RUNNING) {
-                    HmpLog.w(LogTag.AgentMaster) { "[Master] Enrich already active, skip create" }
+                    HmpLog.w(LogTag.AgentMaster) { "🤖 [Master] Enrich already active, skip create" }
                     return
                 } else {
                     // 旧实例非活跃但未清理干净 → 先停再重建
@@ -571,14 +571,14 @@ class MasterAgent(
             val repo = musicRepository
             val registry = chatToolRegistry
             if (repo == null || registry == null) {
-                HmpLog.e(LogTag.AgentMaster) { "[Master] Cannot start Enrich: musicRepository=${repo != null} chatToolRegistry=${registry != null}" }
+                HmpLog.e(LogTag.AgentMaster) { "🤖 [Master] Cannot start Enrich: musicRepository=${repo != null} chatToolRegistry=${registry != null}" }
                 return
             }
 
             // 优先用 startEnrich() 传入参数，否则用构造函数的 enrichTransport（独立 Agent Transport）
             val effectiveEnrichTransport = enrichTransport ?: this.enrichTransport
             if (effectiveEnrichTransport == null) {
-                HmpLog.e(LogTag.AgentMaster) { "[Master] No LlmTransport for Enrich — enrichTransport not injected in MasterAgent ctor" }
+                HmpLog.e(LogTag.AgentMaster) { "🤖 [Master] No LlmTransport for Enrich — enrichTransport not injected in MasterAgent ctor" }
                 return
             }
 
@@ -631,7 +631,7 @@ class MasterAgent(
             // ⑦ 启动 runLoop（跟踪 Job——旧 Job join 完才会到这里，所以一定是单协程）
             enrichRunLoopJob = scope.launch { enrichAgent.runLoop() }
 
-            HmpLog.i(LogTag.AgentMaster) { "[Master] EnrichSubAgent created (batch=${task.maxBatchSize}, targetCoverage=${task.targetCoverage}, config=${enrichConfig != null})" }
+            HmpLog.i(LogTag.AgentMaster) { "🤖 [Master] EnrichSubAgent created (batch=${task.maxBatchSize}, targetCoverage=${task.targetCoverage}, config=${enrichConfig != null})" }
         }
     }
 
@@ -642,7 +642,7 @@ class MasterAgent(
                 enrich.shutdown()
                 scheduler.unregisterAgent("enrich")
                 _subAgents.remove("enrich")
-                HmpLog.i(LogTag.AgentMaster) { "[Master] Enrich stopped" }
+                HmpLog.i(LogTag.AgentMaster) { "🤖 [Master] Enrich stopped" }
             }
             enrichRunLoopJob?.cancel()
             enrichRunLoopJob = null
@@ -678,7 +678,7 @@ class MasterAgent(
             _subAgents["radio"]?.let { existing ->
                 val radio = existing as? com.hmp.domain.agent.sub.RadioSubAgent
                 if (radio != null && radio.state() == com.hmp.domain.agent.runtime.AgentRunState.RUNNING) {
-                    HmpLog.w(LogTag.AgentMaster) { "[Master] Radio already active, delegating to existing" }
+                    HmpLog.w(LogTag.AgentMaster) { "🤖 [Master] Radio already active, delegating to existing" }
                     return@withLock radio.startRadio(seed, trigger, chatContext)
                 }
                 // 非活跃实例 → 先停再重建
@@ -690,14 +690,14 @@ class MasterAgent(
             val playback = playbackPort
             val nowPlaying = nowPlayingProvider
             if (repo == null || registry == null || playback == null || nowPlaying == null) {
-                HmpLog.e(LogTag.AgentMaster) { "[Master] Cannot start Radio: deps missing repo=${repo != null} registry=${registry != null} playback=${playback != null} nowPlaying=${nowPlaying != null}" }
+                HmpLog.e(LogTag.AgentMaster) { "🤖 [Master] Cannot start Radio: deps missing repo=${repo != null} registry=${registry != null} playback=${playback != null} nowPlaying=${nowPlaying != null}" }
                 return emptyList()
             }
 
             // ① AgentContextBudget(64K)——电台决策比 Enrich 复杂但比 Master 对话轻
             val effectiveRadioTransport = radioTransport
             if (effectiveRadioTransport == null) {
-                HmpLog.e(LogTag.AgentMaster) { "[Master] No LlmTransport for Radio — radioTransport not injected in MasterAgent ctor" }
+                HmpLog.e(LogTag.AgentMaster) { "🤖 [Master] No LlmTransport for Radio — radioTransport not injected in MasterAgent ctor" }
                 return emptyList()
             }
             val contextBudget = AgentContextBudget(
@@ -784,7 +784,7 @@ class MasterAgent(
             //    async 在 Master scope、await 在调用方：UI 消失只是拿不到返回值，
             //    节目照常开播。await 撞上调用方取消时抛 CE，由调用方协程自行收场。
             val tracks = scope.async { radioAgent.startRadio(seed, trigger, chatContext) }.await()
-            HmpLog.i(LogTag.AgentMaster) { "[Master] RadioSubAgent created + started (targetCount=12, tracks=${tracks.size})" }
+            HmpLog.i(LogTag.AgentMaster) { "🤖 [Master] RadioSubAgent created + started (targetCount=12, tracks=${tracks.size})" }
             return tracks
         }
     }
@@ -827,7 +827,7 @@ class MasterAgent(
                 radio.shutdown()
                 scheduler.unregisterAgent("radio")
                 _subAgents.remove("radio")
-                HmpLog.i(LogTag.AgentMaster) { "[Master] Radio stopped" }
+                HmpLog.i(LogTag.AgentMaster) { "🤖 [Master] Radio stopped" }
             }
             // ③ 播放已在 ⓪ 暂停（只暂停、不清空播放队列 —— 关闭电台不等于清空播放列表）。
             //    这里再补一次：若 ⓪ 时状态还没就绪（极端时序），确保最终是暂停态。
@@ -858,20 +858,20 @@ class MasterAgent(
     /** Master 下令暂停电台：播放引擎 PAUSE → SubAgent 内部状态切 PAUSED（runLoop + playlist 保留） */
     suspend fun pauseRadio() {
         val radio = _subAgents["radio"] as? com.hmp.domain.agent.sub.RadioSubAgent ?: run {
-            HmpLog.w(LogTag.AgentMaster) { "[Master] pauseRadio: no radio agent" }
+            HmpLog.w(LogTag.AgentMaster) { "🤖 [Master] pauseRadio: no radio agent" }
             return
         }
         // 先停播放引擎（RadioSubAgent 已剥离播放控制）
         muteObservation()
         playbackPort?.execute(com.hmp.domain.agent.port.PlaybackCommand.PAUSE, com.hmp.domain.agent.port.CommandSource.AGENT_INTERNAL)
         radio.pauseRadio()
-        HmpLog.i(LogTag.AgentMaster) { "[Master] Radio paused" }
+        HmpLog.i(LogTag.AgentMaster) { "🤖 [Master] Radio paused" }
     }
 
     /** Master 下令恢复电台：先启播放引擎 → SubAgent 内部状态切 PLAYING */
     suspend fun resumeRadio() {
         val radio = _subAgents["radio"] as? com.hmp.domain.agent.sub.RadioSubAgent ?: run {
-            HmpLog.w(LogTag.AgentMaster) { "[Master] resumeRadio: no radio agent" }
+            HmpLog.w(LogTag.AgentMaster) { "🤖 [Master] resumeRadio: no radio agent" }
             return
         }
         // 先启播放引擎（RadioSubAgent 已剥离播放控制）
@@ -879,7 +879,7 @@ class MasterAgent(
         muteObservation()
         playbackPort?.execute(com.hmp.domain.agent.port.PlaybackCommand.PLAY, com.hmp.domain.agent.port.CommandSource.AGENT_INTERNAL)
         radio.resumeRadio()
-        HmpLog.i(LogTag.AgentMaster) { "[Master] Radio resumed" }
+        HmpLog.i(LogTag.AgentMaster) { "🤖 [Master] Radio resumed" }
     }
 
     // ===== Hello 门面副驾驶管理（W0 · F1：Master 唯一决策） =====
@@ -907,7 +907,7 @@ class MasterAgent(
             _subAgents["hello"]?.let { existing ->
                 val hello = existing as? HelloSubAgent
                 if (hello != null && hello.state() != com.hmp.domain.agent.runtime.AgentRunState.UNREGISTERED) {
-                    HmpLog.w(LogTag.AgentMaster) { "[Master] Hello already active, skip create" }
+                    HmpLog.w(LogTag.AgentMaster) { "🤖 [Master] Hello already active, skip create" }
                     return@withLock hello
                 }
                 // 非活跃实例 → 先停再重建
@@ -916,7 +916,7 @@ class MasterAgent(
 
             // ② 前置依赖 null check —— Hello 没有 Repository/播放上下文就跑不起来
             val repo = musicRepository ?: run {
-                HmpLog.w(LogTag.AgentMaster) { "[Master] musicRepository null, skip startHello" }
+                HmpLog.w(LogTag.AgentMaster) { "🤖 [Master] musicRepository null, skip startHello" }
                 return@withLock null
             }
 
@@ -978,7 +978,7 @@ class MasterAgent(
                 launch { helloAgent.privateRecommendList.collect { _privateRecommendList.value = it } }
             }
 
-            HmpLog.i(LogTag.AgentMaster) { "[Master] HelloSubAgent created (llm=${helloTransport != null})" }
+            HmpLog.i(LogTag.AgentMaster) { "🤖 [Master] HelloSubAgent created (llm=${helloTransport != null})" }
             return helloAgent
         }
     }
@@ -990,7 +990,7 @@ class MasterAgent(
                 hello.shutdown()
                 scheduler.unregisterAgent("hello")
                 _subAgents.remove("hello")
-                HmpLog.i(LogTag.AgentMaster) { "[Master] Hello stopped" }
+                HmpLog.i(LogTag.AgentMaster) { "🤖 [Master] Hello stopped" }
             }
             helloRunLoopJob?.cancel()
             helloRunLoopJob = null
@@ -1024,7 +1024,7 @@ class MasterAgent(
         helloConfig = perAgent["hello"]?.takeIf { it.isConfigured } ?: globalConfig
 
         HmpLog.i(LogTag.AgentMaster) {
-            "[Master] updateAiConfig: chat=${chatConfig != null}, enrich=${enrichConfig != null}, radio=${radioConfig != null}, hello=${helloConfig != null}"
+            "🤖 [Master] updateAiConfig: chat=${chatConfig != null}, enrich=${enrichConfig != null}, radio=${radioConfig != null}, hello=${helloConfig != null}"
         }
 
         // 推给所有已启动的 SubAgent
@@ -1064,7 +1064,7 @@ class MasterAgent(
 
         // ── 观测面 ①：一首歌的结算（**带播放进度**）→ 决策内核 ──
         radioSettledListenerJob = scope.launch {
-            HmpLog.i(LogTag.AgentMaster) { "[Master] trackSettled → 电台决策内核（追踪看 RadioTrace）" }
+            HmpLog.i(LogTag.AgentMaster) { "🤖 [Master] trackSettled → 电台决策内核（追踪看 RadioTrace）" }
             port.trackSettled.collect { event ->   // collect（不用 collectLatest，结算事件不能丢）
                 (_subAgents["radio"] as? RadioSubAgent)?.onTrackSettled(event)
             }
@@ -1072,7 +1072,7 @@ class MasterAgent(
 
         // ── 观测面 ②：暂停 / 继续（不触发判断，只进上下文） ──
         radioPauseListenerJob = scope.launch {
-            HmpLog.i(LogTag.AgentMaster) { "[Master] pauseEvents → 电台决策内核（仅入上下文）" }
+            HmpLog.i(LogTag.AgentMaster) { "🤖 [Master] pauseEvents → 电台决策内核（仅入上下文）" }
             port.pauseEvents.collect { event ->
                 (_subAgents["radio"] as? RadioSubAgent)?.onPause(event)
             }
@@ -1080,7 +1080,7 @@ class MasterAgent(
 
         // ── 切歌：门面通知 + 累计已播 + 队列见底提醒 ──
         radioTrackChangeListenerJob = scope.launch {
-            HmpLog.i(LogTag.AgentMaster) { "[Master] trackChangeEvents → 门面 + 队列见底提醒" }
+            HmpLog.i(LogTag.AgentMaster) { "🤖 [Master] trackChangeEvents → 门面 + 队列见底提醒" }
             port.trackChangeEvents.collectLatest { newTitle ->
                 presence.emit(PresenceEvent.DjBlank)   // Hello 门面消费（保持原语义）
                 val radio = _subAgents["radio"] as? RadioSubAgent
@@ -1102,12 +1102,12 @@ class MasterAgent(
         val (greeting, source) = runCatching { generateDjSegue() }.fold(
             onSuccess = { it to "llm" },
             onFailure = { e ->
-                HmpLog.w(LogTag.AgentMaster, e) { "DjBlank LLM failed, using fallback greeting" }
+                HmpLog.w(LogTag.AgentMaster, e) { "🤖 DjBlank LLM failed, using fallback greeting" }
                 nextFallbackGreeting() to "fallback"
             }
         )
         chatAuditLog?.logDjSegue(greeting, source)
-        HmpLog.i(LogTag.AgentMaster) { "[Master] DjBlank → emit NoticeAvailable: '$greeting'" }
+        HmpLog.i(LogTag.AgentMaster) { "🤖 [Master] DjBlank → emit NoticeAvailable: '$greeting'" }
         presence.emit(PresenceEvent.NoticeAvailable(greeting))
     }
 
@@ -1277,13 +1277,13 @@ class MasterAgent(
     /** 暂停富化进程（Scheduler pause，进程保活但不处理新批次）。 */
     suspend fun pauseEnrich() {
         _subAgents["enrich"]?.pause()
-        HmpLog.i(LogTag.AgentMaster) { "[Master] enrich paused" }
+        HmpLog.i(LogTag.AgentMaster) { "🤖 [Master] enrich paused" }
     }
 
     /** 恢复富化进程。 */
     suspend fun resumeEnrich() {
         _subAgents["enrich"]?.resume()
-        HmpLog.i(LogTag.AgentMaster) { "[Master] enrich resumed" }
+        HmpLog.i(LogTag.AgentMaster) { "🤖 [Master] enrich resumed" }
     }
 
     /** 重新扫描未覆盖歌曲并重置覆盖率目标。 */
@@ -1297,7 +1297,7 @@ class MasterAgent(
         val enrich = _subAgents["enrich"] as? com.hmp.domain.agent.sub.EnrichSubAgent
         val target = newTarget ?: 0.9f
         enrich?.updateTarget(target)
-        HmpLog.i(LogTag.AgentMaster) { "[Master] enrich rescan triggered, new target=$target" }
+        HmpLog.i(LogTag.AgentMaster) { "🤖 [Master] enrich rescan triggered, new target=$target" }
     }
 
     // ═══ 内建意图路由（SubAgent 生命周期原生暴露，不经过工具层）═══
@@ -1315,7 +1315,7 @@ class MasterAgent(
         val stopRadioTriggers = listOf("停电台", "关电台", "停止电台", "stop radio", "stop radio", "停止播放电台")
         if (stopRadioTriggers.any { lower.contains(it) } || (lower == "停" && isRadioActive())) {
             stopRadio()
-            HmpLog.i(LogTag.AgentMaster) { "[Master] builtin: stopRadio" }
+            HmpLog.i(LogTag.AgentMaster) { "🤖 [Master] builtin: stopRadio" }
             return AgentResult(
                 text = "电台已停止。",
                 stepsUsed = 0, toolCalls = emptyList(),
@@ -1329,7 +1329,7 @@ class MasterAgent(
             val radio = _subAgents["radio"] as? com.hmp.domain.agent.sub.RadioSubAgent
             if (radio != null && radio.queryState() is com.hmp.domain.agent.sub.RadioState.PAUSED) {
                 resumeRadio()
-                HmpLog.i(LogTag.AgentMaster) { "[Master] builtin: resumeRadio" }
+                HmpLog.i(LogTag.AgentMaster) { "🤖 [Master] builtin: resumeRadio" }
                 return AgentResult(
                     text = "电台继续播放了。",
                     stepsUsed = 0, toolCalls = emptyList(),
@@ -1350,13 +1350,13 @@ class MasterAgent(
             val seed = extractSeed(input)
             val trigger = RadioTrigger.fromChatInput(input)
             val tracks = runCatching { startRadio(seed, trigger) }
-                .onFailure { HmpLog.e(LogTag.AgentMaster, it) { "[Master] builtin: startRadio failed" } }
+                .onFailure { HmpLog.e(LogTag.AgentMaster, it) { "🤖 [Master] builtin: startRadio failed" } }
                 .getOrNull()
             val summary = if (tracks != null && tracks.isNotEmpty()) {
-                HmpLog.i(LogTag.AgentMaster) { "[Master] builtin: startRadio seed=\"$seed\" tracks=${tracks.size}" }
+                HmpLog.i(LogTag.AgentMaster) { "🤖 [Master] builtin: startRadio seed=\"$seed\" tracks=${tracks.size}" }
                 "电台启动了${if (!seed.isNullOrBlank()) "，种子「$seed」" else ""}，为你选了 ${tracks.size} 首。"
             } else {
-                HmpLog.w(LogTag.AgentMaster) { "[Master] builtin: startRadio returned empty for seed=\"$seed\"" }
+                HmpLog.w(LogTag.AgentMaster) { "🤖 [Master] builtin: startRadio returned empty for seed=\"$seed\"" }
                 "电台没有找到足够的曲目，换个描述试试？"
             }
             return AgentResult(
@@ -1379,7 +1379,7 @@ class MasterAgent(
                 )
             }
             startEnrich(null)
-            HmpLog.i(LogTag.AgentMaster) { "[Master] builtin: startEnrich" }
+            HmpLog.i(LogTag.AgentMaster) { "🤖 [Master] builtin: startEnrich" }
             return AgentResult(
                 text = "好的，富化已启动。后台自动扫描未覆盖歌曲补充标签，说「富化状态」可以看进度。",
                 stepsUsed = 0, toolCalls = emptyList(),
@@ -1400,7 +1400,7 @@ class MasterAgent(
                 )
             }
             stopEnrich()
-            HmpLog.i(LogTag.AgentMaster) { "[Master] builtin: stopEnrich" }
+            HmpLog.i(LogTag.AgentMaster) { "🤖 [Master] builtin: stopEnrich" }
             return AgentResult(
                 text = "富化已停止。",
                 stepsUsed = 0, toolCalls = emptyList(),
@@ -1421,7 +1421,7 @@ class MasterAgent(
                 )
             }
             pauseEnrich()
-            HmpLog.i(LogTag.AgentMaster) { "[Master] builtin: pauseEnrich" }
+            HmpLog.i(LogTag.AgentMaster) { "🤖 [Master] builtin: pauseEnrich" }
             return AgentResult(
                 text = "好的，富化已暂停。",
                 stepsUsed = 0, toolCalls = emptyList(),
@@ -1442,7 +1442,7 @@ class MasterAgent(
                 )
             }
             resumeEnrich()
-            HmpLog.i(LogTag.AgentMaster) { "[Master] builtin: resumeEnrich" }
+            HmpLog.i(LogTag.AgentMaster) { "🤖 [Master] builtin: resumeEnrich" }
             return AgentResult(
                 text = "好的，富化继续。",
                 stepsUsed = 0, toolCalls = emptyList(),
@@ -1455,7 +1455,7 @@ class MasterAgent(
         val rescanTriggers = listOf("重扫", "重新富化", "重扫未覆盖", "rescan enrich", "重置富化", "重新识别")
         if (rescanTriggers.any { lower.contains(it) }) {
             rescanEnrich(null)
-            HmpLog.i(LogTag.AgentMaster) { "[Master] builtin: rescanEnrich" }
+            HmpLog.i(LogTag.AgentMaster) { "🤖 [Master] builtin: rescanEnrich" }
             return AgentResult(
                 text = "好的，正在重新扫描未覆盖的歌曲。",
                 stepsUsed = 0, toolCalls = emptyList(),
@@ -1590,7 +1590,7 @@ class MasterAgent(
         // F9-T1: 无参版本，内部从 settingsRepo.getActiveAiConfig() 取 config。
         maybeRegenerateNarrative()
 
-        HmpLog.i(LogTag.AgentMaster) { "handleUserMessage start (task=$taskId): input=${userMessage.take(119)}… history=${ctx.history.size} steps_budget=$stepBudget" }
+        HmpLog.i(LogTag.AgentMaster) { "🤖 handleUserMessage start (task=$taskId): input=${userMessage.take(119)}… history=${ctx.history.size} steps_budget=$stepBudget" }
 
         // ═══ per-Agent AgentPolicy：复用 MasterAgent 实例字段 masterPolicyConfig ═══
         // TrustLedger 每次新建但持有同一个 config 引用 → 用户确认累积的信任跨对话保留
@@ -1660,10 +1660,10 @@ class MasterAgent(
             )
             if (!reply.failed) {
                 profile.updateNarrative(reply.text, fingerprint)
-                HmpLog.i(LogTag.AgentMaster) { "profile narrative regenerated (fingerprint updated)" }
+                HmpLog.i(LogTag.AgentMaster) { "🤖 profile narrative regenerated (fingerprint updated)" }
             }
         }.onFailure { e ->
-            HmpLog.w(LogTag.AgentMaster, e) { "narrative regeneration failed (non-fatal, keep old)" }
+            HmpLog.w(LogTag.AgentMaster, e) { "🤖 narrative regeneration failed (non-fatal, keep old)" }
         }
     }
 
@@ -1692,11 +1692,11 @@ class MasterAgent(
                     val extractions = com.hmp.domain.agent.profile.DialogueExtractor.parse(reply.text)
                     if (extractions.isNotEmpty()) {
                         profile.ingestDialogueEvidence(extractions, sessionId)
-                        HmpLog.i(LogTag.AgentMaster) { "dialogue extraction: ${extractions.size} item(s) written" }
+                        HmpLog.i(LogTag.AgentMaster) { "🤖 dialogue extraction: ${extractions.size} item(s) written" }
                     }
                 }
             }.onFailure { e ->
-                HmpLog.w(LogTag.AgentMaster, e) { "dialogue extraction failed (non-fatal)" }
+                HmpLog.w(LogTag.AgentMaster, e) { "🤖 dialogue extraction failed (non-fatal)" }
             }
         }
     }
@@ -1720,7 +1720,7 @@ class MasterAgent(
         if (masterPolicyConfig.trustLevel != newLevel) {
             masterPolicyConfig.trustLevel = newLevel
             persistMasterPolicyAsync()
-            HmpLog.i(LogTag.AgentMaster) { "trustLevel set to $newLevel by settings UI" }
+            HmpLog.i(LogTag.AgentMaster) { "🤖 trustLevel set to $newLevel by settings UI" }
         }
     }
 
@@ -1729,7 +1729,7 @@ class MasterAgent(
         if (masterPolicyConfig.alwaysAllow.isNotEmpty()) {
             masterPolicyConfig.alwaysAllow.clear()
             persistMasterPolicyAsync()
-            HmpLog.i(LogTag.AgentMaster) { "alwaysAllow reset by settings UI" }
+            HmpLog.i(LogTag.AgentMaster) { "🤖 alwaysAllow reset by settings UI" }
         }
     }
 

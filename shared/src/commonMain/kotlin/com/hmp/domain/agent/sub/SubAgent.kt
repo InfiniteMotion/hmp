@@ -52,7 +52,7 @@ abstract class SubAgent(
     open suspend fun shutdown() {
         isActive = false
         contextBudget.releaseLlmClient()
-        HmpLog.i(LogTag.AgentSub) { "[$agentId] shutdown complete" }
+        HmpLog.i(LogTag.AgentSub) { "🧩 [$agentId] shutdown complete" }
     }
 
     /**
@@ -62,7 +62,7 @@ abstract class SubAgent(
      */
     open suspend fun pause() {
         runState = AgentRunState.PAUSED
-        HmpLog.i(LogTag.AgentSub) { "[$agentId] pause() called (default impl — no stopSignal to bridge)" }
+        HmpLog.i(LogTag.AgentSub) { "🧩 [$agentId] pause() called (default impl — no stopSignal to bridge)" }
     }
 
     /**
@@ -71,7 +71,7 @@ abstract class SubAgent(
      */
     open suspend fun resume() {
         runState = AgentRunState.RUNNING
-        HmpLog.i(LogTag.AgentSub) { "[$agentId] resume() called (default impl — no stopSignal to bridge)" }
+        HmpLog.i(LogTag.AgentSub) { "🧩 [$agentId] resume() called (default impl — no stopSignal to bridge)" }
     }
 
     /** 当前运行状态（Master 查询用） */

@@ -1,6 +1,5 @@
 package com.hmp.di
 
-import co.touchlab.kermit.Logger
 import com.hmp.data.database.AppDatabase
 import com.hmp.data.database.AgentMessageDao
 import com.hmp.data.database.AgentAuditLogDao
@@ -41,6 +40,8 @@ import org.koin.core.context.startKoin
 import org.koin.core.module.dsl.singleOf
 import org.koin.dsl.bind
 import org.koin.dsl.module
+import com.hmp.log.HmpLog
+import com.hmp.log.LogTag
 
 val desktopPlatformModule = module {
     single { DataStoreFactory.create() }
@@ -79,10 +80,10 @@ fun initKoinDesktop(vararg additionalModules: org.koin.core.module.Module) {
     val t = System.currentTimeMillis()
     val modules = mutableListOf(sharedModule, desktopPlatformModule)
     modules.addAll(additionalModules)
-    Logger.i(null, "Startup") { "+${System.currentTimeMillis() - t}ms — module list assembled" }
+    HmpLog.i(LogTag.SystemLifecycle) { "🚀 +${System.currentTimeMillis() - t}ms — module list assembled" }
     val t2 = System.currentTimeMillis()
     startKoin {
         modules(modules)
     }
-    Logger.i(null, "Startup") { "+${System.currentTimeMillis() - t2}ms — startKoin {} execution" }
+    HmpLog.i(LogTag.SystemLifecycle) { "🚀 +${System.currentTimeMillis() - t2}ms — startKoin {} execution" }
 }

@@ -125,7 +125,7 @@ class PlaybackObservationBus : PlaybackObservationSink {
         totalMs: Long,
     ) {
         if (muted()) {
-            HmpLog.d(LogTag.AgentRadio) { "观测静默中，丢弃结算《$title》$outcome（编排副作用）" }
+            HmpLog.d(LogTag.AgentRadio) { "📻 观测静默中，丢弃结算《$title》$outcome（编排副作用）" }
             return
         }
         _trackSettled.tryEmit(

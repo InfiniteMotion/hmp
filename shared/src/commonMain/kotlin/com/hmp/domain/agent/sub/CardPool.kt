@@ -41,12 +41,12 @@ class CardPool {
         if (oldExist) {
             _cards.update { it.map { c -> if (c.type == type) focusedCard else c } }
             HmpLog.d(LogTag.AgentHello) {
-                "CardPool replace in-place: type=$type id=${focusedCard.cardId} setFocus=$setFocus"
+                "👋 CardPool replace in-place: type=$type id=${focusedCard.cardId} setFocus=$setFocus"
             }
         } else {
             _cards.update { listOf(focusedCard) + it }
             HmpLog.d(LogTag.AgentHello) {
-                "CardPool replace (new): type=$type id=${focusedCard.cardId} setFocus=$setFocus"
+                "👋 CardPool replace (new): type=$type id=${focusedCard.cardId} setFocus=$setFocus"
             }
         }
     }
@@ -54,13 +54,13 @@ class CardPool {
     /** push 到栈顶（列表头） */
     fun push(card: SlideCard) {
         _cards.update { listOf(card) + it }
-        HmpLog.d(LogTag.AgentHello) { "CardPool push: type=${card.type} id=${card.cardId}" }
+        HmpLog.d(LogTag.AgentHello) { "👋 CardPool push: type=${card.type} id=${card.cardId}" }
     }
 
     /** 按类型设置 visible（今日无数据时 setVisible(type, false) 即可，不用 pop） */
     fun setVisible(type: SlideType, visible: Boolean) {
         _cards.update { it.map { c -> if (c.type == type) c.copy(visible = visible) else c } }
-        HmpLog.d(LogTag.AgentHello) { "CardPool setVisible: type=$type visible=$visible" }
+        HmpLog.d(LogTag.AgentHello) { "👋 CardPool setVisible: type=$type visible=$visible" }
     }
 
     /** 按类型 pop（彻底从 CardPool 移除，很少用——大多用 setVisible(false)） */
@@ -68,7 +68,7 @@ class CardPool {
         val removed = _cards.value.filter { it.type == type }
         _cards.update { it.filter { c -> c.type != type } }
         if (removed.isNotEmpty()) {
-            HmpLog.d(LogTag.AgentHello) { "CardPool popByType: type=$type removed=${removed.size}" }
+            HmpLog.d(LogTag.AgentHello) { "👋 CardPool popByType: type=$type removed=${removed.size}" }
         }
     }
 

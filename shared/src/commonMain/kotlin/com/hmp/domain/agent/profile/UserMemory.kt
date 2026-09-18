@@ -101,7 +101,7 @@ class UserMemory(
 
         val portraitCount = recomputePortraits(now, coverageAtModeling = content?.coverageRate?.toDouble())
         HmpLog.i(logTag) {
-            "library refresh: tracks=${tracks.size} shape=${shapeDrafts.size} " +
+            "🫀 library refresh: tracks=${tracks.size} shape=${shapeDrafts.size} " +
                 "content=${contentDrafts.size} state=${stateDrafts.size} portraits=$portraitCount"
         }
         audit(
@@ -110,7 +110,7 @@ class UserMemory(
         )
         portraitCount
     }.onFailure { e ->
-        HmpLog.w(logTag, e) { "library refresh failed (non-fatal)" }
+        HmpLog.w(logTag, e) { "🫀 library refresh failed (non-fatal)" }
     }.getOrDefault(0)
 
     /**
@@ -125,7 +125,7 @@ class UserMemory(
         if (!force) {
             val last = evidenceDao.newestUpdatedAtBySource(ProfileSources.T0_BEHAVIOR)
             if (last != null && now - last < ProfileConfig.BEHAVIOR_REFRESH_MIN_INTERVAL_MS) {
-                HmpLog.i(logTag) { "behavior refresh skipped: refreshed ${(now - last) / 3_600_000L}h ago" }
+                HmpLog.i(logTag) { "🫀 behavior refresh skipped: refreshed ${(now - last) / 3_600_000L}h ago" }
                 return@runCatching 0
             }
         }
@@ -136,7 +136,7 @@ class UserMemory(
             BPortraitModeler.toBehaviorEvidenceDrafts(snapshot, sessionId = "behavior-$now")
         if (drafts.isEmpty()) {
             HmpLog.i(logTag) {
-                "behavior refresh: not enough signal (plays=${snapshot.totalPlays} days=${snapshot.activeDays})"
+                "🫀 behavior refresh: not enough signal (plays=${snapshot.totalPlays} days=${snapshot.activeDays})"
             }
             audit("profile.refresh.behavior", "skipped: plays=${snapshot.totalPlays} days=${snapshot.activeDays}")
             return@runCatching 0
@@ -145,12 +145,12 @@ class UserMemory(
         drafts.forEach { upsertEvidence(it, now) }
         val portraitCount = recomputePortraits(now, coverageAtModeling = null)
         HmpLog.i(logTag) {
-            "behavior refresh: plays=${snapshot.totalPlays} evidence=${drafts.size} portraits=$portraitCount"
+            "🫀 behavior refresh: plays=${snapshot.totalPlays} evidence=${drafts.size} portraits=$portraitCount"
         }
         audit("profile.refresh.behavior", "plays=${snapshot.totalPlays} evidence=${drafts.size}")
         portraitCount
     }.onFailure { e ->
-        HmpLog.w(logTag, e) { "behavior refresh failed (non-fatal)" }
+        HmpLog.w(logTag, e) { "🫀 behavior refresh failed (non-fatal)" }
     }.getOrDefault(0)
 
     /**
@@ -161,7 +161,7 @@ class UserMemory(
      */
     suspend fun noteStatedPreference(rawPredicate: String, value: String, sessionId: String? = null): Boolean {
         val predicate = normalizePredicate(rawPredicate) ?: run {
-            HmpLog.w(logTag) { "rejected unknown predicate from note: $rawPredicate" }
+            HmpLog.w(logTag) { "🫀 rejected unknown predicate from note: $rawPredicate" }
             return false
         }
         val now = timeProvider()
@@ -229,7 +229,7 @@ class UserMemory(
                 )
                 written++
             } else {
-                HmpLog.w(logTag) { "dialogue extraction rejected unknown predicate: ${extraction.predicate}" }
+                HmpLog.w(logTag) { "🫀 dialogue extraction rejected unknown predicate: ${extraction.predicate}" }
             }
         }
         if (written > 0) {
@@ -253,7 +253,7 @@ class UserMemory(
         val narrative = narrativeDao?.get()?.text
         UserProfileRenderer.render(PortraitComposer.selectForContext(drafts), narrative)
     }.onFailure { e ->
-        HmpLog.w(logTag, e) { "renderForContext failed (non-fatal, block omitted)" }
+        HmpLog.w(logTag, e) { "🫀 renderForContext failed (non-fatal, block omitted)" }
     }.getOrNull()
 
     /**
@@ -288,14 +288,14 @@ class UserMemory(
         val text = ProfileNarrative.validate(rawText)
         val dao = narrativeDao ?: return false
         if (text == null) {
-            HmpLog.w(logTag) { "narrative rejected by gate (length or forbidden words)" }
+            HmpLog.w(logTag) { "🫀 narrative rejected by gate (length or forbidden words)" }
             return false
         }
         runCatching {
             dao.upsert(UserProfileNarrativeEntity(text = text, factsHash = factsHash, generatedAt = timeProvider()))
             audit("profile.narrative", "regenerated")
         }.onFailure { e ->
-            HmpLog.w(logTag, e) { "narrative persist failed (non-fatal)" }
+            HmpLog.w(logTag, e) { "🫀 narrative persist failed (non-fatal)" }
             return false
         }
         return true
@@ -305,7 +305,7 @@ class UserMemory(
     suspend fun currentPortraits(): List<PortraitDraft> = runCatching {
         loadPortraitDrafts()
     }.onFailure { e ->
-        HmpLog.w(logTag, e) { "currentPortraits failed (non-fatal)" }
+        HmpLog.w(logTag, e) { "🫀 currentPortraits failed (non-fatal)" }
     }.getOrDefault(emptyList())
 
     /**
@@ -318,7 +318,7 @@ class UserMemory(
     suspend fun musicPersonalityCard(): PersonalityCardComposer.PersonalityCard? = runCatching {
         PersonalityCardComposer.compose(loadPortraitDrafts(), narrativeDao?.get()?.text)
     }.onFailure { e ->
-        HmpLog.w(logTag, e) { "musicPersonalityCard failed (non-fatal)" }
+        HmpLog.w(logTag, e) { "🫀 musicPersonalityCard failed (non-fatal)" }
     }.getOrNull()
 
     // ── 定向简报（契约 v3.8：读取面新增 SubAgent 消费点）──────────────
@@ -350,7 +350,7 @@ class UserMemory(
         val selected = PortraitComposer.selectForContext(drafts).filter { it.type in types }
         UserProfileRenderer.render(selected, narrativeDao?.get()?.text, maxChars)
     }.onFailure { e ->
-        HmpLog.w(logTag, e) { "briefing failed (non-fatal)" }
+        HmpLog.w(logTag, e) { "🫀 briefing failed (non-fatal)" }
     }.getOrNull()
 
     /** 证据行全量（设置页的「凭什么」展开用）。 */
@@ -364,9 +364,9 @@ class UserMemory(
             evidenceDao.deleteAll()
             portraitDao.deleteAll()
             narrativeDao?.deleteAll()
-            HmpLog.i(logTag) { "cleared" }
+            HmpLog.i(logTag) { "🫀 cleared" }
             audit("profile.clear", "all")
-        }.onFailure { e -> HmpLog.w(logTag, e) { "clear failed (non-fatal)" } }
+        }.onFailure { e -> HmpLog.w(logTag, e) { "🫀 clear failed (non-fatal)" } }
     }
 
     // ── 内部 ───────────────────────────────────────────────────────────
@@ -422,7 +422,7 @@ class UserMemory(
 
     private suspend fun upsertEvidence(draft: EvidenceDraft, now: Long) {
         if (!PortraitType.isKnown(draft.predicate)) {
-            HmpLog.w(logTag) { "rejected predicate outside closed set: ${draft.predicate}" }
+            HmpLog.w(logTag) { "🫀 rejected predicate outside closed set: ${draft.predicate}" }
             return
         }
         val existing = evidenceDao.find(UserProfileMapper.SUBJECT_USER, draft.predicate, draft.value)
@@ -470,6 +470,6 @@ class UserMemory(
     /** 审计：只记条数与来源，**绝不记画像内容**（契约 §9.2 工程卫生）。 */
     private suspend fun audit(tool: String, reason: String) {
         runCatching { auditLog?.record(AuditEntry(tool = tool, outcome = "success", reason = reason)) }
-            .onFailure { HmpLog.w(logTag, it) { "audit failed (non-fatal)" } }
+            .onFailure { HmpLog.w(logTag, it) { "🫀 audit failed (non-fatal)" } }
     }
 }

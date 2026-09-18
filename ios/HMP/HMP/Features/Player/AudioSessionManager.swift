@@ -18,9 +18,9 @@ class AudioSessionManager {
                 options: .allowAirPlay
             )
             try AVAudioSession.sharedInstance().setActive(true)
-            PlatformLogKt.platformLog(severity: 1, tag: "AudioSession", message: "Setup successful: category=playback, options=allowAirPlay, active=true")
+            HmpLog.i(HmpTag.playerAudioSession, "🔊 Setup successful: category=playback, options=allowAirPlay, active=true")
         } catch {
-            PlatformLogKt.platformLog(severity: 3, tag: "AudioSession", message: "setup failed: \(error)")
+            HmpLog.e(HmpTag.playerAudioSession, "🔊 setup failed: \(error)")
         }
     }
 
@@ -78,7 +78,7 @@ class AudioSessionManager {
         do {
             try AVAudioSession.sharedInstance().setActive(active)
         } catch {
-            PlatformLogKt.platformLog(severity: 3, tag: "AudioSession", message: "setActive failed: \(error)")
+            HmpLog.e(HmpTag.playerAudioSession, "🔊 setActive failed: \(error)")
         }
     }
 }
