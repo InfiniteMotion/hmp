@@ -1,7 +1,8 @@
 package com.hmp.domain.agent.sub
 
-import co.touchlab.kermit.Logger
 import com.hmp.domain.agent.infra.PresenceBus
+import com.hmp.log.HmpLog
+import com.hmp.log.LogTag
 import com.hmp.domain.agent.port.AuditLogPort
 import com.hmp.domain.agent.port.LlmMessage
 import com.hmp.domain.agent.port.PlaybackObservationBus
@@ -103,14 +104,32 @@ class RadioSubAgent(
     private var radioConfig: AiEndpointConfig? = null,
     private val targetCount: Int = 12,
     private val stopSignal: StopSignal? = null,
+    /** DJ 衔接/裁决阶段的 LLM 采样温度（默认 0.2f，EngineDefaults.TEMPERATURE_RADIO）。 */
+    private val defaultTemperature: Float = 0.2f,
     /**
      * 画像简报（契约 v3.8，MasterAgent.startRadio 从 `userMemory.radioBriefing()` 取）：
      * 开播选种与编排仲裁的听众参考 —— 自带「仅供参考」口径，null = 冷启动无画像。
      */
     private val memoryBriefing: String? = null,
+    // ── F9-T2：prompt 多语言 + 用户覆盖（可选，默认 null 回落硬编码）──
+    private val promptPreferredLang: String? = null,
+    private val globalReplyLanguage: String = "zh",
+    private val promptOverrides: Map<String, String> = emptyMap(),
 ) : SubAgent(agentId, contextBudget, toolRegistryView), Capability {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
+    // ── 构造诊断日志：一眼看出哪些参数生效了 ──
+    init {
+        val cfg = radioConfig
+        HmpLog.i(LogTag.AgentRadio) {
+            "📻 RadioSubAgent created | targetCount=$targetCount | temp=$defaultTemperature | " +
+            "hasLLM=${cfg != null} | endpoint=${cfg?.endpoint?.take(40) ?: "(none)"} | " +
+            "model=${cfg?.selectedModel?.take(30) ?: "(default)"} | hasKey=${cfg?.apiKey?.isNotBlank() == true} | " +
+            "promptLang=${promptPreferredLang ?: "(global→$globalReplyLanguage)"} | " +
+            "promptOverrides=${promptOverrides.size} keys"
+        }
+    }
 
     /**
      * 世代计数：**每关闭/暂停一次 +1**。
@@ -209,7 +228,7 @@ class RadioSubAgent(
     @Volatile private var lastTrigger: RadioTrigger = RadioTrigger.HOME_CLICK
 
     override suspend fun runLoop() {
-        Logger.i("Agent.Radio") { "runLoop start (targetCount=$targetCount, hasLLM=${radioConfig != null})" }
+        HmpLog.i(LogTag.AgentRadio) { "runLoop start (targetCount=$targetCount, hasLLM=${radioConfig != null})" }
         runState = AgentRunState.RUNNING
         while (scope.isActive && isActive) {
             stopSignal?.waitResume()  // Scheduler pause → 挂起
@@ -218,17 +237,17 @@ class RadioSubAgent(
             kotlinx.coroutines.delay(500)
         }
         runState = AgentRunState.PAUSED
-        Logger.i("Agent.Radio") { "runLoop exited" }
+        HmpLog.i(LogTag.AgentRadio) { "runLoop exited" }
     }
 
     override suspend fun pause() {
-        Logger.i("Agent.Radio") { "pause()" }
+        HmpLog.i(LogTag.AgentRadio) { "pause()" }
         runState = AgentRunState.PAUSED
         (stopSignal as? com.hmp.domain.agent.runtime.SchedulerStopSignal)?.onSchedulerPaused()
     }
 
     override suspend fun resume() {
-        Logger.i("Agent.Radio") { "resume()" }
+        HmpLog.i(LogTag.AgentRadio) { "resume()" }
         runState = AgentRunState.RUNNING
         (stopSignal as? com.hmp.domain.agent.runtime.SchedulerStopSignal)?.onSchedulerResumed()
     }
@@ -265,12 +284,12 @@ class RadioSubAgent(
         }
         // 诊断：走到这里意味着"判断为没有在播曲目"。留一行日志，
         // 下次再出现"顶掉当前曲"就能一眼看出是拿不到还是真的没在播。
-        Logger.i(RADIO_TRACE_TAG) {
+        HmpLog.i(LogTag.AgentRadio) {
             "[开播] 判定为无在播曲目（id=${current?.currentMusicId}, isPlaying=${current?.isPlaying}, " +
                 "队列=${current?.queueIds?.size ?: 0} 首）→ 从零起播"
         }
 
-        Logger.i("Agent.Radio") { "startRadio(seed=$seed, trigger=$trigger)" }
+        HmpLog.i(LogTag.AgentRadio) { "startRadio(seed=$seed, trigger=$trigger)" }
         this.seed = seed
         this.lastTrigger = trigger
         this.playedCount = 0
@@ -291,12 +310,12 @@ class RadioSubAgent(
             progressPercent = 30, actionText = "从曲库里筛选好歌...", targetCount = targetCount,
         )
         val local = buildLocalFallback(seedLabels)
-        Logger.i("Agent.Radio") { "startRadio: local fallback ${local.size} tracks, seedLabels=${seedLabels.map { it.name }}" }
+        HmpLog.i(LogTag.AgentRadio) { "startRadio: local fallback ${local.size} tracks, seedLabels=${seedLabels.map { it.name }}" }
 
         // ── A 段｜秒开：本地保底立即推入播放引擎（AGENT_INTERNAL，不算用户跳过） ──
         val instantPlay = pushLocalQueueForInstantPlay(local)
         currentPlayingId = local.firstOrNull()?.musicId
-        Logger.i(RADIO_TRACE_TAG) {
+        HmpLog.i(LogTag.AgentRadio) {
             "[开播] 本地队列 ${local.size} 首已推入并起播（首播=${local.firstOrNull()?.title}，pushOk=$instantPlay）"
         }
 
@@ -310,7 +329,7 @@ class RadioSubAgent(
             val g = generation
             opening = askOpeningWithRetry(seedInput, seedLabels, local, g, playing = local.firstOrNull())
         } else {
-            Logger.i("Agent.Radio") { "startRadio: no LLM config / no client / empty local → local only" }
+            HmpLog.i(LogTag.AgentRadio) { "startRadio: no LLM config / no client / empty local → local only" }
         }
 
         // ── C/D 段｜收口 ──
@@ -354,7 +373,7 @@ class RadioSubAgent(
 
         auditLog?.logRadioStart(seedLabels.map { it.name }, arbitrated.size)
         stationTheme?.let { emitRadioMessage(RadioMessage.ThemeChanged(it)) }
-        Logger.i("Agent.Radio") {
+        HmpLog.i(LogTag.AgentRadio) {
             "startRadio: done → ${this.currentPlaylist.size} tracks (queue=${if (resolved.isNullOrEmpty()) "local" else "model"})"
         }
         // 返回最终队列（模型换过就返回换后的），供 UI 渲染
@@ -382,7 +401,7 @@ class RadioSubAgent(
             val clearOk = runCatching {
                 playbackPort.execute(PlaybackCommand.SKIP_ALL, CommandSource.AGENT_INTERNAL).first
             }.getOrDefault(false)
-            Logger.i(RADIO_TRACE_TAG) {
+            HmpLog.i(LogTag.AgentRadio) {
                 "[开播] 清扫旧队列残留 ${staleQueue.size} 首（ok=$clearOk）→ [${
                     staleQueue.joinToString(",").take(120)
                 }]"
@@ -395,7 +414,7 @@ class RadioSubAgent(
         local.drop(1).take(targetCount).forEach { track ->
             runCatching {
                 playbackPort.execute(PlaybackCommand.ADD_TO_QUEUE(track.musicId), CommandSource.AGENT_INTERNAL)
-            }.onFailure { e -> Logger.w("Agent.Radio", e) { "enqueue failed: ${track.title}" } }
+            }.onFailure { e -> HmpLog.w(LogTag.AgentRadio, e) { "enqueue failed: ${track.title}" } }
         }
         // 执行后检验：追加不是「发了就算」——回读播放器队列确认真落地
         verifyQueueAfterAppend(local.take(targetCount).map { it.musicId })
@@ -404,7 +423,7 @@ class RadioSubAgent(
 
     /** Master 下令停电台 */
     suspend fun stopRadio() {
-        Logger.i("Agent.Radio") { "stopRadio()" }
+        HmpLog.i(LogTag.AgentRadio) { "stopRadio()" }
         generation++   // 此后到达的模型结果一律作废
         _radioState.value = RadioState.IDLE
         currentPlaylist = emptyList()
@@ -428,7 +447,7 @@ class RadioSubAgent(
     suspend fun pauseRadio() {
         val current = _radioState.value
         if (current !is RadioState.PLAYING) {
-            Logger.w("Agent.Radio") { "pauseRadio: not PLAYING (state=$current), skip" }
+            HmpLog.w(LogTag.AgentRadio) { "pauseRadio: not PLAYING (state=$current), skip" }
             return
         }
         generation++   // 暂停后到达的模型结果也作废（用户已经离开这一档）
@@ -438,14 +457,14 @@ class RadioSubAgent(
             currentCount = currentPlaylist.size,
             targetCount = current.targetCount,
         )
-        Logger.i("Agent.Radio") { "pauseRadio → PAUSED (playlist=${currentPlaylist.size})" }
+        HmpLog.i(LogTag.AgentRadio) { "pauseRadio → PAUSED (playlist=${currentPlaylist.size})" }
     }
 
     /** Master 下令恢复电台（UI 收音机卡在 PAUSED 态点击）——播放引擎 PLAY 由 MasterAgent 负责 */
     suspend fun resumeRadio() {
         val current = _radioState.value
         if (current !is RadioState.PAUSED) {
-            Logger.w("Agent.Radio") { "resumeRadio: not PAUSED (state=$current), skip" }
+            HmpLog.w(LogTag.AgentRadio) { "resumeRadio: not PAUSED (state=$current), skip" }
             return
         }
         runState = AgentRunState.RUNNING
@@ -453,7 +472,7 @@ class RadioSubAgent(
             currentCount = currentPlaylist.size,
             targetCount = current.targetCount.coerceAtLeast(currentPlaylist.size),
         )
-        Logger.i("Agent.Radio") { "resumeRadio → PLAYING (playlist=${currentPlaylist.size})" }
+        HmpLog.i(LogTag.AgentRadio) { "resumeRadio → PLAYING (playlist=${currentPlaylist.size})" }
     }
 
     /**
@@ -469,17 +488,17 @@ class RadioSubAgent(
     )
     suspend fun continueRadio(): List<RadioTrack> {
         if (_radioState.value !is RadioState.PLAYING) {
-            Logger.w("Agent.Radio") { "continueRadio: radio not PLAYING (state=${_radioState.value}), skip" }
+            HmpLog.w(LogTag.AgentRadio) { "continueRadio: radio not PLAYING (state=${_radioState.value}), skip" }
             return currentPlaylist
         }
         // 简单策略：已经播过前半段 → 取后半段；不足则重新 startRadio
         val remaining = currentPlaylist.drop(targetCount / 2)
         return if (remaining.size >= targetCount / 2) {
-            Logger.i("Agent.Radio") { "continueRadio: ${remaining.size} remaining tracks" }
+            HmpLog.i(LogTag.AgentRadio) { "continueRadio: ${remaining.size} remaining tracks" }
             currentPlaylist = remaining
             remaining
         } else {
-            Logger.i("Agent.Radio") { "continueRadio: pool exhausted, rebuilding" }
+            HmpLog.i(LogTag.AgentRadio) { "continueRadio: pool exhausted, rebuilding" }
             startRadio(seed = null)  // 用 nowPlaying 重新建
         }
     }
@@ -511,7 +530,7 @@ class RadioSubAgent(
     fun onTrackSettled(event: TrackSettledEvent) {
         // 这条是「观测面到底通没通」的唯一证据 —— Android 埋点在 MusicController 的结算点，
         // 没有它就说明控制器没 emit 或总线没接上。
-        Logger.i(RADIO_TRACE_TAG) {
+        HmpLog.i(LogTag.AgentRadio) {
             "[观测] 《${event.title}》(id=${event.musicId}) ${event.outcome}" +
                 " 已播 ${(event.playedRatio * 100).toInt()}%（${event.playedMs / 1000}s / ${event.totalMs / 1000}s）"
         }
@@ -573,13 +592,13 @@ class RadioSubAgent(
                 !nowPlayingProvider.getNowPlaying().isPlaying
             }.getOrDefault(false)
             if (!stillPaused) {
-                Logger.i(RADIO_TRACE_TAG) { "[电台] 暂停核查：窗口后仍在播 → 切歌过渡的瞬时暂停，忽略" }
+                HmpLog.i(LogTag.AgentRadio) { "[电台] 暂停核查：窗口后仍在播 → 切歌过渡的瞬时暂停，忽略" }
                 return@launch
             }
             if (wasBuilding) {
                 generation++
                 pausedDuringBuilding = true
-                Logger.i(RADIO_TRACE_TAG) { "[电台] 启动期间用户暂停 → 在途结果作废，收口后进入 PAUSED" }
+                HmpLog.i(LogTag.AgentRadio) { "[电台] 启动期间用户暂停 → 在途结果作废，收口后进入 PAUSED" }
             } else {
                 pauseByUser()
             }
@@ -614,17 +633,17 @@ class RadioSubAgent(
         if (pendingPauseCheck != null) return
         val playing = runCatching { nowPlayingProvider.getNowPlaying().isPlaying }.getOrDefault(true)
         if (playing) return
-        Logger.i(RADIO_TRACE_TAG) {
+        HmpLog.i(LogTag.AgentRadio) {
             "[开播] PLAY 后仍未出声（当前曲可能停在曲目末端）→ PLAY_BY_ID 重新起播 id=$trackId"
         }
         runCatching {
             playbackPort.execute(PlaybackCommand.PLAY_BY_ID(trackId), CommandSource.AGENT_INTERNAL)
-        }.onFailure { e -> Logger.w("Agent.Radio", e) { "audible fallback PLAY_BY_ID failed" } }
+        }.onFailure { e -> HmpLog.w(LogTag.AgentRadio, e) { "audible fallback PLAY_BY_ID failed" } }
     }
 
     /** 用户在播放器里暂停 → 电台同步暂停（保留对话，等用户从电台开关恢复）。 */
     private fun pauseByUser() {
-        Logger.i(RADIO_TRACE_TAG) { "[电台] 用户在播放器暂停 → 电台同步暂停（对话保留）" }
+        HmpLog.i(LogTag.AgentRadio) { "[电台] 用户在播放器暂停 → 电台同步暂停（对话保留）" }
         scope.launch { pauseRadio() }
     }
 
@@ -633,13 +652,13 @@ class RadioSubAgent(
      * 注意**不暂停音乐**：用户已经明确要听了。
      */
     private fun exitBecauseUserTookOver() {
-        Logger.i(RADIO_TRACE_TAG) { "[电台] 用户直接继续播放 → 退出电台，交还控制权" }
+        HmpLog.i(LogTag.AgentRadio) { "[电台] 用户直接继续播放 → 退出电台，交还控制权" }
         scope.launch { onUserTookOver?.invoke() }
     }
 
     /** MasterAgent 转发：队列见底。 */
     fun onQueueLow(remaining: Int) {
-        Logger.i(RADIO_TRACE_TAG) { "[队列] 见底 remaining=$remaining → 触发判断" }
+        HmpLog.i(LogTag.AgentRadio) { "[队列] 见底 remaining=$remaining → 触发判断" }
         session?.onQueueLow(remaining)
     }
 
@@ -663,7 +682,7 @@ class RadioSubAgent(
 
         val ageMs = nowMonotonicMs() - r.closedAtMs
         if (ageMs < 0 || ageMs > REUSE_BACKSTOP_MS) {
-            Logger.i(RADIO_TRACE_TAG) { "[复用] 跳过：距上次关闭 ${ageMs / 60_000} 分钟，超兜底窗口" }
+            HmpLog.i(LogTag.AgentRadio) { "[复用] 跳过：距上次关闭 ${ageMs / 60_000} 分钟，超兜底窗口" }
             return false
         }
 
@@ -671,7 +690,7 @@ class RadioSubAgent(
         //      （主判断是情境连续性，时间只兜底 —— 见 spec §7.1）
         val nowDayPart = runCatching { currentLocalMoment().dayPart() }.getOrNull()
         if (r.dayPart != null && nowDayPart != null && nowDayPart != r.dayPart) {
-            Logger.i(RADIO_TRACE_TAG) {
+            HmpLog.i(LogTag.AgentRadio) {
                 "[复用] 跳过：情境换代（开播时=${r.dayPart.label}，现在=${nowDayPart.label}）→ 新的一场"
             }
             return false
@@ -679,7 +698,7 @@ class RadioSubAgent(
 
         // ② 用户指定了新主题 → 新的一档，旧对话作废
         if (!incomingSeed.isNullOrBlank() && incomingSeed != r.seed) {
-            Logger.i(RADIO_TRACE_TAG) {
+            HmpLog.i(LogTag.AgentRadio) {
                 "[复用] 跳过：用户指定了新主题「$incomingSeed」（上一档是「${r.seed ?: "自动"}」）"
             }
             return false
@@ -690,14 +709,14 @@ class RadioSubAgent(
 
         // ③-a 当前曲目必须还在当时的队列里
         if (playingId == null || r.playlist.none { it.musicId == playingId }) {
-            Logger.i(RADIO_TRACE_TAG) { "[复用] 跳过：当前曲目已经不是上次那份队列里的歌" }
+            HmpLog.i(LogTag.AgentRadio) { "[复用] 跳过：当前曲目已经不是上次那份队列里的歌" }
             return false
         }
         // ③-b 队列本身也必须没被动过（用户可能换了歌单，而新歌单里恰好也有这首）
         //      拿不到队列指纹时退化为只靠 ③-a。
         val queue = now.queueIds
         if (queue.isNotEmpty() && queue != r.playlist.map { it.musicId }) {
-            Logger.i(RADIO_TRACE_TAG) {
+            HmpLog.i(LogTag.AgentRadio) {
                 "[复用] 跳过：播放列表已变（${r.playlist.size} 首 → ${queue.size} 首）"
             }
             return false
@@ -721,10 +740,10 @@ class RadioSubAgent(
 
         runCatching {
             playbackPort.execute(PlaybackCommand.PLAY, CommandSource.AGENT_INTERNAL)
-        }.onFailure { e -> Logger.w("Agent.Radio", e) { "resume play failed" } }
+        }.onFailure { e -> HmpLog.w(LogTag.AgentRadio, e) { "resume play failed" } }
         ensureAudible(playingId)
 
-        Logger.i(RADIO_TRACE_TAG) {
+        HmpLog.i(LogTag.AgentRadio) {
             "[复用] 续上上次对话（${r.messages.size} 条消息，队列 ${currentPlaylist.size} 首）→ 省掉曲库视图组装"
         }
         return true
@@ -746,7 +765,7 @@ class RadioSubAgent(
         current: com.hmp.domain.agent.port.NowPlayingContext,
     ): List<RadioTrack> {
         val currentId = current.currentMusicId!!
-        Logger.i("Agent.Radio") { "startAfterCurrent(seed=$seed, current=$currentId)" }
+        HmpLog.i(LogTag.AgentRadio) { "startAfterCurrent(seed=$seed, current=$currentId)" }
         this.seed = seed
         this.lastTrigger = trigger
         this.playedCount = 0
@@ -762,7 +781,7 @@ class RadioSubAgent(
             ?: chatContext?.takeIf { it.isNotBlank() && trigger == RadioTrigger.CHAT_INPUT }
         val seedLabels = extractSeedLabels(seedInput)
         lastSeedLabels = seedLabels
-        Logger.i(RADIO_TRACE_TAG) {
+        HmpLog.i(LogTag.AgentRadio) {
             "[开播] 以在播曲目 $currentId 为起点（种子=${seedInput ?: "当前曲目标签"}）→ 不打断播放"
         }
 
@@ -777,10 +796,10 @@ class RadioSubAgent(
         // 只接队列不按播放，电台"开着"却没有声音。所以暂停态必须补一次 PLAY
         // （AGENT_INTERNAL：恢复当前曲，不切歌、不动进度）。
         if (!current.isPlaying) {
-            Logger.i(RADIO_TRACE_TAG) { "[开播] 当前曲目处于暂停态 → 补 PLAY 起声（不切歌）" }
+            HmpLog.i(LogTag.AgentRadio) { "[开播] 当前曲目处于暂停态 → 补 PLAY 起声（不切歌）" }
             runCatching {
                 playbackPort.execute(PlaybackCommand.PLAY, CommandSource.AGENT_INTERNAL)
-            }.onFailure { e -> Logger.w("Agent.Radio", e) { "resume play failed" } }
+            }.onFailure { e -> HmpLog.w(LogTag.AgentRadio, e) { "resume play failed" } }
             ensureAudible(currentId)
         }
 
@@ -852,7 +871,7 @@ class RadioSubAgent(
             candidates = { buildCandidateBlock() },
             snapshot = { contextSnapshot() },
             onTurn = { verdict ->
-                Logger.i("Agent.Radio") {
+                HmpLog.i(LogTag.AgentRadio) {
                     "turn → ${verdict?.action ?: "SILENT"} (reason=${verdict?.reason?.take(60)})"
                 }
             },
@@ -862,7 +881,7 @@ class RadioSubAgent(
         s.noteExecuted("开播：$openingSource")
         s.start(scope)
         session = s
-        Logger.i(RADIO_TRACE_TAG) {
+        HmpLog.i(LogTag.AgentRadio) {
             "[会话] 开启（队列来源=$openingSource，端点=${if (radioConfig != null) "有" else "无"}）"
         }
     }
@@ -870,7 +889,7 @@ class RadioSubAgent(
     private fun stopSession() {
         session?.close()
         session = null
-        Logger.i(RADIO_TRACE_TAG) { "[会话] 关闭，本档对话丢弃" }
+        HmpLog.i(LogTag.AgentRadio) { "[会话] 关闭，本档对话丢弃" }
     }
 
     /**
@@ -900,16 +919,16 @@ class RadioSubAgent(
         take.forEach { t ->
             runCatching {
                 playbackPort.execute(PlaybackCommand.ADD_TO_QUEUE(t.musicId), CommandSource.AGENT_INTERNAL)
-            }.onFailure { e -> Logger.w("Agent.Radio", e) { "refill enqueue failed: ${t.title}" } }
+            }.onFailure { e -> HmpLog.w(LogTag.AgentRadio, e) { "refill enqueue failed: ${t.title}" } }
         }
         if (take.isNotEmpty()) {
             currentPlaylist = currentPlaylist + take
             _lastAdjust.value = "已补 ${take.size} 首"
-            Logger.i(RADIO_TRACE_TAG) { "[补歌] +${take.size} 首（队列共 ${currentPlaylist.size}）" }
+            HmpLog.i(LogTag.AgentRadio) { "[补歌] +${take.size} 首（队列共 ${currentPlaylist.size}）" }
             // 执行后检验：回读播放器队列，确认补的歌真的进了队列
             verifyQueueAfterAppend(take.map { it.musicId })
         } else {
-            Logger.w(RADIO_TRACE_TAG) { "[补歌] 曲库里挖不出新歌，队列没有变长" }
+            HmpLog.w(LogTag.AgentRadio) { "[补歌] 曲库里挖不出新歌，队列没有变长" }
         }
         return take.size
     }
@@ -929,7 +948,7 @@ class RadioSubAgent(
         if (queue.isEmpty()) return
         val missing = expected.filter { it !in queue.toSet() }
         if (missing.isNotEmpty()) {
-            Logger.w(RADIO_TRACE_TAG) {
+            HmpLog.w(LogTag.AgentRadio) {
                 "[检验] 追加未完全生效：预期 +${expected.size} 首，缺失 [${missing.joinToString(",")}]"
             }
             return
@@ -940,7 +959,7 @@ class RadioSubAgent(
             if (cursor < expected.size && id == expected[cursor]) cursor++
         }
         if (cursor != expected.size) {
-            Logger.w(RADIO_TRACE_TAG) {
+            HmpLog.w(LogTag.AgentRadio) {
                 "[检验] 追加顺序异常：预期 [${expected.joinToString(",")}]，播放器实际 [${queue.joinToString(",")}]"
             }
         }
@@ -961,12 +980,12 @@ class RadioSubAgent(
                 } else msg
             },
             tools = null,          // 判断阶段不给工具：它只能三选一，不能自己去改队列
-            temperature = 0.2f,
+            temperature = defaultTemperature,
         )
         if (res.failed) {
             // 失败原因必须上 RadioTrace：此前 failedMessage 被吞掉，
             // 真机上"等了半天没反应"根本查不出是网络/HTTP/解析哪一层挂了
-            Logger.w(RADIO_TRACE_TAG) {
+            HmpLog.w(LogTag.AgentRadio) {
                 "[裁决] 模型调用失败：${res.failedMessage?.take(200) ?: "未知原因"}"
             }
             return null
@@ -1006,7 +1025,7 @@ class RadioSubAgent(
             if (mirrorAfter.isNotEmpty() &&
                 after.take(SNAPSHOT_QUEUE_VISIBLE) != mirrorAfter.take(SNAPSHOT_QUEUE_VISIBLE)
             ) {
-                Logger.w(RADIO_TRACE_TAG) {
+                HmpLog.w(LogTag.AgentRadio) {
                     "[镜像] 播放器队列与本地镜像不一致（播放器在播之后 ${after.size} 首 / 镜像 ${mirrorAfter.size} 首）→ 快照以播放器为准"
                 }
             }
@@ -1056,7 +1075,7 @@ class RadioSubAgent(
                     whys = verdict.whys,
                 )
                 if (tracks.isEmpty()) {
-                    Logger.w("Agent.Radio") { "replace: 模型给的 id 全部无效，保持原队列" }
+                    HmpLog.w(LogTag.AgentRadio) { "replace: 模型给的 id 全部无效，保持原队列" }
                     session?.noteExecuted("换批失败（id 无效，队列未动）")
                     return true
                 }
@@ -1081,7 +1100,7 @@ class RadioSubAgent(
      */
     private suspend fun applyQueueAfterCurrent(musicIds: List<Long>) {
         if (musicIds.isEmpty()) return
-        Logger.i(RADIO_TRACE_TAG) {
+        HmpLog.i(LogTag.AgentRadio) {
             "[执行] 替换当前之后的队列：${musicIds.size} 首 [${musicIds.joinToString(",")}]" +
                 "（在播 ${currentPlayingId ?: "无"} 不触碰）"
         }
@@ -1094,10 +1113,10 @@ class RadioSubAgent(
                 CommandSource.AGENT_INTERNAL,   // 自家人操作，不能被当成用户意图
             )
         }.onFailure { e ->
-            Logger.w("Agent.Radio", e) { "REPLACE_QUEUE failed" }
+            HmpLog.w(LogTag.AgentRadio, e) { "REPLACE_QUEUE failed" }
         }.onSuccess { (ok, msg) ->
             // 成功标志此前被丢弃：端口返回 false（如部分 id 未入队）时完全无感
-            if (!ok) Logger.w(RADIO_TRACE_TAG) { "[执行] REPLACE_QUEUE 报告未完全生效：$msg" }
+            if (!ok) HmpLog.w(LogTag.AgentRadio) { "[执行] REPLACE_QUEUE 报告未完全生效：$msg" }
         }
         verifyQueueAfterReplace(musicIds)
     }
@@ -1116,7 +1135,7 @@ class RadioSubAgent(
         val pIdx = now.currentMusicId?.let { queue.indexOf(it) } ?: -1
         val after = if (pIdx >= 0) queue.drop(pIdx + 1) else queue
         if (after.take(wanted.size) != wanted) {
-            Logger.w(RADIO_TRACE_TAG) {
+            HmpLog.w(LogTag.AgentRadio) {
                 "[执行] 队列替换未生效？预期在播之后 [${wanted.joinToString(",")}]" +
                     "，播放器实际 [${after.joinToString(",")}]"
             }
@@ -1146,10 +1165,10 @@ class RadioSubAgent(
         }
         val hallucinated = wanted.size - resolved.size
         if (hallucinated > 0) {
-            Logger.w(RADIO_TRACE_TAG) { "[校验] 模型给了 $hallucinated 个库里不存在的 id，已丢弃" }
+            HmpLog.w(LogTag.AgentRadio) { "[校验] 模型给了 $hallucinated 个库里不存在的 id，已丢弃" }
         }
         if (excludeMusicId != null && ids.contains(excludeMusicId)) {
-            Logger.i(RADIO_TRACE_TAG) { "[约束] 模型把在播曲目 $excludeMusicId 也列进来了 → 已剔除" }
+            HmpLog.i(LogTag.AgentRadio) { "[约束] 模型把在播曲目 $excludeMusicId 也列进来了 → 已剔除" }
         }
         return resolved
     }
@@ -1245,14 +1264,29 @@ class RadioSubAgent(
         local: List<RadioTrack>,
         playing: RadioTrack?,
     ): OpeningTurn? {
+        val systemPrompt = RadioSession.systemPrompt(
+            targetCount = targetCount,
+            preferredLang = promptPreferredLang,
+            globalReplyLanguage = globalReplyLanguage,
+            userOverrides = promptOverrides,
+        )
+        val effectiveLang = when (promptPreferredLang) {
+            "zh", "en", "auto" -> promptPreferredLang
+            else -> globalReplyLanguage  // "global" 或 null → 用全局
+        }
+        HmpLog.i(LogTag.AgentRadio) {
+            "[开播] askOpeningQueue | promptLang=$effectiveLang | promptLen=${systemPrompt.length} | " +
+            "hasOverride=${promptOverrides.isNotEmpty()} | " +
+            "model=${radioConfig?.selectedModel?.take(30) ?: "(default)"}"
+        }
         val view = buildLibraryView(seedLabels, local)
         val messages = listOf(
-            LlmMessage(role = "system", content = RadioSession.systemPrompt(targetCount)),
+            LlmMessage(role = "system", content = systemPrompt),
             LlmMessage(role = "user", content = renderOpeningContext(seedInput, seedLabels, local, view, playing)),
         )
         val raw = askJudge(messages)
         if (raw.isNullOrBlank()) {
-            Logger.w(RADIO_TRACE_TAG) { "[开播] 模型没回（调用失败/无端点）→ 保持本地队列" }
+            HmpLog.w(LogTag.AgentRadio) { "[开播] 模型没回（调用失败/无端点）→ 保持本地队列" }
             return null
         }
         val ids = RadioSession.parseMusicIds(raw)
@@ -1260,13 +1294,13 @@ class RadioSubAgent(
         val whys = RadioSession.parseOpeningWhys(raw)
         val seedWhy = RadioSession.parseOpeningSeedWhy(raw)
         val valid = if (ids == null) 0 else resolveTracks(ids, excludeMusicId = currentPlayingId, whys = whys).size
-        Logger.i(RADIO_TRACE_TAG) {
+        HmpLog.i(LogTag.AgentRadio) {
             "[开播] 曲库视图 ${view.shownCount}/${view.totalCount}${if (view.filtered) "（已按标签过滤）" else "（全量）"}" +
                 " → 模型返回 ${ids?.size ?: 0} 个 id，有效 $valid 个" +
                 "${if (ids != null && valid < ids.size) "，丢弃 ${ids.size - valid} 个（幻觉 id 或在播曲目）" else ""}" +
                 "，按语 ${whys.size} 条"
         }
-        Logger.d(RADIO_TRACE_TAG) { "[开播] 模型原始回复：${raw.trim().take(300)}" }
+        HmpLog.d(LogTag.AgentRadio) { "[开播] 模型原始回复：${raw.trim().take(300)}" }
         // 即使 id 不可用也把往返留在历史里 —— 下一轮的节目档案会摆出真实队列，模型自己能看到偏差
         return OpeningTurn(
             messages = messages + LlmMessage(role = "assistant", content = raw.trim()),
@@ -1300,7 +1334,7 @@ class RadioSubAgent(
             val result = try {
                 Result.success(askOpeningQueue(seedInput, seedLabels, local, playing))
             } catch (ce: CancellationException) {
-                Logger.i(RADIO_TRACE_TAG) { "[开播] 开播协程被取消（${ce.message ?: "cancelled"}）→ 中止开播" }
+                HmpLog.i(LogTag.AgentRadio) { "[开播] 开播协程被取消（${ce.message ?: "cancelled"}）→ 中止开播" }
                 throw ce
             } catch (e: Throwable) {
                 Result.failure(e)
@@ -1308,24 +1342,24 @@ class RadioSubAgent(
             val turn = result.getOrNull()
             if (turn != null) {
                 if (!isCurrent(g)) {
-                    Logger.i(RADIO_TRACE_TAG) { "[开播] 结果已过期（期间电台被关闭/暂停）→ 丢弃" }
+                    HmpLog.i(LogTag.AgentRadio) { "[开播] 结果已过期（期间电台被关闭/暂停）→ 丢弃" }
                     return null
                 }
                 return turn
             }
             lastFailure = result.exceptionOrNull()?.message ?: "模型空回复（调用失败或无端点）"
             if (attempt < OPENING_ATTEMPTS - 1) {
-                Logger.w(RADIO_TRACE_TAG) {
+                HmpLog.w(LogTag.AgentRadio) {
                     "[开播] 第 ${attempt + 1} 次调用失败（${lastFailure?.take(120)}）→ ${OPENING_RETRY_DELAY_MS / 1000}s 后重试"
                 }
                 delay(OPENING_RETRY_DELAY_MS)
                 if (!isCurrent(g)) {
-                    Logger.i(RADIO_TRACE_TAG) { "[开播] 重试等待期间已过期（期间电台被关闭/暂停）→ 放弃" }
+                    HmpLog.i(LogTag.AgentRadio) { "[开播] 重试等待期间已过期（期间电台被关闭/暂停）→ 放弃" }
                     return null
                 }
             }
         }
-        Logger.w(RADIO_TRACE_TAG) { "[开播] 模型 $OPENING_ATTEMPTS 连败（${lastFailure?.take(120)}）→ 保持本地队列" }
+        HmpLog.w(LogTag.AgentRadio) { "[开播] 模型 $OPENING_ATTEMPTS 连败（${lastFailure?.take(120)}）→ 保持本地队列" }
         return null
     }
 
@@ -1384,7 +1418,7 @@ class RadioSubAgent(
      * @param skippedTitles 用户连跳的曲目标题（Master 从 skipEvents 快照传入，仅用于计数/日志）
      */
     suspend fun reorder(skippedTitles: List<String> = emptyList()): List<RadioTrack> {
-        Logger.i("Agent.Radio") { "reorder triggered: skippedTitles=$skippedTitles" }
+        HmpLog.i(LogTag.AgentRadio) { "reorder triggered: skippedTitles=$skippedTitles" }
         _radioState.value = RadioState.BUILDING(progressPercent = 10, actionText = "正在重新为你选歌...", targetCount = targetCount)
         emitRadioMessage(RadioMessage.ReorderSkipped(skippedTitles.size))
         // ① 清空旧播放队列（AGENT_INTERNAL：自家人操作，不能算用户跳过，
@@ -1394,7 +1428,7 @@ class RadioSubAgent(
         runCatching { playbackPort.execute(PlaybackCommand.SKIP_ALL, CommandSource.AGENT_INTERNAL) }
         // ② 沿用当前 seed 重新构建（seed 为空时 extractSeedLabels 会回落到 nowPlaying / 全局标签）
         val tracks = startRadio(seed = this.seed, trigger = RadioTrigger.SKIP_REORDER)
-        Logger.i("Agent.Radio") { "reorder done → ${tracks.size} tracks" }
+        HmpLog.i(LogTag.AgentRadio) { "reorder done → ${tracks.size} tracks" }
         return tracks
     }
 
@@ -1405,7 +1439,7 @@ class RadioSubAgent(
      * emit DjBlank → MasterAgent 消费 → LLM 生成衔接语 / 门面问候轮换 → emit NoticeAvailable。
      */
     fun onTrackChanged(track: RadioTrack) {
-        Logger.i("Agent.Radio") { "onTrackChanged: ${track.title}" }
+        HmpLog.i(LogTag.AgentRadio) { "onTrackChanged: ${track.title}" }
         presenceBus?.emit(com.hmp.domain.agent.infra.PresenceEvent.DjBlank)
     }
 
@@ -1420,7 +1454,7 @@ class RadioSubAgent(
         // 真正的权威来源是 contextSnapshot 里问播放器。
         val matches = currentPlaylist.filter { it.title == title }
         if (matches.size == 1) currentPlayingId = matches.first().musicId
-        Logger.i("Agent.Radio") { "onTrackPlayed: '$title' (playedCount=$playedCount/$targetCount)" }
+        HmpLog.i(LogTag.AgentRadio) { "onTrackPlayed: '$title' (playedCount=$playedCount/$targetCount)" }
         val half = (targetCount / 2).coerceAtLeast(1)
         if (playedCount == half) {
             emitRadioMessage(RadioMessage.TrackContinuing(title))
@@ -1454,7 +1488,7 @@ class RadioSubAgent(
         if (!seedInput.isNullOrBlank()) {
             val fromKeyword = labelNamesFromKeyword(seedInput)
             if (fromKeyword.isNotEmpty()) {
-                Logger.d("Agent.Radio") { "extractSeedLabels: keyword match → ${fromKeyword.map { it.name }}" }
+                HmpLog.d(LogTag.AgentRadio) { "extractSeedLabels: keyword match → ${fromKeyword.map { it.name }}" }
                 return fromKeyword
             }
         }
@@ -1465,13 +1499,13 @@ class RadioSubAgent(
         if (musicId != null) {
             val labels = musicRepository.getMusicLabels(musicId).map { it.label }
             if (labels.isNotEmpty()) {
-                Logger.d("Agent.Radio") { "extractSeedLabels: nowPlaying → ${labels.map { it.name }}" }
+                HmpLog.d(LogTag.AgentRadio) { "extractSeedLabels: nowPlaying → ${labels.map { it.name }}" }
                 return labels
             }
         }
 
         // ③ 兜底：取曲库中出现最多的 3 个标签
-        Logger.w("Agent.Radio") { "extractSeedLabels: no seed found, using global top labels" }
+        HmpLog.w(LogTag.AgentRadio) { "extractSeedLabels: no seed found, using global top labels" }
         return musicRepository.getGlobalTopLabels(limit = 3).ifEmpty {
             listOf(LabelName.POP, LabelName.ROCK, LabelName.CALM)
         }
@@ -1536,7 +1570,7 @@ class RadioSubAgent(
             .map { it.key }
 
         if (candidateIds.isEmpty()) {
-            Logger.w("Agent.Radio") { "buildLocalFallback: no local match for seedLabels=${seedLabels.map { it.name }}" }
+            HmpLog.w(LogTag.AgentRadio) { "buildLocalFallback: no local match for seedLabels=${seedLabels.map { it.name }}" }
             // 完全没标签匹配 → 退化为全局随机 top N
             val fallback = runCatching { musicRepository.getAllMusicInfoAsList("play_count", "desc") }
                 .getOrDefault(emptyList())
@@ -1551,7 +1585,7 @@ class RadioSubAgent(
             musicInfoToRadioTrack(info, "标签匹配:$matchedLabels", RadioTrackSource.LOCAL)
         }
 
-        Logger.d("Agent.Radio") { "buildLocalFallback: ${tracks.size} tracks from ${candidateIds.size} candidates" }
+        HmpLog.d(LogTag.AgentRadio) { "buildLocalFallback: ${tracks.size} tracks from ${candidateIds.size} candidates" }
         return tracks
     }
 
@@ -1576,7 +1610,12 @@ class RadioSubAgent(
     /** 热更新 AI 配置——由 MasterAgent.updateAiConfig 推送。下次 startRadio/continueRadio 时用新 config。 */
     fun updateAiConfig(radioConfig: AiEndpointConfig?) {
         this.radioConfig = radioConfig
-        Logger.i("Agent.Radio") { "updateAiConfig: config=${radioConfig != null}" }
+        HmpLog.i(LogTag.AgentRadio) {
+            "🔄 updateAiConfig | hasLLM=${radioConfig != null} | " +
+            "endpoint=${radioConfig?.endpoint?.take(40) ?: "(none)"} | " +
+            "model=${radioConfig?.selectedModel?.take(30) ?: "(default)"} | " +
+            "hasKey=${radioConfig?.apiKey?.isNotBlank() == true}"
+        }
     }
 
     // ── Capability 接口实现（F9-A0） ──

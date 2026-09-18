@@ -18,6 +18,7 @@
 | 代码风格门禁（ktlint）落地方案 | [ktlint-integration.md](ktlint-integration.md) |
 | 历史版本的开发方案（已完成，备查） | 本目录 `5_9/` `5_10/` `6_1/` `6_12/` |
 | **当前在做的设计资料与推进计划** | 本目录 [`7_x/B agent-build/`](7_x/B%20agent-build/) |
+| 日志门面与 Tag 规范 | [LOGGING.md](LOGGING.md) |
 
 ***
 
@@ -37,6 +38,7 @@
 | **ktlint 融入开发流程** | [ktlint-integration.md](ktlint-integration.md) | 代码风格门禁方案（**暂缓，等 agent 分支线合并后启动**）：`.editorconfig` 成品、包装脚本、三道闸门、存量收敛顺序；含全仓实测数据 |
 | **DESIGN_SYSTEM** | [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md) | 设计系统：色彩 / 字体 / 间距 / 组件规范 |
 | **ROOM_KMP_SETUP** | [ROOM_KMP_SETUP.md](ROOM_KMP_SETUP.md) | Room KMP 跨平台数据库配置经验总结 |
+| **LOGGING** | [LOGGING.md](LOGGING.md) | 日志门面（`LogTag` / `HmpLog`）、Tag 层级与 `MemLogWriter` 使用规范 |
 | **Google Play 上架手册** | [google-play-publish-guide.md](google-play-publish-guide.md) | Android 上架全流程指导 |
 | **shared-ios** | [../shared-ios/README.md](../shared-ios/README.md) | iOS 聚合框架模块说明（shared + shared-ui → `sharedIos.framework`） |
 
@@ -59,9 +61,10 @@
 
 ***
 
-## 🚧 当前进行中的工作：`7_x/`（v7.x Agent 与共享 UI）
+## 📦 项目线资料：`7_x/`（v7.x 共享 UI 与 Agent）
 
-`7_x/` 按**项目线**分为两个分区，各自是一套完整的设计资料 + 推进计划：
+`7_x/` 按**项目线**分为两个分区，各自是一套完整的设计资料 + 推进计划。
+**A 线（共享 UI）与 B 线（Agent）均已完成主体交付**：B 线 F1–F9 已收口，语音会话（原 F9-T3/T4）拆出为后续独立阶段 F10，尚未开工。
 
 ```
 docs/7_x/
@@ -71,17 +74,18 @@ docs/7_x/
 │   ├── 资源A1-映射表.md               资源搬迁映射（Android res → composeResources）
 │   └── baseline/README.md            阶段一切换前基线：旧版 UI 截图存档 + 交互清单
 │
-└── B agent-build/    AI Agent 体系（v7.3 方向 B，进行中）
+└── B agent-build/    AI Agent 体系（v7.3 方向 B，已收口）
     ├── design/                      设计资料 —— 要建成什么样（按主题，一个子系统一份）
     │   ├── README.md                入口索引
-    │   ├── agent.md                 设计总纲（单一事实来源）
+    │   ├── agent.md                 设计总纲（单一事实来源，含 §4.4 语音二档制）
     │   ├── agent-architecture.md    架构详解（铁则 / 两层结构 / 源码索引）
+    │   ├── agent-profile.md         用户认识模块唯一依据（两层画像 / 分级记忆 / 认知准入）
     │   ├── agent-radio.md           电台子系统（唯一依据 + 设计演进附录）
     │   ├── agent-w.md               W 阶段全景（引擎侧 + 页面级 + 组件级 + 缺口登记）
     │   └── agent-g6-recommend-design.md  G6 首页双推荐页设计
     └── taskbook/                    推进计划 —— 做到哪了（按阶段族，一族一章）
-        ├── README.md                总纲：生命线 / 进度状态 / 章节索引
-        └── f1-…f9-*.md              F1–F9 九章
+        ├── README.md                总纲：生命线 / 进度状态 / 章节索引（F10 语音为后续独立阶段）
+        └── f1-…f9-*.md              F1–F9 九章（F1–F9 已收口；F10 未开工，暂不建章）
 ```
 
 **两个目录的分工**（`7_x/B agent-build/` 内部）：
@@ -94,7 +98,8 @@ docs/7_x/
 | 冲突时 | `agent.md` 单一事实来源 | 以实际提交与验收为准 |
 
 > 分区约定：`7_x/` 下每个**项目线**一个分区目录（`<字母> <名称>/`）。新增项目线按此约定开新分区，不在 `7_x/` 根下放散文件。
-> **`7_x/` 只装项目线的设计资料与推进计划**；跨全仓的工程规范（版本号 `VERSIONING.md`、CI `ci-pipeline-diagnosis.md`、代码风格 `ktlint-integration.md` 等）一律放本目录顶层，不挂到任何项目线分区下。
+> **`7_x/` 只装项目线的设计资料与推进计划**；跨全仓的工程规范（版本号 `VERSIONING.md`、CI `ci-pipeline-diagnosis.md`、代码风格 `ktlint-integration.md`、日志 `LOGGING.md` 等）一律放本目录顶层，不挂到任何项目线分区下。
+> **本目录不留「待整理的散稿」**：一次性方案稿/实施计划在落地后即整合进对应项目线的 `design/`（要建成什么样）或 `taskbook/`（做到哪了），原稿删除。
 
 ***
 
@@ -109,7 +114,7 @@ docs/7_x/
 
 ***
 
-*文档索引最后更新：2026-09-15*
+*文档索引最后更新：2026-09-18*
 
 ***
 

@@ -128,9 +128,9 @@ val chatGatewayModule = module {
                 ) { _, _ ->
                     runCatching { settingsRepo.getActiveAiConfig() }.getOrNull()
                 }.collect { activeConfig ->
-                    master.updateAiConfig(chatTransport, activeConfig)
+                    master.updateAiConfig()
                     co.touchlab.kermit.Logger.i("Agent.Master") {
-                        "AI config changed → enableLlm=${chatTransport != null && activeConfig?.isConfigured == true}"
+                        "AI config changed → per-Agent configs reloaded from SettingsRepository"
                     }
                 }
             }

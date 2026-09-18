@@ -1,9 +1,10 @@
 package com.hmp.domain.agent.sub
 
-import co.touchlab.kermit.Logger
 import com.hmp.domain.agent.runtime.AgentContextBudget
 import com.hmp.domain.agent.runtime.AgentRunState
 import com.hmp.domain.agent.runtime.ToolRegistryView
+import com.hmp.log.HmpLog
+import com.hmp.log.LogTag
 import com.hmp.platform.Volatile
 
 /**
@@ -51,7 +52,7 @@ abstract class SubAgent(
     open suspend fun shutdown() {
         isActive = false
         contextBudget.releaseLlmClient()
-        Logger.i("Agent.SubAgent") { "[$agentId] shutdown complete" }
+        HmpLog.i(LogTag.AgentSub) { "[$agentId] shutdown complete" }
     }
 
     /**
@@ -61,7 +62,7 @@ abstract class SubAgent(
      */
     open suspend fun pause() {
         runState = AgentRunState.PAUSED
-        Logger.i("Agent.SubAgent") { "[$agentId] pause() called (default impl — no stopSignal to bridge)" }
+        HmpLog.i(LogTag.AgentSub) { "[$agentId] pause() called (default impl — no stopSignal to bridge)" }
     }
 
     /**
@@ -70,7 +71,7 @@ abstract class SubAgent(
      */
     open suspend fun resume() {
         runState = AgentRunState.RUNNING
-        Logger.i("Agent.SubAgent") { "[$agentId] resume() called (default impl — no stopSignal to bridge)" }
+        HmpLog.i(LogTag.AgentSub) { "[$agentId] resume() called (default impl — no stopSignal to bridge)" }
     }
 
     /** 当前运行状态（Master 查询用） */

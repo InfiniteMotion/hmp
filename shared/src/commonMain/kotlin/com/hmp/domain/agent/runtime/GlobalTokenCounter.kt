@@ -2,6 +2,9 @@ package com.hmp.domain.agent.runtime
 
 import com.hmp.platform.Volatile
 import com.hmp.platform.Synchronized
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 
 /**
  * T1 基础设施：全局唯一 Token 消耗计数器。
@@ -23,6 +26,20 @@ class GlobalTokenCounter(
     private var lastQuotaDay: Long = -1L
     private var tokensUsedToday: Long = 0L
 
+    // UI 订阅用：每次消耗/跨日时发布最新快照，供看板实时渲染。
+    private val _snapshot =
+        MutableStateFlow(TokenSnapshot(used = 0L, quota = dailyTokenQuota.toLong()))
+    val snapshot: StateFlow<TokenSnapshot> = _snapshot.asStateFlow()
+
+    /** 看板/诊断用的不可变 Token 快照。 */
+    data class TokenSnapshot(
+        val used: Long,
+        val quota: Long,
+    ) {
+        val remaining: Long = (quota - used).coerceAtLeast(0)
+        val rate: Float = if (quota > 0) (used.toFloat() / quota).coerceIn(0f, 1f) else 0f
+    }
+
     /** 今日已消耗 Token 总量 */
     @Synchronized
     fun usedToday(): Long {
@@ -41,6 +58,7 @@ class GlobalTokenCounter(
     fun recordTokens(count: Long) {
         rollDayIfNeeded()
         tokensUsedToday += count
+        publishSnapshot()
     }
 
     /**
@@ -59,7 +77,13 @@ class GlobalTokenCounter(
         if (day != lastQuotaDay) {
             lastQuotaDay = day
             tokensUsedToday = 0L
+            publishSnapshot()
         }
+    }
+
+    @Synchronized
+    private fun publishSnapshot() {
+        _snapshot.value = TokenSnapshot(used = tokensUsedToday, quota = dailyTokenQuota.toLong())
     }
 
     companion object {

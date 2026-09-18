@@ -96,7 +96,7 @@ class MasterAgentRadioTest {
                 )
             ),
             radioTransport = transport,
-            enrichConfig = AiEndpointConfig(isConfigured = true),
+            defaultLlmConfig = AiEndpointConfig(isConfigured = true),
             playbackPort = playback,
             nowPlayingProvider = FakeNowPlayingContextProvider,
         )
@@ -158,7 +158,7 @@ class MasterAgentRadioTest {
                 )
             ),
             radioTransport = transport,
-            enrichConfig = AiEndpointConfig(isConfigured = true),
+            defaultLlmConfig = AiEndpointConfig(isConfigured = true),
             playbackPort = playback,
             nowPlayingProvider = FakeNowPlayingContextProvider,
         )

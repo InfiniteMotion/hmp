@@ -18,7 +18,7 @@
 
 - [Agent 落地计划书](docs/7_x/B agent-build/taskbook/README.md) — 按阶段族推进的实施规划（f1–f9 九章，含验收标准与挂起参数默认值）
 
-- [Agent 用户认识模块契约](docs/7_x/B agent-build/design/agent-profile.md) — 画像（F9-T0 前置任务）：两层数据模型（含 Room v6 迁移 DDL）/ 槽位闭集 / 分级记忆 / C2 定稿（画像可读、仅供参考非指令）/ 审计四问 / 验收剧本 P1–P21
+- [Agent 用户认识模块契约](docs/7_x/B agent-build/design/agent-profile.md) — 画像（**F9-T0，已完成 2026-09-16**）：两层数据模型（含 Room v6 迁移 DDL）/ 槽位闭集 / 分级记忆 / C2 定稿（画像可读、仅供参考非指令）/ 审计四问 / 验收剧本 P1–P21
 
 ***
 
@@ -393,7 +393,7 @@ v5.10 是 v5 系列的最后一个版本，标志着跨平台架构搭建完成�
 
 ### 方向 B：AI 功能 Agent 化（7.3）
 
-> 方案定稿见 [docs/7\_x/design/agent.md](docs/7_x/B agent-build/design/agent.md)；落地任务分解（含验收标准、文件落点、挂起参数默认值）见 [docs/7\_x/taskbook/README.md](docs/7_x/B agent-build/taskbook/README.md)（按阶段族 f1–f9 组织，不绑定版本号）。编号已对齐 B0-B6 体系；B0 无 agent 依赖，可提前还债。
+> 方案定稿见 [docs/7\_x/design/agent.md](docs/7_x/B agent-build/design/agent.md)；落地任务分解（含验收标准、文件落点、挂起参数默认值）见 [docs/7\_x/taskbook/README.md](docs/7_x/B agent-build/taskbook/README.md)（按阶段族 f1–f9 组织，不绑定版本号）。编号已对齐 B0-B6 体系；B0 无 agent 依赖，可提前还债。**F1–F9 已全部收口（2026-09-18）；语音会话（原 B6-T3/T4）移出 F9，另立后续独立阶段 F10。**
 
 - [x] **B0** AI 管道三端去重 + Room v2 迁移——MusicRepositoryImpl 三份（1034/910/899 行）中 AI 方法上提 commonMain（去重目标 30-40%，扫描/存储/标签写入等平台特强方法留 actual）+ 新建 agent\_task/agent\_audit\_log/agent\_message 三表 + MusicLabel 加 source/confidence/created\_at/updated\_at（标签溯源先行，迁移测试先行）（M0）
 
@@ -448,9 +448,9 @@ v5.10 是 v5 系列的最后一个版本，标志着跨平台架构搭建完成�
 
 - [x] **B6-T1** 听歌报告 + 遗忘唤醒——`UserUsageDataScreen` 顶部累计画像区（Agent 叙事段）+ 双轴筛选（5 维度 × 5 时段）+ 五维度内容渲染（概览/口味/时段柱图/排行/最近）；`ForgottenDelivery` + `HelloSlideCards.FORGOTTEN` 卡（胶囊徽标低频，点开才算送达不追问）。`compileAll` 全绿 ✅ **已验收（2026-09-17）**
 
-- [ ] **B6-T2** 伙伴设置页六分区——AI 页演进不推翻：身体素质 / 人格 / 嗓音与耳朵 / 认识进度 / 记忆与信任 / 记忆管理（路由复用 `Routes.AI.AI`，无迁移）
+- [x] **B6-T2** 伙伴设置页六分区——AI 页演进不推翻：身体素质 / 人格 / 嗓音与耳朵 / 认识进度 / 记忆与信任 / 记忆管理。MasterAgent 暴露 7 个公开接口（trustLevel 读写 + alwaysAllow 重置/查询 + clearAllMemory + forgetPortrait + notePreference）；AIScreen 重构为六分区布局（身体素质=AI接入方式三tab / 人格=知音-DJ-馆长占位 / 嗓音=M7 gate 占位 / 认识进度=LoadMusicExtraInfo 复用 / 记忆与信任=三档 SegmentedControl + 档位说明 + alwaysAllow 重置 / 记忆管理=审计页入口 + 清除画像按钮）；**`DailyRefreshSettings` 移出主布局（后续归并 Agent 内部）**。路由复用 `Routes.AI.AI`，无迁移。`compileAll` 全绿 + desktopTest 通过 ✅ **已验收（2026-09-17）**
 
-- [ ] **B6-T3/T4** RealtimeVoiceTransport + 语音会话——WebSocket 双向流（JSON 控制事件 + 二进制音频帧）+ transcript 双向流 → 一 UI 两形态（语音气泡=文字+内存内重放）。**独立 gate**：端点不可用即整体延期，v1 完整性不依赖语音
+- [ ] **B6-T3/T4（→ 已移出 F9，另立 F10 语音会话）** RealtimeVoiceTransport + 语音会话——WebSocket 双向流（JSON 控制事件 + 二进制音频帧）+ transcript 双向流 → 一 UI 两形态（语音气泡=文字+内存内重放）。**独立 gate**：端点不可用即整体延期，v1 完整性不依赖语音。**2026-09-18 从 F9 拆出**：B6 里唯一真正新增的传输层，需真实端点验证，与报告/设置页无耦合；留在 F9 会让已收口的族长期挂着无法验收的项。详见 [taskbook/README.md](docs/7_x/B%20agent-build/taskbook/README.md) §4 后续阶段
 
 ### 方向 C：播放功能增强补齐
 

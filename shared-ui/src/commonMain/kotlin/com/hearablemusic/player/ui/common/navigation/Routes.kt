@@ -139,6 +139,8 @@ object Routes {
     object AI {
         /** AI页路由 */
         @Serializable object AI : NavKey
+        /** 通用 Agent 配置页——按 agentRole 参数决定渲染 Master/Hello/Enrich/Radio 哪个 Agent 的配置表单 */
+        @Serializable data class AgentConfig(val agentRole: String) : NavKey
     }
     
     /**

@@ -420,8 +420,8 @@
 - 残留项：Liquid Glass 观感取舍（Compose Haze 近似 vs 关键页保留 SwiftUI）；无真机环境的交互级核验（播放/歌词/歌单操作、P10.1 锁屏/Live Activity）记录待办
 
 **方向 B — AI 功能 Agent 化**
-> **进度（2026-09-15）**：F1–F8 全部完成（B0-B5 + R/S/T/U/V/W 各横切阶段）。**F9-T0「用户认识模块（画像）」已完成（2026-09-16，契约 v3.8：T0a 地基+MVP / T0b 人格卡·B类·对话抽取·画像叙事·定向简报；归属 Master 定名 UserMemory）**；它认领 `agent-architecture.md` 长期悬空的两处承诺（`偏好画像` / `AgentMemory`）与 `f5` 未闭环的「Feedback → Recall → 推荐闭环」。定稿为**两层画像**（侧写层 = 预设骨架 + 槽位闭集 + 证据反链；证据层 = 逐条可审计事实行，Room v6 两张表）+ **分级记忆 L1/L2/L3**（当下态 / 情境态·短时人格 / 性情态·人性，含跨层晋升衰减与反例保护）+ **认知准入标准**（能否改变 agent 的具体动作）——据此**明确拒绝 MBTI 等类型学**，其功能位由侧写组合取代。**C2 修订**：约束对象是模型推断而非用户显式陈述。契约见 [docs/7_x/B agent-build/design/agent-profile.md](docs/7_x/B%20agent-build/design/agent-profile.md)。
-> **进度（2026-09-01）**：B0-B4 + R + S + **T** 代码层全完成（M0-M4 + R 债务清零 + S 工具层终局 27 原子工具 + T 阶段 Master 内核/Enrich SubAgent/权限体系/四层组件解耦）。**T 阶段代码层 8/8 退出条件达成**（E1/E2 待手动冒烟，E4 开发阶段放开额度）——四层组件 LlmCallExecutor/ToolCallExecutor/ReActLoop/StopSignal 彻底解耦，权限体系简化 9→6 概念（TrustTier→trustLevel Int、AgentPolicyConfig 2 字段、TrustLedger 复活），AgentPolicyConfig DataStore 三端持久化闭环，EnrichSubAgent 接入 ToolCallExecutor + PolicyGuard（不再 DirectToolExecutor 裸跑），ConfirmGate "总是允许" UI 全链路。**可进入 M6 阶段**：B5 电台三轮协作 + 跳过感知重排 + DJ 衔接预生成 + AuditLogScreen + STRONG_CONFIRM 双确认链；B6 报告/语音仍是独立 gate。审计页/撤销、本地化横切待跟进。
+> **进度（2026-09-18）**：**F1–F9 全部完成并收口**（B0-B6 + R/S/T/U/V/W/A0 各横切阶段）。F9 三笔交付：**T0 用户认识模块（画像，2026-09-16，契约 v3.8）** —— 归属 Master 定名 `UserMemory`，认领 `agent-architecture.md` 长期悬空的两处承诺（`偏好画像` / `AgentMemory`）与 `f5` 未闭环的「Feedback → Recall → 推荐闭环」，定稿为**两层画像**（侧写层 + 证据层，Room v6 两张表）+ **分级记忆 L1/L2/L3** + **认知准入标准**，据此**明确拒绝 MBTI 等类型学**；**A0 Capability 统一化**（2026-09-16）—— `Capability` 接口统一三个 SubAgent 能力面 + `CapabilityStatusTool` + 删除 8 个 DJ 遗留工具；**T1 听歌报告双轴筛选重构（2026-09-17）** —— `UserUsageDataScreen` 5 维度 × 5 时段窗口查询（方案 B：维度拆分 SQL、零内存聚合、零 Room 版本升级）+ `ForgottenDelivery` 遗忘唤醒；**T2 伙伴设置页（2026-09-18）** —— AI 页收拢为参数化 `AgentConfig(agentRole)` 单路由六分区。**语音会话（原 F9-T3/T4）已拆出为后续独立阶段 F10**：B6 里唯一真正新增的传输层，需真实端点验证，与报告/设置页无耦合，**独立 gate**（端点不可用即整体延期，v1 完整性不依赖语音）。契约见 [docs/7_x/B agent-build/design/agent-profile.md](docs/7_x/B%20agent-build/design/agent-profile.md)，推进记录见 [taskbook/README.md](docs/7_x/B%20agent-build/taskbook/README.md)。
+> **进度（2026-09-01）**：B0-B4 + R + S + **T** 代码层全完成（M0-M4 + R 债务清零 + S 工具层终局 27 原子工具 + T 阶段 Master 内核/Enrich SubAgent/权限体系/四层组件解耦）。**T 阶段代码层 8/8 退出条件达成**（E1/E2 待手动冒烟，E4 开发阶段放开额度）——四层组件 LlmCallExecutor/ToolCallExecutor/ReActLoop/StopSignal 彻底解耦，权限体系简化 9→6 概念（TrustTier→trustLevel Int、AgentPolicyConfig 2 字段、TrustLedger 复活），AgentPolicyConfig DataStore 三端持久化闭环，EnrichSubAgent 接入 ToolCallExecutor + PolicyGuard（不再 DirectToolExecutor 裸跑），ConfirmGate "总是允许" UI 全链路。审计页/撤销、本地化横切待跟进。
 - OpenAiCompatibleAdapter 扩展 tools（function-calling）与 SSE 流式；现有 5 家服务商均走 OpenAI 兼容协议，协议层只改一处
 - shared domain 层新增 AgentOrchestrator：本地工具注册表（曲库检索/听歌统计/歌单管理/播放控制）+ agent loop + 护栏（破坏性操作 UI 确认、工具白名单、步数上限）
 - 场景：自然语言曲库操作与歌单生成、曲库问答、AI 电台（播完基于上下文自动续队列）
@@ -433,7 +433,7 @@
 - 格式支持：三端白名单统一到 commonMain 常量；Desktop 放行 DSD/APE/WV（FFmpeg 原生可解）；iOS 补 opus
 - 进阶（待评估）：bit-perfect 输出（WASAPI 独占等，发烧友向）
 
-**版本编排**：**7.1.0 已发布**（方向 A 主线全量完成 + C 批 1）→ 7.2 收尾打磨（A 残留观感 / 真机交互核验 + C 批 2）→ 7.3 智能化（方向 B）→ 7.4 遗留清理
+**版本编排**：**7.1.0 已发布**（方向 A 主线全量完成 + C 批 1）→ 7.2 收尾打磨（A 残留观感 / 真机交互核验 + C 批 2）→ 7.3 智能化（方向 B，F1–F9 已收口；**语音会话 F10 待启动**）→ 7.4 遗留清理
 
 ### 中期目标
 1. 桌面小组件与手势操作（README 既定承诺，穿插于 v7.x）

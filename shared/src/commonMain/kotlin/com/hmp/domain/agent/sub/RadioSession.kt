@@ -1,7 +1,8 @@
 package com.hmp.domain.agent.sub
 
-import co.touchlab.kermit.Logger
 import com.hmp.domain.agent.port.DayPart
+import com.hmp.log.HmpLog
+import com.hmp.log.LogTag
 import com.hmp.domain.agent.port.LlmMessage
 import com.hmp.domain.agent.port.PauseEvent
 import com.hmp.domain.agent.port.TrackOutcome
@@ -117,9 +118,6 @@ data class RadioConversation(
  * 主判断是**情境**（队列指纹 / 当前曲目 / seed / DayPart），时间只兜"隔了好几天"的底。
  */
 const val REUSE_BACKSTOP_MS = 12 * 60 * 60 * 1000L
-
-/** 电台决策与观测的统一日志 tag —— 真机追踪时 `adb logcat -s RadioTrace` 即可看完整时间线。 */
-const val RADIO_TRACE_TAG = "RadioTrace"
 
 class RadioSession(
     private val targetCount: Int = 12,
@@ -249,7 +247,7 @@ class RadioSession(
     }
 
     private suspend fun run() {
-        Logger.i("Agent.Radio.Session") { "session started" }
+        HmpLog.i(LogTag.AgentRadio) { "session started" }
         for (first in inbox) {
             if (originMs == null) originMs = first.atMs()
 
@@ -276,7 +274,7 @@ class RadioSession(
             if (cause == null) continue
 
             val turn = ++turnIndex
-            Logger.i(RADIO_TRACE_TAG) {
+            HmpLog.i(LogTag.AgentRadio) {
                 "[TURN#$turn] 触发=${cause} 新结算=${batch.count { it is Trigger.Settled }} 条" +
                     "（合并窗口 ${mergeWindowMs}ms 内并批）"
             }
@@ -289,9 +287,9 @@ class RadioSession(
                 if (verdict.action != RadioAction.NONE) {
                     val applied = onVerdict(g, verdict)
                     if (applied) {
-                        Logger.i(RADIO_TRACE_TAG) { "[TURN#$turn] 执行=${verdict.action}" }
+                        HmpLog.i(LogTag.AgentRadio) { "[TURN#$turn] 执行=${verdict.action}" }
                     } else {
-                        Logger.i(RADIO_TRACE_TAG) {
+                        HmpLog.i(LogTag.AgentRadio) {
                             "[TURN#$turn] 结果已过期（提问后被关闭/暂停）→ 丢弃 ${verdict.action}"
                         }
                     }
@@ -299,31 +297,31 @@ class RadioSession(
                     // D2：模型没给动作，但队列确实见底了 → 本地补歌保底出声
                     // 同样受世代守卫：提问后台已被关闭/暂停 → 不补
                     if (generation() == g) {
-                        Logger.i(RADIO_TRACE_TAG) { "[TURN#$turn] 判定=none 但队列见底 → 本地补歌" }
+                        HmpLog.i(LogTag.AgentRadio) { "[TURN#$turn] 判定=none 但队列见底 → 本地补歌" }
                         runCatching { fallbackRefill() }
                             .onFailure { e ->
                                 if (e is CancellationException) throw e
-                                Logger.w("Agent.Radio.Session", e) { "fallback refill failed" }
+                                HmpLog.w(LogTag.AgentRadio, e) { "fallback refill failed" }
                             }
                     } else {
-                        Logger.i(RADIO_TRACE_TAG) {
+                        HmpLog.i(LogTag.AgentRadio) {
                             "[TURN#$turn] 判定=none 但世代已变（期间被关闭/暂停）→ 不补歌"
                         }
                     }
                 }
             } else if (cause == RadioTriggerCause.QUEUE_LOW) {
                 // 判断调用本身失败（模型没看到）→ 事实已撤回，本地补歌保底出声
-                Logger.i(RADIO_TRACE_TAG) { "[TURN#$turn] 判断失败但队列见底 → 本地补歌" }
+                HmpLog.i(LogTag.AgentRadio) { "[TURN#$turn] 判断失败但队列见底 → 本地补歌" }
                 runCatching { fallbackRefill() }
                     .onFailure { e ->
                         if (e is CancellationException) throw e
-                        Logger.w("Agent.Radio.Session", e) { "fallback refill failed" }
+                        HmpLog.w(LogTag.AgentRadio, e) { "fallback refill failed" }
                     }
             }
 
             trimHistory()
         }
-        Logger.i("Agent.Radio.Session") { "session stopped" }
+        HmpLog.i(LogTag.AgentRadio) { "session stopped" }
     }
 
     /** @return 提问时刻的世代 + 判定；null = 调用失败（已撤回 user 消息，事实留待下轮） */
@@ -337,8 +335,8 @@ class RadioSession(
         val userContent = renderUserMessage(cause, queueRemaining, snap)
         // 完整上下文打 d 级（长），摘要打 i 级 —— 追踪时先 grep RadioTrace 看时间线，
         // 需要细看再放开 debug。
-        Logger.d(RADIO_TRACE_TAG) { "[TURN#$turn] 上下文：\n$userContent" }
-        Logger.i(RADIO_TRACE_TAG) {
+        HmpLog.d(LogTag.AgentRadio) { "[TURN#$turn] 上下文：\n$userContent" }
+        HmpLog.i(LogTag.AgentRadio) {
             "[TURN#$turn] 问模型：事实 ${settled.size - sentSettled} 条 / 历史 ${messages.size} 条消息"
         }
         messages += LlmMessage(role = "user", content = userContent)
@@ -348,33 +346,33 @@ class RadioSession(
         } catch (e: CancellationException) {
             throw e
         } catch (e: Throwable) {
-            Logger.w("Agent.Radio.Session", e) { "judge failed → silent" }
+            HmpLog.w(LogTag.AgentRadio, e) { "judge failed → silent" }
             null
         }
 
         // 调用失败：模型根本没看到，撤回这条 user 消息，事实下一轮再送
         if (raw.isNullOrBlank()) {
             messages.removeLastOrNull()
-            Logger.w(RADIO_TRACE_TAG) { "[TURN#$turn] 模型没回（调用失败/无端点）→ 沉默，事实留到下一轮" }
+            HmpLog.w(LogTag.AgentRadio) { "[TURN#$turn] 模型没回（调用失败/无端点）→ 沉默，事实留到下一轮" }
             return null
         }
 
         // 模型看到了，事实记为已送达
         sentSettled = settled.size
         sentPauses = pauses.size
-        Logger.i(RADIO_TRACE_TAG) { "[TURN#$turn] 模型回复：${raw.trim().take(200)}" }
+        HmpLog.i(LogTag.AgentRadio) { "[TURN#$turn] 模型回复：${raw.trim().take(200)}" }
 
         val parsed = parseVerdict(raw)
         if (parsed == null) {
             // 输出不可解析 = 沉默。补一条 assistant 回复，保持对话 user/assistant 交替。
-            Logger.w("Agent.Radio.Session") { "unparsable verdict → silent: ${raw.take(120)}" }
+            HmpLog.w(LogTag.AgentRadio) { "unparsable verdict → silent: ${raw.take(120)}" }
             messages += LlmMessage(role = "assistant", content = """{"action":"none"}""")
             return null
         }
 
         messages += LlmMessage(role = "assistant", content = raw.trim())
         parsed.reason?.let { noteIntent(it) }
-        Logger.i(RADIO_TRACE_TAG) {
+        HmpLog.i(LogTag.AgentRadio) {
             "[TURN#$turn] 判定=${parsed.action}" +
                 (if (parsed.action == RadioAction.REPLACE) " (${parsed.musicIds.size} 首)" else "") +
                 " reason=${parsed.reason?.take(60)}"
@@ -577,7 +575,34 @@ class RadioSession(
             jsonBody(raw)?.let { json.decodeFromString<VerdictDto>(it).seedWhy }
         }.getOrNull()?.trim()?.takeIf { it.isNotBlank() }
 
-        fun systemPrompt(targetCount: Int = 12): String = """
+        /**
+         * 构建 Radio Host 指令 prompt。
+         *
+         * @param targetCount 队列上限（动态注入到 {{target_count}} 占位符）
+         * @param preferredLang Agent 语言偏好（"global"/"zh"/"en"/"auto"）。null 回落旧三引号逻辑。
+         * @param globalReplyLanguage 全局语言（preferredLang="global" 时使用）
+         * @param userOverrides 用户覆盖 prompt Map
+         */
+        fun systemPrompt(
+            targetCount: Int = 12,
+            preferredLang: String? = null,
+            globalReplyLanguage: String = "zh",
+            userOverrides: Map<String, String> = emptyMap(),
+        ): String {
+            // 优先用 resolvePrompt（有 L10N + 用户覆盖）
+            if (preferredLang != null) {
+                val base = com.hmp.domain.agent.runtime.resolvePrompt(
+                    key = "radio.host",
+                    preferredLang = preferredLang,
+                    globalReplyLanguage = globalReplyLanguage,
+                    userOverrides = userOverrides,
+                )
+                if (base.isNotBlank()) {
+                    return base.replace("{{target_count}}", targetCount.toString())
+                }
+            }
+            // Fallback：原有三引号逻辑（向后兼容）
+            return """
 你是这个音乐电台的主播。从听众点开电台那一刻起，这一场节目由你负责：
 感知他的每一个操作和播放器里的动静，把播放列表编排出让他愿意一直听下去的样子。
 
@@ -597,18 +622,19 @@ class RadioSession(
 
 硬性约束：
 - 你不会跟听众说话，不生成任何面向用户的文案，不要寒暄，不要解释。
-- musicIds 只能从上下文给出的曲库/候选里挑，**绝不编造不存在的 id**。
+- musicIds 只能从上下文给出的曲库/候选里挑，绝不编造不存在的 id。
 - 只输出 JSON，不要 markdown 代码块，不要任何多余文字。
 
 输出格式：
 {"action":"none|append|replace","musicIds":[123,456],"count":0,"reason":"…","whys":["…","…"]}
 - action=none 时 musicIds 与 count 留空
-- action=replace 时 musicIds 给出**当前播放曲之后**的完整新队列，最多 $targetCount 首
+- action=replace 时 musicIds 给出当前播放曲之后的完整新队列，最多 $targetCount 首
 - action=append 时 count 给出要补几首
-- whys 与 musicIds **一一对应、长度一致**：每首歌一句主播按语（不超过 16 字），写给听众看——这首歌为什么排在这里、它和前后曲目怎么接。这是电台卡片上唯一展示你的话的地方，好好写。
-- 开播且上下文里标注了「正在播（电台起点）」时，额外给 seedWhy：为**这首正在播的歌**写一句按语（不超过 16 字），同样展示给听众
+- whys 与 musicIds 一一对应、长度一致：每首歌一句主播按语（不超过 16 字），写给听众看——这首歌为什么排在这里、它和前后曲目怎么接。这是电台卡片上唯一展示你的话的地方，好好写。
+- 开播且上下文里标注了「正在播（电台起点）」时，额外给 seedWhy：为这首正在播的歌写一句按语（不超过 16 字），同样展示给听众
 - reason 是写给节目档案的编排思路——你之后每一轮都会看到它，用它记住"我为什么这么排"
 """.trimIndent()
+        }
     }
 }
 

@@ -1,11 +1,12 @@
 package com.hmp.domain.agent.runtime
 
-import co.touchlab.kermit.Logger
 import com.hmp.domain.agent.port.LlmEvent
 import com.hmp.domain.agent.port.LlmMessage
 import com.hmp.domain.agent.port.LlmToolSpec
 import com.hmp.domain.agent.port.LlmTransport
 import com.hmp.domain.setting.model.AiEndpointConfig
+import com.hmp.log.HmpLog
+import com.hmp.log.LogTag
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.toList
 
@@ -62,7 +63,7 @@ class LlmCallExecutor {
             failedMessage = e.message
         }
 
-        Logger.d("Agent.LlmCall") { "[LlmCall] text=${text.toString().take(79)}… toolCalls=${calls.size} failed=$failed" }
+        HmpLog.d(LogTag.AgentLlmCall) { "[LlmCall] text=${text.toString().take(79)}… toolCalls=${calls.size} failed=$failed" }
 
         return CollectedLlmResult(
             text = text.toString(),

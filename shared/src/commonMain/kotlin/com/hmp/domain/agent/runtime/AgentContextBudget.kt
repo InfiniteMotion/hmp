@@ -1,11 +1,12 @@
 package com.hmp.domain.agent.runtime
 
-import co.touchlab.kermit.Logger
 import com.hmp.domain.agent.port.LlmEvent
 import com.hmp.domain.agent.port.LlmMessage
 import com.hmp.domain.agent.port.LlmToolSpec
 import com.hmp.domain.agent.port.LlmTransport
 import com.hmp.domain.setting.model.AiEndpointConfig
+import com.hmp.log.HmpLog
+import com.hmp.log.LogTag
 
 /**
  * T1 基础设施：每个 Agent 独立的 LLM 上下文窗口管理器。
@@ -119,7 +120,7 @@ class AgentContextBudget(
             }
         }
         return if (failedMessage != null) {
-            Logger.e("Agent.ContextBudget") { "[$agentId] callLlmText failed: $failedMessage" }
+            HmpLog.e(LogTag.AgentContext) { "[$agentId] callLlmText failed: $failedMessage" }
             null
         } else {
             textBuffer.toString()
@@ -163,7 +164,7 @@ class AgentContextBudget(
         estimatedTokenCount = estimatedHistory.sumOf { estimateMessageTokens(it) }
 
         val summary = "[历史压缩] 丢弃 ${discarded.size} 条早期消息，保留最近 ${estimatedHistory.size} 条"
-        Logger.i("Agent.ContextBudget") { "[$agentId] $summary (${estimatedTokenCount}/${maxContextTokens} tokens)" }
+        HmpLog.i(LogTag.AgentContext) { "[$agentId] $summary (${estimatedTokenCount}/${maxContextTokens} tokens)" }
         return summary
     }
 

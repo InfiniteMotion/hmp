@@ -1,6 +1,7 @@
 package com.hmp.domain.agent.port
 
-import co.touchlab.kermit.Logger
+import com.hmp.log.HmpLog
+import com.hmp.log.LogTag
 import com.hmp.platform.Volatile
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -124,7 +125,7 @@ class PlaybackObservationBus : PlaybackObservationSink {
         totalMs: Long,
     ) {
         if (muted()) {
-            Logger.d { "观测静默中，丢弃结算《$title》$outcome（编排副作用）" }
+            HmpLog.d(LogTag.AgentRadio) { "观测静默中，丢弃结算《$title》$outcome（编排副作用）" }
             return
         }
         _trackSettled.tryEmit(

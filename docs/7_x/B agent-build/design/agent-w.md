@@ -800,7 +800,9 @@ class HelloSubAgent(...) : SubAgent(...) {
 | P4 | 🟠 整体升级 | AuditLogScreen → AgentMonitorScreen | `Routes.Settings.AgentMonitor`  | 280 行只读 ToolExecutionRecord 列表                           |
 | P5 | 🟠 整体升级 | UserUsageDataScreen → 听歌报告页         | `Routes.UserData.UserUsageData` | 纯数字图表（Overview + Taste + Ranking + PieChart）             |
 
-> **[W1 进度快照 2026-09-14]** P1 [已完成]（未提交 diff）；P3 [待增强]（基础落地，`ConfirmMatrixCard` 仍在对话流内未迁原生 Dialog、无 `TextDelta` 打字机）；P2 [待增强]（基础版已落地，五分区演进归 M7-T2）；P4 [未落地]（仍为 `AuditLogScreen`，依赖 W0#4 引擎统一运行态接口 `enrichStatusSummary()`）。区域③ 三目的地页面 = P3 对话 / P2 配置 / P4 看板。收尾序列：P3 → P2 → P4 → M7 报告 + 语音。详见 `../taskbook/README.md` §3 W 阶段进度快照。
+> **[W1 进度快照 2026-09-14]** P1 [已完成]（未提交 diff）；P3 [待增强]（基础落地，`ConfirmMatrixCard` 仍在对话流内未迁原生 Dialog、无 `TextDelta` 打字机）；P2 [待增强]（基础版已落地，五分区演进归 M7-T2）；P4 [未落地]（仍为 `AuditLogScreen`，依赖 W0#4 引擎统一运行态接口 `enrichStatusSummary()`）。区域③ 三目的地页面 = P3 对话 / P2 配置 / P4 看板。收尾序列：P3 → P2 → P4 → M7 报告。
+>
+> **[后续进展]** M7 报告部分已并入 **F9 报告与伙伴设置**并于 2026-09-18 收口（P2 五分区 → `AgentConfigScreen`；P4 看板 → `AgentMonitorScreen` v2；P5 报告页 → 累计画像 + 双轴筛选）。**语音**已移出 F9，立为独立后续阶段（F10）。详见 `../taskbook/README.md` §3。
 
 ***
 

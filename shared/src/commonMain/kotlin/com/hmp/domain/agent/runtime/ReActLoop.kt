@@ -1,7 +1,8 @@
 package com.hmp.domain.agent.runtime
 
-import co.touchlab.kermit.Logger
 import com.hmp.domain.agent.infra.PresenceBus
+import com.hmp.log.HmpLog
+import com.hmp.log.LogTag
 import com.hmp.domain.agent.port.AuditEntry
 import com.hmp.domain.agent.port.AuditLogPort
 import com.hmp.domain.agent.port.LlmMessage
@@ -79,7 +80,7 @@ class ReActLoop(
         var finalText = ""
         var terminated = com.hmp.domain.agent.runtime.TerminationReason.ANSWERED
 
-        Logger.i("Agent.ReActLoop") { "ReActLoop start (task=$taskId): input=$inputMessages history=${history.size} budget=$stepBudget" }
+        HmpLog.i(LogTag.AgentReActLoop) { "ReActLoop start (task=$taskId): input=$inputMessages history=${history.size} budget=$stepBudget" }
 
         // ToolCallExecutor 无状态——registry 在本次 run() 内不变，只 new 一次
         // confirmGate 不再传：batchDecideApprovals 从 agentPolicy.confirmGate 拿
@@ -97,7 +98,7 @@ class ReActLoop(
                     com.hmp.domain.agent.runtime.TerminationReason.CLOUD_QUOTA_EXHAUSTED
                 else
                     com.hmp.domain.agent.runtime.TerminationReason.FAILED
-                Logger.w("Agent.ReActLoop") { "step $steps: soft stop (tokenQuota=${tokenCounter?.shouldStop()}, stopSignal=${stopSignal?.shouldSoftStop()})" }
+                HmpLog.w(LogTag.AgentReActLoop) { "step $steps: soft stop (tokenQuota=${tokenCounter?.shouldStop()}, stopSignal=${stopSignal?.shouldSoftStop()})" }
                 auditLog?.record(AuditEntry(
                     tool = "react.loop", outcome = "budget_exhausted",
                     reason = "soft stop at step $steps", taskId = taskId,
@@ -108,7 +109,7 @@ class ReActLoop(
             presenceBus?.emit(com.hmp.domain.agent.infra.PresenceEvent.TaskProgress(phase = "thinking", active = true))
             steps++
 
-            Logger.d("Agent.ReActLoop") { "step $steps: calling LLM (tools=${registry.allLlmSpecs.size})" }
+            HmpLog.d(LogTag.AgentReActLoop) { "step $steps: calling LLM (tools=${registry.allLlmSpecs.size})" }
             val turn = llmCall.call(
                 transport = transport,
                 config = config,
@@ -116,7 +117,7 @@ class ReActLoop(
                 tools = registry.allLlmSpecs,
                 temperature = temperature,
             )
-            Logger.d("Agent.ReActLoop") { "step $steps: text=${turn.text.take(119)}… toolCalls=${turn.toolCalls.map { it.name }} failed=${turn.failed}" }
+            HmpLog.d(LogTag.AgentReActLoop) { "step $steps: text=${turn.text.take(119)}… toolCalls=${turn.toolCalls.map { it.name }} failed=${turn.failed}" }
 
             // Token 估算（LlmCallExecutor 负责采集，这里统一累加到共享配额）
             tokenCounter?.recordTokens(estimateTokens(messages, turn))
@@ -156,7 +157,7 @@ class ReActLoop(
 
             if (steps >= stepBudget) {
                 terminated = com.hmp.domain.agent.runtime.TerminationReason.STEP_BUDGET_EXHAUSTED
-                Logger.w("Agent.ReActLoop") { "step $steps: step budget exhausted ($steps/$stepBudget)" }
+                HmpLog.w(LogTag.AgentReActLoop) { "step $steps: step budget exhausted ($steps/$stepBudget)" }
                 auditLog?.record(AuditEntry(
                     tool = "react.loop", outcome = "circuit_break",
                     reason = "步数预算耗尽 steps=$steps/$stepBudget", taskId = taskId,
@@ -183,7 +184,7 @@ class ReActLoop(
             toolCalls = toolLog,
             terminatedBy = terminated,
         ).also {
-            Logger.i("Agent.ReActLoop") { "ReActLoop done: terminated=$terminated steps=$steps tools=${it.toolCalls.size}" }
+            HmpLog.i(LogTag.AgentReActLoop) { "ReActLoop done: terminated=$terminated steps=$steps tools=${it.toolCalls.size}" }
         }
     }
 

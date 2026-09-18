@@ -80,6 +80,15 @@ class SettingsRepositoryImpl(
         val AI_FREE_TRIAL_REMAINING = intPreferencesKey("ai_free_trial_remaining")
         fun agentTrustLevelKey(role: String) = intPreferencesKey("agent_policy_${role}_trust_level")
         fun agentAlwaysAllowKey(role: String) = stringSetPreferencesKey("agent_policy_${role}_always_allow")
+        fun agentTemperatureKey(role: String) = floatPreferencesKey("agent_policy_${role}_temperature")
+        fun agentRuntimeParamsKey(role: String) = stringPreferencesKey("agent_policy_${role}_runtime_params")
+        fun agentPromptOverridesKey(role: String) = stringPreferencesKey("agent_policy_${role}_prompt_overrides")
+        fun agentPersonaOverrideKey(role: String) = stringPreferencesKey("agent_policy_${role}_persona_override")
+        fun agentPreferredLangKey(role: String) = stringPreferencesKey("agent_policy_${role}_preferred_lang")
+        fun agentEndpointKey(role: String) = stringPreferencesKey("agent_endpoint_${role}")
+        fun agentApiKeyKey(role: String) = stringPreferencesKey("agent_apikey_${role}")
+        fun agentModelKey(role: String) = stringPreferencesKey("agent_model_${role}")
+        val AGENT_GLOBAL = stringPreferencesKey("agent_global")
         val EQUALIZER_PRESET = intPreferencesKey("equalizer_preset")
         val BASS_BOOST_LEVEL = intPreferencesKey("bass_boost_level")
         val IS_SURROUND_SOUND_ENABLED = booleanPreferencesKey("is_surround_sound_enabled")
@@ -255,6 +264,28 @@ class SettingsRepositoryImpl(
     override suspend fun getActiveAiConfig(): AiEndpointConfig {
         return when (getAiAccessMode()) { AiAccessMode.FREE, AiAccessMode.PAID -> builtInApiKeyProvider.getConfig(); AiAccessMode.CUSTOM -> getCustomAiConfig() }
     }
+    override suspend fun getAgentEndpointConfig(agentRole: String): AiEndpointConfig? {
+        val prefs = dataStore.data.first()
+        val endpoint = prefs[PreferencesKeys.agentEndpointKey(agentRole)] ?: ""
+        if (endpoint.isBlank()) return null
+        val encryptedKey = prefs[PreferencesKeys.agentApiKeyKey(agentRole)]
+        val apiKey = encryptedKey?.let { runCatching { SecureStorageHelper.decrypt(it) }.getOrDefault("") } ?: ""
+        val model = prefs[PreferencesKeys.agentModelKey(agentRole)] ?: ""
+        return AiEndpointConfig(endpoint = endpoint, apiKey = apiKey, selectedModel = model, isConfigured = endpoint.isNotBlank() && apiKey.isNotBlank())
+    }
+    override suspend fun saveAgentEndpointConfig(agentRole: String, config: AiEndpointConfig?) {
+        dataStore.edit { prefs ->
+            if (config == null) {
+                prefs.remove(PreferencesKeys.agentEndpointKey(agentRole))
+                prefs.remove(PreferencesKeys.agentApiKeyKey(agentRole))
+                prefs.remove(PreferencesKeys.agentModelKey(agentRole))
+            } else {
+                prefs[PreferencesKeys.agentEndpointKey(agentRole)] = config.endpoint
+                prefs[PreferencesKeys.agentApiKeyKey(agentRole)] = SecureStorageHelper.encrypt(config.apiKey)
+                prefs[PreferencesKeys.agentModelKey(agentRole)] = config.selectedModel
+            }
+        }
+    }
     override suspend fun getAiFreeTrialRemainingCount(): Int = dataStore.data.first()[PreferencesKeys.AI_FREE_TRIAL_REMAINING] ?: 100
     override suspend fun decrementAiFreeTrialCount() { dataStore.edit { prefs -> val current = prefs[PreferencesKeys.AI_FREE_TRIAL_REMAINING] ?: 100; prefs[PreferencesKeys.AI_FREE_TRIAL_REMAINING] = (current - 1).coerceAtLeast(0) } }
 
@@ -264,16 +295,51 @@ class SettingsRepositoryImpl(
             ?: com.hmp.domain.agent.policy.TrustLevel.SUGGEST
         val alwaysAllow = prefs[PreferencesKeys.agentAlwaysAllowKey(agentRole)]
             ?: emptySet()
+        val temperature = prefs[PreferencesKeys.agentTemperatureKey(agentRole)]
+        val runtimeParamsJson = prefs[PreferencesKeys.agentRuntimeParamsKey(agentRole)]
+        val promptOverridesJson = prefs[PreferencesKeys.agentPromptOverridesKey(agentRole)]
+        val personaOverrideJson = prefs[PreferencesKeys.agentPersonaOverrideKey(agentRole)]
+        val preferredLang = prefs[PreferencesKeys.agentPreferredLangKey(agentRole)] ?: "global"
+        val json = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
         return com.hmp.domain.agent.policy.AgentPolicyConfig(
             trustLevel = trustLevel.coerceIn(0, com.hmp.domain.agent.policy.TrustLevel.MAX),
             alwaysAllow = alwaysAllow.toMutableSet(),
+            temperature = temperature,
+            runtimeParams = runtimeParamsJson?.let { runCatching { json.decodeFromString<Map<String, String>>(it) }.getOrNull() }?.toMutableMap() ?: mutableMapOf(),
+            promptOverrides = promptOverridesJson?.let { runCatching { json.decodeFromString<Map<String, String>>(it) }.getOrNull() }?.toMutableMap() ?: mutableMapOf(),
+            personaOverride = personaOverrideJson?.let { runCatching { json.decodeFromString(com.hmp.domain.agent.persona.CompanionProfile.serializer(), it) }.getOrNull() },
+            preferredLang = preferredLang,
         )
     }
 
     override suspend fun saveAgentPolicyConfig(agentRole: String, config: com.hmp.domain.agent.policy.AgentPolicyConfig) {
+        val json = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
         dataStore.edit { prefs ->
             prefs[PreferencesKeys.agentTrustLevelKey(agentRole)] = config.trustLevel
             prefs[PreferencesKeys.agentAlwaysAllowKey(agentRole)] = config.alwaysAllow.toSet()
+            config.temperature?.let { prefs[PreferencesKeys.agentTemperatureKey(agentRole)] = it }
+            prefs[PreferencesKeys.agentRuntimeParamsKey(agentRole)] = json.encodeToString(config.runtimeParams)
+            prefs[PreferencesKeys.agentPromptOverridesKey(agentRole)] = json.encodeToString(config.promptOverrides)
+            config.personaOverride?.let {
+                prefs[PreferencesKeys.agentPersonaOverrideKey(agentRole)] =
+                    json.encodeToString(com.hmp.domain.agent.persona.CompanionProfile.serializer(), it)
+            }
+            prefs[PreferencesKeys.agentPreferredLangKey(agentRole)] = config.preferredLang
+        }
+    }
+
+    override suspend fun getGlobalAgentConfig(): com.hmp.domain.agent.runtime.GlobalAgentConfig {
+        val prefs = dataStore.data.first()
+        val json = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
+        val raw = prefs[PreferencesKeys.AGENT_GLOBAL]
+        return raw?.let { runCatching { json.decodeFromString(com.hmp.domain.agent.runtime.GlobalAgentConfig.serializer(), it) }.getOrNull() }
+            ?: com.hmp.domain.agent.runtime.GlobalAgentConfig()
+    }
+
+    override suspend fun saveGlobalAgentConfig(config: com.hmp.domain.agent.runtime.GlobalAgentConfig) {
+        val json = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
+        dataStore.edit { prefs ->
+            prefs[PreferencesKeys.AGENT_GLOBAL] = json.encodeToString(com.hmp.domain.agent.runtime.GlobalAgentConfig.serializer(), config)
         }
     }
 

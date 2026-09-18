@@ -84,10 +84,19 @@ interface SettingsRepository {
     // Active AI Config (returns config based on current mode)
     suspend fun getActiveAiConfig(): AiEndpointConfig
 
-    // Agent Policy Config — per-Agent 信任档位 + 永远允许白名单
-    // role: "master" | "enrich" | "radio"（与 AgentRole.name 对齐）
+    // Per-Agent AI Endpoint Config — 每个 Agent 可独立 endpoint/apiKey/model
+    // null = 跟随全局默认（getActiveAiConfig），非 null = 覆盖
+    suspend fun getAgentEndpointConfig(agentRole: String): AiEndpointConfig?
+    suspend fun saveAgentEndpointConfig(agentRole: String, config: AiEndpointConfig?)
+
+    // Agent Policy Config — per-Agent 信任档位 + 永远允许白名单 + 运行参数 + Prompt 覆盖
+    // role: "master" | "enrich" | "radio" | "hello"
     suspend fun getAgentPolicyConfig(agentRole: String): com.hmp.domain.agent.policy.AgentPolicyConfig
     suspend fun saveAgentPolicyConfig(agentRole: String, config: com.hmp.domain.agent.policy.AgentPolicyConfig)
+
+    // Global Agent Config — 不属于任何 Agent role 的全局参数（人格选择 / 配额 / 语言 / 语音开关）
+    suspend fun getGlobalAgentConfig(): com.hmp.domain.agent.runtime.GlobalAgentConfig
+    suspend fun saveGlobalAgentConfig(config: com.hmp.domain.agent.runtime.GlobalAgentConfig)
 
     // Free Trial Quota
     val aiFreeTrialRemainingCount: Flow<Int>

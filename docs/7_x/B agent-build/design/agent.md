@@ -192,6 +192,8 @@
 
 **被砍掉的中间档**（否决史）：平台 STT（国行不可靠）、whisper.cpp（批处理错范式）、LLM 接口 STT（延迟 2-5s）、sherpa-onnx 本地流式（为不存在的能力需求背负三套 C 库桥接）。结论：**中间档的全部复杂度只服务「降级用户的语音」，而纯文字降级本身已完整可用**。v1=纯文字，v2=实时语音独立 feature。
 
+> **实施归属（2026-09-18）**：语音档**不属于 B6**，是 B6 之后单列的**独立后续阶段**（计划书侧编号 **F10 语音会话**，见 `../taskbook/README.md`）。B6 已于 2026-09-18 收口（报告角色 + 伙伴设置页，纯文字）。理由：语音是唯一真正新增的传输层，需真实端点才能验证，与报告/设置页无耦合；独立验收，端点不可用则整体延期，不影响 B0–B6 的任何交付。本章 §4.4 是其**设计依据**（方案已定稿，落地条件单列）。
+
 ### 4.5 行为级红线（四条，全部产品级）
 
 1. 不做在线音乐服务闭环——不内置流媒体、下载、账号
@@ -377,11 +379,13 @@ B3  引擎循环（Orchestrator/Scheduler/PolicyGuard/TrustLedger/ContextBudget�
     + FakePlaybackCommandPort 确定性测试
 B4  对话 UI（对话页+确认卡片流+锚点系统+两级漏斗）——纯文字完整体验
 B5  电台+事件接线（AI 电台/跳过感知/DJ 衔接预生成/存在感呈现）
-B6  报告角色（听歌报告/遗忘唤醒）+ RealtimeVoiceTransport（语音档）
-    ——B6 含 v2 语音：对话页已就绪（B4），语音只是加一条 WebSocket Transport
+B6  报告角色（听歌报告/遗忘唤醒）——纯文字，不含语音
+    ——语音已从 B6 拆出，见下方「独立后续阶段」
 ```
 
 **刻意纪律：B4 在 B5 前**——确认交互是电台「隐式接受」协议的对照组，无感交互需要先有「有感」做校准基准。**B0 节奏**（挂起）：纯重构+迁移，与引擎无耦合，可拉进下一个非 agent 版本提前还债（越早做三端冲突窗口越小），也可同期走。
+
+**独立后续阶段：语音会话**（2026-09-18 从 B6 拆出）——`RealtimeVoiceTransport`（WebSocket：JSON 控制事件 + 二进制音频帧）+ 语音会话（transcript 双向流 → 一 UI 两形态 / `VoiceSessionController` / CONFIRM 口头化 / 语音文字混排）。**为什么单列**：这是 B6 里唯一真正新增的传输层，需要真实端点才能验证，与报告角色、设置页无耦合；留在 B6 会让已完成的阶段长期挂着无法验收的项。**对话页已就绪（B4），语音只是加一条 WebSocket Transport**。设计与否决史见 §4.4。
 
 ### 7.5 可测性设计
 
@@ -391,7 +395,7 @@ B6  报告角色（听歌报告/遗忘唤醒）+ RealtimeVoiceTransport（语音
 | 策略表、信任状态机、许可分级 | 同上 + 断言 audit_log | B3 |
 | 两级漏斗、词表直映射 | 无需替身（纯本地） | B4 |
 | 电台三轮协作 | FakeLlmTransport+FakePlaybackCommandPort | B5 |
-| 语音会话协议 | FakeRealtimeTransport（事件序列回放） | B6 |
+| 语音会话协议 | FakeRealtimeTransport（事件序列回放） | 语音独立阶段 |
 
 延续项目 FakeRepository 传统（shared commonTest 49 个测试文件 + desktopTest/androidTest 基建，复核）；Room in-memory 跑迁移测试。**引擎的一切行为都应确定性可测**——「复杂度在护栏」的工程兑现。
 

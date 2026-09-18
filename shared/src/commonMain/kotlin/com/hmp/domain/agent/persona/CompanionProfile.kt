@@ -1,12 +1,17 @@
 package com.hmp.domain.agent.persona
 
+import kotlinx.serialization.Serializable
+
 /**
  * 伙伴人格（R-T1 首轮注入的地基 / 总纲 2.5、7.1）。
  *
  * v0：预设人格（知音/DJ/馆长）为编译期常量表，含 persona 提示词与称呼习惯；
  * 滑杆（健谈/主动/话题宽度）为 0..1，供「存在感预算刻度」与 UI 语气呈现。
  * 演进（B6/M7）：存 DataStore、用户可改滑杆/名字/代词、自定义 persona。
+ *
+ * B6 扩展：@Serializable 支持 DataStore JSON 持久化（personaOverride 字段）。
  */
+@Serializable
 data class CompanionProfile(
     val id: String,
     /** 伙伴名（UI 显示）。 */

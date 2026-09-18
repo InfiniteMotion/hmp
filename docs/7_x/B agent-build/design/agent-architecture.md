@@ -474,7 +474,7 @@ T1 基础设施重构 ──▶ T2 Master 内核改造 ──▶ T3 Enrich 实�
 | 用户可配置的富化目标覆盖率 UI | 先用 DataStore 默认值 90%，后续加设置界面 |
 | iOS 端编译验证 | 当前开发环境是 Windows，iOS 端留到后续 macOS 环境验证 |
 | Feedback → Recall → 推荐闭环 | M6 Radio Agent 实现时才需要，T 不做 —— **后续（2026-09-15）：M6 走的是会话内方案（C2），此闭环改由用户认识模块承接，见 [`agent-profile.md`](agent-profile.md)** |
-| 撤销 UI（Agent 操作的可撤销） | M6 审计页 + M7 伙伴设置页做 |
+| 撤销 UI（Agent 操作的可撤销） | M6 审计页 + M7 伙伴设置页做 —— **已完成**（F9-T2，2026-09-18） |
 | agent_budget 全局查询工具 | T 只实现 GlobalTokenCounter 数据层，agent_budget 工具 UI 留后续 |
 
 ***

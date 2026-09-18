@@ -1,5 +1,6 @@
 package com.hearablemusic.player.ui.settings.pages
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -26,6 +27,8 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Slider
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
@@ -34,6 +37,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -43,6 +47,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color.Companion.Transparent
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -52,11 +57,14 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
+import com.hmp.domain.agent.runtime.CapabilityState
+import com.hmp.domain.agent.runtime.MasterAgent
 import com.hmp.domain.enum.AiPresetEndpoints
 import com.hmp.domain.setting.model.AiAccessMode
 import com.hmp.domain.setting.model.AiEndpointConfig
 import com.hearablemusic.player.ui.common.components.SegmentedControl
 import com.hearablemusic.player.ui.common.components.SegmentedOption
+import com.hearablemusic.player.ui.common.components.base.HMPCard
 import com.hearablemusic.player.ui.common.components.base.TitleWidget
 import com.hearablemusic.player.ui.common.dialogs.controller.DialogManager
 import com.hearablemusic.player.ui.common.dialogs.viewmodel.DialogManagerViewModel
@@ -116,6 +124,7 @@ import com.hearablemusic.player.ui.settings.viewmodel.RecommendationViewModel
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.getString
 import org.jetbrains.compose.resources.stringResource
+import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 
 @Composable
@@ -123,9 +132,11 @@ fun AIScreen(
     aiSettingsViewModel: AiSettingsViewModel = koinViewModel(),
     recommendationViewModel: RecommendationViewModel = activityViewModel(),
     libraryViewModel: LibraryViewModel = activityViewModel(),
+    masterAgent: MasterAgent = koinInject(),
     navController: NavBackStack<NavKey>
 ) {
     val dialogManager = activityViewModel<DialogManagerViewModel>().dialogManager
+    val scope = rememberCoroutineScope()
     LaunchedEffect(Unit) {
         aiSettingsViewModel.loadCustomAiConfig()
     }
@@ -144,6 +155,10 @@ fun AIScreen(
     val refreshHours by aiSettingsViewModel.dailyRefreshHours.collectAsState()
     val startupCount by aiSettingsViewModel.dailyRefreshStartupCount.collectAsState()
 
+    // 信任档位（从 MasterAgent 读；MasterAgent 实例创建后就有值）
+    var trustLevel by remember { mutableStateOf(masterAgent.getMasterTrustLevel()) }
+    var alwaysAllowCount by remember { mutableStateOf(masterAgent.getMasterAlwaysAllow().size) }
+
     AIScreenContent(
         aiAccessMode = aiAccessMode,
         freeTrialRemaining = freeTrialRemaining,
@@ -158,6 +173,17 @@ fun AIScreen(
         refreshMode = refreshMode,
         refreshHours = refreshHours,
         startupCount = startupCount,
+        trustLevel = trustLevel,
+        alwaysAllowCount = alwaysAllowCount,
+        onTrustLevelChange = { newLevel ->
+            masterAgent.setMasterTrustLevel(newLevel)
+            trustLevel = newLevel
+        },
+        onResetAlwaysAllow = {
+            masterAgent.resetMasterAlwaysAllow()
+            alwaysAllowCount = 0
+        },
+        onClearAllMemory = { scope.launch { masterAgent.clearAllMemory() } },
         onModeChange = aiSettingsViewModel::switchAiAccessMode,
         onSaveCustomConfig = aiSettingsViewModel::saveCustomAiConfig,
         onFetchModels = aiSettingsViewModel::fetchAvailableModels,
@@ -172,6 +198,8 @@ fun AIScreen(
         onSaveDailyRefreshHours = aiSettingsViewModel::saveDailyRefreshHours,
         onSaveDailyRefreshStartupCount = aiSettingsViewModel::saveDailyRefreshStartupCount,
         dialogManager = dialogManager,
+        navController = navController,
+        masterAgent = masterAgent,
         onBackClick = { navController.removeLastOrNull() }
     )
 }
@@ -192,6 +220,11 @@ private fun AIScreenContent(
     refreshMode: String,
     refreshHours: Int,
     startupCount: Int,
+    trustLevel: Int,
+    alwaysAllowCount: Int,
+    onTrustLevelChange: (Int) -> Unit,
+    onResetAlwaysAllow: () -> Unit,
+    onClearAllMemory: () -> Unit,
     onModeChange: (AiAccessMode) -> Unit,
     onSaveCustomConfig: (String, String, String) -> Unit,
     onFetchModels: (String, String) -> Unit,
@@ -206,6 +239,8 @@ private fun AIScreenContent(
     onSaveDailyRefreshHours: (Int) -> Unit,
     onSaveDailyRefreshStartupCount: (Int) -> Unit,
     dialogManager: DialogManager,
+    navController: NavBackStack<NavKey>,
+    masterAgent: MasterAgent,
     onBackClick: () -> Unit
 ) {
     // 显示测试结果 Toast
@@ -235,7 +270,8 @@ private fun AIScreenContent(
                 .padding(24.dp),
             verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
-            // 顶部模式切换（统一使用 SegmentedControl 风格）
+            // ═══ 分区 1：身体素质 —— AI 接入方式（现有三 tab）═══
+            SectionHeader("身体素质")
             SegmentedControl(
                 modifier = Modifier.fillMaxWidth(),
                 options = tabs.map { mode ->
@@ -255,8 +291,6 @@ private fun AIScreenContent(
                     onModeChange(AiAccessMode.valueOf(id))
                 }
             )
-
-            // Tab 内容
             when (aiAccessMode) {
                 AiAccessMode.FREE -> FreeTrialContent(
                     freeTrialRemaining = freeTrialRemaining,
@@ -274,45 +308,27 @@ private fun AIScreenContent(
                 AiAccessMode.PAID -> PaidModeContent()
             }
 
-            // 批量补全 + 每日刷新（所有 Tab 共享）
-            if (isLandscape) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(24.dp)
-                ) {
-                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(24.dp)) {
-                        LoadMusicExtraInfo(
-                            pendingCount = pendingCount, musicWithExtraCount = musicWithExtraCount,
-                            progress = progress, isConfigured = true,
-                            autoBatchProcess = autoBatchProcess, onAutoBatchProcessChange = onAutoBatchProcessChange,
-                            startAutoProcessExtraInfo = startAutoProcessExtraInfo,
-                            pauseProcess = pauseProcess, resumeProcess = resumeProcess,
-                            cancelProcess = cancelProcess, dialogManager = dialogManager
-                        )
-                    }
-                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(24.dp)) {
-                        DailyRefreshSettings(
-                            refreshMode = refreshMode, refreshHours = refreshHours, startupCount = startupCount,
-                            onSaveRefreshMode = onSaveDailyRefreshMode, onSaveRefreshHours = onSaveDailyRefreshHours,
-                            onSaveStartupCount = onSaveDailyRefreshStartupCount, dialogManager = dialogManager
-                        )
-                    }
-                }
-            } else {
-                LoadMusicExtraInfo(
-                    pendingCount = pendingCount, musicWithExtraCount = musicWithExtraCount,
-                    progress = progress, isConfigured = true,
-                    autoBatchProcess = autoBatchProcess, onAutoBatchProcessChange = onAutoBatchProcessChange,
-                    startAutoProcessExtraInfo = startAutoProcessExtraInfo,
-                    pauseProcess = pauseProcess, resumeProcess = resumeProcess,
-                    cancelProcess = cancelProcess, dialogManager = dialogManager
-                )
-                DailyRefreshSettings(
-                    refreshMode = refreshMode, refreshHours = refreshHours, startupCount = startupCount,
-                    onSaveRefreshMode = onSaveDailyRefreshMode, onSaveRefreshHours = onSaveDailyRefreshHours,
-                    onSaveStartupCount = onSaveDailyRefreshStartupCount, dialogManager = dialogManager
-                )
-            }
+            // ═══ 全局参数：Token 配额 + 回复语言 ═══
+            GlobalConfigSection(masterAgent = masterAgent)
+
+            // ═══ 分区 2：Agent 管理 —— 监控看板 + 配置入口 ═══
+            SectionHeader("Agent 管理")
+            AgentSummaryCards(
+                masterAgent = masterAgent,
+                onAgentClick = { role -> navController.add(com.hearablemusic.player.ui.common.navigation.Routes.AI.AgentConfig(role)) }
+            )
+
+            // ═══ 分区 3：嗓音与耳朵 —— M7 gate（占位）═══
+            SectionHeader("嗓音与耳朵")
+            VoiceSection()
+
+            // ═══ 分区 4：记忆管理 —— 清除画像 + 审计页入口 ═══
+            SectionHeader("记忆管理")
+            MemoryManagementSection(
+                navController = navController,
+                onClearAllMemory = onClearAllMemory
+            )
+
             Spacer(modifier = Modifier.height(64.dp))
         }
     }
@@ -925,5 +941,410 @@ fun LoadMusicExtraInfo(
             }
             Spacer(modifier = Modifier.height(16.dp))
         }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// F9-T2 新增分区组件
+// ═══════════════════════════════════════════════════════════════
+
+/** 分区标题 —— 粗体小字 + 上边距，把六分区视觉分开 */
+@Composable
+private fun SectionHeader(title: String) {
+    Text(
+        text = title,
+        style = MaterialTheme.typography.titleMedium,
+        color = MaterialTheme.colorScheme.onSurface,
+        modifier = Modifier.padding(top = 8.dp)
+    )
+}
+
+/**
+ * 分区 2：人格 —— 人设预设下拉。
+ * 知音（默认，理解者）/ DJ（活跃推荐者）/ 馆长（幕后整理者）。
+ * 实际切换暂未接 DataStore（人设持久化是后续 T0b 增量），
+ * 这里先做占位 UI，让六分区骨架完整可见。
+ */
+@Composable
+private fun PersonaSection() {
+    HMPCard(contentPadding = Modifier.padding(16.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(
+                text = "伙伴的说话方式和回应风格",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                val personas = listOf("知音", "DJ", "馆长")
+                personas.forEach { name ->
+                    Button(
+                        onClick = { /* TODO: 切换人设 — 接 DataStore 持久化 */ },
+                        colors = ButtonDefaults.outlinedButtonColors(),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(name, style = MaterialTheme.typography.labelMedium)
+                    }
+                }
+            }
+            Text(
+                text = "设置后伙伴会以不同的口吻与你交流，并调整推荐与问候的偏向",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+            )
+        }
+    }
+}
+
+/** 分区 3：嗓音与耳朵 —— M7 gate，暂占位说明 */
+@Composable
+private fun VoiceSection() {
+    HMPCard(contentPadding = Modifier.padding(16.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(
+                text = "实时语音对话",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Text(
+                text = "伙伴可以用语音回应你（beta）",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                text = "此项功能需要后续语音端点支持，暂未开放",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+            )
+        }
+    }
+}
+
+/**
+ * 分区 5：记忆与信任 —— TrustLedger 档位回拨 UI。
+ * 三档 SegmentedControl + alwaysAllow 重置按钮。
+ */
+@Composable
+private fun TrustLevelSection(
+    trustLevel: Int,
+    alwaysAllowCount: Int,
+    onTrustLevelChange: (Int) -> Unit,
+    onResetAlwaysAllow: () -> Unit
+) {
+    HMPCard(contentPadding = Modifier.padding(16.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            Text(
+                text = "你对伙伴的信任程度",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            // 三档选择
+            SegmentedControl(
+                modifier = Modifier.fillMaxWidth(),
+                options = listOf(
+                    SegmentedOption("0", "谨慎"),
+                    SegmentedOption("1", "代劳"),
+                    SegmentedOption("2", "静默"),
+                ),
+                selectedOption = trustLevel.toString(),
+                onOptionSelected = { id -> onTrustLevelChange(id.toInt()) }
+            )
+
+            // 档位说明
+            val description = when (trustLevel) {
+                0 -> "每次执行可能影响音乐库的操作前，伙伴都会先征求你的确认"
+                1 -> "伙伴可以代劳大多数操作，并在完成后通知你"
+                2 -> "伙伴可以在后台静默执行操作，不打扰你"
+                else -> ""
+            }
+            Text(
+                text = description,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+            )
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+
+            // AlwaysAllow 状态 + 重置
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text(
+                        text = "总是允许白名单",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = if (alwaysAllowCount > 0) "$alwaysAllowCount 个工具" else "暂无",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                if (alwaysAllowCount > 0) {
+                    Button(
+                        onClick = onResetAlwaysAllow,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.error
+                        )
+                    ) {
+                        Text("全部清除", color = MaterialTheme.colorScheme.onError)
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * 分区 6：记忆管理 —— 清除画像 + 审计页入口。
+ */
+@Composable
+private fun MemoryManagementSection(
+    navController: NavBackStack<NavKey>,
+    onClearAllMemory: () -> Unit
+) {
+    HMPCard(contentPadding = Modifier.padding(16.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            // 审计页入口
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable { navController.add(com.hearablemusic.player.ui.common.navigation.Routes.Settings.AuditLog) }
+                    .padding(vertical = 8.dp, horizontal = 4.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text(
+                        text = "伙伴操作日志",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = "查看伙伴做了什么、凭什么做",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Text(
+                    text = "查看 ›",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+
+            // 清除画像
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    text = "清除伙伴对你的全部认识",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = "清除后，伙伴需要重新了解你。此操作不可撤销。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Button(
+                    onClick = onClearAllMemory,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error
+                    )
+                ) {
+                    Text("清除画像并重置个性化", color = MaterialTheme.colorScheme.onError)
+                }
+            }
+        }
+    }
+}
+
+// ==================== Agent 管理看板 ====================
+
+/**
+ * 四张 Agent 摘要卡片——每张显示三行：名称 + 关键状态 + 当前配置值。
+ * 点按整张卡片跳对应 AgentConfigScreen。
+ */
+@Composable
+private fun AgentSummaryCards(
+    masterAgent: MasterAgent,
+    onAgentClick: (String) -> Unit,
+) {
+    val agents = listOf(
+        AgentEntry("master", "MasterAgent", "🤖"),
+        AgentEntry("hello", "HelloSubAgent", "👋"),
+        AgentEntry("enrich", "EnrichSubAgent", "📚"),
+        AgentEntry("radio", "RadioSubAgent", "📻"),
+    )
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        agents.forEach { entry ->
+            AgentCard(
+                entry = entry,
+                masterAgent = masterAgent,
+                onClick = { onAgentClick(entry.role) }
+            )
+        }
+    }
+}
+
+private data class AgentEntry(val role: String, val label: String, val icon: String)
+
+@Composable
+private fun AgentCard(
+    entry: AgentEntry,
+    masterAgent: MasterAgent,
+    onClick: () -> Unit,
+) {
+    val cfg = remember { masterAgent.getAgentPolicyConfig(entry.role) }
+    val resolved = remember { cfg.resolvedFor(entry.role) }
+
+    // 实时能力状态（Radio/Enrich/Hello 有，Master 没有 Capability；SubAgent 可能异步 start，不用 remember）
+    val liveState = masterAgent.capability(entry.role)?.stateFlow?.collectAsState()?.value
+    val statusLabel = liveState?.let { stateStatusLabel(it) }
+
+    HMPCard(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(entry.icon, style = MaterialTheme.typography.headlineMedium)
+            Spacer(Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(entry.label, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                // 第一行：实时状态 + 配置摘要
+                val staticSummary = when (entry.role) {
+                    "master" -> "信任: ${trustLabel(cfg.trustLevel)} · 步数: ${resolved.runtimeParams.stepBudget}"
+                    "enrich" -> "覆盖率: ${(resolved.runtimeParams.targetCoverage * 100).toInt()}%"
+                    "radio" -> "目标: ${resolved.runtimeParams.targetCount} 首${if (resolved.runtimeParams.autoRenew) " · 自动续歌" else ""}"
+                    "hello" -> "每日: ${resolved.runtimeParams.dailyRecommendCount} 张 · 歌单: ${resolved.runtimeParams.recommendListSize} 首"
+                    else -> ""
+                }
+                val firstLine = if (statusLabel != null) "$statusLabel · $staticSummary" else staticSummary
+                Text(firstLine, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                // 第二行：温度 + prompt 语言
+                val langLabel = when (cfg.preferredLang) {
+                    "zh" -> "🇨🇳 中文"
+                    "en" -> "🇺🇸 English"
+                    "auto" -> "🗺️ 跟随系统"
+                    else -> "🌐 跟随全局"
+                }
+                Text(
+                    "温度: ${resolved.temperature} · prompt: $langLabel",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Text("→", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+/** CapabilityState → 可读状态标签（带 emoji 颜色提示）。 */
+private fun stateStatusLabel(s: CapabilityState): String = when (s.status) {
+    CapabilityState.Status.IDLE -> "💤 空闲"
+    CapabilityState.Status.BUILDING -> "🔨 启动中"
+    CapabilityState.Status.RUNNING -> "✅ 运行中"
+    CapabilityState.Status.PAUSED -> "⏸️ 已暂停"
+    CapabilityState.Status.COMPLETED -> "🏁 已完成"
+    CapabilityState.Status.ERROR -> "❌ 错误"
+} + if (s.detail.isNotBlank()) " (${s.detail})" else ""
+
+private fun trustLabel(level: Int) = when (level) {
+    0 -> "谨慎"
+    1 -> "代劳"
+    2 -> "静默"
+    else -> "?"
+}
+
+// ==================== 全局 Agent 参数 ====================
+
+/**
+ * 全局参数：日 Token 配额 + 回复语言。
+ * 读/写 GlobalAgentConfig（DataStore key "agent_global"）。
+ */
+@Composable
+private fun GlobalConfigSection(
+    masterAgent: MasterAgent,
+) {
+    val scope = rememberCoroutineScope()
+    val globalConfig = remember { masterAgent.getGlobalAgentConfig() }
+    var tokenQuota by remember { mutableIntStateOf(globalConfig.dailyTokenQuota) }
+    var replyLanguage by remember { mutableStateOf(globalConfig.replyLanguage) }
+
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        // 日 Token 配额
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("日 Token 配额", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.width(90.dp))
+            Slider(
+                value = tokenQuota.toFloat(),
+                onValueChange = { tokenQuota = it.toInt() },
+                onValueChangeFinished = {
+                    scope.launch {
+                        masterAgent.saveGlobalAgentConfig(
+                            globalConfig.copy(dailyTokenQuota = tokenQuota)
+                        )
+                    }
+                },
+                valueRange = 100_000f..2_000_000f,
+                steps = 18,  // 100K..2M，每步 100K
+                modifier = Modifier.weight(1f),
+            )
+            Text("${tokenQuota / 1000}K", modifier = Modifier.width(56.dp), style = MaterialTheme.typography.bodySmall)
+        }
+
+        // 回复语言
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("回复语言", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.width(90.dp))
+            val languageOptions = listOf("zh" to "中文", "en" to "英文", "auto" to "自动")
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                languageOptions.forEach { (key, label) ->
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = if (replyLanguage == key) MaterialTheme.colorScheme.primaryContainer
+                                else MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.5f),
+                        modifier = Modifier.clickable {
+                            replyLanguage = key
+                            scope.launch {
+                                masterAgent.saveGlobalAgentConfig(
+                                    globalConfig.copy(replyLanguage = key)
+                                )
+                            }
+                        }
+                    ) {
+                        Text(
+                            label,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (replyLanguage == key) MaterialTheme.colorScheme.onPrimaryContainer
+                                    else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+        }
+        Text(
+            "「跟随全局」Agent 的 prompt 语言从此处取值；每个 Agent 可单独覆盖。",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }

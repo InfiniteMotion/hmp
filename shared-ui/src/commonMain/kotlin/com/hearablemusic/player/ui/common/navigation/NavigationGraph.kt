@@ -8,6 +8,7 @@ import androidx.navigation3.runtime.entryProvider
 import com.hearablemusic.player.ui.MainShell
 import com.hearablemusic.player.ui.chat.ChatScreen
 import com.hearablemusic.player.ui.settings.pages.AIScreen
+import com.hearablemusic.player.ui.settings.pages.AgentConfigScreen
 import com.hearablemusic.player.ui.library.pages.AlbumScreen
 import com.hearablemusic.player.ui.library.pages.ArtistScreen
 import com.hearablemusic.player.ui.settings.pages.AudioEffectsScreen
@@ -108,6 +109,10 @@ fun navigationGraph(
         com.hearablemusic.player.ui.agent.AuditLogScreen(navController = navController)
     }
 
+    entry<Routes.Settings.AgentMonitor> {
+        com.hearablemusic.player.ui.agent.AgentMonitorScreen(navController = navController)
+    }
+
     // Library 模块
     entry<Routes.Library.Search> {
         SearchScreen(
@@ -161,6 +166,12 @@ fun navigationGraph(
     // AI 模块
     entry<Routes.AI.AI> {
         AIScreen(
+            navController = navController
+        )
+    }
+    entry<Routes.AI.AgentConfig> { route ->
+        AgentConfigScreen(
+            agentRole = route.agentRole,
             navController = navController
         )
     }

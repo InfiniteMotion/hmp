@@ -107,6 +107,13 @@ class FakeSettingsRepository : SettingsRepository {
         AiAccessMode.PAID -> AiEndpointConfig()
     }
 
+    // Per-Agent endpoint config（测试里简单实现）
+    private val _agentEndpointConfigs = mutableMapOf<String, AiEndpointConfig>()
+    override suspend fun getAgentEndpointConfig(agentRole: String): AiEndpointConfig? = _agentEndpointConfigs[agentRole]
+    override suspend fun saveAgentEndpointConfig(agentRole: String, config: AiEndpointConfig?) {
+        if (config == null) _agentEndpointConfigs.remove(agentRole) else _agentEndpointConfigs[agentRole] = config
+    }
+
     private val _aiFreeTrialRemainingCount = MutableStateFlow(100)
     override val aiFreeTrialRemainingCount: Flow<Int> = _aiFreeTrialRemainingCount.asStateFlow()
     override suspend fun getAiFreeTrialRemainingCount(): Int = _aiFreeTrialRemainingCount.value
@@ -283,4 +290,8 @@ class FakeSettingsRepository : SettingsRepository {
     override suspend fun getAgentPolicyConfig(agentRole: String): com.hmp.domain.agent.policy.AgentPolicyConfig =
         com.hmp.domain.agent.policy.AgentPolicyConfig()
     override suspend fun saveAgentPolicyConfig(agentRole: String, config: com.hmp.domain.agent.policy.AgentPolicyConfig) {}
+
+    private val _globalAgentConfig = com.hmp.domain.agent.runtime.GlobalAgentConfig()
+    override suspend fun getGlobalAgentConfig(): com.hmp.domain.agent.runtime.GlobalAgentConfig = _globalAgentConfig
+    override suspend fun saveGlobalAgentConfig(config: com.hmp.domain.agent.runtime.GlobalAgentConfig) {}
 }

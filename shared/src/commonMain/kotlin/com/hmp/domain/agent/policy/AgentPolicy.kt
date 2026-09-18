@@ -2,6 +2,7 @@ package com.hmp.domain.agent.policy
 
 import com.hmp.domain.agent.port.AuditLogPort
 import com.hmp.domain.agent.runtime.ConfirmGate
+import com.hmp.domain.agent.runtime.EngineDefaults
 import com.hmp.domain.agent.tool.ToolPermissionLevel
 
 /**
@@ -10,34 +11,86 @@ import com.hmp.domain.agent.tool.ToolPermissionLevel
  * MASTER → maxLevel=3 (STRONG_CONFIRM，所有级别可碰)
  * RADIO  → maxLevel=1 (NOTIFY，后台静默，不碰 CONFIRM+)
  * ENRICH → maxLevel=1 (同上)
+ * HELLO  → maxLevel=1 (同上，门面呈现)
  */
-enum class AgentRole { MASTER, RADIO, ENRICH }
+enum class AgentRole { MASTER, RADIO, ENRICH, HELLO }
 
 /** Agent 身份门硬编码：role → 允许访问的最高 ToolPermissionLevel ordinal */
 private val AGENT_MAX_LEVEL: Map<AgentRole, Int> = mapOf(
     AgentRole.MASTER to ToolPermissionLevel.entries.last().ordinal,  // STRONG_CONFIRM = 3
     AgentRole.RADIO  to ToolPermissionLevel.NOTIFY.ordinal,           // 1
     AgentRole.ENRICH to ToolPermissionLevel.NOTIFY.ordinal,           // 1
+    AgentRole.HELLO  to ToolPermissionLevel.NOTIFY.ordinal,           // 1
 )
 
 /**
- * per-Agent 独立的可持久化策略配置——用户参与权限管理的载体。
+ * per-Agent 独立的可持久化配置——用户参与配置管理的载体。
  *
- * 只有两个动态字段，全是用户可设置/可自动变化的：
- *   trustLevel  — 信任等级 (0=谨慎, 1=代劳, 2=静默)，设置页手动切 / TrustLedger 自动升降档
- *   alwaysAllow — 工具级白名单（ConfirmGate "Allow Always" 写入；Phase0 最高优先级）
+ * v0 只有 trustLevel + alwaysAllow（2 字段，权限相关）。
+ * v1 扩展为四组字段：
+ *   ① 权限组（原字段）：trustLevel / alwaysAllow — PolicyGuard 消费
+ *   ② 行为组（新增）：temperature / runtimeParams — LLM 调用参数
+ *   ③ Prompt 组（新增）：promptOverrides — 覆盖默认 system prompt
+ *   ④ 人格组（新增）：personaOverride — 覆盖预设人格（仅 master role）
+ *
+ * DataStore 存储策略：每个字段一个 key（key-value 模式）。新字段的 key 首次不存在时
+ * 读回来是 null，resolvedFor() 自然回落 EngineDefaults 默认值 —— **老用户零迁移**。
  *
  * 没有 allowFromOverride——Agent 身份门是硬编码安全红线，不暴露给用户。
  */
 data class AgentPolicyConfig(
+    // ── ① 权限组（原字段，不变）──
     var trustLevel: Int = TrustLevel.SUGGEST,
     val alwaysAllow: MutableSet<String> = mutableSetOf(),
+    // ── ② 行为组（新增）──
+    /** LLM 采样温度（null = 回落 EngineDefaults.defaultTemperatureFor(role)）。 */
+    var temperature: Float? = null,
+    /** 每个 Agent 专属数值参数（targetCount / targetCoverage / stepBudget …）。
+     *  用 Map<String, String> 统一承载，DataStore 存 JSON 字符串。
+     *  解析时由 RuntimeParams.resolve(role, this) 回落默认。 */
+    val runtimeParams: MutableMap<String, String> = mutableMapOf(),
+    // ── ③ Prompt 组（新增）──
+    /** system prompt 覆盖。key 约定：chat.system / enrich.system / radio.dj / hello.greeting */
+    val promptOverrides: MutableMap<String, String> = mutableMapOf(),
+    // ── ④ 人格组（新增，仅 master role 有意义）──
+    /** 自定义人格覆盖（null = 使用 DefaultCompanionProfiles 选中的预设）。 */
+    var personaOverride: com.hmp.domain.agent.persona.CompanionProfile? = null,
+    // ── ⑤ 语言组（新增）──
+    /** 每个 Agent 独立的 prompt/回复语言偏好。
+     *  "global" = 跟随 GlobalAgentConfig.replyLanguage；"zh"/"en"/"auto" = 各自生效。 */
+    var preferredLang: String = "global",
 ) {
-    /** 序列化 snapshot（持久化时调用，存 immutableSetOf） */
+    /** 序列化 snapshot（持久化时调用）。 */
     fun snapshot() = AgentPolicyConfig(
         trustLevel = trustLevel,
         alwaysAllow = alwaysAllow.toMutableSet(),
+        temperature = temperature,
+        runtimeParams = runtimeParams.toMutableMap(),
+        promptOverrides = promptOverrides.toMutableMap(),
+        personaOverride = personaOverride,
+        preferredLang = preferredLang,
     )
+
+    /**
+     * 出厂回落版本：把所有 null/空值替换成代码默认。
+     * role 字符串取值："master" / "hello" / "enrich" / "radio"
+     *
+     * 注意：preferredLang="global" 不在此展开——留给 EngineDefaults.resolvePrompt()
+     * 根据 GlobalAgentConfig 或系统语言统一解析，避免 resolvedFor 跨模块依赖。
+     */
+    fun resolvedFor(role: String): com.hmp.domain.agent.runtime.ResolvedAgentConfig {
+        val isMaster = role == "master"
+        return com.hmp.domain.agent.runtime.ResolvedAgentConfig(
+            role = role,
+            trustLevel = trustLevel,
+            alwaysAllow = alwaysAllow.toSet(),
+            temperature = temperature ?: EngineDefaults.defaultTemperatureFor(role),
+            runtimeParams = com.hmp.domain.agent.runtime.RuntimeParams.resolve(role, runtimeParams),
+            promptOverrides = promptOverrides.toMap(),
+            persona = if (isMaster) (personaOverride ?: com.hmp.domain.agent.persona.DefaultCompanionProfiles.DEFAULT) else null,
+            preferredLang = preferredLang,  // 原样传递，"global" 留给 resolvePrompt 展开
+        )
+    }
 }
 
 /**
@@ -77,5 +130,10 @@ data class AgentPolicy(
             config: AgentPolicyConfig = AgentPolicyConfig(),
             trustLedger: TrustLedger? = null,
         ) = AgentPolicy(AgentRole.ENRICH, config, trustLedger, confirmGate = null)
+
+        fun hello(
+            config: AgentPolicyConfig = AgentPolicyConfig(),
+            trustLedger: TrustLedger? = null,
+        ) = AgentPolicy(AgentRole.HELLO, config, trustLedger, confirmGate = null)
     }
 }
