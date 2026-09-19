@@ -12,6 +12,8 @@ import com.hmp.data.database.ForgottenDeliveryDao
 import com.hmp.data.database.AgentTaskDao
 import com.hmp.data.database.TokenLedgerDao
 import com.hmp.data.database.ListeningDurationDao
+import com.hmp.domain.agent.port.AgentKeepAlivePort
+import com.hmp.domain.agent.port.IosAgentKeepAlivePort
 import com.hmp.data.database.MusicAllDao
 import com.hmp.data.database.MusicDao
 import com.hmp.data.database.MusicExtraDao
@@ -68,6 +70,7 @@ single<AgentMessageDao> { get<AppDatabase>().agentMessageDao() }
     single<TokenLedgerDao> { get<AppDatabase>().tokenLedgerDao() }
     single<AuditLogPort> { RoomAuditLogAdapter(get<AgentAuditLogDao>()) }
 single<AgentMessageStore> { RoomAgentMessageStore(get<AgentMessageDao>()) }
+    single<AgentKeepAlivePort> { IosAgentKeepAlivePort() }
 
     single { BuiltInApiKeyProvider() } // iOS: 占位符，后续可通过配置注入
     singleOf(::SettingsRepositoryImpl) bind SettingsRepository::class
