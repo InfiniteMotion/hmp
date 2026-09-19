@@ -8,6 +8,8 @@ import com.hmp.domain.agent.port.NowPlayingContextProvider
 import com.hmp.domain.agent.port.PauseEvent
 import com.hmp.domain.agent.port.PlaybackCommand
 import com.hmp.domain.agent.port.PlaybackCommandPort
+import com.hmp.domain.agent.port.TrackOutcome
+import com.hmp.domain.agent.port.TrackSettledEvent
 import com.hmp.domain.agent.port.currentLocalMoment
 import com.hmp.domain.agent.port.dayPart
 import com.hmp.domain.agent.runtime.AgentContextBudget
@@ -437,8 +439,7 @@ class RadioSubAgentTest {
 
     /**
      * 播放器切歌会先停旧曲再起新曲，发一对 pause/resumed 事件。
-     * 电台若见 pause 就信：误暂停 → 紧跟的 resumed 又被当成"用户接管"直接退出电台。
-     * 去抖后：窗口后问播放器，还在播就当无事发生。
+     * 电台若见 pause 就信会误暂停；去抖后窗口后问播放器，还在播就当无事发生。
      */
     @Test
     fun transientPauseDuringSkip_doesNotPauseOrExit() = runBlocking {
@@ -453,7 +454,7 @@ class RadioSubAgentTest {
         delay(1200)   // 越过 800ms 去抖窗口
         assertTrue(agent.queryState() is RadioState.PLAYING, "瞬时暂停不应把电台暂停")
 
-        // 紧跟的 resumed 也不该触发"用户接管"退出
+        // 紧跟的 resumed 只是切歌过渡收尾，不该改变状态（更不该退出电台）
         agent.onPause(PauseEvent(resumed = true, atMs = nowMonotonicMs()))
         assertTrue(agent.queryState() is RadioState.PLAYING, "切歌后的继续不该退出电台")
 
@@ -474,6 +475,38 @@ class RadioSubAgentTest {
         withTimeout(5_000) {
             while (agent.queryState() !is RadioState.PAUSED) delay(50)
         }
+        agent.stopRadio()
+    }
+
+    /**
+     * 用户在电台暂停期间直接点了播放 → 电台**跟着恢复**（不退出，会话保留）。
+     *
+     * 契约见 `agent-radio.md` C3（2026-09-19 修订）：**用户的播放控制不退出电台**，
+     * 终态只有手动关闭。回归守卫 —— 曾实现为"用户接管直接退电台"，与本契约矛盾。
+     */
+    @Test
+    fun userResumeWhilePaused_radioResumesInsteadOfExiting() = runBlocking {
+        val fx = Fixture().apply { seedLibrary() }
+        val provider = FixedNowPlaying(null)
+        val agent = fx.agent(transport = null, nowPlaying = provider)
+        agent.startRadio(seed = "摇滚")
+        assertTrue(agent.queryState() is RadioState.PLAYING)
+
+        // ① 用户真的暂停 → 去抖后电台 PAUSED
+        provider.playing = false
+        agent.onPause(PauseEvent(resumed = false, atMs = nowMonotonicMs()))
+        withTimeout(5_000) {
+            while (agent.queryState() !is RadioState.PAUSED) delay(50)
+        }
+
+        // ② 用户在播放器里直接点播放 → 电台跟着恢复，**不退出**
+        provider.playing = true
+        agent.onPause(PauseEvent(resumed = true, atMs = nowMonotonicMs()))
+        withTimeout(5_000) {
+            while (agent.queryState() !is RadioState.PLAYING) delay(50)
+        }
+        assertTrue(agent.queryState() is RadioState.PLAYING, "用户恢复播放应让电台跟着恢复，而不是退出")
+
         agent.stopRadio()
     }
 
@@ -558,6 +591,111 @@ class RadioSubAgentTest {
         assertEquals(first.map { it.musicId }, second.map { it.musicId }, "复用时队列原样恢复")
         assertFalse(fx.playback.commands.map { it.first }.rebuiltQueue(), "复用时不应重建队列")
         assertTrue(fx.playback.commands.any { it.first is PlaybackCommand.PLAY }, "应当恢复播放")
+    }
+
+    /**
+     * 播放器队列**稠密**（`replaceQueueWith` 保留已播前缀），镜像压缩为 `[在播, ...后续]`：
+     * 复用判定只比「在播曲之后的尾巴」，前缀长度不同不影响复用。
+     *
+     * 回归守卫 —— 原实现整体比对 `queue != r.playlist.map { musicId }`，因前缀长度不同**永远不等**，
+     * 导致真机 2026-09-19「关闭后再开没有复用上次内容」。
+     */
+    @Test
+    fun reopenWithDensePlayerQueue_reusesWhenTailMatches() = runBlocking {
+        val fx = Fixture().apply { seedLibrary() }
+        val transport = FakeLlmTransport(
+            perTurnScript = listOf(
+                listOf(LlmEvent.TextDelta("""{"musicIds":[3,2,1]}"""), LlmEvent.Completed),
+            ),
+        )
+        val first = fx.agent(transport).let { agent ->
+            val tracks = agent.startRadio(seed = "摇滚")
+            agent.stopRadio()
+            tracks
+        }
+        val current = first.first().musicId
+        val retained = RadioConversation(
+            messages = listOf(LlmMessage(role = "system", content = "sys")),
+            playlist = first,
+            playingId = current,
+            closedAtMs = nowMonotonicMs() - 1_000L,
+            seed = "摇滚",
+        )
+        fx.playback.commands.clear()
+        // 播放器队列带一段已播前缀（99），在播曲之后的部分与镜像一致 → 应复用
+        val provider = FixedNowPlaying(current).apply {
+            queueIds = listOf(99L) + first.map { it.musicId }
+        }
+        val second = fx.agent(transport, nowPlaying = provider, retained = retained)
+            .startRadio(seed = "摇滚")
+
+        assertEquals(first.map { it.musicId }, second.map { it.musicId }, "稠密队列 + 尾一致 → 仍应复用")
+        assertFalse(fx.playback.commands.map { it.first }.rebuiltQueue(), "复用时不应重建队列")
+    }
+
+    /**
+     * 复用必须把**会话档案**（节目档案 + 事实账本 + 计数）一起带过来，不能只续 `messages`。
+     *
+     * `messages` 只管"最近的对话质感"；而「已执行 / 编排思路 / 收听台账」是每轮 prompt
+     * **从会话状态重渲染**的 —— 不恢复它们，续上后模型看到的就是空档案
+     * （真机 2026-09-19："继续对话上下文不保留"）。
+     *
+     * 回归守卫 —— 原实现只 `resumeFrom(messages)`，`executed` / `intents` / `settled` 全部丢失。
+     */
+    @Test
+    fun reopen_reusesFullSessionArchive_notJustMessages() = runBlocking {
+        val fx = Fixture().apply { seedLibrary() }
+        val transport = FakeLlmTransport(
+            perTurnScript = listOf(
+                listOf(LlmEvent.TextDelta("""{"musicIds":[3,2,1]}"""), LlmEvent.Completed),
+            ),
+        )
+        val first = fx.agent(transport).let { agent ->
+            val tracks = agent.startRadio(seed = "摇滚")
+            agent.stopRadio()
+            tracks
+        }
+        val current = first.first().musicId
+        val archive = RadioSessionArchive(
+            executed = listOf("开播：模型定队列", "换批（3 首）"),
+            intents = listOf("上一档的编排思路"),
+            settled = listOf(
+                TrackSettledEvent(
+                    musicId = current,
+                    title = "夜航",
+                    outcome = TrackOutcome.SKIPPED_NEXT,
+                    playedMs = 30_000,
+                    totalMs = 180_000,
+                    atMs = nowMonotonicMs() - 60_000,
+                ),
+            ),
+            pauses = emptyList(),
+            originMs = nowMonotonicMs() - 300_000,
+            sentSettled = 1,
+            sentPauses = 0,
+            turnIndex = 3,
+        )
+        val retained = RadioConversation(
+            messages = listOf(LlmMessage(role = "system", content = "sys")),
+            playlist = first,
+            playingId = current,
+            closedAtMs = nowMonotonicMs() - 1_000L,
+            seed = "摇滚",
+            archive = archive,
+        )
+        val agent = fx.agent(transport, nowPlaying = FixedNowPlaying(current), retained = retained)
+        agent.startRadio(seed = "摇滚")
+
+        val restored = requireNotNull(agent.exportConversation()?.archive) { "复用后应能导出档案" }
+        assertTrue(
+            restored.executed.containsAll(archive.executed),
+            "上一档「已执行」应随档案恢复（实际=${restored.executed}）",
+        )
+        assertEquals(archive.intents, restored.intents, "编排思路应随档案恢复")
+        assertEquals(archive.settled.size, restored.settled.size, "收听台账应随档案恢复")
+        assertEquals(archive.sentSettled, restored.sentSettled, "已送达计数应恢复（旧事实不误标 ★）")
+        assertEquals(archive.turnIndex, restored.turnIndex, "轮次计数应恢复（TURN# 接着数）")
+        assertEquals(archive.originMs, restored.originMs, "台账时基原点应恢复（第 N 分钟不重置）")
     }
 
     @Test

@@ -111,6 +111,31 @@ data class RadioConversation(
      * 复用判断用「情境换代」替代死板的时长窗口：时段变了 = 另一场节目（早班/夜班）。
      */
     val dayPart: DayPart? = null,
+    /**
+     * 会话**完整档案**（节目档案：已执行 / 编排思路 + 事实账本 + 计数）。
+     *
+     * `messages` 只承载原始对话历史；每轮 prompt 里的「节目档案 / 收听台账」是**从会话状态
+     * 重渲染**的 —— 不把档案一起带过来，复用后模型就"失忆"（真机 2026-09-19：
+     * 续上后 `## 节目档案` 空空如也、"继续对话上下文不保留"）。null = 旧快照，退化为只恢复 messages。
+     */
+    val archive: RadioSessionArchive? = null,
+)
+
+/**
+ * 一段电台会话的档案快照：节目档案（已执行 / 编排思路）+ 事实账本（结算 / 暂停）+ 计数。
+ *
+ * 与 `messages` 配套：`messages` 给「最近的对话质感」，档案给「整档的工作记忆」——
+ * 两者都要带，复用才算真的"续上上次对话"。
+ */
+data class RadioSessionArchive(
+    val executed: List<String>,
+    val intents: List<String>,
+    val settled: List<TrackSettledEvent>,
+    val pauses: List<PauseEvent>,
+    val originMs: Long?,
+    val sentSettled: Int,
+    val sentPauses: Int,
+    val turnIndex: Int,
 )
 
 /**
@@ -194,18 +219,57 @@ class RadioSession(
      *
      * 复用整段 messages，于是**不必再注入曲库视图、不必重问开播队列** ——
      * 那一次组装是整个流程里最贵的，省掉它正是复用最大的收益。
+     *
+     * @param archive 上一档的会话档案（节目档案 + 事实账本 + 计数）。**必须一起带过来**：
+     *   `messages` 只管"最近的对话质感"，而「已执行 / 编排思路 / 收听台账」是每轮
+     *   **从会话状态重渲染**的 —— 不恢复它们，续上后模型看到的 `## 节目档案` 就是空的
+     *   （真机 2026-09-19："继续对话上下文不保留"）。null = 旧快照，退化为只恢复 messages。
      */
-    fun resumeFrom(previous: List<LlmMessage>) {
+    fun resumeFrom(previous: List<LlmMessage>, archive: RadioSessionArchive? = null) {
         messages.clear()
         if (previous.isEmpty()) {
             messages += LlmMessage(role = "system", content = systemPrompt(targetCount))
         } else {
             messages += previous
         }
+        archive?.let { restore(it) }
     }
 
     /** 导出当前对话，供下次开电台时复用。 */
     fun exportMessages(): List<LlmMessage> = messages.toList()
+
+    /**
+     * 导出会话档案：节目档案（已执行 / 编排思路）+ 事实账本（结算 / 暂停）+ 计数。
+     *
+     * 与 [exportMessages] 配套 —— 两者都带，"续上上次对话"才是真的续上。
+     */
+    fun exportArchive(): RadioSessionArchive = RadioSessionArchive(
+        executed = executed.toList(),
+        intents = intents.toList(),
+        settled = settled.toList(),
+        pauses = pauses.toList(),
+        originMs = originMs,
+        sentSettled = sentSettled,
+        sentPauses = sentPauses,
+        turnIndex = turnIndex,
+    )
+
+    /**
+     * 把上一档的档案灌回本会话。
+     *
+     * `originMs` 一并恢复，所以台账里的「第 N 分钟」在跨档后仍以**本档开播时刻**为原点，
+     * 不会因为复用而被重置成 0；`turnIndex` 一并恢复，日志里的 TURN# 接着数。
+     */
+    private fun restore(a: RadioSessionArchive) {
+        executed.clear().also { executed += a.executed }
+        intents.clear().also { intents += a.intents }
+        settled.clear().also { settled += a.settled }
+        pauses.clear().also { pauses += a.pauses }
+        originMs = a.originMs
+        sentSettled = a.sentSettled
+        sentPauses = a.sentPauses
+        turnIndex = a.turnIndex
+    }
 
     /** 记一首歌的结算（非阻塞）。 */
     fun onTrackSettled(event: TrackSettledEvent) {

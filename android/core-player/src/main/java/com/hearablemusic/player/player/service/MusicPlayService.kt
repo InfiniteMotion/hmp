@@ -75,7 +75,24 @@ class MusicPlayService : Service(), PlayControl {
         const val ACTION_PAUSE = "com.hearablemusic.player.ACTION_PAUSE"
         const val ACTION_NEXT = "com.hearablemusic.player.ACTION_NEXT"
         const val ACTION_PREV = "com.hearablemusic.player.ACTION_PREV"
+
+        // ── F11-L2：agent 运行时保活 ──
+        /**
+         * agent 运行时（电台等）通过 [AgentKeepAlivePort] 发来的保活诉求。
+         * 携带 [EXTRA_AGENT_ACTIVE] = true/false，让服务在「电台构建中（无音频）」窗口也保持前台。
+         */
+        const val ACTION_AGENT_KEEPALIVE = "com.hearablemusic.player.ACTION_AGENT_KEEPALIVE"
+        const val EXTRA_AGENT_ACTIVE = "agent_active"
+
+        /** 前台通知 ID（原有硬编码 1 收敛为此常量）。 */
+        private const val NOTIFICATION_ID = 1
     }
+
+    /**
+     * F11-L2：agent 保活诉求。true = 电台会话活跃（即使无音频也保持前台，进程不被回收）。
+     */
+    @Volatile
+    private var agentKeepAlive = false
 
     private val binder = MusicPlayServiceBinder()
 
@@ -266,6 +283,65 @@ class MusicPlayService : Service(), PlayControl {
         return builder.build()
     }
 
+    // ── F11-L2：前台状态管理 ──
+
+    /**
+     * 无音频时的占位通知——满足 `startForegroundService` 的前台契约（5s 内必须 startForeground）。
+     * 电台构建中 / 等模型期间进程受前台保护，但还没有可展示的曲目。
+     */
+    private fun buildIdleNotification(): Notification {
+        val builder = NotificationCompat.Builder(this, "music_channel")
+            .setContentTitle("HMP")
+            .setContentText("伙伴陪听中…")
+            .setSmallIcon(R.drawable.player_d)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setOnlyAlertOnce(true)
+            .setOngoing(true)
+        mainActivityClass?.let { cls ->
+            builder.setContentIntent(
+                PendingIntent.getActivity(
+                    this, 0, Intent(this, cls),
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+            )
+        }
+        return builder.build()
+    }
+
+    /** 进入前台（幂等）。有曲目用曲目通知，无曲目用占位通知。 */
+    private fun ensureForeground() {
+        val music = getCurrentPlayingMusic()
+        val cls = mainActivityClass
+        // 有曲目且宿主 Activity 类已就绪 → 曲目通知；否则用占位通知
+        // （不拿 Service 类冒充 Activity 类 —— 那会生成无效的 content intent）
+        val notification = if (music != null && cls != null) {
+            buildNotification(music, currentAlbumArtBitmap, cls, currentLyricLine)
+        } else {
+            buildIdleNotification()
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
+        } else {
+            startForeground(NOTIFICATION_ID, notification)
+        }
+    }
+
+    /**
+     * 按「音频在播 **或** agent 保活」决定是否保持前台（F11-L2）。
+     *
+     * 两者皆否 → 撤前台（进程回归可回收；此时没有需要保护的 agent 会话）。
+     * 注意：不 `stopSelf()` —— 服务仍可能被前台 UI 绑定（`BIND_AUTO_CREATE`），
+     * 由绑定方决定其存续；未绑定时系统可回收，符合预期。
+     */
+    private fun refreshForeground() {
+        val wantForeground = exoPlayer.isPlaying || agentKeepAlive
+        if (wantForeground) {
+            ensureForeground()
+        } else {
+            stopForeground(STOP_FOREGROUND_REMOVE)
+        }
+    }
+
     @SuppressLint("RestrictedApi")
     override fun onCreate() {
         super.onCreate()
@@ -288,6 +364,8 @@ class MusicPlayService : Service(), PlayControl {
                     HmpLog.d(LogTag.PlayerService) { "📡 onIsPlayingChanged: $isPlaying" }
                     getCurrentPlayingMusic()?.let { updateNotificationPlaybackState(it) }
                     playbackListener?.onPlayStateChanged(isPlaying)
+                    // F11-L2：播放/暂停 → 重算前台态（在播或 agent 保活才保持前台）
+                    refreshForeground()
                 }
 
                 override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
@@ -492,52 +570,54 @@ class MusicPlayService : Service(), PlayControl {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        var keepAliveChanged = false
         when (intent?.action) {
             ACTION_PLAY -> {
                 exoPlayer.play()
                 getCurrentPlayingMusic()?.let { updateNotificationPlaybackState(it) }
-                playbackListener?.onPlayStateChanged(true) // 新增
+                playbackListener?.onPlayStateChanged(true)
             }
             ACTION_PAUSE -> {
                 exoPlayer.pause()
                 getCurrentPlayingMusic()?.let { updateNotificationPlaybackState(it) }
-                playbackListener?.onPlayStateChanged(false) // 新增
+                playbackListener?.onPlayStateChanged(false)
             }
             ACTION_NEXT -> playbackListener?.onPlaybackNext()
             ACTION_PREV -> playbackListener?.onPlaybackPrev()
+            // F11-L2：agent 运行时（电台）保活诉求——无音频也保持前台
+            ACTION_AGENT_KEEPALIVE -> {
+                val active = intent.getBooleanExtra(EXTRA_AGENT_ACTIVE, false)
+                if (active != agentKeepAlive) {
+                    agentKeepAlive = active
+                    keepAliveChanged = true
+                    HmpLog.i(LogTag.PlayerService) { "📡 agentKeepAlive=$active" }
+                }
+            }
         }
 
-        val music = getCurrentPlayingMusic()
-        music?.let {
-            // 切换到主线程
-            CoroutineScope(Dispatchers.Main).launch {
-                val notification = buildNotification(it, null, mainActivityClass ?: return@launch)
-                // API 34+ 需要指定前台服务类型
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-                    startForeground(
-                        1,
-                        notification,
-                        ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
-                    )
-                } else {
-                    startForeground(1, notification)
-                }
+        // F11-L2：无条件确保前台 —— 满足 `startForegroundService` 的 5s 前台契约。
+        // 有曲目 → 曲目通知；无曲目（电台构建中 / 仅保活）→ 占位通知。
+        ensureForeground()
+        // 保活诉求被撤销且无音频在播 → 撤前台（进程回归可回收）
+        if (keepAliveChanged && !agentKeepAlive && !exoPlayer.isPlaying) {
+            refreshForeground()
+        }
 
-                // 异步加载封面
-                CoroutineScope(Dispatchers.IO).launch {
-                    val request = ImageRequest.Builder(this@MusicPlayService)
-                        .data(music.albumArtUri)
-                        .allowHardware(false)
-                        .build()
-                    val result = imageLoader.execute(request)
-                    val bitmap = (result.drawable as? android.graphics.drawable.BitmapDrawable)?.bitmap
-                    if (bitmap != null) {
-                        // 回到主线程更新通知
-                        CoroutineScope(Dispatchers.Main).launch {
-                            val updatedNotification = buildNotification(it, bitmap, mainActivityClass ?: return@launch)
-                            val manager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
-                            manager.notify(1, updatedNotification)
-                        }
+        // 有曲目 → 异步补封面
+        getCurrentPlayingMusic()?.let { music ->
+            CoroutineScope(Dispatchers.IO).launch {
+                val request = ImageRequest.Builder(this@MusicPlayService)
+                    .data(music.albumArtUri)
+                    .allowHardware(false)
+                    .build()
+                val result = imageLoader.execute(request)
+                val bitmap = (result.drawable as? android.graphics.drawable.BitmapDrawable)?.bitmap
+                if (bitmap != null) {
+                    currentAlbumArtBitmap = bitmap
+                    CoroutineScope(Dispatchers.Main).launch {
+                        val updatedNotification = buildNotification(music, bitmap, mainActivityClass ?: return@launch)
+                        val manager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+                        manager.notify(NOTIFICATION_ID, updatedNotification)
                     }
                 }
             }

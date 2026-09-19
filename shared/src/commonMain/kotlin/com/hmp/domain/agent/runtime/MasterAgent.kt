@@ -18,6 +18,8 @@ import com.hmp.domain.agent.port.LlmEvent
 import com.hmp.domain.agent.port.LlmMessage
 import com.hmp.domain.agent.port.LlmToolCall
 import com.hmp.domain.agent.port.LlmTransport
+import com.hmp.domain.agent.port.AgentKeepAlivePort
+import com.hmp.domain.agent.port.KeepAliveReason
 import com.hmp.domain.agent.port.PlaybackObservationBus
 import com.hmp.domain.agent.persona.DefaultCompanionProfiles
 import com.hmp.domain.agent.sub.EnrichSubAgent
@@ -67,6 +69,12 @@ class MasterAgent(
     private val timeProvider: () -> Long,
     /** 全局 Token 日配额计数器 */
     val tokenCounter: GlobalTokenCounter = GlobalTokenCounter(timeProvider),
+    /**
+     * F12-T1：唯一记账口。一次 LLM 调用写三处 —— 当日累加（tokenCounter）·
+     * 窗口占用（各 AgentContextBudget 自行更新）· 明细账本（token_ledger）。
+     * null = 不记账（老装配 / 测试）。
+     */
+    private val tokenMeter: TokenMeter? = null,
     /** 系统条件提供者（电量/网络） */
     val systemConditions: SystemConditions = DefaultSystemConditions(),
     /** 音乐库仓库（富化健康度查询 + enrich 批次派发） */
@@ -87,6 +95,11 @@ class MasterAgent(
     private val chatPresenceBus: PresenceBus? = null,
     /** 观测面总线：转给电台，用于编排动作期间静默（避免自己的操作被当成用户行为） */
     private val observationBus: PlaybackObservationBus? = null,
+    /**
+     * 保活端口（F11-L1）—— agent 运行时向平台声明"我需要留在后台"。
+     * null（测试 / Desktop / 未接线）→ 全部调用静默跳过。见 `design/agent-lifecycle.md`。
+     */
+    private val keepAlivePort: AgentKeepAlivePort? = null,
     /** 步数预算（硬熔断） */
     private val stepBudget: Int = EngineDefaults.STEP_BUDGET,
 
@@ -172,6 +185,27 @@ class MasterAgent(
      * 当前决策内核尚未落地，因此这里只有本地补歌一条路径。
      */
     private val queueLowThreshold = 2
+    // ═══ F11：运行时保活诉求（agent 活跃 → 平台保持进程存活）═══
+    /**
+     * 电台保活诉求是否已声明。**幂等守卫**——只在真变化时通知端口，
+     * 避免电台每次队列刷新都打一次平台调用。
+     */
+    @Volatile private var radioKeepAliveActive = false
+
+    /**
+     * 声明 / 撤销电台保活诉求（F11-L1）。
+     *
+     * 电台会话活跃 = 进程必须留在后台（含"等模型出队列"的无音频窗口）。
+     * 端口为 null 时静默跳过，异常不外抛（保活失败不该拖垮电台）。
+     */
+    private fun updateRadioKeepAlive(active: Boolean) {
+        if (radioKeepAliveActive == active) return
+        radioKeepAliveActive = active
+        runCatching { keepAlivePort?.setKeepAlive(KeepAliveReason.RADIO_ACTIVE, active) }
+            .onFailure { e -> HmpLog.w(LogTag.AgentMaster, e) { "🤖 keepAlive port failed (non-fatal)" } }
+        HmpLog.i(LogTag.AgentMaster) { "🤖 [Master] radio keep-alive=$active" }
+    }
+
     /** 标记 Radio 事件监听是否已启动（避免多次 startRadio 重复 launch） */
     @Volatile private var radioListenersStarted: Boolean = false
     /** 观测面 trackSettled listener 协程引用（stopRadio 时 cancel） */
@@ -585,8 +619,8 @@ class MasterAgent(
             // ① 创建 Enrich 的独立 AgentContextBudget（32K）
             val contextBudget = AgentContextBudget(
                 agentId = "enrich",
-                maxContextTokens = 32_000,
                 llmClient = effectiveEnrichTransport,
+                tokenMeter = tokenMeter,
             )
 
             // ② 创建 SchedulerStopSignal——桥接 Scheduler pause/resume ↔ Enrich runLoop 的 waitResume()
@@ -702,8 +736,8 @@ class MasterAgent(
             }
             val contextBudget = AgentContextBudget(
                 agentId = "radio",
-                maxContextTokens = 64_000,
                 llmClient = effectiveRadioTransport,
+                tokenMeter = tokenMeter,
             )
 
             // ② 权限过滤视图：Radio 可碰所有工具（MASTER 级，因为电台是 Master 发起的）
@@ -724,7 +758,8 @@ class MasterAgent(
                 auditLog = chatAuditLog,
                 observationBus = observationBus,
                 retained = retainedRadio,
-                onUserTookOver = { stopRadioInternal(pausePlayback = false) },
+                // 注：原 onUserTookOver（暂停后用户播放 → 退电台）已废除 ——
+                // 用户的播放控制不退出电台，见 RadioSubAgent.onPause / agent-radio.md C3
                 radioConfig = this.radioConfig,
                 targetCount = radioPolicyConfig.resolvedFor("radio").runtimeParams.targetCount,
                 defaultTemperature = radioPolicyConfig.resolvedFor("radio").temperature,
@@ -784,25 +819,28 @@ class MasterAgent(
             //    async 在 Master scope、await 在调用方：UI 消失只是拿不到返回值，
             //    节目照常开播。await 撞上调用方取消时抛 CE，由调用方协程自行收场。
             val tracks = scope.async { radioAgent.startRadio(seed, trigger, chatContext) }.await()
+            // F11-L1：电台会话已活跃 → 声明保活（含等模型的无音频窗口）
+            updateRadioKeepAlive(true)
             HmpLog.i(LogTag.AgentMaster) { "🤖 [Master] RadioSubAgent created + started (targetCount=12, tracks=${tracks.size})" }
             return tracks
         }
     }
 
-    /** Master 下令停电台（用户点电台开关关闭） */
-    suspend fun stopRadio() = stopRadioInternal(pausePlayback = true)
+    /** Master 下令停电台（用户点电台开关 / 明确说"停电台"）—— **唯一终态入口** */
+    suspend fun stopRadio() = stopRadioInternal()
 
     /**
-     * 收摊。
+     * 收摊（**唯一终态路径**：手动关闭电台）。
      *
-     * @param pausePlayback true = 连播放一起暂停（用户关闭电台）；
-     *                      false = 只退电台不动播放（用户在播放器里自己点了继续，我们让位）
+     * 2026-09-19 修订：原 `pausePlayback` 参数的第二态（"只退电台、不动播放"）曾服务于
+     * "用户接管"路径；该路径已废除（**用户的播放控制不退出电台**，见 `agent-radio.md` C3）。
+     * 故移除参数，收摊时**一律暂停播放**（只暂停、不清空播放队列 —— 关闭电台 ≠ 清空播放列表）。
      */
-    private suspend fun stopRadioInternal(pausePlayback: Boolean) {
+    private suspend fun stopRadioInternal() {
         // ⓪ **先暂停，再收尾** —— 必须在拿锁之前。
         //    startRadio 持有同一把 radioLifecycleMutex，而它要等模型返回（实测可达几十秒）。
         //    暂停若排在锁内，用户点停止后会一直等到模型回来才有反应，看起来就像"停不掉"。
-        if (pausePlayback && _radioState.value != null) {
+        if (_radioState.value != null) {
             muteObservation()
             playbackPort?.execute(
                 com.hmp.domain.agent.port.PlaybackCommand.PAUSE,
@@ -829,12 +867,12 @@ class MasterAgent(
                 _subAgents.remove("radio")
                 HmpLog.i(LogTag.AgentMaster) { "🤖 [Master] Radio stopped" }
             }
+            // F11-L1：电台会话已结束 → 撤销保活诉求
+            updateRadioKeepAlive(false)
             // ③ 播放已在 ⓪ 暂停（只暂停、不清空播放队列 —— 关闭电台不等于清空播放列表）。
             //    这里再补一次：若 ⓪ 时状态还没就绪（极端时序），确保最终是暂停态。
-            if (pausePlayback) {
-                muteObservation()
-                playbackPort?.execute(com.hmp.domain.agent.port.PlaybackCommand.PAUSE, com.hmp.domain.agent.port.CommandSource.AGENT_INTERNAL)
-            }
+            muteObservation()
+            playbackPort?.execute(com.hmp.domain.agent.port.PlaybackCommand.PAUSE, com.hmp.domain.agent.port.CommandSource.AGENT_INTERNAL)
             radioRunLoopJob?.cancel()
             radioRunLoopJob = null
             // ④ 停转发协程 + 清固定 _radioState（UI 层据此隐藏 RADIO_STATUS 卡）
@@ -932,8 +970,8 @@ class MasterAgent(
                 agentId = "hello",
                 contextBudget = AgentContextBudget(
                     agentId = "hello",
-                    maxContextTokens = 128_000,
                     llmClient = helloTransport,
+                    tokenMeter = tokenMeter,
                 ),
                 toolRegistryView = toolView,
                 cardCacheDao = helloCardCacheDao,
@@ -1144,6 +1182,8 @@ class MasterAgent(
             ),
             tools = null,
             temperature = 0.7f,
+            agentId = TokenMeter.AGENT_RADIO,
+            meter = tokenMeter,
         )
 
         if (turn.failed) error(turn.failedMessage ?: "LLM failed")
@@ -1610,6 +1650,8 @@ class MasterAgent(
             auditLog = chatAuditLog,
             presenceBus = chatPresenceBus,
             stopSignal = AlwaysRunningStopSignal(tokenCounter),  // Master 永不暂停
+            agentId = TokenMeter.AGENT_MASTER,
+            tokenMeter = tokenMeter,
         )
         val result = loop.run(
             agentPolicy = agentPolicy,
@@ -1657,6 +1699,8 @@ class MasterAgent(
                 messages = com.hmp.domain.agent.profile.ProfileNarrative.buildMessages(facts),
                 tools = null,
                 temperature = 0.4f,
+                agentId = TokenMeter.AGENT_PROFILE,
+                meter = tokenMeter,
             )
             if (!reply.failed) {
                 profile.updateNarrative(reply.text, fingerprint)
@@ -1687,6 +1731,8 @@ class MasterAgent(
                     messages = com.hmp.domain.agent.profile.DialogueExtractor.buildMessages(userMessage),
                     tools = null,
                     temperature = 0.2f,
+                    agentId = TokenMeter.AGENT_PROFILE,
+                    meter = tokenMeter,
                 )
                 if (!reply.failed) {
                     val extractions = com.hmp.domain.agent.profile.DialogueExtractor.parse(reply.text)

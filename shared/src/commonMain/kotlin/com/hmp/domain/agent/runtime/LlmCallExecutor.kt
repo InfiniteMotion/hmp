@@ -26,6 +26,8 @@ class LlmCallExecutor {
      * @param messages 完整消息列表（system + history + new user）
      * @param tools 可用工具的 LLM spec（传 null 表示纯对话无工具）
      * @param temperature 采样温度（对话 0.7 / 批量富化 0.3 / 严格裁决 0.1）
+     * @param agentId F12-T1：记账身份（master / radio / profile …）
+     * @param meter F12-T1：唯一记账口；null = 不记账
      */
     suspend fun call(
         transport: LlmTransport,
@@ -33,9 +35,13 @@ class LlmCallExecutor {
         messages: List<LlmMessage>,
         tools: List<LlmToolSpec>?,
         temperature: Float,
+        agentId: String = TokenMeter.AGENT_MASTER,
+        meter: TokenMeter? = null,
+        taskId: String? = null,
     ): CollectedLlmResult {
         val text = StringBuilder()
         val calls = mutableListOf<LlmEvent.ToolCall>()
+        var usage: LlmEvent.Usage? = null
         var failed = false
         var failedMessage: String? = null
 
@@ -49,6 +55,7 @@ class LlmCallExecutor {
                 when (e) {
                     is LlmEvent.TextDelta -> text.append(e.text)
                     is LlmEvent.ToolCall -> calls += e
+                    is LlmEvent.Usage -> usage = e
                     is LlmEvent.Failed -> {
                         failed = true
                         failedMessage = e.message
@@ -62,6 +69,18 @@ class LlmCallExecutor {
             failed = true
             failedMessage = e.message
         }
+
+        // F12-T1 计量收口：真值优先（measured=true），拿不到则估算兜底并打标 measured=false。
+        // 注意：**无 usage 的失败调用不记账**（TokenMeter 内部判断）——没有消费凭据时不污染账本。
+        meter?.record(
+            agentId = agentId,
+            config = config,
+            usage = usage,
+            messages = messages,
+            outputText = text.toString(),
+            failed = failed,
+            taskId = taskId,
+        )
 
         HmpLog.d(LogTag.AgentLlmCall) { "🧠 [LlmCall] text=${text.toString().take(79)}… toolCalls=${calls.size} failed=$failed" }
 

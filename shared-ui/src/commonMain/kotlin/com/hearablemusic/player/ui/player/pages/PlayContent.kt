@@ -56,7 +56,6 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.hearablemusic.player.ui.common.components.AgentQuickSheet
 import com.hearablemusic.player.ui.common.components.base.HMPCard
 import com.hearablemusic.player.ui.common.design.dimens.LocalHMPDimens
 import com.hearablemusic.player.ui.common.components.base.GeneratePlaylistComboButtons
@@ -156,14 +155,13 @@ fun PlayContent(
     hazeState: HazeState? = null,
     modifier: Modifier = Modifier,
     /** 播放页快捷条提交：上抛输入到对话入口（M1 锚点 → M5 对话）。 */
-    onOpenChat: (String) -> Unit = {},
+    /** 打开对话页（轻量浮层已移除：播放页「对话」按钮直接进对话页） */
+    onOpenChat: () -> Unit = {},
 ) {
     val haptic = rememberHapticFeedback()
 
     var showTimerDialog by remember { mutableStateOf(false) }
     var playlistExpanded by remember { mutableStateOf(false) }
-    // M1 播放页锚点：轻量浮层（无底栏页面贴屏底，设计总纲 3.3）
-    var quickSheetVisible by remember { mutableStateOf(false) }
 
     // 解构状态以便在代码中使用
     val musicInfo = playerUiState.musicInfo
@@ -214,15 +212,6 @@ fun PlayContent(
                 .fillMaxSize()
                 .then(if (hazeState != null) Modifier.hazeSource(state = hazeState) else Modifier)
         ) {
-            AgentQuickSheet(
-                visible = quickSheetVisible,
-                onSubmit = { input ->
-                    // M1 锚点 → M5 对话：上抛输入，由 PlayerScreen 带话进对话页
-                    onOpenChat(input)
-                    quickSheetVisible = false
-                },
-                modifier = Modifier.align(Alignment.BottomCenter)
-            )
             if (isPhoneLandscape) {
                 // 手机横屏：左栏封面，右栏 tabs
                 var selectedTab by remember { mutableStateOf("controls") }
@@ -277,7 +266,7 @@ fun PlayContent(
                                             onPrevious = { haptic.performClick(); callbacks.onPrevious() },
                                             onPlaybackModeChange = { haptic.performContextClick(); callbacks.onPlaybackModeChange() },
                                             onFavorite = { haptic.performConfirm(); callbacks.onFavorite() },
-                                            onChatClick = { quickSheetVisible = true },
+                                            onChatClick = onOpenChat,
                                             onPlaylistToggle = { selectedTab = if (selectedTab == "playlist") "controls" else "playlist" },
                                             onTimerClick = { callbacks.onShowTimerDialog() },
                                             onHeartMode = { haptic.performConfirm(); callbacks.onHeartMode() },
@@ -320,7 +309,7 @@ fun PlayContent(
                                             onPrevious = { haptic.performClick(); callbacks.onPrevious() },
                                             onPlaybackModeChange = { haptic.performContextClick(); callbacks.onPlaybackModeChange() },
                                             onFavorite = { haptic.performConfirm(); callbacks.onFavorite() },
-                                            onChatClick = { quickSheetVisible = true },
+                                            onChatClick = onOpenChat,
                                             onPlaylistToggle = { selectedTab = if (selectedTab == "playlist") "lyrics" else "playlist" },
                                             onTimerClick = { callbacks.onShowTimerDialog() },
                                             onHeartMode = { haptic.performConfirm(); callbacks.onHeartMode() },
@@ -439,7 +428,7 @@ fun PlayContent(
                                 haptic.performConfirm()
                                 callbacks.onFavorite()
                             },
-                            onChatClick = { quickSheetVisible = true },
+                            onChatClick = onOpenChat,
                             onTimerClick = { callbacks.onShowTimerDialog() },
                             onHeartMode = {
                                 haptic.performConfirm()
@@ -784,7 +773,7 @@ fun PlaybackControlsButtons(
                 )
             }
 
-            // 对话：唤起轻量浮层（M1 播放页锚点；浮层实例由 PlayerScreen 层持有）
+            // 对话：直接进对话页（轻量浮层已移除）
             IconButton(
                 onClick = {
                     haptic.performClick()

@@ -140,6 +140,13 @@ fun BottomFusionBar(
     maxWidth: Dp? = null,
     onCompanionClick: () -> Unit = {},
     onCompanionLongPress: () -> Unit = {},
+    /** 电台是否已开启：为真时伙伴胶囊进入电台态（换图标 + 恒定高亮），长按改为唤起控制台 */
+    radioActive: Boolean = false,
+    /**
+     * 电台态下的长按动作 —— 唤起**电台控制台**（全屏浮层）。
+     * 胶囊上**不直接关闭**电台：关闭是终态动作，需用户看清这一档后在面板内收档。
+     */
+    onOpenRadioConsole: () -> Unit = {},
 ) {
     val haptic = rememberPlatformHaptics()
     // 初始态取首次组合值，后续由 LaunchedEffect 校正（review 2026-08-28：var→val，该值不参与赋值）
@@ -197,7 +204,7 @@ fun BottomFusionBar(
         horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally), // 压缩：间距 12→8dp
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // ── 伙伴胶囊（常驻锚点：点按=门面 长按=浮层）──
+        // ── 伙伴胶囊（常驻锚点：点按=门面；长按=电台开启时唤起控制台，否则直接进对话页）──
         CompanionCapsule(
             selected = tabIndexForPage(selectedTabIndex) < 0, // 门面页（第 0 页）时图标高亮
             onClick = {
@@ -208,10 +215,14 @@ fun BottomFusionBar(
             onLongPress = {
                 haptic.perform(HapticEffect.LONG_PRESS)
                 resetTimer()
-                onCompanionLongPress()
+                // 电台开启时胶囊即电台的状态位 —— 长按让位给"打开电台控制台"：
+                // 关闭是终态动作，走面板内收档（见 RadioConsole 与 agent-radio-console.md），
+                // 不在胶囊上一个长按就把电台关掉。「进对话页」入口在电台未开启时保持可达。
+                if (radioActive) onOpenRadioConsole() else onCompanionLongPress()
             },
             hazeState = hazeState,
             // 全局恒定为 48dp 体系，无动态缩放（用户决策 2026-08-27）
+            radioActive = radioActive,
         )
 
         // ── 左侧胶囊：导航 ──

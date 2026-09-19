@@ -58,7 +58,6 @@ fun PlayerScreen(
     navController: NavBackStack<NavKey>
 ) {
     val density = LocalDensity.current
-    val chatEntryBroker = koinInject<com.hearablemusic.player.ui.chat.ChatEntryBroker>()
     val dismissThreshold = with(density) { 220.dp.toPx() }
     val offsetY = remember { Animatable(0f) }
     val scope = rememberCoroutineScope()
@@ -204,11 +203,8 @@ fun PlayerScreen(
             paletteColors = paletteColors,
             callbacks = playerCallbacks,
             hazeState = hazeState,
-            onOpenChat = { input ->
-                // M1 锚点 → M5 对话：带话进对话页（同 session_id 语义）
-                chatEntryBroker.pendingInput.value = input
-                navController.add(Routes.Companion.Chat)
-            },
+            // 轻量浮层已移除：播放页「对话」按钮直接进对话页（不带话）
+            onOpenChat = { navController.add(Routes.Companion.Chat) },
         )
     }
 }

@@ -10,6 +10,7 @@ import com.hmp.data.database.UserProfileNarrativeDao
 import com.hmp.data.database.UserProfilePortraitDao
 import com.hmp.data.database.ForgottenDeliveryDao
 import com.hmp.data.database.AgentTaskDao
+import com.hmp.data.database.TokenLedgerDao
 import com.hmp.data.database.ListeningDurationDao
 import com.hmp.data.database.MusicAllDao
 import com.hmp.data.database.MusicDao
@@ -64,6 +65,7 @@ single<AgentMessageDao> { get<AppDatabase>().agentMessageDao() }
     single<UserProfilePortraitDao> { get<AppDatabase>().userProfilePortraitDao() }
     single<UserProfileNarrativeDao> { get<AppDatabase>().userProfileNarrativeDao() }
     single<ForgottenDeliveryDao> { get<AppDatabase>().forgottenDeliveryDao() }
+    single<TokenLedgerDao> { get<AppDatabase>().tokenLedgerDao() }
     single<AuditLogPort> { RoomAuditLogAdapter(get<AgentAuditLogDao>()) }
 single<AgentMessageStore> { RoomAgentMessageStore(get<AgentMessageDao>()) }
 

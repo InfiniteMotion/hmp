@@ -506,6 +506,5 @@
     <string name="section_detail_info">Details</string>
     <string name="unsaved_changes">Unsaved changes</string>
     <string name="agent_capsule_desc">Companion</string>
-    <string name="agent_quick_sheet_hint">Chat with your companion…</string>
-    <string name="agent_quick_sheet_send">Send</string>
+    <string name="agent_capsule_radio_desc">Radio on — long press for console</string>
 </resources>

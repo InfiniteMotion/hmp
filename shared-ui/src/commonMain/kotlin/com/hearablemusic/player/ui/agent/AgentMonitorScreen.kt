@@ -31,6 +31,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -49,6 +50,9 @@ import com.hmp.domain.agent.sub.RadioTrack
 import com.hmp.log.LogEntry
 import com.hmp.log.MemLogWriter
 import com.hmp.memLogWriter
+import com.hmp.data.database.TokenAggregateRow
+import com.hmp.data.database.TokenLedgerDao
+import com.hmp.data.database.currentTimeMillis
 import com.hearablemusic.player.ui.common.components.base.HMPCard
 import com.hearablemusic.player.ui.common.navigation.Routes
 import com.hearablemusic.player.ui.common.pages.base.SubScreen
@@ -113,37 +117,158 @@ fun AgentMonitorScreen(
     }
 }
 
-// ── 全局 Token 用量 ──
+// ── 全局 Token 用量（明细账本分账，F12-T2）──
+private enum class TokenWindow(val label: String) {
+    TODAY("今天"),
+    LAST_7("近 7 天"),
+    LAST_30("近 30 天"),
+    ALL("全部");
+
+    /** 该窗口的起始时间（epoch ms）。今天 = UTC 当日零点。 */
+    fun sinceMs(): Long {
+        val now = currentTimeMillis()
+        return when (this) {
+            TODAY -> now - (now % 86_400_000L)
+            LAST_7 -> now - 7 * 86_400_000L
+            LAST_30 -> now - 30 * 86_400_000L
+            ALL -> 0L
+        }
+    }
+}
+
 @Composable
 private fun TokenMonitorCard(
     masterAgent: MasterAgent,
 ) {
     val snap by masterAgent.tokenCounter.snapshot.collectAsState()
+    val ledgerDao: TokenLedgerDao = koinInject()
+
+    var window by remember { mutableStateOf(TokenWindow.TODAY) }
+    var agentRows by remember { mutableStateOf<List<TokenAggregateRow>>(emptyList()) }
+    var endpointRows by remember { mutableStateOf<List<TokenAggregateRow>>(emptyList()) }
+    val scope = rememberCoroutineScope()
+
+    fun reload() {
+        scope.launch {
+            runCatching {
+                val since = window.sinceMs()
+                agentRows = ledgerDao.sumByAgent(since)
+                endpointRows = ledgerDao.sumByEndpoint(since)
+            }
+        }
+    }
+
+    // 切换窗口即重查；首次进入也会触发
+    LaunchedEffect(window) { reload() }
 
     HMPCard {
         Column(modifier = Modifier.padding(16.dp)) {
+            // 标题 + 刷新
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("🪙 全局 Token 用量", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                Text(
-                    "${snap.used} / ${snap.quota}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                Text("🪙 Token 用量分账", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        "${snap.used} / ${snap.quota}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    IconButton(onClick = { reload() }, modifier = Modifier.size(28.dp)) {
+                        Text("↻", style = MaterialTheme.typography.titleMedium)
+                    }
+                }
             }
             Spacer(Modifier.height(8.dp))
             LinearProgressIndicator(progress = { snap.rate }, modifier = Modifier.fillMaxWidth().height(6.dp))
             Spacer(Modifier.height(4.dp))
             Text(
-                "剩余 ${snap.remaining} · ${(snap.rate * 100).toInt()}%",
+                "全局累计 ${snap.used} · 剩余 ${snap.remaining} · ${(snap.rate * 100).toInt()}%",
                 style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            Spacer(Modifier.height(12.dp))
+
+            // 时间窗口选择
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                enumValues<TokenWindow>().forEach { w ->
+                    FilterChip(
+                        selected = window == w,
+                        onClick = { window = w },
+                        label = { Text(w.label, style = MaterialTheme.typography.labelSmall) }
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            // 按 Agent 分账（F12-T2 最终目标：各 Agent × 各端点 × 分时）
+            Text("按 Agent", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(Modifier.height(4.dp))
+            if (agentRows.isEmpty()) {
+                Text("该时段暂无记录", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            } else {
+                agentRows.forEach { row ->
+                    TokenBreakdownRow(row.label, row)
+                    Spacer(Modifier.height(2.dp))
+                }
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            // 按端点·模型 分账（换端点后会出现两行）
+            Text("按端点 · 模型", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(Modifier.height(4.dp))
+            if (endpointRows.isEmpty()) {
+                Text("该时段暂无记录", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            } else {
+                endpointRows.forEach { row ->
+                    TokenBreakdownRow(row.label, row)
+                    Spacer(Modifier.height(2.dp))
+                }
+            }
+
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "📐 真值来自端点 usage；未返回时按长度估算（标注「估算」）。账本仅存主机名，不含密钥。",
+                style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }
+}
+
+@Composable
+private fun TokenBreakdownRow(label: String, row: TokenAggregateRow) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(label, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+            Text(
+                "${row.calls} 次 · ${if (row.estimatedRows == 0L) "全部实测" else "估算 ${row.estimatedRows} 次"}",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        Text(
+            fmtTokens(row.totalTokens),
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.primary
+        )
+    }
+}
+
+private fun fmtTokens(n: Long): String {
+    if (n >= 1_000_000L) return "${(n / 10_000L) / 100.0}M"
+    if (n >= 1000L) return "${(n / 100L) / 10.0}K"
+    return "$n"
 }
 
 // ── Agent 运行日志面板 ──

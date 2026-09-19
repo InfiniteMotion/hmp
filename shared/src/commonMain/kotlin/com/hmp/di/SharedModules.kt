@@ -1,11 +1,15 @@
 package com.hmp.data.di
 
+import com.hmp.data.database.TokenLedgerDao
+import com.hmp.data.database.currentTimeMillis
 import com.hmp.data.network.OpenAiCompatibleAdapter
 import com.hmp.data.network.OpenAiLlmTransport
 import com.hmp.data.network.createHttpClient
 import com.hmp.data.network.createJson
 import com.hmp.domain.agent.port.LlmTransport
 import com.hmp.domain.agent.port.PlaybackObservationBus
+import com.hmp.domain.agent.runtime.GlobalTokenCounter
+import com.hmp.domain.agent.runtime.TokenMeter
 import com.hmp.domain.music.usecase.GetAllMusicUseCase
 import com.hmp.domain.music.usecase.GetDailyMusicRecommendationUseCase
 import com.hmp.domain.music.usecase.GetDeletedMusicIdsGroupedByFolderUseCase
@@ -56,6 +60,22 @@ val sharedModule = module {
     // 必须单例 —— 控制器与 MasterAgent 看到的是同一个实例，否则事件收不到。
     // 控制器侧拿 Sink（只写），agent 侧拿 Bus（订阅 Flow）。
     singleOf(::PlaybackObservationBus)
+
+    // ── F12-T1：Token 计量基础设施 ──
+    // 全局日配额计数器：MasterAgent 与 TokenMeter 共享同一实例，
+    // 保证"计量累加"和"配额熔断"读的是同一份数据（否则闸门看不见自己的消费）。
+    single { GlobalTokenCounter(timeProvider = { currentTimeMillis() }) }
+
+    // 唯一记账口：一次 LLM 调用写三处 —— 当日累加（GlobalTokenCounter）·
+    // 窗口占用（各 AgentContextBudget 自行更新）· 明细账本（token_ledger）。
+    // ledgerDao 由平台模块提供（Room），跨模块解析。
+    single {
+        TokenMeter(
+            counter = get(),
+            ledgerDao = get(),
+            timeProvider = { currentTimeMillis() },
+        )
+    }
 
     // 用户认识模块（画像）自 v3.6 起**归属 MasterAgent**（`masterAgent.userMemory`）：
     // 不再单独注册 Koin 单例 —— 装配方只需注入三个 DAO，Master 负责构建与暴露。

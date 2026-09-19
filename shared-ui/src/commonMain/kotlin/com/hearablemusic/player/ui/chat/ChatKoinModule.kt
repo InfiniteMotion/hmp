@@ -13,6 +13,7 @@ import com.hmp.domain.agent.port.AiExtraEnrichPort
 import com.hmp.domain.agent.port.LlmTransport
 import com.hmp.domain.agent.port.NowPlayingContextProvider
 import com.hmp.domain.agent.port.PlaybackCommandPort
+import com.hmp.domain.agent.port.AgentKeepAlivePort
 import com.hmp.domain.agent.runtime.MasterAgent
 import com.hmp.domain.agent.tool.ToolDependencies
 import com.hmp.domain.agent.tool.ToolRegistry
@@ -23,6 +24,7 @@ import com.hmp.domain.setting.usecase.UserSettingsUseCase
 import com.hearablemusic.player.ui.platform.currentTimeMillis
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import org.koin.core.qualifier.named
 import org.koin.dsl.bind
@@ -85,7 +87,9 @@ val chatGatewayModule = module {
         val radioTransport = get<LlmTransport>(named(AGENT_RADIO))
         MasterAgent(
             timeProvider = { currentTimeMillis() },
-            tokenCounter = com.hmp.domain.agent.runtime.GlobalTokenCounter({ currentTimeMillis() }),
+            // F12-T1：注入共享单例，确保计量与配额熔断读同一份计数（meter 同 bean）
+            tokenCounter = get(),
+            tokenMeter = get(),
             musicRepository = get(),
             // 对话依赖
             chatTransport = chatTransport,
@@ -95,6 +99,8 @@ val chatGatewayModule = module {
             chatSessionStore = get(),
             chatPresenceBus = get(),
             observationBus = get(),
+            // F11-L1/L2：agent 保活端口（Android 有实现；iOS/Desktop 未提供 → null，静默跳过）
+            keepAlivePort = getOrNull(),
             stepBudget = EngineDefaults.STEP_BUDGET,
             // Enrich 后台依赖（独立 Transport）
             enrichTransport = enrichTransport,
@@ -122,18 +128,27 @@ val chatGatewayModule = module {
                 runCatching { master.initialize() }
                     .onFailure { e -> HmpLog.w(LogTag.AgentMaster, e) { "🤖 initialize failed | non-fatal | reason=${e.message}" } }
             }
-            // AI 配置热监听：combine(aiAccessMode, customAiConfig) → 任何一个变了都推给 MasterAgent
+            // AI 配置热监听：**生效配置真变**时才推给 MasterAgent（只在真变时重载）。
+            //
+            // ⚠️ 必须 `distinctUntilChanged()`：两个上游都派生自全局单例 `dataStore.data`，
+            // 任何无关写入都会让它重发 —— 例如播放进度持久化（`saveCurrentPosition`，数秒一次）。
+            // 少了这一步，会在后台反复触发 `updateAiConfig` → 日志刷屏 + 无谓的 per-Agent 配置重载。
             master.lifecycleScope.launch {
+                // 上游各自去重：无关写入时连 transform（含 CUSTOM 模式的 AES 解密）都不再触发；
+                // 末端再去重一层，确保只在"生效配置"真变时才重载。
                 kotlinx.coroutines.flow.combine(
-                    settingsRepo.aiAccessMode,
-                    settingsRepo.customAiConfig,
+                    settingsRepo.aiAccessMode.distinctUntilChanged(),
+                    settingsRepo.customAiConfig.distinctUntilChanged(),
                 ) { _, _ ->
                     runCatching { settingsRepo.getActiveAiConfig() }.getOrNull()
-                }.collect { activeConfig ->
-                    master.updateAiConfig()
-                    HmpLog.i(LogTag.AgentMaster) { "🤖 AI config changed → per-Agent configs reloaded from SettingsRepository"
-                    }
                 }
+                    .distinctUntilChanged()
+                    .collect { activeConfig ->
+                        master.updateAiConfig()
+                        HmpLog.i(LogTag.AgentMaster) {
+                            "🤖 AI config changed → reloaded (endpoint=${activeConfig?.endpoint?.take(40) ?: "(none)"}, model=${activeConfig?.selectedModel ?: "-"})"
+                        }
+                    }
             }
         }
     }

@@ -4,6 +4,7 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
+import android.os.Build
 import android.os.IBinder
 import androidx.media3.common.util.UnstableApi
 import com.hmp.domain.enum.PlaybackMode
@@ -104,6 +105,27 @@ class MusicController(
     fun bindService() {
         val intent = Intent(context, MusicPlayService::class.java)
         context.bindService(intent, connection, Context.BIND_AUTO_CREATE)
+    }
+
+    /**
+     * F11-L2：把播放服务以「已启动 + 前台」态拉起，使其**自持**（不再仅靠 Activity 绑定）。
+     *
+     * 原实现只有 `bindService(BIND_AUTO_CREATE)`，服务生命周期绑在 Activity 上 ——
+     * 退后台被回收时服务与同进程的 agent 一起消失（见 `design/agent-lifecycle.md` RC2）。
+     * 改为 `startForegroundService` 后服务 `START_STICKY` 自持；前台化由服务内部按
+     * 「音频在播 或 agent 保活」决定。
+     *
+     * 需在前台调用（播放由用户手势发起，满足 Android 12+ 的前台服务启动限制）。
+     */
+    fun ensurePlaybackServiceStarted() {
+        runCatching {
+            val intent = Intent(context, MusicPlayService::class.java)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                context.startForegroundService(intent)
+            } else {
+                context.startService(intent)
+            }
+        }.onFailure { e -> HmpLog.w(LogTag.PlayerService, e) { "📡 ensurePlaybackServiceStarted failed (non-fatal)" } }
     }
 
     fun unbindService() {
@@ -398,28 +420,28 @@ class MusicController(
         }
         playStartTime = System.currentTimeMillis()
         lastDurationRecordTime = playStartTime
-        val path = currentMusicPath()
-        if (path != null && isMusicLoaded(path) == true) {
-            scope.launch { playControl?.proceedMusic() }
-            showToast("继续")
-            // 如果是从暂停状态恢复，确保UI进度与Service同步
-            scope.launch {
+        // ⚠️ 播放判定与操作**整体切到主线程**（scope = Dispatchers.Main）：
+        // 原来 `isMusicLoaded` 在调用方线程同步摸 ExoPlayer —— agent 从
+        // Dispatchers.Default 调进来时会抛 "Player is accessed on the wrong thread"
+        // （真机 2026-09-19 电台开播"补 PLAY 起声"路径踩到，导致 fallback 从头重放）。
+        scope.launch {
+            val path = currentMusicPath()
+            if (path != null && isMusicLoaded(path) == true) {
+                playControl?.proceedMusic()
+                showToast("继续")
+                // 如果是从暂停状态恢复，确保UI进度与Service同步
                 val currentPos = playControl?.getCurrentPosition() ?: 0L
                 if (currentPos > 0) {
                     _currentPosition.value = currentPos
                 }
-            }
-        } else {
-            // 如果是初始状态（未加载），则尝试恢复上次进度播放
-            val lastPos = _currentPosition.value
-            if (lastPos > 0) {
-                 scope.launch { 
-                     playCurrentTrack("Resume", startPosition = lastPos)
-                 }
             } else {
-                 scope.launch { 
-                     playCurrentTrack("Resume")
-                 }
+                // 如果是初始状态（未加载），则尝试恢复上次进度播放
+                val lastPos = _currentPosition.value
+                if (lastPos > 0) {
+                    playCurrentTrack("Resume", startPosition = lastPos)
+                } else {
+                    playCurrentTrack("Resume")
+                }
             }
         }
         startProgressTracking()
@@ -589,6 +611,9 @@ class MusicController(
         persistCurrentMusic(track.music.id)
         _currentPosition.value = startPosition
         _duration.value = track.music.duration
+
+        // F11-L2：确保服务以「已启动 + 前台」态自持（不再只靠 Activity 绑定）
+        ensurePlaybackServiceStarted()
 
         // Media3 操作必须在 Main dispatcher
         scope.launch {

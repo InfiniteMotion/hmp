@@ -41,6 +41,10 @@ class ReActLoop(
     private val presenceBus: PresenceBus? = null,
     private val stopSignal: StopSignal? = null,
     private val llmCall: LlmCallExecutor = LlmCallExecutor(),
+    /** F12-T1：记账身份（本循环目前只服务 Master 对话） */
+    private val agentId: String = TokenMeter.AGENT_MASTER,
+    /** F12-T1：唯一记账口 —— 每步的用量在此收口（真值优先、估算兜底打标） */
+    private val tokenMeter: TokenMeter? = null,
 ) {
 
     // ===== 入口 =====
@@ -116,11 +120,14 @@ class ReActLoop(
                 messages = messages,
                 tools = registry.allLlmSpecs,
                 temperature = temperature,
+                agentId = agentId,
+                meter = tokenMeter,
+                taskId = taskId?.toString(),
             )
             HmpLog.d(LogTag.AgentReActLoop) { "🔁 step $steps: text=${turn.text.take(119)}… toolCalls=${turn.toolCalls.map { it.name }} failed=${turn.failed}" }
 
-            // Token 估算（LlmCallExecutor 负责采集，这里统一累加到共享配额）
-            tokenCounter?.recordTokens(estimateTokens(messages, turn))
+            // Token 计量（F12-T1）已在 LlmCallExecutor 内经 TokenMeter 收口 ——
+            // 这里**不再**调用 recordTokens：旧实现在此用估算值累加，是"记账只有一处且为估算"的根源。
 
             if (turn.failed) {
                 terminated = com.hmp.domain.agent.runtime.TerminationReason.FAILED
@@ -189,27 +196,9 @@ class ReActLoop(
     }
 
     // ===== Token 估算 =====
-
-    /**
-     * 估算一次 LLM 调用的 token 消耗。
-     * 粗略估算（中文 ~1.5 char/token），比硬编码 1500 更准。
-     * 精确 token 需要 LLM API 返回 usage 字段——未来 LlmTransport 升级后可以接真实值。
-     */
-    private fun estimateTokens(
-        messages: List<LlmMessage>,
-        result: CollectedLlmResult,
-    ): Long {
-        var total = 0L
-        messages.forEach { msg ->
-            total += msg.content?.length?.times(0.7)?.toLong() ?: 0L
-            msg.toolCalls?.forEach { tc ->
-                total += tc.argumentsJson.length.times(0.7).toLong()
-            }
-        }
-        total += result.text.length.times(0.7).toLong()
-        result.toolCalls.forEach { tc ->
-            total += tc.argumentsJson.length.times(0.7).toLong()
-        }
-        return total.coerceAtLeast(200L)  // 保底 200 token（防止极端场景低估）
-    }
+    //
+    // F12-T1 起本类**不再自带估算**：计量统一由 `TokenMeter` 收口
+    // （真值来自 `LlmEvent.Usage`，估算仅作兜底并打标 `measured=false`）。
+    // 旧实现这里有一份 `length × 0.7` 的估算副本，与 `AgentContextBudget` 的那份重复 ——
+    // 两处各写一遍正是"口径漂移"的来源，已收敛为唯一实现。
 }
