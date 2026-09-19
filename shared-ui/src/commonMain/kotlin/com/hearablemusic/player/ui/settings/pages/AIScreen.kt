@@ -27,7 +27,6 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -37,7 +36,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -45,7 +43,14 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.Icon
 import androidx.compose.ui.draw.clip
+import com.hearablemusic.player.ui.agent.agentIcon
+import com.hearablemusic.player.ui.agent.agentStatusColor
+import org.jetbrains.compose.resources.painterResource
 import androidx.compose.ui.graphics.Color.Companion.Transparent
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -55,9 +60,9 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
-import com.hmp.domain.agent.runtime.CapabilityState
 import com.hmp.domain.agent.runtime.MasterAgent
 import com.hmp.domain.enum.AiPresetEndpoints
 import com.hmp.domain.setting.model.AiAccessMode
@@ -260,8 +265,6 @@ private fun AIScreenContent(
         title = stringResource(Res.string.title_ai)
     ) {
         val isLandscape = LocalWindowSizeInfo.current.isLandscape
-        val tabs = listOf(AiAccessMode.FREE, AiAccessMode.CUSTOM, AiAccessMode.PAID)
-        val selectedModeId = aiAccessMode.name
 
         Column(
             modifier = Modifier
@@ -270,8 +273,126 @@ private fun AIScreenContent(
                 .padding(24.dp),
             verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
-            // ═══ 分区 1：身体素质 —— AI 接入方式（现有三 tab）═══
-            SectionHeader("身体素质")
+            // ═══ 分区 1：AI 接入方式（折叠态只显示概要，展开才配细节）═══
+            SectionHeader("AI 接入方式")
+            AiAccessSection(
+                aiAccessMode = aiAccessMode,
+                freeTrialRemaining = freeTrialRemaining,
+                customConfig = customConfig,
+                availableModels = availableModels,
+                isTestingApi = isTestingApi,
+                pendingCount = pendingCount,
+                onModeChange = onModeChange,
+                onSaveConfig = onSaveCustomConfig,
+                onFetchModels = onFetchModels,
+                onTestConnection = onTestConnection,
+                dialogManager = dialogManager,
+            )
+
+            // ═══ 分区 2：Agent 管理 —— 监控看板 + 配置入口 ═══
+            SectionHeader("Agent 管理")
+            AgentQuickEntries(
+                masterAgent = masterAgent,
+                onAgentClick = { role -> navController.add(com.hearablemusic.player.ui.common.navigation.Routes.AI.AgentConfig(role)) }
+            )
+
+            // ═══ 分区 3：语言和语音 —— 回复语言（可配）+ 语音对话（M7 gate 占位）═══
+            SectionHeader("语言和语音")
+            ReplyLanguageSection(masterAgent = masterAgent)
+            VoiceSection()
+
+            // ═══ 分区 4：记忆管理 —— 清除画像 + 审计页入口 ═══
+            SectionHeader("记忆管理")
+            MemoryManagementSection(
+                navController = navController,
+                onClearAllMemory = onClearAllMemory
+            )
+
+            Spacer(modifier = Modifier.height(64.dp))
+        }
+    }
+}
+
+// ==================== AI 接入方式（可折叠）====================
+
+private data class AccessSummary(val title: String, val detail: String)
+
+/** 折叠态要显示的「当前方式概要」——只回答"现在用的是什么"，不堆参数。 */
+private fun accessSummary(
+    mode: AiAccessMode,
+    config: AiEndpointConfig,
+    freeTrialRemaining: Int,
+): AccessSummary = when (mode) {
+    AiAccessMode.FREE -> AccessSummary("免费体验", "剩余 $freeTrialRemaining 次")
+    AiAccessMode.CUSTOM -> {
+        val detail = when {
+            config.selectedModel.isNotBlank() -> config.selectedModel
+            config.endpoint.isNotBlank() -> config.endpoint
+            else -> "未配置"
+        }
+        AccessSummary("自定义端点", detail)
+    }
+    AiAccessMode.PAID -> AccessSummary("付费模式", "敬请期待")
+}
+
+/**
+ * AI 接入方式：默认**折叠**，只显示当前方式的概要；点击展开才是 tab 切换 + 详细配置。
+ * 这样做的理由：端点/Key/模型属于"配一次就不管"的设置，默认铺开会让设置页首屏变得很长，
+ * 把下面的 Agent 入口挤到折叠线以下。
+ */
+@Composable
+private fun AiAccessSection(
+    aiAccessMode: AiAccessMode,
+    freeTrialRemaining: Int,
+    customConfig: AiEndpointConfig,
+    availableModels: List<String>,
+    isTestingApi: Boolean,
+    pendingCount: Int,
+    onModeChange: (AiAccessMode) -> Unit,
+    onSaveConfig: (String, String, String) -> Unit,
+    onFetchModels: (String, String) -> Unit,
+    onTestConnection: (String, String) -> Unit,
+    dialogManager: DialogManager,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val summary = accessSummary(aiAccessMode, customConfig, freeTrialRemaining)
+
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        // 概要行：始终可见，点击切换展开/折叠
+        HMPCard(
+            modifier = Modifier.clickable { expanded = !expanded }
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        summary.title,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onBackground
+                    )
+                    Text(
+                        summary.detail,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    if (expanded) "收起" else "展开",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+        }
+
+        if (expanded) {
+            val tabs = listOf(AiAccessMode.FREE, AiAccessMode.CUSTOM, AiAccessMode.PAID)
             SegmentedControl(
                 modifier = Modifier.fillMaxWidth(),
                 options = tabs.map { mode ->
@@ -286,10 +407,8 @@ private fun AIScreenContent(
                         )
                     )
                 },
-                selectedOption = selectedModeId,
-                onOptionSelected = { id ->
-                    onModeChange(AiAccessMode.valueOf(id))
-                }
+                selectedOption = aiAccessMode.name,
+                onOptionSelected = { id -> onModeChange(AiAccessMode.valueOf(id)) }
             )
             when (aiAccessMode) {
                 AiAccessMode.FREE -> FreeTrialContent(
@@ -300,36 +419,13 @@ private fun AIScreenContent(
                     customConfig = customConfig,
                     availableModels = availableModels,
                     isTestingApi = isTestingApi,
-                    onSaveConfig = onSaveCustomConfig,
+                    onSaveConfig = onSaveConfig,
                     onFetchModels = onFetchModels,
                     onTestConnection = onTestConnection,
                     dialogManager = dialogManager
                 )
                 AiAccessMode.PAID -> PaidModeContent()
             }
-
-            // ═══ 全局参数：Token 配额 + 回复语言 ═══
-            GlobalConfigSection(masterAgent = masterAgent)
-
-            // ═══ 分区 2：Agent 管理 —— 监控看板 + 配置入口 ═══
-            SectionHeader("Agent 管理")
-            AgentSummaryCards(
-                masterAgent = masterAgent,
-                onAgentClick = { role -> navController.add(com.hearablemusic.player.ui.common.navigation.Routes.AI.AgentConfig(role)) }
-            )
-
-            // ═══ 分区 3：嗓音与耳朵 —— M7 gate（占位）═══
-            SectionHeader("嗓音与耳朵")
-            VoiceSection()
-
-            // ═══ 分区 4：记忆管理 —— 清除画像 + 审计页入口 ═══
-            SectionHeader("记忆管理")
-            MemoryManagementSection(
-                navController = navController,
-                onClearAllMemory = onClearAllMemory
-            )
-
-            Spacer(modifier = Modifier.height(64.dp))
         }
     }
 }
@@ -955,14 +1051,20 @@ fun LoadMusicExtraInfo(
 // F9-T2 新增分区组件
 // ═══════════════════════════════════════════════════════════════
 
-/** 分区标题 —— 粗体小字 + 上边距，把六分区视觉分开 */
+/**
+ * 分区标题 —— 大字号 + 半粗 + 主文本色，靠字号与留白把各分区分开（不加分隔线 / 色块）。
+ * 字距刻意压到 0.5sp（约 0.023em）：标题含中英混排（「AI 接入方式」「Agent 管理」），
+ * 字距一大就会在拉丁与汉字交界处裂开。
+ */
 @Composable
 private fun SectionHeader(title: String) {
     Text(
         text = title,
-        style = MaterialTheme.typography.titleMedium,
-        color = MaterialTheme.colorScheme.onSurface,
-        modifier = Modifier.padding(top = 8.dp)
+        style = MaterialTheme.typography.titleLarge,
+        fontWeight = FontWeight.SemiBold,
+        color = MaterialTheme.colorScheme.onBackground,
+        letterSpacing = 0.5.sp,
+        modifier = Modifier.padding(top = 16.dp, bottom = 4.dp)
     )
 }
 
@@ -1176,182 +1278,116 @@ private fun MemoryManagementSection(
 // ==================== Agent 管理看板 ====================
 
 /**
- * 四张 Agent 摘要卡片——每张显示三行：名称 + 关键状态 + 当前配置值。
- * 点按整张卡片跳对应 AgentConfigScreen。
+ * Agent 快捷入口：**一行四个**（图标 + 简称 + 运行状态角标），点按进对应 AgentConfigScreen。
+ *
+ * 宽度约束：一行四等分后每个入口约 78dp（360dp 屏减去左右 24dp padding），
+ * 放不下 "RadioSubAgent" 这种全名 → 用简称（Master / Radio / Enrich / Hello）。
+ * 详细参数（步数 / 覆盖率 / 目标 / 温度 / 语言…）在 AgentConfigScreen 子页面，这里一律不重复。
  */
 @Composable
-private fun AgentSummaryCards(
+private fun AgentQuickEntries(
     masterAgent: MasterAgent,
     onAgentClick: (String) -> Unit,
 ) {
     val agents = listOf(
-        AgentEntry("master", "MasterAgent", "🤖"),
-        AgentEntry("hello", "HelloSubAgent", "👋"),
-        AgentEntry("enrich", "EnrichSubAgent", "📚"),
-        AgentEntry("radio", "RadioSubAgent", "📻"),
+        AgentEntry("master", "Master"),
+        AgentEntry("radio", "Radio"),
+        AgentEntry("enrich", "Enrich"),
+        AgentEntry("hello", "Hello"),
     )
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Row(modifier = Modifier.fillMaxWidth()) {
         agents.forEach { entry ->
-            AgentCard(
-                entry = entry,
-                masterAgent = masterAgent,
-                onClick = { onAgentClick(entry.role) }
-            )
-        }
-    }
-}
-
-private data class AgentEntry(val role: String, val label: String, val icon: String)
-
-@Composable
-private fun AgentCard(
-    entry: AgentEntry,
-    masterAgent: MasterAgent,
-    onClick: () -> Unit,
-) {
-    val cfg = remember { masterAgent.getAgentPolicyConfig(entry.role) }
-    val resolved = remember { cfg.resolvedFor(entry.role) }
-
-    // 实时能力状态（Radio/Enrich/Hello 有，Master 没有 Capability；SubAgent 可能异步 start，不用 remember）
-    val liveState = masterAgent.capability(entry.role)?.stateFlow?.collectAsState()?.value
-    val statusLabel = liveState?.let { stateStatusLabel(it) }
-
-    HMPCard(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(entry.icon, style = MaterialTheme.typography.headlineMedium)
-            Spacer(Modifier.width(12.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(entry.label, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                // 第一行：实时状态 + 配置摘要
-                val staticSummary = when (entry.role) {
-                    "master" -> "信任: ${trustLabel(cfg.trustLevel)} · 步数: ${resolved.runtimeParams.stepBudget}"
-                    "enrich" -> "覆盖率: ${(resolved.runtimeParams.targetCoverage * 100).toInt()}%"
-                    "radio" -> "目标: ${resolved.runtimeParams.targetCount} 首${if (resolved.runtimeParams.autoRenew) " · 自动续歌" else ""}"
-                    "hello" -> "每日: ${resolved.runtimeParams.dailyRecommendCount} 张 · 歌单: ${resolved.runtimeParams.recommendListSize} 首"
-                    else -> ""
-                }
-                val firstLine = if (statusLabel != null) "$statusLabel · $staticSummary" else staticSummary
-                Text(firstLine, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                // 第二行：温度 + prompt 语言
-                val langLabel = when (cfg.preferredLang) {
-                    "zh" -> "🇨🇳 中文"
-                    "en" -> "🇺🇸 English"
-                    "auto" -> "🗺️ 跟随系统"
-                    else -> "🌐 跟随全局"
+            // 实时能力状态（Radio/Enrich/Hello 有，Master 没有 Capability；SubAgent 可能异步 start，不用 remember）
+            val liveState = masterAgent.capability(entry.role)?.stateFlow?.collectAsState()?.value
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(12.dp))
+                    .clickable { onAgentClick(entry.role) }
+                    .padding(vertical = 10.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Box {
+                    val icon = agentIcon(entry.role)
+                    if (icon != null) {
+                        Icon(
+                            painter = painterResource(icon),
+                            contentDescription = null,
+                            modifier = Modifier.size(34.dp),
+                            tint = MaterialTheme.colorScheme.onBackground
+                        )
+                    }
                 }
                 Text(
-                    "温度: ${resolved.temperature} · prompt: $langLabel",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    entry.label,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onBackground,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    textAlign = TextAlign.Center
                 )
             }
-            Text("→", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
 
-/** CapabilityState → 可读状态标签（带 emoji 颜色提示）。 */
-private fun stateStatusLabel(s: CapabilityState): String = when (s.status) {
-    CapabilityState.Status.IDLE -> "💤 空闲"
-    CapabilityState.Status.BUILDING -> "🔨 启动中"
-    CapabilityState.Status.RUNNING -> "✅ 运行中"
-    CapabilityState.Status.PAUSED -> "⏸️ 已暂停"
-    CapabilityState.Status.COMPLETED -> "🏁 已完成"
-    CapabilityState.Status.ERROR -> "❌ 错误"
-} + if (s.detail.isNotBlank()) " (${s.detail})" else ""
-
-private fun trustLabel(level: Int) = when (level) {
-    0 -> "谨慎"
-    1 -> "代劳"
-    2 -> "静默"
-    else -> "?"
-}
+private data class AgentEntry(val role: String, val label: String)
 
 // ==================== 全局 Agent 参数 ====================
 
 /**
- * 全局参数：日 Token 配额 + 回复语言。
+ * 回复语言（真实可配，**全局默认值**）。
  * 读/写 GlobalAgentConfig（DataStore key "agent_global"）。
+ * 子页面 AgentConfigScreen 的语言选择器有「跟随全局」选项，取值即来自这里。
  */
 @Composable
-private fun GlobalConfigSection(
+private fun ReplyLanguageSection(
     masterAgent: MasterAgent,
 ) {
     val scope = rememberCoroutineScope()
     val globalConfig = remember { masterAgent.getGlobalAgentConfig() }
-    var tokenQuota by remember { mutableIntStateOf(globalConfig.dailyTokenQuota) }
     var replyLanguage by remember { mutableStateOf(globalConfig.replyLanguage) }
 
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        // 日 Token 配额
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text("日 Token 配额", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.width(90.dp))
-            Slider(
-                value = tokenQuota.toFloat(),
-                onValueChange = { tokenQuota = it.toInt() },
-                onValueChangeFinished = {
-                    scope.launch {
-                        masterAgent.saveGlobalAgentConfig(
-                            globalConfig.copy(dailyTokenQuota = tokenQuota)
-                        )
-                    }
-                },
-                valueRange = 100_000f..2_000_000f,
-                steps = 18,  // 100K..2M，每步 100K
-                modifier = Modifier.weight(1f),
-            )
-            Text("${tokenQuota / 1000}K", modifier = Modifier.width(56.dp), style = MaterialTheme.typography.bodySmall)
-        }
-
-        // 回复语言
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text("回复语言", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.width(90.dp))
-            val languageOptions = listOf("zh" to "中文", "en" to "英文", "auto" to "自动")
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                languageOptions.forEach { (key, label) ->
-                    Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = if (replyLanguage == key) MaterialTheme.colorScheme.primaryContainer
-                                else MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.5f),
-                        modifier = Modifier.clickable {
-                            replyLanguage = key
-                            scope.launch {
-                                masterAgent.saveGlobalAgentConfig(
-                                    globalConfig.copy(replyLanguage = key)
-                                )
+    HMPCard(contentPadding = Modifier.padding(16.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("回复语言", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.width(90.dp))
+                val languageOptions = listOf("zh" to "中文", "en" to "英文", "auto" to "自动")
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    languageOptions.forEach { (key, label) ->
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = if (replyLanguage == key) MaterialTheme.colorScheme.primaryContainer
+                                    else MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.5f),
+                            modifier = Modifier.clickable {
+                                replyLanguage = key
+                                scope.launch {
+                                    masterAgent.saveGlobalAgentConfig(
+                                        globalConfig.copy(replyLanguage = key)
+                                    )
+                                }
                             }
+                        ) {
+                            Text(
+                                label,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = if (replyLanguage == key) MaterialTheme.colorScheme.onPrimaryContainer
+                                        else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
-                    ) {
-                        Text(
-                            label,
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = if (replyLanguage == key) MaterialTheme.colorScheme.onPrimaryContainer
-                                    else MaterialTheme.colorScheme.onSurfaceVariant
-                        )
                     }
                 }
             }
+            Text(
+                "「跟随全局」Agent 的 prompt 语言从此处取值；每个 Agent 可单独覆盖。",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
-        Text(
-            "「跟随全局」Agent 的 prompt 语言从此处取值；每个 Agent 可单独覆盖。",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
     }
 }

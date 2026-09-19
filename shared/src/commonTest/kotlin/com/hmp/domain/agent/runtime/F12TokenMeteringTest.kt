@@ -30,6 +30,7 @@ private class FakeTokenLedgerDao : TokenLedgerDao {
     override suspend fun sumByHour(sinceMs: Long): List<TokenTimeBucket> = emptyList()
     override suspend fun sumByDay(sinceMs: Long): List<TokenTimeBucket> = emptyList()
     override suspend fun sumByHourForAgent(sinceMs: Long, agentId: String): List<TokenTimeBucket> = emptyList()
+    override suspend fun sumTotal(): Long = inserted.sumOf { (it.promptTokens + it.completionTokens).toLong() }
     override suspend fun deleteAll() { inserted.clear() }
 }
 

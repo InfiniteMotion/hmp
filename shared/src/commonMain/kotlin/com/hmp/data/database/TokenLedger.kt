@@ -148,6 +148,10 @@ interface TokenLedgerDao {
     )
     suspend fun sumByHourForAgent(sinceMs: Long, agentId: String): List<TokenTimeBucket>
 
+    /** 全局累计总用量（所有历史，不分窗口）。 */
+    @Query("SELECT COALESCE(SUM(prompt_tokens + completion_tokens), 0) FROM token_ledger")
+    suspend fun sumTotal(): Long
+
     @Query("DELETE FROM token_ledger")
     suspend fun deleteAll()
 }

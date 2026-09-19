@@ -8,13 +8,40 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
-/** 看板/诊断 UI 读取的单条日志。 */
+/**
+ * Kermit tag → 归一化 Agent 桶。未列出的 tag（UI/Data/Player/System 等）归为「框架」。
+ * 只在 sink 处推导一次，打点调用点无需改动。
+ */
+private val TAG_TO_AGENT: Map<String, String> = mapOf(
+    LogTag.AgentMaster.v to "Master",
+    LogTag.AgentReActLoop.v to "Master",
+    LogTag.AgentScheduler.v to "Master",
+    LogTag.AgentTool.v to "Master",
+    LogTag.AgentLlmCall.v to "Master",
+    LogTag.AgentProfile.v to "Master",
+    LogTag.AgentGateway.v to "Master",
+    LogTag.AgentChat.v to "Master",
+    LogTag.AgentPort.v to "Master",
+    LogTag.AgentRadio.v to "Radio",
+    LogTag.AgentEnrich.v to "Enrich",
+    LogTag.AgentHello.v to "Hello",
+    LogTag.AgentSub.v to "框架",
+    LogTag.AgentContext.v to "框架",
+)
+
+/**
+ * 看板/诊断 UI 读取的单条日志。
+ * [agent] 为归一化后的「所属 Agent 桶」（Master/Radio/Enrich/Hello/框架），由 [TAG_TO_AGENT]
+ * 从 Kermit tag 推导，供看板按 Agent 筛选/分组，不侵入任何打点调用点。
+ */
 data class LogEntry(
     val severity: Severity,
     val tag: String,
     val message: String,
     /** 递增序号，UI 用它做稳定的 Lazy key 与时间先后判断（不依赖平台时钟）。 */
     val sequence: Int,
+    /** 归一化 Agent 桶；非 agent 子系统（UI/Data/Player…）归为「框架」。 */
+    val agent: String = "",
 )
 
 /**
@@ -49,7 +76,7 @@ class MemLogWriter(
 
     override fun log(severity: Severity, message: String, tag: String, throwable: Throwable?) {
         val text = if (throwable != null) "$message\n$throwable" else message
-        append(LogEntry(severity = severity, tag = tag, message = text, sequence = nextSeq()))
+        append(LogEntry(severity = severity, tag = tag, message = text, sequence = nextSeq(), agent = TAG_TO_AGENT[tag] ?: "框架"))
     }
 
     @Synchronized
