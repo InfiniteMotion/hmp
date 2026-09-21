@@ -464,6 +464,13 @@ private fun CustomConfigContent(
                 shape = RoundedCornerShape(12.dp)
             )
 
+            // F12-T3：端点窗口前提声明（无法配置时探测，故显式告知用户前提是 ≥64K）
+            Text(
+                "端点须支持 ≥64K 上下文窗口：本应用按 64K 固定假设计费与超窗护栏，窗口更小会导致请求被拒并降级。",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
             // API Key 输入
             TextField(
                 value = apiKeyValue,

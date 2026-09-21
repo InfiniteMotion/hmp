@@ -53,6 +53,35 @@ object EngineDefaults {
     const val MAX_LIBRARY_LIST_CHARS = 1200
     const val MAX_TOOL_RESULTS_KEPT = 6
 
+    // ── 上下文窗口（F12-T3）──
+    /**
+     * 全部 Agent 统一的**上下文窗口假设值**。
+     *
+     * **固定常量，不探测、不建内置表、不支持用户覆盖**（`design/agent-token.md` T3 / D3）。
+     * 理由：用户基数最大的两类官方端点（OpenAI / DeepSeek）**都不返回窗口**，
+     * 动态获取不可能全覆盖；与其做"探测 + 多级回退"却仍留空洞，不如规定下限 + 固定假设。
+     *
+     * **使用前提**：用户配置的端点须支持 **≥ 64K**（低于此不在支持范围）。
+     * 该前提**无法在配置时校验**（拿不到窗口）→ 因此超窗必须**显式可辨**
+     * （见 `AgentContextBudget` 的前置守卫：超窗失败原因与"模型判 none"可区分）。
+     *
+     * 实测本仓 prompt 峰值仅 1–3 万 token（开播曲库块 ~6,000 + 每轮候选 40 行 ~1,120），
+     * 故 64K 相对峰值有 2–6 倍余量 —— 前置守卫正常情况下不触发，它是安全网而非主机制。
+     */
+    const val AGENT_CONTEXT_WINDOW: Int = 64_000
+
+    /** 前置守卫的安全系数：prompt 估算超过 `窗口 × 此值` 即触发降级/拒绝。 */
+    const val CONTEXT_WINDOW_SAFETY_FACTOR: Float = 0.9f
+
+    /**
+     * 上下文组装时保留的最近消息条数（**唯一内部常量**）。
+     *
+     * 收敛自两处散落魔数（F12-T4）：`AgentContextBudget` 的 6 与
+     * `ChatAgentGateway.buildHistory` 的 30。**不上升为设置项** ——
+     * 它是内部组装策略，不是用户偏好。
+     */
+    const val HISTORY_KEEP_COUNT: Int = 6
+
     // ── 出厂默认 System Prompt 文本（给 UI 护栏参照，引擎实际运行走代码组装函数）──
     /**
      * key 约定：chat.system / enrich.system / radio.dj / hello.greeting

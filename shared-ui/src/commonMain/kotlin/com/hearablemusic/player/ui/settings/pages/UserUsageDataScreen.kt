@@ -260,8 +260,8 @@ private fun OverviewWindowContent(
             }
         }
 
-        // analytics 为 null 且无叙事 —— 空态
-        if (windowed.analytics == null && windowed.narrative == null) {
+        // analytics 为 null —— 空态
+        if (windowed.analytics == null) {
             EmptyHint(text = stringResource(Res.string.usage_data_empty))
         }
     }

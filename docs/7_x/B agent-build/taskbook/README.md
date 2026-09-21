@@ -1,7 +1,7 @@
 # HMP Agent 计划书 · 总纲
 
 > **上游**：`../design/agent.md`（设计总纲，单一事实来源）｜`../design/agent-architecture.md`（架构详解：铁则 F1-F6、两层结构、源码索引）
-> **状态**：v6（2026-09-18：F9 收口、语音移出立为 F10）
+> **状态**：v8（2026-09-19：新增 **F11 后台生命周期** [修复退后台不存活] 与 **F12 Token 计量与窗口治理** [修复 token 三层断裂]）
 > **本目录**：`docs/7_x/B agent-build/taskbook/` —— 阶段推进计划与验收档案
 
 ***
@@ -21,7 +21,7 @@
 
 ### 章节归并原则
 
-章节文件按**阶段族**划分，编号 `f1`–`f9`（**九章，编号连续无跳号**），后续阶段用 `f10` 起继续：
+章节文件按**阶段族**划分，编号 `f1`–`f9`（**九章，编号连续无跳号**），后续阶段用 `f10` 起继续（`f10` 语音会话 · `f11` 后台生命周期 · `f12` Token 计量与窗口治理）：
 
 - 同一族 = 相邻日期 + 同一目标 + 改同一批文件 + 有明确依赖关系
 - 一章内按阶段分节（如 F5 内含 S/T/U 三节），**不再为每个阶段单开文件**
@@ -48,6 +48,14 @@ F1 规划与地基 ──▶ F2 锚点与协议 ──▶ F3 工具与引擎 ─
                                                                   ▼
                         F10 语音会话（RealtimeVoiceTransport → 语音会话）
                         —— 后续独立阶段，不占 F9 编号
+                                                                  │
+                                                                  ▼
+                        F11 后台生命周期（AgentRuntime → 自持前台服务 → iOS 有限保活 → Desktop）
+                        —— 插叙修复：agent 体系退后台不存活（RC1/RC2）
+                                                                   │
+                                                                   ▼
+                        F12 Token 计量与窗口治理（T1 真值 + 账本 → T2 分账视图 → T3 窗口 → T4 组装策略）
+                        —— 插叙修复：token 计量七处断裂 + 无分账维度 + 超窗静默故障
 ```
 
 **依赖要点**：
@@ -60,14 +68,16 @@ F1 规划与地基 ──▶ F2 锚点与协议 ──▶ F3 工具与引擎 ─
 - `F9-A0 Capability 统一化`（F9 插入的插叙阶段，不占里程碑编号）—— 统一 SubAgent 能力面（`Capability` 接口 + `CapabilityStatusTool`）、清理 DJ 工具绕路债；依赖 F6 + F8
 - `F9-T1/T2` 依赖 `F6 + F8` 与 `T0`
 - **`F10 语音会话`** 依赖 `F4`（对话页已就绪，语音只是加一条 WebSocket Transport）与 `F9-T2`（设置页的「嗓音与耳朵」分区是它的配置入口）。**独立阶段、独立验收**：端点不可用或验证不过则整体延期，不影响 F1–F9 的任何交付
+- **`F11 后台生命周期`** 依赖 `F6 + F8`（电台会话与编排内核已就绪，本阶段只补生命周期所有者与保活）与 `F9-T2`（设置的 Agent 配置面）。**插叙修复**：不引入新能力，只让已有的 agent 体系在后台活下来；设计依据 `../design/agent-lifecycle.md`。不改 F1–F10 任何交付的对外契约
+- **`F12 Token 计量与窗口治理`** 依赖 `F3`（引擎循环四件套里已有 `ContextBudget`）+ `F5`（多 Agent 运行时与独立 transport）+ `F9-T2`（设置页的全局 Agent 参数面）。**插叙修复**：不改决策能力与对外契约，只把"估算"换成"实测"、把"拍脑袋的窗口"换成"固定假设 + 前置护栏"；设计依据 `../design/agent-token.md`。**与 F11 无依赖关系**（一个管进程存活，一个管 token 与窗口），可并行
 
 
 ***
 
 ## 3. 进度状态
 
-**已完成**：F1 → F2 → F3 → F4 → F5 → F6 → F7 → F8 → **F9（T0 用户认识模块 · A0 Capability 统一化 · T1 听歌报告与遗忘唤醒 · T2 伙伴设置页）**
-**进行中**：—
+**已完成**：F1 → F2 → F3 → F4 → F5 → F6 → F7 → F8 → **F9（T0 用户认识模块 · A0 Capability 统一化 · T1 听歌报告与遗忘唤醒 · T2 伙伴设置页）** → **F11 后台生命周期（L1–L3 / L5 落地，Android/iOS 真机核验待手动）** → **F12 Token 计量与窗口治理（T1–T4 落地，T2b 配额候补 / T5 成本可见后置）**
+**进行中**：（无）
 **待做**：**F10 语音会话**（`RealtimeVoiceTransport` + 语音会话；独立阶段，可整体延期）
 
 | 章节 | 阶段族 | 含阶段 | 轴别 | 状态 | 完成日 | 提交 |
@@ -82,6 +92,8 @@ F1 规划与地基 ──▶ F2 锚点与协议 ──▶ F3 工具与引擎 ─
 | [F8](f8-主播与收尾.md) | 编排内核与收尾 | RadioAgent → W 收尾 | 插叙 | ✅ | 2026-09-14 | 2 笔 |
 | [F9](f9-报告与设置.md) | 报告与伙伴设置 | **T0 用户认识（T0a / T0b）** → **A0 Capability 统一化** → **T1 听歌报告 + 遗忘唤醒** → **T2 伙伴设置页** | 主轴+插叙 | ✅ | T0: 2026-09-16 · T1: 2026-09-17 · T2: 2026-09-18 | 3 笔 |
 | F10 | 语音会话（未开工） | `RealtimeVoiceTransport` → 语音会话 + CONFIRM 口头化 | 后续独立阶段 | ⬜ 待开工 | — | — |
+| [F11](f11-后台生命周期.md) | 后台生命周期 | **L1 AgentRuntime 所有者** ✅ → **L2 Android 自持前台服务** ✅ → **L3 iOS 有限保活** ✅ → **L5 Desktop 收口** ✅（~~L4 电台快照落盘~~ **已撤销**）| 插叙 | 🟢 主体完成（L1–L3/L5 落地；Android/iOS 真机核验待手动）| 2026-09-19 | 07ab5445 |
+| [F12](f12-token计量与窗口.md) | Token 计量与窗口治理 | **T1 计量打真值 + 落账本（`token_ledger`）** ✅ → **T2 分账视图（按 Agent / 端点 / 时间）** ✅ → **T3 窗口治理（固定 64K + 前置护栏）** ✅ → **T4 上下文组装策略** ✅ → T5 成本可见（后置）；~~T2b 配额接线~~ **候补** | 插叙 | ✅ 主体完成（T1–T4 落地）| 2026-09-19 | 07ab5445 |
 
 **已知验收缺口**（不阻塞主线，需补）：
 
@@ -90,7 +102,9 @@ F1 规划与地基 ──▶ F2 锚点与协议 ──▶ F3 工具与引擎 ─
 - T 阶段 E1/E2 待手动冒烟（需 LLM 端点 + 测试曲库）
 - U 阶段 U-T4 裸 println 部分迁移（Desktop/FFmpeg 待续）
 - **窗口统计查询无 DAO 级单测** —— F9-T1 新增 6 条窗口 SQL（`PlaybackAndListeningDaoTest` / `MusicLabelDaoTest` 均无用例），详见 `f9-报告与设置.md` §2.3.3
-- **`WindowedBundle.narrative` 悬空字段** —— 字段与 import 存在但恒为 `null`（叙事段取数未接线），待决「接线」或「删除」
+- ~~**`WindowedBundle.narrative` 悬空字段**~~ → **2026-09-19 已删**（恒为 `null` 的死字段；报告叙事实际走 `PersonalityBundle.narrative`，空态判断改为只看 `analytics`）
+- **本地化真实工作量被高估**：原以为"缺 4 个 key × 12 语言"，实为 **agent UI 约 20 个文件把界面文字硬编码在 `Text("…")` 里、未接入 `strings.xml`** → 全量 14 语言 = 先重构为 `stringResource` 再翻译。**决定后置为独立阶段**（详见 §5 横切工作）
+- **agent 体系退后台不存活**（RC1/RC2）—— 已立 **F11 后台生命周期**，见 `f11-后台生命周期.md`（原 RC3「电台零持久化」**已改判为刻意边界**，不进缺口清单）
 - ~~iOS 编译未验证~~ → 2026-09-13 已核验通过（`:shared:` + `:shared-ui:compileKotlinIosSimulatorArm64`，macOS 环境）；后续阶段仍需逐阶段回归
 
 
@@ -122,6 +136,8 @@ F1 规划与地基 ──▶ F2 锚点与协议 ──▶ F3 工具与引擎 ─
 | 章节 | 内容 | 为什么单列 |
 |------|------|-----------|
 | F10 语音会话 | `RealtimeVoiceTransport`（WebSocket 双向流：JSON 控制事件 + 二进制音频帧，纯 common 无 expect/actual）+ 语音会话（transcript 双向流 → 一 UI 两形态 / `VoiceSessionController` / CONFIRM 口头化 / 语音文字混排）；验收 = `FakeRealtimeTransport` 协议测试 + 语音写操作有文字记录 | **B6 里唯一真正新增的传输层**，需要真实端点才能验证，与报告角色/设置页无耦合。设计已定稿（`../design/agent.md` §4.4 / §7.4），落地条件单列，故移出 F9 另立阶段 |
+| [F11](f11-后台生命周期.md) | **Runtime 生命周期所有者**（`AgentRuntime` / 启动即初始化）+ **Android 自持前台服务**（`MusicPlayService` 改造，保活条件扩为「音频在播 或 agent 活跃」）+ **iOS 有限保活**（`beginBackgroundTask`）；验收 = 电台退后台存活。~~最小电台快照落盘~~ **已撤销**（D3：维持"从不落盘"）| 方向 B 的 F1–F9 只建设了"前台可用"，**从未指定"谁持有运行时生命周期"**，导致退后台进程被回收即丢会话（RC1/RC2）。属**横切修复**（不改决策能力），设计依据 [`../design/agent-lifecycle.md`](../design/agent-lifecycle.md)，故单列 |
+| [F12](f12-token计量与窗口.md) | **真 usage 计量**（`LlmEvent.Usage` + 进程级 `TokenMeter` 唯一记账口）+ **分账账本**（Room 表 `token_ledger`：每次调用一行，含 agent / 端点 / 模型 / 时间 / 实测标记；**永久保留**）+ **分账视图**（按 Agent / 端点·模型 / 时间三维聚合；看板数字改由明细聚合）+ **窗口治理**（`EngineDefaults.AGENT_CONTEXT_WINDOW = 64_000` 固定常量，删三处硬编码，超窗**前置拒绝**并走本地保底，失败原因与"模型判 none"**可区分**）+ **上下文组装策略**（常驻裁剪 vs 超窗降级分开、摘要回注、收敛两处魔数）；验收 = 真值入账 / 四条路径全覆盖 / 分账四 Agent 齐全 / 超窗不炸且可辨 / 账本不泄密。**不设**上下文上限与压缩方式；**配额接线候补** | token 在开发阶段被刻意忽略，共**七处断裂**：**真 usage 拿到却扔掉**（流式 DTO 连字段都没有）、**记账只覆盖 ReActLoop 一处**（导致配额熔断对最大的消费者 Enrich 失明）、**日配额是假控件**、**窗口按 Agent 硬编码导致换小窗口模型即静默故障**、**压缩空转**、**无分账维度**。属**横切修复**（不改决策能力与对外契约），设计依据 [`../design/agent-token.md`](../design/agent-token.md)，故单列 |
 
 ### 相关文档（本目录外）
 
@@ -143,7 +159,7 @@ F1 规划与地基 ──▶ F2 锚点与协议 ──▶ F3 工具与引擎 ─
 
 | 项 | 内容 | 挂靠 |
 |----|------|------|
-| 本地化 | 伙伴文案预估 80–120 条 × 14 语言，v6.12 规范（占位符/换行/实体转义）；键沿用 `ai_*`/`settings_*` 前缀；**随阶段增量同步，不积压** | 全部阶段（⚠️ 部分：F9-T2 已建 Prompt 多语言机制，其余待同步） |
+| 本地化 | ⚠️ **口径修正（2026-09-19）**：真实工作量不是"80–120 条 × 14 语言"，而是 **agent UI 约 20 个文件把界面文字硬编码在 `Text("…")` 里**（`AgentMonitorScreen` / `AgentConfigScreen` / `CompanionBubble` / `ChatScreen` / `AuditLogScreen` 等，未接入 `strings.xml`）。全量本地化 = **先重构为 `stringResource` 再翻译**，属重构级工程 | 后置为**独立阶段**（本次方向 B 收尾不做）；F9-T2 已建 Prompt 多语言机制（`Lang` / `L10N_PROMPTS`） |
 | 测试基建 | Fake\* 替身：`FakeLlmTransport`（F2）/ `FakePlaybackCommandPort`（F3）/ `FakeRealtimeTransport`（F10）；Room in-memory 迁移测试（F1） | 阶段内 |
 | 审计 | `agent_audit_log` 写入埋点：工具调用 / 许可裁决 / 云端修正（NOTIFY 级一律留痕） | F3 起 |
 | 日志 | Kermit 统一（F5-U）→ F9-T2 收敛为 `com.hmp.log` 门面（`LogTag` / `HmpLog` / `MemLogWriter`），规范见 `../../LOGGING.md`；Tag 层级 `Agent.*` | F5 起 |
@@ -163,6 +179,10 @@ F1 规划与地基 ──▶ F2 锚点与协议 ──▶ F3 工具与引擎 ─
 | `BIG_ARTIST_THRESHOLD` | 3 | ≥ 3 首未富化 → 走 ArtistGroup（可预热） |
 | `MIXED_GROUP_SIZE` | 10 | 小歌手累计 ≥ 10 首 → 走 MixedGroup（跳过预热） |
 | 窗口查询 `days` | — | `NarrativeTimeRange.toDays()` 映射：日=1 / 周=7 / 月=30 / 年=365 / **全部=-1**（取 10 年前时间戳近似），见 `SlideModels.kt:40` |
+| **上下文窗口** | **64000** | `EngineDefaults.AGENT_CONTEXT_WINDOW`（F12-T3 新增）——**固定常量，不探测、不可配**。全部 Agent 统一；超窗前置于 `64K × 0.9 = 57.6K`。**使用前提**：端点须支持 ≥64K |
+| 历史保留条数 | 6 | **内部常量，不上升为设置项**（F12-T4 收敛两处魔数：`AgentContextBudget.recentMessagesToKeep` 6 与 `ChatAgentGateway.buildHistory` 30）|
+| 日 Token 配额 | 500000 | `GlobalTokenCounter.DEFAULT_DAILY_TOKEN_QUOTA`。**现状为"假控件"**（设置项写进配置，运行时读常量 `val`）→ 原计划 F12-T2 修，**2026-09-19 改为候补**（配额先放开）。**注**：修它之前必须先修「Enrich 熔断失明」（F12 断层 2）|
+| **Token 明细账本** | 永久保留 | `token_ledger` 表（F12-T1 新增）——每次 LLM 调用一行：`agent_id` / `endpoint_host` / `model` / `prompt_tokens` / `completion_tokens` / `measured` / `created_at`。**只存 host，不存 apiKey 与完整 URL**。体积估算 ~16 MB/年（F12 §3.1）|
 
 完整实现参数见 `../design/agent-architecture.md` 与各章节文件。**F9-T2 起**，上表多数参数已从编译期常量退居为**出厂默认值**，可由 DataStore 覆盖（`AgentPolicyConfig.resolvedFor(role)`），见 `f9-报告与设置.md` §2.4。
 
@@ -179,6 +199,13 @@ F1 规划与地基 ──▶ F2 锚点与协议 ──▶ F3 工具与引擎 ─
 | **F10 语音会话** | 唯一新增传输层，需真实端点才能验证 | **已移出 F9 立为独立阶段**，独立验收；端点不可用则整体延期，不影响 F1–F9 交付 |
 | "组件完成度 ≠ 功能可用度" | 接线只做一半，事件发了没人消费 | 每个 `PresenceBus` 事件必须登记消费点，未接的显式标 ❌（F8 已实践）；**F9-T1 的 `WindowedBundle.narrative` 再次踩中 —— 字段建了没接线** |
 | 新增 SQL 无 DAO 级单测 | `runCatching` 兜底只防崩溃，防不住返回错值 | SQL 类改动应强制配 DAO 用例；F9-T1 的 6 条窗口 SQL 是反面案例 |
+| **agent 体系退后台不存活** | 进程被回收 → 电台会话/队列/恢复缓存全丢，回前台需重开 | **F11 后台生命周期**：`AgentRuntime` 所有者 + Android 自持前台服务；**不落盘**（进程被杀 = 电台丢为已接受行为）。设计依据 `../design/agent-lifecycle.md` |
+| Android 14+ 前台服务类型校验 | "无音频但保持前台"可能被 `mediaPlayback` 类型前置条件拒绝 | F11-L2 实现二选一：构建期保持音频会话（占位音轨）/ 该窗口走 `dataSync` 型（见 `f11` §4 R1） |
+| **假控件（设置项写了没人读）** | 用户以为能控，实际恒定不变 | 「日 Token 配额」是首个案例（写进 `GlobalAgentConfig`，运行时读 `val`）；**同族的还有"压缩方式"**（若照现状挂在窗口百分比上则永不触发）。判据：**改它之后行为会不会变**。F12-T2 修配额；F12-T4 直接**不提供**压缩方式这一项 |
+| **超窗静默故障** | 换小窗口模型（本地 8K/16K）→ API 报错 → 电台判定变 `none`，图上看不出 | **F12-T3**：窗口改固定常量 + **前置拒绝**（不发出必失败的请求）+ 失败原因与"模型判 none"**可区分**。日志带窗口假设值 |
+| **窗口前提无法预校验** | 规定"端点须支持 ≥64K"，但 OpenAI/DeepSeek 官方 `/models` **不返回窗口** → 配置时无从校验 | 只能靠**运行时显式暴露**：超窗日志与错误提示给出同一句话（"该模型窗口可能 <64K，本应用不支持"）。见 F12 §7 |
+| **估算对英文高估 ~2.8×** | `length × 0.7` 对英文密集内容（曲库标题/艺术家）高估 → 估值偏高 + 阈值偏紧 = **误杀**（拒掉本可发出去的请求）| **T1（真值）必须先于 T3（护栏）**；T1 落地前不得把阈值收紧。见 F12 §4 R2 |
+| **安全网无证据** | 超窗路径在 64K 假设下几乎不执行（峰值 1–3 万）→ 实为**未验证代码** | **F12-T4/S9**：必须用单测直接构造超长上下文跑通该路径，不允许靠"真机上应该不会发生"兜 |
 
 ***
 
@@ -207,6 +234,30 @@ F1 规划与地基 ──▶ F2 锚点与协议 ──▶ F3 工具与引擎 ─
 | 2026-09-17 | **F9-T1 落地** | 听歌报告（累计画像置顶 + 5×5 双轴筛选 + 六条窗口 SQL，**零 Room 迁移**）+ 遗忘唤醒（`forgotten_delivery` 表，Room v7→v8）。报告页验收通过 |
 | 2026-09-18 | **F9-T2 落地** | 伙伴设置页（`AgentConfigScreen(agentRole)` 一页覆盖四 Agent + Agent 监控看板 v2）+ Agent 配置收拢（`AgentPolicyConfig` 扩展 + `resolvedFor` 出厂回落）+ 统一日志规范（`docs/LOGGING.md` + `com.hmp.log`）+ Prompt 多语言（`Lang` / `L10N_PROMPTS`）。**F9 收口** |
 | 2026-09-18 | **文档 v6：F9 收口 + 语音移出** | ① **语音档（原 F9-T3/T4）移出 F9，另立 F10 语音会话**（后续独立阶段）—— 理由：B6 里唯一真正新增的传输层，需真实端点验证，与报告/设置页无耦合，留在 F9 会让已完成的族长期挂着无法验收的项。② F9 章更名「报告与伙伴设置」（文件 `f9-报告与设置.md`）③ **`docs/superpowers/`（spec + plan 两份过程稿）整合进 `f9` 章 §2.3「报告页双轴筛选重构」，目录移除** —— 过程稿的逐 Task 施工步骤不保留，只留「解决的问题 / 交付内容 / 与方案稿的偏差 / 验收结果」 |
+| 2026-09-19 | **文档 v7：新增 F11 后台生命周期** | ① 用户报"RadioAgent 退后台不存活"，核查得**三条根因**：RC1 运行时无独立生命周期所有者（`MasterAgent` 懒初始化）、**RC2 Android 播放服务仅 `BIND_AUTO_CREATE` 绑定、正常路径从不 `startService`（非自持前台服务）**、RC3 电台会话零持久化（`agent-radio.md:338`「从不落盘」）。② 新增设计文档 **`../design/agent-lifecycle.md`**（根因 / 目标架构 / 三端实现 / 迁移 L1-L5 / 待决策 D1-D5）+ 另立 **F11 后台生命周期** 章节。③ 收口口径：**本地化真实工作量被高估**——不是"缺 4 个 key"，而是 agent UI 约 20 文件硬编码字符串，全量本地化属重构级工程，后置为独立阶段。④ `WindowedBundle.narrative` 死字段已删。**【同日实施 L1+L2】**：L1 落 `AgentKeepAlivePort` 端口 + `MasterAgent` 生命周期面（`updateRadioKeepAlive`）+ `MusicApplication` 启动即初始化；L2 把 `MusicPlayService` 从 bind-only 改**自持前台服务**（`ensurePlaybackServiceStarted` + `ensureForeground` 无条件前台化 + `refreshForeground` 保活条件扩为「音频在播 或 agent 活跃」）+ Android 侧 `AndroidAgentKeepAlivePort` + Koin 接线。编译验证：`:shared:compileKotlinDesktop` / `:shared-ui:compileAndroidMain` / `:android:core-player:compileDebugKotlin` / `:android:app:compileDebugKotlin` / `:shared-ui:compileKotlinDesktop` 全绿 |
+| 2026-09-19 | **修复：AI 配置热监听日志刷屏** | 后台每约 5s 刷一轮 `updateAiConfig` 日志。**根因**：热监听 `combine(aiAccessMode, customAiConfig)` 两上游均派生自**全局单例 `dataStore.data`**，而播放进度持久化（`MusicController.persistCurrentPosition → saveCurrentPosition`，节流约 5s）写入**同一个** DataStore —— 任意无关写入都会让监听重发 → 无谓的 per-Agent 配置重载 + 刷屏。**修复**：上游各自与末端各加 `distinctUntilChanged()`，仅"生效 AI 配置真变"时才重载（`ChatKoinModule`）。属既有潜伏 bug（F11 的启动即初始化只是让它从 app 启动就跑、更早暴露） |
+| 2026-09-19 | **修订：电台退出逻辑（消除"用户接管退出"）** | 用户反馈"播放/暂停/上一曲/下一曲会退出电台"。核查：唯一自动退出点是 `RadioSubAgent.onPause` 的 **PAUSED + resume → `exitBecauseUserTookOver()`**（上一曲/下一曲本身走 `trackChangeEvents` 不退出，但电台暂停时切歌会触发 resume 撞上同一退出点）。此行为与 `agent-radio.md` **C3**「只有用户手动关闭才是终态」**自相矛盾**（§1.1 表格第 59 行 vs C3）。**修订**：① 代码——PAUSED + resume 改为**电台跟着恢复**（`resumeByUser → resumeRadio`），删除 `onUserTookOver` 机制与 `stopRadioInternal(pausePlayback)` 死参数；② 文档——`agent-radio.md` §1.1 表格/实现要点同步（含"上一曲/下一曲不退出"显式化）；③ 新增回归测试 `userResumeWhilePaused_radioResumesInsteadOfExiting` |
+| 2026-09-19 | **UI：电台卡简化为「开 / 关」两态（外部不区分停止与暂停）** | 卡片去掉暂停/恢复操作与"已暂停"文案：整卡点击在**已开启**（PLAYING / PAUSED / BUILDING）时 = **关闭**（`stopRadio`）、**空闲**时 = **开启**（`startRadio`，内部 `tryResumeRetained` 自动判断「续档」还是「新开」）。**暂停态仍在模型内保留**（跟随播放器暂停 + 后续恢复），只是**不由卡片暴露**。新增 `drawable/stop.xml` 图标（原先无）；`actionLabel` / `actionIcon` 与真实行为对齐（原「停止电台」文案配暂停图标，名不副实）。`AgentMonitorScreen` 看板仍保留显式暂停/恢复/停止（调试面，未改） |
+| 2026-09-19 | **修复：电台运行日志暴露的两个真 bug** | 真机会话日志（~4.5min、3 次切歌）分析所得。① **跨线程**：agent 经 `ControllerPlaybackCommandPort.execute(PLAY)` → `MusicController.playOrResume()` **同步**摸 ExoPlayer（`isMusicLoaded`），而 agent 在 `Dispatchers.Default` → `IllegalStateException: Player is accessed on the wrong thread`，致开播"补 PLAY 起声"失败、兜底 `PLAY_BY_ID` 从头重放。修复：`playOrResume()` 把播放判定+操作整体切 `scope`（= `Dispatchers.Main`）；核查 `pauseMusic`/`seekTo`/`playWith` 早已 `scope.launch`，仅此一处漏网。② **runLoop 启动即退出**：`RadioSubAgent.runLoop` 漏设 `isActive = true`（`Enrich`/`Hello` 的 runLoop 都有），`while (scope.isActive && isActive)` 首判即假 → 同毫秒 start/exited → Scheduler 仲裁与配额 soft-stop 对电台失效。修复：补 `isActive = true`。两处编译验证通过 |
+| 2026-09-19 | **修复：电台"关闭后重开不复用上次内容"** | 真机日志显示 `[复用] 跳过：当前曲目已经不是上次那份队列里的歌`。三条根因叠加：① **镜像下标错**：`applyVerdict` 用 `currentPlaylist.getOrNull(playedCount)` 取在播曲，而 `playedCount` **只在经端口发起的 USER 切歌时累加**（通知栏/锁屏/播放器切歌不走端口）→ 全档停摆为 0，镜像头永久停在**开播那一首**（日志 `[执行]（在播 87 不触碰）` 全程是 87 即铁证）。修复：每轮换批**先从播放器刷新在播 id**（同 `contextSnapshot` 铁律：在播曲目必须问播放器，不能靠 playedCount 推算），镜像头按 musicId 定位。② **队列指纹比对错**：`tryResumeRetained` ③-b 用 `queue != r.playlist.map{id}` 整体比对，但**播放器队列稠密（`replaceQueueWith` 保留已播前缀）而电台镜像被压缩为 `[在播, ...后续]`**，前缀长度不同 → **永远不等 → 复用永远被误拒**。修复：只比「在播曲**之后**的尾巴」。③ 新增回归测试 `reopenWithDensePlayerQueue_reusesWhenTailMatches` |
+| 2026-09-19 | **修复：复用会话只续 `messages`、节目档案丢失（"继续对话上下文不保留"）** | 用户反馈续档后"上下文不保留"。核查：`RadioSession` 的上下文分两层 —— `messages`（原始对话历史）+ **会话档案**（`executed` 已执行 / `intents` 编排思路 / `settled` 收听台账 / `pauses` / `originMs` / 三个计数），而**档案是每轮 prompt 从会话状态重渲染**的（`## 节目档案` / `## 本档收听台账`）。原 `exportConversation` 只导出 `messages`（`exportMessages()`），**档案全丢** → 续上后档案区空空如也。修复：① `RadioSession` 新增 `exportArchive()` + `resumeFrom(messages, archive)` 恢复（含 `originMs`/`turnIndex`，保证「第 N 分钟」「TURN#」跨档不重置）；② 新增 `RadioSessionArchive` 值对象，挂到 `RadioConversation.archive`（默认 null = 旧快照退化为只恢复 messages）；③ `exportConversation` 带上档案、`tryResumeRetained` 恢复时传入，复用不再补记「开播」（上一档的「已执行」已在档案里）；④ 新增回归测试 `reopen_reusesFullSessionArchive_notJustMessages`。设计文档 `agent-radio.md` §7.1 增「快照必须带档案」小节并修正队列指纹口径 |
+| 2026-09-19 | **裁决：电台不做状态持久化（F11-L4 撤销，RC3 改判）** | 用户提出"还是不应该持久化 radio 对话"。核查确认项目已有**唯一**的跨会话记忆载体 `UserMemory`（`user_profile_evidence` / `user_profile_portrait` / `user_profile_narrative` 三表，且**每次写入都写 `agent_audit_log` 留痕**、画像过谓词闭集闸门）。**裁定 D3=(b) 维持「从不落盘」，不做任何形式持久化**（含"只落队列骨架"的极轻变体），四条理由：① 会开出**第二条记忆通路（影子记忆）**——不可见、不可审计、不受闸门管，且含"哪首歌只听了 24% 就切走"这类行为推断，与 F1–F9「记忆走正门、要留痕」冲突；② 电台档案重量在**情境性**内容（队列构成/在播曲/台账），数小时后前提全错，**过期档案比空档案更糟**；③ 产品语义上"接着上次那一档"反预期（电台是临场 DJ）；④ L2 已保护活跃期进程，剩余被杀场景恰是"用户不想让它继续"的信号，重开成本又低。**文档同步**：`design/agent-lifecycle.md` §0/§1.3/§3/§5（整节改写为《「从不落盘」是决定，不是妥协》）/§6 L4 划除/§7 R4 改判/§8 D3 裁定；`f11-后台生命周期.md` 阶段族与 §2/§3/§4/§5/§6 同步，验收删「冷启动续档」并加两条经验（"技术上可持久化 ≠ 应该持久化"、"不落盘是有依赖的决策"）。**跨会话认知唯一入口 = `UserMemory`** |
+| 2026-09-19 | **UI：伙伴胶囊承载电台态 + 长按停止电台；徽标圆点方案废弃** | ① **新能力**：底栏伙伴胶囊在**电台开启期间**（`radioState` = PLAYING/PAUSED/BUILDING）兼任电台状态位——图标换成电台标识（`headphones_fill`，与 `RadioCard` 同形）并**恒定高亮 primary**，**长按 = 停止电台**（点按仍=回门面，导航锚点不夺）。分层接线：`CompanionCapsule` 加 `radioActive` 参数；`BottomFusionBar` 加 `radioActive` + `onRadioStop`，长按按电台态分流（开启→停电台；未开启→原轻量浮层）；`AppRoot` 订阅 `radioState` 并接 `stopRadio()`。新增资源 `agent_capsule_radio_desc`（base + zh）。② **发现并清理死通道**：核查确认 `PresenceBus.CompanionBadge` / `badgeState` **从未有消费者**——`RadioSubAgent` 发过事件、`CompanionCapsule` 从未渲染（无 badge 参数、无 `BadgeOverlay`），且 `f8` 文档把 W-T1 记成了 ✅（**与实际不符**）。按用户裁定"徽标圆点已废弃"，**删除该死通道**（`PresenceBus` 去掉 `CompanionBadge` + `badgeFlow`/`badgeState` 与 emit 特判；`RadioSubAgent` 删 2 处 emit），并在 KDoc 写明"不要再加圆点/徽标类事件"。③ **文档同步**：`agent.md` §5.2.1/存在感四形态/场景表 1·12/改造清单/阶段对齐 全处标注废弃；`agent-radio.md` §3.3 把胶囊登记为**第二存在面**并给出 C1 合规理由、C1 决议行同步；`agent-w.md` W2-C1 改为已废止；`f8` 纠正 W-T1 与验收表里的假 ✅；`f9` 修正"遗忘唤醒=胶囊徽标"（实际提示位只有门面卡 + 对话页消息）。**编译验证**：`:shared:compileKotlinDesktop` / `:shared-ui:compileKotlinDesktop` / `:android:app:compileDebugKotlin` 全绿 |
+| 2026-09-19 | **设计：电台控制台（长按胶囊的全屏交互）** | 用户裁定两点：① 胶囊电台态图标改用 **`radiowaves`**（已改，编译通过；`RadioCard` 的入口身份仍用 `headphones_fill` —— 状态与身份分工）；② 「关闭不应该是简单的长按，需要更复杂的交互」。**产出设计文档 `../design/agent-radio-console.md`（未实施）**：长按胶囊不再直接停电台，而是拉起**全屏「电台控制台」**——关闭动作移入面板且更名**「结束这一档」**。核心判断写在 §1：给长按加个确认弹窗是"廉价的重"（用户仍不知道自己在关什么），正解是**让他先看清这一档**，顺带交付电台最差异化的东西 —— 节目单（每首带主播按语）+ 主播思路。面板结构 ① 抓手/头部（主题 + 运行中·已播N·待播M）② 在播卡（封面 + 按语）③ **节目单**（`radioPlaylist` 现成）④ 主播思路 ⑤ 台账 ⑥ 吸底收档；**v1 = ②③④⑦ 零后端改动**，⑤⑥ 需新增 `RadioArchiveState` 转发。含**手势分工**（列表未到顶时下滑=滚动；到顶后续拉/头部区域起始=拖拽面板，走 nested scroll overscroll 判定）、**收档语义**（§5：音乐暂停 / 队列保留 / 可续档 ⇒ **可逆动作，不走 STRONG_CONFIRM**，门槛由面板承担）、**边界**（不做对话输入 / 不换一批 / 不接管播放控制 / 不主动出现）。设计文档已登记 `design/README.md` 索引，`agent-radio.md` §3.3 增列"第三处：电台控制台（用户唤出 → 详情面，不算打扰）"。**待拍板 D1 承载方式 / D2 收档确认方式 / D3 v1 范围** |
+| 2026-09-19 | **实施：电台控制台 v1（长按胶囊 → 全屏浮层弹窗）** | 用户裁定"内容=面板、形式=弹窗"，D1/D2/D3 随之落地：**D1=AppRoot 内全屏 overlay**（不走路由）；**D2=滑动收档（slide-to-stop）**（横滑到底触发，与既有横滑切歌手势同源，不引入第二层弹窗）；**D3=v1 用现成数据**。**新增 `common/components/RadioConsole.kt`**（面板：抓手 / 头部（主题 + `状态·待播N首` + 收起）/ 在播卡（封面 + 按语）/ **节目单**（`radioPlaylist.drop(1)`，逐首带 `why`）/ 主播思路（`lastAdjust`）/ 吸底**滑动收档** + 后果文案；遮罩点外关闭 + 面板吃内部点击不穿透）。**接线**：`BottomFusionBar.onRadioStop` → `onOpenRadioConsole`（长按在电台态改为**打开面板**，不再直接停电台）；`AppRoot` 持 `radioConsoleVisible` + `radioScope` + `Esc` 关闭 + `LaunchedEffect(radioActive)`（电台消失即自动收起 = 收档后淡出）。**v1 实测关键结论**：`MasterAgent.radioPlaylist` 已含 `title/artist/why` → **零后端改动**。**刻意收敛（非遗漏）**：① 头部原设计的「已播 N 首」未显示 —— `playedCount` 私有，**不编造数字**；② **下滑关闭未做** —— 需与列表滚动作 nested scroll overscroll 判定，属独立增量；③ 台账区（需 `RadioArchiveState`）留 v2。偏差与理由已写入 `agent-radio-console.md` §10。**编译验证**：`:shared-ui:compileKotlinDesktop` / `:android:app:compileDebugKotlin` 通过；⏳ 真机核验待做 |
+| 2026-09-19 | **式样：电台控制台向 `MusicDetailDialog` 对齐（弹窗基座统一）** | 用户决议"弹窗式样需向音乐详情弹窗对齐"。核查发现项目弹窗有**统一基座 `common/dialogs/base/ScrimDialog.kt`**（内部真 `Dialog`：0.5 黑遮罩 + 居中 + 点遮罩关闭 + **系统返回键天然可用**），遂把控制台从"自绘遮罩 + 自建点外关闭"改为复用该基座，并对齐 `MusicDetailDialog` 全部式样令牌：圆角 **28dp**（原 24）、外边距 **四周 24dp**（原侧 12/顶 44）、**`hazeEffect` + `hazeTintAlpha()` 容器色** + elevation 0（原纯 `surface`）、标题 **`headlineMedium`**（原 titleMedium+Bold）、文本统一 **`onBackground`**（原 onSurface/onSurfaceVariant）、**去掉进出场动画**（与参考弹窗一致）。**顺带解决 D1 遗留**："需自己接返回键"不再成立。**刻意保留 2 处偏离**（可用性，非式样）：① 保留「收起」按钮（满屏面板 24dp 外缝太薄，单靠点外关闭不好按）；② 收档滑块用 `colorScheme.error` 语义色而非 `Color.Red`。对照表与理由写入 `agent-radio-console.md` §10.1。**编译验证**：桌面 + Android 均通过 |
+| 2026-09-19 | **控制台：尺寸自适应 + 未开启长按屏蔽（确认）** | ① **尺寸自适应**（用户决议"大小自适应就行无需固定大小"）：面板由 `fillMaxSize()` 改为**内容驱动高度** —— 用 `BoxWithConstraints` 取实测可用高度封顶（不写死数字），中间列表 `weight(1f, fill = false)`（内容少则面板收缩，超高才滚动）；宽度沿用项目弹窗惯例（24dp 边距内 `fillMaxWidth`，各平台 `usePlatformDefaultWidth = false`）。② **未开启时长按已屏蔽控制台**（用户提问）：分流点在 `BottomFusionBar` —— `if (radioActive) onOpenRadioConsole() else onCompanionLongPress()`，未开启时保持原语义（轻量浮层）。理由：未开启时面板内容不存在（空壳死界面）／未开启时长按已有既定语义（M1-T2）不该被夺／图标已随模式变化，用户可预期"长按行为跟图标变"。补：`radioActive` 含 BUILDING，"正在编排中"也可打开面板。写入 `agent-radio-console.md` §10.2 / §10.3。**编译验证**：桌面 + Android 均通过 |
+| 2026-09-19 | **移除：轻量浮层（`AgentQuickSheet`）彻底删除，「找伙伴」统一直达对话页** | 用户决议："轻量浮窗层想要彻底移除，感觉意义不大，长按直接进入对话页面就行"。**删除范围**：① 组件文件 `common/components/AgentQuickSheet.kt`；② `AppRoot` —— `companionQuickSheetVisible` 状态、渲染块、C 键分支（改为 `openCompanionChat()`）、Esc 分支、`chatEntryBroker` 注入（无消费后移除）；③ `PlayContent` —— `quickSheetVisible` 状态、渲染块、`onOpenChat: (String)->Unit` → **`() -> Unit`**、3 处 `onChatClick` 改为直跳；④ `PlayerScreen` —— `chatEntryBroker` 注入移除，`onOpenChat` 改为纯 `navController.add(Routes.Companion.Chat)`；⑤ 文案键 `agent_quick_sheet_hint` / `agent_quick_sheet_send`（values + values-zh）。**新增统一出口** `AppRoot.openCompanionChat`（带"已在对话页则不重复入栈"守卫）：长按胶囊（电台未开启时）/ 播放页「对话」按钮 / C 键 三处一律直达对话页。**顺带修正**：胶囊无障碍文案 `agent_capsule_radio_desc` 由"长按停止"改为"长按打开控制台"（语义漂移）。**文档同步**：`agent.md` 四条总则（六→五新表面）/ §5.2.1 / §5.2.2 / §5.2.4 锚点全景（去「长按浮层」行，新增移除说明）/ §5.3 三厚度→**两厚度** / 场景表 3·6 / §7.7 本地化 / §8 组件清单（8→7 项，补录 `RadioConsole`）/ 既有件改造 `PlayerScreen` 行 / B0-B6 对齐；`agent-w.md` W2-C2（改废止）/ C5 / C8；`agent-radio-console.md` §2 状态机图与 §10.3；代码内 6 处过期注释。**编译验证**：`:shared-ui:compileKotlinDesktop` / `:shared:compileKotlinDesktop` / `:android:app:compileDebugKotlin` 全绿；全仓 grep 确认零残留 |
+| 2026-09-19 | **控制台：节目单只列前 5 + 点击跳转曲目** | 用户决议"控制台只显示待播的 5 条，要加入点击跳转曲目的功能"。① **只列前 5**：顶层常量 `UPCOMING_PREVIEW = 5`，`preview = upcoming.take(5)`；**头部仍报真实总数**（`主播排的 N 首（此处列前 5）`）—— 不制造"只有 5 首"的错觉。② **点击跳转**：每行 `.clickable { onPlayTrack(track.musicId) }`（保留 ripple 作为可点线索），跳完自动收起面板。**分层**：`RadioConsole` 只抛 `onPlayTrack: (Long) -> Unit`、**不持有播放依赖**；解析与播放在 `AppRoot`（`getMusicInfoByIds` → `playlistQueueViewModel.playWith`）。**为什么是 `playWith`**：`RadioTrack` 无 `MusicInfo` 需按 id 查回（同 `HomeScreen` 先例）；`MusicController.playWith = addToPlaylist（内部 none{} 查重，不重复入队）+ playAt（在既有队列定位+播）`——**在既有队列里跳，不新建队列**，否则会把主播刚排的队冲掉。**契约精确化**：§6「不接管播放控制」补例外说明 —— 允许"跳到某首"（用户对编排的表态，非电台替用户操作），但仍**不提供播放/暂停/切歌控制**。**观测后果（诚实记录）**：跳转走 UI→控制器（项目惯例"埋点下沉到控制器实现层"），电台经结算事件 `SKIPPED_NEXT` 看到并计入台账；但**「连跳感知重排」`skipEvents` 不覆盖** —— 该缺口与"播放页切歌"同源，非本次引入。写入 `agent-radio-console.md` §3/§6/§10.4。**编译验证**：桌面 + Android 均通过 |
+| 2026-09-19 | **控制台：跳转曲目后不自动收起面板** | 用户决议"点完不要自动收起面板"：去掉 `onPlayTrack` 里的 `radioConsoleVisible = false`。理由：**跳一首不代表"用完了控制台"** —— 留着才能接着看编排、继续跳下一首；面板只读，开着不干扰播放。**同时诚实记录一个表现**：面板留着，跳转后"在播"行**可能要等电台下一轮判定才刷新**（镜像头 `radioPlaylist[0]` 在换批执行时重建，不随播放器实时同步）—— 跳转触发结算 → 电台跑一轮 → replace 则重建（通常几秒），none 则保持旧值。属**既有镜像机制**表现（`agent-radio.md` §7.1），非本次引入。写入 `agent-radio-console.md` §10.4 |
+| 2026-09-19 | **设计：Token 计量与窗口治理整体方案（新文档 `../design/agent-token.md`）** | 用户提出"token 是开发阶段被刻意忽略的部分"，核查后确认**不是精度问题，是三层断裂**——① **真 usage 拿到却扔掉**（`OpenAiUsage` DTO 已解析，但 `LlmEvent` 无携带通道，传输层无处上报）；② **记账只覆盖一条路径**（`recordTokens` 全仓仅 `ReActLoop:123` 一处调用 → Radio/Enrich/Hello/报告/画像全部不记账，看板数字系统性偏低）；③ **日配额设置是假控件**（`AIScreen` 滑块写进 `GlobalAgentConfig`，但 `GlobalTokenCounter.dailyTokenQuota` 是 `val` 且唯一构造点只传 timeProvider → 永远 500K）；④ **窗口按 Agent 硬编码**（Enrich 32K/Radio 64K/Hello 128K，`AiEndpointConfig` 无窗口字段）→ 换小窗口模型即**静默故障**（超窗 → API 报错 → 电台判定变 `none`，图上看不出）；⑤ **口径混淆**（一个 `estimatedTokenCount` 同时当"窗口占用"与"日消耗"）；⑥ **压缩空转**（`buildMessages` 只发 `takeLast(6)` → 压缩分支几乎永不触发，且摘要不回注）。**方案**：把计量提升为一等公民——`LlmEvent.Usage`（真值唯一通道）→ 进程级 **`TokenMeter`**（唯一记账口）→ 分发到「日消耗（prompt+completion）」与「窗口占用（仅 prompt）」**两个必须分开的量**；估算降级为兜底并**打标 `measured=false`**；窗口由「内置模型窗口表 + 未知保守 32K + 端点级覆盖」解析，**超窗前置拒绝并降级**（不发出必失败请求）。**四阶段**：T1 计量打真值（地基，最独立）/ T2 配额接线与可见 / T3 窗口治理（消除静默故障）/ T4 窗口策略显式化 + 摘要回注（T5 成本可见后置）。含验收剧本 S1-S6 与待拍板 D1-D5；**首次写明**项目里存在**两套并存的上下文管理**（历史型 vs 电台的**重渲染型**，后者不依赖 history，T4 只对前者有效）。待拍板 D1-D5，**未实施** |
+| 2026-09-19 | **裁定：上下文上限默认 100K + 用户可设上限与压缩方式（`agent-token.md` D3/D4/D6 落定）** | 用户裁定"上限可以有一个默认值 100k，然后允许用户设置上限和上下文压缩方式"。**先补实测判据**（§1.1，全部常量可查）：电台开播 ~6,000（`LIBRARY_TOKEN_BUDGET 6,000 ÷ TOKENS_PER_TRACK 28` → 214 行上限，真机日志 `189/189 全量`）、电台每轮 ~4,500（`TURN_CANDIDATE_ROWS 40`）、对话典型 ~8,000（送模型历史仅 **30** 条）、对话极端 ~30,000 → **峰值 1–3 万 token**。**关键推论**：现有三个硬编码窗口（32K/64K/128K）是按"模型能力"填的，与真实用量差 4–10 倍，**作为护栏永不触发**（静默故障成因）。**设计落定**：① 有效窗口 = **`min(模型窗口, 用户上限)`** —— **①模型窗口负责"兼容小窗口模型"，②用户上限只做"单次不超这么多"的自我约束**，两个输入分开后宽裕的默认值才无害（`GlobalAgentConfig.contextCapTokens = 100_000`，可调 8K–200K）；② 三个 Agent 硬编码窗口**删除**（峰值都远低于 32K，分档无依据）；③ 新增 `contextCompaction`（`RECENT_N` / `SUMMARY_RECENT_N` / `FULL`）+ `historyKeepCount`；④ **压缩必须与 cap 解耦**（现状 `windowUsage ≥ 0.85` 驱动 → 上限 100K 时 85K 永不达到 → **该设置永不生效 = 假控件 2.0**，与"日配额"同一模式）：cap 是**硬约束**，压缩是**组装期策略**；⑤ 压缩设置需在**两处**消费点生效（`AgentContextBudget.recentMessagesToKeep` + `ChatAgentGateway.buildHistory`，现状 6 与 30 两个魔数写死在不同文件）。含下限联动降级（曲库预算按比例缩，不拒绝）；验收补 S7/S8。**未实施** |
+| 2026-09-19 | **补充：模型窗口的四层取值链（`agent-token.md` T3 / D3）** | 用户问"配置好端点之后能获取到使用模型的最大上下文窗口吗"。**事实核查**：**OpenAI 官方与 DeepSeek 官方的 `/models` 都不返回窗口**（DeepSeek 官方文档明确只有 `id`/`object`/`owned_by`；OpenAI 基线 schema 亦然 —— 社区专门维护手工窗口表补此缺口），而 **OpenRouter 返回 `context_length` + `top_provider.context_length`**、**vLLM 返回 `max_model_len`（即服务端校验用值）**、AI/ML API 类聚合平台与 AxonHub 类网关（`?include=all`）也返回。**故 D3 由"内置表 + 兜底 + 端点覆盖"细化为四层取值链**：用户覆盖 → **端点探测** → 内置表 → 保守 32K；**探测与内置表两层都要有**（只做探测会让最常见的 OpenAI/DeepSeek 端点误落 32K 兜底）。**两个关键坑**：① **"模型理论窗口" ≠ "服务端实际允许值"**（OpenRouter 模型级 `context_length` vs provider 级；vLLM 的 `max_model_len` 是裁剪后生效值）——**护栏必须用后者**，否则照样超窗；② `/models` 是"每模型一个窗口"的列表而 agent 只用其中一个 → 探测值**按模型名存**（新增 `modelWindows: Map<String, Int>`，**不动** `availableModels: List<String>`，因其被模型选择器与 iOS bridge 引用）。**实现**：零额外请求（复用 `AiSettingsViewModel` 配置时已在调的 `fetchModels`）+ 探测失败静默落第 3/4 层。**现状：连返回了都被丢掉** —— `MultiProviderApiAdapter.kt:157` 只 `map { it.id }`，`ModelItem` 仅 `id`/`owned_by`；加字段安全（三端 `createJson()` 均 `ignoreUnknownKeys = true`）|
+| 2026-09-19 | **简化（撤回上次决定）：窗口固定 64K、降级不开放配置（`agent-token.md` T3/T4/D6 重写）** | 用户裁定"**规定用户配置的端点支持的上下文窗口最小为 64K，agent 默认以这个窗口来消费，上下文的降级为不支持自定义**"。**这撤回了同日早先"默认 100K + 用户可设上限与压缩方式"的决定**（D6 作废、D3 由"四层取值链"改判为固定常量）。**理由**：既然 OpenAI / DeepSeek 官方**都不返回窗口**（动态获取不可能全覆盖），做"探测 + 多级回退"仍留空洞，不如**规定下限 + 固定假设**。**落地**：① 窗口 = `EngineDefaults.AGENT_CONTEXT_WINDOW = 64_000` 单一常量，三个 Agent 硬编码删除；② 不再做探测/内置表/端点覆盖/`modelWindows` 缓存（T3 的事实核查**留档备问**，连同"理论窗口≠服务端实际值"两条坑）；③ `GlobalAgentConfig` **不加**任何上下文字段，设置页**不加**"上限"/"压缩方式"（**一并消掉了上一版"100K 上限让压缩永不生效"的假控件隐患**）；④ 降级为**内部固定**（曲库预算按比例缩 + 历史裁剪 + 拒绝走本地保底）。**⚠️ 唯一必须保留的兜底**：因为拿不到窗口，**"≥64K"无法在配置时校验** → 超窗仍可能发生 → **必须让"超窗"显式可辨、不得表现为"模型判定 none"**（这是"不支持自定义"成立的前提）。**另**：超窗路径在 64K 下几乎不执行，故**必须用单测直接覆盖**，不允许当死代码留着。验收改 S7（常量而非设置项）/S8（超窗可辨）/S9（安全网被验证）|
+| 2026-09-19 | **立阶段：新增 F12 Token 计量与窗口治理（新章节文件）** | 完成 `agent-token.md` 的设计并定稿后，按项目纪律**补立阶段章节**（此前只有设计文档、taskbook 里无对应章节，扫进度表会漏）。**新增 `f12-token计量与窗口.md`**：阶段定位（六断层）、交付内容（四交付）、任务清单 **F12-T1..T5**、待拍板 D1–D5（D3 已定/D6 作废）、严格不做什么（8 条）、验收 S1–S9、经验与踩坑（7 条，均来自 2026-09-19 诊断）。**README 同步**：状态 v7→**v8**、生命线图接入 F12、依赖要点（依赖 F3/F5/F9-T2；**与 F11 无依赖、可并行**）、进行中/待做、章节索引、后续阶段表、§6 挂起参数（增 `AGENT_CONTEXT_WINDOW = 64000` / 历史保留条数 / 日配额）、§7 风险表（增 5 行：假控件、超窗静默故障、窗口前提无法预校验、估算高估导致误杀、安全网无证据）|
+| 2026-09-19 | **深核：token 计量现状（断层 2 的后果被大幅强化）** | 用户问"token 计量现状是什么样的"，逐环核实后**发现原表述"数字偏低"严重不足**。① **真 usage 断两次**：请求侧 `OpenAiStyleRequest` **无 `stream_options` 字段**（流式请求压根不要求端点回 usage）；流式响应 `OpenAiStreamChunk`（`ApiDtos.kt:96-99`）**只有 `id`+`choices`，连 `usage` 字段都没有**；非流式 `OpenAiStyleResponse.usage`（`:81`）解析进对象但**全仓只有 DTO 单测引用**（死字段）。② **四条 LLM 路径互不相同、只有第一条入账**：Master 走 `ReActLoop`（`MasterAgent.kt:1638` **全仓唯一实例**）✅ / Enrich 走 `contextBudget.callLlmText`（`EnrichSubAgent.kt:500`）❌ / Hello 走 `callLlmText`（`HelloSubAgent.kt:1827`）❌ / **Radio 判定自建 `LlmCallExecutor()` 并直接取 `contextBudget.llmClient`**（`RadioSubAgent.kt:1005-1020`，**连 budget 包装都绕过**）❌。③ **最严重后果**：`AgentScheduler.decideEnrichState()`（`:169-174`）用 `tokenCounter.shouldStop(0.9)` 管 Enrich 暂停，而 Enrich 消耗不入账 → **`quotaOk` 恒真，闸门对自己最大的消费者永远开着**。④ 估算口径澄清：ReActLoop 的估算**含 system prompt**（`:71-76`）但**不含工具 schema**（27 个原子工具每次全量发）→ **高估与低估同时存在于同一次调用**。设计文档 §1 与 F12 §1/§7 已同步强化 |
+| 2026-09-19 | **裁定：分账账本用明细表 + 永久保留；配额候补（`agent-token.md` D7 立/D2 候补，T1/T2 重写）** | 用户明确最终目标"**能统计各 Agent × 各端点的 token 消耗**"，并裁定"**永久保留吧先**"、"**token 限额啥的也可以先放开，候补**"。**D7（账本形态）立为已定**：选 **`(a) 明细表`** 而非 `(b) 日桶累计` 或 `(c) 只有全局累计一个数` —— 决定性理由是"**明细是累计的超集，只存累计不可逆**"，且两者成本几乎相同（同一份 Room 迁移 v8→v9、SQLite 体积量级相当）；项目还存在"只有分时能回答"的问题（判断 Enrich 是否趁夜间跑整库）。**体积估算**：~150 B/行 × 常态 ~300 行/天 ≈ **16 MB/年** → 判为可承受，故**不引入清理任务、暂不做日桶固化**（留"行数软上限"作后手）。**T1 扩为"计量打真值 + 落账本"**：新增 Room 表 `token_ledger`（字段 `agent_id`/`endpoint_host`/`model`/`prompt_tokens`/`completion_tokens`/`measured`/`created_at`，**只存 host、不存 apiKey 与完整 URL**）；补两处缺口（请求侧 `stream_options.include_usage`、`OpenAiStreamChunk` 缺 `usage` 字段）；**把 `RadioSubAgent.askJudge` 自建路径并入收口**（它绕过 budget 包装，是第 3 条漏收路径）。**T2 改判为"分账视图"**：三维度聚合（按 Agent / 按端点·模型 / 按时间），**看板数字改由明细聚合、不再依赖 counter**（于是配额候补不影响分账准确性）；**配额接线（`dailyTokenQuota` 可变 + 热更新 + 熔断读真值）降为 T2b 候补**，并记明**搬回前必须先修「Enrich 熔断失明」**。**边界新增**：token 明细**不喂给任何 LLM、不进 `UserMemory`**（与 F11「电台不落盘」不冲突 —— 那条管喂给模型的状态，这条是给用户看的诊断数据）。验收补 S10–S14（分账齐全 / 分时可查 / 不泄密 / 体积可承受 / Room 迁移）|
+
 
 
 > **已废弃方案**（2026-08-31 初版 T 阶段）：定义 5 根脊柱但过度设计——`AgentProfile` 独立 DAO 层 / `AgentSenses` expect-actual / Scheduler 复活 / `FallbackOrchestrator` 独立类。已被第二轮重写完全取代。

@@ -1,6 +1,8 @@
 package com.hearablemusic.player.player.di
 
 import com.hearablemusic.player.player.controller.MusicController
+import com.hearablemusic.player.player.keepalive.AndroidAgentKeepAlivePort
+import com.hmp.domain.agent.port.AgentKeepAlivePort
 import com.hmp.domain.agent.port.PlaybackObservationBus
 import org.koin.android.ext.koin.androidContext
 import org.koin.dsl.module
@@ -13,4 +15,7 @@ val playerModule = module {
             it.playbackObserver = get<PlaybackObservationBus>()
         }
     }
+
+    // F11-L2：agent 保活端口（Android）—— MasterAgent 据其保持进程存活
+    single<AgentKeepAlivePort> { AndroidAgentKeepAlivePort(androidContext()) }
 }

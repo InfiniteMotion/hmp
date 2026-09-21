@@ -2,20 +2,20 @@ package com.hmp.domain.agent.infra
 
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 
 /**
- * 存在感事件（M4-T5 PresenceBus）：伙伴唯一嗓音的来源，事件 → 徽标/侧条/DJ 消费点。
+ * 存在感事件（M4-T5 PresenceBus）：伙伴唯一嗓音的来源，事件 → 侧条/DJ 线等消费点。
  *
- * 消费点在 UI 层（M5 建 UI 消费）：徽标驱动底栏伙伴胶囊（M1-T6 已备锚点），侧条/DJ 线预留。
- * 引擎平面仅 emit，不感知 UI 形态 —— 保持双平面思想：呈现层可自由换，安全不随呈现松动。
+ * 消费点在 UI 层（M5 建 UI 消费）。引擎平面仅 emit，不感知 UI 形态 ——
+ * 保持双平面思想：呈现层可自由换，安全不随呈现松动。
+ *
+ * ⚠️ **`CompanionBadge`（底栏胶囊徽标圆点）已于 2026-09-19 废弃删除**：该通道从未接线
+ * （`RadioSubAgent` 发过事件、`CompanionCapsule` 从未渲染），产品上也已放弃圆点方案。
+ * 底栏伙伴胶囊的存在感改由**直接订阅 `radioState`** 呈现（电台开启期间换图标 + 高亮，
+ * 见 `CompanionCapsule` 的电台态）。所以：**不要再往这里加"圆点/徽标"类事件**。
  */
 sealed interface PresenceEvent {
-    /** 伙伴徽标（底栏胶囊圆点）。 */
-    data class CompanionBadge(val visible: Boolean, val label: String? = null) : PresenceEvent
-
     /** 有通知侧条可展示（4s 退场 + 撤销，M5-T3）。 */
     data class NoticeAvailable(val text: String) : PresenceEvent
 
@@ -40,19 +40,15 @@ sealed interface PresenceEvent {
 }
 
 /**
- * PresenceBus：伙伴存在的唯一发声通道。合成徽标态 + 广播事件流。
- * 徽标态以 StateFlow 暴露（UI 可收集最新值），事件流以 SharedFlow 广播（多消费点）。
+ * PresenceBus：伙伴存在的唯一发声通道 —— 广播事件流（多消费点）。
  */
 class PresenceBus {
-    private val badgeFlow = MutableStateFlow(PresenceEvent.CompanionBadge(visible = false))
     private val eventFlow = MutableSharedFlow<PresenceEvent>(extraBufferCapacity = 16)
 
-    val badgeState: StateFlow<PresenceEvent.CompanionBadge> = badgeFlow
     val events: Flow<PresenceEvent> = eventFlow.asSharedFlow()
 
-    /** 广播事件；徽标事件同步更新合成态。非阻塞 tryEmit，依赖 extraBufferCapacity=16 保证不丢事件。 */
+    /** 广播事件。非阻塞 tryEmit，依赖 extraBufferCapacity=16 保证不丢事件。 */
     fun emit(event: PresenceEvent) {
-        if (event is PresenceEvent.CompanionBadge) badgeFlow.value = event
         eventFlow.tryEmit(event)
     }
 }

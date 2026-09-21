@@ -46,11 +46,11 @@ import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
-import com.hearablemusic.player.ui.common.components.AgentQuickSheet
 import com.hearablemusic.player.ui.common.components.AgentNoticeBar
 import com.hearablemusic.player.ui.common.components.AgentNotice
 import com.hearablemusic.player.ui.common.components.BottomFusionBar
 import com.hearablemusic.player.ui.common.components.FusionSidebar
+import com.hearablemusic.player.ui.common.components.RadioConsole
 import com.hearablemusic.player.ui.common.components.TabPageIndicator
 import com.hearablemusic.player.ui.common.design.animation.AnimationTokens
 import com.hearablemusic.player.ui.common.design.dimens.LocalHMPDimens
@@ -94,6 +94,9 @@ import com.hearablemusic.player.ui.settings.viewmodel.SettingsViewModel
 import com.hmp.domain.setting.usecase.LyricsSettingsUseCase
 import com.hmp.domain.agent.infra.PresenceBus
 import com.hmp.domain.agent.infra.PresenceEvent
+import com.hmp.domain.agent.runtime.MasterAgent
+import com.hmp.domain.agent.sub.RadioState
+import com.hmp.domain.music.MusicRepository
 import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.rememberHazeState
 import kotlinx.coroutines.flow.collectLatest
@@ -120,8 +123,11 @@ fun AppRoot(darkTheme: Boolean) {
     val dialogManagerViewModel: DialogManagerViewModel = activityViewModel()
     val dialogViewModel: DialogViewModel = activityViewModel()
     val platformServices = koinInject<com.hearablemusic.player.ui.platform.PlatformServices>()
-    val chatEntryBroker = koinInject<com.hearablemusic.player.ui.chat.ChatEntryBroker>()
     val presenceBus = koinInject<PresenceBus>()
+    // 电台状态：伙伴胶囊在电台开启期间兼任电台状态位（换图标 + 长按打开控制台）
+    val masterAgent: MasterAgent = koinInject()
+    // 控制台点节目单跳曲目：RadioTrack 只有 id，得按 id 查回 MusicInfo 才能播放（同 HomeScreen 先例）
+    val musicRepository: MusicRepository = koinInject()
 
     val dialogManager = dialogManagerViewModel.dialogManager
     // 订阅调色板、当前曲目与播放状态
@@ -130,6 +136,13 @@ fun AppRoot(darkTheme: Boolean) {
     val isPlaying by playbackViewModel.isPlaying.collectAsState()
     val currentPosition by playbackViewModel.currentPosition.collectAsState()
     val duration by playbackViewModel.duration.collectAsState()
+
+    // 电台「已开启」= PLAYING / PAUSED / BUILDING（外部不区分停止与暂停，与 RadioCard 同一口径）：
+    // 暂停态由电台自管且可恢复，对它显示"已关闭"会误导。
+    val radioState by masterAgent.radioState.collectAsState()
+    val radioActive = radioState is RadioState.PLAYING ||
+        radioState is RadioState.PAUSED ||
+        radioState is RadioState.BUILDING
 
     // 背景样式与 haze 渲染设置
     val backgroundStyleString by settingsViewModel.backgroundStyle.collectAsState("FLUID")
@@ -217,9 +230,23 @@ fun AppRoot(darkTheme: Boolean) {
     val haptic = rememberHapticFeedback()
 
     // ── M1 锚点系统状态（Fake 驱动；M4 接 PresenceBus）──
-    // M1-T6 存根：轻量浮层开关（伙伴徽标已于 2026-08-27 移除——门面页高亮代替红点提示；
-    // 未读/待确认等真实徽标在 M5 会话接入时按需恢复）
-    var companionQuickSheetVisible by remember { mutableStateOf(false) }
+    // 「找伙伴」统一出口：**直接进对话页**（轻量浮层已于 2026-09-19 彻底移除）。
+    // 长按伙伴胶囊（电台未开启时）/ C 键（Desktop）都走这里；
+    // 电台开启时长按让位给电台控制台（见下方 BottomFusionBar 的分流）。
+    val openCompanionChat: () -> Unit = {
+        if (navController.none { it is Routes.Companion.Chat }) {
+            navController.add(Routes.Companion.Chat)
+        }
+    }
+
+    // 长按伙伴胶囊（电台开启时）唤起的电台控制台 —— 弹窗
+    var radioConsoleVisible by remember { mutableStateOf(false) }
+    val radioConsoleScope = rememberCoroutineScope()
+    // 电台一旦不在（用户收档 / 对话说停电台 / 看板停止），面板自动收起；
+    // 滑动收档 → stopRadio → 这里触发 → 面板淡出，正是"收档"的收尾动作。
+    LaunchedEffect(radioActive) {
+        if (!radioActive) radioConsoleVisible = false
+    }
 
     // ── M6-T2c/M6-T3：PresenceBus → AgentNoticeBar 侧条 ──
     var currentNotice by remember { mutableStateOf<AgentNotice?>(null) }
@@ -289,23 +316,25 @@ fun AppRoot(darkTheme: Boolean) {
                             Box(
                                 modifier = Modifier
                                     .fillMaxSize()
-                                    // M1-T5 键盘锚点：C 唤起轻量浮层、Esc 收起。
+                                    // M1-T5 键盘锚点：C = 直达对话页（原为唤起轻量浮层，该层已移除）、
+                                    // Esc = 关闭电台控制台。
                                     // 用 onKeyEvent（冒泡阶段）而非 onPreviewKeyEvent（捕获阶段）：
                                     // 冒泡阶段子节点先消费按键——文本输入聚焦时字母 C/Esc 由输入框先行处理，
                                     // 根节点只收到未被消费的按键，不会吞掉用户正在输入的字符（review 修复 2026-08-28）
                                     .onKeyEvent { event ->
                                         when {
+                                            // C 键（Desktop）：直达对话页（原为唤起轻量浮层）
                                             event.type == KeyEventType.KeyDown &&
                                                 event.key == Key.C &&
-                                                !companionQuickSheetVisible -> {
+                                                !radioConsoleVisible -> {
                                                 haptic.performClick()
-                                                companionQuickSheetVisible = true
+                                                openCompanionChat()
                                                 true
                                             }
                                             event.type == KeyEventType.KeyDown &&
                                                 event.key == Key.Escape &&
-                                                companionQuickSheetVisible -> {
-                                                companionQuickSheetVisible = false
+                                                radioConsoleVisible -> {
+                                                radioConsoleVisible = false
                                                 true
                                             }
                                             else -> false
@@ -527,23 +556,13 @@ fun AppRoot(darkTheme: Boolean) {
                                     modifier = Modifier
                                         .align(Alignment.BottomCenter)
                                 ) {
-                                    // 浮层锚定在底栏上方（设计总纲 3.3：有底栏贴底栏上方、无底栏贴屏底）
+                                    // 侧条锚定在底栏上方（设计总纲 3.3：有底栏贴底栏上方、无底栏贴屏底）
                                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                         // M6-T2c/M6-T3：AgentNoticeBar 侧条（PresenceBus 事件 → 4s 自动退场）
                                         AgentNoticeBar(
                                             notice = currentNotice,
                                             onDismiss = { currentNotice = null },
                                             modifier = Modifier.padding(bottom = 4.dp),
-                                        )
-                                        AgentQuickSheet(
-                                            visible = companionQuickSheetVisible,
-                                            onSubmit = { input ->
-                                                // M1 锚点 → M5 对话：带话进对话页（同 session_id 语义）
-                                                chatEntryBroker.pendingInput.value = input
-                                                navController.add(Routes.Companion.Chat)
-                                                companionQuickSheetVisible = false
-                                            },
-                                            modifier = Modifier.align(Alignment.CenterHorizontally)
                                         )
                                         Box {
                                             BottomFusionBar(
@@ -567,8 +586,11 @@ fun AppRoot(darkTheme: Boolean) {
                                                     }
                                                 },
                                                 onCompanionLongPress = {
-                                                    companionQuickSheetVisible = true
+                                                    // 电台未开启时长按 = 直接进对话页（轻量浮层已移除）
+                                                    openCompanionChat()
                                                 },
+                                                radioActive = radioActive,
+                                                onOpenRadioConsole = { radioConsoleVisible = true },
                                                 hazeState = hazeState,
                                             showNavText = windowSizeInfo.isLandscape,
                                             showNavCapsule = bfbIsOnTabPage,
@@ -709,6 +731,32 @@ fun AppRoot(darkTheme: Boolean) {
                                     onDismiss = { messageToShowState.value = null }
                                 )
                             }
+
+                            // ── 电台控制台：长按伙伴胶囊（电台开启时）唤起的全屏浮层弹窗 ──
+                            // 覆盖在底栏与所有内容之上；面板打开期间电台照常运行（只读观察窗）。
+                            RadioConsole(
+                                visible = radioConsoleVisible,
+                                onDismiss = { radioConsoleVisible = false },
+                                onEndSession = {
+                                    radioConsoleVisible = false
+                                    radioConsoleScope.launch { masterAgent.stopRadio() }
+                                },
+                                onPlayTrack = { musicId ->
+                                    // 跳到那首：**在既有队列里定位并播**（playWith 内部先查重、
+                                    // 找不到才追加），不新建队列 —— 新建会把主播刚排的队冲掉。
+                                    // **不收起面板**（用户决议）：跳一首不代表"用完了控制台"——
+                                    // 留着才能接着看编排、继续跳下一首；面板只读，开着不干扰播放。
+                                    radioConsoleScope.launch {
+                                        val info = runCatching {
+                                            musicRepository.getMusicInfoByIds(listOf(musicId))
+                                        }.getOrNull()?.firstOrNull()
+                                        if (info != null) playlistQueueViewModel.playWith(info)
+                                    }
+                                },
+                                nowCoverUri = currentMusic?.music?.albumArtUri,
+                                hazeState = hazeState,
+                                hazeRenderSettings = hazeRenderSettings,
+                            )
                         }
                     } // CompositionLocalProvider LocalTabHeaderContent
                 } // CompositionLocalProvider HMPDimens

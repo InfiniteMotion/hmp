@@ -2,7 +2,6 @@ package com.hearablemusic.player.ui.settings.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.hmp.data.database.HelloReportNarrativeEntity
 import com.hmp.data.database.myenum.LabelCategory
 import com.hmp.domain.agent.profile.PersonalityCardComposer
 import com.hmp.domain.agent.profile.ProfileNarrativeState
@@ -32,7 +31,6 @@ enum class Dimension(val zhLabel: String) {
 
 /** WindowedBundle — 时间窗口 + 维度筛选交叉产出的所有数据。 */
 data class WindowedBundle(
-    val narrative: HelloReportNarrativeEntity? = null,
     val analytics: WindowedUsageAnalytics? = null,
     val sourceBreakdown: Map<String, Int> = emptyMap(),
     val topGenres: List<LabelCountEntry> = emptyList(),

@@ -14,6 +14,7 @@ import com.hmp.domain.agent.port.AuditLogPort
 import com.hmp.domain.agent.port.LlmMessage
 import com.hmp.domain.agent.port.NowPlayingContextProvider
 import com.hmp.domain.agent.runtime.ContextAssembler
+import com.hmp.domain.agent.runtime.EngineDefaults
 import com.hmp.domain.agent.runtime.MasterAgent
 import com.hmp.domain.music.MusicRepository
 import com.hmp.domain.setting.model.AiEndpointConfig
@@ -210,8 +211,11 @@ class MasterChatGateway(
     }
 
     private suspend fun buildHistory(input: String): List<LlmMessage> {
+        // F12-T4：加载窗口与 AgentContextBudget.recentMessagesToKeep 收敛为同一常量（6）。
+        // 预算侧 buildMessages 只 takeLast(HISTORY_KEEP_COUNT)，此处多加载的条目会被立刻裁掉，
+        // 统一为同一值既消除魔数、也避免无谓的 DB 加载。
         val sid = agentMessageStore.currentOrNewSessionId()
-        val mapped = agentMessageStore.loadSession(sid, 30).mapNotNull { m ->
+        val mapped = agentMessageStore.loadSession(sid, EngineDefaults.HISTORY_KEEP_COUNT).mapNotNull { m ->
             val role = when (m.role) {
                 "user" -> "user"
                 "agent", "assistant" -> "assistant"

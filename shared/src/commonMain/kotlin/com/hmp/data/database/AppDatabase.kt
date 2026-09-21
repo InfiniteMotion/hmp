@@ -35,8 +35,9 @@ expect object AppDatabaseConstructor : RoomDatabaseConstructor<AppDatabase> {
         UserProfilePortraitEntity::class,
         UserProfileNarrativeEntity::class,
         ForgottenDeliveryEntity::class,
+        TokenLedgerEntry::class,
     ],
-    version = 8,
+    version = 9,
     exportSchema = true
 )
 @TypeConverters(LabelConverters::class, HelloCardConverters::class)
@@ -59,6 +60,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun userProfilePortraitDao(): UserProfilePortraitDao
     abstract fun userProfileNarrativeDao(): UserProfileNarrativeDao
     abstract fun forgottenDeliveryDao(): ForgottenDeliveryDao
+    abstract fun tokenLedgerDao(): TokenLedgerDao
 
     companion object {
         /**
@@ -240,6 +242,39 @@ abstract class AppDatabase : RoomDatabase() {
                     `deliveredAt` INTEGER NOT NULL,
                     PRIMARY KEY(`musicId`)
                 )"""
+                )
+            }
+        }
+
+        /**
+         * v8 → v9（F12-T1 Token 明细账本）：
+         * - 新增 `token_ledger` 表——**一次 LLM 调用一行**，承载"各 Agent × 各端点 × 分时"的分账。
+         *
+         * 纯 `CREATE TABLE`，无列变更，不动存量表。
+         * 「明细永久保留、不做清理」是刻意决定（体积 ~16 MB/年，见 `design/agent-token.md` §3.1），
+         * 因此这里**不建清理相关索引**；时间维度的聚合走 `created_at` 的范围扫描。
+         */
+        val MIGRATION_8_9 = object : Migration(8, 9) {
+            override fun migrate(connection: SQLiteConnection) {
+                connection.execSQL(
+                    """CREATE TABLE IF NOT EXISTS `token_ledger` (
+                    `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    `created_at` INTEGER NOT NULL,
+                    `agent_id` TEXT NOT NULL,
+                    `endpoint_host` TEXT NOT NULL,
+                    `model` TEXT NOT NULL,
+                    `prompt_tokens` INTEGER NOT NULL,
+                    `completion_tokens` INTEGER NOT NULL,
+                    `cached_tokens` INTEGER NOT NULL,
+                    `measured` INTEGER NOT NULL,
+                    `task_id` TEXT
+                )"""
+                )
+                connection.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_token_ledger_created_at` ON `token_ledger` (`created_at`)"
+                )
+                connection.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_token_ledger_agent_id` ON `token_ledger` (`agent_id`)"
                 )
             }
         }

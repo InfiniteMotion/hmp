@@ -10,12 +10,28 @@ import kotlinx.serialization.json.JsonObject
  * 事件流契约（供 M4 AgentOrchestrator 消费）：
  * - [TextDelta]：增量文本（逐 chunk 流出）；
  * - [ToolCall]：完整工具调用（arguments 分片已在传输层组装完毕）；
+ * - [Usage]：**端点返回的真实用量**（F12-T1）——可能出现在流末尾，也可能完全没有；
  * - [Completed]：正常结束（唯一终态之一）；[Failed]：异常结束（网络/HTTP/解析）。
  * 一个调用恰好以 [Completed] 或 [Failed] 收尾。
  */
 sealed interface LlmEvent {
     data class TextDelta(val text: String) : LlmEvent
     data class ToolCall(val id: String, val name: String, val argumentsJson: String) : LlmEvent
+
+    /**
+     * 真实用量（F12-T1 新增的**唯一真值通道**）。
+     *
+     * 流式端点的行为差异（已核实）：
+     * - 必须请求侧带 `stream_options.include_usage=true` 才会回（见 `OpenAiStyleRequest.streamOptions`）；
+     * - 回来时是一个 **`choices` 为空的末尾 chunk** —— 消费侧若先判空 choices 再读，就会丢掉它；
+     * - 部分 OpenAI 兼容端点**压根不回** → 消费侧回落估算并打标 `measured=false`。
+     */
+    data class Usage(
+        val promptTokens: Int,
+        val completionTokens: Int,
+        val cachedTokens: Int = 0,
+    ) : LlmEvent
+
     data class Failed(val message: String) : LlmEvent
     data object Completed : LlmEvent
 }

@@ -39,8 +39,8 @@ import com.hearablemusic.player.ui.common.util.HapticFeedbackHelper
 import com.hearablemusic.player.ui.common.util.rememberHapticFeedback
 import com.hearablemusic.player.ui.generated.resources.Res
 import com.hearablemusic.player.ui.generated.resources.headphones_fill
-import com.hearablemusic.player.ui.generated.resources.pause
 import com.hearablemusic.player.ui.generated.resources.play_fill
+import com.hearablemusic.player.ui.generated.resources.stop
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.painterResource
 import org.koin.compose.koinInject
@@ -56,7 +56,8 @@ import org.koin.compose.koinInject
  *   - PLAYING / BUILDING / PAUSED → ON；IDLE / null → OFF
  *   不绕 HelloSubAgent 的 cards StateFlow。
  *
- * 职责边界：本卡只管「开/关/暂停」和最小状态。
+ * 职责边界：本卡只管「开 / 关」两态和最小状态 —— **外部不区分停止与暂停**（内部暂停态由电台自管；
+ * 重新开启时 `startRadio` 内置 `tryResumeRetained` 自动判断「续档」还是「新开」）。
  * 信息展示主力是 Hello 堆叠卡里的 RADIO_STATUS 卡（FamilyRadioStatusCard）：
  * 主播编排思路（lastAdjust）、待播数、下一首都在那边展示。
  */
@@ -70,10 +71,11 @@ fun RadioCard(
 
     // ✅ 主路径：直接 collect MasterAgent 暴露的 radioState StateFlow
     val radioState by masterAgent.radioState.collectAsState()
-    val isPlaying = radioState is RadioState.PLAYING
-    val isPaused = radioState is RadioState.PAUSED
     val isBuilding = radioState is RadioState.BUILDING
-    val isActive = isPlaying || isPaused || isBuilding
+    // 外部不区分停止 / 暂停：PLAYING / PAUSED / BUILDING 都算「已开启」（内部态由电台自管）
+    val isActive = radioState is RadioState.PLAYING ||
+        radioState is RadioState.PAUSED ||
+        isBuilding
 
     // ✅ 动态：运行状态 + 队列
     // 不要用 helloAgent.cards 找 RADIO_STATUS —— 那张卡早已拆到 UI 层、只在
@@ -83,19 +85,17 @@ fun RadioCard(
     fun toggle() {
         haptic.performClick()
         scope.launch {
-            when {
-                isPlaying -> masterAgent.pauseRadio()
-                isPaused -> masterAgent.resumeRadio()
-                isBuilding -> masterAgent.stopRadio()  // 启动中 → 取消
-                else -> masterAgent.startRadio()       // IDLE
+            if (isActive) {
+                masterAgent.stopRadio()    // 已开启（运行 / 暂停 / 启动中）→ 关闭
+            } else {
+                masterAgent.startRadio()   // 空闲 → 开启（内部自动判断续档还是新开）
             }
         }
     }
 
     val title = when {
         isBuilding -> "电台启动中"
-        isPlaying -> "电台运行中"
-        isPaused -> "电台已暂停"
+        isActive -> "电台已开启"
         else -> "电台"
     }
     val subtitle = when {
@@ -105,10 +105,10 @@ fun RadioCard(
     }
     val actionLabel = when {
         isBuilding -> "启动中…"
-        isActive -> "停止电台"
+        isActive -> "关闭电台"
         else -> "开启电台"
     }
-    val actionIcon = if (isActive) Res.drawable.pause else Res.drawable.play_fill
+    val actionIcon = if (isActive) Res.drawable.stop else Res.drawable.play_fill
 
     // 按钮仅反映状态（不是独立点击目标，点击统一由整卡处理）；配色统一走 primary
     val actionBg = if (isBuilding) {

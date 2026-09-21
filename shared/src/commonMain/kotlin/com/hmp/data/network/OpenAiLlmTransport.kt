@@ -4,6 +4,7 @@ import com.hmp.data.network.dto.OpenAiAssistantToolCall
 import com.hmp.data.network.dto.OpenAiFunctionCall
 import com.hmp.data.network.dto.OpenAiFunctionSpec
 import com.hmp.data.network.dto.OpenAiMessage
+import com.hmp.data.network.dto.OpenAiStreamOptions
 import com.hmp.data.network.dto.OpenAiStyleRequest
 import com.hmp.data.network.dto.OpenAiTool
 import com.hmp.domain.agent.port.LlmEvent
@@ -70,11 +71,25 @@ class OpenAiLlmTransport(
             },
             toolChoice = if (tools.isNullOrEmpty()) null else JsonPrimitive("auto"),
             stream = true,
+            // F12-T1：索要真实用量。不带此项时端点不会在流末尾回 usage chunk。
+            streamOptions = OpenAiStreamOptions(includeUsage = true),
         )
 
         val toolAccumulators = mutableMapOf<Int, ToolCallAccumulator>()
         suspend fun collectStream() {
             adapter.streamChatCompletion(config, request).collect { chunk ->
+                // ⚠️ 用量必须**先于** choices 判空读取：带 usage 的末尾 chunk 恰恰 choices 为空。
+                //    反过来写（先取 choice 再 return@collect）会永远丢用量。
+                chunk.usage?.let { u ->
+                    emit(
+                        LlmEvent.Usage(
+                            promptTokens = u.promptTokens,
+                            completionTokens = u.completionTokens,
+                            cachedTokens = u.cachedTokens,
+                        )
+                    )
+                }
+
                 val choice = chunk.choices?.firstOrNull() ?: return@collect
                 val delta = choice.delta ?: return@collect
 

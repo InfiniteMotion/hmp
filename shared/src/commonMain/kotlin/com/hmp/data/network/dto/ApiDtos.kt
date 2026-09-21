@@ -25,6 +25,19 @@ data class OpenAiStyleRequest(
     /** 流式响应开关（SSE）：流式任务必传 true，否则端点返回普通 JSON 而非 SSE（审查修复） */
     @SerialName("stream")
     val stream: Boolean? = null,
+    /**
+     * 流式用量回传（F12-T1）：OpenAI 兼容端点**必须显式索要**才会在末尾发 usage chunk。
+     * 不带此字段时流式响应永无 usage → 计量只能靠估算。
+     */
+    @SerialName("stream_options")
+    val streamOptions: OpenAiStreamOptions? = null,
+)
+
+/** 流式选项（`stream_options`）。 */
+@Serializable
+data class OpenAiStreamOptions(
+    @SerialName("include_usage")
+    val includeUsage: Boolean = true,
 )
 
 @Serializable
@@ -96,6 +109,13 @@ data class OpenAiChoice(
 data class OpenAiStreamChunk(
     val id: String? = null,
     val choices: List<OpenAiStreamChoice>? = null,
+    /**
+     * 用量（F12-T1）：请求带 `stream_options.include_usage=true` 时，末尾会有一个
+     * **`choices` 为空**的 chunk 携带此字段。
+     *
+     * ⚠️ 消费侧必须先读 `usage` 再判 `choices` 是否为空 —— 顺序反了就永远收不到用量。
+     */
+    val usage: OpenAiUsage? = null,
 )
 
 @Serializable
@@ -135,7 +155,19 @@ data class OpenAiUsage(
     @SerialName("completion_tokens")
     val completionTokens: Int = 0,
     @SerialName("total_tokens")
-    val totalTokens: Int = 0
+    val totalTokens: Int = 0,
+    /** 提示缓存明细（OpenAI 形状）；端点不带时为 null → cachedTokens = 0。 */
+    @SerialName("prompt_tokens_details")
+    val promptTokensDetails: OpenAiPromptTokensDetails? = null,
+) {
+    /** 命中提示缓存的 token 数（各家形状不一，取不到的按 0 记，不猜）。 */
+    val cachedTokens: Int get() = promptTokensDetails?.cachedTokens ?: 0
+}
+
+@Serializable
+data class OpenAiPromptTokensDetails(
+    @SerialName("cached_tokens")
+    val cachedTokens: Int = 0,
 )
 
 // ========== Models List Response ==========

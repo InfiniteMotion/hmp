@@ -20,6 +20,7 @@ import com.hmp.domain.agent.runtime.AgentRunState
 import com.hmp.domain.agent.runtime.Capability
 import com.hmp.domain.agent.runtime.CapabilityState
 import com.hmp.domain.agent.runtime.LlmCallExecutor
+import com.hmp.domain.agent.runtime.TokenMeter
 import com.hmp.domain.agent.runtime.StopSignal
 import com.hmp.domain.agent.runtime.ToolRegistryView
 import com.hmp.domain.enum.LabelCategory
@@ -95,11 +96,6 @@ class RadioSubAgent(
     private val observationBus: PlaybackObservationBus? = null,
     /** 上一段电台对话（进程内，不落盘）。命中复用条件时直接续上，省掉完整上下文组装 */
     private val retained: RadioConversation? = null,
-    /**
-     * 用户绕过电台直接操作播放器（在电台暂停期间点了播放）时的回调。
-     * MasterAgent 用它收摊 —— 退出电台但**不暂停音乐**（用户已经明确要听）。
-     */
-    private val onUserTookOver: (suspend () -> Unit)? = null,
     /** AI 端点配置（热更新：MasterAgent.updateAiConfig 可动态替换） */
     private var radioConfig: AiEndpointConfig? = null,
     private val targetCount: Int = 12,
@@ -229,6 +225,11 @@ class RadioSubAgent(
 
     override suspend fun runLoop() {
         HmpLog.i(LogTag.AgentRadio) { "📻 runLoop start (targetCount=$targetCount, hasLLM=${radioConfig != null})" }
+        // ⚠️ 必须显式置真：`isActive` 默认 false（SubAgent 基类），漏设会让
+        // `while (scope.isActive && isActive)` 首次判断即假、runLoop 启动即退出
+        // （真机 2026-09-19 观察到同毫秒 start/exited），进而使 Scheduler 仲裁与
+        // 配额 soft-stop 对电台失效。与 Enrich/Hello 的 runLoop 写法对齐。
+        isActive = true
         runState = AgentRunState.RUNNING
         while (scope.isActive && isActive) {
             stopSignal?.waitResume()  // Scheduler pause → 挂起
@@ -301,7 +302,8 @@ class RadioSubAgent(
         _radioState.value = RadioState.BUILDING(
             progressPercent = 10, actionText = "AI 正在理解你的喜好...", targetCount = targetCount,
         )
-        presenceBus?.emit(com.hmp.domain.agent.infra.PresenceEvent.CompanionBadge(visible = true, label = "电台"))
+        // 注：不再发 CompanionBadge —— 徽标圆点方案已废弃（2026-09-19），电台态改由
+        // 底栏伙伴胶囊**直接订阅 `radioState`** 呈现（换图标 + 高亮），不经 PresenceBus。
 
         // ── A 段｜种子 + 本地保底（零阻塞，必返回） ──
         val seedLabels = extractSeedLabels(seedInput)
@@ -436,8 +438,8 @@ class RadioSubAgent(
         pausedDuringBuilding = false
         cancelPendingPauseCheck()       // 电台已关，挂起的暂停核查作废
         stopSession()   // 关闭即丢弃整段对话（C2 只做会话内）
-        presenceBus?.emit(com.hmp.domain.agent.infra.PresenceEvent.CompanionBadge(visible = false))
-        // 注：RADIO_STATUS 卡已由 UI 层直接订阅 radioState，IDLE 即自动隐藏，无需再发事件
+        // 注：RADIO_STATUS 卡与底栏伙伴胶囊电台态都已由 UI 层**直接订阅 radioState**，
+        // IDLE 即自动回落，无需再发任何事件（CompanionBadge 已于 2026-09-19 废弃删除）。
     }
 
     /**
@@ -542,7 +544,11 @@ class RadioSubAgent(
      *
      * 这里不只是"进上下文"，还驱动电台的暂停状态机：
      * - 电台运行中，用户在播放器里暂停 → **电台跟着暂停**（对话保留，可从电台开关恢复）
-     * - 电台已暂停，用户又直接点了播放 → **退出电台**（用户接管了，我们不再插手）
+     * - 电台已暂停，用户又直接点了播放 → **电台跟着恢复**（会话保留）
+     *
+     * 纪律（2026-09-19 修订）：**用户的播放控制（暂停 / 播放 / 上一曲 / 下一曲）不退出电台**——
+     * 只有用户手动关闭（电台开关 / 明确说"停电台"）才是终态。见 `agent-radio.md` C3。
+     * （原实现把"暂停后用户播放"当作"用户接管"直接退电台，与 C3 矛盾，已废除。）
      *
      * 事实过滤（spec §7.2）：切歌过渡的瞬时 pause/resumed **成对丢弃、不进事实流** ——
      * 只有去抖核查确认的真实暂停才转发给决策内核，否则每轮上下文里都会混进
@@ -562,7 +568,8 @@ class RadioSubAgent(
             }
             is RadioState.PAUSED -> if (event.resumed) {
                 cancelPendingPauseCheck()
-                exitBecauseUserTookOver()
+                // 用户在暂停期间直接点了播放 → 电台跟着恢复（会话保留），不再"用户接管退出"
+                resumeByUser()
             }
             is RadioState.BUILDING -> {
                 // 启动中（正在等模型返回）：暂停同样作废在途结果，并记住收口时落 PAUSED
@@ -648,12 +655,15 @@ class RadioSubAgent(
     }
 
     /**
-     * 用户在电台暂停期间直接点了播放 → 用户接管，退出电台。
-     * 注意**不暂停音乐**：用户已经明确要听了。
+     * 用户在电台暂停期间直接点了播放 → 电台跟着恢复（**不退出**，会话保留）。
+     *
+     * 2026-09-19 修订：原实现把"暂停后用户播放"当作"用户接管"直接退出电台，与
+     * `agent-radio.md` C3「只有用户手动关闭才是终态」矛盾。现改为电台恢复到 `PLAYING`，
+     * 队列 / 对话 / ledger 全程保留；用户后续的暂停/切歌同样只反映状态、不终止会话。
      */
-    private fun exitBecauseUserTookOver() {
-        HmpLog.i(LogTag.AgentRadio) { "📻 [电台] 用户直接继续播放 → 退出电台，交还控制权" }
-        scope.launch { onUserTookOver?.invoke() }
+    private fun resumeByUser() {
+        HmpLog.i(LogTag.AgentRadio) { "📻 [电台] 用户继续播放 → 电台跟着恢复（会话保留）" }
+        scope.launch { resumeRadio() }
     }
 
     /** MasterAgent 转发：队列见底。 */
@@ -712,14 +722,24 @@ class RadioSubAgent(
             HmpLog.i(LogTag.AgentRadio) { "📻 [复用] 跳过：当前曲目已经不是上次那份队列里的歌" }
             return false
         }
-        // ③-b 队列本身也必须没被动过（用户可能换了歌单，而新歌单里恰好也有这首）
+        // ③-b 队列本身也必须没被动过（用户可能换了歌单，而新歌单里恰好也有这首）。
         //      拿不到队列指纹时退化为只靠 ③-a。
+        //
+        // ⚠️ 只比「在播曲**之后**」的尾巴 —— 播放器队列是**稠密**的（`replaceQueueWith` 只动
+        //    在播曲之后的条目、保留已播前缀），而电台镜像被换批压缩为 `[在播, ...后续]`；
+        //    两者整体比对会因前缀长度不同而**永远不等 → 复用永远被误拒**（真机 2026-09-19）。
         val queue = now.queueIds
-        if (queue.isNotEmpty() && queue != r.playlist.map { it.musicId }) {
-            HmpLog.i(LogTag.AgentRadio) {
-                "📻 [复用] 跳过：播放列表已变（${r.playlist.size} 首 → ${queue.size} 首）"
+        if (queue.isNotEmpty()) {
+            val qIdx = queue.indexOfFirst { it == playingId }
+            val rIdx = r.playlist.indexOfFirst { it.musicId == playingId }   // ③-a 已保证 >= 0
+            val queueTail = if (qIdx >= 0) queue.drop(qIdx + 1) else emptyList()
+            val mirrorTail = if (rIdx >= 0) r.playlist.drop(rIdx + 1).map { it.musicId } else emptyList()
+            if (qIdx < 0 || queueTail != mirrorTail) {
+                HmpLog.i(LogTag.AgentRadio) {
+                    "📻 [复用] 跳过：在播曲之后的队列已变（镜像 ${mirrorTail.size} 首 → 播放器 ${queueTail.size} 首）"
+                }
+                return false
             }
-            return false
         }
 
         // ── 复用：恢复状态，重新起消费协程，对话原样续上 ──
@@ -735,7 +755,12 @@ class RadioSubAgent(
             targetCount = currentPlaylist.size.coerceAtLeast(targetCount),
         )
 
-        startSession(openingSource = "复用上次对话", openingMessages = r.messages)
+        // 档案一起恢复 —— 否则续上后「节目档案 / 收听台账」是空的（模型失忆）
+        startSession(
+            openingSource = "复用上次对话",
+            openingMessages = r.messages,
+            openingArchive = r.archive,
+        )
         session?.noteExecuted("恢复播放（距上次关闭 ${ageMs / 60_000} 分钟）")
 
         runCatching {
@@ -744,7 +769,9 @@ class RadioSubAgent(
         ensureAudible(playingId)
 
         HmpLog.i(LogTag.AgentRadio) {
-            "📻 [复用] 续上上次对话（${r.messages.size} 条消息，队列 ${currentPlaylist.size} 首）→ 省掉曲库视图组装"
+            "📻 [复用] 续上上次对话（${r.messages.size} 条消息，队列 ${currentPlaylist.size} 首，" +
+                "档案=${if (r.archive != null) "已恢复（已执行 ${r.archive.executed.size} / 台账 ${r.archive.settled.size} 条）" else "无（旧快照）"}）" +
+                "→ 省掉曲库视图组装"
         }
         return true
     }
@@ -846,6 +873,8 @@ class RadioSubAgent(
             seed = this.seed,
             // 记下开播时段：复用判断用「情境换代」替代死板的 30 分钟窗口（spec §7.1）
             dayPart = runCatching { currentLocalMoment().dayPart() }.getOrNull(),
+            // 会话档案与 messages 配套：不带上它，续档后「节目档案 / 收听台账」就是空的
+            archive = session?.exportArchive(),
         )
     }
 
@@ -854,11 +883,14 @@ class RadioSubAgent(
      *
      * @param openingMessages 非空则作为起始历史（开播往返 = 第 1 轮），否则只放 system
      * @param openingReason 开场编排思路，进节目档案
+     * @param openingArchive 复用上一档时的会话档案（节目档案 + 事实账本）；非空则恢复它，
+     *   并**跳过**「开播」条目 —— 那一档的「已执行」本就在档案里，重复记会让模型以为又开了一次播
      */
     private fun startSession(
         openingSource: String,
         openingMessages: List<LlmMessage>? = null,
         openingReason: String? = null,
+        openingArchive: RadioSessionArchive? = null,
     ) {
         session?.close()
         val s = RadioSession(
@@ -876,13 +908,18 @@ class RadioSubAgent(
                 }
             },
         )
-        if (openingMessages.isNullOrEmpty()) s.begin() else s.resumeFrom(openingMessages)
+        if (openingMessages.isNullOrEmpty()) s.begin() else s.resumeFrom(openingMessages, openingArchive)
         s.noteIntent(openingReason)
-        s.noteExecuted("开播：$openingSource")
+        // 复用时不补「开播」条目：上一档的「已执行」已随档案恢复，重复记会让模型以为又开了一次播
+        // （调用方会补一条「恢复播放（距上次关闭 X 分钟）」）
+        if (openingArchive == null) s.noteExecuted("开播：$openingSource")
         s.start(scope)
         session = s
         HmpLog.i(LogTag.AgentRadio) {
-            "📻 [会话] 开启（队列来源=$openingSource，端点=${if (radioConfig != null) "有" else "无"}）"
+            "📻 [会话] 开启（队列来源=$openingSource，端点=${if (radioConfig != null) "有" else "无"}）" +
+                (openingArchive?.let {
+                    " | 档案恢复：已执行 ${it.executed.size} / 编排思路 ${it.intents.size} / 台账 ${it.settled.size} 条"
+                } ?: "")
         }
     }
 
@@ -981,6 +1018,9 @@ class RadioSubAgent(
             },
             tools = null,          // 判断阶段不给工具：它只能三选一，不能自己去改队列
             temperature = defaultTemperature,
+            // F12-T1 计量收口：本路径**曾完全不计账**（自建 executor、绕过 budget 包装）
+            agentId = TokenMeter.AGENT_RADIO,
+            meter = contextBudget.tokenMeter,
         )
         if (res.failed) {
             // 失败原因必须上 RadioTrace：此前 failedMessage 被吞掉，
@@ -1069,6 +1109,13 @@ class RadioSubAgent(
             }
 
             RadioAction.REPLACE -> {
+                // 在播曲目**以播放器为准**（同 `contextSnapshot` 铁律）：`playedCount` 只在
+                // 经端口发起的 USER 切歌时才累加 —— 系统通知栏 / 锁屏 / 播放页切歌**不走端口**，
+                // 计数会停摆（真机 2026-09-19 全档 `playedCount=0`、`currentPlayingId` 停在开播那首）。
+                // 拿 `playedCount` 当镜像下标会让镜像头永久错位 → 关闭时导出坏队列
+                // → 再次开播"复用上次内容"判定失败。故每轮换批先从播放器刷新在播 id。
+                val nowId = runCatching { nowPlayingProvider.getNowPlaying() }.getOrNull()?.currentMusicId
+                if (nowId != null) currentPlayingId = nowId
                 val tracks = resolveTracks(
                     verdict.musicIds,
                     excludeMusicId = currentPlayingId,
@@ -1080,8 +1127,10 @@ class RadioSubAgent(
                     return true
                 }
                 applyQueueAfterCurrent(tracks.map { it.musicId })
-                // 队列已换，同步本地镜像（在播那首 + 新的后续），否则 remainingHint 一直是旧值
-                val playing = currentPlaylist.getOrNull(playedCount)
+                // 队列已换，同步本地镜像（在播那首 + 新的后续），否则 remainingHint 一直是旧值。
+                // 按 musicId 找在播曲（拿不到就退回头元素），不再用 playedCount 当下标。
+                val playing = currentPlaylist.firstOrNull { it.musicId == currentPlayingId }
+                    ?: currentPlaylist.firstOrNull()
                 currentPlaylist = listOfNotNull(playing) + tracks
                 _lastAdjust.value = intent ?: "已换一批"
                 session?.noteExecuted("换批（${tracks.size} 首）")
