@@ -1,4 +1,12 @@
 package com.hmp.domain.agent.tool
+import com.hmp.domain.agent.tool.spec.AgentTool
+import com.hmp.domain.agent.tool.spec.ToolResult
+import com.hmp.domain.agent.tool.spec.ToolParam
+import com.hmp.domain.agent.tool.spec.ToolNames
+import com.hmp.domain.agent.tool.spec.ToolArgs
+import com.hmp.domain.agent.tool.spec.StringParam
+
+import com.hmp.domain.agent.port.ToolPermissionLevel
 
 import com.hmp.domain.agent.profile.PortraitType
 import com.hmp.domain.agent.profile.ProfileSources
@@ -71,6 +79,7 @@ class ProfileNoteTool(
 
     override suspend fun run(args: ToolArgs): ToolResult {
         val agent = profile ?: return ToolResult.failure("画像模块未启用，无法记录")
+        if (!agent.memoryEnabled) return ToolResult.success("（记忆功能已关闭，未记录该偏好）")
         val predicate = args.requireString("predicate")
         val value = args.requireString("value")
         val ok = agent.noteStatedPreference(predicate, value)
@@ -105,6 +114,7 @@ class ProfileForgetTool(
 
     override suspend fun run(args: ToolArgs): ToolResult {
         val agent = profile ?: return ToolResult.failure("画像模块未启用，无法忘掉")
+        if (!agent.memoryEnabled) return ToolResult.success("（记忆功能已关闭，无需遗忘）")
         val typeId = args.requireString("portrait_type").trim()
         val ok = agent.forgetPortrait(typeId)
         return if (ok) {

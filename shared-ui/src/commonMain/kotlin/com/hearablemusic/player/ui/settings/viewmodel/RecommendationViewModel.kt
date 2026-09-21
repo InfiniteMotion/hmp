@@ -3,37 +3,21 @@ package com.hearablemusic.player.ui.settings.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.hmp.domain.agent.runtime.MasterAgent
-import com.hmp.domain.music.MusicInfo
-import com.hmp.domain.music.MusicLabel
 import com.hmp.domain.music.usecase.GetAllMusicUseCase
 import com.hmp.domain.music.usecase.GetDailyMusicRecommendationUseCase
-import com.hmp.domain.setting.model.DailyMusicInfo
 import com.hmp.domain.setting.model.ListeningDuration
-import com.hmp.domain.setting.usecase.CurrentPlaybackUseCase
-import com.hmp.domain.setting.usecase.UserSettingsUseCase
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 class RecommendationViewModel(
     private val getDailyRecommendationUseCase: GetDailyMusicRecommendationUseCase,
     private val getAllMusicUseCase: GetAllMusicUseCase,
-    private val userSettingsUseCase: UserSettingsUseCase,
-    private val currentPlaybackUseCase: CurrentPlaybackUseCase,
     /** MasterAgent（可选——没有 Agent 模块时 UI 降级） */
     private val masterAgent: MasterAgent? = null,
 ) : ViewModel() {
-
-    // 每日推荐歌曲
-    val dailyMusic = MutableStateFlow<MusicInfo?>(null)
-    private val _dailyMusicInfo = MutableStateFlow<DailyMusicInfo?>(null)
-    val dailyMusicInfo: StateFlow<DailyMusicInfo?> = _dailyMusicInfo
-    private val _dailyMusicLabel = MutableStateFlow<List<MusicLabel?>>(emptyList())
-    val dailyMusicLabel: StateFlow<List<MusicLabel?>> = _dailyMusicLabel
 
     // 待处理音乐数量
     val pendingMusicCount: StateFlow<Int> = getAllMusicUseCase
@@ -64,56 +48,6 @@ class RecommendationViewModel(
     val recentListeningDurations: StateFlow<List<ListeningDuration>> = getDailyRecommendationUseCase
         .getRecentListeningDurations()
         .stateIn(viewModelScope, SharingStarted.Companion.WhileSubscribed(5000), emptyList())
-
-    /**
-     * 获取每日推荐音乐
-     */
-    fun getDailyMusicInfo() {
-        viewModelScope.launch {
-            // 先增加启动计数
-            userSettingsUseCase.incrementAppLaunchCount()
-
-            // 检查是否需要刷新
-            val shouldRefresh = userSettingsUseCase.shouldRefreshDailyRecommendation()
-
-            if (shouldRefresh) {
-                refreshDailyMusicInfo()
-            } else {
-                if (dailyMusic.value == null) {
-                    val savedMusicId = userSettingsUseCase.getCurrentDailyMusicId()
-                    if (savedMusicId != null && savedMusicId > 0) {
-                        val recommendation = getDailyRecommendationUseCase.getMusicWithExtraById(savedMusicId)
-                        if (recommendation?.musicInfo != null) {
-                            dailyMusic.value = recommendation.musicInfo
-                            _dailyMusicInfo.value = recommendation.dailyMusicInfo
-                            _dailyMusicLabel.value = recommendation.labels
-                        } else {
-                            refreshDailyMusicInfo()
-                        }
-                    } else {
-                        refreshDailyMusicInfo()
-                    }
-                }
-            }
-        }
-    }
-
-    /**
-     * 手动刷新每日推荐
-     */
-    fun refreshDailyMusicInfo() {
-        viewModelScope.launch {
-            val recommendation = getDailyRecommendationUseCase.getRandomMusicWithExtra()
-            dailyMusic.value = recommendation.musicInfo
-            _dailyMusicInfo.value = recommendation.dailyMusicInfo
-            _dailyMusicLabel.value = recommendation.labels
-
-            recommendation.musicInfo?.music?.id?.let { musicId ->
-                userSettingsUseCase.saveCurrentDailyMusicId(musicId)
-            }
-            userSettingsUseCase.updateLastDailyRefreshTimestamp()
-        }
-    }
 
     // ===== 富化生命周期桥接到 MasterAgent =====
     // 旧版 GetDailyMusicRecommendationUseCase 富化循环已删除，所有操作走 MasterAgent
@@ -147,13 +81,6 @@ class RecommendationViewModel(
             _processingProgress.value = BatchProcessingProgress()
             _isProcessingExtraInfo.value = false
         }
-    }
-
-    /**
-     * 清除处理结果（UI-only）
-     */
-    fun clearProcessingResult() {
-        // 旧版 _processingResult 已删除
     }
 
     /**

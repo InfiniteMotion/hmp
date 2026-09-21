@@ -63,6 +63,7 @@ import com.hearablemusic.player.ui.common.dialogs.TimerDialog
 import com.hearablemusic.player.ui.common.layout.LocalWindowSizeInfo
 import com.hearablemusic.player.ui.common.layout.WindowWidthSizeClass
 import com.hearablemusic.player.ui.common.util.UiState
+import com.hearablemusic.player.ui.common.util.isRenderableExtra
 import com.hearablemusic.player.ui.common.util.rememberHapticFeedback
 import com.hearablemusic.player.ui.library.pages.components.AlbumCover
 import com.hearablemusic.player.ui.library.pages.components.musiclist.CurrentPlayingConfig
@@ -900,13 +901,19 @@ private fun SongDetailInfoTab(songDetailState: UiState<SongDetailData>, musicExt
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 32.dp, vertical = 16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         TechnicalInfoCard(extra = musicExtra, modifier = Modifier.fillMaxWidth())
         if (songDetailState is UiState.Success) {
-            val data = songDetailState.data; val dailyInfo = data.dailyMusicInfo
-            if (dailyInfo != null && (dailyInfo.backgroundIntroduce.isNotBlank() && dailyInfo.backgroundIntroduce != "None" || dailyInfo.description.isNotBlank() && dailyInfo.description != "None" || dailyInfo.singerIntroduce.isNotBlank() && dailyInfo.singerIntroduce != "None" || dailyInfo.rewards.isNotBlank() && dailyInfo.rewards != "None")) {
+            val data = songDetailState.data
+            // 富化文案直接读 MusicExtra：旧 DailyMusicInfo（已删除）的 6 个文本字段本就是同一批列，
+            // 无需再经 getMusicExtraById 回查一次
+            val background = musicExtra?.backgroundIntroduce?.takeIf { it.isRenderableExtra() }
+            val description = musicExtra?.description?.takeIf { it.isRenderableExtra() }
+            val singerIntroduce = musicExtra?.singerIntroduce?.takeIf { it.isRenderableExtra() }
+            val rewards = musicExtra?.rewards?.takeIf { it.isRenderableExtra() }
+            if (background != null || description != null || singerIntroduce != null || rewards != null) {
                 InfoCard(stringResource(Res.string.related_info)) {
-                    if (dailyInfo.backgroundIntroduce.isNotBlank() && dailyInfo.backgroundIntroduce != "None") InfoRow(stringResource(Res.string.creative_background), dailyInfo.backgroundIntroduce)
-                    if (dailyInfo.description.isNotBlank() && dailyInfo.description != "None") InfoRow(stringResource(Res.string.song_description), dailyInfo.description)
-                    if (dailyInfo.singerIntroduce.isNotBlank() && dailyInfo.singerIntroduce != "None") InfoRow(stringResource(Res.string.artist_introduction), dailyInfo.singerIntroduce)
-                    if (dailyInfo.rewards.isNotBlank() && dailyInfo.rewards != "None") InfoRow(stringResource(Res.string.song_achievements), dailyInfo.rewards)
+                    if (background != null) InfoRow(stringResource(Res.string.creative_background), background)
+                    if (description != null) InfoRow(stringResource(Res.string.song_description), description)
+                    if (singerIntroduce != null) InfoRow(stringResource(Res.string.artist_introduction), singerIntroduce)
+                    if (rewards != null) InfoRow(stringResource(Res.string.song_achievements), rewards)
                 }
             }
             if (userInfo != null) {

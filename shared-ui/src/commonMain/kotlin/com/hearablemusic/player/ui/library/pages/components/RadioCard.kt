@@ -32,7 +32,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.hmp.domain.agent.runtime.MasterAgent
-import com.hmp.domain.agent.sub.RadioState
+import com.hmp.domain.agent.runtime.sub.radio.RadioState
 import com.hearablemusic.player.ui.common.design.dimens.LocalHMPDimens
 import com.hearablemusic.player.ui.common.components.base.HMPCard
 import com.hearablemusic.player.ui.common.util.HapticFeedbackHelper

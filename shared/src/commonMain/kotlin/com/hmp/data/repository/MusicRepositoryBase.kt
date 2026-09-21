@@ -47,10 +47,10 @@ import com.hmp.domain.music.MusicDurationRow
 import com.hmp.domain.music.MusicInfo
 import com.hmp.domain.music.PlaylistAnniversaryRow
 import com.hmp.domain.music.MusicLabel
+import com.hmp.domain.music.MusicExtraTexts
 import com.hmp.domain.music.MusicRepository
 import com.hmp.domain.setting.model.AiEndpointConfig
 import com.hmp.domain.setting.model.ArtistCountEntry
-import com.hmp.domain.setting.model.DailyMusicInfo
 import com.hmp.domain.setting.model.LabelCountEntry
 import com.hmp.domain.setting.model.ListeningDuration as ListeningDurationDomain
 import com.hmp.domain.setting.model.PlaybackHistory
@@ -58,7 +58,7 @@ import com.hmp.domain.setting.model.RecentPlaybackEntry
 import com.hmp.domain.setting.model.TopPlayedEntry
 import com.hmp.domain.setting.model.UserUsageAnalytics
 import com.hmp.domain.setting.model.WindowedUsageAnalytics
-import com.hmp.domain.agent.sub.daysToCutoffMs
+import com.hmp.domain.agent.card.daysToCutoffMs
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.firstOrNull
@@ -76,7 +76,6 @@ import com.hmp.log.LogTag
  * 平台层仅保留真正分叉的能力：
  * - 设备扫描（loadMusicFromDevice / syncMusicFromDeviceIncremental）——MediaStore vs 文件系统 vs NSFileManager；
  * - `getAllMusicInfoAsList`——三端排序语义刻意不同（android 含 raw 分键与 SQL 前缀路径）；
- * - `getRandomMusicInfoWithExtra`——desktop 手动构建绕过 Room @Relation 桌面端问题；
  * - `getDeletedMusicIdsGroupedByFolder`——File.parent vs substringBeforeLast。
  *
  * 新增 expect/actual 日期工具（todayDateString / parseDateToMillis）把三端日期差异收口，
@@ -350,33 +349,16 @@ abstract class MusicRepositoryBase(
 
     override suspend fun getMusicLyrics(musicId: Long): String? = musicExtraDao.getLyricsById(musicId)
 
-    override suspend fun insertMusicExtra(musicId: Long, musicExtraInfo: DailyMusicInfo) {
+    override suspend fun updateMusicExtraTexts(musicId: Long, texts: MusicExtraTexts) {
+        // 这条 SQL 同时把 isGetExtraInfo 置 true —— 写入富化文案 = 标记已富化
         musicExtraDao.updateExtraFieldsById(
             id = musicId,
-            rewards = musicExtraInfo.rewards,
-            popLyric = musicExtraInfo.lyric,
-            singerIntroduce = musicExtraInfo.singerIntroduce,
-            backgroundIntroduce = musicExtraInfo.backgroundIntroduce,
-            description = musicExtraInfo.description,
-            relevantMusic = musicExtraInfo.relevantMusic
-        )
-    }
-
-    override suspend fun getMusicExtraById(musicId: Long): DailyMusicInfo {
-        val info = musicExtraDao.getExtraFieldsById(musicId)
-        return DailyMusicInfo(
-            genre = emptyList(),
-            mood = emptyList(),
-            scenario = emptyList(),
-            language = "",
-            era = "",
-            rewards = info?.rewards ?: "",
-            lyric = info?.popLyric ?: "",
-            singerIntroduce = info?.singerIntroduce ?: "",
-            backgroundIntroduce = info?.backgroundIntroduce ?: "",
-            description = info?.description ?: "",
-            relevantMusic = info?.relevantMusic ?: "",
-            errorInfo = "None"
+            rewards = texts.rewards,
+            popLyric = texts.popLyric,
+            singerIntroduce = texts.singerIntroduce,
+            backgroundIntroduce = texts.backgroundIntroduce,
+            description = texts.description,
+            relevantMusic = texts.relevantMusic
         )
     }
 

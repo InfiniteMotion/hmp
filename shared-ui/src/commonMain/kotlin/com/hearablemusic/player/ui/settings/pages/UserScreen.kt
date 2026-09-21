@@ -38,6 +38,7 @@ import androidx.navigation3.runtime.NavKey
 import com.hearablemusic.player.ui.common.components.Avatar
 import com.hearablemusic.player.ui.common.components.base.HMPCard
 import com.hearablemusic.player.ui.common.design.dimens.LocalHMPDimens
+import com.hearablemusic.player.ui.player.components.MiniPlayerSafeSpacer
 import com.hearablemusic.player.ui.common.layout.LocalWindowSizeInfo
 import com.hearablemusic.player.ui.common.layout.WindowWidthSizeClass
 import com.hearablemusic.player.ui.common.navigation.Routes
@@ -358,10 +359,11 @@ fun UserScreenContent(
                         ListeningChart(data = chartData)
                     }
 
-                    SettingsListCard(navController = navController)
-                }
-                Spacer(modifier = Modifier.height(88.dp))
+                SettingsListCard(navController = navController)
             }
+            // 给全局悬浮音乐胶囊预留底部空间
+            MiniPlayerSafeSpacer(height = 56.dp)
+        }
         }
     }
 }

@@ -6,10 +6,17 @@ import com.hmp.data.network.OpenAiCompatibleAdapter
 import com.hmp.data.network.OpenAiLlmTransport
 import com.hmp.data.network.createHttpClient
 import com.hmp.data.network.createJson
+import com.hmp.domain.agent.config.EngineDefaults
 import com.hmp.domain.agent.port.LlmTransport
 import com.hmp.domain.agent.port.PlaybackObservationBus
 import com.hmp.domain.agent.runtime.GlobalTokenCounter
+import com.hmp.domain.agent.runtime.MasterAgent
 import com.hmp.domain.agent.runtime.TokenMeter
+import com.hmp.domain.setting.SettingsRepository
+import com.hmp.log.HmpLog
+import com.hmp.log.LogTag
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.launch
 import com.hmp.domain.music.usecase.GetAllMusicUseCase
 import com.hmp.domain.music.usecase.GetDailyMusicRecommendationUseCase
 import com.hmp.domain.music.usecase.GetDeletedMusicIdsGroupedByFolderUseCase
@@ -93,6 +100,92 @@ val sharedModule = module {
 
     // 保留无命名 LlmTransport 供遗留代码兜底（逐步迁移中）
     single<LlmTransport> { get(named(AGENT_CHAT)) }
+
+    // ══ Agent 运行时装配（F13：装配归属领域模块，UI 不再 new 领域对象）══
+    //
+    // 搬迁自 shared-ui 的 chatGatewayModule。理由：UI 模块 new 领域对象并注入
+    // GlobalTokenCounter / TokenMeter 等引擎内部件，是「引擎内部件被迫 public」
+    // 的主因（F13 阶段 1 实测：20 个类型因此收不了口）。
+    //
+    // 仍由 shared-ui 注册、本装配通过**端口接口**解析的 bean（Koin 惰性求值，
+    // 与模块加载顺序无关）：
+    //   PlaybackCommandPort / NowPlayingContextProvider / AiExtraEnrichPort 的适配器实现，
+    //   以及 ToolRegistry / PolicyGuard / SessionStore / PresenceBus。
+    single {
+        val settingsRepo = get<SettingsRepository>()
+        // 取一次当前 AI 端点配置（runBlocking：仅 Koin 初始化时阻塞一次，
+        // 启动后的配置变更由下方热监听动态更新）
+        val enrichConfig = kotlinx.coroutines.runBlocking {
+            runCatching { settingsRepo.getActiveAiConfig() }.getOrNull()
+        }
+        // 方案 B：4 个独立 Transport 实例（共享同一个 HttpClient 连接池）
+        val chatTransport = get<LlmTransport>(named(AGENT_CHAT))
+        val enrichTransport = get<LlmTransport>(named(AGENT_ENRICH))
+        val helloTransport = get<LlmTransport>(named(AGENT_HELLO))
+        val radioTransport = get<LlmTransport>(named(AGENT_RADIO))
+        MasterAgent(
+            timeProvider = { currentTimeMillis() },
+            // F12-T1：注入共享单例，确保计量与配额熔断读同一份计数（meter 同 bean）
+            tokenCounter = get(),
+            tokenMeter = get(),
+            musicRepository = get(),
+            // 对话依赖
+            chatTransport = chatTransport,
+            chatToolRegistry = get(),
+            chatPolicyGuard = get(),
+            chatAuditLog = get(),
+            chatSessionStore = get(),
+            chatPresenceBus = get(),
+            observationBus = get(),
+            // F11-L1/L2：agent 保活端口（Android 有实现；iOS/Desktop 未提供 → null，静默跳过）
+            keepAlivePort = getOrNull(),
+            stepBudget = EngineDefaults.STEP_BUDGET,
+            // Enrich 后台依赖（独立 Transport）
+            enrichTransport = enrichTransport,
+            enrichConfig = enrichConfig,
+            // Radio 电台依赖（独立 Transport）
+            radioTransport = radioTransport,
+            playbackPort = get(),
+            nowPlayingProvider = get(),
+            // Hello 门面依赖（独立 Transport）
+            helloTransport = helloTransport,
+            // W0: HelloSubAgent 持久化 DAO（启用则卡片池 + 报告叙事段落 Room；不注入自动降级内存）
+            helloCardCacheDao = get(),
+            helloReportNarrativeDao = get(),
+            // Agent 配置持久化（trustLevel + alwaysAllow DataStore 读写）
+            settingsRepo = settingsRepo,
+            // 用户认识模块（画像）—— v3.6 起归属 Master：传三 DAO 由其内部装配
+            userProfileEvidenceDao = get(),
+            userProfilePortraitDao = get(),
+            userProfileNarrativeDao = get(),
+        ).also { master ->
+            // F9-A0: bindCapabilityTools 已移到 MasterAgent.initialize() 里
+            // （避免在 Koin single 创建过程中再 get<ToolRegistry>() 引发循环依赖）
+            master.lifecycleScope.launch {
+                runCatching { master.initialize() }
+                    .onFailure { e -> HmpLog.w(LogTag.AgentMaster, e) { "🤖 initialize failed | non-fatal | reason=${e.message}" } }
+            }
+            // AI 配置热监听：**生效配置真变**时才推给 MasterAgent（只在真变时重载）。
+            //
+            // ⚠️ 必须 `distinctUntilChanged()`：两个上游都派生自全局单例 `dataStore.data`，
+            // 任何无关写入都会让它重发 —— 例如播放进度持久化（`saveCurrentPosition`，数秒一次）。
+            master.lifecycleScope.launch {
+                kotlinx.coroutines.flow.combine(
+                    settingsRepo.aiAccessMode.distinctUntilChanged(),
+                    settingsRepo.customAiConfig.distinctUntilChanged(),
+                ) { _, _ ->
+                    runCatching { settingsRepo.getActiveAiConfig() }.getOrNull()
+                }
+                    .distinctUntilChanged()
+                    .collect { activeConfig ->
+                        master.updateAiConfig()
+                        HmpLog.i(LogTag.AgentMaster) {
+                            "🤖 AI config changed → reloaded (endpoint=${activeConfig?.endpoint?.take(40) ?: "(none)"}, model=${activeConfig?.selectedModel ?: "-"})"
+                        }
+                    }
+            }
+        }
+    }
 
     // Use Cases
     single { GetAllMusicUseCase(get()) }

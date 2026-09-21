@@ -24,7 +24,7 @@
 | 文件 | 内容 |
 |------|------|
 | [`agent.md`](agent.md) | **设计总纲 · 单一事实来源**。定位 / 本体 / 认识论 / 能力面 / 交互实施 / 工程。冲突时以此为准 |
-| [`agent-architecture.md`](agent-architecture.md) | 架构详解：设计铁则 F1-F6、两层结构（每 Agent 预算 + 全局调度器）、各 Agent 详解、源码位置索引 |
+| [`agent-architecture.md`](agent-architecture.md) | 架构详解：设计铁则 F1-F6、两层结构（每 Agent 预算 + 全局调度器）、各 Agent 详解、源码位置索引、**可见性与接口面**（F13 的设计依据：判据 / 验收口径 / 编译反推法） |
 
 ### 用户认识模块（画像）
 

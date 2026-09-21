@@ -1,7 +1,6 @@
 package com.hmp.domain.agent.runtime
 
 import com.hmp.domain.agent.port.LlmMessage
-import com.hmp.domain.agent.tool.ToolPermissionLevel
 
 /** 终止原因（熔断为何终止，入审计）。 */
 enum class TerminationReason { ANSWERED, STEP_BUDGET_EXHAUSTED, CLOUD_QUOTA_EXHAUSTED, FAILED }
@@ -18,6 +17,32 @@ data class ToolExecutionRecord(
     val detail: String? = null,
 )
 
+/**
+ * 内建意图路由命中的标识 —— [AgentResult.intentHandled] 的**完整取值集合**。
+ *
+ * ⚠️ 用 enum 而不是字符串常量，是为了让"值域"从注释进到**编译期**：
+ * 生产方（`MasterAgent.builtinIntents` 表）与消费方（UI 的 `ChatAgentGateway`）
+ * 引用同一组符号 —— 新增意图、拼错标识都会在编译期暴露。
+ *
+ * 这是 F13 阶段 3c 记下的警告信号的实例：**注释里写契约，代码里各一份**。
+ * 原先 `intentHandled: String?` 的值域只由一行 KDoc 描述（"值如 radio_start…"），
+ * UI 侧靠 7 个裸字符串字面量去 `when` 匹配 —— 两边并无编译期联系，新增意图时
+ * 忘记同步 UI **不会报错**，只是回复气泡静默落进错误分支（这类缺陷不崩溃、不报警）。
+ */
+enum class BuiltinIntentId {
+    RADIO_START,
+    RADIO_STOP,
+    RADIO_RESUME,
+    /** 「继续电台」但电台并未处于暂停态时的空操作（guard 拦截分支）。 */
+    RADIO_RESUME_NOOP,
+    ENRICH_START,
+    ENRICH_STOP,
+    ENRICH_PAUSE,
+    ENRICH_RESUME,
+    ENRICH_RESCAN,
+    ENRICH_STATUS,
+}
+
 /** Agent 任务结果。 */
 data class AgentResult(
     val text: String,
@@ -27,43 +52,13 @@ data class AgentResult(
     /**
      * 内建意图路由命中标记（MasterAgent.handleUserMessage 内部确定性匹配）。
      * 非 null 表示 Master 直接处理了子 Agent 生命周期，不走 LLM ReActLoop。
-     * 值如 "radio_start" / "radio_stop" / "enrich_pause" / "enrich_resume" / "enrich_status"。
+     * 取值集合见 [BuiltinIntentId]。
      */
-    val intentHandled: String? = null,
+    val intentHandled: BuiltinIntentId? = null,
 )
 
-/**
- * 一次待确认的工具调用（确认卡片：一次 turn 的多项确认聚合展示、逐项勾选）。
- * @param toolName 工具名（供卡片展示与审计）
- * @param argsSummary 参数摘要（供用户判断）
- * @param permissionLevel 许可级（CONFIRM / STRONG_CONFIRM）
- */
-data class ConfirmRequest(
-    val toolName: String,
-    val argsSummary: String,
-    val permissionLevel: ToolPermissionLevel,
-)
-
-/**
- * 用户对单条确认请求的决策（三种，无 Deny Always）：
- * - AllowOnce  — 本次允许执行，不写入白名单
- * - AllowAlways — 本次允许执行 + 写入此 Agent 的 alwaysAllow 白名单（以后自动跳过确认）
- * - Deny       — 本次拒绝执行（仅当次，不永久拉黑；如需永久拉黑，用户可到设置页手动配置）
- */
-sealed interface ConfirmOutcome {
-    data object AllowOnce : ConfirmOutcome
-    data object AllowAlways : ConfirmOutcome
-    data object Deny : ConfirmOutcome
-}
-
-/**
- * 确认门（确认卡片流实现；测试注入脚本化门：全通过 / 全否决 / 按工具）。
- * 批量语义：一次 turn 可能触发多项需要确认的工具，聚合为 [requests] 一次性请求，
- * 返回与传入**同序**的决策列表；Deny=该项本次跳过（拒绝纪律：本次会话不纠缠，不报错）。
- */
-fun interface ConfirmGate {
-    suspend fun request(requests: List<ConfirmRequest>): List<ConfirmOutcome>
-}
+// 注：确认门三件套（ConfirmGate / ConfirmRequest / ConfirmOutcome）
+// 已下沉到 `port/ConfirmGate.kt` —— 它们是跨层契约，不属于引擎目录。
 
 /** 一次运行的外部上下文输入（供组装 LLM system prompt + 首轮注入）。 */
 data class RunContextInput(

@@ -1,6 +1,9 @@
 package com.hmp.domain.agent.runtime
 
 import com.hmp.domain.agent.port.AuditEntry
+import com.hmp.domain.agent.port.ConfirmGate
+import com.hmp.domain.agent.port.ConfirmOutcome
+import com.hmp.domain.agent.port.ConfirmRequest
 import com.hmp.domain.agent.port.AuditLogPort
 import com.hmp.domain.agent.port.LlmEvent
 import com.hmp.domain.agent.port.LlmMessage
@@ -9,7 +12,7 @@ import com.hmp.domain.agent.policy.PermissionDecision
 import com.hmp.domain.agent.policy.PolicyGuard
 import com.hmp.log.HmpLog
 import com.hmp.log.LogTag
-import com.hmp.domain.agent.tool.ToolRegistry
+import com.hmp.domain.agent.tool.spec.ToolRegistry
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 
@@ -24,7 +27,7 @@ import kotlinx.serialization.json.jsonObject
  *
  * 拆自 MasterAgent 的 decideChatApprovals() + executeChatOne() 两个私有方法。
  */
-class ToolCallExecutor(
+internal class ToolCallExecutor(
     private val registry: ToolRegistry,
     private val policyGuard: PolicyGuard? = null,
     private val confirmGate: ConfirmGate? = null,

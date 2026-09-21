@@ -1,6 +1,5 @@
 package com.hmp.domain.music.usecase
 
-import com.hmp.domain.setting.model.DailyMusicInfo
 import com.hmp.domain.setting.model.ListeningDuration
 import com.hmp.domain.music.MusicInfo
 import com.hmp.domain.music.MusicLabel
@@ -17,18 +16,14 @@ class GetDailyMusicRecommendationUseCase(
     private val settingsRepository: SettingsRepository,
 ) {
 
+    /**
+     * 富化文案（创作背景/简介/歌手介绍/奖项/相似歌曲/精选歌词）随 `MusicInfo.extra` 一起返回，
+     * 不再单独回查——那是旧 DailyMusicInfo（已删除）读的同一批列。
+     */
     data class MusicRecommendation(
         val musicInfo: MusicInfo?,
-        val dailyMusicInfo: DailyMusicInfo?,
         val labels: List<MusicLabel?>
     )
-
-    suspend fun getRandomMusicWithExtra(): MusicRecommendation {
-        val musicInfo = musicRepository.getRandomMusicInfoWithExtra()
-        val dailyMusicInfo = musicInfo?.music?.id?.let { musicRepository.getMusicExtraById(it) }
-        val labels = musicInfo?.music?.id?.let { musicRepository.getMusicLabels(it) } ?: emptyList()
-        return MusicRecommendation(musicInfo, dailyMusicInfo, labels)
-    }
 
     suspend fun getMusicWithExtraById(musicId: Long): MusicRecommendation? {
         try {
@@ -39,9 +34,8 @@ class GetDailyMusicRecommendationUseCase(
                 return null
             }
 
-            val dailyMusicInfo = musicRepository.getMusicExtraById(musicId)
             val labels = musicRepository.getMusicLabels(musicId)
-            return MusicRecommendation(musicInfo, dailyMusicInfo, labels)
+            return MusicRecommendation(musicInfo, labels)
         } catch (e: Exception) {
             HmpLog.e(LogTag.DataMusicRepo, e) { "🎵 getMusicWithExtraById failed | musicId=$musicId | reason=${e.message}" }
             return null

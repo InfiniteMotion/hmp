@@ -1,5 +1,7 @@
 package com.hmp.domain.agent.runtime
 
+import com.hmp.domain.agent.port.TimeProvider
+
 import com.hmp.platform.Volatile
 import com.hmp.platform.Synchronized
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -17,7 +19,24 @@ import kotlinx.coroutines.flow.asStateFlow
  * 线程安全：所有方法 @Synchronized，因为 Scheduler 仲裁循环（每秒 1 次）和
  * handleUserMessage 对话循环会并发调用。
  */
-class GlobalTokenCounter(
+/**
+ * 看板 / 诊断用的不可变 Token 快照。
+ *
+ * **F13：为什么它 public 而 [GlobalTokenCounter] 是 internal** ——
+ * 可见性看「跨不跨模块」：`AgentMonitorScreen`（shared-ui）要渲染用量，所以*这个数据形状*
+ * 必须公开；但它不需要拿到计数器本身。UI 只经 `MasterAgent.tokenUsage` 读快照，
+ * 于是引擎计数器得以收敛为 internal。把数据形状与写入能力分开，是"抽门面"的典型形态。
+ */
+data class TokenSnapshot(
+    val used: Long,
+    val quota: Long,
+) {
+    val remaining: Long = (quota - used).coerceAtLeast(0)
+
+    val rate: Float = if (quota > 0) (used.toFloat() / quota).coerceIn(0f, 1f) else 0f
+}
+
+internal class GlobalTokenCounter(
     private val timeProvider: TimeProvider,
     /** 全局 Token 日配额上限（Scheduler 仲裁用）。默认保守值 500K token/天 */
     val dailyTokenQuota: Int = DEFAULT_DAILY_TOKEN_QUOTA,
@@ -30,15 +49,6 @@ class GlobalTokenCounter(
     private val _snapshot =
         MutableStateFlow(TokenSnapshot(used = 0L, quota = dailyTokenQuota.toLong()))
     val snapshot: StateFlow<TokenSnapshot> = _snapshot.asStateFlow()
-
-    /** 看板/诊断用的不可变 Token 快照。 */
-    data class TokenSnapshot(
-        val used: Long,
-        val quota: Long,
-    ) {
-        val remaining: Long = (quota - used).coerceAtLeast(0)
-        val rate: Float = if (quota > 0) (used.toFloat() / quota).coerceIn(0f, 1f) else 0f
-    }
 
     /** 今日已消耗 Token 总量 */
     @Synchronized

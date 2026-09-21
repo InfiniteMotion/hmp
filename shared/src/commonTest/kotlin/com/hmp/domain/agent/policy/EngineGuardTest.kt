@@ -1,6 +1,6 @@
 package com.hmp.domain.agent.policy
 
-import com.hmp.domain.agent.tool.ToolPermissionLevel
+import com.hmp.domain.agent.port.ToolPermissionLevel
 import com.hmp.test.fakes.FakeAuditLogPort
 import kotlin.test.Test
 import kotlin.test.assertEquals

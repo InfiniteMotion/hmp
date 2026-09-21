@@ -1,4 +1,5 @@
 package com.hmp.domain.agent.runtime
+import com.hmp.domain.agent.tool.createBaseToolRegistry
 
 import com.hmp.domain.agent.port.CommandSource
 import com.hmp.domain.agent.port.FakeNowPlayingContextProvider
@@ -6,14 +7,13 @@ import com.hmp.domain.agent.port.LlmEvent
 import com.hmp.domain.agent.port.PlaybackCommand
 import com.hmp.domain.agent.port.PlaybackCommandPort
 import com.hmp.domain.agent.tool.ToolDependencies
-import com.hmp.domain.agent.tool.ToolRegistry
+import com.hmp.domain.agent.tool.spec.ToolRegistry
 import com.hmp.domain.enum.LabelName
 import com.hmp.domain.music.Music
 import com.hmp.domain.music.MusicInfo
 import com.hmp.domain.setting.model.AiEndpointConfig
 import com.hmp.test.fakes.FakeAgentMusicRepository
 import com.hmp.test.fakes.FakeAgentPlaylistRepository
-import com.hmp.test.fakes.FakeAiExtraEnrichPort
 import com.hmp.test.fakes.FakeLlmTransport
 import com.hmp.test.fakes.FakeSettingsRepository
 import kotlinx.coroutines.CoroutineScope
@@ -85,14 +85,13 @@ class MasterAgentRadioTest {
         val master = MasterAgent(
             timeProvider = { 0L },
             musicRepository = musicRepo,
-            chatToolRegistry = ToolRegistry.create(
+            chatToolRegistry = createBaseToolRegistry(
                 ToolDependencies(
                     musicRepository = musicRepo,
                     playlistRepository = FakeAgentPlaylistRepository(),
                     settingsRepository = FakeSettingsRepository(),
                     nowPlayingContextProvider = FakeNowPlayingContextProvider,
                     playbackCommandPort = playback,
-                    enrichPort = FakeAiExtraEnrichPort(),
                 )
             ),
             radioTransport = transport,
@@ -117,9 +116,9 @@ class MasterAgentRadioTest {
 
         // 收口态：PLAYING（session 建起来了，决策内核活着）
         withTimeout(10_000) {
-            while (master.queryRadioState() !is com.hmp.domain.agent.sub.RadioState.PLAYING) delay(20)
+            while (master.queryRadioState() !is com.hmp.domain.agent.runtime.sub.radio.RadioState.PLAYING) delay(20)
         }
-        assertTrue(master.queryRadioState() is com.hmp.domain.agent.sub.RadioState.PLAYING)
+        assertTrue(master.queryRadioState() is com.hmp.domain.agent.runtime.sub.radio.RadioState.PLAYING)
     }
 
     /**
@@ -147,14 +146,13 @@ class MasterAgentRadioTest {
         val master = MasterAgent(
             timeProvider = { 0L },
             musicRepository = musicRepo,
-            chatToolRegistry = ToolRegistry.create(
+            chatToolRegistry = createBaseToolRegistry(
                 ToolDependencies(
                     musicRepository = musicRepo,
                     playlistRepository = FakeAgentPlaylistRepository(),
                     settingsRepository = FakeSettingsRepository(),
                     nowPlayingContextProvider = FakeNowPlayingContextProvider,
                     playbackCommandPort = playback,
-                    enrichPort = FakeAiExtraEnrichPort(),
                 )
             ),
             radioTransport = transport,

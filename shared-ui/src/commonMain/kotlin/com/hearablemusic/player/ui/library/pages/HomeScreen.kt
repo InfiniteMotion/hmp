@@ -40,7 +40,16 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
-import com.hmp.domain.agent.sub.SlideCard
+import com.hmp.domain.agent.card.SlideCard
+import com.hmp.domain.agent.card.AnchorContent
+import com.hmp.domain.agent.card.AnniversaryContent
+import com.hmp.domain.agent.card.DiscoverContent
+import com.hmp.domain.agent.card.ForgottenContent
+import com.hmp.domain.agent.card.RadioStatusContent
+import com.hmp.domain.agent.card.RecommendContent
+import com.hmp.domain.agent.card.RecommendListPayload
+import com.hmp.domain.agent.card.RecommendSource
+import com.hmp.domain.agent.runtime.MasterAgent
 import com.hmp.domain.music.MusicRepository
 import com.hearablemusic.player.ui.common.design.dimens.LocalHMPDimens
 import com.hearablemusic.player.ui.common.components.base.HMPCard
@@ -52,7 +61,7 @@ import com.hearablemusic.player.ui.generated.resources.magnifyingglass
 import com.hearablemusic.player.ui.generated.resources.play_fill
 import com.hearablemusic.player.ui.generated.resources.search_placeholder
 import com.hearablemusic.player.ui.library.pages.components.FeatureEntryRow
-import com.hearablemusic.player.ui.library.pages.components.HelloSlideCardStack
+import com.hearablemusic.player.ui.agent.cards.HelloSlideCardStack
 import com.hearablemusic.player.ui.library.pages.components.RadioCard
 import com.hearablemusic.player.ui.player.viewmodel.PlaylistQueueViewModel
 import com.hearablemusic.player.ui.common.util.activityViewModel
@@ -71,7 +80,7 @@ fun HomeScreen(
 
     // ── G6：两个推荐入口数据（agent 生成的每日 / 私人推荐列表） ──
     // payload==null → 生成中（入口置灰）；payload 空 items → 无数据（入口隐藏）；否则正常。
-    val masterAgent: com.hmp.domain.agent.runtime.MasterAgent = koinInject()
+    val masterAgent: MasterAgent = koinInject()
     // MasterAgent 持有的固定转发流（内部镜像 Hello 子代理）——首帧即可拿到，
     // 不会像透传子代理那样缓存到 null / 旧实例。
     val dailyPayload by masterAgent.dailyRecommendList.collectAsState()
@@ -80,55 +89,65 @@ fun HomeScreen(
     // ── G2：堆叠卡短按 → 直接接入播放 ──
     // 按卡型分流：能播的播、能跳的跳、纯文案卡不响应。
     // 长按事件本次不做（骨架保留）。叙事卡（NARRATIVE）点击落点暂空，待 P5 报告页。
-    // 卡片 content 只带 trackId，需按 id 查回 MusicInfo 才能入队播放（playWith 要 MusicInfo）。
+    // 卡片 content 只带 trackId，需按 id 查回 MusicInfo 才能入队播放（入队 API 要 MusicInfo）。
     val musicRepository: MusicRepository = koinInject()
     val cardScope = rememberCoroutineScope()
 
-    // G6：播放某个推荐列表（整组入队，从第一首播起）
-    fun playRecommend(source: com.hmp.domain.agent.sub.RecommendSource) {
+    // G6：播放某个推荐列表（整组**追加到队列尾部**，播其中第一首）
+    fun playRecommend(source: RecommendSource) {
         val payload = when (source) {
-            com.hmp.domain.agent.sub.RecommendSource.DAILY -> dailyPayload
-            com.hmp.domain.agent.sub.RecommendSource.PRIVATE -> privatePayload
+            RecommendSource.DAILY -> dailyPayload
+            RecommendSource.PRIVATE -> privatePayload
         }
         val ids = payload?.items?.map { it.trackId }.orEmpty()
         if (ids.isEmpty()) return
         cardScope.launch {
             val infos = runCatching { musicRepository.getMusicInfoByIds(ids) }.getOrNull().orEmpty()
             if (infos.isNotEmpty()) {
-                playlistQueueViewModel.clearPlaylist()
-                playlistQueueViewModel.addAllToPlaylistInOrder(infos)
-                playlistQueueViewModel.playWith(infos.first())
+                // 追加到现有队列尾部（addToPlaylist 内含整队列去重，已存在的不会重复入队），
+                // 再从首曲播起 —— 不清空队列。见下方 playIds 的说明。
+                infos.forEach { playlistQueueViewModel.addToPlaylist(it) }
+                playlistQueueViewModel.playAt(infos.first())
                 navController.add(NavRoutes.Player.Player)
             }
         }
     }
 
     val onSlideCardClick: (SlideCard) -> Unit = { card ->
-        // 抽出「按 id 集合播放」的公共路径：查 MusicInfo → 清队 → 全量入队 → 从首曲播起 → 进播放页
+        // 抽出「按 id 集合播放」的公共路径：查 MusicInfo → 追加到队尾 → 播首曲 → 进播放页
+        //
+        // ⚠️ 这里**曾经**是「clearPlaylist() + addAllToPlaylistInOrder()」，两个问题：
+        //  ① 清空队列会把用户已有的待播列表整个丢掉 —— 卡片点播只应"插进队列"，
+        //     不该当成"换一整个播放列表"；
+        //  ② `addAllToPlaylistInOrder` 名不副实 —— 它做的是
+        //     `_currentPlaylist.value = playlist; currentIndex = 0; playCurrentTrack()`，
+        //     即**整条替换 + 从第一首开始播**，并不是"按顺序追加"。
+        // 正解沿用 agent 侧 `ControllerAgentPorts.replaceQueueWith` 的结论：只追加、不替换 ——
+        // 逐个 `addToPlaylist()`（尾部追加，不动索引、不触发播放；内含整队列去重）
+        // + `playAt()` 把播放定位到目标曲（不重建队列）。
         fun playIds(ids: List<Long>) {
             if (ids.isEmpty()) return
             cardScope.launch {
                 val infos = runCatching { musicRepository.getMusicInfoByIds(ids) }.getOrNull().orEmpty()
                 if (infos.isNotEmpty()) {
-                    playlistQueueViewModel.clearPlaylist()
-                    playlistQueueViewModel.addAllToPlaylistInOrder(infos)
-                    playlistQueueViewModel.playWith(infos.first())
+                    infos.forEach { playlistQueueViewModel.addToPlaylist(it) }
+                    playlistQueueViewModel.playAt(infos.first())
                     navController.add(NavRoutes.Player.Player)
                 }
             }
         }
         when (val content = card.content) {
-            is com.hmp.domain.agent.sub.RecommendContent -> playIds(listOf(content.trackId))
-            is com.hmp.domain.agent.sub.ForgottenContent -> playIds(listOf(content.trackId))
+            is RecommendContent -> playIds(listOf(content.trackId))
+            is ForgottenContent -> playIds(listOf(content.trackId))
             // 纪念日：PLAYLIST_CREATE 无单曲（trackId=0），其余直接播
-            is com.hmp.domain.agent.sub.AnniversaryContent ->
+            is AnniversaryContent ->
                 if (content.trackId > 0L) playIds(listOf(content.trackId))
             // 探索卡：整组入队，从第一首播起
-            is com.hmp.domain.agent.sub.DiscoverContent -> playIds(content.trackIds)
+            is DiscoverContent -> playIds(content.trackIds)
             // 正在听卡 / 电台卡：进播放页
-            is com.hmp.domain.agent.sub.AnchorContent ->
+            is AnchorContent ->
                 navController.add(NavRoutes.Player.Player)
-            is com.hmp.domain.agent.sub.RadioStatusContent ->
+            is RadioStatusContent ->
                 navController.add(NavRoutes.Player.Player)
             // GREETING / ENRICH_TRACKING / NARRATIVE：暂不响应
             else -> Unit
@@ -188,17 +207,17 @@ fun HomeScreen(
                                 ) {
                                     RecommendEntryCard(
                                         modifier = Modifier.weight(1f).fillMaxWidth(),
-                                        source = com.hmp.domain.agent.sub.RecommendSource.DAILY,
+                                        source = RecommendSource.DAILY,
                                         payload = dailyPayload,
                                         onOpen = { navController.add(NavRoutes.Recommend.Daily) },
-                                        onPlay = { playRecommend(com.hmp.domain.agent.sub.RecommendSource.DAILY) },
+                                        onPlay = { playRecommend(RecommendSource.DAILY) },
                                     )
                                     RecommendEntryCard(
                                         modifier = Modifier.weight(1f).fillMaxWidth(),
-                                        source = com.hmp.domain.agent.sub.RecommendSource.PRIVATE,
+                                        source = RecommendSource.PRIVATE,
                                         payload = privatePayload,
                                         onOpen = { navController.add(NavRoutes.Recommend.Private) },
-                                        onPlay = { playRecommend(com.hmp.domain.agent.sub.RecommendSource.PRIVATE) },
+                                        onPlay = { playRecommend(RecommendSource.PRIVATE) },
                                     )
                                 }
                             }
@@ -255,17 +274,17 @@ fun HomeScreen(
                             ) {
                                 RecommendEntryCard(
                                     modifier = Modifier.weight(1f).fillMaxWidth(),
-                                    source = com.hmp.domain.agent.sub.RecommendSource.DAILY,
+                                    source = RecommendSource.DAILY,
                                     payload = dailyPayload,
                                     onOpen = { navController.add(NavRoutes.Recommend.Daily) },
-                                    onPlay = { playRecommend(com.hmp.domain.agent.sub.RecommendSource.DAILY) },
+                                    onPlay = { playRecommend(RecommendSource.DAILY) },
                                 )
                                 RecommendEntryCard(
                                     modifier = Modifier.weight(1f).fillMaxWidth(),
-                                    source = com.hmp.domain.agent.sub.RecommendSource.PRIVATE,
+                                    source = RecommendSource.PRIVATE,
                                     payload = privatePayload,
                                     onOpen = { navController.add(NavRoutes.Recommend.Private) },
-                                    onPlay = { playRecommend(com.hmp.domain.agent.sub.RecommendSource.PRIVATE) },
+                                    onPlay = { playRecommend(RecommendSource.PRIVATE) },
                                 )
                             }
                         }
@@ -314,8 +333,8 @@ private fun HomeSearchBar(
 @Composable
 private fun RecommendEntryCard(
     modifier: Modifier,
-    source: com.hmp.domain.agent.sub.RecommendSource,
-    payload: com.hmp.domain.agent.sub.RecommendListPayload?,
+    source: RecommendSource,
+    payload: RecommendListPayload?,
     onOpen: () -> Unit,
     onPlay: () -> Unit,
 ) {
@@ -324,8 +343,8 @@ private fun RecommendEntryCard(
 
     val ready = payload != null && payload.items.isNotEmpty()
     val title = when (source) {
-        com.hmp.domain.agent.sub.RecommendSource.DAILY -> "今日推荐"
-        com.hmp.domain.agent.sub.RecommendSource.PRIVATE -> "私人推荐"
+        RecommendSource.DAILY -> "今日推荐"
+        RecommendSource.PRIVATE -> "私人推荐"
     }
 
     // 容器对齐 TitleWidget / User·Setting 页卡片：透明底 + outlineVariant 50% 描边 + dimens.corner.md

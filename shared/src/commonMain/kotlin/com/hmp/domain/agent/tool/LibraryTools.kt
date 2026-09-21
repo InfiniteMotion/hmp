@@ -1,5 +1,16 @@
 package com.hmp.domain.agent.tool
+import com.hmp.domain.agent.tool.spec.DEFAULT_RESULT_LIMIT
+import com.hmp.domain.agent.tool.spec.DEFAULT_RESULT_LIMIT
+import com.hmp.domain.agent.tool.spec.AgentTool
+import com.hmp.domain.agent.tool.spec.ToolResult
+import com.hmp.domain.agent.tool.spec.ToolNames
+import com.hmp.domain.agent.tool.spec.ToolArgs
+import com.hmp.domain.agent.tool.spec.StringParam
+import com.hmp.domain.agent.tool.spec.LongParam
 
+import com.hmp.domain.agent.port.ToolPermissionLevel
+
+import com.hmp.domain.enum.LabelCategory
 import com.hmp.domain.enum.LabelName
 import com.hmp.domain.music.MusicInfo
 import kotlinx.coroutines.flow.first
@@ -65,9 +76,17 @@ internal fun labelAliasesFor(query: String): List<LabelName> {
         .distinct()
 }
 
-/** LabelName → 人类可读中文（反查 LABEL_ALIASES 表取第一个别名）。 */
+/**
+ * LabelName → 人类可读**中文**（反查 LABEL_ALIASES 表）。
+ *
+ * 必须跳过与枚举名同形的英文别名：表里英文别名排在中文之前
+ * （`"jazz" to JAZZ, "爵士" to JAZZ`），直接 `first()` 会拿到 `"jazz"` ——
+ * 于是本函数虽名叫 `displayCn`、KDoc 也写着「中文」，却一直返回英文。
+ * 4 个调用点（song_tags_get / add_user_label / remove_user_label / 标签概览）
+ * 全是给 LLM 与用户看的文本，等于中文别名表从未生效。
+ */
 internal fun LabelName.displayCn(): String =
-    LABEL_ALIASES.entries.firstOrNull { it.value == this }?.key ?: name
+    LABEL_ALIASES.entries.firstOrNull { it.value == this && it.key != name.lowercase() }?.key ?: name
 
 // ---------------- library_search (read/silent) ----------------
 
@@ -108,25 +127,40 @@ class SongTagsGetTool(
     private val repo = deps.musicRepository
 
     override val name = ToolNames.SONG_TAGS_GET
-    override val description = "获取某首歌的全部标签信息\n区分 source：LLM 生成 vs USER 主动标注（USER 标签永不被模型覆盖）\n只读，极低成本"
+    override val description = "获取某首歌的全部标签信息（风格/情绪/场景/语言/年代）\n标签由富化 LLM 或用户主动标注产生，未富化的歌曲没有任何标签\n只读，极低成本"
     override val permissionLevel = ToolPermissionLevel.SILENT
     override val params = listOf(
         LongParam(name = "music_id", description = "歌曲ID", min = 1),
     )
 
+    /**
+     * 注意：**必须读 labels 表，不能读富化文案表**。
+     *
+     * 结构化标签（genre/mood/scenario/language/era）早已改存 labels 表
+     * （富化写入见 `EnrichSubAgent.writeLabelsFromDailyInfo` → `addMusicLabel`）；
+     * 富化文案侧（musicExtra 表，读侧为 `MusicInfo.extra`）只有 6 个文本字段，
+     * 这 5 个结构化字段**根本不在其中**。
+     * 旧实现读的是 `getMusicExtraById`（已删除）——它把 5 个结构化字段
+     * **恒填 `emptyList()` / `""`**，其 `errorInfo` 又**恒为 `"None"`（非空）**。
+     * 于是旧实现「`if (!errorInfo.isNullOrBlank())` 判定未富化」在生产环境**恒真**，
+     * 该工具 100% 失败且从未有人发现 —— 因为测试用的 Fake 恰好返回 `errorInfo = ""`。
+     * 判据：**Fake 的默认值必须与真实实现同语义，否则测试只会证明 Fake 自己。**
+     */
     override suspend fun run(args: ToolArgs): ToolResult {
         val musicId = args.requireLong("music_id")
-        val extra = repo.getMusicExtraById(musicId)
-        if (!extra.errorInfo.isNullOrBlank()) {
-            return ToolResult.failure("歌曲 $musicId 尚未富化：${extra.errorInfo.take(80)}")
+        val labels = repo.getMusicLabels(musicId)
+        if (labels.isEmpty()) {
+            return ToolResult.failure("歌曲 $musicId 尚未富化：曲库中没有任何标签")
         }
+        fun of(category: LabelCategory) =
+            labels.filter { it.type == category }.joinToString("、") { it.label.displayCn() }
         return ToolResult.success(
             "歌曲 $musicId 标签：\n" +
-                "  genre(风格): ${extra.genre.joinToString("、")}\n" +
-                "  mood(情绪): ${extra.mood.joinToString("、")}\n" +
-                "  scenario(场景): ${extra.scenario.joinToString("、")}\n" +
-                "  era(年代): ${extra.era}\n" +
-                "  language(语言): ${extra.language}"
+                "  genre(风格): ${of(LabelCategory.GENRE)}\n" +
+                "  mood(情绪): ${of(LabelCategory.MOOD)}\n" +
+                "  scenario(场景): ${of(LabelCategory.SCENARIO)}\n" +
+                "  era(年代): ${of(LabelCategory.ERA)}\n" +
+                "  language(语言): ${of(LabelCategory.LANGUAGE)}"
         )
     }
 }

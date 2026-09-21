@@ -1,8 +1,8 @@
 package com.hmp.domain.agent.runtime
 
 import com.hmp.domain.agent.port.LlmToolSpec
-import com.hmp.domain.agent.tool.AgentTool
-import com.hmp.domain.agent.tool.ToolRegistry
+import com.hmp.domain.agent.tool.spec.AgentTool
+import com.hmp.domain.agent.tool.spec.ToolRegistry
 
 /**
  * T1 基础设施：给 SubAgent 的 ToolRegistry 权限过滤视图。

@@ -2,9 +2,9 @@ package com.hmp.domain.music.usecase
 
 import com.hmp.domain.music.Music
 import com.hmp.domain.music.MusicExtra
+import com.hmp.domain.music.MusicExtraTexts
 import com.hmp.domain.music.MusicInfo
 import com.hmp.domain.music.UserInfo
-import com.hmp.domain.setting.model.DailyMusicInfo
 import com.hmp.test.fakes.FakeMusicRepository
 import com.hmp.test.fakes.FakeSettingsRepository
 import kotlinx.coroutines.flow.first
@@ -27,45 +27,16 @@ class GetDailyMusicRecommendationUseCaseTest {
         userInfo = UserInfo(id = id)
     )
 
-    private fun dailyMusicInfo() = DailyMusicInfo(
-        genre = listOf("Pop"), mood = listOf("Happy"), scenario = listOf("Workout"),
-        language = "English", era = "2020s", rewards = "", lyric = "",
-        singerIntroduce = "", backgroundIntroduce = "", description = "",
-        relevantMusic = "", errorInfo = ""
+    /** Enrich 管道落库的 6 列文本（写端形状）。 */
+    private fun extraTexts(id: Long) = MusicExtraTexts(
+        rewards = "格莱美$id", popLyric = "歌词$id", singerIntroduce = "歌手介绍$id",
+        backgroundIntroduce = "创作背景$id", description = "歌曲简介$id",
+        relevantMusic = "相似歌曲$id",
     )
 
     private suspend fun addMusicWithExtra(id: Long) {
         musicRepository.addMusic(musicInfo(id))
-        musicRepository.insertMusicExtra(id, dailyMusicInfo())
-    }
-
-    // ===== getRandomMusicWithExtra =====
-
-    @Test
-    fun getRandomMusicWithExtra_emptyRepository_returnsNullRecommendation() = runTest {
-        val result = useCase.getRandomMusicWithExtra()
-        assertNull(result.musicInfo)
-        assertNull(result.dailyMusicInfo)
-        assertTrue(result.labels.isEmpty())
-    }
-
-    @Test
-    fun getRandomMusicWithExtra_withMusicAndExtra_returnsRecommendation() = runTest {
-        addMusicWithExtra(1)
-
-        val result = useCase.getRandomMusicWithExtra()
-        assertNotNull(result.musicInfo)
-        assertEquals(1L, result.musicInfo!!.music.id)
-        assertNotNull(result.dailyMusicInfo)
-    }
-
-    @Test
-    fun getRandomMusicWithExtra_onlyNoExtraMusic_returnsNull() = runTest {
-        musicRepository.addMusic(musicInfo(1, hasExtra = false))
-        musicRepository.addMusic(musicInfo(2, hasExtra = false))
-
-        val result = useCase.getRandomMusicWithExtra()
-        assertNull(result.musicInfo)
+        musicRepository.updateMusicExtraTexts(id, extraTexts(id))
     }
 
     // ===== getMusicWithExtraById =====
@@ -77,7 +48,10 @@ class GetDailyMusicRecommendationUseCaseTest {
         val result = useCase.getMusicWithExtraById(42)
         assertNotNull(result)
         assertEquals(42L, result.musicInfo!!.music.id)
-        assertNotNull(result.dailyMusicInfo)
+        assertEquals("创作背景42", result.musicInfo!!.extra?.backgroundIntroduce)
+        assertEquals("歌手介绍42", result.musicInfo!!.extra?.singerIntroduce)
+        assertEquals("格莱美42", result.musicInfo!!.extra?.rewards)
+        assertEquals("相似歌曲42", result.musicInfo!!.extra?.relevantMusic)
     }
 
     @Test
@@ -86,19 +60,21 @@ class GetDailyMusicRecommendationUseCaseTest {
         assertNull(result)
     }
 
+    /**
+     * 「曲目存在但未富化」：仍返回该曲目，富化文案为 null（由 UI 侧判空决定是否渲染）。
+     *
+     * 旧版此用例断言 null，依据是 `FakeMusicRepository.getMusicExtraById` 会抛异常；
+     * 而生产 `MusicRepositoryBase.getMusicExtraById` **从不抛异常**（缺行时返回空壳）。
+     * 把断言建立在 Fake 特有的行为上，是这个用例长期"绿得没道理"的原因，已改为断言真实行为。
+     */
     @Test
-    fun getMusicWithExtraById_musicExistsButNoExtra_returnsNull() = runTest {
-        musicRepository.addMusic(musicInfo(10, hasExtra = true))
-        // No insertMusicExtra for id=10 -> fake throws -> caught -> returns null
+    fun getMusicWithExtraById_musicExistsButNoExtra_stillReturnsMusic() = runTest {
+        musicRepository.addMusic(musicInfo(10, hasExtra = false))
+
         val result = useCase.getMusicWithExtraById(10)
-        assertNull(result)
-    }
-
-    // ===== MusicRecommendation data class =====
-
-    @Test
-    fun musicRecommendation_labels_defaultEmpty() = runTest {
-        val result = useCase.getRandomMusicWithExtra()
+        assertNotNull(result)
+        assertEquals(10L, result.musicInfo!!.music.id)
+        assertNull(result.musicInfo!!.extra?.description)
         assertTrue(result.labels.isEmpty())
     }
 

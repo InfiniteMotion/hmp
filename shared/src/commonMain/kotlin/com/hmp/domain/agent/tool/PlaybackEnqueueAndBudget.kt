@@ -1,4 +1,12 @@
 package com.hmp.domain.agent.tool
+import com.hmp.domain.agent.tool.spec.AgentTool
+import com.hmp.domain.agent.tool.spec.ToolResult
+import com.hmp.domain.agent.tool.spec.ToolParam
+import com.hmp.domain.agent.tool.spec.ToolNames
+import com.hmp.domain.agent.tool.spec.ToolArgs
+import com.hmp.domain.agent.tool.spec.LongParam
+
+import com.hmp.domain.agent.port.ToolPermissionLevel
 
 // ---------------- playback_enqueue (write/confirm) ----------------
 // 追加曲目到当前播放队列尾部（不切换当前播放对象，区别于 playback_play_at）。

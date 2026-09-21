@@ -16,16 +16,13 @@ import kotlinx.coroutines.flow.asSharedFlow
  * 见 `CompanionCapsule` 的电台态）。所以：**不要再往这里加"圆点/徽标"类事件**。
  */
 sealed interface PresenceEvent {
-    /** 有通知侧条可展示（4s 退场 + 撤销，M5-T3）。 */
-    data class NoticeAvailable(val text: String) : PresenceEvent
-
     /** 任务进行阶段（三点脉动 + 可由用户取消，M5-T1）。 */
     data class TaskProgress(val phase: String, val active: Boolean) : PresenceEvent
 
     /** 云端额度耗尽 → 本地兜底已接管（能力受限但永不失能）。 */
     data object CloudQuotaExhausted : PresenceEvent
 
-    /** DJ 衔接空白（电台曲间一句，M6-T3）。 */
+    /** 切歌信号（曲间）——HelloSubAgent 据此刷新问候卡（M6-T3）。 */
     data object DjBlank : PresenceEvent
 
     /** 用户连跳 N 首（跳过感知重排触发，M6-T2）。 */

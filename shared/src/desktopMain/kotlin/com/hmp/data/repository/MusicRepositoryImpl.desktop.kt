@@ -261,17 +261,6 @@ class MusicRepositoryImpl(
         }
     }
 
-    override suspend fun getRandomMusicInfoWithExtra(): MusicInfo? {
-        // 手动构建 MusicInfo，绕过 Room @Relation 在桌面端可能存在的加载问题
-        val ids = musicExtraDao.getIdsWithExtraInfo()
-        if (ids.isEmpty()) return null
-        val randomId = ids.random()
-        val music = musicDao.getMusicById(randomId).firstOrNull() ?: return null
-        val extra = musicExtraDao.getExtraFieldsById(randomId)
-        val userInfo = userInfoDao.getUserInfoById(randomId)
-        return MusicInfo(music.toDomain(), extra?.toDomain(), userInfo?.toDomain())
-    }
-
     override suspend fun getDeletedMusicIdsGroupedByFolder(): List<Pair<String, List<Long>>> {
         val list = musicDao.getDeletedMusicIdAndPath()
         return list

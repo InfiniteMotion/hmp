@@ -1,6 +1,5 @@
 package com.hmp.domain.setting
 
-import com.hmp.domain.config.DailyRefreshConfig
 import com.hmp.domain.config.DisplayMode
 import com.hmp.domain.config.LyricsAlignment
 import com.hmp.domain.setting.model.AiAccessMode
@@ -123,10 +122,6 @@ interface SettingsRepository {
     val autoBatchProcess: Flow<Boolean>
     suspend fun saveAutoBatchProcess(enabled: Boolean)
 
-    // Daily Refresh Strategy
-    val dailyRefreshMode: Flow<String>
-    suspend fun saveDailyRefreshMode(mode: String)
-
     // Lyrics Configuration (per-component)
     val lyricsPlayerConfig: Flow<String>
     suspend fun saveLyricsPlayerConfig(json: String)
@@ -191,23 +186,6 @@ interface SettingsRepository {
     suspend fun saveLyricsKaraokeEnabled(enabled: Boolean)
     suspend fun getLyricsKaraokeEnabled(): Boolean
 
-    val dailyRefreshHours: Flow<Int>
-    suspend fun saveDailyRefreshHours(hours: Int)
-
-    val dailyRefreshStartupCount: Flow<Int>
-    suspend fun saveDailyRefreshStartupCount(count: Int)
-
-    val lastDailyRefreshTimestamp: Flow<Long>
-    suspend fun updateLastDailyRefreshTimestamp()
-
-    val appLaunchCountSinceRefresh: Flow<Int>
-    suspend fun incrementAppLaunchCount()
-
-    suspend fun getDailyRefreshConfig(): DailyRefreshConfig
-
-    suspend fun saveCurrentDailyMusicId(musicId: Long)
-    suspend fun getCurrentDailyMusicId(): Long?
-
     // Gallery Sort
     val galleryOrderBy: Flow<String>
     suspend fun saveGalleryOrderBy(orderBy: String)
@@ -233,9 +211,6 @@ interface SettingsRepository {
     suspend fun exportAppSettingsSnapshot(): com.hmp.domain.backup.AppSettingsSnapshot
     suspend fun restoreFromSnapshot(snapshot: com.hmp.domain.backup.AppSettingsSnapshot)
     
-    suspend fun exportDailyRecommendationSnapshot(): com.hmp.domain.backup.DailyRecommendationSnapshot?
-    suspend fun restoreDailyRecommendationSnapshot(snapshot: com.hmp.domain.backup.DailyRecommendationSnapshot)
-
     suspend fun backupSettings(): Result<String>
     suspend fun restoreSettings(backupFilePath: String): Result<Unit>
     suspend fun cleanOldBackups(keepCount: Int = 3): Result<Unit>

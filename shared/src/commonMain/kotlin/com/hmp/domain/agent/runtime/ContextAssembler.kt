@@ -1,5 +1,6 @@
 package com.hmp.domain.agent.runtime
 
+import com.hmp.domain.agent.config.EngineDefaults
 /**
  * R-T1 首轮上下文注入装配器——把「第一次对话时该注入 agent 的内容」格式化成系统提示片段。
  *

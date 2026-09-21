@@ -16,8 +16,7 @@ data class UserBackupSnapshot(
     val appSettings: AppSettingsSnapshot? = null,
     val musicUserState: MusicUserStateSnapshot = MusicUserStateSnapshot(),
     val playlists: PlaylistsSnapshot = PlaylistsSnapshot(),
-    val listeningStats: ListeningStatsSnapshot = ListeningStatsSnapshot(),
-    val dailyRecommendation: DailyRecommendationSnapshot? = null
+    val listeningStats: ListeningStatsSnapshot = ListeningStatsSnapshot()
 )
 
 @Serializable
@@ -33,9 +32,6 @@ data class AppSettingsSnapshot(
     val hazeTintAlpha: Float = 0.22f,
     val hazeIntensity: Float = 0f,
     val autoBatchProcess: Boolean = true,
-    val dailyRefreshMode: String = "off",
-    val dailyRefreshHours: Int = 8,
-    val dailyRefreshStartupCount: Int = 5,
     val aiAccessMode: String = "FREE",
     val customAiEndpoint: String = "",
     val customAiModel: String = ""
@@ -98,14 +94,4 @@ data class ListeningStatsSnapshot(
     val listeningDurations: List<ListeningDuration> = emptyList(),
     @Contextual
     val playbackHistories: List<PlaybackHistory> = emptyList()
-)
-
-@Serializable
-data class DailyRecommendationSnapshot(
-    val currentDailyMusicId: Long? = null,
-    val lastRefreshTimestamp: Long = 0L,
-    val mode: String = "off",
-    val refreshHours: Int = 8,
-    val startupCount: Int = 5,
-    val launchCountSinceRefresh: Int = 0
 )

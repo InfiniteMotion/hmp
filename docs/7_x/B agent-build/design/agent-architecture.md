@@ -8,7 +8,7 @@
 > 任务书只记录「做什么、做到哪」，架构细节以本文为准。
 >
 > **注意**：文中 Kotlin 伪代码为**设计期示意**，用于表达职责边界与调用关系；
-> 实际实现已远超其简化程度（如 `MasterAgent.kt` 现为 1434 行）。
+> 实际实现已远超其简化程度（如 `MasterAgent.kt` 现为 1753 行，F13 阶段 3c 拆走意图规则后）。
 > 涉及具体行为时以 `shared/src/commonMain/kotlin/com/hmp/domain/agent/` 下源码为准。
 
 ---
@@ -31,23 +31,283 @@
 
 | 组件 | 实现文件 | 行数 |
 |------|----------|------|
-| Master Agent（唯一大脑） | `runtime/MasterAgent.kt` | 1434 |
-| ReAct 循环 | `runtime/ReActLoop.kt` | 215 |
-| 工具调用执行器 | `runtime/ToolCallExecutor.kt` | 226 |
-| 注册表权限视图 | `runtime/ToolRegistryView.kt` | 100 |
-| 每 Agent 上下文预算 | `runtime/AgentContextBudget.kt` | 185 |
-| 全局调度仲裁 | `runtime/AgentScheduler.kt` | 187 |
-| 停止信号 | `runtime/StopSignal.kt` | 99 |
-| Enrich SubAgent | `sub/EnrichSubAgent.kt` | 1094 |
-| Hello SubAgent | `sub/HelloSubAgent.kt` | 1767 |
-| Radio SubAgent | `sub/RadioSubAgent.kt` | 1732 |
-| Radio 会话状态 | `sub/RadioSession.kt` | 627 |
-| SubAgent 基类 | `sub/SubAgent.kt` | 84 |
-| 许可与信任 | `policy/PolicyGuard.kt` `policy/TrustLedger.kt` `policy/AgentPolicy.kt` | 250 |
-| 工具协议 DSL | `tool/ToolSpec.kt` | 353 |
-| 工具名常量表 | `tool/ToolNames.kt` | 112 |
+| Master Agent（唯一大脑） | `runtime/MasterAgent.kt` | 1751 |
+| 对话意图规则（触发词表 + 判定） | `runtime/ChatIntentRules.kt` | 106 |
+| LLM 输出 JSON 抽取原语 | `runtime/JsonText.kt` | 79 |
+| ReAct 循环 | `runtime/ReActLoop.kt` | 204 |
+| 工具调用执行器 | `runtime/ToolCallExecutor.kt` | 229 |
+| LLM 单次调用执行器（无状态 `object`） | `runtime/LlmCallExecutor.kt` | 114 |
+| 注册表权限视图 | `runtime/ToolRegistryView.kt` | 98 |
+| 每 Agent 上下文预算 | `runtime/AgentContextBudget.kt` | 307 |
+| 全局调度仲裁 | `runtime/AgentScheduler.kt` | 189 |
+| 停止信号 | `runtime/StopSignal.kt` | 98 |
+| Enrich SubAgent | `runtime/sub/enrich/EnrichSubAgent.kt` | 591 |
+| Enrich prompt 词表 | `runtime/sub/enrich/EnrichPrompts.kt` | 304 |
+| Enrich 模型输出解析 | `runtime/sub/enrich/EnrichResponseParser.kt` | 288 |
+| Hello SubAgent | `runtime/sub/hello/HelloSubAgent.kt` | 1844 |
+| Hello 问候类型画像表 | `runtime/sub/hello/HelloGreetingProfiles.kt` | 236 |
+| Hello 记忆去重 | `runtime/sub/hello/HelloMemory.kt` | 269 |
+| Radio SubAgent | `runtime/sub/radio/RadioSubAgent.kt` | 1732 |
+| Radio 会话状态 | `runtime/sub/radio/RadioSession.kt` | 718 |
+| 电台数据模型（UI 契约） | `runtime/sub/radio/RadioModels.kt` | 113 |
+| 电台种子关键词词表 | `runtime/sub/radio/RadioSeedKeywords.kt` | 49 |
+| SubAgent 基类 | `runtime/sub/shared/SubAgent.kt` | 84 |
+| 电台曲目（跨 agent） | `runtime/sub/shared/RadioTrack.kt` | 19 |
+| 许可与信任 | `policy/PolicyGuard.kt` `policy/TrustLedger.kt` `policy/AgentPolicy.kt` | 306 |
+| 工具许可级别（跨层契约） | `port/ToolPermissionLevel.kt` | 17 |
+| 工具协议 DSL | `tool/spec/ToolSpec.kt` | 368 |
+| 工具注册表（纯协议） | `tool/spec/ToolRegistry.kt` | 75 |
+| 工具名常量表 | `tool/spec/ToolNames.kt` | 97 |
+| 工具集装配根 | `tool/ToolCatalog.kt` | 118 |
+| 跨包契约端口 | `port/`（`Capability` `ConfirmGate` `TimeProvider` …） | 746 |
+| 卡片域模型（UI 契约） | `card/SlideModels.kt` `card/CardPool.kt` | 486 |
+| 富化域模型 | `enrich/EnrichModels.kt` | 64 |
+| 指令漏斗词表 | `funnel/CommandLexicon.kt` | 54 |
+| 人格常量表 | `persona/CompanionProfile.kt` | 65 |
+| 出厂默认常量（配置层） | `config/EngineDefaults.kt` | 104 |
+| 配置数据模型（配置层） | `config/AgentConfigModels.kt` | 69 |
+| 多语言词表与解析 | `runtime/i18n/Lang.kt` | 553 |
 
-> 根路径：`shared/src/commonMain/kotlin/com/hmp/domain/agent/`（行数截至 2026-09-15）
+> 根路径：`shared/src/commonMain/kotlin/com/hmp/domain/agent/`（行数截至 2026-09-20 **F13 全部子阶段收口后**逐文件实测；含 3c 拆分 + 3c 后续的调用形态收敛与会话状态收敛）
+
+**分层依赖方向（2026-09-20 全量重整后，无反向边）**：
+
+```
+port · config（零内部依赖 · 叶子）
+  ↑
+card · enrich · funnel · persona · policy · profile · tool/spec · infra
+  ↑
+tool（实现）· runtime → runtime/sub/{shared, hello, radio, enrich}
+```
+
+依赖方向的设计意图：
+
+- `tool/spec/` 只放协议（`AgentTool` `ToolParam` `ToolResult` `ToolRegistry` `ToolNames`），
+  **不认识任何具体工具**；具体 30+ 工具的装配集中在 `tool/ToolCatalog.kt`，
+  保证依赖方向恒为 `tool → tool/spec`，杜绝 spec → impl 反向边。
+
+  > ⚠️ **2026-09-20（F13）勘误**：本目录重整后仍残留**唯一一条**反向边 ——
+  > `tool/spec/ToolRegistry.kt` 的成员方法 `bindCapabilityTools()` 直接 `new` 了
+  > `tool.CapabilityStatusTool`（F9-A0 加的便利方法）。**当时"0 反向边"的结论是漏检的**：
+  > 漏检原因是这条边写在**函数体内部的全限定名**里，只扫 `import` 行看不到。
+  > 已改为 `tool/ToolCatalog.kt` 里的扩展函数 `ToolRegistry.bindCapabilityTools()`，
+  > 依赖方向恢复恒定。**教训：扫反向边必须连函数体内的全限定名一起扫，且要排除
+  > `package` 声明行本身（`package …tool.spec` 会被误判成"引用了 tool"）。**
+- `runtime/` 与 `runtime/sub/` 从「两个包互相 import」变为**同一包内**的两个子目录，
+  双向耦合（引擎机制 ↔ 子代理执行）不再表现为跨包环。
+- `runtime/sub/` 内部再分四层：`shared/`（基类 + 跨 agent 模型）、`hello/`、`radio/`、`enrich/`。
+  三个 agent 彼此**零 import**，唯一的跨包边是「各 agent → shared」，方向单调。
+- `card/` 收纳卡片域模型（`SlideCard` 体系 + `CardPool`）——它同时被 `shared` 与 `shared-ui`
+  双侧消费（`RecommendSource` 被引用 17 次），是 UI 契约，故从 `runtime/sub/` 上提到顶层。
+- `config/` 收「**配置的出厂默认值 + 承载配置的结构**」（`EngineDefaults` +
+  `ResolvedAgentConfig` / `RuntimeParams`）。判据是**消费方在哪**：它同时被 `policy/`
+  （`AgentPolicyConfig.resolvedFor()` 生产）与 `runtime/`（MasterAgent 等消费）使用，
+  因此必须位于**两者之下**——放在 `runtime/` 就会造出 `policy → runtime` 反向边（见下）。
+
+本次重整消除的历史反向边：
+
+- `policy` 曾反向依赖 `tool`（`ToolPermissionLevel` 定义在工具目录）→ 已下沉到 `port/`
+  （最终落点：它被 port/policy/tool 三方共用，放 policy 会造出 `port → policy` 新环）。
+- `infra` 曾反向依赖 `runtime`（`TimeProvider` 定义在 `EngineConfig.kt`）→ 已下沉到 `port/`。
+- `tool` 曾反向依赖 `runtime`（`Capability` 定义在引擎目录）→ 已下沉到 `port/`。
+- `policy` 曾反向依赖 `runtime`（`ConfirmGate` 混在 `AgentCoreTypes.kt`）→ 已拆出到 `port/`。
+- **`policy` 残余反向依赖 `runtime`**（`EngineDefaults.defaultTemperatureFor` /
+  `TRUST_ESCALATION_THRESHOLD` + `ResolvedAgentConfig` / `RuntimeParams`）→ **已下沉到 `config/`**。
+  这条是 09-20 首轮重整的**漏网项**：首轮把常量与模型从 `EngineConfig.kt` 拆出，却仍留在
+  `runtime/` 内，于是 `policy → runtime` 只是换了宿主文件而没消失；`AgentPolicy.kt` 用
+  **全限定名**引用这两个模型，连导入边扫描都扫不出来，属于「查不出来 = 以为没有」的典型。
+- `defaultTrustLevelFor(role)` —— 全仓零调用方的死函数，且是 `config → policy` 的唯一来源 → 已删。
+- L10N 词表（原 `runtime/Lang.kt`，549 行）与引擎机制无关 → 已迁入 `runtime/i18n/`。
+- `EngineConfig.kt` 混装的常量与数据模型 → 拆为常量表与模型表两个文件（09-20 首轮），
+  再一同移入 `config/` 成为叶子（同日第二轮）。
+- `ToolRegistry.kt` 混装协议与装配 → 拆为 `tool/spec/ToolRegistry.kt`（协议）+ `tool/ToolCatalog.kt`（装配）。
+- `runtime/sub/` 8 个文件挤在一个包（6532 行）导致「同包隐式引用」无边界约束
+  → 按 agent 拆为 4 个子包；拆前先核对依赖，发现 `RadioTrack` 被 Hello 与 Radio 共用，
+  故先抽 `sub/shared/`，避免拆出 hello → radio 的新反向边。
+- `model/` 曾作为「什么纯数据都往里放」的通用包（3 个彼此零耦合的文件）
+  → 按职责归位：`enrich/` `funnel/` `persona/`，`model/` 撤销。
+
+**如何自查（别只看 import 行）**：包级依赖必须连**全限定名引用**一起扫，
+否则 `policy → runtime` 这种「只差一个 import」的边会被漏掉。做法：**先剥除注释行**
+（`//` 与 KDoc 的 `*` 开头行——KDoc 里的 `[com.hmp.domain.agent.policy.X]` 交叉引用
+**不是**代码依赖），再同时匹配 `^import com.hmp.domain.agent.*` 与正文中的全限定名
+`com.hmp.domain.agent.*`，按包归约后比较层级。
+
+### 可见性与接口面（2026-09-20 立 · 阶段 1–5 已收口）
+
+**问题**：包分层已单调（0 反向边），但**分层只是约定，不是强制**。Kotlin 的可见性只有
+`public` / `internal` / `protected` / `private` 四级，**没有「包内可见」** —— `package`
+纯属组织手段，不携带任何访问控制能力。因此「UI 不碰引擎内部」这条线目前只能靠人工审计守。
+
+实测（2026-09-20，**import 口径**）：agent 域顶层声明中**跨模块公开 68 个 / 仅模块内可见 135 个**；
+`internal` 仅占全部声明的 5.3%。按包分：runtime 实现层 11/38 · port 23/13 · card 16/7 ·
+profile 4/19 · tool 3/47 · 其他 11/11。
+
+> ⚠️ **统计跨模块依赖只能用 import 口径。** `AgentMonitorScreen.kt` 的 `title = "RadioSubAgent"`、
+> `AgentConfigScreen.kt` 的 `agentLabelFor()` 都是**字符串字面量**，按「名字是否出现」统计会虚增依赖；
+> KDoc 交叉引用同理。可靠口径 = 跨模块文件里的 `^import com.hmp.domain.agent.X`。
+
+**判据（两条，勿混）**：
+
+1. **可见性看「跨不跨模块」，不看「重不重要」。** `AgentScheduler` 很关键但 shared-ui
+   永远不需要 → `internal`；`RadioTrack` 只是 19 行数据类但 `RadioConsole` 要渲染队列
+   → 必须 `public`。重要性与可见性是两件事。
+2. **`internal` 的边界 = Gradle 模块边界 = `:shared`。** 无需新建模块 —— `:shared` / `:shared-ui`
+   的边界早已画好，本工作只是让访问权限**跟上这个既有边界**。
+
+**目标**：把「内部实现」与「对外接口」在类型系统里分开，使分层从「人工审计」升级为
+「编译期保证」。附带收益：KMP 的 `internal` 不导出到 iOS framework，framework 的 API surface 随之收窄。
+
+**验收口径**：
+
+- 三端编译绿 + `:shared:desktopTest --rerun-tasks` 全绿
+- 包级反向边保持 0
+- 每一个 `internal` 都可追溯到「无跨模块调用者」这一事实，不靠人工猜测
+
+**已知约束（本工作内不擅动，另案评估）**：
+
+- ~~**Koin 装配位于 shared-ui 模块**~~ —— **已于 2026-09-20（F13 阶段 3）解除**：
+  `MasterAgent` 的装配从 `shared-ui/.../chat/ChatKoinModule.kt` 迁到
+  `shared/.../di/SharedModules.kt`（`// ══ Agent 运行时装配 ══` 段）。UI 模块不再
+  new 领域对象、也不再注入 `GlobalTokenCounter` / `TokenMeter`，这是调度/计量词汇表
+  得以整簇收口的直接前提。
+  仍在 shared-ui 注册、由本装配**经端口接口**解析的 bean（Koin 惰性求值，与加载顺序无关）：
+  `PlaybackCommandPort` / `NowPlayingContextProvider` / `AiExtraEnrichPort` 的适配器实现，
+  以及 `ToolRegistry` / `PolicyGuard` / `SessionStore` / `PresenceBus`。
+- **`:shared` 之外还有第三个模块**：`:android:app` 与 `:desktop:app` 都调
+  `MasterAgent.close()`（进程退出兜底）⇒ `close()` 必须保持 public。
+  **做跨模块可见性判断时不能只扫 shared-ui** —— 漏掉 app 模块会得到"编译绿"的假结论。
+- **shared-ui 自身的测试**（`ChatViewModelTest` / `ChatTestFakes`）在 shared-ui 模块，其使用的
+  `FakePlaybackCommandPort` / `StoredAgentMessage` / `ConfirmRequest` / `ToolPermissionLevel`
+  等端口须保持 public。（`:shared` 的 commonTest 同模块，不受 `internal` 影响。）
+- **Koin 反射可能绕过编译检查** ⇒ 编译通过后须**人工核对 DI 图**，不以编译绿为唯一依据。
+
+**手法：编译反推法**（本工作的核心技巧）
+
+判断「哪些是门面、哪些是内部」不靠人工读代码，而是：**先把候选全部标 `internal` → 编译 →
+报错处即「确实存在跨模块调用者」→ 改回 `public`，其余保持 `internal`。**
+边界由编译器算出，而非猜测。同理，加 `internal` 后暴露的报错正是脚本统计不到的真实依赖
+（反射、Koin 传递、跨平台 actual、全限定名引用）。
+
+**收口前实测的越界点（3 处）**：
+
+| 调用方（模块外） | 被调用的内部物 | 处置方向 |
+|---|---|---|
+| `ChatAgentGateway` | `runtime/ContextAssembler` | 抽门面或换接口 |
+| `HelloSlideCards` | `EnrichSubAgent.EnrichProgress` | 该数据类上提为 UI 契约，或经门面暴露 |
+| `AgentConfigScreen` | `runtime/i18n/resolvePrompt` | 并入门面 |
+
+**分阶段**：① 收口 runtime 实现层顶层声明 → ② 分拣 MasterAgent 成员方法 →
+③ 抽门面并拆巨型类 → ④ 三端验证与文档收口。
+
+**「抽门面」的典型形态（阶段 3 已落地的一例，可作范式）**：
+把**数据形状**与**写入能力**分开。
+`GlobalTokenCounter` 是引擎写入侧，UI 只需要「用了多少 / 配额多少」这个只读形状 ⇒
+把 `TokenSnapshot` 从内部类里提为**公开顶层数据类**，`MasterAgent` 增一条只读门面
+`tokenUsage: StateFlow<TokenSnapshot>`；UI 改读门面后，计数器本体即收敛为 `internal`。
+判据：**外部要的是"看到什么"，不是"能做什么"时，抽数据形状比抽方法更省事、也更难被滥用。**
+（同法适用：`AgentContextBudget`/`EnrichSubAgent`/`HelloSubAgent` 的构造器收为 internal
+—— 类保持 public 可被传递与读取，但外部**造不出来**，装配权归领域模块。）
+
+### 3c 之后的可维护性收口（2026-09-20 · 阶段 5）
+
+阶段 1–4 解决的是**影响面可判断**（编译器答"谁在依赖我"）。阶段 5 补的是它没覆盖的一层：
+**抽出来的东西没人测、同一件事有多个写法、对象状态没有归属**。
+
+| 收口项 | 收口前 | 收口后 |
+|---|---|---|
+| 3c 抽出的纯函数零测试 | 7 个新文件在 `commonTest` 里**零命中** | 3 个测试类 / **37 例**（`ChatIntentRulesTest` · `HelloGreetingProfilesTest` · `EnrichResponseParserTest`），并**抓出 1 个真缺陷**（见下） |
+| `MasterAgent.builtinIntent` | **171 行**、9 个同形分支；`AgentResult(stepsUsed=0, toolCalls=emptyList(), …)` 在类内出现 **18 次** | `BuiltinIntent` 数据类表（9 条）+ 单一执行器；两个工厂 `answered` / `unavailable` 消掉全部 18 处样板 |
+| LLM 单次调用的形态 | `LlmCallExecutor` 无状态却写成 `class`，4 处各自 `new`；`agentId` / `tokenMeter` 靠每处手传 | `LlmCallExecutor` 改 `object`；新增 `AgentContextBudget.callOnce(...)` 自动带上 `agentId` + `tokenMeter`，Radio 的 `askJudge` 改走它，4 处 `new` 清零 |
+| Hello 会话状态 | 12 个散落的 `@Volatile private var`（声明区 36 行） | 收进文件级 `private class HelloSessionState`，本类即"该 Agent 的会话状态清单" |
+| UI 抓 Agent 对象 | `masterAgent.helloAgent()?.cards`（UI 拿到 Agent 本体） | 新增只读门面 `MasterAgent.helloCards`，`helloAgent()` 收 `internal` |
+
+**⚠️ 阶段 5 最重要的一条判断：不做 1:1 的 `AgentFacade`。**
+
+09-20 的审计把「Master 门面不存在」列为头号短板（47 个 public 方法 / 7 个关注点 / 18 个 UI 文件消费）。
+阶段 3b 完成后重新评估，结论是**不做**：
+
+1. **该短板的一半已被 3b 消掉，且是用更强的手段。** 审计当时的痛点是"引擎内部 API 与 UI 门面 API
+   混在同一类"——而 3b 已把 21 个成员**收成 `internal`**，编译器现在会拒绝 UI 触碰它们。
+   这比"另建一个门面类、UI 自觉只走门面"**强得多**（后者仍是约定）。
+2. **剩下的 34 个成员全部有真实 UI 调用方**（门面清单由编译反推产出）。把它们照搬进 `AgentFacade`
+   就是 **34 个方法的 1:1 委托**：多一个文件、多一层转发，**可达面一个都没缩小**。
+3. **"改 MasterAgent 时不知道谁受影响"这个真问题已经不存在了** —— UI 直接用具体类 `MasterAgent`，
+   改签名编译器立刻报错。加门面在此处**不产生新的编译期保证**。
+
+⇒ 判据沉淀：**门面只有在「可达面比原类更窄」时才有价值。** 1:1 镜像的门面是纯粹的间接层。
+若将来真要拆，正解是**按关注点做接口隔离**（`RadioControl` / `AgentConfigAccess` / `MemoryAccess` …，
+每个 UI 文件只依赖自己要的那一个），而不是给整个类套壳 —— 那是独立决策，不在本阶段。
+
+**副产品：单测抓出的真缺陷（`EnrichResponseParser`）**
+
+`extractJsonArrayElements` 判断"输出是否被数组包裹"时只看 `indexOf('[') >= 0`。
+而 Round 1 的三个字段（genre / mood / scenario）**本身就是数组** ⇒ 裸对象里必然含 `[`
+⇒ 恒被判为"有数组包装" ⇒ 切出 0 个对象 ⇒ **兜底分支成了死代码**。
+后果不是崩溃，是**静默**：模型偶尔漏掉外层 `[...]` 时，整轮富化结果无声丢光。
+修复：加入位置比较（`[` 必须出现在第一个 `{` 之前），并修掉兜底分支把对象序列当成单个对象的问题。
+
+> 这条印证了"阶段 5 第一项"的排序理由：**纯函数之所以值得优先补测，是因为它们最容易出这类
+> "不报错、只是安静地算错"的缺陷**，而这类缺陷永远不会在集成测试里显形。
+
+**手法延续：编译反推法在阶段 5 依然有效。** `internal` 的判定不靠读代码 ——
+`AgentContextBudget.callOnce` 因为返回 internal 的 `CollectedLlmResult`，编译器直接报
+`'public' function exposes its 'internal' return type`（**error，不是 warning**），
+于是该标 `internal` 这件事由编译产出，而非人工判断。
+
+### UI 层 agent 模块整理（2026-09-20）
+
+领域层收口后，UI 侧（`:shared-ui`）仍散着 25 个引用 agent 域的文件。动作与判据：
+
+**① `intentHandled` 从 KDoc 值域变成 enum。** 生产方（`MasterAgent.builtinIntents` 表）与
+消费方（`ChatAgentGateway`）原本各写一份字符串字面量，中间只有一行注释描述值域 —— 正是 3c
+记下的「注释里写契约，代码里各一份」。改为 `BuiltinIntentId` 后，UI 的分支从**列举 7 个标识**
+收敛为**按"是否需要 Gateway 加工"二分**（`RADIO_START` / `null` / `else`）：新增内建意图
+自动落进 `else`，不再有"漏同步 UI 就静默走错分支"这条失效路径。
+
+**② UI 层全限定名清零（46 处 → 0）。** 分布在 `HomeScreen`(22) / `HelloSlideCards`(18) /
+`ChatAgentGateway`(4) / `NavigationGraph`(2)。§3.3.6 的教训是：`tool/spec` 那条反向边就藏在
+函数体的全限定名里，只扫 import 行看不到 —— **扫得出依赖的前提是引用形式统一**。
+
+**③ `AiExtraEnrichPort` 整条死链清除。** 表象是 UI 侧一个 `@Deprecated` 桩（实现直接
+`Result.failure`），但它仍被 `ToolDependencies.enrichPort` 真实消费，所以不能只删桩；
+再往上追，`.enrichPort` 在生产代码中**零调用** —— 原本的消费者 `enrichSong` 工具早已随富化
+管道内化到 `EnrichSubAgent` 而撤销。用编译反推法一次清干净：接口 + 字段 + DI 注册 + 桩 +
+Fake + 5 处测试引用。
+
+**④ 端口实现归位到 `ui/agent/port/`。** `ControllerPlaybackCommandPort` /
+`ControllerNowPlayingProvider` 原本在 `chat/`（历史偶然：它们不引用 chat 包任何东西，
+KDoc 自己就写着"依赖方向铁律"）。`DialogConfirmGateAdapter` **不动** —— 它的主人是
+dialog 系统（把 agent 确认请求翻译成 dialog 事件），agent 只是上游。
+
+**⑤ `HelloSlideCards.kt`（1939 行）→ `hellocards/` 11 个文件。** 按 `SlideType` 拆渲染
+Composable，构建逻辑随各自卡片走。搬运前先做**依赖矩阵**确认切分可行：
+`Stack → Rotating → Dispatch → {8 个 Family*Card}`，每个卡片只被 Dispatch 调用。
+内容守恒校验：新包仅 17 行与原文不匹配，且**全部是 `private → internal` 的函数签名**，
+载荷零丢失。
+
+> **拆文件的必然代价：可见性从 file-private 升到 module-internal。** Kotlin 没有"包内可见"，
+> 跨文件就必须 `internal`。判据同 3c 副产品判据 —— 这些 Composable **入参即全部依赖**，
+> 没有不变量需要 `private` 保护，因此不构成真正的封装损失。块内自用的 helper
+> （`AnniversaryVisual` / `SingleTrackMeta` / `AsyncCoverForTrack` / 轮播常量等）随卡片
+> 同处一文件，**仍保持 `private`**。
+
+**⑥ 顺手收敛 `EnrichProgress.IDLE`。** 拆分时发现 `EnrichSubAgent._progressState` 初值与
+UI 兜底值各抄了一份 `EnrichProgress(0,0,0,0,UNREGISTERED,null,0,0,"idle")`。
+**9 个位置参数**意味着调整字段顺序两边都照样编译、只是静默错位。收敛到领域层一个 `IDLE`
+常量后，生产方与消费方不可能再各自演化。同时修掉 UI 侧的
+`by flow?.collectAsState() ?: remember { mutableStateOf(...) }` —— Elvis 两侧调用了
+**不同的 Composable API**，在 `masterAgent` 由 null 变非 null 时组合调用图形状会改变，
+不受 Compose 的位置记忆保护。
+
+> **机械搬运时清理 import 的两个坑（已踩）**：
+> ① 判断"某个 import 是否被用到"时，若用 `(?<![\w.])name` 这类**带负向后顾**的正则，
+> 会把所有**扩展函数**误判为未使用 —— 源码里它们一律写成 `receiver.foo()`（前面必有点）。
+> ② `getValue` / `setValue`（`by` 委托所需）**在源码里从不以字面出现**，任何"按名字是否
+> 被引用"的启发式都会误删它们，必须单独保留。
+> 结论：这类脚本必须能自证，删完一定要编译验证，不能只信脚本输出。
+
+
 
 ---
 
@@ -389,7 +649,7 @@ T1 基础设施重构 ──▶ T2 Master 内核改造 ──▶ T3 Enrich 实�
 | T1-T1 | **拆分 ContextBudget**：现有 `ContextBudget` 拆为：<br>• `AgentContextBudget`（每个 Agent 一份，绑定 LLM 实例，管自己的上下文窗口 + 历史压缩）<br>• `GlobalTokenCounter`（全局唯一，只记当日 Token 总消耗，供 Scheduler 用） | 新增 `domain/agent/runtime/AgentContextBudget.kt`<br>新增 `domain/agent/runtime/GlobalTokenCounter.kt`<br>**改造** 现有 `engine/ContextBudget.kt`（如果有的话） | `AgentContextBudget` 单测：token 估算准确、超窗口 85% 自动压缩历史、LLM 实例绑定正确 |
 | T1-T2 | **重构 LlmTransport**：从单例改为可创建多实例的工厂 `LlmTransport.create(windowSize: Int, modelType: ModelType)`，每个 Agent 绑定独立实例 | **改造** `domain/agent/llm/LlmTransport.kt`（移除 companion object 单例，加工厂方法） | `LlmTransport.create()` 单测：多实例互不干扰、各用各自的 windowSize |
 | T1-T3 | **新增 AgentScheduler**：全局唯一纯规则仲裁器：<br>• 接受 SubAgent 注册（priority / onPause / onResume）<br>• 每秒循环判断电量/网络/Token 日配额，触发 pause/resume<br>• priority=1（Master）永不暂停 | 新增 `domain/agent/runtime/AgentScheduler.kt` | `AgentScheduler` 单测：priority 1/2/3 各档位触发条件正确、pause/resume 回调正确、每秒循环不阻塞主线程 |
-| T1-T4 | **新增 SubAgent 基类 + ToolRegistryView**：<br>• `abstract class SubAgent`：暴露 `assignBatch(batch)` / `shutdown()` / `suspendCoroutine()` / `resumeCoroutine()` 四个接口<br>• `ToolRegistryView`：权限过滤，给每个 SubAgent 的 ToolRegistry 视图（白名单过滤） | 新增 `domain/agent/sub/SubAgent.kt`<br>新增 `domain/agent/runtime/ToolRegistryView.kt` | `ToolRegistryView` 单测：Enrich 视图只能拿到 library_* + song_*，拿不到 playback_* / playlist_* |
+| T1-T4 | **新增 SubAgent 基类 + ToolRegistryView**：<br>• `abstract class SubAgent`：暴露 `assignBatch(batch)` / `shutdown()` / `suspendCoroutine()` / `resumeCoroutine()` 四个接口<br>• `ToolRegistryView`：权限过滤，给每个 SubAgent 的 ToolRegistry 视图（白名单过滤） | 新增 `domain/agent/runtime/sub/shared/SubAgent.kt`<br>新增 `domain/agent/runtime/ToolRegistryView.kt` | `ToolRegistryView` 单测：Enrich 视图只能拿到 library_* + song_*，拿不到 playback_* / playlist_* |
 
 **依赖**：无（纯重构，不碰业务逻辑）
 **验证**：跑 `./gradlew :shared:test` 全绿，现有 chatbot 功能不受影响（Master 的 AgentContextBudget 先和原来的全局 ContextBudget 等价替换，功能不变）
@@ -418,9 +678,9 @@ T1 基础设施重构 ──▶ T2 Master 内核改造 ──▶ T3 Enrich 实�
 
 | ID | 任务 | 涉及文件 | 验收 |
 |----|------|---------|------|
-| T3-T1 | **EnrichSubAgent 实现**：继承 SubAgent 基类：<br>• 构造函数接收 Master 注入的 `EnrichTask`（转换成 system prompt）<br>• 内部只有一个循环：`batchChannel.receive()` → `contextBudget.callLlm()` → 写 DB → emit PresenceBus<br>• 无任何决策逻辑 | 新增 `domain/agent/sub/EnrichSubAgent.kt` | 单元测试：batchChannel 收到批次 → LLM 被调用 → toolCalls 写 DB；Scheduler pause 后 coroutine 挂起 |
+| T3-T1 | **EnrichSubAgent 实现**：继承 SubAgent 基类：<br>• 构造函数接收 Master 注入的 `EnrichTask`（转换成 system prompt）<br>• 内部只有一个循环：`batchChannel.receive()` → `contextBudget.callLlm()` → 写 DB → emit PresenceBus<br>• 无任何决策逻辑 | 新增 `domain/agent/runtime/sub/enrich/EnrichSubAgent.kt` | 单元测试：batchChannel 收到批次 → LLM 被调用 → toolCalls 写 DB；Scheduler pause 后 coroutine 挂起 |
 | T3-T2 | **Enrich 专属 ToolRegistryView**：配置权限白名单：只能调 `library_*` + `song_*`，拿不到 `playback_*` / `playlist_*` | **改造** T1 的 `ToolRegistryView.kt` | 权限白名单单测：`playback_play_at` 在 Enrich 视图里不可见 |
-| T3-T3 | **Enrich system prompt 模板**：Master 注入的执行手册常量（无自演化逻辑） | 新增常量到 `domain/agent/sub/EnrichPrompts.kt` | prompt 注入单测：Master 传入的 EnrichTask 参数正确填入 prompt |
+| T3-T3 | **Enrich system prompt 模板**：Master 注入的执行手册常量（无自演化逻辑） | 常量落在 `domain/agent/runtime/sub/enrich/EnrichSubAgent.kt`（**无独立 `EnrichPrompts.kt`**，实现时并入本文件） | prompt 注入单测：Master 传入的 EnrichTask 参数正确填入 prompt |
 | T3-T4 | **Scheduler pause/resume 与 Enrich 联动**：Enrich 的 coroutine 支持外部挂起/唤醒，batchChannel 缓冲区 10 保证 pause 期间 Master 派发的批次不丢失 | EnrichSubAgent 内部 + T1 Scheduler | Scheduler 切移动数据 → Enrich coroutine 挂起；切 WiFi → 自动唤醒，从缓冲区继续 |
 
 **依赖**：T1（SubAgent 基类 + ToolRegistryView）、T2（Master 派活逻辑）

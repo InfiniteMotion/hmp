@@ -37,7 +37,6 @@ import com.hmp.domain.agent.port.AuditLogPort
 import com.hmp.domain.music.MusicRepository
 import com.hmp.domain.playlist.PlaylistRepository
 import com.hmp.domain.setting.SettingsRepository
-import kotlinx.serialization.json.Json
 import org.koin.core.module.dsl.singleOf
 import org.koin.dsl.bind
 import org.koin.dsl.module
@@ -75,11 +74,9 @@ val androidPlatformModule = module {
     singleOf(::MusicRepositoryImpl) bind MusicRepository::class
     singleOf(::BackupFileRepositoryImpl) bind BackupFileRepository::class
 
-    single<Json> {
-        Json {
-            ignoreUnknownKeys = true
-            isLenient = true
-            encodeDefaults = true
-        }
-    }
+    // 注：`Json` 单例由 sharedModule 的 `single { createJson() }` 提供（三端统一），
+    // 本模块曾再注册一份**内容逐字相同**的 `single<Json>` —— 属重复定义：
+    // Koin 默认 override=true 使后者静默覆盖前者，今天无害，但一旦两处漂移
+    // （改一处忘了另一处）就会让 Android 与 Desktop/iOS 用上不同的 Json 配置，
+    // 且不会有任何编译或运行期报错。F13 DI 图核对时删除（2026-09-21）。
 }

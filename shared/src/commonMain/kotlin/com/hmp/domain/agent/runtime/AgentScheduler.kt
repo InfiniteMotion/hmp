@@ -1,5 +1,7 @@
 package com.hmp.domain.agent.runtime
 
+import com.hmp.domain.agent.port.TimeProvider
+
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -17,7 +19,7 @@ import com.hmp.platform.Synchronized
  * - 2: Radio SubAgent（需 WiFi + 电量≥20%）
  * - 3: Enrich SubAgent（需 WiFi + 电量≥50% + 日配额剩10%）
  */
-enum class AgentPriority(val value: Int) {
+internal enum class AgentPriority(val value: Int) {
     MASTER(1),
     RADIO(2),
     ENRICH(3),
@@ -25,7 +27,7 @@ enum class AgentPriority(val value: Int) {
 }
 
 /** Agent 注册请求（Scheduler.registerAgent 的参数） */
-data class AgentRegistration(
+internal data class AgentRegistration(
     val agentId: String,
     val priority: AgentPriority,
     /** 估算的每分钟 Token 消耗（供日配额仲裁参考） */
@@ -57,7 +59,7 @@ enum class AgentRunState { RUNNING, PAUSED, UNREGISTERED }
  * | ENRICH (3) | 电量≥50% 且 WiFi 且 日配额剩≥10% |
  * | HELLO (4) | 永不暂停（门面副驾驶，最靠近用户） |
  */
-class AgentScheduler(
+internal class AgentScheduler(
     private val timeProvider: TimeProvider,
     private val tokenCounter: GlobalTokenCounter,
     /** 系统条件提供者（expect/actual 桥接：Android 传 BatteryManager/ConnectivityManager） */
@@ -178,7 +180,7 @@ class AgentScheduler(
  * 系统条件提供者（expect/actual 桥接层）。
  * T1 先用接口占位，实际平台实现留给平台层 DI 注入。
  */
-interface SystemConditions {
+internal interface SystemConditions {
     /** 当前电量百分比（0.0 ~ 1.0），未知返回 1.0 让仲裁继续 */
     fun batteryLevel(): Float
 

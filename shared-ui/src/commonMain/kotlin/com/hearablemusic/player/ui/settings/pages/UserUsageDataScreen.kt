@@ -40,6 +40,7 @@ import com.hearablemusic.player.ui.common.components.SegmentedControl
 import com.hearablemusic.player.ui.common.components.SegmentedOption
 import com.hearablemusic.player.ui.common.components.base.HMPCard
 import com.hearablemusic.player.ui.common.design.dimens.LocalHMPDimens
+import com.hearablemusic.player.ui.common.components.SectionHeader
 import com.hearablemusic.player.ui.common.navigation.Routes
 import com.hearablemusic.player.ui.common.pages.base.SubScreen
 import com.hearablemusic.player.ui.common.util.HapticFeedbackHelper
@@ -59,8 +60,8 @@ import com.hearablemusic.player.ui.settings.viewmodel.Dimension
 import com.hearablemusic.player.ui.settings.viewmodel.PersonalityBundle
 import com.hearablemusic.player.ui.settings.viewmodel.UserUsageDataViewModel
 import com.hearablemusic.player.ui.settings.viewmodel.WindowedBundle
-import com.hmp.domain.agent.sub.NarrativeTimeRange
-import com.hmp.domain.agent.sub.zhName
+import com.hmp.domain.agent.card.NarrativeTimeRange
+import com.hmp.domain.agent.card.zhName
 import com.hmp.domain.music.HourlyDistributionRow
 import com.hmp.domain.setting.model.LabelCountEntry
 import com.hmp.domain.setting.model.RecentPlaybackEntry
@@ -500,33 +501,6 @@ private fun EmptyHint(text: String) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
-    }
-}
-
-@Composable
-private fun SectionHeader(title: String) {
-    val dimens = LocalHMPDimens.current
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = dimens.spacing.xs),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Box(
-            modifier = Modifier
-                .width(4.dp)
-                .height(20.dp)
-                .clip(RoundedCornerShape(2.dp))
-                .background(MaterialTheme.colorScheme.primary)
-        )
-        Spacer(modifier = Modifier.width(dimens.spacing.md))
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleMedium,
-            fontSize = dimens.type.md,
-            fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.onSurface
-        )
     }
 }
 

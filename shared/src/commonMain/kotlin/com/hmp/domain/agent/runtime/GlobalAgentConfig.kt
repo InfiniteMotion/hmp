@@ -10,14 +10,14 @@ import kotlinx.serialization.Serializable
  */
 @Serializable
 data class GlobalAgentConfig(
-    /** 选中的预设人格 id："zhin" / "dj" / "curator"。null = 直接使用 personaOverride。 */
-    val selectedPersonaId: String? = "zhin",
     /** 日 Token 配额（全局，跨所有 Agent 共享）。 */
     val dailyTokenQuota: Int = 500_000,
     /** 回复语言："zh" / "en" / "auto"。 */
     val replyLanguage: String = "zh",
     /** 嗓音与耳朵开关（M7 gate，默认关闭）。 */
     val voiceEnabled: Boolean = false,
+    /** 记忆功能总开关（默认开启；关闭后所有读取返回安全占位、所有写入静默跳过）。 */
+    val memoryEnabled: Boolean = true,
 ) {
     companion object {
         /** DataStore key 常量。 */

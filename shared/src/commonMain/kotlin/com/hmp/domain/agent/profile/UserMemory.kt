@@ -48,6 +48,19 @@ class UserMemory(
     private val logTag = LogTag.AgentProfile
 
     /**
+     * 记忆总开关（设置页「关闭记忆」控制）。false 时：
+     * - **读**：[renderForContext] 直接返回 [MEMORY_DISABLED_NOTICE]，其余读返回空/0/null，绝不阻塞调用方；
+     * - **写**：[refreshFromLibrary]/[refreshBehavior]/[ingestDialogueEvidence]/[noteStatedPreference]/[forgetPortrait]/[updateNarrative] 全部静默跳过。
+     * 由 MasterAgent 在启动与配置变更时同步。
+     */
+    var memoryEnabled: Boolean = true
+
+    private companion object {
+        /** 记忆关闭时 [renderForContext] 直接返回的提示（非阻塞、不报错，让原始操作继续）。 */
+        const val MEMORY_DISABLED_NOTICE = "（记忆功能已关闭，伙伴暂未保留对你的认识）"
+    }
+
+    /**
      * 曲库侧全量刷新 —— 扫描完成 / 库变更后调用。三段一起跑：
      *
      * | 段 | 来源 | 触发条件 |
@@ -62,6 +75,7 @@ class UserMemory(
      * @return 本次刷新后落库的侧写条数（0 表示曲库为空、没有可说的 —— 冷启动不留空壳）
      */
     suspend fun refreshFromLibrary(): Int = runCatching {
+        if (!memoryEnabled) return@runCatching 0
         val now = timeProvider()
         val sessionId = "scan-$now"
 
@@ -121,6 +135,7 @@ class UserMemory(
      * 证据行本身就是"上次什么时候算过"的记录。
      */
     suspend fun refreshBehavior(force: Boolean = false): Int = runCatching {
+        if (!memoryEnabled) return@runCatching 0
         val now = timeProvider()
         if (!force) {
             val last = evidenceDao.newestUpdatedAtBySource(ProfileSources.T0_BEHAVIOR)
@@ -160,6 +175,7 @@ class UserMemory(
      * 契约 §4.4 的底线在这里落地：**只接受闭集内的谓词**，不接受自由发明的谓词。
      */
     suspend fun noteStatedPreference(rawPredicate: String, value: String, sessionId: String? = null): Boolean {
+        if (!memoryEnabled) return false
         val predicate = normalizePredicate(rawPredicate) ?: run {
             HmpLog.w(logTag) { "🫀 rejected unknown predicate from note: $rawPredicate" }
             return false
@@ -182,6 +198,7 @@ class UserMemory(
 
     /** 否决一个侧写（`profile_forget` 工具）：写一条 `portrait.denied` 证据，派生时该类型整体不产出。 */
     suspend fun forgetPortrait(typeId: String, sessionId: String? = null): Boolean {
+        if (!memoryEnabled) return false
         val type = PortraitType.byId(typeId) ?: return false
         val now = timeProvider()
         upsertEvidence(
@@ -211,6 +228,7 @@ class UserMemory(
      * 谓词仍过闭集闸门（[upsertEvidence] 内），调用方给的菜单只是第一道。
      */
     suspend fun ingestDialogueEvidence(drafts: List<DialogueExtractor.Extraction>, sessionId: String?): Int {
+        if (!memoryEnabled) return 0
         if (drafts.isEmpty()) return 0
         val now = timeProvider()
         var written = 0
@@ -248,6 +266,7 @@ class UserMemory(
      * 同样处于「仅供参考」口径之下，且只可能是槽位事实的复述（写入闸门保证）。
      */
     suspend fun renderForContext(): String? = runCatching {
+        if (!memoryEnabled) return@runCatching MEMORY_DISABLED_NOTICE
         val drafts = loadPortraitDrafts()
         if (drafts.isEmpty()) return@runCatching null
         val narrative = narrativeDao?.get()?.text
@@ -261,6 +280,7 @@ class UserMemory(
      * （契约 v3.5 §7.4：叙事只能是事实的复述，所以输入里不许有称号和旧叙事）。
      */
     suspend fun factsRenderForNarrative(): String? = runCatching {
+        if (!memoryEnabled) return@runCatching null
         val drafts = loadPortraitDrafts()
         if (drafts.isEmpty()) return@runCatching null
         UserProfileRenderer.renderBody(PortraitComposer.selectForContext(drafts))
@@ -268,11 +288,13 @@ class UserMemory(
 
     /** 当前侧写内容的指纹 —— 与落库叙事的 `factsHash` 不同即视为过期。 */
     suspend fun factsFingerprint(): Int = runCatching {
+        if (!memoryEnabled) return@runCatching 0
         ProfileNarrative.factsFingerprint(loadPortraitDrafts())
     }.getOrDefault(0)
 
     /** 叙事现状（未生成过返回 null）。 */
     suspend fun narrativeState(): ProfileNarrativeState? = runCatching {
+        if (!memoryEnabled) return@runCatching null
         narrativeDao?.get()?.let {
             ProfileNarrativeState(text = it.text, factsHash = it.factsHash, generatedAt = it.generatedAt)
         }
@@ -285,6 +307,7 @@ class UserMemory(
      * 旧叙事保留（宁旧勿假）。审计只记动作不记内容。
      */
     suspend fun updateNarrative(rawText: String, factsHash: Int): Boolean {
+        if (!memoryEnabled) return false
         val text = ProfileNarrative.validate(rawText)
         val dao = narrativeDao ?: return false
         if (text == null) {
@@ -303,6 +326,7 @@ class UserMemory(
 
     /** 全量侧写（设置页「伙伴对你的认识」用；M2 的 F9-T2 消费）。 */
     suspend fun currentPortraits(): List<PortraitDraft> = runCatching {
+        if (!memoryEnabled) return@runCatching emptyList()
         loadPortraitDrafts()
     }.onFailure { e ->
         HmpLog.w(logTag, e) { "🫀 currentPortraits failed (non-fatal)" }
@@ -316,6 +340,7 @@ class UserMemory(
      * UI 落点在 F9-T2 的设置页，本方法只负责供数。
      */
     suspend fun musicPersonalityCard(): PersonalityCardComposer.PersonalityCard? = runCatching {
+        if (!memoryEnabled) return@runCatching null
         PersonalityCardComposer.compose(loadPortraitDrafts(), narrativeDao?.get()?.text)
     }.onFailure { e ->
         HmpLog.w(logTag, e) { "🫀 musicPersonalityCard failed (non-fatal)" }
@@ -345,6 +370,7 @@ class UserMemory(
     )
 
     private suspend fun briefingFor(types: Set<PortraitType>, maxChars: Int): String? = runCatching {
+        if (!memoryEnabled) return@runCatching null
         val drafts = loadPortraitDrafts()
         if (drafts.isEmpty()) return@runCatching null
         val selected = PortraitComposer.selectForContext(drafts).filter { it.type in types }
@@ -355,6 +381,7 @@ class UserMemory(
 
     /** 证据行全量（设置页的「凭什么」展开用）。 */
     suspend fun currentEvidence(): List<ProfileEvidence> = runCatching {
+        if (!memoryEnabled) return@runCatching emptyList()
         evidenceDao.getAll().map { it.toDomain() }
     }.getOrDefault(emptyList())
 

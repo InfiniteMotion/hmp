@@ -10,7 +10,7 @@ import com.hmp.platform.Volatile
  * - [AlwaysRunningStopSignal] MasterAgent 用：永不暂停
  * - [SchedulerStopSignal] Enrich/Radio 用：真正挂起等 Scheduler resume
  */
-interface StopSignal {
+internal interface StopSignal {
     /** 软停止：跑完当前 step 就退出循环（token 配额耗尽 / 外部 shutdown） */
     fun shouldSoftStop(): Boolean
 
@@ -19,7 +19,7 @@ interface StopSignal {
 }
 
 /** MasterAgent 用——永不暂停，只查 token/step 熔断（ReActLoop 内部也会查 stepBudget） */
-class AlwaysRunningStopSignal(
+internal class AlwaysRunningStopSignal(
     private val tokenCounter: GlobalTokenCounter? = null,
 ) : StopSignal {
     override fun shouldSoftStop(): Boolean = tokenCounter?.shouldStop() ?: false
@@ -48,7 +48,7 @@ class AlwaysRunningStopSignal(
  *       onResume = { stopSignal.onSchedulerResumed() },
  *   ))
  */
-class SchedulerStopSignal(
+internal class SchedulerStopSignal(
     private val tokenCounter: GlobalTokenCounter? = null,
 ) : StopSignal {
 

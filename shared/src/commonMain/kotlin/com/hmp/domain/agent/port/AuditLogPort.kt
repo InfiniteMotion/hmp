@@ -43,15 +43,4 @@ interface AuditLogPort {
             )
         )
     }
-
-    /** M6-T3：LLM 生成 DJ 衔接语审计。 */
-    suspend fun logDjSegue(text: String, source: String = "llm") {
-        record(
-            AuditEntry(
-                tool = "dj.segue",
-                outcome = "success",
-                reason = "source=$source text=${text.take(60)}",
-            )
-        )
-    }
 }

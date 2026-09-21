@@ -8,6 +8,8 @@ import com.hmp.domain.backup.MusicUserStateSnapshot
 import com.hmp.domain.enum.LabelCategory
 import com.hmp.domain.enum.LabelName
 import com.hmp.domain.music.EditableMusicTags
+import com.hmp.domain.music.MusicExtra
+import com.hmp.domain.music.MusicExtraTexts
 import com.hmp.domain.music.MusicInfo
 import com.hmp.domain.music.MusicLabel
 import com.hmp.domain.agent.profile.BehaviorSnapshot
@@ -15,7 +17,6 @@ import com.hmp.domain.agent.profile.LibraryContentSnapshot
 import com.hmp.domain.agent.profile.LibraryStateSnapshot
 import com.hmp.domain.music.MusicRepository
 import com.hmp.domain.setting.model.AiEndpointConfig
-import com.hmp.domain.setting.model.DailyMusicInfo
 import com.hmp.domain.setting.model.ListeningDuration
 import com.hmp.domain.setting.model.PlaybackHistory
 import com.hmp.domain.setting.model.UserUsageAnalytics
@@ -34,7 +35,6 @@ class FakeMusicRepository : MusicRepository {
     private val dataLabels = mutableMapOf<Long, MutableList<DataMusicLabel>>()
     private val likedStatus = mutableMapOf<Long, Boolean>()
     private val lyrics = mutableMapOf<Long, String>()
-    private val extras = mutableMapOf<Long, DailyMusicInfo>()
     private val playbackHistory = mutableListOf<PlaybackHistory>()
     private val listeningDurations = mutableListOf<ListeningDuration>()
     private var nextPlaybackId = 1L
@@ -104,9 +104,6 @@ class FakeMusicRepository : MusicRepository {
 
     override suspend fun getRandomMusicInfoWithMissingExtra(): MusicInfo? =
         musicList.filter { it.extra?.isGetExtraInfo != true }.randomOrNull()
-
-    override suspend fun getRandomMusicInfoWithExtra(): MusicInfo? =
-        musicList.filter { it.extra?.isGetExtraInfo == true }.randomOrNull()
 
     override suspend fun updateLikedStatus(id: Long, liked: Boolean) {
         likedStatus[id] = liked
@@ -213,12 +210,29 @@ class FakeMusicRepository : MusicRepository {
 
     override suspend fun getMusicLyrics(musicId: Long): String? = lyrics[musicId]
 
-    override suspend fun insertMusicExtra(musicId: Long, musicExtraInfo: DailyMusicInfo) {
-        extras[musicId] = musicExtraInfo
+    /**
+     * 与生产同语义：写入 musicExtra 表的 6 列，读侧表现为 `MusicInfo.extra`；
+     * 且 `updateExtraFieldsById` 的 SQL 会**一并把 `isGetExtraInfo` 置 true**
+     * （写入富化文案 = 标记已富化），这里必须同步，否则
+     * `getMusicWithMissingExtraCount` 一类统计在测试里永远不收敛。
+     */
+    override suspend fun updateMusicExtraTexts(musicId: Long, texts: MusicExtraTexts) {
+        val index = musicList.indexOfFirst { it.music.id == musicId }
+        if (index < 0) return
+        val old = musicList[index]
+        val base = old.extra ?: MusicExtra(id = musicId, isGetExtraInfo = false)
+        musicList[index] = old.copy(
+            extra = base.copy(
+                isGetExtraInfo = true,
+                rewards = texts.rewards,
+                popLyric = texts.popLyric,
+                singerIntroduce = texts.singerIntroduce,
+                backgroundIntroduce = texts.backgroundIntroduce,
+                description = texts.description,
+                relevantMusic = texts.relevantMusic,
+            )
+        )
     }
-
-    override suspend fun getMusicExtraById(musicId: Long): DailyMusicInfo =
-        extras[musicId] ?: throw IllegalArgumentException("No extra for music $musicId")
 
     override suspend fun loadMusicFromDevice(): Result<Unit> = Result.success(Unit)
 

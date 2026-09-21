@@ -41,7 +41,6 @@ private class InMemoryMusicRepository(db: AppDatabase) : MusicRepositoryBase(
     override suspend fun loadMusicFromDevice(): Result<Unit> = Result.success(Unit)
     override suspend fun syncMusicFromDeviceIncremental(): Result<Unit> = Result.success(Unit)
     override suspend fun getAllMusicInfoAsList(orderBy: String, orderType: String): List<MusicInfo> = emptyList()
-    override suspend fun getRandomMusicInfoWithExtra(): MusicInfo? = null
     override suspend fun getDeletedMusicIdsGroupedByFolder(): List<Pair<String, List<Long>>> = emptyList()
 
     // ═══ W0 HelloSubAgent stub ═══

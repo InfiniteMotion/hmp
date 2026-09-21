@@ -6,9 +6,9 @@ import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
 import com.hearablemusic.player.ui.MainShell
-import com.hearablemusic.player.ui.chat.ChatScreen
-import com.hearablemusic.player.ui.settings.pages.AIScreen
-import com.hearablemusic.player.ui.settings.pages.AgentConfigScreen
+import com.hearablemusic.player.ui.agent.chat.ChatScreen
+import com.hearablemusic.player.ui.agent.config.AIScreen
+import com.hearablemusic.player.ui.agent.config.AgentConfigScreen
 import com.hearablemusic.player.ui.library.pages.AlbumScreen
 import com.hearablemusic.player.ui.library.pages.ArtistScreen
 import com.hearablemusic.player.ui.settings.pages.AudioEffectsScreen
@@ -27,6 +27,7 @@ import com.hearablemusic.player.ui.settings.pages.LyricsSettingsPage
 import com.hearablemusic.player.ui.settings.pages.LibrarySettingsScreen
 import com.hearablemusic.player.ui.settings.pages.ProfileSettingsScreen
 import com.hearablemusic.player.ui.settings.pages.SettingScreen
+import com.hmp.domain.agent.card.RecommendSource
 import com.hmp.domain.setting.usecase.LyricsSettingsUseCase
 import org.koin.compose.koinInject
 
@@ -106,11 +107,11 @@ fun navigationGraph(
     }
 
     entry<Routes.Settings.AuditLog> {
-        com.hearablemusic.player.ui.agent.AuditLogScreen(navController = navController)
+        com.hearablemusic.player.ui.agent.monitor.AuditLogScreen(navController = navController)
     }
 
     entry<Routes.Settings.AgentMonitor> {
-        com.hearablemusic.player.ui.agent.AgentMonitorScreen(navController = navController)
+        com.hearablemusic.player.ui.agent.monitor.AgentMonitorScreen(navController = navController)
     }
 
     // Library 模块
@@ -194,13 +195,13 @@ fun navigationGraph(
     // Recommend（G6：每日推荐 / 私人推荐，同构页面）
     entry<Routes.Recommend.Daily> {
         RecommendListScreen(
-            source = com.hmp.domain.agent.sub.RecommendSource.DAILY,
+            source = RecommendSource.DAILY,
             navController = navController,
         )
     }
     entry<Routes.Recommend.Private> {
         RecommendListScreen(
-            source = com.hmp.domain.agent.sub.RecommendSource.PRIVATE,
+            source = RecommendSource.PRIVATE,
             navController = navController,
         )
     }

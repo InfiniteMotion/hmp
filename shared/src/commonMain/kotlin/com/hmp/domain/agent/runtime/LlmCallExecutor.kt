@@ -15,8 +15,16 @@ import kotlinx.coroutines.flow.toList
  *
  * 所有 Agent（Master 每轮循环、Enrich 批次、Radio 各阶段）都通过它调 LLM，
  * 统一错误处理 + 事件采集逻辑。不涉及多步循环编排（那是 ReActLoop 的事）。
+ *
+ * **无状态 ⇒ 声明为 `object`**：它只有局部变量，先前却写成 `class`，于是 4 个调用点
+ * 各自 `LlmCallExecutor()`。无状态对象反复实例化既无意义，也让"它到底有没有状态"
+ * 变得可疑；改成单例后调用点无法再各持一份，也没有"某一份被配错"的可能。
+ *
+ * 身份与记账仍由**参数**传入（`agentId` / `meter`）：同一次调用属于哪个 Agent 是真实语义
+ * （master / radio / profile），无法从调用方类型推断。需要自动带上身份时走
+ * [AgentContextBudget.callOnce]。
  */
-class LlmCallExecutor {
+internal object LlmCallExecutor {
 
     /**
      * 执行一次 LLM 调用并采集结果。
@@ -94,7 +102,7 @@ class LlmCallExecutor {
 }
 
 /** 单次 LLM 调用的结构化结果 */
-data class CollectedLlmResult(
+internal data class CollectedLlmResult(
     /** LLM 的自然语言输出（逐 delta 拼接） */
     val text: String,
     /** LLM 触发的工具调用列表（分片已在传输层组装完毕） */

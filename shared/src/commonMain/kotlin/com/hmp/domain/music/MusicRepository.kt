@@ -4,7 +4,6 @@ import com.hmp.domain.agent.enrich.EnrichBatchResult
 import com.hmp.domain.agent.enrich.EnrichHealth
 import com.hmp.domain.agent.enrich.EnrichWorkUnit
 import com.hmp.domain.setting.model.AiEndpointConfig
-import com.hmp.domain.setting.model.DailyMusicInfo
 import com.hmp.domain.setting.model.ListeningDuration
 import com.hmp.domain.agent.profile.BehaviorSnapshot
 import com.hmp.domain.agent.profile.LibraryContentSnapshot
@@ -34,7 +33,6 @@ interface MusicRepository {
 
     // Music Random
     suspend fun getRandomMusicInfoWithMissingExtra(): MusicInfo?
-    suspend fun getRandomMusicInfoWithExtra(): MusicInfo?
 
     // Music Action (Like/Dislike)
     suspend fun updateLikedStatus(id: Long, liked: Boolean)
@@ -84,8 +82,14 @@ interface MusicRepository {
 
     // 额外信息 / AI (Extra Info / AI)
     suspend fun getMusicLyrics(musicId: Long): String?
-    suspend fun insertMusicExtra(musicId: Long, musicExtraInfo: DailyMusicInfo)
-    suspend fun getMusicExtraById(musicId: Long): DailyMusicInfo
+    /**
+     * 写入富化文案的 6 列（Enrich 管道出口），并把 `isGetExtraInfo` 置 true ——
+     * 即「写入富化文案」同时意味着「标记该曲已富化」。
+     *
+     * 读取侧请直接用 `MusicInfo.extra`（Room @Relation 已带回同一批列），
+     * 不要再为这 6 列另开读路径。
+     */
+    suspend fun updateMusicExtraTexts(musicId: Long, texts: MusicExtraTexts)
 
     // Device Scan
     suspend fun loadMusicFromDevice(): Result<Unit>

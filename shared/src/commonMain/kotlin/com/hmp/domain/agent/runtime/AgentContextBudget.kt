@@ -1,5 +1,6 @@
 package com.hmp.domain.agent.runtime
 
+import com.hmp.domain.agent.config.EngineDefaults
 import com.hmp.domain.agent.port.LlmEvent
 import com.hmp.domain.agent.port.LlmMessage
 import com.hmp.domain.agent.port.LlmToolSpec
@@ -37,7 +38,7 @@ import kotlinx.coroutines.flow.flowOf
  * 仍超 → **拒绝发出**并返回带 [OVER_WINDOW_PREFIX] 的 Failed。
  * **不发出必失败的请求** —— 且失败原因与"模型判定 none"**可区分**。
  */
-class AgentContextBudget(
+class AgentContextBudget internal constructor(
     /** Agent 唯一标识（master / radio / enrich / hello） */
     val agentId: String,
     /** 上下文窗口假设值（默认全部 Agent 统一 64K；见 [EngineDefaults.AGENT_CONTEXT_WINDOW]） */
@@ -46,7 +47,7 @@ class AgentContextBudget(
      *  HelloSubAgent 等不调 LLM 的 Agent 可传 null。 */
     val llmClient: LlmTransport?,
     /** F12-T1：唯一记账口。null = 不记账（测试 / 未接线场景）。 */
-    val tokenMeter: TokenMeter? = null,
+    internal val tokenMeter: TokenMeter? = null,
     /** 前置守卫的安全系数（prompt 估算超过 `窗口 × 此值` 即降级/拒绝） */
     private val windowSafetyFactor: Float = EngineDefaults.CONTEXT_WINDOW_SAFETY_FACTOR,
     /** 常驻裁剪保留的最近消息条数 */
@@ -180,6 +181,39 @@ class AgentContextBudget(
         } else {
             textBuffer.toString()
         }
+    }
+
+    /**
+     * 一次性调用：**不读历史、不进历史**（供彼此独立的裁决 / 抽取类调用），
+     * 但 [agentId] 与 [tokenMeter] 由本 budget **自动带上** —— 调用点无法再漏传，
+     * 从根上堵掉"新增一处调用、忘传 meter、于是静默不计账"这类问题。
+     *
+     * 与 [callLlm] 的区别：不做窗口前置守卫、不 append 历史。
+     * 与 [callLlmText] 的区别：返回完整结果（含 toolCalls / failedMessage），而不是只取文本。
+     *
+     * @return null 表示本 Agent 未绑定 transport（未接线）。
+     *
+     * 可见性为 `internal`：返回类型 [CollectedLlmResult] 是引擎内部形状，
+     * 不该出现在本类（public 类）的公开面上。
+     */
+    internal suspend fun callOnce(
+        config: AiEndpointConfig,
+        messages: List<LlmMessage>,
+        tools: List<LlmToolSpec>? = null,
+        temperature: Float = 0.3f,
+        taskId: String? = null,
+    ): CollectedLlmResult? {
+        val client = llmClient ?: return null
+        return LlmCallExecutor.call(
+            transport = client,
+            config = config,
+            messages = messages,
+            tools = tools,
+            temperature = temperature,
+            agentId = agentId,
+            meter = tokenMeter,
+            taskId = taskId,
+        )
     }
 
     /**

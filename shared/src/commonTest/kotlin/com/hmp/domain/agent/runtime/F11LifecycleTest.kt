@@ -1,4 +1,5 @@
 package com.hmp.domain.agent.runtime
+import com.hmp.domain.agent.tool.createBaseToolRegistry
 
 import com.hmp.domain.agent.port.AgentKeepAlivePort
 import com.hmp.domain.agent.port.CommandSource
@@ -8,14 +9,13 @@ import com.hmp.domain.agent.port.LlmEvent
 import com.hmp.domain.agent.port.PlaybackCommand
 import com.hmp.domain.agent.port.PlaybackCommandPort
 import com.hmp.domain.agent.tool.ToolDependencies
-import com.hmp.domain.agent.tool.ToolRegistry
+import com.hmp.domain.agent.tool.spec.ToolRegistry
 import com.hmp.domain.enum.LabelName
 import com.hmp.domain.music.Music
 import com.hmp.domain.music.MusicInfo
 import com.hmp.domain.setting.model.AiEndpointConfig
 import com.hmp.test.fakes.FakeAgentMusicRepository
 import com.hmp.test.fakes.FakeAgentPlaylistRepository
-import com.hmp.test.fakes.FakeAiExtraEnrichPort
 import com.hmp.test.fakes.FakeLlmTransport
 import com.hmp.test.fakes.FakeSettingsRepository
 import kotlinx.coroutines.delay
@@ -88,14 +88,13 @@ class F11LifecycleTest {
         val master = MasterAgent(
             timeProvider = { 0L },
             musicRepository = musicRepo,
-            chatToolRegistry = ToolRegistry.create(
+            chatToolRegistry = createBaseToolRegistry(
                 ToolDependencies(
                     musicRepository = musicRepo,
                     playlistRepository = FakeAgentPlaylistRepository(),
                     settingsRepository = FakeSettingsRepository(),
                     nowPlayingContextProvider = FakeNowPlayingContextProvider,
                     playbackCommandPort = playback,
-                    enrichPort = FakeAiExtraEnrichPort(),
                 )
             ),
             radioTransport = transport,

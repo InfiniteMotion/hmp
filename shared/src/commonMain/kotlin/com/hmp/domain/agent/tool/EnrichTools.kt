@@ -1,10 +1,17 @@
 package com.hmp.domain.agent.tool
+import com.hmp.domain.agent.tool.spec.AgentTool
+import com.hmp.domain.agent.tool.spec.ToolResult
+import com.hmp.domain.agent.tool.spec.ToolParam
+import com.hmp.domain.agent.tool.spec.ToolNames
+import com.hmp.domain.agent.tool.spec.ToolArgs
+import com.hmp.domain.agent.tool.spec.StringParam
+import com.hmp.domain.agent.tool.spec.LongParam
+import com.hmp.domain.agent.tool.spec.EnumParam
+
+import com.hmp.domain.agent.port.ToolPermissionLevel
 
 import com.hmp.domain.music.MusicLabel
 import kotlinx.coroutines.flow.first
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.put
 
 // ---------------- song_tag_user_add (write/confirm) ----------------
 
@@ -78,23 +85,8 @@ class SongTagUserRemoveTool(
 
 // ═══════════════════════════════════════════════════════════════════════
 // T 阶段 enrich_* 工具已移除（重构为 MasterAgent 内建意图路由，走原生生命周期方法）
-// 此处保留 song_tag_user_add / song_tag_user_remove 两个通用标签工具
-// + FloatParam（供其他工具复用的 Schema Param）。
+// 此处保留 song_tag_user_add / song_tag_user_remove 两个通用标签工具。
+//
+// 注：FloatParam 已移至 `tool/spec/ToolSpec.kt`——它是 ToolParam（sealed）的子类，
+// 必须与 sealed 接口同包；且当前无调用点（预留能力）。
 // ═══════════════════════════════════════════════════════════════════════
-
-
-class FloatParam(
-    override val name: String,
-    override val required: Boolean = true,
-    override val description: String? = null,
-    val min: Float? = null,
-    val max: Float? = null,
-) : ToolParam {
-    override val schemaValue: JsonObject = buildJsonObject {
-        put("type", "number")
-        if (!description.isNullOrBlank()) put("description", description)
-        put("title", name)
-        if (min != null) put("minimum", min.toDouble())
-        if (max != null) put("maximum", max.toDouble())
-    }
-}

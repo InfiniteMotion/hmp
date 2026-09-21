@@ -13,8 +13,6 @@ import com.hmp.data.database.currentTimeMillis
 import com.hmp.data.network.BuiltInApiKeyProvider
 import com.hmp.data.util.SecureStorageHelper
 import com.hmp.domain.backup.AppSettingsSnapshot
-import com.hmp.domain.backup.DailyRecommendationSnapshot
-import com.hmp.domain.config.DailyRefreshConfig
 import com.hmp.domain.config.DisplayMode
 import com.hmp.domain.config.LyricsAlignment
 import com.hmp.domain.lyrics.LyricsComponentConfig
@@ -83,7 +81,6 @@ class SettingsRepositoryImpl(
         fun agentTemperatureKey(role: String) = floatPreferencesKey("agent_policy_${role}_temperature")
         fun agentRuntimeParamsKey(role: String) = stringPreferencesKey("agent_policy_${role}_runtime_params")
         fun agentPromptOverridesKey(role: String) = stringPreferencesKey("agent_policy_${role}_prompt_overrides")
-        fun agentPersonaOverrideKey(role: String) = stringPreferencesKey("agent_policy_${role}_persona_override")
         fun agentPreferredLangKey(role: String) = stringPreferencesKey("agent_policy_${role}_preferred_lang")
         fun agentEndpointKey(role: String) = stringPreferencesKey("agent_endpoint_${role}")
         fun agentApiKeyKey(role: String) = stringPreferencesKey("agent_apikey_${role}")
@@ -95,12 +92,6 @@ class SettingsRepositoryImpl(
         val REVERB_PRESET = intPreferencesKey("reverb_preset")
         val CUSTOM_EQUALIZER_LEVELS = stringPreferencesKey("custom_equalizer_levels")
         val AUTO_BATCH_PROCESS = booleanPreferencesKey("auto_batch_process")
-        val DAILY_REFRESH_MODE = stringPreferencesKey("daily_refresh_mode")
-        val DAILY_REFRESH_HOURS = intPreferencesKey("daily_refresh_hours")
-        val DAILY_REFRESH_STARTUP_COUNT = intPreferencesKey("daily_refresh_startup_count")
-        val LAST_DAILY_REFRESH_TIMESTAMP = longPreferencesKey("last_daily_refresh_timestamp")
-        val APP_LAUNCH_COUNT_SINCE_REFRESH = intPreferencesKey("app_launch_count_since_refresh")
-        val CURRENT_DAILY_MUSIC_ID = longPreferencesKey("current_daily_music_id")
         val LYRICS_ORIGINAL_TEXT_SIZE = intPreferencesKey("lyrics_original_text_size")
         val LYRICS_TRANSLATED_TEXT_SIZE = intPreferencesKey("lyrics_translated_text_size")
         val LYRICS_CURRENT_TIME_TEXT_SIZE = intPreferencesKey("lyrics_current_time_text_size")
@@ -155,11 +146,6 @@ class SettingsRepositoryImpl(
     override val reverbPreset: Flow<Int> = dataStore.data.map { prefs -> prefs[PreferencesKeys.REVERB_PRESET] ?: 0 }
     override val customEqualizerLevels: Flow<FloatArray> = dataStore.data.map { prefs -> prefs[PreferencesKeys.CUSTOM_EQUALIZER_LEVELS]?.let { it.split(",").mapNotNull { s -> s.toFloatOrNull() }.toFloatArray() } ?: floatArrayOf() }
     override val autoBatchProcess: Flow<Boolean> = dataStore.data.map { prefs -> prefs[PreferencesKeys.AUTO_BATCH_PROCESS] ?: true }
-    override val dailyRefreshMode: Flow<String> = dataStore.data.map { prefs -> prefs[PreferencesKeys.DAILY_REFRESH_MODE] ?: "time" }
-    override val dailyRefreshHours: Flow<Int> = dataStore.data.map { prefs -> prefs[PreferencesKeys.DAILY_REFRESH_HOURS] ?: 24 }
-    override val dailyRefreshStartupCount: Flow<Int> = dataStore.data.map { prefs -> prefs[PreferencesKeys.DAILY_REFRESH_STARTUP_COUNT] ?: 3 }
-    override val lastDailyRefreshTimestamp: Flow<Long> = dataStore.data.map { prefs -> prefs[PreferencesKeys.LAST_DAILY_REFRESH_TIMESTAMP] ?: 0L }
-    override val appLaunchCountSinceRefresh: Flow<Int> = dataStore.data.map { prefs -> prefs[PreferencesKeys.APP_LAUNCH_COUNT_SINCE_REFRESH] ?: 0 }
     override val currentPosition: Flow<Long> = dataStore.data.map { prefs -> prefs[PreferencesKeys.CURRENT_POSITION] ?: 0L }
     override val lyricsOriginalTextSize: Flow<Int> = dataStore.data.map { prefs -> prefs[PreferencesKeys.LYRICS_ORIGINAL_TEXT_SIZE] ?: 14 }
     override val lyricsTranslatedTextSize: Flow<Int> = dataStore.data.map { prefs -> prefs[PreferencesKeys.LYRICS_TRANSLATED_TEXT_SIZE] ?: 14 }
@@ -221,23 +207,6 @@ class SettingsRepositoryImpl(
     override suspend fun getRecentPlaylistId(): Long? = dataStore.data.first()[PreferencesKeys.RECENT_PLAYLIST_ID]
     override suspend fun saveRecentPlaylistId(playlistId: Long) { dataStore.edit { prefs -> prefs[PreferencesKeys.RECENT_PLAYLIST_ID] = playlistId } }
     override suspend fun saveAutoBatchProcess(enabled: Boolean) { dataStore.edit { prefs -> prefs[PreferencesKeys.AUTO_BATCH_PROCESS] = enabled } }
-    override suspend fun saveDailyRefreshMode(mode: String) { dataStore.edit { prefs -> prefs[PreferencesKeys.DAILY_REFRESH_MODE] = mode } }
-    override suspend fun saveDailyRefreshHours(hours: Int) { dataStore.edit { prefs -> prefs[PreferencesKeys.DAILY_REFRESH_HOURS] = hours } }
-    override suspend fun saveDailyRefreshStartupCount(count: Int) { dataStore.edit { prefs -> prefs[PreferencesKeys.DAILY_REFRESH_STARTUP_COUNT] = count } }
-    override suspend fun updateLastDailyRefreshTimestamp() { dataStore.edit { prefs -> prefs[PreferencesKeys.LAST_DAILY_REFRESH_TIMESTAMP] = currentTimeMillis(); prefs[PreferencesKeys.APP_LAUNCH_COUNT_SINCE_REFRESH] = 0 } }
-    override suspend fun saveCurrentDailyMusicId(musicId: Long) { dataStore.edit { prefs -> prefs[PreferencesKeys.CURRENT_DAILY_MUSIC_ID] = musicId } }
-    override suspend fun getCurrentDailyMusicId(): Long? = dataStore.data.first()[PreferencesKeys.CURRENT_DAILY_MUSIC_ID]
-    override suspend fun incrementAppLaunchCount() { dataStore.edit { prefs -> prefs[PreferencesKeys.APP_LAUNCH_COUNT_SINCE_REFRESH] = (prefs[PreferencesKeys.APP_LAUNCH_COUNT_SINCE_REFRESH] ?: 0) + 1 } }
-    override suspend fun getDailyRefreshConfig(): DailyRefreshConfig {
-        val prefs = dataStore.data.first()
-        return DailyRefreshConfig(
-            mode = prefs[PreferencesKeys.DAILY_REFRESH_MODE] ?: "time",
-            refreshHours = prefs[PreferencesKeys.DAILY_REFRESH_HOURS] ?: 24,
-            startupCount = prefs[PreferencesKeys.DAILY_REFRESH_STARTUP_COUNT] ?: 3,
-            lastRefreshTimestamp = prefs[PreferencesKeys.LAST_DAILY_REFRESH_TIMESTAMP] ?: 0L,
-            launchCountSinceRefresh = prefs[PreferencesKeys.APP_LAUNCH_COUNT_SINCE_REFRESH] ?: 0
-        )
-    }
     override suspend fun getAiAccessMode(): AiAccessMode {
         return try { AiAccessMode.valueOf(dataStore.data.first()[PreferencesKeys.AI_ACCESS_MODE] ?: "FREE") } catch (e: Exception) { AiAccessMode.FREE }
     }
@@ -298,7 +267,6 @@ class SettingsRepositoryImpl(
         val temperature = prefs[PreferencesKeys.agentTemperatureKey(agentRole)]
         val runtimeParamsJson = prefs[PreferencesKeys.agentRuntimeParamsKey(agentRole)]
         val promptOverridesJson = prefs[PreferencesKeys.agentPromptOverridesKey(agentRole)]
-        val personaOverrideJson = prefs[PreferencesKeys.agentPersonaOverrideKey(agentRole)]
         val preferredLang = prefs[PreferencesKeys.agentPreferredLangKey(agentRole)] ?: "global"
         val json = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
         return com.hmp.domain.agent.policy.AgentPolicyConfig(
@@ -307,7 +275,6 @@ class SettingsRepositoryImpl(
             temperature = temperature,
             runtimeParams = runtimeParamsJson?.let { runCatching { json.decodeFromString<Map<String, String>>(it) }.getOrNull() }?.toMutableMap() ?: mutableMapOf(),
             promptOverrides = promptOverridesJson?.let { runCatching { json.decodeFromString<Map<String, String>>(it) }.getOrNull() }?.toMutableMap() ?: mutableMapOf(),
-            personaOverride = personaOverrideJson?.let { runCatching { json.decodeFromString(com.hmp.domain.agent.persona.CompanionProfile.serializer(), it) }.getOrNull() },
             preferredLang = preferredLang,
         )
     }
@@ -320,10 +287,6 @@ class SettingsRepositoryImpl(
             config.temperature?.let { prefs[PreferencesKeys.agentTemperatureKey(agentRole)] = it }
             prefs[PreferencesKeys.agentRuntimeParamsKey(agentRole)] = json.encodeToString(config.runtimeParams)
             prefs[PreferencesKeys.agentPromptOverridesKey(agentRole)] = json.encodeToString(config.promptOverrides)
-            config.personaOverride?.let {
-                prefs[PreferencesKeys.agentPersonaOverrideKey(agentRole)] =
-                    json.encodeToString(com.hmp.domain.agent.persona.CompanionProfile.serializer(), it)
-            }
             prefs[PreferencesKeys.agentPreferredLangKey(agentRole)] = config.preferredLang
         }
     }
@@ -508,9 +471,6 @@ class SettingsRepositoryImpl(
             hazeTintAlpha = (prefs[PreferencesKeys.HAZE_TINT_ALPHA] ?: DEFAULT_HAZE_TINT_ALPHA).coerceIn(0f, 1f),
             hazeIntensity = prefs[PreferencesKeys.HAZE_INTENSITY] ?: 0.6f,
             autoBatchProcess = prefs[PreferencesKeys.AUTO_BATCH_PROCESS] ?: true,
-            dailyRefreshMode = prefs[PreferencesKeys.DAILY_REFRESH_MODE] ?: "time",
-            dailyRefreshHours = prefs[PreferencesKeys.DAILY_REFRESH_HOURS] ?: 24,
-            dailyRefreshStartupCount = prefs[PreferencesKeys.DAILY_REFRESH_STARTUP_COUNT] ?: 3,
             aiAccessMode = aiAccessMode.name,
             customAiEndpoint = prefs[PreferencesKeys.CUSTOM_AI_ENDPOINT] ?: "",
             customAiModel = prefs[PreferencesKeys.CUSTOM_AI_MODEL] ?: ""
@@ -530,35 +490,9 @@ class SettingsRepositoryImpl(
             prefs[PreferencesKeys.HAZE_TINT_ALPHA] = snapshot.hazeTintAlpha.coerceIn(0f, 1f)
             prefs[PreferencesKeys.HAZE_INTENSITY] = snapshot.hazeIntensity.coerceIn(0f, 1f)
             prefs[PreferencesKeys.AUTO_BATCH_PROCESS] = snapshot.autoBatchProcess
-            prefs[PreferencesKeys.DAILY_REFRESH_MODE] = snapshot.dailyRefreshMode
-            prefs[PreferencesKeys.DAILY_REFRESH_HOURS] = snapshot.dailyRefreshHours
-            prefs[PreferencesKeys.DAILY_REFRESH_STARTUP_COUNT] = snapshot.dailyRefreshStartupCount
             prefs[PreferencesKeys.AI_ACCESS_MODE] = snapshot.aiAccessMode
             prefs[PreferencesKeys.CUSTOM_AI_ENDPOINT] = snapshot.customAiEndpoint
             prefs[PreferencesKeys.CUSTOM_AI_MODEL] = snapshot.customAiModel
-        }
-    }
-
-    override suspend fun exportDailyRecommendationSnapshot(): DailyRecommendationSnapshot? {
-        val prefs = dataStore.data.first()
-        return DailyRecommendationSnapshot(
-            currentDailyMusicId = prefs[PreferencesKeys.CURRENT_DAILY_MUSIC_ID],
-            lastRefreshTimestamp = prefs[PreferencesKeys.LAST_DAILY_REFRESH_TIMESTAMP] ?: 0L,
-            mode = prefs[PreferencesKeys.DAILY_REFRESH_MODE] ?: "time",
-            refreshHours = prefs[PreferencesKeys.DAILY_REFRESH_HOURS] ?: 24,
-            startupCount = prefs[PreferencesKeys.DAILY_REFRESH_STARTUP_COUNT] ?: 3,
-            launchCountSinceRefresh = prefs[PreferencesKeys.APP_LAUNCH_COUNT_SINCE_REFRESH] ?: 0
-        )
-    }
-
-    override suspend fun restoreDailyRecommendationSnapshot(snapshot: DailyRecommendationSnapshot) {
-        dataStore.edit { prefs ->
-            snapshot.currentDailyMusicId?.let { prefs[PreferencesKeys.CURRENT_DAILY_MUSIC_ID] = it }
-            prefs[PreferencesKeys.LAST_DAILY_REFRESH_TIMESTAMP] = snapshot.lastRefreshTimestamp
-            prefs[PreferencesKeys.DAILY_REFRESH_MODE] = snapshot.mode
-            prefs[PreferencesKeys.DAILY_REFRESH_HOURS] = snapshot.refreshHours
-            prefs[PreferencesKeys.DAILY_REFRESH_STARTUP_COUNT] = snapshot.startupCount
-            prefs[PreferencesKeys.APP_LAUNCH_COUNT_SINCE_REFRESH] = snapshot.launchCountSinceRefresh
         }
     }
 }

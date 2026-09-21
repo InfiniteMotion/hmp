@@ -2,10 +2,10 @@ package com.hearablemusic.player.ui.common.dialogs.controller
 
 import com.hmp.domain.agent.port.ConfirmDecision
 import com.hmp.domain.agent.port.ConfirmStep
-import com.hmp.domain.agent.runtime.ConfirmGate
-import com.hmp.domain.agent.runtime.ConfirmOutcome
-import com.hmp.domain.agent.runtime.ConfirmRequest
-import com.hmp.domain.agent.tool.ToolPermissionLevel
+import com.hmp.domain.agent.port.ConfirmGate
+import com.hmp.domain.agent.port.ConfirmOutcome
+import com.hmp.domain.agent.port.ConfirmRequest
+import com.hmp.domain.agent.port.ToolPermissionLevel
 
 /**
  * 把 UI 层 DialogManager 适配到 shared 层 ConfirmGate——

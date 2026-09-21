@@ -6,8 +6,8 @@ import com.hmp.data.database.myenum.LabelCategory
 import com.hmp.domain.agent.profile.PersonalityCardComposer
 import com.hmp.domain.agent.profile.ProfileNarrativeState
 import com.hmp.domain.agent.runtime.MasterAgent
-import com.hmp.domain.agent.sub.NarrativeTimeRange
-import com.hmp.domain.agent.sub.toDays
+import com.hmp.domain.agent.card.NarrativeTimeRange
+import com.hmp.domain.agent.card.toDays
 import com.hmp.domain.music.HourlyDistributionRow
 import com.hmp.domain.music.MusicRepository
 import com.hmp.domain.setting.model.LabelCountEntry

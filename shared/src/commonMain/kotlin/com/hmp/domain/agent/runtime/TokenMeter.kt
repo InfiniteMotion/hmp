@@ -1,5 +1,7 @@
 package com.hmp.domain.agent.runtime
 
+import com.hmp.domain.agent.port.TimeProvider
+
 import com.hmp.data.database.TokenLedgerDao
 import com.hmp.data.database.TokenLedgerEntry
 import com.hmp.domain.agent.port.LlmEvent
@@ -26,7 +28,7 @@ import com.hmp.log.LogTag
  * **实测优先、估算兜底**：端点返回 usage 时记真值（`measured=true`）；不返回时回落估算并
  * **打标 `measured=false`** —— 看板必须能区分两者，否则又回到"用假数字骗自己"。
  */
-class TokenMeter(
+internal class TokenMeter(
     private val counter: GlobalTokenCounter? = null,
     private val ledgerDao: TokenLedgerDao? = null,
     private val timeProvider: TimeProvider,

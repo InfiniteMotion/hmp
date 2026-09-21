@@ -39,9 +39,9 @@ import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
 import coil3.compose.AsyncImage
 import com.hmp.domain.agent.runtime.MasterAgent
-import com.hmp.domain.agent.sub.RecommendItem
-import com.hmp.domain.agent.sub.RecommendSource
-import com.hmp.domain.agent.sub.TimePhase
+import com.hmp.domain.agent.card.RecommendItem
+import com.hmp.domain.agent.card.RecommendSource
+import com.hmp.domain.agent.card.TimePhase
 import com.hmp.domain.music.MusicRepository
 import com.hearablemusic.player.ui.common.components.base.BackButton
 import com.hearablemusic.player.ui.common.layout.LocalWindowSizeInfo
@@ -125,9 +125,14 @@ fun RecommendListScreen(
         if (items.isEmpty()) return
         scope.launch {
             val infos = items.map { it.musicInfo }
-            playlistQueueViewModel.clearPlaylist()
-            playlistQueueViewModel.addAllToPlaylistInOrder(infos)
-            playlistQueueViewModel.playWith(infos[index.coerceIn(0, infos.lastIndex)])
+            // 追加到现有队列尾部（**不清空** —— 点推荐不该丢掉用户已有的待播列表），
+            // 再定位到点中的那首播起。
+            // 注：原来这里用 `clearPlaylist() + addAllToPlaylistInOrder()`，而后者名不副实 ——
+            // 它做的是「整条替换 + 索引归零 + 从第一首播」，既清掉了旧队列，
+            // 也让 `playFrom(index)` 的 index 彻底失效（永远从 0 播）。
+            // `addToPlaylist` 内含整队列去重，已在队列中的曲目不会重复入队。
+            infos.forEach { playlistQueueViewModel.addToPlaylist(it) }
+            playlistQueueViewModel.playAt(infos[index.coerceIn(0, infos.lastIndex)])
             navController.add(NavRoutes.Player.Player)
         }
     }

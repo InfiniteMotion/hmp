@@ -315,17 +315,6 @@ interface MusicAllDao {
     suspend fun getRandomMusicInfoWithMissingExtra(): MusicInfo?
 
     @Transaction
-    @Query("""
-        SELECT * FROM music
-        WHERE isDeleted = 0 AND id IN (
-            SELECT id FROM musicExtra WHERE isGetExtraInfo = 1 AND isDeleted = 0
-        )
-        ORDER BY RANDOM()
-        LIMIT 1
-    """)
-    suspend fun getRandomMusicInfoWithExtra(): MusicInfo?
-
-    @Transaction
     @Query("SELECT * FROM music WHERE isDeleted = 0 AND id IN (:ids)")
     suspend fun getPlaylistByIdList(ids: List<Long>): List<MusicInfo>
 

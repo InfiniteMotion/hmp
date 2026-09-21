@@ -466,6 +466,7 @@ v5.10 是 v5 系列的最后一个版本，标志着跨平台架构搭建完成�
 - [x] **B6-T1** 听歌报告 + 遗忘唤醒——`UserUsageDataScreen` 顶部累计画像区（Agent 叙事段）+ 双轴筛选（5 维度 × 5 时段）+ 五维度内容渲染（概览/口味/时段柱图/排行/最近）；`ForgottenDelivery` + `HelloSlideCards.FORGOTTEN` 卡（胶囊徽标低频，点开才算送达不追问）。`compileAll` 全绿 ✅ **已验收（2026-09-17）**
 
 - [x] **B6-T2** 伙伴设置页六分区——AI 页演进不推翻：身体素质 / 人格 / 嗓音与耳朵 / 认识进度 / 记忆与信任 / 记忆管理。MasterAgent 暴露 7 个公开接口（trustLevel 读写 + alwaysAllow 重置/查询 + clearAllMemory + forgetPortrait + notePreference）；AIScreen 重构为六分区布局（身体素质=AI接入方式三tab / 人格=知音-DJ-馆长占位 / 嗓音=M7 gate 占位 / 认识进度=LoadMusicExtraInfo 复用 / 记忆与信任=三档 SegmentedControl + 档位说明 + alwaysAllow 重置 / 记忆管理=审计页入口 + 清除画像按钮）；**`DailyRefreshSettings` 移出主布局（后续归并 Agent 内部）**。路由复用 `Routes.AI.AI`，无迁移。`compileAll` 全绿 + desktopTest 通过 ✅ **已验收（2026-09-17）**
+  > **2026-09-20 状态更新**：UI 收敛后主页面为**四分区**（AI 接入方式 / Agent 管理 / 语言和语音 / 记忆管理），原「认识进度」（`LoadMusicExtraInfo`）与「每日刷新策略」（`DailyRefreshSettings`）两区随重写**移除**（两者为零调用方的孤儿函数；日刷新已由 `HelloSubAgent` 自行定时，与 `design/agent-w.md` 迁移去向表一致）；「信任档位 + 启用开关」与「人格」下沉到各 Agent 子页 `AgentConfigScreen`。**是否恢复「认识进度」待定**（引擎侧 `enrich_*` 意图仍在）。见 `docs/7_x/B agent-build/taskbook/README.md` §8 变更记录 2026-09-20
 
 - [ ] **B6-T3/T4（→ 已移出 F9，另立 F10 语音会话）** RealtimeVoiceTransport + 语音会话——WebSocket 双向流（JSON 控制事件 + 二进制音频帧）+ transcript 双向流 → 一 UI 两形态（语音气泡=文字+内存内重放）。**独立 gate**：端点不可用即整体延期，v1 完整性不依赖语音。**2026-09-18 从 F9 拆出**：B6 里唯一真正新增的传输层，需真实端点验证，与报告/设置页无耦合；留在 F9 会让已收口的族长期挂着无法验收的项。详见 [taskbook/README.md](docs/7_x/B%20agent-build/taskbook/README.md) §4 后续阶段
 

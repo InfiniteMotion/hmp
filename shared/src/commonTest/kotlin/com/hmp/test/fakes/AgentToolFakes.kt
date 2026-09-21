@@ -1,11 +1,11 @@
 package com.hmp.test.fakes
 
-import com.hmp.domain.agent.port.AiExtraEnrichPort
 import com.hmp.domain.agent.enrich.EnrichBatchResult
 import com.hmp.domain.agent.enrich.EnrichHealth
 import com.hmp.domain.backup.ListeningStatsSnapshot
 import com.hmp.domain.backup.MusicUserStateSnapshot
 import com.hmp.domain.music.EditableMusicTags
+import com.hmp.domain.music.MusicExtraTexts
 import com.hmp.domain.music.MusicInfo
 import com.hmp.domain.music.MusicLabel
 import com.hmp.domain.agent.profile.BehaviorSnapshot
@@ -16,7 +16,6 @@ import com.hmp.domain.enum.LabelCategory
 import com.hmp.domain.enum.LabelName
 import com.hmp.domain.playlist.Playlist
 import com.hmp.domain.playlist.PlaylistRepository
-import com.hmp.domain.setting.model.DailyMusicInfo
 import com.hmp.domain.setting.model.AiEndpointConfig
 import com.hmp.domain.setting.model.ListeningDuration
 import com.hmp.domain.setting.model.PlaybackHistory
@@ -25,8 +24,10 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 
 /** M3 工具层专用内存 Fake：MusicRepository。
- *  （命名加 Agent 前缀，避免与既有的 FakeMusicRepository 重名冲突。仅 stub 工具用到的方法。） */
-class FakeAgentMusicRepository : MusicRepository {
+ *  （命名加 Agent 前缀，避免与既有的 FakeMusicRepository 重名冲突。仅 stub 工具用到的方法。）
+ *  `open`：EnrichSubAgent 编排测试需要子类脚本化 fetchNextEnrichWorkUnit / getEnrichHealth，
+ *  默认行为保持不变，既有测试不受影响。 */
+open class FakeAgentMusicRepository : MusicRepository {
     val songs = LinkedHashMap<Long, MusicInfo>()
     val history = mutableListOf<PlaybackHistory>()
     val recentHistoryResult = mutableListOf<PlaybackHistory>()
@@ -54,18 +55,20 @@ class FakeAgentMusicRepository : MusicRepository {
             it.music.title.contains(query, ignoreCase = true) || it.music.artist.contains(query, ignoreCase = true)
         }
     override suspend fun getRandomMusicInfoWithMissingExtra(): MusicInfo? = null
-    override suspend fun getRandomMusicInfoWithExtra(): MusicInfo? = null
     override suspend fun updateLikedStatus(id: Long, liked: Boolean) {}
     override suspend fun getLikedStatus(id: Long): Boolean = false
     override suspend fun getLikedMusicIds(): List<Long> = emptyList()
     override suspend fun removeFromLibrary(ids: List<Long>) {}
     override suspend fun restoreToLibrary(ids: List<Long>) {}
     override suspend fun getDeletedMusicIdsGroupedByFolder(): List<Pair<String, List<Long>>> = emptyList()
-    override suspend fun addMusicLabel(label: MusicLabel) {}
+    override suspend fun addMusicLabel(label: MusicLabel) { musicLabels += label }
     override suspend fun addUserMusicLabel(label: MusicLabel, confidence: Double) {}
     override fun getLabelNamesByType(type: LabelCategory): Flow<List<LabelName>> = flowOf(emptyList())
     override suspend fun getMusicIdListByType(label: LabelName, limit: Int): List<Long> = (musicIdsByLabel[label] ?: emptyList()).take(limit)
-    override suspend fun getMusicLabels(musicId: Long): List<MusicLabel> = emptyList()
+    /** 允许测试注入标签（结构化标签的真实归宿；富化写入路径同生产 `addMusicLabel`）。 */
+    val musicLabels = mutableListOf<MusicLabel>()
+    override suspend fun getMusicLabels(musicId: Long): List<MusicLabel> =
+        musicLabels.filter { it.musicId == musicId }
     override suspend fun removeUserMusicLabel(musicId: Long, label: LabelName) {}
     override suspend fun updateMusicTags(musicId: Long, tags: EditableMusicTags): Result<Unit> = Result.success(Unit)
     override suspend fun refreshMusicTags(musicId: Long, tags: EditableMusicTags): Result<Unit> = Result.success(Unit)
@@ -73,15 +76,7 @@ class FakeAgentMusicRepository : MusicRepository {
         songs.values.take(limit)
     override fun getRecentListeningDurations(limit: Int): Flow<List<ListeningDuration>> = flowOf(emptyList())
     override suspend fun getMusicLyrics(musicId: Long): String? = null
-    override suspend fun insertMusicExtra(musicId: Long, musicExtraInfo: DailyMusicInfo) {}
-    override suspend fun getMusicExtraById(musicId: Long): DailyMusicInfo =
-        dailyMusicExtra[songs[musicId]?.music?.id] ?: DailyMusicInfo(
-            genre = listOf("摇滚"), mood = listOf("激昂"), scenario = listOf("通勤"),
-            language = "中文", era = "现代", rewards = "", lyric = "", singerIntroduce = "",
-            backgroundIntroduce = "", description = "描述", relevantMusic = "", errorInfo = "",
-        )
-    // 允许测试注入"富化未就绪"（errorInfo 非空）
-    val dailyMusicExtra = HashMap<Long, DailyMusicInfo>()
+    override suspend fun updateMusicExtraTexts(musicId: Long, texts: MusicExtraTexts) {}
     override suspend fun loadMusicFromDevice(): Result<Unit> = Result.success(Unit)
     override val isScanning: Flow<Boolean> = flowOf(false)
     override suspend fun syncMusicFromDeviceIncremental(): Result<Unit> = Result.success(Unit)
@@ -191,18 +186,5 @@ class FakeAgentPlaylistRepository : PlaylistRepository {
     override fun getAllPlaylistsFlow(): Flow<List<Playlist>> = flowOf(playlists.values.toList())
     override suspend fun exportPlaylistsSnapshot(): com.hmp.domain.backup.PlaylistsSnapshot = com.hmp.domain.backup.PlaylistsSnapshot()
     override suspend fun restoreFromSnapshot(snapshot: com.hmp.domain.backup.PlaylistsSnapshot) {}
-}
-
-/** M3 enrichSong 测试 Fake：配置成功/失败。 */
-class FakeAiExtraEnrichPort(
-    var result: Result<DailyMusicInfo> = Result.success(
-        DailyMusicInfo(
-            genre = listOf("电子", "氛围"), mood = listOf("放松"), scenario = listOf("工作"),
-            language = "英文", era = "2020s", rewards = "", lyric = "", singerIntroduce = "",
-            backgroundIntroduce = "", description = "富化描述", relevantMusic = "", errorInfo = "",
-        )
-    ),
-) : AiExtraEnrichPort {
-    override suspend fun enrich(title: String, artist: String): Result<DailyMusicInfo> = result
 }
 

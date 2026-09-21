@@ -1,15 +1,21 @@
 package com.hmp.domain.agent.tool
+import com.hmp.domain.agent.tool.ToolDependencies
+import com.hmp.domain.agent.tool.createBaseToolRegistry
+import com.hmp.domain.agent.tool.spec.ToolRegistry
+import com.hmp.domain.agent.tool.spec.ToolParamError
+import com.hmp.domain.agent.tool.spec.ToolNotFoundException
+import com.hmp.domain.agent.tool.spec.ToolNames
 
+import com.hmp.domain.enum.LabelCategory
 import com.hmp.domain.enum.LabelName
 import com.hmp.domain.agent.port.FakeNowPlayingContextProvider
 import com.hmp.domain.agent.port.FakePlaybackCommandPort
 import com.hmp.domain.music.Music
 import com.hmp.domain.music.MusicInfo
-import com.hmp.domain.setting.model.DailyMusicInfo
+import com.hmp.domain.music.MusicLabel
 import com.hmp.domain.setting.model.PlaybackHistory
 import com.hmp.test.fakes.FakeAgentMusicRepository
 import com.hmp.test.fakes.FakeAgentPlaylistRepository
-import com.hmp.test.fakes.FakeAiExtraEnrichPort
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -43,16 +49,14 @@ class AgentToolsTest {
         val musicRepo = FakeAgentMusicRepository()
         val playlistRepo = FakeAgentPlaylistRepository()
         val settingsRepo = com.hmp.test.fakes.FakeSettingsRepository()
-        val enrich = FakeAiExtraEnrichPort()
         val deps = ToolDependencies(
             musicRepository = musicRepo,
             playlistRepository = playlistRepo,
             settingsRepository = settingsRepo,
             nowPlayingContextProvider = FakeNowPlayingContextProvider,
             playbackCommandPort = FakePlaybackCommandPort,
-            enrichPort = enrich,
         )
-        val registry = ToolRegistry.create(deps).also { it.bindCapabilityTools { emptyMap() } }
+        val registry = createBaseToolRegistry(deps).also { it.bindCapabilityTools { emptyMap() } }
     }
 
     // ---------- searchLibrary ----------
@@ -126,25 +130,43 @@ class AgentToolsTest {
         assertNotNull(r.failureReason)
     }
 
-    // ---------- getMusicExtra ----------
+    // ---------- song_tags_get ----------
     @Test
-    fun getMusicExtra_enrichedAndNotReady() = runTest {
+    fun songTagsGet_readsLabelsTable_notMusicExtra() = runTest {
+        // 回归：本工具原读 getMusicExtraById 判定富化状态。而生产实现
+        // MusicRepositoryBase.getMusicExtraById 恒返回 errorInfo = "None"（**非空**），
+        // 于是 `if (!errorInfo.isNullOrBlank())` 恒真 → **该工具 100% 失败**；
+        // 且其 genre/mood/scenario/language/era 恒为默认值（真实标签在 labels 表）。
+        // 当时测试却是绿的，只因 Fake 返回 errorInfo = "" 与生产相反。
+        // 判据：Fake 的默认值必须与真实实现同语义，否则测试只证明了 Fake 自己。
         val fx = Fixture()
         fx.musicRepo.songs[1L] = song(1, "Title", "Artist")
 
-        val ok = fx.registry.executeTool(ToolNames.SONG_TAGS_GET, jsonArgs("music_id" to 1L))
-        assertTrue(ok.success)
-        assertTrue(ok.summary.contains("风格"))
-
-        // 未富化：errorInfo 非空 → 失败
-        fx.musicRepo.dailyMusicExtra[1L] = DailyMusicInfo(
-            genre = emptyList(), mood = emptyList(), scenario = emptyList(),
-            language = "", era = "", rewards = "", lyric = "", singerIntroduce = "",
-            backgroundIntroduce = "", description = "", relevantMusic = "", errorInfo = "NOT_ENOUGH_DATA",
-        )
+        // 未富化：labels 表为空 → 失败
         val notReady = fx.registry.executeTool(ToolNames.SONG_TAGS_GET, jsonArgs("music_id" to 1L))
         assertFalse(notReady.success)
         assertNotNull(notReady.failureReason)
+
+        // 富化后：标签取自 labels 表，且必须是注入的那一组（中文显示名）
+        fx.musicRepo.addMusicLabel(MusicLabel(1L, LabelCategory.GENRE, LabelName.JAZZ))
+        fx.musicRepo.addMusicLabel(MusicLabel(1L, LabelCategory.MOOD, LabelName.CALM))
+        val ok = fx.registry.executeTool(ToolNames.SONG_TAGS_GET, jsonArgs("music_id" to 1L))
+        assertTrue(ok.success, "有标签时应成功，实际失败：${ok.failureReason}")
+        assertTrue(ok.summary.contains("风格"))
+        assertTrue(ok.summary.contains("爵士"), "标签应取中文显示名，实际=${ok.summary}")
+        assertTrue(ok.summary.contains("平静"))
+    }
+
+    @Test
+    fun songTagsGet_scopesLabelsByMusicId() = runTest {
+        // 标签归属必须按 music_id 隔离：别的歌有标签不代表这首歌已富化
+        val fx = Fixture()
+        fx.musicRepo.songs[1L] = song(1, "Title", "Artist")
+        fx.musicRepo.songs[2L] = song(2, "Other", "Artist")
+        fx.musicRepo.addMusicLabel(MusicLabel(2L, LabelCategory.GENRE, LabelName.ROCK))
+
+        val r = fx.registry.executeTool(ToolNames.SONG_TAGS_GET, jsonArgs("music_id" to 1L))
+        assertFalse(r.success, "music_id=1 无标签，不应受 music_id=2 影响")
     }
 
     // ---------- createPlaylist ----------

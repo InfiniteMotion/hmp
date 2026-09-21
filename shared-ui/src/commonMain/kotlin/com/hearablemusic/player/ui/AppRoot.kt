@@ -46,11 +46,11 @@ import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
-import com.hearablemusic.player.ui.common.components.AgentNoticeBar
-import com.hearablemusic.player.ui.common.components.AgentNotice
-import com.hearablemusic.player.ui.common.components.BottomFusionBar
-import com.hearablemusic.player.ui.common.components.FusionSidebar
-import com.hearablemusic.player.ui.common.components.RadioConsole
+import com.hearablemusic.player.ui.agent.shell.AgentNoticeBar
+import com.hearablemusic.player.ui.agent.shell.BottomFusionBar
+import com.hearablemusic.player.ui.agent.shell.FusionSidebar
+import com.hearablemusic.player.ui.agent.shell.AgentNotice
+import com.hearablemusic.player.ui.agent.shell.RadioConsole
 import com.hearablemusic.player.ui.common.components.TabPageIndicator
 import com.hearablemusic.player.ui.common.design.animation.AnimationTokens
 import com.hearablemusic.player.ui.common.design.dimens.LocalHMPDimens
@@ -95,7 +95,7 @@ import com.hmp.domain.setting.usecase.LyricsSettingsUseCase
 import com.hmp.domain.agent.infra.PresenceBus
 import com.hmp.domain.agent.infra.PresenceEvent
 import com.hmp.domain.agent.runtime.MasterAgent
-import com.hmp.domain.agent.sub.RadioState
+import com.hmp.domain.agent.runtime.sub.radio.RadioState
 import com.hmp.domain.music.MusicRepository
 import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.rememberHazeState
@@ -254,14 +254,6 @@ fun AppRoot(darkTheme: Boolean) {
     LaunchedEffect(Unit) {
         presenceBus.events.collectLatest { event ->
             when (event) {
-                is PresenceEvent.NoticeAvailable -> {
-                    noticeIdCounter++
-                    currentNotice = AgentNotice(
-                        id = noticeIdCounter.toLong(),
-                        message = event.text,
-                        showUndo = false,
-                    )
-                }
                 is PresenceEvent.SkipDetected -> {
                     noticeIdCounter++
                     val title = event.trackTitle ?: "这首不太合你口味"
@@ -742,8 +734,10 @@ fun AppRoot(darkTheme: Boolean) {
                                     radioConsoleScope.launch { masterAgent.stopRadio() }
                                 },
                                 onPlayTrack = { musicId ->
-                                    // 跳到那首：**在既有队列里定位并播**（playWith 内部先查重、
-                                    // 找不到才追加），不新建队列 —— 新建会把主播刚排的队冲掉。
+                                    // 跳到那首：**在既有队列里定位并播**，不新建队列 ——
+                                    // 新建会把主播刚排的队冲掉。`playWith` = `addToPlaylist`
+                                    // （尾部追加，整队列去重 ⇒ 已在队列中则原地不动、不重复入队）
+                                    // + `playAt`（在既有队列里定位播放，**不重建队列**）。
                                     // **不收起面板**（用户决议）：跳一首不代表"用完了控制台"——
                                     // 留着才能接着看编排、继续跳下一首；面板只读，开着不干扰播放。
                                     radioConsoleScope.launch {

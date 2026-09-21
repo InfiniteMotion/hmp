@@ -252,9 +252,6 @@ class MusicRepositoryImpl(
         }
     }
 
-    override suspend fun getRandomMusicInfoWithExtra(): MusicInfo? =
-        musicAllDao.getRandomMusicInfoWithExtra()?.toDomain()
-
     override suspend fun getDeletedMusicIdsGroupedByFolder(): List<Pair<String, List<Long>>> {
         val list = musicDao.getDeletedMusicIdAndPath()
         return list

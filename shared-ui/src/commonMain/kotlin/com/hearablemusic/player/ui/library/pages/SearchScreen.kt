@@ -35,7 +35,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.compose.koinInject
-import com.hearablemusic.player.ui.chat.ChatEntryBroker
+import com.hearablemusic.player.ui.agent.chat.ChatEntryBroker
 import com.hearablemusic.player.ui.common.navigation.Routes as NavRoutes
 import com.hearablemusic.player.ui.common.components.base.HMPTextField
 import com.hmp.domain.agent.funnel.CommandLexicon

@@ -160,7 +160,7 @@
 | `getRecentHistory` | 读 | `getRecentPlaybackHistoryGlobal` | 静默 |
 | `getNowPlayingContext` | 读 | `PlaybackCommandPort.events` | 静默 |
 | `getSimilarSongs` | 算 | `getSimilarSongsByWeightedLabels` | 静默 |
-| `getMusicExtra` | 读 | `getMusicExtraById` | 静默 |
+| `getMusicExtra` | 读 | `getMusicLabels`（歌曲标签；原 `getMusicExtraById` 已删除，结构化标签存 labels 表） | 静默 |
 | `enrichSong` | 记忆写 | 既有富化管道 | 通知 |
 | `createPlaylist` | 写 | `ManagePlaylistUseCase` | 确认 |
 | `addToPlaylist`/`reorderPlaylist` | 写 | 同上 | 确认 |
@@ -434,13 +434,13 @@ B6  报告角色（听歌报告/遗忘唤醒）——纯文字，不含语音
 | `AppRoot.kt` | 底栏渲染条件；伙伴胶囊的**电台态**参数（`radioState` 订阅 + 长按停止电台；~~徽标状态流~~ 已废弃 2026-09-19） |
 | `PlayContent.kt` | 副行重排+「更多」菜单（5.2.2） |
 | `UserScreen.kt` | 伙伴卡插入（`SettingsListCard` 上方，对齐 `profileCard` 规格；未配置=引导卡「去配置」→AI 页） |
-| `AIScreen.kt` | 六分区演进（身体素质/人格/嗓音与耳朵/认识进度/记忆与信任/记忆管理），表单件复用；`LoadMusicExtraInfo` 重命名复用为认识进度 |
+| `AIScreen.kt` | **实际收敛为四分区**（AI 接入方式 / Agent 管理 / 语言和语音 / 记忆管理），表单件复用。**偏离原设计的部分（2026-09-20）**：① 原「认识进度」区（复用 `LoadMusicExtraInfo`）与「每日刷新策略」（`DailyRefreshSettings`）**随重写移除**——两者是零调用方的 `public` 孤儿函数，且日刷新已改由 `HelloSubAgent` 自行定时；② 原「人格」区未在主页渲染，**人格已下沉到 Master 子页**（`AgentConfigScreen`）；③ 「记忆与信任」（信任档位 + 启用开关）同样下沉到各 Agent 子页，主页面不再重复。**遗留待定**：引擎侧 `enrich_*` 意图与富化状态仍在（`MasterAgent` 可查），仅 UI 入口消失——**是否恢复「认识进度」待定** |
 | `SearchScreen.kt` | 伙伴条带（判定+双钮+空态追加行） |
 | `LyricsScreen.kt` | 「问歌词」钮（对齐既有歌词设置入口图标位——设置面板由 `LyricsSettingsState.kt` 承载） |
 | `PlaylistScreen.kt` | 伙伴生成歌单的解释行（「小知按你的听歌习惯把新歌归到这里」+「为什么」折叠；用户手建歌单不加） |
 | `PlayerScreen.kt` | 键盘 C 键（**直达对话页**，原为唤起浮层） |
 
-**与 B0-B6 对齐**：B0=伙伴卡引导态+门面问候首秀（不阻塞）；B1=~~浮层+~~对话页最小可用（浮层已移除 2026-09-19）；B2/B4=ChatScreen+五类气泡+任务进行条；B3/B5=歌单卡+审计页最小版、侧条+确认卡全量+DJ 线（原列的"徽标"已废弃 2026-09-19，不交付）；B6=伙伴设置六分区+审计页全量。**锚点层（5.2 一期：三胶囊+播放页重排+C 键）无 agent 引擎也可先行合入——UI 用 Fake 数据驱动，作为引擎就绪前的交互骨架验证**。
+**与 B0-B6 对齐**：B0=伙伴卡引导态+门面问候首秀（不阻塞）；B1=~~浮层+~~对话页最小可用（浮层已移除 2026-09-19）；B2/B4=ChatScreen+五类气泡+任务进行条；B3/B5=歌单卡+审计页最小版、侧条+确认卡全量+DJ 线（原列的"徽标"已废弃 2026-09-19，不交付）；B6=伙伴设置（每 Agent 一页 `AgentConfigScreen`；主页面收敛为四分区，见上表 `AIScreen.kt` 行）+审计页全量。**锚点层（5.2 一期：三胶囊+播放页重排+C 键）无 agent 引擎也可先行合入——UI 用 Fake 数据驱动，作为引擎就绪前的交互骨架验证**。
 
 ---
 

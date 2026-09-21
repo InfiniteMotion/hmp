@@ -85,7 +85,7 @@ interface PlaybackCommandPort {
 
     /**
      * Agent 命令触发的切歌事件：emit 新曲目的 title。
-     * M6-T3 MasterAgent 监听此流 → emit PresenceBus.DjBlank → 生成 DJ 衔接语。
+     * M6-T3 MasterAgent 监听此流 → emit PresenceBus.DjBlank → 门面刷新问候卡。
      * 默认 emptyFlow() stub；真实实现由 ControllerPlaybackCommandPort 在 execute() 内部 emit。
      * 与 skipEvents 的区别：skipEvents emit"被跳过的旧曲目"，
      * trackChangeEvents emit"刚切过去的新曲目"——两者可能先后到达同一轮切歌。

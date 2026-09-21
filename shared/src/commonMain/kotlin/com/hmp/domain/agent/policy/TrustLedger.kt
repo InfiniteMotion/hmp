@@ -1,6 +1,6 @@
 package com.hmp.domain.agent.policy
 
-import com.hmp.domain.agent.runtime.EngineDefaults
+import com.hmp.domain.agent.config.EngineDefaults
 
 /**
  * 信任阶梯状态机——驱动 AgentPolicyConfig.trustLevel 自动升降档。

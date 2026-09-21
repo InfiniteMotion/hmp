@@ -46,7 +46,7 @@ class MusicApplication : Application() {
             modules(sharedModule, androidPlatformModule, builtInAiModule, playerModule, uiModule)
         }
 
-        // F11-L1 启动即初始化：**主动解析** MasterAgent 单例 → 触发 ChatKoinModule 的
+        // F11-L1 启动即初始化：**主动解析** MasterAgent 单例 → 触发 SharedModules 里装配的
         // `.also { lifecycleScope.launch { initialize() } }`（Scheduler + Enrich + Hello + 画像）。
         // 注意：这里是"取实例"而非"调 initialize()"——initialize 仍只由 .also 执行一次，
         // 手动再调会导致 Scheduler + startEnrich + startHello 执行两次。

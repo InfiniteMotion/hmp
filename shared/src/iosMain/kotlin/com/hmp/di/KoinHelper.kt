@@ -183,15 +183,6 @@ fun getPinyinInitial(title: String): String {
     return "#"
 }
 
-suspend fun getSettingsDailyRefreshMode(): String =
-    getUserSettingsUseCase().dailyRefreshMode.first()
-
-suspend fun getSettingsDailyRefreshHours(): Int =
-    getUserSettingsUseCase().dailyRefreshHours.first()
-
-suspend fun getSettingsDailyRefreshStartupCount(): Int =
-    getUserSettingsUseCase().dailyRefreshStartupCount.first()
-
 suspend fun getSettingsCurrentPosition(): Long =
     getSettingsRepository().currentPosition.first()
 

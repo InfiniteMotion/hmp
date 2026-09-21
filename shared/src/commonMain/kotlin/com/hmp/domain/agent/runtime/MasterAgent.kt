@@ -1,5 +1,6 @@
 package com.hmp.domain.agent.runtime
 
+import com.hmp.domain.agent.config.EngineDefaults
 import com.hmp.domain.agent.infra.PresenceBus
 import com.hmp.log.HmpLog
 import com.hmp.log.LogTag
@@ -12,7 +13,11 @@ import com.hmp.domain.agent.policy.TrustLedger
 import com.hmp.domain.agent.policy.TrustLevel
 import com.hmp.domain.agent.enrich.EnrichTask
 import com.hmp.domain.agent.enrich.EnrichHealth
+import com.hmp.domain.agent.runtime.i18n.resolvePrompt
 import com.hmp.domain.agent.port.AuditEntry
+import com.hmp.domain.agent.port.Capability
+import com.hmp.domain.agent.port.CapabilityState
+import com.hmp.domain.agent.port.ConfirmGate
 import com.hmp.domain.agent.port.AuditLogPort
 import com.hmp.domain.agent.port.LlmEvent
 import com.hmp.domain.agent.port.LlmMessage
@@ -22,12 +27,13 @@ import com.hmp.domain.agent.port.AgentKeepAlivePort
 import com.hmp.domain.agent.port.KeepAliveReason
 import com.hmp.domain.agent.port.PlaybackObservationBus
 import com.hmp.domain.agent.persona.DefaultCompanionProfiles
-import com.hmp.domain.agent.sub.EnrichSubAgent
-import com.hmp.domain.agent.sub.HelloSubAgent
-import com.hmp.domain.agent.sub.RadioSubAgent
-import com.hmp.domain.agent.sub.RadioTrigger
-import com.hmp.domain.agent.sub.SubAgent
-import com.hmp.domain.agent.tool.ToolRegistry
+import com.hmp.domain.agent.runtime.sub.enrich.EnrichSubAgent
+import com.hmp.domain.agent.runtime.sub.hello.HelloSubAgent
+import com.hmp.domain.agent.runtime.sub.radio.RadioSubAgent
+import com.hmp.domain.agent.runtime.sub.radio.RadioTrigger
+import com.hmp.domain.agent.runtime.sub.shared.SubAgent
+import com.hmp.domain.agent.tool.bindCapabilityTools
+import com.hmp.domain.agent.tool.spec.ToolRegistry
 import com.hmp.domain.enum.LabelName
 import com.hmp.domain.music.MusicRepository
 import com.hmp.domain.setting.model.AiEndpointConfig
@@ -64,11 +70,11 @@ import com.hmp.platform.Volatile
  * AgentOrchestrator.run() 的循环逻辑**完整搬进** handleUserMessage()，AgentOrchestrator 类保留作为
  * 兼容薄壳（内部委托给 MasterAgent），现有 ChatAgentGateway 测试零修改。
  */
-class MasterAgent(
+class MasterAgent internal constructor(
     /** 时间来源（毫秒） */
     private val timeProvider: () -> Long,
     /** 全局 Token 日配额计数器 */
-    val tokenCounter: GlobalTokenCounter = GlobalTokenCounter(timeProvider),
+    internal val tokenCounter: GlobalTokenCounter = GlobalTokenCounter(timeProvider),
     /**
      * F12-T1：唯一记账口。一次 LLM 调用写三处 —— 当日累加（tokenCounter）·
      * 窗口占用（各 AgentContextBudget 自行更新）· 明细账本（token_ledger）。
@@ -76,7 +82,7 @@ class MasterAgent(
      */
     private val tokenMeter: TokenMeter? = null,
     /** 系统条件提供者（电量/网络） */
-    val systemConditions: SystemConditions = DefaultSystemConditions(),
+    private val systemConditions: SystemConditions = DefaultSystemConditions(),
     /** 音乐库仓库（富化健康度查询 + enrich 批次派发） */
     private val musicRepository: MusicRepository? = null,
 
@@ -216,16 +222,16 @@ class MasterAgent(
     private var radioTrackChangeListenerJob: kotlinx.coroutines.Job? = null
 
     /** radio 运行时，RadioSubAgent.radioState 的值会被转发到这里。固定实例（UI 层 remember 缓存的是同一个）。 */
-    private val _radioState = MutableStateFlow<com.hmp.domain.agent.sub.RadioState?>(null)
-    val radioState: StateFlow<com.hmp.domain.agent.sub.RadioState?> = _radioState
+    private val _radioState = MutableStateFlow<com.hmp.domain.agent.runtime.sub.radio.RadioState?>(null)
+    val radioState: StateFlow<com.hmp.domain.agent.runtime.sub.radio.RadioState?> = _radioState
     /**
      * 电台卡片状态（C1：卡片是 agent 唯一的存在面）。固定信息与动态信息已由 RadioSubAgent 分开。
      *
      * 之前 RadioCard 去 HelloSubAgent 的 cards 里找 RADIO_STATUS，而那张卡早已拆到 UI 层、
      * 且只在 HelloSlideCards 里本地构建，从来没进过 cards 流 —— 那两行是死代码。
      */
-    private val _radioCardState = MutableStateFlow(com.hmp.domain.agent.sub.RadioCardState(null, 0, null, null))
-    val radioCardState: StateFlow<com.hmp.domain.agent.sub.RadioCardState> = _radioCardState
+    private val _radioCardState = MutableStateFlow(com.hmp.domain.agent.runtime.sub.radio.RadioCardState(null, 0, null, null))
+    val radioCardState: StateFlow<com.hmp.domain.agent.runtime.sub.radio.RadioCardState> = _radioCardState
     /** 卡片状态转发协程（stopRadio 时 cancel）。 */
     private var radioCardStateForwarderJob: kotlinx.coroutines.Job? = null
 
@@ -234,8 +240,8 @@ class MasterAgent(
      * 必须是这个固定 StateFlow——直接透传子代理的 playlist 会缓存到旧实例/空流，
      * LLM 返回落 seedWhy/whys 后卡片永远收不到（真机已踩）。
      */
-    private val _radioPlaylist = MutableStateFlow<List<com.hmp.domain.agent.sub.RadioTrack>>(emptyList())
-    val radioPlaylist: StateFlow<List<com.hmp.domain.agent.sub.RadioTrack>> = _radioPlaylist
+    private val _radioPlaylist = MutableStateFlow<List<com.hmp.domain.agent.runtime.sub.shared.RadioTrack>>(emptyList())
+    val radioPlaylist: StateFlow<List<com.hmp.domain.agent.runtime.sub.shared.RadioTrack>> = _radioPlaylist
     /** 镜像队列转发协程（stopRadio 时 cancel）。 */
     private var radioPlaylistForwarderJob: kotlinx.coroutines.Job? = null
 
@@ -247,11 +253,11 @@ class MasterAgent(
      * ——与 `_radioPlaylist` 同一教训（直接透传会缓存到空流/旧实例）。
      */
     private val _dailyRecommendList =
-        MutableStateFlow<com.hmp.domain.agent.sub.RecommendListPayload?>(null)
-    val dailyRecommendList: StateFlow<com.hmp.domain.agent.sub.RecommendListPayload?> = _dailyRecommendList
+        MutableStateFlow<com.hmp.domain.agent.card.RecommendListPayload?>(null)
+    val dailyRecommendList: StateFlow<com.hmp.domain.agent.card.RecommendListPayload?> = _dailyRecommendList
     private val _privateRecommendList =
-        MutableStateFlow<com.hmp.domain.agent.sub.RecommendListPayload?>(null)
-    val privateRecommendList: StateFlow<com.hmp.domain.agent.sub.RecommendListPayload?> = _privateRecommendList
+        MutableStateFlow<com.hmp.domain.agent.card.RecommendListPayload?>(null)
+    val privateRecommendList: StateFlow<com.hmp.domain.agent.card.RecommendListPayload?> = _privateRecommendList
     /** 推荐列表转发协程（stopHello 时 cancel）。 */
     private var recommendListForwarderJob: kotlinx.coroutines.Job? = null
     /**
@@ -261,29 +267,26 @@ class MasterAgent(
      * 命中复用条件时直接续上对话，省掉曲库视图那次最贵的上下文组装。
      * 仅内存、且情境换代（时段变化）或超过 REUSE_BACKSTOP_MS 兜底作废 —— 不违反 C2（不写长期偏好）。
      */
-    private var retainedRadio: com.hmp.domain.agent.sub.RadioConversation? = null
+    private var retainedRadio: com.hmp.domain.agent.runtime.sub.radio.RadioConversation? = null
     /** 转发协程——把 RadioSubAgent.radioState → _radioState。stopRadio 时 cancel。 */
     private var radioStateForwarderJob: kotlinx.coroutines.Job? = null
 
-    /** handleDjBlank 衔接语兜底轮换索引（LLM 不可用时 MasterAgent.handleDjBlank 使用） */
-    private var greetingIndex: Int = 0
-    /** handleDjBlank 衔接语兜底列表（与 HelloSubAgent 的 GREETING fallbackForType 独立） */
-    private val fallbackGreetings = listOf(
-        "下一首也不错哦～",
-        "继续享受音乐吧！",
-        "听听这首怎么样？",
-        "为你选了一首好歌",
-        "这首特别适合此刻",
-    )
-
     /** 全局唯一调度器（F3） */
-    val scheduler = AgentScheduler(timeProvider, tokenCounter, systemConditions)
+    internal val scheduler = AgentScheduler(timeProvider, tokenCounter, systemConditions)
+
+    /**
+     * 看板用：今日 Token 用量快照（门面）。
+     *
+     * **F13**：UI 只需要「用了多少 / 配额多少」这个**数据形状**，不需要引擎计数器本身。
+     * 暴露这一条即可把 `tokenCounter`（及 [GlobalTokenCounter]）收敛为 internal。
+     */
+    val tokenUsage: kotlinx.coroutines.flow.StateFlow<TokenSnapshot> get() = tokenCounter.snapshot
 
     // ═══ per-Agent 持久化配置（AgentPolicyConfig v0→v1：从 2 字段扩展到 6 字段）═══
     // init 块里从 DataStore 读（runBlocking，因为 init 块不是 suspend）；
     // 没有 settingsRepo 就用默认值（首次启动）。
     // v1 新增：globalAgentConfig（全局）+ radio/hello policy config（之前不存在 key）
-    /** Master 对话 Agent 的完整配置（trustLevel + temperature + runtimeParams + promptOverrides + personaOverride） */
+    /** Master 对话 Agent 的完整配置（trustLevel + alwaysAllow + temperature + runtimeParams + promptOverrides + preferredLang + enabled） */
     private var masterPolicyConfig: AgentPolicyConfig
     /** Enrich 后台 Agent 的完整配置 */
     private var enrichPolicyConfig: AgentPolicyConfig
@@ -292,7 +295,7 @@ class MasterAgent(
     /** Hello SubAgent 的完整配置（v1 新增） */
     private var helloPolicyConfig: AgentPolicyConfig
     /** 全局 Agent 配置（人格选择 / 配额 / 语言 / 语音开关） */
-    private val globalAgentConfig: GlobalAgentConfig
+    private var globalAgentConfig: GlobalAgentConfig
 
     init {
         masterPolicyConfig = runBlocking {
@@ -361,10 +364,11 @@ class MasterAgent(
 
     /** 更新 globalAgentConfig 并写回 DataStore。 */
     suspend fun saveGlobalAgentConfig(config: GlobalAgentConfig) {
-        // 内部持有引用也更新（虽然是 val，但可以用 reflection 或者直接替换）
-        // 简单做法：直接写 DataStore，下次 init 会读新值；当前进程内 getter 还是旧值
-        // 更好的做法：把 globalAgentConfig 改成 var MutableStateFlow
-        // 这里先用简单方案——DataStore 写入是持久化的
+        // 内存引用同步更新（避免下次 init 前 getter 仍返回旧值）
+        globalAgentConfig = config
+        // 记忆开关实时生效：关闭时立即清空已存记忆、打开时恢复读取
+        userMemory?.memoryEnabled = config.memoryEnabled
+        if (!config.memoryEnabled) userMemory?.clear()
         settingsRepo?.saveGlobalAgentConfig(config)
     }
 
@@ -374,11 +378,11 @@ class MasterAgent(
      * - "enrich" → EnrichSubAgent（自循环 Worker）
      * - "radio"  → RadioSubAgent（自循环 Worker，M6）
      */
-    private val _subAgents = mutableMapOf<String, com.hmp.domain.agent.sub.SubAgent>()
-    val subAgents: Map<String, com.hmp.domain.agent.sub.SubAgent> get() = _subAgents.toMap()
+    private val _subAgents = mutableMapOf<String, com.hmp.domain.agent.runtime.sub.shared.SubAgent>()
+    internal val subAgents: Map<String, com.hmp.domain.agent.runtime.sub.shared.SubAgent> get() = _subAgents.toMap()
 
     /** F9-A0：所有实现了 Capability 接口的 SubAgent —— Tool 层和 UI 层从这里读统一状态 */
-    val capabilities: Map<String, Capability> get() =
+    internal val capabilities: Map<String, Capability> get() =
         _subAgents.values.filterIsInstance<Capability>().associateBy { it.capabilityName }
 
     /** F9-A0：按名字取 Capability（工具层和 Koin 注入用） */
@@ -399,9 +403,11 @@ class MasterAgent(
 
     // ===== 生命周期 =====
 
-    /** Master 生命周期作用域——供 ChatKoinModule 等外部组件 launch 协程用。
-     *  shutdown() 时会 cancel 此 scope，防止热监听协程泄漏。 */
-    val lifecycleScope: kotlinx.coroutines.CoroutineScope =
+    /** 内部生命周期作用域——供同一模块内的装配代码（`SharedModules` 的 `.also`）launch 协程用。
+     *  shutdown() 时会 cancel 此 scope，防止热监听协程泄漏。
+     *
+     *  F13：装配已归属 `:shared`，故本属性收为 internal（UI 不再需要引擎生命周期作用域）。 */
+    internal val lifecycleScope: kotlinx.coroutines.CoroutineScope =
         kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Default + kotlinx.coroutines.SupervisorJob())
 
     /**
@@ -462,7 +468,7 @@ class MasterAgent(
      * ② 注册自己（priority=1，永不暂停）
      * ③ 检测富化健康度 → 决定是否创建 Enrich
      */
-    suspend fun initialize(enrichTransport: LlmTransport? = null) {
+    internal suspend fun initialize(enrichTransport: LlmTransport? = null) {
         HmpLog.i(LogTag.AgentMaster) { "🤖 [Master] initialize start" }
 
         // ── 加载 Per-Agent LLM Endpoint Config（null = 跟随全局） ──
@@ -478,6 +484,9 @@ class MasterAgent(
         } ?: run {
             HmpLog.w(LogTag.AgentMaster) { "🤖 [Master] settingsRepo null → all per-Agent configs stay null (defer to SubAgent defaults)" }
         }
+
+        // 记忆开关：启动时同步给 UserMemory（关闭则不自动建模/读取）
+        userMemory?.memoryEnabled = globalAgentConfig.memoryEnabled
 
         // F9-A0：绑定 CapabilityStatusTool 到 ToolRegistry
         // 使用 chatToolRegistry 字段（Koin 构造时注入），避免在 Koin .also 块里再 get() 引发循环
@@ -531,7 +540,7 @@ class MasterAgent(
     }
 
     /** 应用销毁时调用，清理所有 SubAgent（suspend 版本——内部调 scheduler/SubAgent.shutdown 需协程） */
-    suspend fun shutdown() {
+    internal suspend fun shutdown() {
         HmpLog.i(LogTag.AgentMaster) { "🤖 [Master] shutdown" }
         scheduler.stopArbitration()
         _subAgents.values.forEach { it.shutdown() }
@@ -573,7 +582,7 @@ class MasterAgent(
      * Master 只负责外部生命周期：创建/注册 Scheduler/启动 runLoop。
      *
      * 完整链路：
-     * 1. 创建 AgentContextBudget(32K) + SchedulerStopSignal
+     * 1. 创建 AgentContextBudget（窗口全 Agent 统一 64K，见 EngineDefaults.AGENT_CONTEXT_WINDOW）+ SchedulerStopSignal
      * 2. 实例化 EnrichSubAgent → 放进 _subAgents["enrich"]
      * 3. 注册 Scheduler priority=3
      * 4. scope.launch { enrichAgent.runLoop() } —— 只启动一个协程
@@ -582,7 +591,7 @@ class MasterAgent(
      *
      * @param task 任务单（含 targetCoverage / maxBatchSize）
      */
-    suspend fun startEnrich(task: EnrichTask, enrichTransport: LlmTransport? = null) {
+    internal suspend fun startEnrich(task: EnrichTask, enrichTransport: LlmTransport? = null) {
         enrichLifecycleMutex.withLock {
             // 等待旧 runLoop 协程完全退出（如果有），再创建新实例
             enrichRunLoopJob?.join()
@@ -590,7 +599,7 @@ class MasterAgent(
 
             // 幂等检查：已有活跃实例 → 跳过
             _subAgents["enrich"]?.let { existing ->
-                if (existing !is com.hmp.domain.agent.sub.EnrichSubAgent) {
+                if (existing !is com.hmp.domain.agent.runtime.sub.enrich.EnrichSubAgent) {
                     HmpLog.w(LogTag.AgentMaster) { "🤖 [Master] existing enrich is not EnrichSubAgent, force cleanup" }
                     stopEnrich()
                 } else if (existing.state() == com.hmp.domain.agent.runtime.AgentRunState.RUNNING) {
@@ -600,6 +609,11 @@ class MasterAgent(
                     // 旧实例非活跃但未清理干净 → 先停再重建
                     stopEnrich()
                 }
+            }
+
+            if (!enrichPolicyConfig.enabled) {
+                HmpLog.i(LogTag.AgentMaster) { "🤖 [Master] Enrich 已关闭，跳过启动" }
+                return
             }
 
             val repo = musicRepository
@@ -616,7 +630,7 @@ class MasterAgent(
                 return
             }
 
-            // ① 创建 Enrich 的独立 AgentContextBudget（32K）
+            // ① 创建 Enrich 的独立 AgentContextBudget
             val contextBudget = AgentContextBudget(
                 agentId = "enrich",
                 llmClient = effectiveEnrichTransport,
@@ -627,7 +641,7 @@ class MasterAgent(
             val enrichStopSignal = SchedulerStopSignal(tokenCounter)
 
             // ③ 构造 system prompt（F5：Master 注入，Enrich 不自演化角色）
-            val systemPrompt = com.hmp.domain.agent.sub.EnrichSubAgent.buildSystemPrompt(
+            val systemPrompt = com.hmp.domain.agent.runtime.sub.enrich.EnrichPrompts.buildSystemPrompt(
                 targetCoverage = task.targetCoverage,
                 preferredLang = enrichPolicyConfig.preferredLang,
                 globalReplyLanguage = globalAgentConfig.replyLanguage,
@@ -638,7 +652,7 @@ class MasterAgent(
             val toolView = ToolRegistryView.enrich(registry)
 
             // ⑤ 实例化 EnrichSubAgent（自循环 Worker，管道完全内化——prompt 和 LLM 调用都在 Enrich 内部）
-            val enrichAgent = com.hmp.domain.agent.sub.EnrichSubAgent(
+            val enrichAgent = com.hmp.domain.agent.runtime.sub.enrich.EnrichSubAgent(
                 agentId = "enrich",
                 contextBudget = contextBudget,
                 toolRegistryView = toolView,
@@ -689,7 +703,7 @@ class MasterAgent(
      * 创建并启动 RadioSubAgent（F1：只有 Master 能调）。
      *
      * 链路（照着 startEnrich 模式）：
-     * 1. 创建 AgentContextBudget(64K) + ToolRegistryView.radio()
+     * 1. 创建 AgentContextBudget + ToolRegistryView.radio()
      * 2. 实例化 RadioSubAgent → 放进 _subAgents["radio"]
      * 3. 注册 Scheduler priority=2（桥接 StopSignal）
      * 4. 启动 radioAgent.runLoop()
@@ -702,7 +716,7 @@ class MasterAgent(
         seed: String? = null,
         trigger: RadioTrigger = RadioTrigger.HOME_CLICK,
         chatContext: String? = null,
-    ): List<com.hmp.domain.agent.sub.RadioTrack> {
+    ): List<com.hmp.domain.agent.runtime.sub.shared.RadioTrack> {
         return radioLifecycleMutex.withLock {
             // 等待旧 runLoop 协程完全退出
             radioRunLoopJob?.join()
@@ -710,13 +724,18 @@ class MasterAgent(
 
             // 幂等：已有活跃实例 → 委托给它
             _subAgents["radio"]?.let { existing ->
-                val radio = existing as? com.hmp.domain.agent.sub.RadioSubAgent
+                val radio = existing as? com.hmp.domain.agent.runtime.sub.radio.RadioSubAgent
                 if (radio != null && radio.state() == com.hmp.domain.agent.runtime.AgentRunState.RUNNING) {
                     HmpLog.w(LogTag.AgentMaster) { "🤖 [Master] Radio already active, delegating to existing" }
                     return@withLock radio.startRadio(seed, trigger, chatContext)
                 }
                 // 非活跃实例 → 先停再重建
                 stopRadio()
+            }
+
+            if (!radioPolicyConfig.enabled) {
+                HmpLog.i(LogTag.AgentMaster) { "🤖 [Master] Radio 已关闭，跳过启动" }
+                return emptyList()
             }
 
             val repo = musicRepository
@@ -728,7 +747,7 @@ class MasterAgent(
                 return emptyList()
             }
 
-            // ① AgentContextBudget(64K)——电台决策比 Enrich 复杂但比 Master 对话轻
+            // ① AgentContextBudget——电台决策比 Enrich 复杂但比 Master 对话轻
             val effectiveRadioTransport = radioTransport
             if (effectiveRadioTransport == null) {
                 HmpLog.e(LogTag.AgentMaster) { "🤖 [Master] No LlmTransport for Radio — radioTransport not injected in MasterAgent ctor" }
@@ -747,7 +766,7 @@ class MasterAgent(
             val radioStopSignal = SchedulerStopSignal(tokenCounter)
 
             // ④ 实例化 RadioSubAgent
-            val radioAgent = com.hmp.domain.agent.sub.RadioSubAgent(
+            val radioAgent = com.hmp.domain.agent.runtime.sub.radio.RadioSubAgent(
                 agentId = "radio",
                 contextBudget = contextBudget,
                 toolRegistryView = toolView,
@@ -787,7 +806,7 @@ class MasterAgent(
             // ⑥ 启动 runLoop（跟踪 Job）
             radioRunLoopJob = scope.launch { radioAgent.runLoop() }
 
-            // ⑥-2 启动 Radio 事件监听协程（M6-T2 skip 感知 + M6-T3 DjBlank → 衔接语）
+            // ⑥-2 启动 Radio 事件监听协程（M6-T2 skip 感知 + M6-T3 DjBlank → 门面问候）
             setupRadioEventListeners()
 
             // ⑥-3 转发 RadioSubAgent.radioState → 固定的 _radioState（UI 层 remember 缓存这个固定实例）
@@ -860,8 +879,8 @@ class MasterAgent(
             // ② 停 SubAgent
             _subAgents["radio"]?.let { radio ->
                 // 关闭电台只暂停、不清播放列表，所以对话往往还有效 —— 存下来供下次复用
-                retainedRadio = (radio as? com.hmp.domain.agent.sub.RadioSubAgent)?.exportConversation()
-                (radio as? com.hmp.domain.agent.sub.RadioSubAgent)?.stopRadio()
+                retainedRadio = (radio as? com.hmp.domain.agent.runtime.sub.radio.RadioSubAgent)?.exportConversation()
+                (radio as? com.hmp.domain.agent.runtime.sub.radio.RadioSubAgent)?.stopRadio()
                 radio.shutdown()
                 scheduler.unregisterAgent("radio")
                 _subAgents.remove("radio")
@@ -882,7 +901,7 @@ class MasterAgent(
             radioCardStateForwarderJob = null
             radioPlaylistForwarderJob?.cancel()
             radioPlaylistForwarderJob = null
-            _radioCardState.value = com.hmp.domain.agent.sub.RadioCardState(null, 0, null, null)
+            _radioCardState.value = com.hmp.domain.agent.runtime.sub.radio.RadioCardState(null, 0, null, null)
             _radioPlaylist.value = emptyList()
             _radioState.value = null
         }
@@ -890,12 +909,12 @@ class MasterAgent(
 
     /** 编排动作前静默观测，避免自己的播放指令被当成用户行为。 */
     private fun muteObservation() {
-        observationBus?.muteFor(com.hmp.domain.agent.sub.ORCHESTRATION_MUTE_MS)
+        observationBus?.muteFor(com.hmp.domain.agent.runtime.sub.radio.ORCHESTRATION_MUTE_MS)
     }
 
     /** Master 下令暂停电台：播放引擎 PAUSE → SubAgent 内部状态切 PAUSED（runLoop + playlist 保留） */
-    suspend fun pauseRadio() {
-        val radio = _subAgents["radio"] as? com.hmp.domain.agent.sub.RadioSubAgent ?: run {
+    internal suspend fun pauseRadio() {
+        val radio = _subAgents["radio"] as? com.hmp.domain.agent.runtime.sub.radio.RadioSubAgent ?: run {
             HmpLog.w(LogTag.AgentMaster) { "🤖 [Master] pauseRadio: no radio agent" }
             return
         }
@@ -907,8 +926,8 @@ class MasterAgent(
     }
 
     /** Master 下令恢复电台：先启播放引擎 → SubAgent 内部状态切 PLAYING */
-    suspend fun resumeRadio() {
-        val radio = _subAgents["radio"] as? com.hmp.domain.agent.sub.RadioSubAgent ?: run {
+    internal suspend fun resumeRadio() {
+        val radio = _subAgents["radio"] as? com.hmp.domain.agent.runtime.sub.radio.RadioSubAgent ?: run {
             HmpLog.w(LogTag.AgentMaster) { "🤖 [Master] resumeRadio: no radio agent" }
             return
         }
@@ -928,14 +947,14 @@ class MasterAgent(
      * Hello 是唯一 Master 默认启动的 SubAgent——initialize() 末尾自动调。
      *
      * 链路（照着 startRadio 模式，简化版）：
-     * 1. 创建 AgentContextBudget(128K) + ToolRegistryView.empty()（Hello 不调工具）
+     * 1. 创建 AgentContextBudget + ToolRegistryView.empty()（Hello 不调工具）
      * 2. 实例化 HelloSubAgent → 放进 _subAgents["hello"]
      * 3. 注册 Scheduler priority=HELLO(4)（永不暂停）
      * 4. 启动 helloAgent.runLoop()
      *
      * H1 骨架：先跑非 LLM 版本（enableLlm=false）。H3 再补 LLM 生成。
      */
-    suspend fun startHello(): HelloSubAgent? {
+    internal suspend fun startHello(): HelloSubAgent? {
         return helloLifecycleMutex.withLock {
             // 等待旧 runLoop 协程完全退出
             helloRunLoopJob?.join()
@@ -952,13 +971,18 @@ class MasterAgent(
                 stopHello()
             }
 
+            if (!helloPolicyConfig.enabled) {
+                HmpLog.i(LogTag.AgentMaster) { "🤖 [Master] Hello 已关闭，跳过启动" }
+                return@withLock null
+            }
+
             // ② 前置依赖 null check —— Hello 没有 Repository/播放上下文就跑不起来
             val repo = musicRepository ?: run {
                 HmpLog.w(LogTag.AgentMaster) { "🤖 [Master] musicRepository null, skip startHello" }
                 return@withLock null
             }
 
-            // ③ 构造 AgentContextBudget(128K) + ToolRegistryView.empty()
+            // ③ 构造 AgentContextBudget + ToolRegistryView.empty()
             // helloTransport 独立于 chatTransport（方案 B：每 Agent 一 Transport）
             val toolView = ToolRegistryView.empty(chatToolRegistry)
             val stopSignal = SchedulerStopSignal(tokenCounter)
@@ -1022,7 +1046,7 @@ class MasterAgent(
     }
 
     /** Master 下令销毁 Hello */
-    suspend fun stopHello() {
+    internal suspend fun stopHello() {
         helloLifecycleMutex.withLock {
             _subAgents["hello"]?.let { hello ->
                 hello.shutdown()
@@ -1070,8 +1094,8 @@ class MasterAgent(
             enableLlm = helloTransport != null && helloConfig?.isConfigured == true,
             enrichConfig = helloConfig,
         )
-        (_subAgents["enrich"] as? com.hmp.domain.agent.sub.EnrichSubAgent)?.updateAiConfig(enrichConfig)
-        (_subAgents["radio"] as? com.hmp.domain.agent.sub.RadioSubAgent)?.updateAiConfig(radioConfig)
+        (_subAgents["enrich"] as? com.hmp.domain.agent.runtime.sub.enrich.EnrichSubAgent)?.updateAiConfig(enrichConfig)
+        (_subAgents["radio"] as? com.hmp.domain.agent.runtime.sub.radio.RadioSubAgent)?.updateAiConfig(radioConfig)
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -1131,82 +1155,12 @@ class MasterAgent(
         }
     }
 
-    /**
-     * M6-T3b：处理 DjBlank → 生成衔接语（LLM 可用）或门面问候（LLM 不可用）。
-     * 结果 emit PresenceEvent.NoticeAvailable → UI 侧条展示 4s。
-     */
-    private suspend fun handleDjBlank() {
-        val presence = chatPresenceBus ?: return
-        val (greeting, source) = runCatching { generateDjSegue() }.fold(
-            onSuccess = { it to "llm" },
-            onFailure = { e ->
-                HmpLog.w(LogTag.AgentMaster, e) { "🤖 DjBlank LLM failed, using fallback greeting" }
-                nextFallbackGreeting() to "fallback"
-            }
-        )
-        chatAuditLog?.logDjSegue(greeting, source)
-        HmpLog.i(LogTag.AgentMaster) { "🤖 [Master] DjBlank → emit NoticeAvailable: '$greeting'" }
-        presence.emit(PresenceEvent.NoticeAvailable(greeting))
-    }
-
-    /**
-     * M6-T3b：LLM 纯文本调用生成 15-20 字中文衔接语。
-     * 无 radioConfig / LLM 调用失败时抛异常 → handleDjBlank 降级到 fallback。
-     */
-    private suspend fun generateDjSegue(): String {
-        val transport = chatTransport ?: error("no LLM transport")
-        val config = radioConfig ?: error("no radio LLM config")
-
-        val systemPrompt = resolvePrompt(
-            key = "radio.dj_prompt",
-            preferredLang = radioPolicyConfig.preferredLang,
-            globalReplyLanguage = globalAgentConfig.replyLanguage,
-            userOverrides = radioPolicyConfig.promptOverrides,
-        )
-        val effectiveLang = when (radioPolicyConfig.preferredLang) {
-            "zh", "en", "auto" -> radioPolicyConfig.preferredLang
-            else -> globalAgentConfig.replyLanguage
-        }
-        HmpLog.i(LogTag.AgentMaster) {
-            "🎙️ generateDjSegue | prompt=radio.dj_prompt | promptLang=$effectiveLang | " +
-            "promptLen=${systemPrompt.length} | model=${config.selectedModel.take(30)} | " +
-            "endpoint=${config.endpoint.take(40)} | temp=0.7"
-        }
-
-        val turn = LlmCallExecutor().call(
-            transport = transport,
-            config = config,
-            messages = listOf(
-                LlmMessage(role = "system", content = systemPrompt),
-                LlmMessage(role = "user", content = "现在请说一句衔接语，15-20 字。"),
-            ),
-            tools = null,
-            temperature = 0.7f,
-            agentId = TokenMeter.AGENT_RADIO,
-            meter = tokenMeter,
-        )
-
-        if (turn.failed) error(turn.failedMessage ?: "LLM failed")
-        val text = turn.text.trim()
-        if (text.isBlank()) error("empty LLM response")
-        // 截取合理长度（避免 LLM 吐太长）
-        return text.take(40)
-    }
-
-    /** M6-T3c：门面问候轮换。 */
-    private fun nextFallbackGreeting(): String {
-        val greetings = fallbackGreetings
-        val g = greetings[greetingIndex % greetings.size]
-        greetingIndex++
-        return g
-    }
-
     /** 查询电台状态（供 MasterChatGateway/ChatViewModel 轮询） */
-    fun queryRadioState(): com.hmp.domain.agent.sub.RadioState? =
-        (_subAgents["radio"] as? com.hmp.domain.agent.sub.RadioSubAgent)?.queryState()
+    fun queryRadioState(): com.hmp.domain.agent.runtime.sub.radio.RadioState? =
+        (_subAgents["radio"] as? com.hmp.domain.agent.runtime.sub.radio.RadioSubAgent)?.queryState()
 
-    fun queryRadioPlaylist(): List<com.hmp.domain.agent.sub.RadioTrack>? =
-        (_subAgents["radio"] as? com.hmp.domain.agent.sub.RadioSubAgent)?.queryPlaylist()
+    fun queryRadioPlaylist(): List<com.hmp.domain.agent.runtime.sub.shared.RadioTrack>? =
+        (_subAgents["radio"] as? com.hmp.domain.agent.runtime.sub.radio.RadioSubAgent)?.queryPlaylist()
 
     /**
      * 电台镜像队列的响应式流——LLM 返回后 seedWhy/whys 落镜像只更新这个 Flow，
@@ -1217,45 +1171,55 @@ class MasterAgent(
      * 注意：返回的是 Master 层固定转发流 [_radioPlaylist]，**不是**子代理的 playlist——
      * RadioSubAgent 每次开播都新建，透传会被 UI 的 remember 缓存成死流。
      */
-    fun radioPlaylistFlow(): kotlinx.coroutines.flow.StateFlow<List<com.hmp.domain.agent.sub.RadioTrack>> =
+    fun radioPlaylistFlow(): kotlinx.coroutines.flow.StateFlow<List<com.hmp.domain.agent.runtime.sub.shared.RadioTrack>> =
         _radioPlaylist
 
     /** 电台主题（用户 seed 或自动提取的风格关键词，null=自动电台） */
     fun queryRadioStationTheme(): String? =
-        (_subAgents["radio"] as? com.hmp.domain.agent.sub.RadioSubAgent)?.stationTheme
+        (_subAgents["radio"] as? com.hmp.domain.agent.runtime.sub.radio.RadioSubAgent)?.stationTheme
 
     /** 电台未就绪时的稳定空消息流——缓存实例，避免每次调用新建导致 UI 以实例为 key 重复订阅（G8） */
     private val _emptyRadioMessageFlow =
-        kotlinx.coroutines.flow.MutableStateFlow<com.hmp.domain.agent.sub.RadioMessage?>(null)
+        kotlinx.coroutines.flow.MutableStateFlow<com.hmp.domain.agent.runtime.sub.radio.RadioMessage?>(null)
 
     /** 电台短时消息流——emit 后 4s 自动消失，UI 层 collect 后直接渲染在 RADIO_STATUS 卡右侧 */
-    fun radioMessageFlow(): kotlinx.coroutines.flow.StateFlow<com.hmp.domain.agent.sub.RadioMessage?> =
-        (_subAgents["radio"] as? com.hmp.domain.agent.sub.RadioSubAgent)?.messageFlow
+    fun radioMessageFlow(): kotlinx.coroutines.flow.StateFlow<com.hmp.domain.agent.runtime.sub.radio.RadioMessage?> =
+        (_subAgents["radio"] as? com.hmp.domain.agent.runtime.sub.radio.RadioSubAgent)?.messageFlow
             ?: _emptyRadioMessageFlow
 
-    /** 获取 HelloSubAgent 实例（UI 层用于 collect cards StateFlow） */
-    fun helloAgent(): HelloSubAgent? = _subAgents["hello"] as? HelloSubAgent
+    /**
+     * Hello 卡片流（**只读门面**）。
+     *
+     * 为什么不让 UI 直接拿 [helloAgent]：那会把 `HelloSubAgent` 这个**实现类型**
+     * 暴露给 UI —— UI 只需要"看到卡片"，不需要"操作 Hello"。
+     * 与 [tokenUsage] 同理：**把数据形状与写入能力分开**（F13 抽门面范式）。
+     */
+    val helloCards: kotlinx.coroutines.flow.StateFlow<List<com.hmp.domain.agent.card.SlideCard>>?
+        get() = helloAgent()?.cards
+
+    /** Hello 实例本身 —— **引擎内部用**（报告叙事段、卡片快照）。UI 走 [helloCards]。 */
+    internal fun helloAgent(): HelloSubAgent? = _subAgents["hello"] as? HelloSubAgent
 
     // G6 的 dailyRecommendList / privateRecommendList 已改为类字段（固定转发流，见上方 _dailyRecommendList），
     // 不再是返回 nullable 的函数——UI 首帧即可拿到稳定 StateFlow。
 
     /** Enrich 进度 StateFlow（UI 层 EnrichTracking 卡用）。无 Enrich 时返回 null。 */
-    fun enrichProgressState(): kotlinx.coroutines.flow.StateFlow<com.hmp.domain.agent.sub.EnrichSubAgent.EnrichProgress>? =
-        (_subAgents["enrich"] as? com.hmp.domain.agent.sub.EnrichSubAgent)?.progressState
+    fun enrichProgressState(): kotlinx.coroutines.flow.StateFlow<com.hmp.domain.agent.runtime.sub.enrich.EnrichProgress>? =
+        (_subAgents["enrich"] as? com.hmp.domain.agent.runtime.sub.enrich.EnrichSubAgent)?.progressState
 
     /** UI 层轮询播放快照（ANCHOR 卡直接读）*/
     suspend fun queryNowPlayingContext(): com.hmp.domain.agent.port.NowPlayingContext? =
         nowPlayingProvider?.runCatching { getNowPlaying() }?.getOrNull()
 
     /** Hello 当前卡片列表快照（同步返回，测试/日志用） */
-    fun queryHelloCards(): List<com.hmp.domain.agent.sub.SlideCard>? =
+    internal fun queryHelloCards(): List<com.hmp.domain.agent.card.SlideCard>? =
         helloAgent()?.cards?.value
 
     // ═══ W0 报告叙事段对外接口（P5 收听报告页调用） ═══
 
     /** P5 🔄 重新生成按钮调——Hello 还没启动返回 null */
-    suspend fun regenerateReportNarrative(
-        timeRange: com.hmp.domain.agent.sub.NarrativeTimeRange
+    internal suspend fun regenerateReportNarrative(
+        timeRange: com.hmp.domain.agent.card.NarrativeTimeRange
     ): com.hmp.data.database.HelloReportNarrativeEntity? {
         val hello = helloAgent() ?: return null
         return runCatching { hello.regenerateReportNarrative(timeRange) }.getOrNull()
@@ -1263,7 +1227,7 @@ class MasterAgent(
 
     /** P5 页面加载时读 DAO——零阻塞；直接查 Master 自持有的 DAO，不依赖 HelloSubAgent 是否启动 */
     suspend fun getReportNarrative(
-        timeRange: com.hmp.domain.agent.sub.NarrativeTimeRange
+        timeRange: com.hmp.domain.agent.card.NarrativeTimeRange
     ): com.hmp.data.database.HelloReportNarrativeEntity? {
         val dao = helloReportNarrativeDao ?: return null
         return runCatching { dao.getLatest(timeRange.name) }.getOrNull()
@@ -1272,7 +1236,7 @@ class MasterAgent(
     // ═══ SubAgent 状态查询 & 原生生命周期方法 ═══
 
     /** 当前 SubAgent 状态查询（同步返回）。 */
-    fun querySubAgents(): Map<String, String> {
+    internal fun querySubAgents(): Map<String, String> {
         return _subAgents.mapValues { (_, agent) -> agent.state().name } +
             mapOf(
                 "scheduler_state" to scheduler.registeredAgentIds().joinToString(","),
@@ -1281,16 +1245,16 @@ class MasterAgent(
     }
 
     /** 富化进程是否活跃（已启动未 shutdown）。 */
-    fun isEnrichActive(): Boolean {
-        val enrich = _subAgents["enrich"] as? com.hmp.domain.agent.sub.EnrichSubAgent ?: return false
+    internal fun isEnrichActive(): Boolean {
+        val enrich = _subAgents["enrich"] as? com.hmp.domain.agent.runtime.sub.enrich.EnrichSubAgent ?: return false
         return enrich.state() == com.hmp.domain.agent.runtime.AgentRunState.RUNNING
     }
 
     /** 富化当前状态的摘要（覆盖率、Scheduler 状态、Token 剩余、进度）。 */
-    suspend fun enrichStatusSummary(): Map<String, String> {
+    internal suspend fun enrichStatusSummary(): Map<String, String> {
         val health = musicRepository?.getEnrichHealth()
         val schedulerEnrichState = scheduler.getState("enrich").name
-        val enrich = _subAgents["enrich"] as? com.hmp.domain.agent.sub.EnrichSubAgent
+        val enrich = _subAgents["enrich"] as? com.hmp.domain.agent.runtime.sub.enrich.EnrichSubAgent
         val progress = enrich?.getProgress()
         return buildMap {
             put("active", isEnrichActive().toString())
@@ -1327,20 +1291,168 @@ class MasterAgent(
     }
 
     /** 重新扫描未覆盖歌曲并重置覆盖率目标。 */
-    suspend fun rescanEnrich(newTarget: Float?) {
+    internal suspend fun rescanEnrich(newTarget: Float?) {
         if (!isEnrichActive()) {
             // 没在跑 → 直接 startEnrich
             startEnrich(newTarget)
             return
         }
         // 已在跑 → 更新 EnrichSubAgent 内部 targetCoverage（runLoop 下轮生效）
-        val enrich = _subAgents["enrich"] as? com.hmp.domain.agent.sub.EnrichSubAgent
+        val enrich = _subAgents["enrich"] as? com.hmp.domain.agent.runtime.sub.enrich.EnrichSubAgent
         val target = newTarget ?: 0.9f
         enrich?.updateTarget(target)
         HmpLog.i(LogTag.AgentMaster) { "🤖 [Master] enrich rescan triggered, new target=$target" }
     }
 
     // ═══ 内建意图路由（SubAgent 生命周期原生暴露，不经过工具层）═══
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // 内建意图表（确定性路由）
+    // ═══════════════════════════════════════════════════════════════════════
+    //
+    // 原先是一串 171 行的 if 分支，9 个分支**同形**：
+    //   命中 →（可选前置校验）→ 执行动作 → 写日志 → 返回固定形状的 AgentResult。
+    // 表驱动之后：加一条意图 = 加一条表项，不必再抄一遍 20 行样板；
+    // 而「顺序敏感」这件事也从"读一遍 171 行才知道"变成"看这张表的次序"。
+    //
+    // ⚠️ **表的次序即正确性**：「停电台」同时命中 STOP_RADIO 与强触发词「电台」，
+    // 所以 radio_stop 必须排在 radio_start 之前 —— 否则用户说"停"会被当成"开"去重建队列。
+    // 这条约束由 ChatIntentRulesTest 守着
+    // （stopRadioInput_alsoLooksLikeRadioIntent_soOrderIsTheOnlyGuard）。
+    //
+    // 判定规则本身在 [ChatIntentRules]（8 张触发词表 + 匹配函数）；这里只负责编排响应。
+
+    /** 一条内建意图：怎么认、认到之后做什么、回什么话。 */
+    private class BuiltinIntent(
+        /** `intentHandled` 值，同时用作成功日志名。 */
+        val id: BuiltinIntentId,
+        /** 命中判定。`lower` 已 trim + lowercase；`raw` 是原文，供需要原大小写的规则使用。 */
+        val match: (lower: String, raw: String) -> Boolean,
+        /** 前置校验：返回非 null 即**拦截** —— 不执行动作、不打成功日志，直接把该结果回给用户。 */
+        val guard: (suspend () -> AgentResult?)? = null,
+        /** 执行动作并给出回复文案。 */
+        val run: suspend (lower: String, raw: String) -> String,
+    )
+
+    private val builtinIntents: List<BuiltinIntent> = listOf(
+        // ── 电台停止 ──
+        BuiltinIntent(
+            id = BuiltinIntentId.RADIO_STOP,
+            match = { lower, _ -> ChatIntentRules.isStopRadio(lower) || (lower == "停" && isRadioActive()) },
+            run = { _, _ ->
+                stopRadio()
+                "电台已停止。"
+            },
+        ),
+
+        // ── 电台恢复（须先于启动分支：否则"继续电台"会被 isRadioIntent 吞掉走 startRadio 重建）──
+        BuiltinIntent(
+            id = BuiltinIntentId.RADIO_RESUME,
+            match = { _, raw -> RadioTrigger.fromChatInput(raw) == RadioTrigger.RESUME },
+            guard = {
+                val radio = _subAgents["radio"] as? RadioSubAgent
+                val paused = radio?.queryState() is com.hmp.domain.agent.runtime.sub.radio.RadioState.PAUSED
+                if (paused) null
+                else answered(BuiltinIntentId.RADIO_RESUME_NOOP, "电台当前没有在暂停，不用恢复。")
+            },
+            run = { _, _ ->
+                resumeRadio()
+                "电台继续播放了。"
+            },
+        ),
+
+        // ── 电台启动 ──
+        BuiltinIntent(
+            id = BuiltinIntentId.RADIO_START,
+            match = { lower, _ -> ChatIntentRules.isRadioIntent(lower) },
+            run = { _, raw ->
+                val seed = ChatIntentRules.extractSeed(raw)
+                val trigger = RadioTrigger.fromChatInput(raw)
+                val tracks = runCatching { startRadio(seed, trigger) }
+                    .onFailure { HmpLog.e(LogTag.AgentMaster, it) { "🤖 [Master] builtin: startRadio failed" } }
+                    .getOrNull()
+                if (tracks != null && tracks.isNotEmpty()) {
+                    HmpLog.i(LogTag.AgentMaster) { "🤖 [Master] builtin: startRadio seed=\"$seed\" tracks=${tracks.size}" }
+                    "电台启动了${if (!seed.isNullOrBlank()) "，种子「$seed」" else ""}，为你选了 ${tracks.size} 首。"
+                } else {
+                    HmpLog.w(LogTag.AgentMaster) { "🤖 [Master] builtin: startRadio returned empty for seed=\"$seed\"" }
+                    "电台没有找到足够的曲目，换个描述试试？"
+                }
+            },
+        ),
+
+        // ── 富化启动 ──
+        BuiltinIntent(
+            id = BuiltinIntentId.ENRICH_START,
+            match = { lower, _ -> ChatIntentRules.isStartEnrich(lower) },
+            guard = {
+                if (isEnrichActive()) {
+                    answered(BuiltinIntentId.ENRICH_START, "富化已经在跑了，说「重扫」可以重置覆盖率目标。")
+                } else null
+            },
+            run = { _, _ ->
+                startEnrich(null)
+                "好的，富化已启动。后台自动扫描未覆盖歌曲补充标签，说「富化状态」可以看进度。"
+            },
+        ),
+
+        // ── 富化停止（完全移除，区别于 pause 的调度暂停）──
+        BuiltinIntent(
+            id = BuiltinIntentId.ENRICH_STOP,
+            match = { lower, _ -> ChatIntentRules.isStopEnrich(lower) },
+            guard = { if (!isEnrichActive()) answered(BuiltinIntentId.ENRICH_STOP, "富化没在跑，无需停止。") else null },
+            run = { _, _ ->
+                stopEnrich()
+                "富化已停止。"
+            },
+        ),
+
+        // ── 富化暂停 ──
+        BuiltinIntent(
+            id = BuiltinIntentId.ENRICH_PAUSE,
+            match = { lower, _ -> ChatIntentRules.isPauseEnrich(lower) },
+            guard = { if (!isEnrichActive()) answered(BuiltinIntentId.ENRICH_PAUSE, "富化没在跑，不用暂停。") else null },
+            run = { _, _ ->
+                pauseEnrich()
+                "好的，富化已暂停。"
+            },
+        ),
+
+        // ── 富化恢复 ──
+        BuiltinIntent(
+            id = BuiltinIntentId.ENRICH_RESUME,
+            match = { lower, _ -> ChatIntentRules.isResumeEnrich(lower) },
+            guard = { if (!isEnrichActive()) answered(BuiltinIntentId.ENRICH_RESUME, "富化没在跑，直接说「开始富化」就行。") else null },
+            run = { _, _ ->
+                resumeEnrich()
+                "好的，富化继续。"
+            },
+        ),
+
+        // ── 富化重扫 ──
+        BuiltinIntent(
+            id = BuiltinIntentId.ENRICH_RESCAN,
+            match = { lower, _ -> ChatIntentRules.isRescanEnrich(lower) },
+            run = { _, _ ->
+                rescanEnrich(null)
+                "好的，正在重新扫描未覆盖的歌曲。"
+            },
+        ),
+
+        // ── 富化状态查询 ──
+        BuiltinIntent(
+            id = BuiltinIntentId.ENRICH_STATUS,
+            match = { lower, _ -> ChatIntentRules.isEnrichStatus(lower) },
+            run = { _, _ ->
+                val summary = enrichStatusSummary()
+                if (summary["active"] == "true") {
+                    "富化正在运行中· ${summary["coverage_rate"] ?: "?"}% 覆盖· 配额剩余 ${summary["token_remaining"] ?: "?"}。"
+                } else {
+                    "富化未启动，说「开始富化」就能开起来。"
+                }
+            },
+        ),
+    )
 
     /**
      * 确定性意图匹配——MasterAgent 作为唯一大脑，直接识别"开电台/停电台/暂停富化"等意图，
@@ -1350,231 +1462,29 @@ class MasterAgent(
      */
     private suspend fun builtinIntent(input: String): AgentResult? {
         val lower = input.trim().lowercase()
-
-        // ── 电台停止 ──
-        val stopRadioTriggers = listOf("停电台", "关电台", "停止电台", "stop radio", "stop radio", "停止播放电台")
-        if (stopRadioTriggers.any { lower.contains(it) } || (lower == "停" && isRadioActive())) {
-            stopRadio()
-            HmpLog.i(LogTag.AgentMaster) { "🤖 [Master] builtin: stopRadio" }
-            return AgentResult(
-                text = "电台已停止。",
-                stepsUsed = 0, toolCalls = emptyList(),
-                terminatedBy = TerminationReason.ANSWERED,
-                intentHandled = "radio_stop",
-            )
-        }
-
-        // ── 电台恢复（须先于启动分支：否则"继续电台"会被 isRadioIntent 吞掉走 startRadio 重建）──
-        if (RadioTrigger.fromChatInput(input) == RadioTrigger.RESUME) {
-            val radio = _subAgents["radio"] as? com.hmp.domain.agent.sub.RadioSubAgent
-            if (radio != null && radio.queryState() is com.hmp.domain.agent.sub.RadioState.PAUSED) {
-                resumeRadio()
-                HmpLog.i(LogTag.AgentMaster) { "🤖 [Master] builtin: resumeRadio" }
-                return AgentResult(
-                    text = "电台继续播放了。",
-                    stepsUsed = 0, toolCalls = emptyList(),
-                    terminatedBy = TerminationReason.ANSWERED,
-                    intentHandled = "radio_resume",
-                )
-            }
-            return AgentResult(
-                text = "电台当前没有在暂停，不用恢复。",
-                stepsUsed = 0, toolCalls = emptyList(),
-                terminatedBy = TerminationReason.ANSWERED,
-                intentHandled = "radio_resume_noop",
-            )
-        }
-
-        // ── 电台启动 ──
-        if (isRadioIntent(lower)) {
-            val seed = extractSeed(input)
-            val trigger = RadioTrigger.fromChatInput(input)
-            val tracks = runCatching { startRadio(seed, trigger) }
-                .onFailure { HmpLog.e(LogTag.AgentMaster, it) { "🤖 [Master] builtin: startRadio failed" } }
-                .getOrNull()
-            val summary = if (tracks != null && tracks.isNotEmpty()) {
-                HmpLog.i(LogTag.AgentMaster) { "🤖 [Master] builtin: startRadio seed=\"$seed\" tracks=${tracks.size}" }
-                "电台启动了${if (!seed.isNullOrBlank()) "，种子「$seed」" else ""}，为你选了 ${tracks.size} 首。"
-            } else {
-                HmpLog.w(LogTag.AgentMaster) { "🤖 [Master] builtin: startRadio returned empty for seed=\"$seed\"" }
-                "电台没有找到足够的曲目，换个描述试试？"
-            }
-            return AgentResult(
-                text = summary,
-                stepsUsed = 0, toolCalls = emptyList(),
-                terminatedBy = TerminationReason.ANSWERED,
-                intentHandled = "radio_start",
-            )
-        }
-
-        // ── 富化启动 ──
-        val startTriggers = listOf("开始富化", "启动富化", "开始识别", "启动识别", "start enrich", "run enrich", "富化一下")
-        if (startTriggers.any { lower.contains(it) }) {
-            if (isEnrichActive()) {
-                return AgentResult(
-                    text = "富化已经在跑了，说「重扫」可以重置覆盖率目标。",
-                    stepsUsed = 0, toolCalls = emptyList(),
-                    terminatedBy = TerminationReason.ANSWERED,
-                    intentHandled = "enrich_start",
-                )
-            }
-            startEnrich(null)
-            HmpLog.i(LogTag.AgentMaster) { "🤖 [Master] builtin: startEnrich" }
-            return AgentResult(
-                text = "好的，富化已启动。后台自动扫描未覆盖歌曲补充标签，说「富化状态」可以看进度。",
-                stepsUsed = 0, toolCalls = emptyList(),
-                terminatedBy = TerminationReason.ANSWERED,
-                intentHandled = "enrich_start",
-            )
-        }
-
-        // ── 富化停止（完全移除，区别于 pause 的调度暂停）──
-        val stopTriggers = listOf("停止富化", "关掉富化", "stop enrich", "关闭富化")
-        if (stopTriggers.any { lower.contains(it) }) {
-            if (!isEnrichActive()) {
-                return AgentResult(
-                    text = "富化没在跑，无需停止。",
-                    stepsUsed = 0, toolCalls = emptyList(),
-                    terminatedBy = TerminationReason.ANSWERED,
-                    intentHandled = "enrich_stop",
-                )
-            }
-            stopEnrich()
-            HmpLog.i(LogTag.AgentMaster) { "🤖 [Master] builtin: stopEnrich" }
-            return AgentResult(
-                text = "富化已停止。",
-                stepsUsed = 0, toolCalls = emptyList(),
-                terminatedBy = TerminationReason.ANSWERED,
-                intentHandled = "enrich_stop",
-            )
-        }
-
-        // ── 富化暂停 ──
-        val pauseTriggers = listOf("暂停富化", "暂停识别", "pause enrich", "停一下富化")
-        if (pauseTriggers.any { lower.contains(it) }) {
-            if (!isEnrichActive()) {
-                return AgentResult(
-                    text = "富化没在跑，不用暂停。",
-                    stepsUsed = 0, toolCalls = emptyList(),
-                    terminatedBy = TerminationReason.ANSWERED,
-                    intentHandled = "enrich_pause",
-                )
-            }
-            pauseEnrich()
-            HmpLog.i(LogTag.AgentMaster) { "🤖 [Master] builtin: pauseEnrich" }
-            return AgentResult(
-                text = "好的，富化已暂停。",
-                stepsUsed = 0, toolCalls = emptyList(),
-                terminatedBy = TerminationReason.ANSWERED,
-                intentHandled = "enrich_pause",
-            )
-        }
-
-        // ── 富化恢复 ──
-        val resumeTriggers = listOf("恢复富化", "继续富化", "恢复识别", "resume enrich", "继续识别")
-        if (resumeTriggers.any { lower.contains(it) }) {
-            if (!isEnrichActive()) {
-                return AgentResult(
-                    text = "富化没在跑，直接说「开始富化」就行。",
-                    stepsUsed = 0, toolCalls = emptyList(),
-                    terminatedBy = TerminationReason.ANSWERED,
-                    intentHandled = "enrich_resume",
-                )
-            }
-            resumeEnrich()
-            HmpLog.i(LogTag.AgentMaster) { "🤖 [Master] builtin: resumeEnrich" }
-            return AgentResult(
-                text = "好的，富化继续。",
-                stepsUsed = 0, toolCalls = emptyList(),
-                terminatedBy = TerminationReason.ANSWERED,
-                intentHandled = "enrich_resume",
-            )
-        }
-
-        // ── 富化重扫 ──
-        val rescanTriggers = listOf("重扫", "重新富化", "重扫未覆盖", "rescan enrich", "重置富化", "重新识别")
-        if (rescanTriggers.any { lower.contains(it) }) {
-            rescanEnrich(null)
-            HmpLog.i(LogTag.AgentMaster) { "🤖 [Master] builtin: rescanEnrich" }
-            return AgentResult(
-                text = "好的，正在重新扫描未覆盖的歌曲。",
-                stepsUsed = 0, toolCalls = emptyList(),
-                terminatedBy = TerminationReason.ANSWERED,
-                intentHandled = "enrich_rescan",
-            )
-        }
-
-        // ── 富化状态查询 ──
-        val statusTriggers = listOf("富化状态", "识别进度", "enrich status", "富化进度", "enrich状态")
-        if (statusTriggers.any { lower.contains(it) }) {
-            val summary = enrichStatusSummary()
-            val text = if (summary["active"] == "true") {
-                "富化正在运行中· ${summary["coverage_rate"] ?: "?"}% 覆盖· 配额剩余 ${summary["token_remaining"] ?: "?"}。"
-            } else {
-                "富化未启动，说「开始富化」就能开起来。"
-            }
-            return AgentResult(
-                text = text,
-                stepsUsed = 0, toolCalls = emptyList(),
-                terminatedBy = TerminationReason.ANSWERED,
-                intentHandled = "enrich_status",
-            )
-        }
-
-        // ── 未命中 → 交给 LLM ──
-        return null
+        val intent = builtinIntents.firstOrNull { it.match(lower, input) } ?: return null
+        intent.guard?.invoke()?.let { return it }
+        val text = intent.run(lower, input)
+        HmpLog.i(LogTag.AgentMaster) { "🤖 [Master] builtin: ${intent.id}" }
+        return answered(intent.id, text)
     }
 
-    /** 电台意图判定（确定性关键词匹配，Gateway.extractRadioSeed 搬入 MasterAgent）。 */
-    private fun isRadioIntent(lower: String): Boolean {
-        val strongTriggers = listOf("电台", "radio", "dj", "打碟")
-        val weakTriggers = listOf("来一段", "来一首", "开个", "开个电台", "放个", "放一首", "整个", "来个", "放段", "来点")
-        val styleHints = listOf(
-            "摇滚", "爵士", "古典", "民谣", "电子", "流行", "嘻哈", "rnb", "蓝调", "金属",
-            "朋克", "雷鬼", "乡村", "灵魂", "放克", "说唱", "edm", "house", "techno",
-            "迪斯科", "后摇", "日摇", "韩流", "轻音乐", "纯音乐", "钢琴曲",
-            "深夜", "夜晚", "深夜电台", "工作", "学习", "专注", "放松", "运动", "跑步",
-            "开车", "通勤", "咖啡馆", "雨天", "清晨", "早晨", "下午茶", "助眠", "睡觉",
-            "情歌", "伤感", "治愈", "欢快", "激情", "安静", "冥想",
-            "rock", "jazz", "classical", "folk", "pop", "hiphop", "hip-hop", "blues",
-            "metal", "punk", "reggae", "soul", "funk", "rap", "study", "focus", "chill",
-            "workout", "sleep", "relax", "love songs", "instrumental",
-        )
-        val hasStrong = strongTriggers.any { lower.contains(it) }
-        val hasWeakWithStyle = weakTriggers.any { lower.contains(it) } && styleHints.any { lower.contains(it.lowercase()) }
-        return hasStrong || hasWeakWithStyle
-    }
+    /** 内建意图的统一返回形状：直接回复用户，未经 LLM、无工具调用、不消耗步数。 */
+    private fun answered(intent: BuiltinIntentId, text: String) = AgentResult(
+        text = text,
+        stepsUsed = 0,
+        toolCalls = emptyList(),
+        terminatedBy = TerminationReason.ANSWERED,
+        intentHandled = intent,
+    )
 
-    /** 从电台意图输入中提取种子（风格词优先，空串=自动从 nowPlaying 提取）。 */
-    private fun extractSeed(input: String): String? {
-        val lower = input.trim().lowercase()
-        val strongTriggers = listOf("电台", "radio", "dj", "打碟")
-        val weakTriggers = listOf("来一段", "来一首", "开个", "开个电台", "放个", "放一首", "整个", "来个", "放段", "来点")
-        val styleHints = listOf(
-            "摇滚", "爵士", "古典", "民谣", "电子", "流行", "嘻哈", "rnb", "蓝调", "金属",
-            "朋克", "雷鬼", "乡村", "灵魂", "放克", "说唱", "edm", "house", "techno",
-            "迪斯科", "后摇", "日摇", "韩流", "轻音乐", "纯音乐", "钢琴曲",
-            "深夜", "夜晚", "深夜电台", "工作", "学习", "专注", "放松", "运动", "跑步",
-            "开车", "通勤", "咖啡馆", "雨天", "清晨", "早晨", "下午茶", "助眠", "睡觉",
-            "情歌", "伤感", "治愈", "欢快", "激情", "安静", "冥想",
-            "rock", "jazz", "classical", "folk", "pop", "hiphop", "hip-hop", "blues",
-            "metal", "punk", "reggae", "soul", "funk", "rap", "study", "focus", "chill",
-            "workout", "sleep", "relax", "love songs", "instrumental",
-        )
-        val styleInInput = styleHints.firstOrNull { input.contains(it, ignoreCase = true) }
-        if (styleInInput != null) return styleInInput
-
-        var seed = input.trim()
-        (strongTriggers + weakTriggers).forEach { t -> seed = seed.replace(t, "", ignoreCase = true) }
-        styleHints.forEach { s -> seed = seed.replace(s, "", ignoreCase = true) }
-        seed = seed.trim().trim('，', '。', '？', '!', '！', '?', '、', ' ', '　')
-
-        return when {
-            seed.isNotBlank() -> seed
-            isRadioIntent(lower) -> ""  // 强触发词但无种子 → 自动提取
-            else -> null
-        }
-    }
+    /** 「能力未就绪」的统一返回：不抛异常，把原因原样交给 UI 展示。 */
+    private fun unavailable(text: String) = AgentResult(
+        text = text,
+        stepsUsed = 0,
+        toolCalls = emptyList(),
+        terminatedBy = TerminationReason.FAILED,
+    )
 
     /** 电台是否在运行。 */
     private fun isRadioActive(): Boolean = queryRadioState() != null
@@ -1599,29 +1509,20 @@ class MasterAgent(
         ctx: RunContextInput = RunContextInput(),
         confirmGate: ConfirmGate? = null,
     ): AgentResult {
+        if (!masterPolicyConfig.enabled) {
+            return unavailable("（MasterAgent 已关闭：在 Agent 设置中重新启用）")
+        }
         // ═══ 内建意图路由（MasterAgent 作为唯一大脑，先做确定性意图匹配）═══
         // 命中则直接调 SubAgent 原生生命周期方法返回，不走 LLM ReActLoop。
         // Gateway 看到 intentHandled 字段决定 UI 层渲染（如电台 songlist bubble）。
         builtinIntent(userMessage)?.let { return it }
 
         val transport = chatTransport
-            ?: return AgentResult(
-                text = "（对话能力未启用：chatTransport 未注入）",
-                stepsUsed = 0, toolCalls = emptyList(),
-                terminatedBy = TerminationReason.FAILED,
-            )
+            ?: return unavailable("（对话能力未启用：chatTransport 未注入）")
         val registry = chatToolRegistry
-            ?: return AgentResult(
-                text = "（对话能力未启用：chatToolRegistry 未注入）",
-                stepsUsed = 0, toolCalls = emptyList(),
-                terminatedBy = TerminationReason.FAILED,
-            )
+            ?: return unavailable("（对话能力未启用：chatToolRegistry 未注入）")
         val policyGuard = chatPolicyGuard
-            ?: return AgentResult(
-                text = "（对话能力未启用：chatPolicyGuard 未注入）",
-                stepsUsed = 0, toolCalls = emptyList(),
-                terminatedBy = TerminationReason.FAILED,
-            )
+            ?: return unavailable("（对话能力未启用：chatPolicyGuard 未注入）")
         val taskId = chatSessionStore?.apply { startNewSession() }?.currentSessionId()
         val systemPrompt = buildChatSystemPrompt(ctx)
 
@@ -1693,7 +1594,7 @@ class MasterAgent(
             val state = profile.narrativeState()
             if (state != null && state.factsHash == fingerprint) return@runCatching
             val facts = profile.factsRenderForNarrative() ?: return@runCatching
-            val reply = LlmCallExecutor().call(
+            val reply = LlmCallExecutor.call(
                 transport = transport,
                 config = config,
                 messages = com.hmp.domain.agent.profile.ProfileNarrative.buildMessages(facts),
@@ -1725,7 +1626,7 @@ class MasterAgent(
         if (!com.hmp.domain.agent.profile.DialogueExtractor.shouldExtract(userMessage)) return
         scope.launch {
             runCatching {
-                val reply = LlmCallExecutor().call(
+                val reply = LlmCallExecutor.call(
                     transport = transport,
                     config = config,
                     messages = com.hmp.domain.agent.profile.DialogueExtractor.buildMessages(userMessage),
@@ -1755,13 +1656,13 @@ class MasterAgent(
     // - 记忆相关操作委托给 userMemory（已 nullable 暴露）
 
     /** 读 Master Agent 当前信任档位（UI 展示用） */
-    fun getMasterTrustLevel(): Int = masterPolicyConfig.trustLevel
+    internal fun getMasterTrustLevel(): Int = masterPolicyConfig.trustLevel
 
     /**
      * 设置 Master Agent 信任档位（UI 手动调整用）。
      * 同时更新内部 config + 持久化到 DataStore，保证内外同步。
      */
-    fun setMasterTrustLevel(target: Int) {
+    internal fun setMasterTrustLevel(target: Int) {
         val newLevel = target.coerceIn(TrustLevel.SUGGEST, TrustLevel.SILENT)
         if (masterPolicyConfig.trustLevel != newLevel) {
             masterPolicyConfig.trustLevel = newLevel
@@ -1771,7 +1672,7 @@ class MasterAgent(
     }
 
     /** 重置 Master Agent 的 alwaysAllow 工具白名单（设置页「清除所有总是允许」按钮） */
-    fun resetMasterAlwaysAllow() {
+    internal fun resetMasterAlwaysAllow() {
         if (masterPolicyConfig.alwaysAllow.isNotEmpty()) {
             masterPolicyConfig.alwaysAllow.clear()
             persistMasterPolicyAsync()
@@ -1780,7 +1681,7 @@ class MasterAgent(
     }
 
     /** 当前 alwaysAllow 白名单快照（UI 显示用） */
-    fun getMasterAlwaysAllow(): Set<String> = masterPolicyConfig.alwaysAllow.toSet()
+    internal fun getMasterAlwaysAllow(): Set<String> = masterPolicyConfig.alwaysAllow.toSet()
 
     /**
      * 清除全部画像（设置页「关闭个性化」按钮）。
@@ -1800,7 +1701,7 @@ class MasterAgent(
     }
 
     /** 手动记录一条用户显式偏好（设置页「补充偏好」） */
-    suspend fun notePreference(predicate: String, value: String): Boolean {
+    internal suspend fun notePreference(predicate: String, value: String): Boolean {
         val mem = userMemory ?: return false
         return mem.noteStatedPreference(predicate, value, sessionId = "settings")
     }
@@ -1844,7 +1745,7 @@ class MasterAgent(
  * 默认系统条件（乐观假设：总是有 WiFi + 电量充足，Scheduler 不会 pause 任何 Agent）。
  * 实际平台层（Android/iOS/Desktop）会注入真实实现。
  */
-class DefaultSystemConditions : SystemConditions {
+internal class DefaultSystemConditions : SystemConditions {
     override fun batteryLevel(): Float = 1.0f
     override fun isWifiConnected(): Boolean = true
 }

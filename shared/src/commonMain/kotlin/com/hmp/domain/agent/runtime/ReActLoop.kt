@@ -4,13 +4,14 @@ import com.hmp.domain.agent.infra.PresenceBus
 import com.hmp.log.HmpLog
 import com.hmp.log.LogTag
 import com.hmp.domain.agent.port.AuditEntry
+import com.hmp.domain.agent.port.ConfirmGate
 import com.hmp.domain.agent.port.AuditLogPort
 import com.hmp.domain.agent.port.LlmMessage
 import com.hmp.domain.agent.port.LlmToolCall
 import com.hmp.domain.agent.port.LlmTransport
 import com.hmp.domain.agent.policy.AgentPolicy
 import com.hmp.domain.agent.policy.PolicyGuard
-import com.hmp.domain.agent.tool.ToolRegistry
+import com.hmp.domain.agent.tool.spec.ToolRegistry
 import com.hmp.domain.setting.model.AiEndpointConfig
 
 /**
@@ -31,7 +32,7 @@ import com.hmp.domain.setting.model.AiEndpointConfig
  * @param presenceBus 存在感总线；null 时跳过（不发 thinking/idle 事件）
  * @param stopSignal 停止信号；null 时只查 stepBudget + tokenCounter
  */
-class ReActLoop(
+internal class ReActLoop(
     private val stepBudget: Int = 8,
     private val temperature: Float = 0.7f,
     private val tokenCounter: GlobalTokenCounter? = null,
@@ -40,7 +41,6 @@ class ReActLoop(
     private val auditLog: AuditLogPort? = null,
     private val presenceBus: PresenceBus? = null,
     private val stopSignal: StopSignal? = null,
-    private val llmCall: LlmCallExecutor = LlmCallExecutor(),
     /** F12-T1：记账身份（本循环目前只服务 Master 对话） */
     private val agentId: String = TokenMeter.AGENT_MASTER,
     /** F12-T1：唯一记账口 —— 每步的用量在此收口（真值优先、估算兜底打标） */
@@ -114,7 +114,7 @@ class ReActLoop(
             steps++
 
             HmpLog.d(LogTag.AgentReActLoop) { "🔁 step $steps: calling LLM (tools=${registry.allLlmSpecs.size})" }
-            val turn = llmCall.call(
+            val turn = LlmCallExecutor.call(
                 transport = transport,
                 config = config,
                 messages = messages,
