@@ -48,6 +48,7 @@ var m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute('co
 <nav class="site-nav" aria-label="站点导航">
   <a href="index.html" aria-current="page">首页</a>
   <a href="features.html">功能</a>
+  <a href="companion.html">伙伴</a>
   <a href="gallery.html">画廊</a>
   <a href="download.html">下载</a>
   <a href="changelog.html">更新</a>
@@ -180,67 +181,64 @@ var m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute('co
         </div>
       </article>
 
-      <!-- 3 / 智能推荐 -->
+      <!-- 3 / 音乐伙伴（agent 协作）-->
       <article class="feature-page">
         <div class="feature-card glass">
           <div class="feature-card-visual">
-            <svg class="fv" viewBox="0 0 340 400" role="img" aria-label="示意图：一首歌经大语言模型标注流派、情绪、场景、年代后匹配出相似曲目">
+            <svg class="fv" viewBox="0 0 340 400" role="img" aria-label="示意图：MasterAgent 唯一大脑向下调度三个执行域，共用一套基建">
               <defs>
-                <linearGradient id="fvCoverC" x1="0" y1="0" x2="1" y2="1">
-                  <stop offset="0" stop-color="#C92C2C"/><stop offset="1" stop-color="#e94560"/>
-                </linearGradient>
-                <marker id="fvArrow" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+                <marker id="fvArrowC" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="7" markerHeight="7" orient="auto">
                   <path d="M1 1.5L7 5L1 8.5" fill="none" stroke="#C92C2C" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                </marker>
+                <marker id="fvArrowM" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+                  <path d="M1 1.5L7 5L1 8.5" fill="none" stroke="#999" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
                 </marker>
               </defs>
 
-              <rect class="fv-glass" x="48" y="34" width="244" height="66" rx="16"/>
-              <rect x="64" y="48" width="38" height="38" rx="9" fill="url(#fvCoverC)"/>
-              <g class="fv-block-strong">
-                <rect x="114" y="56" width="112" height="8" rx="4"/>
-                <rect x="114" y="72" width="70" height="7" rx="3.5"/>
-              </g>
+              <!-- 唯一大脑 -->
+              <rect class="fv-glass" x="40" y="42" width="260" height="86" rx="20" stroke="#C92C2C" stroke-width="1.6"/>
+              <text x="170" y="78" text-anchor="middle" class="fv-text" font-size="16" font-weight="700" fill="#C92C2C">MasterAgent</text>
+              <text x="170" y="102" text-anchor="middle" class="fv-text" font-size="11.5" fill="#999">唯一大脑 · 永不暂停</text>
 
-              <g class="fv-text" font-size="11">
-                <rect x="48" y="118" width="118" height="26" rx="13" class="fv-chip-1-bg"/>
-                <text x="107" y="135" text-anchor="middle" class="fv-chip-1">流派·Synthwave</text>
-                <rect x="176" y="118" width="78" height="26" rx="13" class="fv-chip-2-bg"/>
-                <text x="215" y="135" text-anchor="middle" class="fv-chip-2">情绪·亢奋</text>
-                <rect x="48" y="152" width="76" height="26" rx="13" class="fv-chip-3-bg"/>
-                <text x="86" y="169" text-anchor="middle" class="fv-chip-3">场景·驾驶</text>
-                <rect x="134" y="152" width="86" height="26" rx="13" class="fv-chip-4-bg"/>
-                <text x="177" y="169" text-anchor="middle" class="fv-chip-4">年代·2020s</text>
-              </g>
+              <!-- 调度扇出 -->
+              <path class="fv-arrow-muted" d="M170 128 L170 152" fill="none" marker-end="url(#fvArrowM)"/>
+              <path class="fv-wire" d="M64 152 H 276 M64 152 V 178 M170 152 V 178 M276 152 V 178" fill="none"/>
+              <path class="fv-arrow-muted" d="M64 178 L64 200" fill="none" marker-end="url(#fvArrowM)"/>
+              <path class="fv-arrow-muted" d="M170 178 L170 200" fill="none" marker-end="url(#fvArrowM)"/>
+              <path class="fv-arrow-muted" d="M276 178 L276 200" fill="none" marker-end="url(#fvArrowM)"/>
 
-              <path class="fv-arrow-accent" d="M170 192 L170 222" fill="none" marker-end="url(#fvArrow)"/>
+              <!-- 三个执行域 -->
+              <rect class="fv-glass" x="22" y="206" width="84" height="96" rx="16"/>
+              <rect class="fv-glass" x="128" y="206" width="84" height="96" rx="16"/>
+              <rect class="fv-glass" x="234" y="206" width="84" height="96" rx="16"/>
+              <circle class="fv-orb-2" cx="64" cy="242" r="13"/>
+              <circle class="fv-orb-1" cx="170" cy="242" r="13"/>
+              <circle class="fv-orb-3" cx="276" cy="242" r="13"/>
+              <text x="64" y="282" text-anchor="middle" class="fv-text" font-size="12" font-weight="600" fill="#C92C2C">电台</text>
+              <text x="170" y="282" text-anchor="middle" class="fv-text" font-size="12" font-weight="600" fill="#C92C2C">认识</text>
+              <text x="276" y="282" text-anchor="middle" class="fv-text" font-size="12" font-weight="600" fill="#C92C2C">问候</text>
 
-              <g class="fv-glass">
-                <rect x="48" y="238" width="244" height="44" rx="12"/>
-                <rect x="48" y="292" width="244" height="44" rx="12"/>
-                <rect x="48" y="346" width="244" height="44" rx="12"/>
-              </g>
-              <g class="fv-block">
-                <rect x="62" y="252" width="16" height="16" rx="4"/>
-                <rect x="88" y="256" width="96" height="8" rx="4"/>
-                <rect x="62" y="306" width="16" height="16" rx="4"/>
-                <rect x="88" y="310" width="72" height="8" rx="4"/>
-                <rect x="62" y="360" width="16" height="16" rx="4"/>
-                <rect x="88" y="364" width="84" height="8" rx="4"/>
-              </g>
-              <circle class="fv-accent" cx="266" cy="260" r="5"/>
-              <circle class="fv-accent" cx="266" cy="314" r="5"/>
-              <circle class="fv-accent" cx="266" cy="368" r="5"/>
+              <!-- 共用基建 -->
+              <path class="fv-arrow-muted" d="M170 302 L170 326" fill="none" marker-end="url(#fvArrowM)"/>
+              <rect class="fv-glass" x="22" y="332" width="296" height="44" rx="16"/>
+              <circle class="fv-accent" cx="52" cy="354" r="4"/>
+              <circle class="fv-accent" cx="92" cy="354" r="4"/>
+              <circle class="fv-accent" cx="132" cy="354" r="4"/>
+              <circle class="fv-accent" cx="172" cy="354" r="4"/>
+              <circle class="fv-accent" cx="212" cy="354" r="4"/>
+              <circle class="fv-accent" cx="252" cy="354" r="4"/>
+              <circle class="fv-accent" cx="292" cy="354" r="4"/>
             </svg>
           </div>
           <div class="feature-card-text">
-            <h2 class="feature-card-heading">智能推荐</h2>
-            <span class="tag">AI &middot; 推荐</span>
-            <p>通过大语言模型为每首歌自动打标签——流派、情绪、场景、语言、年代。推荐基于标签权重计算相似度，而不是收集你的听歌数据做协同过滤。已集成 DeepSeek、OpenAI、Claude、通义千问、文心一言，API Key 由你提供并加密存储在本地。</p>
+            <h2 class="feature-card-heading">音乐伙伴</h2>
+            <span class="tag">Agent &middot; 协作</span>
+            <p>曲库认识、智能推荐这些能力，如今都收进了一套 agent 体系：MasterAgent 是唯一大脑，处理对话、调度后台；电台、曲库认识、门面问候是三个各自独立的执行域，各有模型连接与上下文预算，只共用基建。</p>
             <div class="feature-tags">
-              <span class="feature-tag">DeepSeek</span>
-              <span class="feature-tag">OpenAI</span>
-              <span class="feature-tag">Claude</span>
-              <span class="feature-tag">端侧加密</span>
+              <span class="feature-tag">唯一大脑</span>
+              <span class="feature-tag">三个执行域</span>
+              <span class="feature-tag">30 个原子工具</span>
+              <span class="feature-tag">记忆只存设备</span>
             </div>
           </div>
         </div>

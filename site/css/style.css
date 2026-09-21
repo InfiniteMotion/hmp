@@ -170,7 +170,9 @@ a { color: var(--primary); text-decoration:none; }
 
 /* 版本徽标为可点链接 */
 .bottom-copy a { color:inherit; text-decoration:underline; }
-.feature-card-text p { color:var(--text-secondary); font-size:1rem; line-height:1.85; flex:1; display:flex; align-items:center; margin:0; }
+/* 说明：display 用 block + margin auto 做垂直居中，避免 flex 把 <strong> 等内联子元素
+   拆成独立 flex item 导致换行错乱（卡片高度固定，长文案会因此溢出） */
+.feature-card-text p { color:var(--text-secondary); font-size:1rem; line-height:1.85; flex:1; display:block; margin:auto 0; }
 .feature-tags { display:flex; flex-wrap:wrap; gap:8px; flex-shrink:0; padding-top:12px; }
 .feature-tag { padding:4px 12px; border-radius:100px; font-size:0.75rem; font-weight:500; background:rgba(255,255,255,0.06); color:var(--text-secondary); }
 .swipe-dots { display:none; }
