@@ -14,12 +14,6 @@
 
 - [UI 差异对照](docs/5_10/ios-android-ui-diff.md) — iOS vs Android UI 原生优势与简化策略
 
-- [Agent 设计总纲](docs/7_x/B agent-build/design/agent.md) — 音乐伙伴方案单一事实来源（定位/本体/认识论/能力面/交互实施/工程）
-
-- [Agent 落地计划书](docs/7_x/B agent-build/taskbook/README.md) — 按阶段族推进的实施规划（f1–f9 九章，含验收标准与挂起参数默认值）
-
-- [Agent 用户认识模块契约](docs/7_x/B agent-build/design/agent-profile.md) — 画像（**F9-T0，已完成 2026-09-16**）：两层数据模型（含 Room v6 迁移 DDL）/ 槽位闭集 / 分级记忆 / C2 定稿（画像可读、仅供参考非指令）/ 审计四问 / 验收剧本 P1–P21
-
 ***
 
 ## v5.10：iOS 平台适配与双平台架构（v5 系列最终版本）
@@ -340,7 +334,7 @@ v5.10 是 v5 系列的最后一个版本，标志着跨平台架构搭建完成�
 
 ## v7.x 阶段：三大方向任务分解（2026-08 制定）
 
-> 方向论证见 ROADMAP.md「未来发展方向 · v7.x 阶段」。版本编排：**7.1.0 已发布**（方向 A Phase 1 地基 + Phase 2/3 全面替换 + C 批 1）→ **7.2** = A 残留观感 / 真机交互核验 + C 批 2 → **7.3** = B → **7.4** = 遗留清理。
+> 方向论证见 ROADMAP.md「未来发展方向 · v7.x 阶段」。版本编排：**7.1** = A-Phase1 + C-批1；**7.2** = A-Phase2/3 + C-批2；**7.3** = B；**7.4** = 收尾。
 
 ### 方向 A：KMP 重写 iOS UI（Compose 取代 SwiftUI）
 
@@ -364,7 +358,7 @@ v5.10 是 v5 系列的最后一个版本，标志着跨平台架构搭建完成�
 
 - 试点已删除的 XcodeGen shared scheme（HMP/HMPNowPlayingExtension .xcscheme）由 xcodegen 自动生成替代，archive 流程需回归确认
 
-**Phase 2/3 — 按模块迁移（已随 v7.1.0 发布）**
+**Phase 2/3 — 按模块迁移（7.2）**
 
 > ✅ 2026-08-23 全面替换完成（模拟器验证通过）：
 >
@@ -393,82 +387,17 @@ v5.10 是 v5 系列的最后一个版本，标志着跨平台架构搭建完成�
 
 ### 方向 B：AI 功能 Agent 化（7.3）
 
-> 方案定稿见 [docs/7\_x/design/agent.md](docs/7_x/B agent-build/design/agent.md)；落地任务分解（含验收标准、文件落点、挂起参数默认值）见 [docs/7\_x/taskbook/README.md](docs/7_x/B agent-build/taskbook/README.md)（按阶段族 f1–f9 组织，不绑定版本号）。编号已对齐 B0-B6 体系；B0 无 agent 依赖，可提前还债。**F1–F9 已全部收口（2026-09-18）；语音会话（原 B6-T3/T4）移出 F9，另立后续独立阶段 F10。**
+- [ ] **B1** OpenAiCompatibleAdapter 扩展：tools（function-calling）参数 + SSE 流式解析，保持 5 家服务商兼容
 
-- [x] **B0** AI 管道三端去重 + Room v2 迁移——MusicRepositoryImpl 三份（1034/910/899 行）中 AI 方法上提 commonMain（去重目标 30-40%，扫描/存储/标签写入等平台特强方法留 actual）+ 新建 agent\_task/agent\_audit\_log/agent\_message 三表 + MusicLabel 加 source/confidence/created\_at/updated\_at（标签溯源先行，迁移测试先行）（M0）
+- [ ] **B2** 本地工具注册表：searchLibrary / getListenStats / createPlaylist / addToPlaylist / controlPlayback / getNowPlayingContext（每个工具 = schema + suspend 调既有 UseCase）
 
-- [x] **B1** LlmTransport 流式协议——OpenAiCompatibleAdapter 扩展 tools（function-calling）+ 手动 SSE 解析（ByteReadChannel，避 Ktor 3.2 升级）+ temperature 1.3→0.2-0.4 + FakeLlmTransport（M2）
+- [ ] **B3** AgentOrchestrator（shared domain 层）：agent loop（tool\_call → 执行 → 回传 → 循环至最终答复）+ 护栏（破坏性操作 UI 确认 / 工具白名单 / 步数上限）
 
-- [x] **B2** 工具层——ToolSpec DSL + 十项工具（M3 首次交付）+ ToolRegistry + 回填语义 → **S 阶段终局**：批次 A 域前缀统一重命名/拆分（17）+ 批次 B 追加 10（library 聚合 6 + song\_tag\_user\_add/remove + playback\_enqueue + agent\_budget stub）= 27 原子工具 ✅
+- [ ] **B4** 对话式 UI（shared-ui commonMain，三端共享）+ 工具执行过程可视化
 
-- [x] **T 阶段 Master 内核 + Enrich SubAgent + 权限体系**——让 agent 从"被动 chatbot"→"有生命的音乐伙伴"（方案见 docs/7\_x/taskbook/f5-体系重塑.md）：
-  - ✅ T1 基础设施：两层 ContextBudget（AgentContextBudget + GlobalTokenCounter）+ AgentScheduler（三档 priority）+ SubAgent 基类 + ToolRegistryView 权限过滤 + StopSignal（Mutex 暂停/恢复）
+- [ ] **B5** 场景落地：自然语言歌单生成、曲库问答
 
-  - ✅ T2 Master 内核：富化健康度检测 + enrichTaskLoop 派活/验收轻量协程循环 + 5 enrich\_\* 工具动态注册 + AgentPolicyConfig DataStore 持久化（三端）
-
-  - ✅ T3 Enrich 实现：纯被动执行器（AssignBatch→runLoop→写 DB）+ ToolCallExecutor 接入权限体系（不再 DirectToolExecutor 裸跑）
-
-  - ✅ T4 联调 + Radio 预留：Master/Enrich 独立 AgentPolicyConfig（TrustLedger onChange 驱动 trustLevel 升降档）+ ConfirmGate 三种（AllowOnce/AllowAlways/Deny）+ "总是允许" UI 全链路 + Radio SubAgent 基类预留
-
-  - 💡 架构额外收益：四层组件 LlmCallExecutor/ToolCallExecutor/ReActLoop/StopSignal 彻底解耦；权限体系简化 9→6 概念（TrustTier→trustLevel Int、AgentPolicyConfig 2 字段）；TrustLedger 复活为真正驱动 trustLevel 升降档的组件
-
-- [x] **U 阶段 Kermit 日志体系统一** ✅ 2026-09-01——三端原生日志桥接 + Release 级别裁剪（方案见 docs/7\_x/taskbook/f5-体系重塑.md）：
-  - [x] U-T1 依赖引入：libs.versions.toml Kermit 2.1.0 + shared/shared-ui/desktop/app/desktop/core-player 四模块依赖
-
-  - [x] U-T2 三端初始化：`initKermit()` 三端入口 + Android BuildConfig / Desktop 系统属性 / iOS `#if DEBUG` Release 级别裁剪
-
-  - [x] U-T3 Agent 三套 Log 合并：删 AgentLog/AgentRuntimeLog/AgentSubAgentLog → 61+17 处迁 Kermit withTag（Agent.Master/Agent.Scheduler/Agent.Tool 等层级）
-
-  - [x] U-T4 全局裸 println 渐进迁移：Kotlin 生产代码清零 + Swift 51 处 `print()` 经 expect/actual `PlatformLog` 桥接 Kermit → **173 处全仓统一经 Kermit Severity 门控**
-
-  - 💡 Swift 侧桥接方案：`shared/src/commonMain/PlatformLog.kt` expect + 三端 actual 委托 Kermit，Swift 侧 `PlatformLogKt.platformLog(severity:Int, tag:String, message:String)` 调用
-
-  - 💡 Release 裁剪：Android BuildConfig.DEBUG → Warn / Desktop `-Dhmp.release-build=true` → Warn / iOS `#if DEBUG` → Warn；CI release.yml Desktop 构建自动带 `-Phmp.release-build=true`
-
-- [x] **统一日志规范（HmpLog）全仓推广** ✅ 2026-09-18——把原只在 agent 模块生效的 `HmpLog` 规范铺到整个应用（规范见 [docs/LOGGING.md](docs/LOGGING.md)）：
-  - [x] 扩充 `LogTag` 枚举：11 → **38 个 tag / 7 个域**（Agent 14 / UI 4 / Data 5 / Player 7 / System 4 / Library 3 / Media 1），新增 UI / Data / Player / System / Library / Media 六域共 26 个 tag
-
-  - [x] 收敛 24 个**平行 tag**（原散落字符串）进枚举：`Agent.Gateway` / `Agent.Chat` / `Agent.Port` / `Repo.Music` / `UseCase.DailyRec` / `BackupFileRepository` / `DwmHelper` / `WindowHelper` / `Main` / `Startup` / `AudioEngine` / `MetadataParser` / `ArtworkExtractor` / `AppDelegate` / `AudioSession` / `MusicPlayerController` / `HMPMediaSession` / `NowPlayingInfo` / `LiveActivityManager` / `MusicPlayService` / `NotificationReceiver` / `MusicController` / `AudioEffectManager` / `Network.ApiAdapter`
-
-  - [x] Kotlin 侧迁移：`shared`（三端 actual 仓库 + 数据层 + 网络层 + use case）+ `shared-ui`（chat 包 + Android 平台服务）Kermit 直调 → `HmpLog`；`android/core-player`（播放服务/控制器/通知/音效）`android.util.Log` → `HmpLog`；`desktop/app` + `desktop/core-player`（DWM 窗口/启动/FFmpeg 引擎）→ `HmpLog`
-
-  - [x] Swift 侧新增门面 `ios/HMP/HMP/Common/HmpLog.swift`（`HmpTag` + `HmpLevel` + `HmpLog`，委托 `platformLog`），已注册进 `project.pbxproj` 四处；8 个 Swift 文件的 51 处 `PlatformLogKt.platformLog` 直调 → `HmpLog.x(HmpTag.y, "…")`，**调用点不再硬编码 tag 字符串**
-
-  - [x] 顺手修规范违规：`ChatKoinModule` 的 `init failed (non-fatal)` 由 ERROR 降为 **WARN**；`AndroidPlatformServices` 两处 `e.printStackTrace()` → `HmpLog.w(tag, e) { "… failed | non-fatal | reason=…" }`
-
-  - [x] `docs/LOGGING.md` 同步：§2 全量 tag 树 + 新增「作用范围」豁免表、§4 域 Token 对照表补全 + Swift 示例、§5 收入 Kotlin/Swift 双门面实现、§6 可执行检查命令 + 覆盖状态表、附录记推广
-
-  - 💡 结果：`HmpLog` 调用点 **309 → 504 处**；残留 Kermit 直调仅剩门面/桥接/初始化三处基础设施（豁免），`android.util.Log` 清零，Swift 侧无裸桥接调用
-
-  - 💡 经验沉淀为 skill `log-convention-rollout`（本机 `~/.workbuddy/skills/`）：测绘 → 定规范 → 分类别批量迁移 → 编译 + 扫描收口，含 Swift 字符串插值 tokenizer 与「迁移前后计数必须相等」等踩坑记录
-
-- [x] **B3** 引擎循环——原 AgentOrchestrator 已由 T 阶段并入 MasterAgent（`handleUserMessage()` 即原 run() 循环）；步数预算 8 + Scheduler/PolicyGuard/TrustLedger/ContextBudget/SessionStore/PresenceBus + PlaybackCommandPort + 双层预算 + FakePlaybackCommandPort 确定性测试（M4）
-
-- [x] **B4** 对话 UI（纯文字完整体验）——ChatScreen + 五类气泡（text/song/songlist/explain/confirm）+ 确认卡片流 + 锚点系统（三胶囊/轻量浮层/播放页重排/C 键）+ 两级漏斗 + 门面二期 + 搜索框条带（M1 + M5）
-
-- [x] **B5** 电台与事件接线（M6）✅ 2026-09-01：
-  - [x] M6-T1 AI 电台三轮协作：RadioSubAgent（种子关键词匹配 25 种语言 → 本地保底按标签频率排序 → LLM 纯文本 enrich → 本地索引映射 → diff 仲裁去重）+ MasterAgent.startRadio/stopRadio + ChatAgentGateway.startRadio + ChatAgentEvent.RadioStarted + ChatViewModel SONGLIST 渲染 + Room Migration 2→3（agent\_message.data\_json）
-
-  - [x] M6-T2 跳过感知重排：PresenceEvent.SkipDetected + PlaybackCommandPort.skipEvents stub + MasterAgent consecutiveSkipCount ≥2 → RadioSubAgent.reorder（SKIP\_ALL + 重跑 startRadio）+ AppRoot AgentNoticeBar 侧条（"跳过了「XX」，正在换一批…"）
-
-  - [x] M6-T3 DJ 衔接预生成：PresenceEvent.DjBlank + RadioSubAgent.onTrackChanged emit DjBlank + MasterAgent 消费 → LLM 15-20字衔接语 / 5 句门面问候轮换 → PresenceBus.NoticeAvailable → AgentNoticeBar 4s 自动退场
-
-  - [x] M6-T4 AuditLogScreen：AgentAuditLogDao 补全（getAll/queryByTool/getById/deleteById/deleteAll/count）+ AuditLogPort 默认便捷方法（logRadioStart/logSkipReorder/logDjSegue）+ AuditLogScreen Composable（筛选 Tab + 可展开详情行 + 空态）+ Routes.Settings.AuditLog 导航
-
-  - [x] M6-T5 STRONG\_CONFIRM 双确认链：ConfirmStep + ConfirmDecision（Approved/Denied/Cancelled）+ DialogManager.requestConfirm(suspendCancellableCoroutine 挂起) + DialogEvent.ConfirmChain + DialogConfirmGateAdapter（STRONG\_CONFIRM→2 步双确认链，普通 CONFIRM→单步）+ AppRoot AlertDialog 渲染（step title+message+进度 n/total+确认/取消）
-
-  - [x] 跨平台基础设施：com.hmp.platform.Volatile/Synchronized expect/actual 桥接（commonMain expect + androidMain/desktopMain/iosMain actual）——修复 Kotlin/Native 不支持 kotlin.jvm 注解问题
-
-  - 三端编译全绿 + desktopTest 通过
-
-- [x] **B6-T0（F9 前置）** 用户认识模块（画像）—— agent 的长期用户模型，隶属 `MasterAgent` 的常驻模块。**两层画像**：侧写层（预设骨架 + 槽位闭集 + 证据反链，产品面向）+ 证据层（逐条带 `source`/`confidence`/四列溯源，审计面向）；Room v5→v6（两张表）。**两个平级建模器**：`LibraryModeler`（曲库，按认知深度成熟 —— 扫描完成→**形态建模** 0.4 / 覆盖率达标→**内容建模** 0.55，**阶段二是纠正而非补全**）+ `BehaviorModeler`（行为与状态，按数据积累成熟 —— **定时读 `PlaybackHistory` + 状态快照 diff，不细到单个操作、零新埋点**）。**分级记忆** L1 当下态 / L2 情境态 / L3 性情态 + 跨层晋升衰减 + 反例保护。**对话侧写门槛已放开**，配三条约束并确立「**对话给假设，行为给确证**」。**认知准入**三档：A 类 5 个侧写 / B 类 3 个（只能"你在音乐里表现出的…"）/ C 明确不做（**拒绝 MBTI 等类型学**）。**消费面**：自有音乐人格卡（三轴八型，**换轴不换皮**），不得回流决策面。**C2 再修订**为「电台判断回路只用会话内」。**认领架构文档悬空的两处承诺**（`agent-architecture.md:130`「偏好画像」、组件图 `AgentMemory`）与 `f5` 未闭环的「Feedback → Recall → 推荐闭环」。**实施分档**：T0a 地基+MVP（判据 = 新用户导入曲库后第一次对话就有内容）→ T0b 后置（人格卡优先）；F9-T1/T2 依赖只挂 T0a。契约见 `docs/7_x/B agent-build/design/agent-profile.md`（v3；PF1–PF12 待拍板）　**✅ 已完成（2026-09-16，契约 v3.8：T0a 地基+MVP / T0b 人格卡·B类·对话抽取；归属收编 Master 定名 UserMemory；测试 821 例全绿）**
-
-- [x] **B6-T1** 听歌报告 + 遗忘唤醒——`UserUsageDataScreen` 顶部累计画像区（Agent 叙事段）+ 双轴筛选（5 维度 × 5 时段）+ 五维度内容渲染（概览/口味/时段柱图/排行/最近）；`ForgottenDelivery` + `HelloSlideCards.FORGOTTEN` 卡（胶囊徽标低频，点开才算送达不追问）。`compileAll` 全绿 ✅ **已验收（2026-09-17）**
-
-- [x] **B6-T2** 伙伴设置页六分区——AI 页演进不推翻：身体素质 / 人格 / 嗓音与耳朵 / 认识进度 / 记忆与信任 / 记忆管理。MasterAgent 暴露 7 个公开接口（trustLevel 读写 + alwaysAllow 重置/查询 + clearAllMemory + forgetPortrait + notePreference）；AIScreen 重构为六分区布局（身体素质=AI接入方式三tab / 人格=知音-DJ-馆长占位 / 嗓音=M7 gate 占位 / 认识进度=LoadMusicExtraInfo 复用 / 记忆与信任=三档 SegmentedControl + 档位说明 + alwaysAllow 重置 / 记忆管理=审计页入口 + 清除画像按钮）；**`DailyRefreshSettings` 移出主布局（后续归并 Agent 内部）**。路由复用 `Routes.AI.AI`，无迁移。`compileAll` 全绿 + desktopTest 通过 ✅ **已验收（2026-09-17）**
-  > **2026-09-20 状态更新**：UI 收敛后主页面为**四分区**（AI 接入方式 / Agent 管理 / 语言和语音 / 记忆管理），原「认识进度」（`LoadMusicExtraInfo`）与「每日刷新策略」（`DailyRefreshSettings`）两区随重写**移除**（两者为零调用方的孤儿函数；日刷新已由 `HelloSubAgent` 自行定时，与 `design/agent-w.md` 迁移去向表一致）；「信任档位 + 启用开关」与「人格」下沉到各 Agent 子页 `AgentConfigScreen`。**是否恢复「认识进度」待定**（引擎侧 `enrich_*` 意图仍在）。见 `docs/7_x/B agent-build/taskbook/README.md` §8 变更记录 2026-09-20
-
-- [ ] **B6-T3/T4（→ 已移出 F9，另立 F10 语音会话）** RealtimeVoiceTransport + 语音会话——WebSocket 双向流（JSON 控制事件 + 二进制音频帧）+ transcript 双向流 → 一 UI 两形态（语音气泡=文字+内存内重放）。**独立 gate**：端点不可用即整体延期，v1 完整性不依赖语音。**2026-09-18 从 F9 拆出**：B6 里唯一真正新增的传输层，需真实端点验证，与报告/设置页无耦合；留在 F9 会让已收口的族长期挂着无法验收的项。详见 [taskbook/README.md](docs/7_x/B%20agent-build/taskbook/README.md) §4 后续阶段
+- [ ] **B6** AI 电台：播完基于上下文（时段 + 历史 + 当前曲目）自动续队列
 
 ### 方向 C：播放功能增强补齐
 
