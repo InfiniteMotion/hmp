@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -152,40 +153,84 @@ fun RecommendListScreen(
         when {
             payload == null -> LoadingState(ink)
             items.isEmpty() -> EmptyState(source, inkSecondary, inkTertiary)
-            else -> LazyColumn(modifier = Modifier.fillMaxSize()) {
-                item {
-                    RecommendHero(
-                        modifier = Modifier.fillParentMaxHeight(0.58f),
-                        coverUri = seedUri,
-                        label = label,
-                        title = heroTitle,
-                        overview = payload?.overview.orEmpty(),
-                        scrim = pageBg,
-                        ink = ink,
-                        onBack = { navController.removeLastOrNull() },
-                        onPlayAll = { playFrom(0) },
-                    )
-                }
-                itemsIndexed(items) { index, item ->
-                    RecommendRow(
-                        item = item,
-                        titleColor = ink,
-                        secondaryColor = inkSecondary,
-                        tertiaryColor = inkTertiary,
-                        thumbBg = thumbBg,
-                        onClick = { playFrom(index) },
-                    )
-                    if (index != items.lastIndex) {
-                        Box(
-                            Modifier
-                                .padding(start = 84.dp, end = 16.dp)
-                                .fillMaxWidth()
-                                .height(0.5.dp)
-                                .background(dividerColor)
+            else -> {
+                // F14-T1 自适应：竖屏保持「全出血封面英雄区 + 下方列表」纵向堆叠；
+                // 横屏改「左栏封面英雄区（通高）+ 右栏曲目列表」—— 封面在竖版堆叠下横屏要滚出
+                // 一整屏才见列表，左右式让两者同屏各得其所。
+                val isLandscape = LocalWindowSizeInfo.current.isLandscape
+                if (isLandscape) {
+                    Row(Modifier.fillMaxSize()) {
+                        RecommendHero(
+                            modifier = Modifier.weight(0.42f).fillMaxHeight(),
+                            coverUri = seedUri,
+                            label = label,
+                            title = heroTitle,
+                            overview = payload?.overview.orEmpty(),
+                            scrim = pageBg,
+                            ink = ink,
+                            onBack = { navController.removeLastOrNull() },
+                            onPlayAll = { playFrom(0) },
                         )
+                        LazyColumn(modifier = Modifier.weight(0.58f).fillMaxHeight()) {
+                            itemsIndexed(items) { index, item ->
+                                RecommendRow(
+                                    item = item,
+                                    titleColor = ink,
+                                    secondaryColor = inkSecondary,
+                                    tertiaryColor = inkTertiary,
+                                    thumbBg = thumbBg,
+                                    onClick = { playFrom(index) },
+                                )
+                                if (index != items.lastIndex) {
+                                    Box(
+                                        Modifier
+                                            .padding(start = 84.dp, end = 16.dp)
+                                            .fillMaxWidth()
+                                            .height(0.5.dp)
+                                            .background(dividerColor)
+                                    )
+                                }
+                            }
+                            item { Spacer(Modifier.height(24.dp)) }
+                        }
+                    }
+                } else {
+                    LazyColumn(modifier = Modifier.fillMaxSize()) {
+                        item {
+                            RecommendHero(
+                                modifier = Modifier.fillParentMaxHeight(0.58f),
+                                coverUri = seedUri,
+                                label = label,
+                                title = heroTitle,
+                                overview = payload?.overview.orEmpty(),
+                                scrim = pageBg,
+                                ink = ink,
+                                onBack = { navController.removeLastOrNull() },
+                                onPlayAll = { playFrom(0) },
+                            )
+                        }
+                        itemsIndexed(items) { index, item ->
+                            RecommendRow(
+                                item = item,
+                                titleColor = ink,
+                                secondaryColor = inkSecondary,
+                                tertiaryColor = inkTertiary,
+                                thumbBg = thumbBg,
+                                onClick = { playFrom(index) },
+                            )
+                            if (index != items.lastIndex) {
+                                Box(
+                                    Modifier
+                                        .padding(start = 84.dp, end = 16.dp)
+                                        .fillMaxWidth()
+                                        .height(0.5.dp)
+                                        .background(dividerColor)
+                                )
+                            }
+                        }
+                        item { Spacer(Modifier.height(24.dp)) }
                     }
                 }
-                item { Spacer(Modifier.height(24.dp)) }
             }
         }
     }

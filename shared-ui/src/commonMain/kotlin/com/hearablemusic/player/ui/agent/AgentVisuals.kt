@@ -42,6 +42,14 @@ object AgentStatusColors {
     val Paused = Color(0xFF5B7C99)
     val Completed = Color(0xFF6F5F86)
     val Error = Color(0xFFB5544A)
+
+    /**
+     * 日志级别 Warn（琥珀色）—— 与「状态色」是两套语义：
+     * 上面六色描述 capability 状态，本色描述日志条目级别（`Severity.Warn`）。
+     * 收在此处是因为二者都靠颜色传达"需要留意"的程度，散在页面里写死会各自漂移
+     * （F14-T3 ④ 就是看板日志弹窗内联 `Color(0xFFB26A00)` 的散点）。
+     */
+    val Warn = Color(0xFFB26A00)
 }
 
 fun agentStatusColor(status: CapabilityState.Status?): Color = when (status) {

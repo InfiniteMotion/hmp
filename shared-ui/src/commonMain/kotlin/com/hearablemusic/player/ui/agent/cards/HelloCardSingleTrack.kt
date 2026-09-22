@@ -138,18 +138,28 @@ internal fun FamilySingleTrackCard(
                 }
 
                 // 分割线
+                // 原写法 `height(1.dp).background(...).padding(vertical = 8.dp)` 是**错的顺序**：
+                // padding 在 background 之后 ⇒ 先画 1dp 细线、再在外侧套 8dp 空白，
+                // 但 Modifier 链是从外到内 apply，padding 在内层意味着总高仍是 1dp，
+                // 8dp 间距**从未生效**（线被压扁、与上下文字挤在一起）。正确写法是
+                // `padding(vertical).height(1.dp).background(...)`：先占 17dp 外部空间，内部才是 1dp 线。
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .padding(vertical = 10.dp)
                         .height(1.dp)
                         .background(Color.White.copy(alpha = 0.2f))
-                        .padding(vertical = 8.dp)
                 )
 
                 // 补充文案（LLM 生成的推荐语 / 怀旧随笔）
+                // `weight(1f, fill = false)`：允许该行吸收余量，但**不必填满** ——
+                // 用 `fill = false` 后它只取内容实际需要的高度，剩余空间交还给父 Column 的
+                // `Arrangement.Center` 去居中整组内容。原 `weight(1f)`（fill 默认 true）
+                // 会把该行**强行撑满**所有余量，于是顶部标签/曲名与底部数字条被推到两端、
+                // 中间留下大块空白 —— 这正是宽窗下卡片"一大坨死紫"的直接成因。
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f, fill = false)
                 ) {
                     meta.subtitle?.let {
                         Text(

@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -22,7 +23,9 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.hearablemusic.player.ui.common.layout.LocalWindowSizeInfo
 import com.hearablemusic.player.ui.common.util.rememberHapticFeedback
 import kotlinx.coroutines.delay
 
@@ -70,10 +73,18 @@ fun AgentNoticeBar(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
+                // F14-T1 自适应：通知条本身保持全宽（语义即横贯），只给**内部文字**限宽，
+                // 避免宽窗下一条短通知横跨整屏导致视线长距离扫读。Compact 下无约束。
+                val textMaxWidth = when {
+                    LocalWindowSizeInfo.current.isExpanded -> 520.dp
+                    LocalWindowSizeInfo.current.isMedium -> 520.dp
+                    else -> Dp.Unspecified
+                }
                 Text(
                     text = n.message,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.widthIn(max = textMaxWidth).weight(1f, fill = false),
                 )
                 if (n.showUndo && onUndo != null) {
                     TextButton(onClick = { haptic.performConfirm(); onUndo() }) {

@@ -8,12 +8,14 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -33,11 +35,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
 import com.hmp.data.database.AgentAuditLog
 import com.hmp.data.database.AgentAuditLogDao
+import com.hearablemusic.player.ui.common.layout.LocalWindowSizeInfo
 import com.hearablemusic.player.ui.common.pages.base.SubScreen
 import com.hearablemusic.player.ui.common.util.formatEpochMillis
 import org.koin.compose.koinInject
@@ -62,8 +66,47 @@ fun AuditLogScreen(
         onBackClick = { navController.removeLastOrNull() },
         title = "操作审计日志",
     ) {
+        // F14-T1 自适应：竖屏/窄窗下列表限宽居中（~640dp），避免审计条目（时间/哈希/ID）行长过长；
+        // 横屏改「筛选栏 + 列表」两栏 —— 筛选竖排到左rail，列表吃满剩余宽度（行内有哈希/ID，宽一点更易读）。
+        // Compact maxWidth = Dp.Unspecified → 单栏不加约束，与改造前逐像素一致。
+        val window = LocalWindowSizeInfo.current
+        val isWide = window.isExpanded || window.isMedium
+        val isLandscape = window.isLandscape
+        val listMaxWidth = if (isWide) 640.dp else Dp.Unspecified
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.TopCenter,
+        ) {
+        if (isLandscape) {
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 32.dp, vertical = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(24.dp),
+        ) {
+            // 左：筛选 rail（竖排）
+            FilterRail(
+                currentFilter = currentFilter,
+                onFilterSelected = { viewModel.applyFilter(it) },
+                modifier = Modifier.width(160.dp).fillMaxHeight(),
+            )
+            // 右：列表吃满剩余宽度
+            Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
+                if (logs.isEmpty()) {
+                    EmptyState(modifier = Modifier.fillMaxSize())
+                } else {
+                    LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        items(logs, key = { it.id }) { log -> AuditLogRow(log) }
+                        item { Spacer(Modifier.height(32.dp)) }
+                    }
+                }
+            }
+        }
+        } else {
         Column(
             modifier = Modifier
+                .widthIn(max = listMaxWidth)
+                .fillMaxWidth()
                 .fillMaxSize()
                 .padding(horizontal = 24.dp, vertical = 8.dp),
         ) {
@@ -87,6 +130,8 @@ fun AuditLogScreen(
                     item { Spacer(Modifier.height(32.dp)) }
                 }
             }
+        }
+        }
         }
     }
 }
@@ -114,6 +159,42 @@ private fun FilterRow(
             .fillMaxWidth()
             .horizontalScroll(scroll),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        filterTabs.forEach { tab ->
+            val selected = when (currentFilter) {
+                is AuditLogViewModel.Filter.All -> tab.tool == null
+                is AuditLogViewModel.Filter.ByTool -> tab.tool == currentFilter.tool
+            }
+            FilterChip(
+                selected = selected,
+                onClick = {
+                    if (tab.tool == null) {
+                        onFilterSelected(AuditLogViewModel.Filter.All)
+                    } else {
+                        onFilterSelected(AuditLogViewModel.Filter.ByTool(tab.tool))
+                    }
+                },
+                label = { Text(tab.label) },
+            )
+        }
+    }
+}
+
+/**
+ * 横屏左侧筛选 rail：与 [FilterRow] 同一组筛选、同一选中判据，仅改为竖排。
+ *
+ * 内容量小（3 个筛选项），竖排到窄栏后右侧列表可吃满剩余宽度，
+ * 避免审计条目在中心限宽下两侧留大片空白。
+ */
+@Composable
+private fun FilterRail(
+    currentFilter: AuditLogViewModel.Filter,
+    onFilterSelected: (AuditLogViewModel.Filter) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         filterTabs.forEach { tab ->
             val selected = when (currentFilter) {

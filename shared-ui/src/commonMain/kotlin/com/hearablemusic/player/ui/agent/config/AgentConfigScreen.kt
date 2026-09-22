@@ -2,13 +2,17 @@ package com.hearablemusic.player.ui.agent.config
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -31,6 +35,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
@@ -38,6 +43,7 @@ import com.hearablemusic.player.ui.common.components.SegmentedControl
 import com.hearablemusic.player.ui.common.components.SegmentedOption
 import com.hearablemusic.player.ui.common.components.base.HMPCard
 import com.hearablemusic.player.ui.common.design.dimens.LocalHMPDimens
+import com.hearablemusic.player.ui.common.layout.LocalWindowSizeInfo
 import com.hearablemusic.player.ui.common.pages.base.SubScreen
 import com.hearablemusic.player.ui.player.components.MiniPlayerSafeSpacer
 import com.hmp.domain.agent.policy.AgentPolicyConfig
@@ -280,8 +286,136 @@ fun AgentConfigScreen(
         title = "${agentLabelFor(agentRole)} · 配置",
     ) {
         val dimens = LocalHMPDimens.current
+        // F14-T1 自适应：竖屏/窄窗单栏限宽居中；横屏（手机横屏 / 平板、桌面宽窗）改双栏，
+        // 左栏 = 短表单（身份/模型/端点/权限/专属参数），右栏 = System Prompt 编辑器，
+        // 底部操作横贯两栏。Compact maxWidth = Dp.Unspecified → 单栏不加约束，与改造前逐像素一致。
+        val window = LocalWindowSizeInfo.current
+        val isWide = window.isExpanded || window.isMedium
+        val isLandscape = window.isLandscape
+        val formMaxWidth = if (isWide) 600.dp else Dp.Unspecified
+        // 双栏下「宽行」（多行 Prompt 编辑器）独占一栏，宽度即栏宽，不再另外限宽。
+        val wideRowMaxWidth = if (isWide && !isLandscape) 720.dp else Dp.Unspecified
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.TopCenter,
+        ) {
+        if (isLandscape) {
+        // ── 横屏双栏 ──
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 24.dp, vertical = dimens.spacing.lg),
+            horizontalArrangement = Arrangement.spacedBy(dimens.spacing.lg),
+            verticalAlignment = Alignment.Top,
+        ) {
+            Column(
+                modifier = Modifier
+                    .weight(0.85f)
+                    .fillMaxHeight()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(dimens.spacing.md),
+            ) {
+                ConfigFormLeftColumn(
+                    agentRole = agentRole,
+                    agentEnabled = agentEnabled,
+                    onAgentEnabledChange = { agentEnabled = it },
+                    preferredLang = preferredLang,
+                    onPreferredLangSelected = { newLang ->
+                        preferredLang = newLang
+                        if (multiPrompt) {
+                            multiPromptTexts = helloEntries.associate { entry ->
+                                val keepEdited = multiPromptDirty.contains(entry.key)
+                                entry.key to if (keepEdited) {
+                                    multiPromptTexts[entry.key].orEmpty()
+                                } else {
+                                    effectivePromptFor(entry.key, newLang, globalReplyLang, emptyMap())
+                                }
+                            }
+                        } else if (!promptDirty && !hasOverride) {
+                            systemPrompt = resolveEffectivePrompt(
+                                role = agentRole,
+                                preferredLang = newLang,
+                                globalReplyLang = globalReplyLang,
+                                promptOverrides = emptyMap(),
+                            )
+                        }
+                    },
+                    temperature = temperature,
+                    onTemperatureChange = { temperature = (it * 100).toInt() / 100f },
+                    useCustomEndpoint = useCustomEndpoint,
+                    onUseCustomEndpointChange = { useCustomEndpoint = it },
+                    customEndpoint = customEndpoint,
+                    onCustomEndpointChange = { customEndpoint = it },
+                    customApiKey = customApiKey,
+                    onCustomApiKeyChange = { customApiKey = it },
+                    customModel = customModel,
+                    onCustomModelChange = { customModel = it },
+                    endpointLoaded = endpointLoaded,
+                    globalEndpoint = globalEndpoint,
+                    trustLevel = trustLevel,
+                    onTrustLevelChange = { trustLevel = it },
+                    alwaysAllowCount = policyConfig.alwaysAllow.size,
+                    stepBudget = stepBudget,
+                    onStepBudgetChange = { stepBudget = it },
+                    dailyRecommendCount = dailyRecommendCount,
+                    onDailyRecommendCountChange = { dailyRecommendCount = it },
+                    recommendListSize = recommendListSize,
+                    onRecommendListSizeChange = { recommendListSize = it },
+                    targetCoverage = targetCoverage,
+                    onTargetCoverageChange = { targetCoverage = (it * 100).toInt() / 100f },
+                    targetCount = targetCount,
+                    onTargetCountChange = { targetCount = it },
+                    autoRenew = autoRenew,
+                    onAutoRenewChange = { autoRenew = it },
+                )
+            }
+            Column(
+                modifier = Modifier
+                    .weight(1.15f)
+                    .fillMaxHeight(),
+            ) {
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(dimens.spacing.md),
+                ) {
+                    SystemPromptSection(
+                        multiPrompt = multiPrompt,
+                        helloEntries = helloEntries,
+                        resolvedOverrides = resolved.promptOverrides,
+                        expandedPromptKey = expandedPromptKey,
+                        onExpandedPromptKeyChange = { expandedPromptKey = it },
+                        multiPromptTexts = multiPromptTexts,
+                        onMultiPromptTextsChange = { multiPromptTexts = it },
+                        multiPromptDirty = multiPromptDirty,
+                        onMultiPromptDirtyChange = { multiPromptDirty = it },
+                        preferredLang = preferredLang,
+                        globalReplyLang = globalReplyLang,
+                        systemPrompt = systemPrompt,
+                        onSystemPromptChange = { systemPrompt = it; promptDirty = true },
+                        onRestoreFactoryPrompt = { systemPrompt = factoryPrompt; promptDirty = true },
+                        onDiscardPromptChanges = { systemPrompt = factoryPrompt; promptDirty = false },
+                        promptDirty = promptDirty,
+                        hasOverride = hasOverride,
+                        factoryPrompt = factoryPrompt,
+                    )
+                }
+                Spacer(Modifier.height(dimens.spacing.md))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Button(onClick = reset, modifier = Modifier.weight(1f)) { Text("恢复默认") }
+                    Button(onClick = save, modifier = Modifier.weight(1f)) { Text("保存") }
+                }
+            }
+        }
+        } else {
         Column(
             modifier = Modifier
+                .widthIn(max = formMaxWidth)
                 .verticalScroll(rememberScrollState())
                 .fillMaxWidth()
                 .padding(dimens.spacing.lg),
@@ -649,6 +783,7 @@ fun AgentConfigScreen(
                                             multiPromptDirty = multiPromptDirty + entry.key
                                         },
                                         modifier = Modifier
+                                            .widthIn(max = wideRowMaxWidth)
                                             .fillMaxWidth()
                                             .height(180.dp),
                                         placeholder = { Text("留空 = 使用出厂默认") },
@@ -709,6 +844,7 @@ fun AgentConfigScreen(
                         value = systemPrompt,
                         onValueChange = { systemPrompt = it; promptDirty = true },
                         modifier = Modifier
+                            .widthIn(max = wideRowMaxWidth)
                             .fillMaxWidth()
                             .height(220.dp),
                         placeholder = { Text("留空 = 使用出厂默认") },
@@ -780,6 +916,535 @@ fun AgentConfigScreen(
             }
             // 给全局悬浮音乐胶囊预留底部空间
             MiniPlayerSafeSpacer(height = 56.dp)
+        }
+        }
+        }
+    }
+}
+
+// ── 横屏双栏：左栏（短表单聚合）──
+
+/**
+ * 横屏双栏左栏：①身份 ②模型与语言 ③AI 端点 ④权限与信任 ⑤专属参数。
+ *
+ * 与单栏分支渲染的是同一批卡片，仅拆到独立 Composable 以便双栏复用；
+ * 状态全部由调用方持有（本函数无状态），保证单栏/双栏行为一致。
+ */
+@Composable
+private fun ConfigFormLeftColumn(
+    agentRole: String,
+    agentEnabled: Boolean,
+    onAgentEnabledChange: (Boolean) -> Unit,
+    preferredLang: String,
+    onPreferredLangSelected: (String) -> Unit,
+    temperature: Float,
+    onTemperatureChange: (Float) -> Unit,
+    useCustomEndpoint: Boolean,
+    onUseCustomEndpointChange: (Boolean) -> Unit,
+    customEndpoint: String,
+    onCustomEndpointChange: (String) -> Unit,
+    customApiKey: String,
+    onCustomApiKeyChange: (String) -> Unit,
+    customModel: String,
+    onCustomModelChange: (String) -> Unit,
+    endpointLoaded: Boolean,
+    globalEndpoint: AiEndpointConfig,
+    trustLevel: Int,
+    onTrustLevelChange: (Int) -> Unit,
+    alwaysAllowCount: Int,
+    stepBudget: Int,
+    onStepBudgetChange: (Int) -> Unit,
+    dailyRecommendCount: Int,
+    onDailyRecommendCountChange: (Int) -> Unit,
+    recommendListSize: Int,
+    onRecommendListSizeChange: (Int) -> Unit,
+    targetCoverage: Float,
+    onTargetCoverageChange: (Float) -> Unit,
+    targetCount: Int,
+    onTargetCountChange: (Int) -> Unit,
+    autoRenew: Boolean,
+    onAutoRenewChange: (Boolean) -> Unit,
+) {
+    // ═══ ① 身份与启用 ═══
+    HMPCard {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(agentLabelFor(agentRole), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(4.dp))
+                Text(agentDescFor(agentRole), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Switch(checked = agentEnabled, onCheckedChange = onAgentEnabledChange)
+        }
+        Spacer(Modifier.height(8.dp))
+        Text("关闭后不再运行。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+
+    // ═══ ② 模型与语言 ═══
+    HMPCard {
+        Text("语言", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(8.dp))
+        SegmentedControl(
+            modifier = Modifier.fillMaxWidth(),
+            options = listOf(
+                SegmentedOption("global", "跟随全局"),
+                SegmentedOption("zh", "中文"),
+                SegmentedOption("en", "English"),
+                SegmentedOption("auto", "Auto"),
+            ),
+            selectedOption = preferredLang,
+            onOptionSelected = onPreferredLangSelected,
+        )
+        Spacer(Modifier.height(4.dp))
+        Text(
+            "此 Agent 的回复语言。「跟随全局」用全局设置里的回复语言。",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(Modifier.height(16.dp))
+        Text("采样温度", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(8.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Slider(
+                value = temperature,
+                onValueChange = { onTemperatureChange((it * 100).toInt() / 100f) },
+                valueRange = 0f..2f,
+                modifier = Modifier.weight(1f),
+            )
+            Spacer(Modifier.width(8.dp))
+            Text(temperature.toString(), modifier = Modifier.width(48.dp))
+        }
+    }
+
+    // ═══ ③ AI 端点配置 ═══
+    HMPCard {
+        Text("AI 端点配置", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(8.dp))
+        SegmentedControl(
+            modifier = Modifier.fillMaxWidth(),
+            options = listOf(
+                SegmentedOption("global", "跟随全局默认"),
+                SegmentedOption("custom", "独立端点"),
+            ),
+            selectedOption = if (useCustomEndpoint) "custom" else "global",
+            onOptionSelected = { onUseCustomEndpointChange(it == "custom") },
+        )
+        Spacer(Modifier.height(8.dp))
+        if (useCustomEndpoint) {
+            OutlinedTextField(
+                value = customEndpoint,
+                onValueChange = onCustomEndpointChange,
+                label = { Text("端点 URL") },
+                modifier = Modifier.fillMaxWidth(),
+                placeholder = { Text("https://api.deepseek.com/v1") },
+            )
+            Spacer(Modifier.height(8.dp))
+            OutlinedTextField(
+                value = customApiKey,
+                onValueChange = onCustomApiKeyChange,
+                label = { Text("API Key") },
+                modifier = Modifier.fillMaxWidth(),
+                placeholder = { Text("sk-...") },
+            )
+            Spacer(Modifier.height(8.dp))
+            OutlinedTextField(
+                value = customModel,
+                onValueChange = onCustomModelChange,
+                label = { Text("模型") },
+                modifier = Modifier.fillMaxWidth(),
+                placeholder = { Text("deepseek-chat / gpt-4o-mini / ...") },
+            )
+        } else {
+            Text(
+                "当前跟随全局 AI 设置",
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                if (!endpointLoaded) "读取中…"
+                else buildString {
+                    append("端点: ${if (globalEndpoint.endpoint.isNotBlank()) globalEndpoint.endpoint else "(内置)"}")
+                    if (globalEndpoint.selectedModel.isNotBlank()) append("  ·  模型: ${globalEndpoint.selectedModel}")
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                "改全局默认请前往 AI 设置。",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+
+    // ═══ ④ 信任与权限 ═══
+    HMPCard {
+        Text("权限与信任", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(8.dp))
+        Text(
+            "决定此 Agent 能自动执行哪些工具操作。",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(Modifier.height(8.dp))
+        SegmentedControl(
+            modifier = Modifier.fillMaxWidth(),
+            options = listOf(
+                SegmentedOption(TrustLevel.SUGGEST.toString(), "谨慎"),
+                SegmentedOption(TrustLevel.ACT.toString(), "代劳"),
+                SegmentedOption(TrustLevel.SILENT.toString(), "静默"),
+            ),
+            selectedOption = trustLevel.toString(),
+            onOptionSelected = { onTrustLevelChange(it.toIntOrNull() ?: TrustLevel.SUGGEST) },
+        )
+        Spacer(Modifier.height(4.dp))
+        Text(
+            "已授权免确认工具：$alwaysAllowCount 项",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        if (agentRole == "master") {
+            Spacer(Modifier.height(16.dp))
+            Text("步数预算", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(8.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Slider(
+                    value = stepBudget.toFloat(),
+                    onValueChange = { onStepBudgetChange(it.toInt()) },
+                    valueRange = 3f..15f,
+                    steps = 11,
+                    modifier = Modifier.weight(1f),
+                )
+                Spacer(Modifier.width(8.dp))
+                Text("$stepBudget 步", modifier = Modifier.width(48.dp))
+            }
+        }
+    }
+
+    // ═══ ⑤ 专属参数 ═══
+    when (agentRole) {
+        "hello" -> HMPCard {
+            Text("推荐卡参数", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(12.dp))
+            Text("每日数量")
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Slider(
+                    value = dailyRecommendCount.toFloat(),
+                    onValueChange = { onDailyRecommendCountChange(it.toInt()) },
+                    valueRange = 1f..5f,
+                    steps = 3,
+                    modifier = Modifier.weight(1f),
+                )
+                Text("$dailyRecommendCount 张")
+            }
+            Spacer(Modifier.height(8.dp))
+            Text("歌单长度")
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Slider(
+                    value = recommendListSize.toFloat(),
+                    onValueChange = { onRecommendListSizeChange(it.toInt()) },
+                    valueRange = 5f..20f,
+                    steps = 14,
+                    modifier = Modifier.weight(1f),
+                )
+                Text("$recommendListSize 首")
+            }
+        }
+
+        "enrich" -> HMPCard {
+            Text("目标覆盖率", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(8.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Slider(
+                    value = targetCoverage,
+                    onValueChange = { onTargetCoverageChange((it * 100).toInt() / 100f) },
+                    valueRange = 0.5f..1f,
+                    modifier = Modifier.weight(1f),
+                )
+                Spacer(Modifier.width(8.dp))
+                Text("${(targetCoverage * 100).toInt()}%")
+            }
+        }
+
+        "radio" -> HMPCard {
+            Text("电台参数", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(12.dp))
+            Text("目标曲目数")
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Slider(
+                    value = targetCount.toFloat(),
+                    onValueChange = { onTargetCountChange(it.toInt()) },
+                    valueRange = 8f..30f,
+                    steps = 21,
+                    modifier = Modifier.weight(1f),
+                )
+                Text("$targetCount 首")
+            }
+            Spacer(Modifier.height(12.dp))
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("自动续歌")
+                Switch(checked = autoRenew, onCheckedChange = onAutoRenewChange)
+            }
+        }
+    }
+}
+
+// ── 横屏双栏：右栏（System Prompt 编辑器）──
+
+/**
+ * 右栏：⑥ System Prompt —— 单 prompt（master/enrich/radio）与多卡型（hello）两套编辑器。
+ *
+ * [resolvedOverrides] 只需传 `resolved.promptOverrides`（用于判断各项是否已被覆盖）。
+ */
+@Composable
+private fun SystemPromptSection(
+    multiPrompt: Boolean,
+    helloEntries: List<PromptEntry>,
+    resolvedOverrides: Map<String, String?>,
+    expandedPromptKey: String?,
+    onExpandedPromptKeyChange: (String?) -> Unit,
+    multiPromptTexts: Map<String, String>,
+    onMultiPromptTextsChange: (Map<String, String>) -> Unit,
+    multiPromptDirty: Set<String>,
+    onMultiPromptDirtyChange: (Set<String>) -> Unit,
+    preferredLang: String,
+    globalReplyLang: String,
+    systemPrompt: String,
+    onSystemPromptChange: (String) -> Unit,
+    onRestoreFactoryPrompt: () -> Unit,
+    onDiscardPromptChanges: () -> Unit,
+    promptDirty: Boolean,
+    hasOverride: Boolean,
+    factoryPrompt: String,
+) {
+    // 生效语言提示
+    val effectiveLang = when (preferredLang) {
+        "zh" -> "中文"
+        "en" -> "English"
+        "auto" -> "跟随系统"
+        else -> when (globalReplyLang) {
+            "en" -> "跟随全局（English）"
+            "auto" -> "跟随全局（Auto）"
+            else -> "跟随全局（中文）"
+        }
+    }
+
+    if (multiPrompt) {
+        // ── hello：多卡型分组编辑器 ──
+        HMPCard {
+            val overriddenCount = helloEntries.count { entry ->
+                !resolvedOverrides[entry.key].isNullOrBlank()
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Text("System Prompt", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text(
+                    if (overriddenCount > 0) "$overriddenCount/${helloEntries.size} 已自定义" else "全部出厂默认",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (overriddenCount > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Spacer(Modifier.height(4.dp))
+            Text(
+                "每类卡片各有自己的 prompt，可逐项修改。生效语言: $effectiveLang",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            helloPromptGroups().forEach { (groupName, entries) ->
+                Spacer(Modifier.height(14.dp))
+                Text(
+                    groupName,
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                Spacer(Modifier.height(6.dp))
+                entries.forEach { entry ->
+                    val isOpen = expandedPromptKey == entry.key
+                    val edited = multiPromptTexts[entry.key].orEmpty()
+                    val factory = effectivePromptFor(entry.key, preferredLang, globalReplyLang, emptyMap())
+                    val overridden = !resolvedOverrides[entry.key].isNullOrBlank()
+                    val changed = multiPromptDirty.contains(entry.key)
+
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        // 条目行：点开/收起
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable { onExpandedPromptKeyChange(if (isOpen) null else entry.key) }
+                                .padding(vertical = 8.dp, horizontal = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(entry.label, style = MaterialTheme.typography.bodyMedium)
+                                    Spacer(Modifier.width(6.dp))
+                                    val badge = when {
+                                        changed -> "未保存"
+                                        overridden -> "已自定义"
+                                        else -> "默认"
+                                    }
+                                    Text(
+                                        badge,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = when {
+                                            changed -> MaterialTheme.colorScheme.error
+                                            overridden -> MaterialTheme.colorScheme.primary
+                                            else -> MaterialTheme.colorScheme.onSurfaceVariant
+                                        },
+                                    )
+                                }
+                                Text(
+                                    entry.hint,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                            Text(
+                                if (isOpen) "收起" else "编辑",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                        }
+
+                        if (isOpen) {
+                            Spacer(Modifier.height(4.dp))
+                            OutlinedTextField(
+                                value = edited,
+                                onValueChange = { new ->
+                                    onMultiPromptTextsChange(multiPromptTexts + (entry.key to new))
+                                    onMultiPromptDirtyChange(multiPromptDirty + entry.key)
+                                },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(180.dp),
+                                placeholder = { Text("留空 = 使用出厂默认") },
+                            )
+                            Spacer(Modifier.height(4.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                androidx.compose.material3.TextButton(onClick = {
+                                    onMultiPromptTextsChange(multiPromptTexts + (entry.key to factory))
+                                    onMultiPromptDirtyChange(multiPromptDirty + entry.key)
+                                }) { Text("恢复默认") }
+                                if (changed) {
+                                    androidx.compose.material3.TextButton(onClick = {
+                                        onMultiPromptTextsChange(
+                                            multiPromptTexts + (entry.key to (resolvedOverrides[entry.key] ?: factory))
+                                        )
+                                        onMultiPromptDirtyChange(multiPromptDirty - entry.key)
+                                    }) { Text("放弃改动") }
+                                }
+                            }
+                        }
+                        Spacer(Modifier.height(4.dp))
+                    }
+                }
+            }
+        }
+    } else {
+        // ── master / enrich / radio：单 prompt 编辑器 ──
+        HMPCard {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Text("System Prompt", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text(
+                    if (hasOverride) "已自定义" else "出厂默认",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (hasOverride) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Spacer(Modifier.height(4.dp))
+            Text(
+                "此 Agent 当前生效的 prompt，可直接编辑。清空或改回与默认一致即恢复默认。",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "生效语言: $effectiveLang",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.height(8.dp))
+
+            OutlinedTextField(
+                value = systemPrompt,
+                onValueChange = onSystemPromptChange,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(220.dp),
+                placeholder = { Text("留空 = 使用出厂默认") },
+            )
+
+            // 占位符护栏（编辑时实时显示）—— 以出厂默认模板为基准
+            if (systemPrompt.isNotBlank()) {
+                val requiredPlaceholders = factoryPrompt.extractPlaceholders()
+                if (requiredPlaceholders.isNotEmpty()) {
+                    val userHas = requiredPlaceholders.filter { systemPrompt.contains("{{$it}}") }
+                    val missing = requiredPlaceholders.filter { !systemPrompt.contains("{{$it}}") }
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        "需要的占位符 (${userHas.size}/${requiredPlaceholders.size})：",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        requiredPlaceholders.joinToString("  ") { ph ->
+                            val ok = ph in userHas
+                            if (ok) "✓ {{$ph}}" else "✗ {{$ph}}"
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (missing.isNotEmpty()) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    if (missing.isNotEmpty()) {
+                        Text(
+                            "⚠️ 缺少 ${{ missing.joinToString(", ") { "{{$it}}" } }}，保存后将恢复默认。",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
+                }
+            }
+
+            // 操作：恢复出厂默认 / 放弃改动
+            Spacer(Modifier.height(8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                val templateLang = when (preferredLang) {
+                    "en" -> "English"
+                    else -> "中文"
+                }
+                androidx.compose.material3.TextButton(
+                    onClick = onRestoreFactoryPrompt
+                ) {
+                    Text("恢复出厂默认 ($templateLang)")
+                }
+                if (promptDirty || hasOverride) {
+                    androidx.compose.material3.TextButton(
+                        onClick = onDiscardPromptChanges
+                    ) {
+                        Text("放弃改动")
+                    }
+                }
+            }
         }
     }
 }

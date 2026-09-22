@@ -78,19 +78,19 @@ internal fun FamilyGreetingCard(
                 Text(
                     text = "${c.phase.label}好～",
                     color = Color.White.copy(alpha = 0.7f),
-                    fontSize = 14.sp,
-                    modifier = Modifier.padding(bottom = 8.dp),
+                    fontSize = 15.sp,
+                    modifier = Modifier.padding(bottom = 10.dp),
                 )
 
                 // 主文案（居中，根据内容长度自动适配）
                 Text(
                     text = c.text,
                     color = Color.White,
-                    fontSize = 13.sp,
+                    fontSize = 16.sp,
                     fontWeight = FontWeight.Medium,
                     textAlign = TextAlign.Center,
                     overflow = TextOverflow.Ellipsis,
-                    lineHeight = 23.sp,
+                    lineHeight = 27.sp,
                 )
             }
         }

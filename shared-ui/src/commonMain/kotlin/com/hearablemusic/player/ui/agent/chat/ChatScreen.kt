@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -38,11 +39,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
 import com.hearablemusic.player.ui.common.pages.base.SubScreen
 import com.hearablemusic.player.ui.common.components.base.HMPTextField
+import com.hearablemusic.player.ui.common.layout.LocalWindowSizeInfo
 import com.hearablemusic.player.ui.generated.resources.Res
 import com.hearablemusic.player.ui.generated.resources.chevron_up
 import com.hearablemusic.player.ui.platform.PlaybackController
@@ -121,10 +124,27 @@ private fun ChatScreenContent(
 
     // 对话页：用 SubScreen 顶栏（返回 + 标题）；内容列 imePadding —— 键盘弹出时整块内容随之上移重排
     SubScreen(onBackClick = onBackClick, title = "听歌伙伴") {
+        // F14-T1 自适应：宽窗（Medium/Expanded）下对话内容限宽居中，避免行长过长伤可读性；
+        // 横屏（手机横屏 / 平板、桌面宽窗）抬高限宽 —— 对话确需更宽才不显局促，但也不能无限拉长行长，
+        // 故取 840dp 而非铺满。Compact（手机竖屏）maxWidth 为 Dp.Unspecified → 不加约束，行为与改造前逐像素一致。
+        val window = LocalWindowSizeInfo.current
+        val isWide = window.isExpanded || window.isMedium
+        val maxContentWidth = when {
+            window.isLandscape -> 840.dp
+            isWide -> 640.dp
+            else -> Dp.Unspecified
+        }
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .imePadding()
+                .imePadding(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+        Column(
+            modifier = Modifier
+                .widthIn(max = maxContentWidth)
+                .fillMaxWidth()
+                .weight(1f),
         ) {
         ChatMessageList(
             messages = state.messages,
@@ -157,6 +177,7 @@ private fun ChatScreenContent(
             onSend = onSend,
             onFocusChanged = { inputFocused = it },
         )
+        }
         }
     }
 }

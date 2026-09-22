@@ -78,11 +78,16 @@ internal fun FamilyNarrativeCard(
                 )
                 .padding(horizontal = 22.dp, vertical = 20.dp),
         ) {
+            // `SpaceBetween` → `Center`：本卡是"顶部标签 + 一段正文 + 可选脚注"的三段式，
+            // 但**中间那段并不存在**。SpaceBetween 会把首尾两段硬推到上下两端，
+            // 于是在横屏 420dp 高的卡里留下一条贯穿整卡的空白带（截图里"一大坨死紫"的主因）。
+            // 改成 Center 后，内容作为一个整体垂直居中；间距靠显式 spacedBy 控制，
+            // 不会再出现"内容少 → 空白多"的反比关系。
             Column(
                 modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.SpaceBetween,
+                verticalArrangement = Arrangement.Center,
             ) {
-                Column {
+                Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
                     // ① 顶部标签：时间维度 + 生成时间
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -105,28 +110,27 @@ internal fun FamilyNarrativeCard(
                         )
                     }
 
-                    Spacer(Modifier.height(10.dp))
-
                     // ② 叙事正文（长文案，最多 6 行，超出省略）
+                    // 字号/行高按横屏大卡上调：卡高可达 420dp，13sp 的正文在大卡里会显得"飘"。
                     Text(
                         text = c.narrative,
                         color = Color.White,
-                        fontSize = 13.sp,
-                        lineHeight = 22.sp,
+                        fontSize = 15.sp,
+                        lineHeight = 25.sp,
                         maxLines = 6,
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
 
                 // ③ 底部：日均听歌时长（有值才显示）
-                c.avgDailyMinutes?.let { avg ->
-                    if (avg > 0f) {
-                        Text(
-                            text = "日均听歌 ${formatAvgMinutes(avg)}",
-                            color = Color.White.copy(alpha = 0.5f),
-                            fontSize = 10.sp,
-                        )
-                    }
+                val avg = c.avgDailyMinutes
+                if (avg != null && avg > 0f) {
+                    Spacer(Modifier.height(18.dp))
+                    Text(
+                        text = "日均听歌 ${formatAvgMinutes(avg)}",
+                        color = Color.White.copy(alpha = 0.5f),
+                        fontSize = 11.sp,
+                    )
                 }
             }
         }

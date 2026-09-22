@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -59,6 +60,7 @@ import org.jetbrains.compose.resources.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation3.runtime.NavBackStack
@@ -75,6 +77,7 @@ import com.hearablemusic.player.ui.common.dialogs.base.ScrimDialog
 import com.hearablemusic.player.ui.common.util.hazeStyleForIntensity
 import com.hearablemusic.player.ui.common.util.hazeTintAlpha
 import co.touchlab.kermit.Severity
+import com.hearablemusic.player.ui.common.layout.LocalWindowSizeInfo
 import com.hearablemusic.player.ui.common.navigation.Routes
 import com.hearablemusic.player.ui.common.pages.base.SubScreen
 import kotlinx.coroutines.launch
@@ -113,9 +116,20 @@ fun AgentMonitorScreen(
         onBackClick = { navController.removeLastOrNull() },
         title = "Agent 看板",
     ) {
+        // F14-T1 自适应：Expanded（桌面宽窗 / 平板横屏）下六卡改「三列两行」一次尽收，
+        // 同时内容整体限宽居中，避免宽窗下拉满导致的超长行；Medium 与 Compact 保持两列。
+        // 横屏（含手机横屏，宽 800–840 也落在 Medium）：三列 + 限宽 —— 横向有余量时两列会拉出超长卡。
+        val window = LocalWindowSizeInfo.current
+        val isExpanded = window.isExpanded
+        val columns = if (isExpanded || window.isLandscape) 3 else 2
+        val maxBoardWidth = if (isExpanded || window.isLandscape) 1080.dp else Dp.Unspecified
+
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
         Column(
             modifier = Modifier
-                .fillMaxSize()
+                .widthIn(max = maxBoardWidth)
+                .fillMaxWidth()
+                .fillMaxHeight()
                 .hazeSource(state = hazeState)
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp, vertical = 16.dp),
@@ -126,48 +140,35 @@ fun AgentMonitorScreen(
                 onReloaded = { reloadAgentTokens() },
             )
 
-            // 2×2 网格：每行两个，同行两张卡片高度一致。
-            // Row 用 IntrinsicSize.Max 取同行最高内容作为行高，两卡 fillMaxHeight 撑满 → 等高。
+            // 网格：每行 [columns] 张，同行等高。
+            // 等高靠 Row 的 IntrinsicSize.Max 取同行最高内容作为行高（约束的是**纵轴**），
+            // 卡宽则用横轴的 weight(1f) 均分 —— 两个方向互不干扰，故可同时使用。
+            // 末尾行不足一列时用 Spacer(weight) 补位，避免最后一张被拉宽。
+            val cards: List<@Composable (Modifier) -> Unit> = listOf(
+                { m -> MasterMonitorCard(masterAgent = masterAgent, tokenText = tokenTextFor("master"), hazeState = hazeState, onClick = { navController.add(Routes.AI.AgentConfig("master")) }, modifier = m) },
+                { m -> RadioMonitorCard(masterAgent = masterAgent, tokenText = tokenTextFor("radio"), hazeState = hazeState, onClick = { navController.add(Routes.AI.AgentConfig("radio")) }, modifier = m) },
+                { m -> EnrichMonitorCard(masterAgent = masterAgent, tokenText = tokenTextFor("enrich"), hazeState = hazeState, onClick = { navController.add(Routes.AI.AgentConfig("enrich")) }, modifier = m) },
+                { m -> HelloMonitorCard(masterAgent = masterAgent, tokenText = tokenTextFor("hello"), hazeState = hazeState, onClick = { navController.add(Routes.AI.AgentConfig("hello")) }, modifier = m) },
+            )
+            val groups = cards.chunked(columns)
+
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Max),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    MasterMonitorCard(
-                        masterAgent = masterAgent,
-                        tokenText = tokenTextFor("master"),
-                        hazeState = hazeState,
-                        onClick = { navController.add(Routes.AI.AgentConfig("master")) },
-                        modifier = Modifier.weight(1f).fillMaxHeight(),
-                    )
-                    RadioMonitorCard(
-                        masterAgent = masterAgent,
-                        tokenText = tokenTextFor("radio"),
-                        hazeState = hazeState,
-                        onClick = { navController.add(Routes.AI.AgentConfig("radio")) },
-                        modifier = Modifier.weight(1f).fillMaxHeight(),
-                    )
-                }
-                Row(
-                    modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Max),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    EnrichMonitorCard(
-                        masterAgent = masterAgent,
-                        tokenText = tokenTextFor("enrich"),
-                        hazeState = hazeState,
-                        onClick = { navController.add(Routes.AI.AgentConfig("enrich")) },
-                        modifier = Modifier.weight(1f).fillMaxHeight(),
-                    )
-                    HelloMonitorCard(
-                        masterAgent = masterAgent,
-                        tokenText = tokenTextFor("hello"),
-                        hazeState = hazeState,
-                        onClick = { navController.add(Routes.AI.AgentConfig("hello")) },
-                        modifier = Modifier.weight(1f).fillMaxHeight(),
-                    )
+                groups.forEach { group ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Max),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        group.forEach { card ->
+                            card(Modifier.weight(1f))
+                        }
+                        // 末行不足一列时补位
+                        repeat(columns - group.size) {
+                            Spacer(Modifier.weight(1f))
+                        }
+                    }
                 }
             }
+        }
         }
     }
 }
@@ -359,7 +360,7 @@ private fun LogLine(entry: LogEntry) {
     val color = when (entry.severity) {
         Severity.Verbose, Severity.Debug -> MaterialTheme.colorScheme.onSurfaceVariant
         Severity.Info -> MaterialTheme.colorScheme.onSurface
-        Severity.Warn -> Color(0xFFB26A00)
+        Severity.Warn -> AgentStatusColors.Warn
         Severity.Error, Severity.Assert -> MaterialTheme.colorScheme.error
     }
     Row(modifier = Modifier.fillMaxWidth()) {

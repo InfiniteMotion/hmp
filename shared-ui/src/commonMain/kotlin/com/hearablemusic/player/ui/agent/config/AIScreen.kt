@@ -2,15 +2,18 @@ package com.hearablemusic.player.ui.agent.config
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -57,6 +60,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation3.runtime.NavBackStack
@@ -72,6 +76,7 @@ import com.hearablemusic.player.ui.common.components.base.HMPCard
 import com.hearablemusic.player.ui.common.components.base.TitleWidget
 import com.hearablemusic.player.ui.common.dialogs.controller.DialogManager
 import com.hearablemusic.player.ui.common.dialogs.viewmodel.DialogManagerViewModel
+import com.hearablemusic.player.ui.common.layout.LocalWindowSizeInfo
 import com.hearablemusic.player.ui.common.navigation.Routes
 import com.hearablemusic.player.ui.common.pages.base.SubScreen
 import com.hearablemusic.player.ui.common.util.activityViewModel
@@ -212,9 +217,80 @@ private fun AIScreenContent(
         onBackClick = onBackClick,
         title = stringResource(Res.string.title_ai)
     ) {
-        Column(
+        // F14-T1 自适应：竖屏/窄窗单栏限宽居中（~600dp）；横屏（手机横屏 / 平板、桌面宽窗）
+        // 改双栏 —— 左栏 = 接入方式 + 语言语音，右栏 = Agent 管理 + 记忆管理。
+        // Compact maxWidth = Dp.Unspecified → 单栏不加约束，与改造前逐像素一致。
+        val window = LocalWindowSizeInfo.current
+        val isWide = window.isExpanded || window.isMedium
+        val isLandscape = window.isLandscape
+        val formMaxWidth = if (isWide) 600.dp else Dp.Unspecified
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.TopCenter,
+        ) {
+        if (isLandscape) {
+        // ── 横屏双栏 ──
+        Row(
             modifier = Modifier
                 .fillMaxSize()
+                .padding(horizontal = 32.dp, vertical = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(32.dp),
+            verticalAlignment = Alignment.Top,
+        ) {
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(24.dp),
+            ) {
+                // 分区 1：AI 接入方式
+                SectionHeader("AI 接入方式")
+                AiAccessSection(
+                    aiAccessMode = aiAccessMode,
+                    freeTrialRemaining = freeTrialRemaining,
+                    customConfig = customConfig,
+                    availableModels = availableModels,
+                    isTestingApi = isTestingApi,
+                    pendingCount = pendingCount,
+                    onModeChange = onModeChange,
+                    onSaveConfig = onSaveCustomConfig,
+                    onFetchModels = onFetchModels,
+                    onTestConnection = onTestConnection,
+                    dialogManager = dialogManager,
+                )
+                // 分区 3：语言和语音
+                SectionHeader("语言和语音")
+                ReplyLanguageSection(masterAgent = masterAgent)
+                VoiceSection()
+            }
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(24.dp),
+            ) {
+                // 分区 2：Agent 管理
+                SectionHeader("Agent 管理")
+                AgentQuickEntries(
+                    masterAgent = masterAgent,
+                    onAgentClick = { role -> navController.add(Routes.AI.AgentConfig(role)) }
+                )
+                // 分区 4：记忆管理
+                SectionHeader("记忆管理")
+                MemoryManagementSection(
+                    masterAgent = masterAgent,
+                    navController = navController,
+                    onClearAllMemory = onClearAllMemory
+                )
+            }
+        }
+        } else {
+        Column(
+            modifier = Modifier
+                .widthIn(max = formMaxWidth)
+                .fillMaxWidth()
                 .verticalScroll(rememberScrollState())
                 .padding(24.dp),
             verticalArrangement = Arrangement.spacedBy(24.dp)
@@ -256,6 +332,8 @@ private fun AIScreenContent(
             )
 
             Spacer(modifier = Modifier.height(64.dp))
+        }
+        }
         }
     }
 }

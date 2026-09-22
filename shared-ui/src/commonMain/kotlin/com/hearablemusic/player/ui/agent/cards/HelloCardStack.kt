@@ -1,7 +1,5 @@
 package com.hearablemusic.player.ui.agent.cards
 
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -30,15 +28,36 @@ import org.koin.compose.koinInject
 
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
+
 // ═══════════════════════════════════════════════════════════════════
-// HelloSlideCardStack — 外部入口（混合架构：agent cards + 直接数据源）
+// Hello 卡堆 —— 数据组装与渲染解耦
+//
+//   rememberHelloCardsState()  →  组装卡列表（5 路数据源，与渲染无关）
+//        ├─ HelloSlideCardStack   （竖屏 / Compact：Portrait 调参）
+//        └─ HelloCardCoverflow    （横屏宽窗左栏：Landscape 调参）
+//
+//   两者是**同一个自绘组件**、仅调参不同 —— 见 HelloCardCoverflowTuning.kt。
 // ═══════════════════════════════════════════════════════════════════
 
+/**
+ * Hello 卡堆的**数据组装结果** —— 卡列表 + 电台永久锁标记。
+ * 与渲染解耦：横竖屏渲染是同一个 `HelloCardCoverflow`，只是 tuning 不同。
+ * 见 F14 §3.8。
+ */
+internal class HelloCardsState(
+    val cards: List<SlideCard>,
+    val permanentLock: Boolean,
+)
+
+/**
+ * 组装 Hello 卡堆的数据（不做任何渲染）。
+ *
+ * 抽出来的原因：数据来源有 5 路（agent 产物 / ANCHOR / RADIO_STATUS / ENRICH / NARRATIVE），
+ * 逻辑复杂且与渲染无关。两种渲染实现（Pager / Coverflow）必须看到**完全一致**的卡列表，
+ * 否则会出现"换个断点卡就变了"的怪 bug。
+ */
 @Composable
-fun HelloSlideCardStack(
-    modifier: Modifier = Modifier,
-    onCardClick: ((SlideCard) -> Unit)? = null,
-) {
+internal fun rememberHelloCardsState(): HelloCardsState {
     val masterAgent: MasterAgent? = koinInject()
 
     // ① Agent 产物卡（5 种：GREETING/RECOMMEND/DISCOVER/FORGOTTEN/ANNIVERSARY）
@@ -153,6 +172,7 @@ fun HelloSlideCardStack(
     LaunchedEffect(radioState, currentMusic, radioPlaylist) {
         radioStatusCard = buildRadioStatusCard(masterAgent, radioState)
     }
+
     val cardList = buildList {
         if (!radioActive) anchorCard?.let { add(it) }
         // 叙事卡：常驻，位于 ANCHOR 之后（原设计「建议常驻卡，位于 ANCHOR 之后」）
@@ -169,12 +189,29 @@ fun HelloSlideCardStack(
         enrichTrackingCard?.let { add(it) }
     }
 
-    Box(modifier = modifier) {
-        RotatingPersistentCards(
+    return remember(cardList, radioActive) {
+        HelloCardsState(
             cards = cardList.ifEmpty { listOf(helloFallBackCard()) },
             permanentLock = radioActive,
-            modifier = Modifier.fillMaxSize(),
-            onCardClick = onCardClick,
         )
     }
+}
+
+/**
+ * HelloSlideCardStack — 外部入口（竖屏 / Compact）。
+ *
+ * 内部走竖屏调参的自绘堆叠：一次只显示一张（stepFactor = 1.0，邻卡整体越出视口）、卡形由调用方的
+ * `aspectRatio` 决定 —— 观感等同原来的"一页一卡"，但获得**无限循环**（Pager 版滚到头就停）。
+ * 横屏宽窗请直接用 `HelloCardCoverflow` 并传横屏调参。见 F14 §3.10。
+ */
+@Composable
+fun HelloSlideCardStack(
+    modifier: Modifier = Modifier,
+    onCardClick: ((SlideCard) -> Unit)? = null,
+) {
+    HelloCardCoverflow(
+        modifier = modifier,
+        tuning = CardStackTuning.Portrait,
+        onCardClick = onCardClick,
+    )
 }

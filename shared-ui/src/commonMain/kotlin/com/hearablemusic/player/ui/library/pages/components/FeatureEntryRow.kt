@@ -5,9 +5,11 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
@@ -50,6 +52,7 @@ fun FeatureEntryRow(
     Row(
         modifier = modifier
             .fillMaxWidth(),
+        // 同级卡间距统一 20dp（与 HomeScreen 区域②的卡间 20dp 一致）
         horizontalArrangement = Arrangement.spacedBy(20.dp),
     ) {
         FeatureEntryCard(
@@ -99,15 +102,14 @@ private fun FeatureEntryCard(
         Column(
             modifier = Modifier.fillMaxSize(),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.SpaceEvenly,
+            verticalArrangement = Arrangement.Center,
         ) {
             Icon(
                 painter = painterResource(iconResource),
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary,
             )
-            // 小卡（1/3 宽）用 titleSmall：与区域②大卡的 titleMedium 同族但小一档，
-            // 否则 16sp 在窄卡里会显得比上方组件大很多
+            Spacer(Modifier.height(10.dp))
             Text(
                 text = title,
                 style = MaterialTheme.typography.titleSmall,
