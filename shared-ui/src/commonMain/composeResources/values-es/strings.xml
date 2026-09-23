@@ -779,4 +779,14 @@
     <string name="agent_chat_receipt_all_skipped">Todo omitido esta vez — sin cambios.</string>
     <string name="agent_chat_receipt_done">Se aplicaron %1$d acciones seleccionadas.</string>
     <string name="agent_chat_receipt_done_skipped">Se aplicaron %1$d acciones y se omitieron %2$d.</string>
+    <string name="scan_directories">Carpetas de escaneo</string>
+    <string name="blocked_directories">Carpetas excluidas</string>
+    <string name="no_scan_directories">Ninguna especificada — se escanearán las ubicaciones predeterminadas</string>
+    <string name="no_blocked_directories">Ninguna carpeta excluida</string>
+    <string name="add_directory">Añadir carpeta</string>
+    <string name="pick_folder_from_library">Elige una carpeta de tu biblioteca</string>
+    <string name="directory_rescan_hint">Los cambios provocan un reescaneo automático</string>
+    <string name="intro_skip_permission">Ahora no</string>
+    <string name="library_permission_required">Sin permiso de lectura de audio — no se puede escanear la biblioteca</string>
+    <string name="go_to_settings">Abrir ajustes</string>
 </resources>

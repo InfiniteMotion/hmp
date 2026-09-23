@@ -31,7 +31,12 @@ import com.hmp.desktop.player.DesktopMusicController
 import com.hearablemusic.player.ui.AppRoot
 import com.hearablemusic.player.ui.common.design.theme.ThemeExtensionManager
 import com.hearablemusic.player.ui.common.layout.LocalTitleBarInset
+import com.hearablemusic.player.ui.common.pages.IntroScreen
 import com.hearablemusic.player.ui.common.util.LocalAppViewModelStoreOwner
+import com.hearablemusic.player.ui.common.util.activityViewModel
+import com.hearablemusic.player.ui.library.viewmodel.LibraryViewModel
+import com.hearablemusic.player.ui.settings.viewmodel.RecommendationViewModel
+import com.hearablemusic.player.ui.settings.viewmodel.SettingsViewModel
 import com.hmp.desktop.DwmHelper
 import com.sun.jna.platform.win32.WinDef
 import androidx.navigationevent.DirectNavigationEventInput
@@ -285,7 +290,26 @@ fun main() {
                         LocalNavigationEventDispatcherOwner provides navEventOwner,
                         LocalTitleBarInset provides TITLE_BAR_HEIGHT,
                     ) {
-                        AppRoot(darkTheme = appIsDark)
+                        // 首启分流（与 Android MainActivity / iOS IosAppRoot 对齐）。
+                        // 桌面无运行时权限体系 → skipPermissionStep，直接从「扫描」步开始
+                        //（旧桌面 UI 层那份未接线的 IntroScreen 也是这个取舍）。
+                        val settingsViewModel: SettingsViewModel = activityViewModel()
+                        val isFirstLaunch by settingsViewModel.isFirstLaunch.collectAsState(true)
+                        if (isFirstLaunch) {
+                            val libraryViewModel: LibraryViewModel = activityViewModel()
+                            val recommendationViewModel: RecommendationViewModel = activityViewModel()
+                            IntroScreen(
+                                settingsViewModel = settingsViewModel,
+                                libraryViewModel = libraryViewModel,
+                                recommendationViewModel = recommendationViewModel,
+                                onFinished = {
+                                    settingsViewModel.saveIsFirstLaunchStatus(false)
+                                },
+                                skipPermissionStep = true
+                            )
+                        } else {
+                            AppRoot(darkTheme = appIsDark)
+                        }
                     }
 
                     // Collect playback state reactively for immersive title bar

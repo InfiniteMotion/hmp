@@ -1,8 +1,10 @@
 package com.hearablemusic.player.ui.platform
 
+import android.Manifest
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
@@ -131,6 +133,13 @@ class FilePickerServiceImpl(private val context: Context) : FilePickerService {
         openBackupLauncher?.launch(arrayOf("application/json"))
     }
 
+    // Android 不支持选择任意文件系统目录：SAF（OpenDocumentTree）返回的是 tree Uri，
+    // **无法**转成 scanDirectoryConfig 所需的文件系统路径（配置存的是 `File(path)` 语义）。
+    // 故目录添加改用「从系统媒体库已知文件夹中选择」——由 LibrarySettingsScreen 依据本标识切换。
+    override val directorySelectionMode: DirectorySelectionMode = DirectorySelectionMode.KNOWN_FOLDERS
+
+    override fun pickDirectory(onResult: (String?) -> Unit) = onResult(null)
+
     private fun dispatch(key: String, path: String?) {
         callbacks.remove(key)?.invoke(path)
     }
@@ -173,11 +182,13 @@ class FilePickerServiceImpl(private val context: Context) : FilePickerService {
     }
 }
 
-/** 权限：悬浮窗（ACTION_MANAGE_OVERLAY_PERMISSION + StartActivityForResult 回调判定）。 */
+/** 权限：引导页运行时权限（音频读取 / 通知）+ 悬浮窗（ACTION_MANAGE_OVERLAY_PERMISSION 回调判定）。 */
 class PermissionServiceImpl(private val context: Context) : PermissionService {
 
     private var overlayLauncher: ActivityResultLauncher<Intent>? = null
     private var overlayCallback: ((Boolean) -> Unit)? = null
+    private var introPermissionsLauncher: ActivityResultLauncher<Array<String>>? = null
+    private var introPermissionsCallback: ((Boolean) -> Unit)? = null
 
     /** 由宿主 Activity（经 AndroidPlatformServices 构造）调用；可重复调用（Activity 重建后重挂）。 */
     fun register(host: ComponentActivity) {
@@ -191,11 +202,48 @@ class PermissionServiceImpl(private val context: Context) : PermissionService {
             overlayCallback = null
             callback?.invoke(Settings.canDrawOverlays(context))
         }
+        introPermissionsLauncher?.unregister()
+        introPermissionsLauncher = host.activityResultRegistry.register(
+            KEY_INTRO_PERMISSIONS,
+            ActivityResultContracts.RequestMultiplePermissions()
+        ) { results ->
+            val callback = introPermissionsCallback
+            introPermissionsCallback = null
+            // 音频读取为必需（缺它 MediaStore 查不到歌）；通知为可选，被拒不阻断引导
+            val audioGranted = results[Manifest.permission.READ_MEDIA_AUDIO]
+                ?: context.hasAudioReadPermission()
+            if (!audioGranted) {
+                HmpLog.w(LogTag.UiCommon) { "🔐 引导页权限被拒 | READ_MEDIA_AUDIO | 曲库将为空" }
+            }
+            callback?.invoke(audioGranted)
+        }
     }
 
+    /**
+     * 引导页权限申请：`READ_MEDIA_AUDIO`（必需，MediaStore 扫描依赖）+ `POST_NOTIFICATIONS`（可选，播放通知）。
+     *
+     * 回调语义：**以音频读取权限为准**。通知被拒不阻断引导（若两者都要，用户拒绝通知后会永久卡在引导页）。
+     *
+     * ⚠️ 本方法曾长期是 `onResult(true)` 空壳。v7.1 把 `IntroScreen` 从 `androidMain` 迁到 `commonMain` 后
+     * 调用点出现而实现未补，导致首启权限框不弹、曲库为空（静默失败）。
+     * 回归记录见 `docs/7_x/A shared-ui/UI层统一-能力搬迁点检.md` R1。
+     */
     override fun requestIntroPermissions(onResult: (allGranted: Boolean) -> Unit) {
-        // 当前无调用点：保留签名，直接回调成功
-        onResult(true)
+        val launcher = introPermissionsLauncher
+        if (launcher == null) {
+            // 理论不可达（register 在 AndroidPlatformServices 构造时调用）：
+            // 退化时按当前真实授权状态回答，既不谎报成功、也不永久挂起引导。
+            HmpLog.w(LogTag.UiCommon) { "🔐 introPermissionsLauncher 未注册，按当前授权状态回答" }
+            onResult(context.hasAudioReadPermission())
+            return
+        }
+        introPermissionsCallback = onResult
+        launcher.launch(
+            arrayOf(
+                Manifest.permission.READ_MEDIA_AUDIO,
+                Manifest.permission.POST_NOTIFICATIONS
+            )
+        )
     }
 
     override fun requestOverlayPermission(onResult: (granted: Boolean) -> Unit) {
@@ -210,6 +258,21 @@ class PermissionServiceImpl(private val context: Context) : PermissionService {
 
     override fun hasOverlayPermission(): Boolean = Settings.canDrawOverlays(context)
 
+    override fun hasMusicReadAccess(): Boolean = context.hasAudioReadPermission()
+
+    override fun openAppSettings() {
+        try {
+            context.startActivity(
+                Intent(
+                    Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                    Uri.parse("package:" + context.packageName)
+                ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            )
+        } catch (e: Exception) {
+            HmpLog.w(LogTag.UiCommon, e) { "🔐 打开应用设置页失败 | reason=${e.message}" }
+        }
+    }
+
     override fun requestMusicWriteAccess(musicId: Long, onResult: (granted: Boolean) -> Unit) {
         // 批内无调用点：保留签名，直接回调成功
         onResult(true)
@@ -217,8 +280,13 @@ class PermissionServiceImpl(private val context: Context) : PermissionService {
 
     companion object {
         private const val KEY_OVERLAY_PERMISSION = "hmp_overlay_permission"
+        private const val KEY_INTRO_PERMISSIONS = "hmp_intro_permissions"
     }
 }
+
+/** 音频读取权限是否已授予（Android 13+ 起为必需运行时权限；minSdk = 33 故无版本分支）。 */
+private fun Context.hasAudioReadPermission(): Boolean =
+    checkSelfPermission(Manifest.permission.READ_MEDIA_AUDIO) == PackageManager.PERMISSION_GRANTED
 
 /**
  * 音乐标签编辑页平台桥：

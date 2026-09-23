@@ -10,6 +10,7 @@ import com.hmp.domain.music.usecase.LoadMusicFromDeviceUseCase
 import com.hmp.domain.music.usecase.RemoveFromLibraryUseCase
 import com.hmp.domain.music.usecase.RestoreToLibraryUseCase
 import com.hmp.domain.music.usecase.SyncMusicFromDeviceIncrementalUseCase
+import com.hmp.domain.setting.model.ScanDirectoryConfig
 import com.hmp.domain.setting.usecase.UserSettingsUseCase
 
 import com.hearablemusic.player.ui.common.util.UiState
@@ -21,6 +22,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
@@ -128,6 +130,45 @@ class LibraryViewModel(
             _hiddenFolders.value = grouped.map { (path, ids) ->
                 HiddenFolderInfo(path = path, songCount = ids.size, musicIds = ids)
             }
+        }
+    }
+
+    // ── 目录管理（R3 恢复）────────────────────────────────────────────────
+    // 扫描目录 / 屏蔽目录配置。语义按平台落地：Desktop 为文件系统扫描根；
+    // Android 为 MediaStore 查询的 include/exclude 过滤；iOS 不渲染对应区块。
+    // 此前该配置在 UI 层无任何读写入口（桌面旧 UI 层删除时丢失），见
+    // docs/7_x/A shared-ui/UI层统一-能力搬迁点检.md R3。
+    val scanDirectoryConfig: StateFlow<ScanDirectoryConfig> = userSettingsUseCase.scanDirectoryConfig
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), ScanDirectoryConfig())
+
+    fun addScanDirectory(path: String) = updateScanDirectoryConfig { current ->
+        if (path.isBlank() || path in current.scanDirectories) current
+        else current.copy(scanDirectories = current.scanDirectories + path)
+    }
+
+    fun removeScanDirectory(path: String) = updateScanDirectoryConfig { current ->
+        current.copy(scanDirectories = current.scanDirectories - path)
+    }
+
+    fun addBlockedDirectory(path: String) = updateScanDirectoryConfig { current ->
+        if (path.isBlank() || path in current.blockedDirectories) current
+        else current.copy(blockedDirectories = current.blockedDirectories + path)
+    }
+
+    fun removeBlockedDirectory(path: String) = updateScanDirectoryConfig { current ->
+        current.copy(blockedDirectories = current.blockedDirectories - path)
+    }
+
+    private fun updateScanDirectoryConfig(transform: (ScanDirectoryConfig) -> ScanDirectoryConfig) {
+        viewModelScope.launch {
+            // 从数据源读当前值（而非 StateFlow.value）：未订阅时后者仍是初始空值，
+            // 直接用它做 transform 会把已有配置覆盖掉。
+            val current = userSettingsUseCase.scanDirectoryConfig.first()
+            val updated = transform(current)
+            if (updated == current) return@launch
+            userSettingsUseCase.saveScanDirectoryConfig(updated)
+            // 目录变更后立即重扫，避免「改了设置却没反应」（旧行为：等用户手动重扫）
+            fullRescan()
         }
     }
 

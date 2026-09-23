@@ -811,4 +811,14 @@
     <string name="agent_chat_receipt_all_skipped">Semua dilewati kali ini — tidak ada perubahan.</string>
     <string name="agent_chat_receipt_done">%1$d tindakan terpilih dijalankan.</string>
     <string name="agent_chat_receipt_done_skipped">%1$d tindakan dijalankan, %2$d dilewati.</string>
+    <string name="scan_directories">Folder pemindaian</string>
+    <string name="blocked_directories">Folder yang dikecualikan</string>
+    <string name="no_scan_directories">Tidak ada yang ditentukan — lokasi default akan dipindai</string>
+    <string name="no_blocked_directories">Tidak ada folder yang dikecualikan</string>
+    <string name="add_directory">Tambah folder</string>
+    <string name="pick_folder_from_library">Pilih folder dari pustaka Anda</string>
+    <string name="directory_rescan_hint">Perubahan memicu pemindaian ulang otomatis</string>
+    <string name="intro_skip_permission">Nanti saja</string>
+    <string name="library_permission_required">Izin baca audio belum diberikan — pustaka tidak dapat dipindai</string>
+    <string name="go_to_settings">Buka pengaturan</string>
 </resources>

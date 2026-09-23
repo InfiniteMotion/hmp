@@ -779,4 +779,14 @@
     <string name="agent_chat_receipt_all_skipped">Diesmal alles übersprungen — nichts geändert.</string>
     <string name="agent_chat_receipt_done">%1$d ausgewählte Aktionen ausgeführt.</string>
     <string name="agent_chat_receipt_done_skipped">%1$d Aktionen ausgeführt, %2$d übersprungen.</string>
+    <string name="scan_directories">Scan-Ordner</string>
+    <string name="blocked_directories">Ausgeschlossene Ordner</string>
+    <string name="no_scan_directories">Keine angegeben — Standardordner werden gescannt</string>
+    <string name="no_blocked_directories">Keine Ordner ausgeschlossen</string>
+    <string name="add_directory">Ordner hinzufügen</string>
+    <string name="pick_folder_from_library">Ordner aus der Bibliothek wählen</string>
+    <string name="directory_rescan_hint">Änderungen lösen einen automatischen Scan aus</string>
+    <string name="intro_skip_permission">Nicht jetzt</string>
+    <string name="library_permission_required">Keine Berechtigung zum Lesen von Audio — Bibliothek kann nicht gescannt werden</string>
+    <string name="go_to_settings">Einstellungen öffnen</string>
 </resources>

@@ -61,6 +61,12 @@ internal class IosFilePickerService : FilePickerService {
 
     override fun openBackupFile(onResult: (String?) -> Unit) =
         IosPlatformServicesBridge.openBackupFile?.invoke(onResult) ?: onResult(null)
+
+    // iOS 沙箱内无「自定义扫描目录」概念：音乐来自 Documents 目录（Files App 导入），
+    // 故相关区块不渲染（见 LibrarySettingsScreen），本方法恒回调 null。
+    override val directorySelectionMode: DirectorySelectionMode = DirectorySelectionMode.UNSUPPORTED
+
+    override fun pickDirectory(onResult: (String?) -> Unit) = onResult(null)
 }
 
 /**
@@ -71,6 +77,11 @@ internal class IosPermissionService : PermissionService {
     override fun requestIntroPermissions(onResult: (allGranted: Boolean) -> Unit) = onResult(true)
     override fun requestOverlayPermission(onResult: (granted: Boolean) -> Unit) = onResult(true)
     override fun hasOverlayPermission(): Boolean = true
+
+    /** iOS 沙箱内 Documents 目录恒可读：媒体库权限已在 AppDelegate 引导。 */
+    override fun hasMusicReadAccess(): Boolean = true
+
+    override fun openAppSettings() = Unit
     override fun requestMusicWriteAccess(musicId: Long, onResult: (granted: Boolean) -> Unit) = onResult(true)
 }
 

@@ -84,6 +84,29 @@ class DesktopFilePickerServiceImpl : FilePickerService {
         }
     }
 
+    override val directorySelectionMode: DirectorySelectionMode = DirectorySelectionMode.ARBITRARY_PATH
+
+    override fun pickDirectory(onResult: (String?) -> Unit) {
+        showDirectoryDialog(onResult)
+    }
+
+    /** 目录选择：线程模型与 [showOpenDialog] 一致（守护线程弹窗 + invokeLater 回 EDT）。 */
+    private fun showDirectoryDialog(onResult: (String?) -> Unit) {
+        Thread {
+            val chooser = JFileChooser().apply {
+                fileSelectionMode = JFileChooser.DIRECTORIES_ONLY
+                isMultiSelectionEnabled = false
+            }
+            val result = chooser.showOpenDialog(null)
+            val path = if (result == JFileChooser.APPROVE_OPTION) {
+                chooser.selectedFile.absolutePath
+            } else {
+                null
+            }
+            SwingUtilities.invokeLater { onResult(path) }
+        }.apply { isDaemon = true }.also { it.start() }
+    }
+
     private fun showOpenDialog(
         filterDescription: String,
         extensions: Array<String>,
@@ -123,6 +146,11 @@ class DesktopPermissionServiceImpl : PermissionService {
     }
 
     override fun hasOverlayPermission(): Boolean = true
+
+    /** 桌面无运行时权限体系：文件系统可直接读取。 */
+    override fun hasMusicReadAccess(): Boolean = true
+
+    override fun openAppSettings() = Unit
 
     override fun requestMusicWriteAccess(musicId: Long, onResult: (granted: Boolean) -> Unit) {
         onResult(true)

@@ -779,4 +779,14 @@
     <string name="agent_chat_receipt_all_skipped">इस बार सब छोड़ दिया — कुछ नहीं बदला।</string>
     <string name="agent_chat_receipt_done">चुने गए %1$d काम पूरे किए।</string>
     <string name="agent_chat_receipt_done_skipped">%1$d काम पूरे किए, %2$d छोड़े।</string>
+    <string name="scan_directories">स्कैन फ़ोल्डर</string>
+    <string name="blocked_directories">बहिष्कृत फ़ोल्डर</string>
+    <string name="no_scan_directories">कोई निर्दिष्ट नहीं — डिफ़ॉल्ट स्थान स्कैन किए जाएँगे</string>
+    <string name="no_blocked_directories">कोई फ़ोल्डर बहिष्कृत नहीं</string>
+    <string name="add_directory">फ़ोल्डर जोड़ें</string>
+    <string name="pick_folder_from_library">अपनी लाइब्रेरी से फ़ोल्डर चुनें</string>
+    <string name="directory_rescan_hint">बदलाव पर स्वतः पुनः स्कैन होगा</string>
+    <string name="intro_skip_permission">अभी नहीं</string>
+    <string name="library_permission_required">ऑडियो पढ़ने की अनुमति नहीं — लाइब्रेरी स्कैन नहीं हो सकती</string>
+    <string name="go_to_settings">सेटिंग्स खोलें</string>
 </resources>

@@ -21,7 +21,6 @@ import com.hmp.domain.setting.model.AiEndpointConfig
 import com.hmp.domain.setting.model.ScanDirectoryConfig
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.json.Json
 import java.io.File
@@ -103,6 +102,9 @@ class SettingsRepositoryImpl(
         val DEFAULT_EXTENSION_CONFIG = stringPreferencesKey("default_extension_config")
         val GALLERY_ORDER_BY = stringPreferencesKey("gallery_order_by")
         val GALLERY_ORDER_TYPE = stringPreferencesKey("gallery_order_type")
+        // 目录管理（扫描目录 / 屏蔽目录）：桌面与 Android 共用同一序列化结构，
+        // Android 侧作为 MediaStore 查询的 include/exclude 过滤使用。
+        val SCAN_DIRECTORY_CONFIG = stringPreferencesKey("scan_directory_config")
     }
 
     private val dataStore = context.dataStore
@@ -190,8 +192,20 @@ class SettingsRepositoryImpl(
     override suspend fun saveIsLoadMusic(isLoadMusic: Boolean) {
         dataStore.edit { prefs -> prefs[PreferencesKeys.IS_LOAD_MUSIC] = isLoadMusic }
     }
-    override val scanDirectoryConfig: Flow<ScanDirectoryConfig> = flowOf(ScanDirectoryConfig())
-    override suspend fun saveScanDirectoryConfig(config: ScanDirectoryConfig) { }
+    // 目录管理（R3 恢复）：此前为 `flowOf(ScanDirectoryConfig())` / 空实现 —— 写了不保存、永远读不到，
+    // 使 LibrarySettingsScreen 的目录管理区块在 Android 上成为空壳。现按 desktop 同构实现真实持久化。
+    override val scanDirectoryConfig: Flow<ScanDirectoryConfig> = dataStore.data.map { prefs ->
+        prefs[PreferencesKeys.SCAN_DIRECTORY_CONFIG]?.let {
+            try { json.decodeFromString<ScanDirectoryConfig>(it) }
+            catch (_: Exception) { ScanDirectoryConfig() }
+        } ?: ScanDirectoryConfig()
+    }
+    override suspend fun saveScanDirectoryConfig(config: ScanDirectoryConfig) {
+        dataStore.edit { prefs ->
+            prefs[PreferencesKeys.SCAN_DIRECTORY_CONFIG] =
+                json.encodeToString(ScanDirectoryConfig.serializer(), config)
+        }
+    }
     override suspend fun saveThemeMode(themeMode: String) {
         dataStore.edit { prefs -> prefs[PreferencesKeys.THEME_MODE] = themeMode }
     }

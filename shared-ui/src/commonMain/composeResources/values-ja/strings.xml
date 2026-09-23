@@ -779,4 +779,14 @@
     <string name="agent_chat_receipt_all_skipped">今回はすべてスキップしました — 変更はありません。</string>
     <string name="agent_chat_receipt_done">選択した %1$d 件を実行しました。</string>
     <string name="agent_chat_receipt_done_skipped">%1$d 件を実行し、%2$d 件をスキップしました。</string>
+    <string name="scan_directories">スキャン対象フォルダ</string>
+    <string name="blocked_directories">除外フォルダ</string>
+    <string name="no_scan_directories">未指定 — 既定の場所をスキャンします</string>
+    <string name="no_blocked_directories">除外フォルダはありません</string>
+    <string name="add_directory">フォルダを追加</string>
+    <string name="pick_folder_from_library">ライブラリからフォルダを選択</string>
+    <string name="directory_rescan_hint">変更すると自動で再スキャンします</string>
+    <string name="intro_skip_permission">後で</string>
+    <string name="library_permission_required">音声の読み取り権限がありません — ライブラリをスキャンできません</string>
+    <string name="go_to_settings">設定を開く</string>
 </resources>

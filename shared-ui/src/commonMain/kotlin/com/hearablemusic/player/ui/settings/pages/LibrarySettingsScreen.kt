@@ -46,28 +46,40 @@ import com.hearablemusic.player.ui.common.layout.LocalWindowSizeInfo
 import com.hearablemusic.player.ui.library.viewmodel.FolderInfo
 import com.hearablemusic.player.ui.library.viewmodel.HiddenFolderInfo
 import com.hearablemusic.player.ui.library.viewmodel.LibraryViewModel
+import com.hearablemusic.player.ui.platform.DirectorySelectionMode
+import com.hearablemusic.player.ui.platform.PlatformServices
 import com.hearablemusic.player.ui.generated.resources.Res
+import com.hearablemusic.player.ui.generated.resources.add_directory
 import com.hearablemusic.player.ui.generated.resources.analyzed_songs
+import com.hearablemusic.player.ui.generated.resources.blocked_directories
 import com.hearablemusic.player.ui.generated.resources.cancel
 import com.hearablemusic.player.ui.generated.resources.confirm
 import com.hearablemusic.player.ui.generated.resources.confirm_full_rescan
 import com.hearablemusic.player.ui.generated.resources.confirm_hide_folder
+import com.hearablemusic.player.ui.generated.resources.directory_rescan_hint
 import com.hearablemusic.player.ui.generated.resources.folder_songs_count
 import com.hearablemusic.player.ui.generated.resources.full_rescan
 import com.hearablemusic.player.ui.generated.resources.full_rescan_desc
 import com.hearablemusic.player.ui.generated.resources.full_rescan_warning
+import com.hearablemusic.player.ui.generated.resources.go_to_settings
 import com.hearablemusic.player.ui.generated.resources.hidden_folders
 import com.hearablemusic.player.ui.generated.resources.hide_folder
 import com.hearablemusic.player.ui.generated.resources.incremental_load
 import com.hearablemusic.player.ui.generated.resources.incremental_scan_desc
 import com.hearablemusic.player.ui.generated.resources.library_management
+import com.hearablemusic.player.ui.generated.resources.library_permission_required
 import com.hearablemusic.player.ui.generated.resources.library_settings
 import com.hearablemusic.player.ui.generated.resources.library_stats
 import com.hearablemusic.player.ui.generated.resources.magnifyingglass
 import com.hearablemusic.player.ui.generated.resources.media_center
 import com.hearablemusic.player.ui.generated.resources.music_note_list
+import com.hearablemusic.player.ui.generated.resources.no_blocked_directories
+import com.hearablemusic.player.ui.generated.resources.no_scan_directories
 import com.hearablemusic.player.ui.generated.resources.no_scanned_folders
+import com.hearablemusic.player.ui.generated.resources.pick_folder_from_library
 import com.hearablemusic.player.ui.generated.resources.rectangle_on_rectangle
+import com.hearablemusic.player.ui.generated.resources.remove
+import com.hearablemusic.player.ui.generated.resources.scan_directories
 import com.hearablemusic.player.ui.generated.resources.scan_options
 import com.hearablemusic.player.ui.generated.resources.scanned_folders
 import com.hearablemusic.player.ui.generated.resources.scanning
@@ -77,6 +89,7 @@ import com.hearablemusic.player.ui.generated.resources.unhide_folder
 import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
+import org.koin.compose.koinInject
 
 @Composable
 fun LibrarySettingsScreen(
@@ -87,7 +100,13 @@ fun LibrarySettingsScreen(
     val analyzedCount by libraryViewModel.musicWithExtraCount.collectAsState(initial = 0)
     val scannedFolders by libraryViewModel.scannedFolders.collectAsState()
     val hiddenFolders by libraryViewModel.hiddenFolders.collectAsState()
+    val scanDirConfig by libraryViewModel.scanDirectoryConfig.collectAsState()
     val isScanning by libraryViewModel.isScanning.collectAsState(initial = false)
+
+    // 权限提示条（R1b）：无音频读取权限时曲库必然为空 —— 给出可见原因与「去设置」入口，
+    // 避免「静默空库」。读取随每次重组刷新，从系统设置返回后即可更新。
+    val platformServices: PlatformServices = koinInject()
+    val hasMusicReadAccess = platformServices.permission.hasMusicReadAccess()
 
     LaunchedEffect(Unit) {
         libraryViewModel.loadHiddenFolders()
@@ -105,6 +124,9 @@ fun LibrarySettingsScreen(
                 .padding(24.dp),
             verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
+            if (!hasMusicReadAccess && musicCount == 0) {
+                PermissionNoticeBanner(onOpenSettings = platformServices.permission::openAppSettings)
+            }
             if (isLandscape) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -129,12 +151,30 @@ fun LibrarySettingsScreen(
                             folders = scannedFolders, hiddenFolders = hiddenFolders,
                             onHideFolder = libraryViewModel::hideFolder, onUnhideFolder = libraryViewModel::restoreToLibrary
                         )
+                        DirectoryManagementSections(
+                            scanDirectories = scanDirConfig.scanDirectories,
+                            blockedDirectories = scanDirConfig.blockedDirectories,
+                            knownFolders = scannedFolders.map { it.path },
+                            onAddScan = libraryViewModel::addScanDirectory,
+                            onRemoveScan = libraryViewModel::removeScanDirectory,
+                            onAddBlocked = libraryViewModel::addBlockedDirectory,
+                            onRemoveBlocked = libraryViewModel::removeBlockedDirectory
+                        )
                     }
                 }
             } else {
                 LibraryStatsSection(musicCount = musicCount, analyzedCount = analyzedCount)
                 ScanOptionsSection(isScanning = isScanning, onIncrementalScan = libraryViewModel::refreshMusicList, onFullRescan = libraryViewModel::fullRescan)
                 LibraryManagementSection(folders = scannedFolders, hiddenFolders = hiddenFolders, onHideFolder = libraryViewModel::hideFolder, onUnhideFolder = libraryViewModel::restoreToLibrary)
+                DirectoryManagementSections(
+                    scanDirectories = scanDirConfig.scanDirectories,
+                    blockedDirectories = scanDirConfig.blockedDirectories,
+                    knownFolders = scannedFolders.map { it.path },
+                    onAddScan = libraryViewModel::addScanDirectory,
+                    onRemoveScan = libraryViewModel::removeScanDirectory,
+                    onAddBlocked = libraryViewModel::addBlockedDirectory,
+                    onRemoveBlocked = libraryViewModel::removeBlockedDirectory
+                )
             }
             MiniPlayerSafeSpacer(height = 56.dp)
         }
@@ -506,6 +546,207 @@ private fun ScanOptionCard(
                 maxLines = 3,
                 overflow = TextOverflow.Ellipsis
             )
+        }
+    }
+}
+
+// ── 目录管理（R3 恢复）──────────────────────────────────────────────────────
+// 此前该能力随旧桌面 UI 层（desktop/feature-ui）一并被删：数据层（ScanDirectoryConfig +
+// SettingsRepository）完好，但 UI 与写入入口缺失，配置恒为空、扫描永远回退默认目录。
+// 见 docs/7_x/A shared-ui/UI层统一-能力搬迁点检.md R3。
+
+/**
+ * 扫描目录 / 屏蔽目录两个区块。
+ *
+ * 平台差异由 [DirectorySelectionMode] 决定：iOS 为 `UNSUPPORTED` → **整块不渲染**
+ * （沙箱内音乐来自 Documents，无自定义目录概念）。
+ */
+@Composable
+private fun DirectoryManagementSections(
+    scanDirectories: List<String>,
+    blockedDirectories: List<String>,
+    knownFolders: List<String>,
+    onAddScan: (String) -> Unit,
+    onRemoveScan: (String) -> Unit,
+    onAddBlocked: (String) -> Unit,
+    onRemoveBlocked: (String) -> Unit
+) {
+    val platformServices: PlatformServices = koinInject()
+    if (platformServices.filePicker.directorySelectionMode == DirectorySelectionMode.UNSUPPORTED) return
+
+    DirectorySection(
+        title = stringResource(Res.string.scan_directories),
+        emptyText = stringResource(Res.string.no_scan_directories),
+        directories = scanDirectories,
+        knownFolders = knownFolders,
+        onAdd = onAddScan,
+        onRemove = onRemoveScan
+    )
+    DirectorySection(
+        title = stringResource(Res.string.blocked_directories),
+        emptyText = stringResource(Res.string.no_blocked_directories),
+        directories = blockedDirectories,
+        knownFolders = knownFolders,
+        onAdd = onAddBlocked,
+        onRemove = onRemoveBlocked
+    )
+}
+
+/**
+ * 单个目录列表区块：列表 + 移除 + 添加。
+ *
+ * 添加方式按平台切换：
+ * - `ARBITRARY_PATH`（桌面）：系统目录选择器，可直接给出任意路径。
+ * - `KNOWN_FOLDERS`（Android）：从**媒体库已知文件夹**中挑选 —— SAF 的 tree Uri 无法转成
+ *   `scanDirectoryConfig` 所需的文件系统路径，故不走 SAF。
+ */
+@Composable
+private fun DirectorySection(
+    title: String,
+    emptyText: String,
+    directories: List<String>,
+    knownFolders: List<String>,
+    onAdd: (String) -> Unit,
+    onRemove: (String) -> Unit
+) {
+    val platformServices: PlatformServices = koinInject()
+    val mode = platformServices.filePicker.directorySelectionMode
+    var showKnownFolderPicker by remember { mutableStateOf(false) }
+
+    TitleWidget(title = title) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            if (directories.isEmpty()) {
+                Text(
+                    text = emptyText,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.align(Alignment.CenterHorizontally).padding(12.dp)
+                )
+            } else {
+                directories.forEach { path ->
+                    DirectoryItem(path = path, onRemoveClick = { onRemove(path) })
+                }
+            }
+
+            TextButton(
+                onClick = {
+                    when (mode) {
+                        DirectorySelectionMode.ARBITRARY_PATH ->
+                            platformServices.filePicker.pickDirectory { picked -> picked?.let(onAdd) }
+
+                        DirectorySelectionMode.KNOWN_FOLDERS -> showKnownFolderPicker = true
+
+                        DirectorySelectionMode.UNSUPPORTED -> Unit
+                    }
+                },
+                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.primary)
+            ) {
+                Text(stringResource(Res.string.add_directory))
+            }
+
+            Text(
+                text = stringResource(Res.string.directory_rescan_hint),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+
+    if (showKnownFolderPicker) {
+        // 排除已在该列表中的目录，避免重复添加
+        val candidates = knownFolders.filter { it !in directories }
+        AlertDialog(
+            onDismissRequest = { showKnownFolderPicker = false },
+            title = { Text(stringResource(Res.string.pick_folder_from_library)) },
+            text = {
+                Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                    if (candidates.isEmpty()) {
+                        Text(
+                            text = stringResource(Res.string.no_scanned_folders),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    } else {
+                        candidates.forEach { path ->
+                            Text(
+                                text = path,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        onAdd(path)
+                                        showKnownFolderPicker = false
+                                    }
+                                    .padding(vertical = 12.dp)
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showKnownFolderPicker = false }) {
+                    Text(stringResource(Res.string.cancel))
+                }
+            }
+        )
+    }
+}
+
+@Composable
+private fun DirectoryItem(path: String, onRemoveClick: () -> Unit) {
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+        shape = RoundedCornerShape(12.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = path,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f)
+            )
+            Text(
+                text = stringResource(Res.string.remove),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.error,
+                modifier = Modifier
+                    .clickable(onClick = onRemoveClick)
+                    .padding(start = 12.dp, top = 4.dp, bottom = 4.dp)
+            )
+        }
+    }
+}
+
+/**
+ * 权限提示条（R1b）：无音乐读取权限时曲库必然为空。
+ *
+ * 此前该情形**完全静默** —— 权限框不弹、扫描返回空集、界面只显示「0 首」而没有任何原因。
+ */
+@Composable
+private fun PermissionNoticeBanner(onOpenSettings: () -> Unit) {
+    TitleWidget(title = stringResource(Res.string.library_permission_required)) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+            horizontalAlignment = Alignment.End
+        ) {
+            TextButton(
+                onClick = onOpenSettings,
+                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.primary)
+            ) {
+                Text(stringResource(Res.string.go_to_settings))
+            }
         }
     }
 }

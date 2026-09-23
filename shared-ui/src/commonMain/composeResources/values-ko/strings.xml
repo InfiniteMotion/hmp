@@ -779,4 +779,14 @@
     <string name="agent_chat_receipt_all_skipped">이번에는 모두 건너뛰었어요 — 바뀐 내용은 없습니다.</string>
     <string name="agent_chat_receipt_done">선택한 %1$d개 작업을 실행했어요.</string>
     <string name="agent_chat_receipt_done_skipped">%1$d개 실행, %2$d개 건너뜀.</string>
+    <string name="scan_directories">검색 폴더</string>
+    <string name="blocked_directories">제외된 폴더</string>
+    <string name="no_scan_directories">지정 없음 — 기본 위치를 검색합니다</string>
+    <string name="no_blocked_directories">제외된 폴더 없음</string>
+    <string name="add_directory">폴더 추가</string>
+    <string name="pick_folder_from_library">라이브러리에서 폴더 선택</string>
+    <string name="directory_rescan_hint">변경하면 자동으로 다시 검색합니다</string>
+    <string name="intro_skip_permission">나중에</string>
+    <string name="library_permission_required">오디오 읽기 권한이 없어 라이브러리를 검색할 수 없습니다</string>
+    <string name="go_to_settings">설정 열기</string>
 </resources>

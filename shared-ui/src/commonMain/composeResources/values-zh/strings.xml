@@ -811,4 +811,14 @@
     <string name="agent_chat_receipt_all_skipped">本轮已全部跳过，未做改动。</string>
     <string name="agent_chat_receipt_done">已按你勾选执行 %1$d 项。</string>
     <string name="agent_chat_receipt_done_skipped">已按你勾选执行 %1$d 项，跳过 %2$d 项。</string>
+    <string name="scan_directories">扫描目录</string>
+    <string name="blocked_directories">屏蔽目录</string>
+    <string name="no_scan_directories">未指定目录，将扫描默认位置</string>
+    <string name="no_blocked_directories">未屏蔽任何目录</string>
+    <string name="add_directory">添加目录</string>
+    <string name="pick_folder_from_library">从媒体库中选择文件夹</string>
+    <string name="directory_rescan_hint">改动后会自动重新扫描</string>
+    <string name="intro_skip_permission">稍后再说</string>
+    <string name="library_permission_required">未授予音频读取权限，无法扫描音乐库</string>
+    <string name="go_to_settings">去设置</string>
 </resources>

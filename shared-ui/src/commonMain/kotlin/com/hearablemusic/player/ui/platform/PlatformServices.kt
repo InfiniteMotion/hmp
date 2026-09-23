@@ -31,6 +31,26 @@ interface ShareService {
     fun shareFile(filePath: String, mimeType: String, chooserTitle: String)
 }
 
+/**
+ * 目录选择方式 —— 决定 `LibrarySettingsScreen` 的目录管理区块如何呈现。
+ *
+ * 起因：`scanDirectories` 存的是**文件系统路径**（Desktop 用作扫描根、Android 用作 MediaStore
+ * 过滤前缀），但并非每个平台都能给出这样的路径。
+ */
+enum class DirectorySelectionMode {
+    /** 不支持自定义目录：相关区块**不渲染**（iOS —— 沙箱内音乐来自 Documents，无此概念）。 */
+    UNSUPPORTED,
+
+    /** 系统目录选择器，可给出任意文件系统路径（Desktop —— JFileChooser）。 */
+    ARBITRARY_PATH,
+
+    /**
+     * 从**已知文件夹**中挑选，平台无法给出任意路径
+     * （Android —— SAF 的 tree Uri 转不成路径，故改为从媒体库已有文件夹中选择）。
+     */
+    KNOWN_FOLDERS
+}
+
 /** 文件选择（ActivityResultContracts 的平台无关形态）。 */
 interface FilePickerService {
     /** 选择图片（GetContent，MIME 为 image 全类型）：封面/头像选择。返回 Uri 字符串，取消为 null。 */
@@ -38,6 +58,12 @@ interface FilePickerService {
 
     /** 选择备份文件（OpenDocument）：备份恢复入口。返回 Uri 字符串，取消为 null。 */
     fun openBackupFile(onResult: (String?) -> Unit)
+
+    /** 本平台的目录选择方式（见 [DirectorySelectionMode]）。 */
+    val directorySelectionMode: DirectorySelectionMode
+
+    /** 选择目录（绝对路径）。仅 [DirectorySelectionMode.ARBITRARY_PATH] 下有效，其余回调 null。 */
+    fun pickDirectory(onResult: (String?) -> Unit)
 }
 
 /** 权限请求。 */
@@ -50,6 +76,18 @@ interface PermissionService {
 
     /** 当前是否已授予悬浮窗权限。 */
     fun hasOverlayPermission(): Boolean
+
+    /**
+     * 音乐读取权限是否已授予（Android: `READ_MEDIA_AUDIO`，缺它 MediaStore 查不到歌）。
+     * 桌面 / iOS 无运行时权限体系 → 恒 `true`。
+     */
+    fun hasMusicReadAccess(): Boolean
+
+    /**
+     * 打开系统「应用设置」页 —— 权限被**永久拒绝**后（系统不再弹框）用户只能在此手动开启。
+     * Android: `ACTION_APPLICATION_DETAILS_SETTINGS`；桌面 / iOS 无对应概念 → 空实现。
+     */
+    fun openAppSettings()
 
     /**
      * 请求对指定曲目文件的写权限（Android: RecoverableSecurityException → IntentSender 流程）。

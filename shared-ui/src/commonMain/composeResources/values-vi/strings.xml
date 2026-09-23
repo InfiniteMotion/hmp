@@ -779,4 +779,14 @@
     <string name="agent_chat_receipt_all_skipped">Lần này bỏ qua tất cả — không có thay đổi.</string>
     <string name="agent_chat_receipt_done">Đã thực hiện %1$d thao tác đã chọn.</string>
     <string name="agent_chat_receipt_done_skipped">Đã thực hiện %1$d, bỏ qua %2$d.</string>
+    <string name="scan_directories">Thư mục quét</string>
+    <string name="blocked_directories">Thư mục bị loại trừ</string>
+    <string name="no_scan_directories">Chưa chỉ định — sẽ quét các vị trí mặc định</string>
+    <string name="no_blocked_directories">Không có thư mục bị loại trừ</string>
+    <string name="add_directory">Thêm thư mục</string>
+    <string name="pick_folder_from_library">Chọn thư mục từ thư viện</string>
+    <string name="directory_rescan_hint">Thay đổi sẽ tự động quét lại</string>
+    <string name="intro_skip_permission">Để sau</string>
+    <string name="library_permission_required">Chưa được cấp quyền đọc âm thanh — không thể quét thư viện</string>
+    <string name="go_to_settings">Mở cài đặt</string>
 </resources>

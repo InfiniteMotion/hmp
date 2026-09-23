@@ -779,4 +779,14 @@
     <string name="agent_chat_receipt_all_skipped">Tudo ignorado desta vez — nada foi alterado.</string>
     <string name="agent_chat_receipt_done">%1$d ações selecionadas aplicadas.</string>
     <string name="agent_chat_receipt_done_skipped">%1$d ações aplicadas, %2$d ignoradas.</string>
+    <string name="scan_directories">Pastas de varredura</string>
+    <string name="blocked_directories">Pastas excluídas</string>
+    <string name="no_scan_directories">Nenhuma especificada — os locais padrão serão verificados</string>
+    <string name="no_blocked_directories">Nenhuma pasta excluída</string>
+    <string name="add_directory">Adicionar pasta</string>
+    <string name="pick_folder_from_library">Escolher uma pasta da sua biblioteca</string>
+    <string name="directory_rescan_hint">As alterações acionam uma nova verificação automática</string>
+    <string name="intro_skip_permission">Agora não</string>
+    <string name="library_permission_required">Permissão de leitura de áudio não concedida — não é possível verificar a biblioteca</string>
+    <string name="go_to_settings">Abrir configurações</string>
 </resources>

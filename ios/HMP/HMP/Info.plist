@@ -26,6 +26,8 @@
 	<true/>
 	<key>NSAppleMusicUsageDescription</key>
 	<string>HMP 需要访问您的音乐库以便扫描和管理音乐文件</string>
+	<key>NSSupportsLiveActivities</key>
+	<true/>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>audio</string>

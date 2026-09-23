@@ -779,4 +779,14 @@
     <string name="agent_chat_receipt_all_skipped">تم تخطي كل شيء هذه الجولة — لم يتغيّر شيء.</string>
     <string name="agent_chat_receipt_done">نُفِّذ %1$d من الإجراءات المحددة.</string>
     <string name="agent_chat_receipt_done_skipped">نُفِّذ %1$d من الإجراءات وتم تخطي %2$d.</string>
+    <string name="scan_directories">مجلدات الفحص</string>
+    <string name="blocked_directories">المجلدات المستثناة</string>
+    <string name="no_scan_directories">لم يتم تحديد أي مجلد — سيتم فحص المواقع الافتراضية</string>
+    <string name="no_blocked_directories">لا توجد مجلدات مستثناة</string>
+    <string name="add_directory">إضافة مجلد</string>
+    <string name="pick_folder_from_library">اختر مجلدًا من مكتبتك</string>
+    <string name="directory_rescan_hint">تؤدي التغييرات إلى إعادة الفحص تلقائيًا</string>
+    <string name="intro_skip_permission">ليس الآن</string>
+    <string name="library_permission_required">لم يتم منح إذن قراءة الصوت — تعذّر فحص مكتبتك</string>
+    <string name="go_to_settings">فتح الإعدادات</string>
 </resources>

@@ -73,6 +73,8 @@ docs/7_x/
 │   ├── 方案.md                       方案定稿（v4，三轮 review 修订）
 │   ├── 接口冻结-调用点映射表.md        冻结基线：接口成员 → 调用点全量盘点
 │   ├── 资源A1-映射表.md               资源搬迁映射（Android res → composeResources）
+│   ├── 字符串资源取用规范.md          文案取用规范（非 composable 侧 UiText / 解析时机）
+│   ├── UI层统一-能力搬迁点检.md       平台能力倒退点检（R1–R3）+ 能力搬迁检查清单
 │   └── baseline/README.md            阶段一切换前基线：旧版 UI 截图存档 + 交互清单
 │
 └── B agent-build/    AI Agent 体系（v7.3 方向 B，已收口）

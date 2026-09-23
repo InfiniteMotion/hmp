@@ -779,4 +779,14 @@
     <string name="agent_chat_receipt_all_skipped">รอบนี้ข้ามทั้งหมด — ไม่มีการเปลี่ยนแปลง</string>
     <string name="agent_chat_receipt_done">ดำเนินการที่เลือก %1$d รายการแล้ว</string>
     <string name="agent_chat_receipt_done_skipped">ดำเนินการ %1$d รายการ ข้าม %2$d รายการ</string>
+    <string name="scan_directories">โฟลเดอร์ที่สแกน</string>
+    <string name="blocked_directories">โฟลเดอร์ที่ยกเว้น</string>
+    <string name="no_scan_directories">ยังไม่ได้ระบุ — จะสแกนตำแหน่งเริ่มต้น</string>
+    <string name="no_blocked_directories">ไม่มีโฟลเดอร์ที่ยกเว้น</string>
+    <string name="add_directory">เพิ่มโฟลเดอร์</string>
+    <string name="pick_folder_from_library">เลือกโฟลเดอร์จากคลังเพลง</string>
+    <string name="directory_rescan_hint">การเปลี่ยนแปลงจะสแกนใหม่อัตโนมัติ</string>
+    <string name="intro_skip_permission">ไว้ทีหลัง</string>
+    <string name="library_permission_required">ยังไม่ได้อนุญาตให้อ่านเสียง — ไม่สามารถสแกนคลังเพลงได้</string>
+    <string name="go_to_settings">เปิดการตั้งค่า</string>
 </resources>

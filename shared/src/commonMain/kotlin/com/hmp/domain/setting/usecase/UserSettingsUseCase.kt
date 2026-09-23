@@ -3,6 +3,7 @@ package com.hmp.domain.setting.usecase
 import com.hmp.domain.setting.SettingsRepository
 import com.hmp.domain.setting.model.AiAccessMode
 import com.hmp.domain.setting.model.AiEndpointConfig
+import com.hmp.domain.setting.model.ScanDirectoryConfig
 import kotlinx.coroutines.flow.Flow
 
 class UserSettingsUseCase(
@@ -110,6 +111,19 @@ class UserSettingsUseCase(
 
     suspend fun saveAutoBatchProcess(enabled: Boolean) {
         settingsRepository.saveAutoBatchProcess(enabled)
+    }
+
+    /**
+     * 目录管理配置（扫描目录 / 屏蔽目录）。
+     *
+     * 语义按平台落地：Desktop 为文件系统扫描根；Android 为 MediaStore 查询的 include/exclude 过滤。
+     * 此前该配置在 UI 层长期无任何读写入口（v7.1 桌面 UI 层删除时丢失），见
+     * `docs/7_x/A shared-ui/UI层统一-能力搬迁点检.md` R3。
+     */
+    val scanDirectoryConfig: Flow<ScanDirectoryConfig> = settingsRepository.scanDirectoryConfig
+
+    suspend fun saveScanDirectoryConfig(config: ScanDirectoryConfig) {
+        settingsRepository.saveScanDirectoryConfig(config)
     }
 
 }

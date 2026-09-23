@@ -31,6 +31,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -45,9 +46,12 @@ import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.hearablemusic.player.ui.common.dialogs.MusicScanDialog
 import com.hearablemusic.player.ui.common.design.animation.AnimationTokens
+import com.hearablemusic.player.ui.common.layout.LocalTitleBarInset
+import com.hearablemusic.player.ui.common.layout.rememberAppWindowSizeInfo
 import com.hearablemusic.player.ui.common.util.DEFAULT_HAZE_BLUR_RADIUS
 import com.hearablemusic.player.ui.common.util.DEFAULT_HAZE_INTENSITY
 import com.hearablemusic.player.ui.common.util.DEFAULT_HAZE_MATERIAL_PRESET
@@ -58,6 +62,7 @@ import com.hearablemusic.player.ui.common.util.HazeRenderSettings
 import com.hearablemusic.player.ui.common.util.ProvideHazeRenderSettings
 import com.hearablemusic.player.ui.generated.resources.grant_permission
 import com.hearablemusic.player.ui.generated.resources.ic_launcher_foreground
+import com.hearablemusic.player.ui.generated.resources.intro_skip_permission
 import com.hearablemusic.player.ui.generated.resources.intro_step_1
 import com.hearablemusic.player.ui.generated.resources.intro_step_1_desc
 import com.hearablemusic.player.ui.generated.resources.intro_step_2
@@ -86,10 +91,18 @@ fun IntroScreen(
     settingsViewModel: SettingsViewModel,
     libraryViewModel: LibraryViewModel,
     recommendationViewModel: RecommendationViewModel,
-    onFinished: ()-> Unit
+    onFinished: ()-> Unit,
+    /**
+     * 是否跳过首个「权限」步（桌面：无运行时权限体系，该步无意义）。
+     *
+     * 依据：旧桌面 UI 层曾有一份同构实现，内中即写明
+     * `// Desktop: skip permission step, start at scan` 且 `isPermissionGiven = true`。
+     * 默认 false —— Android / iOS 行为不变。
+     */
+    skipPermissionStep: Boolean = false
 ) {
-    val currentStep = remember { mutableIntStateOf(0) }
-    val isPermissionGiven = remember { mutableStateOf(false) }
+    val currentStep = remember { mutableIntStateOf(if (skipPermissionStep) 1 else 0) }
+    val isPermissionGiven = remember { mutableStateOf(skipPermissionStep) }
     val showScanDialog = remember { mutableStateOf(false) }
     val isScanCompleted = remember { mutableStateOf(false) }
     val userSettingsUseCase: UserSettingsUseCase = koinInject()
@@ -102,6 +115,32 @@ fun IntroScreen(
     val hazeIntensity by settingsViewModel.hazeIntensity.collectAsState(DEFAULT_HAZE_INTENSITY)
     
     val hazeState = rememberHazeState()
+
+    // ── F14 横屏 / 宽窗适配 ──
+    // ① 限宽居中：单列卡片在桌面、平板横屏下拉满会得到超长行。手机竖屏（Compact）不加约束，
+    //    与改造前逐像素一致。
+    // ② 手机横屏（isPhoneLandscape = 横屏 + 紧凑高度）：可用高度 < 480dp，而单列卡片的固有
+    //    高度约 580dp（Logo 88 + 品牌区 + 间隔 + 240dp 步骤区 + 内边距），必然溢出滚动；
+    //    卡内改左右分栏（左品牌 / 右步骤）后，高度需求降到约 220dp。
+    // ③ 横屏一律收紧内外边距，为分栏或单列再让出一截垂直空间。
+    //
+    // 注意：这里必须用 rememberAppWindowSizeInfo() 自算，而不是消费 LocalWindowSizeInfo ——
+    // 该 CompositionLocal 由 AppRoot 在其内部 provides，而首启引导在三个平台的宿主中
+    // 都挂在 AppRoot 之前（Android MainActivity / Desktop Main.kt / iOS IosAppRootShell），
+    // 消费本地必然抛「AppWindowSizeInfo not provided」并崩溃（真机已复现）。
+    // 本函数只依赖 Compose 运行时恒有的 LocalWindowInfo / LocalDensity，与 AppRoot
+    // 提供的值同源同算，行为一致。
+    val window = rememberAppWindowSizeInfo()
+    val isLandscape = window.isLandscape
+    val maxCardWidth = when {
+        window.isExpanded -> 720.dp
+        window.isMedium || isLandscape -> 640.dp
+        else -> Dp.Unspecified
+    }
+    val useLandscapeLayout = window.isPhoneLandscape
+    val rootVPadding = if (isLandscape) 16.dp else 32.dp
+    val cardHPadding = if (isLandscape) 24.dp else 32.dp
+    val cardVPadding = if (isLandscape) 24.dp else 40.dp
     
     // 权限授予后自动进入下一步
     LaunchedEffect(isPermissionGiven.value) {
@@ -116,6 +155,76 @@ fun IntroScreen(
     val requestIntroPermissions: () -> Unit = {
         platformServices.permission.requestIntroPermissions { allGranted ->
             isPermissionGiven.value = allGranted
+        }
+    }
+
+    // 步骤内容区：竖屏整宽单列、手机横屏放右栏 —— 抽成 lambda 供两种布局共用，避免正文重复两份。
+    val stepArea: @Composable (Modifier) -> Unit = { areaModifier ->
+        Box(
+            modifier = areaModifier,
+            contentAlignment = Alignment.Center
+        ) {
+            AnimatedContent(
+                targetState = currentStep.intValue,
+                transitionSpec = {
+                    slideInHorizontally(
+                        initialOffsetX = { it },
+                        animationSpec = tween(
+                            durationMillis = 300,
+                            easing = AnimationTokens.EASE_OUT
+                        )
+                    ) + fadeIn(
+                        animationSpec = tween(
+                            durationMillis = 300,
+                            easing = AnimationTokens.EASE_OUT
+                        )
+                    ) togetherWith
+                    slideOutHorizontally(
+                        targetOffsetX = { -it },
+                        animationSpec = tween(
+                            durationMillis = 300,
+                            easing = AnimationTokens.EASE_IN
+                        )
+                    ) + fadeOut(
+                        animationSpec = tween(
+                            durationMillis = 300,
+                            easing = AnimationTokens.EASE_IN
+                        )
+                    )
+                },
+                label = "step_transition"
+            ) { step ->
+                when (step) {
+                    0 -> PermissionStep(
+                        isPermissionGiven = isPermissionGiven.value,
+                        onRequestPermission = requestIntroPermissions,
+                        onSkip = { currentStep.intValue = 1 }
+                    )
+                    1 -> ScanMusicStep(
+                        isScanCompleted = isScanCompleted.value,
+                        onStartScan = {
+                            libraryViewModel.refreshMusicList()
+                            showScanDialog.value = true
+                        },
+                        onScanComplete = {
+                            showScanDialog.value = false
+                            isScanCompleted.value = true
+                            currentStep.intValue = 2
+                            // 首次扫描完成后，若为免费体验模式则自动触发 AI 批量补全
+                            // isLoadMusic 已在 LibraryViewModel 扫描成功后持久化
+                            if (aiAccessMode == AiAccessMode.FREE) {
+                                recommendationViewModel.startAutoProcessWithCurrentProvider()
+                            }
+                        },
+                        showScanDialog = showScanDialog.value,
+                        libraryViewModel = libraryViewModel,
+                        hazeState = hazeState
+                    )
+                    2 -> AiExperienceStep(
+                        onFinished = onFinished
+                    )
+                }
+            }
         }
     }
 
@@ -135,140 +244,93 @@ fun IntroScreen(
                 .hazeSource(state = hazeState)
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(vertical = 32.dp),
+                // 桌面：CustomTitleBar 悬浮叠加在内容之上，需为其让位。
+                // 其余端 LocalTitleBarInset 默认为 0.dp，等价于无变化。
+                .padding(top = LocalTitleBarInset.current)
+                .padding(vertical = rootVPadding),
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             // ── 统一容器：所有内容并入单一卡片 ──
             Surface(
                 modifier = Modifier
+                    // 宽窗限宽居中（F14 惯例）。手机竖屏 maxCardWidth = Dp.Unspecified → 不加约束。
+                    .then(
+                        if (maxCardWidth != Dp.Unspecified) Modifier.widthIn(max = maxCardWidth)
+                        else Modifier
+                    )
                     .fillMaxWidth()
                     .padding(horizontal = 20.dp),
                 shape = RoundedCornerShape(28.dp),
                 color = MaterialTheme.colorScheme.surface,
                 shadowElevation = 3.dp
             ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 32.dp)
-                        .padding(top = 40.dp, bottom = 40.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    // ── 卡片顶部：Logo + 品牌区 ──
-                    Image(
-                        painter = painterResource(Res.drawable.ic_launcher_foreground),
-                        contentDescription = "Logo",
-                        modifier = Modifier.size(88.dp),
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text(
-                        text = stringResource(Res.string.welcome_to),
-                        style = MaterialTheme.typography.titleSmall,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Row(verticalAlignment = Alignment.Bottom) {
-                        Text(
-                            text = "Hearable",
-                            style = MaterialTheme.typography.headlineMedium,
-                            color = MaterialTheme.colorScheme.primary,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            text = " Music Player",
-                            style = MaterialTheme.typography.headlineMedium,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(28.dp))
-
-                    // ── 胶囊式步骤指示器 ──
-                    StepIndicator(
-                        currentStep = currentStep.intValue,
-                        totalSteps = 3
-                    )
-
-                    Spacer(modifier = Modifier.height(28.dp))
-
-                    // ── 细分隔线 ──
-                    HorizontalDivider(
-                        modifier = Modifier.widthIn(max = 240.dp),
-                        thickness = 1.dp,
-                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-                    )
-
-                    Spacer(modifier = Modifier.height(32.dp))
-
-                    // ── 步骤内容区（固定高度，保证三个步骤大小一致） ──
-                    Box(
+                if (useLandscapeLayout) {
+                    // ── 手机横屏：左右分栏 ──
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(240.dp),
-                        contentAlignment = Alignment.Center
+                            .padding(horizontal = cardHPadding, vertical = cardVPadding),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        AnimatedContent(
-                            targetState = currentStep.intValue,
-                            transitionSpec = {
-                                slideInHorizontally(
-                                    initialOffsetX = { it },
-                                    animationSpec = tween(
-                                        durationMillis = 300,
-                                        easing = AnimationTokens.EASE_OUT
-                                    )
-                                ) + fadeIn(
-                                    animationSpec = tween(
-                                        durationMillis = 300,
-                                        easing = AnimationTokens.EASE_OUT
-                                    )
-                                ) togetherWith
-                                slideOutHorizontally(
-                                    targetOffsetX = { -it },
-                                    animationSpec = tween(
-                                        durationMillis = 300,
-                                        easing = AnimationTokens.EASE_IN
-                                    )
-                                ) + fadeOut(
-                                    animationSpec = tween(
-                                        durationMillis = 300,
-                                        easing = AnimationTokens.EASE_IN
-                                    )
+                        // ── 左栏：Logo + 品牌区 + 步骤指示器 ──
+                        BrandBlock(
+                            currentStep = currentStep.intValue,
+                            totalSteps = 3,
+                            modifier = Modifier.weight(1f),
+                            compact = true
+                        )
+
+                        // ── 竖直细分隔线 ──
+                        Box(
+                            modifier = Modifier
+                                .width(1.dp)
+                                .height(160.dp)
+                                .background(
+                                    MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
                                 )
-                            },
-                            label = "step_transition"
-                        ) { step ->
-                            when (step) {
-                                0 -> PermissionStep(
-                                    isPermissionGiven = isPermissionGiven.value,
-                                    onRequestPermission = requestIntroPermissions
-                                )
-                                1 -> ScanMusicStep(
-                                    isScanCompleted = isScanCompleted.value,
-                                    onStartScan = {
-                                        libraryViewModel.refreshMusicList()
-                                        showScanDialog.value = true
-                                    },
-                                    onScanComplete = {
-                                        showScanDialog.value = false
-                                        isScanCompleted.value = true
-                                        currentStep.intValue = 2
-                                        // 首次扫描完成后，若为免费体验模式则自动触发 AI 批量补全
-                                        // isLoadMusic 已在 LibraryViewModel 扫描成功后持久化
-                                        if (aiAccessMode == AiAccessMode.FREE) {
-                                            recommendationViewModel.startAutoProcessWithCurrentProvider()
-                                        }
-                                    },
-                                    showScanDialog = showScanDialog.value,
-                                    libraryViewModel = libraryViewModel,
-                                    hazeState = hazeState
-                                )
-                                2 -> AiExperienceStep(
-                                    onFinished = onFinished
-                                )
-                            }
-                        }
+                        )
+
+                        // ── 右栏：步骤内容 ──
+                        stepArea(
+                            Modifier
+                                .weight(1f)
+                                .height(220.dp)
+                        )
+                    }
+                } else {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = cardHPadding)
+                            .padding(top = cardVPadding, bottom = cardVPadding),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        // ── 卡片顶部：Logo + 品牌区 ──
+                        BrandBlock(
+                            currentStep = currentStep.intValue,
+                            totalSteps = 3,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+
+                        Spacer(modifier = Modifier.height(28.dp))
+
+                        // ── 细分隔线 ──
+                        HorizontalDivider(
+                            modifier = Modifier.widthIn(max = 240.dp),
+                            thickness = 1.dp,
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                        )
+
+                        Spacer(modifier = Modifier.height(32.dp))
+
+                        // ── 步骤内容区（固定高度，保证三个步骤大小一致）──
+                        stepArea(
+                            Modifier
+                                .fillMaxWidth()
+                                .height(240.dp)
+                        )
                     }
                 }
             }
@@ -317,7 +379,8 @@ private fun StepIndicator(
 @Composable
 fun PermissionStep(
     isPermissionGiven: Boolean,
-    onRequestPermission: () -> Unit
+    onRequestPermission: () -> Unit,
+    onSkip: () -> Unit
 ) {
     Column(
         modifier = Modifier.fillMaxHeight().fillMaxWidth(),
@@ -344,6 +407,16 @@ fun PermissionStep(
                 modifier = Modifier.width(200.dp)
             ) {
                 Text(stringResource(Res.string.grant_permission))
+            }
+            // 逃生口：权限被永久拒绝后系统不再弹框（且本步原本只有「授权」一条路径），
+            // 没有这个入口用户会永久卡在引导页。跳过后的「无权限 → 空库」由
+            // LibrarySettingsScreen 的权限提示条兜住。
+            TextButton(onClick = onSkip) {
+                Text(
+                    text = stringResource(Res.string.intro_skip_permission),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         } else {
             Button(
@@ -450,5 +523,63 @@ fun AiExperienceStep(
         ) {
             Text(stringResource(Res.string.start_experience))
         }
+    }
+}
+
+/**
+ * 卡片顶部品牌区：Logo + 欢迎语 + 产品名 + 步骤指示器。
+ *
+ * - [compact] = false（竖屏单列）：Logo 88dp、产品名 headlineMedium、末间隔 28dp —— 与改造前一致。
+ * - [compact] = true（手机横屏左栏，栏宽约 280dp）：Logo 收至 64dp、产品名降为 titleLarge，
+ *   否则产品名单行宽度（约 260dp）在该栏宽下会折行；末间隔一并收紧以省垂直空间。
+ */
+@Composable
+private fun BrandBlock(
+    currentStep: Int,
+    totalSteps: Int,
+    modifier: Modifier = Modifier,
+    compact: Boolean = false,
+) {
+    Column(
+        modifier = modifier,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Image(
+            painter = painterResource(Res.drawable.ic_launcher_foreground),
+            contentDescription = "Logo",
+            modifier = Modifier.size(if (compact) 64.dp else 88.dp),
+        )
+        Spacer(modifier = Modifier.height(if (compact) 12.dp else 16.dp))
+        Text(
+            text = stringResource(Res.string.welcome_to),
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        val nameStyle =
+            if (compact) MaterialTheme.typography.titleLarge
+            else MaterialTheme.typography.headlineMedium
+        Row(verticalAlignment = Alignment.Bottom) {
+            Text(
+                text = "Hearable",
+                style = nameStyle,
+                color = MaterialTheme.colorScheme.primary,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = " Music Player",
+                style = nameStyle,
+                color = MaterialTheme.colorScheme.onSurface,
+                fontWeight = FontWeight.Bold
+            )
+        }
+
+        Spacer(modifier = Modifier.height(if (compact) 20.dp else 28.dp))
+
+        // ── 胶囊式步骤指示器 ──
+        StepIndicator(
+            currentStep = currentStep,
+            totalSteps = totalSteps
+        )
     }
 }

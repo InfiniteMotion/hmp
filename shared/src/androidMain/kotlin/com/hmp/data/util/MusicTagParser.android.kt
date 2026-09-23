@@ -40,7 +40,8 @@ actual object MusicTagParser {
                 genre = tag?.getFirst(FieldKey.GENRE),
                 track = tag?.getFirst(FieldKey.TRACK),
                 duration = (header?.trackLength?.toLong() ?: 0L) * 1000,
-                bitRate = header?.bitRateAsNumber?.toInt()?.div(1000),
+                // jaudiotagger getBitRateAsNumber() 单位即 kbps（接口 Javadoc），无需再 /1000
+                bitRate = header?.bitRateAsNumber?.toInt(),
                 sampleRate = header?.sampleRateAsNumber?.toInt(),
                 format = header?.format,
                 lyrics = tag?.getFirst(FieldKey.LYRICS)

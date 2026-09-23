@@ -812,4 +812,14 @@
     <string name="agent_chat_receipt_all_skipped">All skipped this round — nothing changed.</string>
     <string name="agent_chat_receipt_done">Applied %1$d selected action(s).</string>
     <string name="agent_chat_receipt_done_skipped">Applied %1$d selected action(s), skipped %2$d.</string>
+    <string name="scan_directories">Scan folders</string>
+    <string name="blocked_directories">Excluded folders</string>
+    <string name="no_scan_directories">None specified — default locations will be scanned</string>
+    <string name="no_blocked_directories">No folders excluded</string>
+    <string name="add_directory">Add folder</string>
+    <string name="pick_folder_from_library">Pick a folder from your library</string>
+    <string name="directory_rescan_hint">Changes trigger an automatic rescan</string>
+    <string name="intro_skip_permission">Not now</string>
+    <string name="library_permission_required">Audio permission not granted — cannot scan your library</string>
+    <string name="go_to_settings">Open settings</string>
 </resources>

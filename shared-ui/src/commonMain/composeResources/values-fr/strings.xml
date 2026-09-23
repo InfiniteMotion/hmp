@@ -779,4 +779,14 @@
     <string name="agent_chat_receipt_all_skipped">Tout ignoré cette fois — aucun changement.</string>
     <string name="agent_chat_receipt_done">%1$d actions sélectionnées appliquées.</string>
     <string name="agent_chat_receipt_done_skipped">%1$d actions appliquées, %2$d ignorées.</string>
+    <string name="scan_directories">Dossiers d'analyse</string>
+    <string name="blocked_directories">Dossiers exclus</string>
+    <string name="no_scan_directories">Aucun spécifié — les emplacements par défaut seront analysés</string>
+    <string name="no_blocked_directories">Aucun dossier exclu</string>
+    <string name="add_directory">Ajouter un dossier</string>
+    <string name="pick_folder_from_library">Choisir un dossier de votre bibliothèque</string>
+    <string name="directory_rescan_hint">Les modifications déclenchent une nouvelle analyse automatique</string>
+    <string name="intro_skip_permission">Plus tard</string>
+    <string name="library_permission_required">Autorisation audio non accordée — impossible d'analyser la bibliothèque</string>
+    <string name="go_to_settings">Ouvrir les réglages</string>
 </resources>
