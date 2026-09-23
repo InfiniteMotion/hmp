@@ -102,3 +102,74 @@
 **与此前灵感的关系**：与 Agent / 语音类灵感无直接耦合，属独立的产品打磨项；但同样是「跨端能力抽象 + 设置页收口」的同类项，落地时可复用既有的 `SettingsRepository` / `dataStore` 与 `expect/actual` 平台桥接范式。
 
 **待决**：现有哪些交互已经在震动（需先 grep 调用点，避免新增策略后老代码绕过）；档位是"总开关 + 强度"还是"预设档位枚举"；Desktop 是否隐藏该设置；是否区分"媒体控制震动"与"通知震动"两套子策略。
+
+---
+
+## 2026-09-23 · Desktop 播放引擎改用 JavaCPP/JavaCV 的 FFmpeg 绑定
+
+**状态**：💡 灵感（未承诺进任何版本）
+
+**缘起**：Desktop 侧目前靠**外部 ffmpeg 可执行文件**解码 —— 构建期从第三方站点下载预编译二进制，运行期 `ProcessBuilder` 起进程、读 stdout 的裸 PCM 喂给 `SourceDataLine`。这条链路在 2026-09 暴露出一整类问题：下载型依赖的**架构必须匹配终端用户**，而构建脚本只判断了操作系统（`isMacOS`），没判断 CPU 架构。Apple Silicon 上因此拿到 x86_64 二进制，未装 Rosetta 时直接 `Exec failed, error: 86 (Bad CPU type in executable)`。
+
+**核心认知**：这不是"某个 URL 选错了"，而是**依赖形态选错了**。预编译二进制是"按 URL 取货"，构建系统看不见它的架构；而按 Maven 坐标解析的依赖，架构信息在构建系统可见的范围内，会被自动匹配。
+
+**设想**：改用 `org.bytedeco:ffmpeg-platform`（JavaCPP presets），原生库按平台分类器由 Gradle 自动解析对应架构 —— 正是"在 macOS 上编译运行应当自动匹配"的语义。同时把 `ProcessBuilder` + stdout 管道改写成 JavaCPP 的 API 调用（`avformat_open_input` / `avcodec_send_packet` 等），省掉一次进程间管道搬运。
+
+**收益**：
+- 从根上消灭"下载型依赖架构不匹配"这一整类问题，不再需要维护 (OS × 架构) 的 URL 清单与 SHA256。
+- 不再依赖第三方站点可用性；`ffmpeg-platform` 走 Maven Central，随依赖缓存。
+- 免去子进程：无 `ffmpeg` 可执行文件的外部依赖，release 包不再需要"把二进制塞进 `runtime/bin`"这套注入逻辑（连带消灭注入时序类 bug）。
+- 便于后续做精确 seek / 逐样本处理 / 音效链（与方向 C 的播放增强有协同）。
+
+**代价 / 风险**：
+- 依赖体积显著增大（`ffmpeg-platform` 会把各平台原生库都拉下来，需用 `ffmpeg` 而非 `ffmpeg-platform` 或做 classifier 裁剪）。
+- 解码链路要重写：现有 `FFmpegAudioEngine` 的 seek、暂停、进度统计、stderr 诊断都基于"进程 + 字节流"模型，改成 API 调用后这些都要重新实现。
+- JNI 调用边界上的内存管理（`AVFrame` / `AVPacket` 的 release）容易泄漏，需谨慎。
+- 量级接近方向 C 的一个子项，不宜顺手做。
+
+**与既有条目的关系**：与「桌面端 FFmpeg 获取可靠性」是同一问题的两种解法 —— 当前已按"固定 URL + SHA256 + 按架构选择"修好（低成本、保留外部进程模型）；本条是**根治型**替代方案，等方向 C（播放功能增强补齐）启动时一并评估是否值得切换。
+
+**待决**：是否真的需要平台裁剪（`ffmpeg` vs `ffmpeg-platform`）；重写 seek/暂停语义的成本；是否借机把 Desktop 播放引擎与 Android 的 Media3、iOS 的 AVFoundation 做更统一的抽象（三者目前是三套独立实现）。
+
+---
+
+## 2026-09-24 · 统一的 Agent 启动闸门（per-agent 端点可用性 + 有无工作可做）
+
+**状态**：🔶 待评估（已有方案草案，未排期；不进 v7.2）
+
+**缘起**：桌面端实测日志里，`EnrichSubAgent` 在**端点未配置**的情况下持续空转——`hasLLM=true | endpoint= | hasKey=false`，每轮「1 次 DB 查询 + 1 次必然失败的 LLM 调用」，攒满 5 次失败后退避 15s，计数清零后从头再来，只要应用开着就永不停止。有效信息被几十行 `callLlmText failed` 淹没。
+
+**核心认知（这也是本条值得单独立项的原因）**：这不是 Enrich 一个 agent 的 bug，而是**「Agent 生命周期缺少统一的启动前置条件」**。体系里每个 agent（master / chat / enrich / radio / hello）都可以有**自己的端点覆盖**（`SettingsRepository.getAgentEndpointConfig(agentId)`），那么「能不能发请求」就必然是**每个 agent 各自一份**的判据——现在却是各写各的：
+- `HelloSubAgent` 自发做了 `enableLlm = helloTransport != null && helloConfig?.isConfigured == true`（局部解，恰好对了）；
+- `MasterAgent.updateAiConfig()` 里 `perAgent[..]?.takeIf { it.isConfigured } ?: globalConfig` 的**兜底分支没过闸**，于是拿到一个"存在但发不出去"的配置；
+- `isConfigured` 本身只是设置页写下的标记，`true` 时 endpoint/apiKey 仍可能为空，不能当作"能发请求"的依据；
+- 失败重试策略也是各写各的（Enrich 只有「连续 5 次 → 固定 15s」）。
+
+**设想**：抽一层通用闸门，让"该不该启动、该不该发请求"只有一处定义。
+
+1. **领域层单一判据**：`AiEndpointConfig.isUsable = endpoint.isNotBlank() && apiKey.isNotBlank()`，替代散落的 `isConfigured` / `!= null` 判据。
+2. **Master 侧统一闸门**（对齐 F1：Master 决策外部生命周期），per-agent 求三道闸：
+   ```
+   ① 端点闸  resolveEndpoint(agentId).isUsable
+   ② 工作闸  agent.hasWork()          // enrich=有待富化项；radio=有队列可续；hello=有卡片可生成
+   ③ 策略闸  policy.enabled           // 如 enrichPolicyConfig.enabled
+   三者全过 → 创建/启动；任一不过 → 不创建（或 stop）
+   ```
+3. **生命周期闭环**：端点「不可用→可用」或工作「无→有」→ 启动；反向 → `stop`。触发点现成的有 `updateAiConfig()`（设置页保存 / 启动），曲库侧可用 `musicRepository.getMusicCount()` 订阅补「扫完才开工」。
+4. **agent 内部只留兜底护栏**，不重复实现主判据：端点运行期被清空 → 挂起不发请求；连续失败 → **指数退避（15s→30s→…→上限）**，成功或配置变更即重置。
+5. **可观测**：`CapabilityState.detail` 区分「未配置端点」/「无待处理项」/「已达标」——现在三态都显示 IDLE，看不出是没配还是做完了。
+
+**收益**：
+- 从根上消灭「端点不可用时空转」这一整类问题，且**对新增 agent 自动生效**（接入闸门即获得，不用每个 agent 自己记得判）。
+- per-agent 端点覆盖的语义真正落地：A 配了 key、B 没配，就只有 A 跑。
+- 日志信噪比恢复；Scheduler 的 token 预算不再被必然失败的调用挤占（对 F12 token 治理是正相关的）。
+- Hello 的 `enableLlm` 这类局部解收敛进统一闸门，减少"两个 agent 两种判据"的漂移。
+
+**代价 / 风险**：
+- **最大风险是"收紧后没人启动"**：闸门一收，触发点必须逐个补齐（`updateAiConfig` / 扫描完成 / 设置页开关），漏一个就变成某个 agent 永不启动。**这条不闭环，不如不改。**
+- 每个 agent 的「有工作可做」谓词不同，需要各自定义，是本次设计的主要工作量。
+- 启动/停止变频繁后要确认幂等（`startEnrich` 已有 mutex + 先 stop 再建的写法，可复用）。
+
+**与既有条目的关系**：与 Agent 类灵感同源，但与「MCP / A2A 外溢」无耦合。若落地，与方向 B 的 A0（Capability 统一化）、F12（token 计量）天然衔接——`hasWork()` 可以考虑直接作为 `Capability` 接口的一个成员，与 `CapabilityStatusTool` 同一层。Enrich 那一处的**最小修复**（只加端点闸 + 闭环）是通用框架的一个特例，两者不冲突，可以先修后再评估是否升格本条。
+
+**待决**：`hasWork()` 放哪里（扩 `Capability` 接口 vs Master 内 `when` 分支表）；是否所有 agent 都允许端点覆盖（UI 侧现状需核对）；触发点清单是否还有遗漏（如备份还原、语言切换后重算）；UI 是否要把「未配置端点」做成可点击跳转设置页的提示。

@@ -275,19 +275,11 @@ class MusicController(
             restoreLastPosition()
         }
 
-        // 监听默认播放列表的变化
-        scope.launch {
-            currentPlayListId
-                .filterNotNull()
-                .collectLatest { playlistId ->
-                    managePlaylistUseCase.getMusicInfoInPlaylist(playlistId)
-                        .collect { playlist ->
-                            _currentPlaylist.value = playlist
-                            // 更新索引
-                            updateCurrentIndex()
-                        }
-                }
-        }
+        // 注意：这里**不再**常驻收集 DB 队列回流。内存队列是播放的事实源，DB 只是持久化
+        // 副本：运行中用 DB 快照覆写内存会把刚入队的曲目抹掉（写盘慢于回流时尤甚），
+        // 而系统歌单行缺失导致写库 FK 必败时回流永远带空快照，表现即队列「闪一下消失」。
+        // DB 快照只在启动恢复（[loadPlaylistFromSettings]）时采纳一次。
+        // 与 Desktop 端 `DesktopMusicController` 保持一致（2026-09-23 同一事故修复）。
 
         // 监听当前播放音乐的变化
         scope.launch {
@@ -404,7 +396,7 @@ class MusicController(
     fun clearPlaylist() {
         _currentPlaylist.value = emptyList()
         _currentIndex.value = 0
-        persistCurrentPlaylistToDatabase()
+        persistCurrentPlaylistToDatabase(_currentPlaylist.value)
     }
 
 
@@ -498,7 +490,7 @@ class MusicController(
             _currentPlaylist.value = playlist
             togglePlaybackMode(PlaybackMode.SEQUENTIAL)
             _currentIndex.value = 0
-            persistCurrentPlaylistToDatabase()
+            persistCurrentPlaylistToDatabase(_currentPlaylist.value)
             playCurrentTrack("Order")
         }
     }
@@ -508,7 +500,7 @@ class MusicController(
             _currentPlaylist.value = playlist
             togglePlaybackMode(PlaybackMode.SHUFFLE)
             _currentIndex.value = 0
-            persistCurrentPlaylistToDatabase()
+            persistCurrentPlaylistToDatabase(_currentPlaylist.value)
             playCurrentTrack("Shuffle")
         }
     }
@@ -705,7 +697,7 @@ class MusicController(
     fun addToPlaylist(musicInfo: MusicInfo) {
         if (_currentPlaylist.value.none { it.music.id == musicInfo.music.id }) {
             _currentPlaylist.value = _currentPlaylist.value + musicInfo
-            persistCurrentPlaylistToDatabase()
+            persistCurrentPlaylistToDatabase(_currentPlaylist.value)
         }
     }
     
@@ -736,7 +728,7 @@ class MusicController(
         // 插入歌曲
         newList.add(insertIndex, musicInfo)
         _currentPlaylist.value = newList
-        persistCurrentPlaylistToDatabase()
+        persistCurrentPlaylistToDatabase(_currentPlaylist.value)
     }
 
     private fun switchToMusicInPlaylist(musicInfo: MusicInfo) {
@@ -746,7 +738,7 @@ class MusicController(
 
     fun removeFromPlaylist(musicInfo: MusicInfo) {
         _currentPlaylist.value = _currentPlaylist.value.filter { it.music.id != musicInfo.music.id }
-        persistCurrentPlaylistToDatabase()
+        persistCurrentPlaylistToDatabase(_currentPlaylist.value)
         // 更新索引
         updateCurrentIndex()
     }
@@ -758,7 +750,7 @@ class MusicController(
             val item = currentList.removeAt(index)
             currentList.add(0, item)
             _currentPlaylist.value = currentList
-            persistCurrentPlaylistToDatabase()
+            persistCurrentPlaylistToDatabase(_currentPlaylist.value)
             // 更新索引
             updateCurrentIndex()
             showToast("已置顶：${musicInfo.music.title}")
@@ -869,13 +861,26 @@ class MusicController(
         scope.launch { currentPlaybackUseCase.saveCurrentMusicId(id) }
     }
 
-    private fun persistCurrentPlaylistToDatabase() {
+    /**
+     * 把 [snapshot] 整条写回当前播放列表。
+     *
+     * 必须由调用方在**改完内存队列的那一刻**传入快照，不能在协程里惰性读
+     * `_currentPlaylist.value`：协程真正运行时队列可能已被后续操作改过，写回的就不是
+     * 这次操作对应的队列状态。
+     *
+     * 写失败不上抛（播放不因 DB 故障中断），但必须可见——外键失败多半意味着系统歌单行
+     * 缺失，DefaultPlaylistGuard（shared-ui）的自愈事件应与此日志对照排查。
+     * 与 Desktop 端 `DesktopMusicController` 保持同一契约。
+     */
+    private fun persistCurrentPlaylistToDatabase(snapshot: List<MusicInfo>) {
         scope.launch {
             try {
                 val playlistId = currentPlayListId.filterNotNull().first()
-                managePlaylistUseCase.resetPlaylistItems(playlistId, _currentPlaylist.value)
+                managePlaylistUseCase.resetPlaylistItems(playlistId, snapshot)
             } catch (e: Exception) {
-                // Ignore
+                HmpLog.w(LogTag.PlayerCore, e) {
+                    "播放队列持久化失败 size=${snapshot.size}（目标歌单行缺失或 DB 异常）"
+                }
             }
         }
     }
@@ -1036,7 +1041,7 @@ class MusicController(
         stopProgressTracking()
         unbindService()
         scope.launch {
-            persistCurrentPlaylistToDatabase()
+            persistCurrentPlaylistToDatabase(_currentPlaylist.value)
         }
     }
 }

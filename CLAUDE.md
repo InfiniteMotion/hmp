@@ -110,7 +110,7 @@ xcodebuild -workspace ios/HMP.xcworkspace -scheme HMP -configuration Debug \
 
 ### 自定义 Gradle 任务全清单
 
-项目自行注册的任务共 **26 个**，分布在 3 个构建脚本中（`./gradlew tasks --group release` 只显示 `group = "release"` 的 8 个）：
+项目自行注册的任务共 **25 个**，分布在 3 个构建脚本中（`./gradlew tasks --group release` 只显示 `group = "release"` 的 8 个）：
 
 **验证类：测试（7 个，group = `verification`）**
 
@@ -169,7 +169,7 @@ xcodebuild -workspace ios/HMP.xcworkspace -scheme HMP -configuration Debug \
 | `cleanReleases` | 清理 `releases/` 产物（保留目录与 `.gitkeep`） |
 | `cleanOrphans` | 列出孤儿 `build/` 目录（**只打印，不自动删**） |
 
-**FFmpeg（3 个，`desktop/app`，group = `desktop`）**：`downloadFFmpeg` / `injectFFmpeg` / `injectFFmpegForDev`
+**FFmpeg（2 个，`desktop/app`，group = `desktop`）**：`downloadFFmpeg` / `injectFFmpeg`（`injectFFmpegForDev` 已于 2026-09 移除：`run` 改用 `-Dhmp.ffmpeg.path` 直接指向 `build/ffmpeg/`，不再往 `~/ffmpeg/bin` 写副本）
 
 **iOS 图标（1 个，`shared`，无 group）**：`copyIconsToIos`（源目录不存在，当前空转）
 

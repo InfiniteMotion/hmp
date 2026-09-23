@@ -285,7 +285,8 @@ fun ConfirmMatrixCard(
 @Composable
 private fun TextBubbleContent(message: CompanionMessage) {
     Text(
-        text = message.text,
+        // 资源型文案在组合期才解析（ViewModel 侧只带引用），随语言切换自动跟随
+        text = message.textRes?.asString() ?: message.text,
         style = MaterialTheme.typography.bodyLarge,
         color = LocalContentColor.current,
     )

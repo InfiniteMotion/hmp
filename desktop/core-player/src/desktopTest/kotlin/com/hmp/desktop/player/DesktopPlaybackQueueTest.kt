@@ -10,8 +10,7 @@ import com.hmp.domain.setting.usecase.CurrentPlaybackUseCase
 import com.hmp.domain.setting.usecase.PlaybackHistoryUseCase
 import com.hmp.domain.setting.usecase.TimerUseCase
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.test.advanceUntilIdle
-import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.runCurrent
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -34,10 +33,11 @@ import kotlin.test.assertTrue
  * - `playAt`         ：从当前下标处开始播放指定曲目（**不重建队列**）
  * - `playWith`       ：= `addToPlaylist` + 播放（**不调 clearPlaylist**）
  *
- * 技术前提：controller 的 `scope` 绑定 `Dispatchers.Main`；`runTest {}` 会自动把
- * `Dispatchers.Main` 指向一个**隔离的 TestDispatcher**，且每个用例独立调度器，
- * 天然杜绝跨用例污染。其中 `playMusic` 在 `scope.launch` 内更新 `currentIndex`，
- * 故断言前须 `advanceUntilIdle()`。
+ * 技术前提：controller 的 `scope` 绑定 `Dispatchers.Main`，故用例统一走
+ * [runTestWithMain]（它把 Main 接管为与本用例同一 scheduler 的测试调度器）。
+ * ⚠️ 不要退回裸 `runTest`：`desktopTestRuntimeClasspath` 里有 `kotlinx-coroutines-swing`，
+ * Main 会是**真实的 Swing EDT**，于是 `playWith` 这类「在 `scope.launch` 里改索引」
+ * 的用例变成赌竞态 —— 曾出现「单独跑绿、全量跑红」。见 [runTestWithMain] KDoc。
  *
  * Fake 约定（`QueueTestFakes.stubInterface`）：所有 `Flow` 默认「什么也不发射」，
  * 使 `init` 里的响应式恢复逻辑（`currentPlayListId` 收集器、`loadPlaylistFromSettings`）
@@ -64,7 +64,7 @@ class DesktopPlaybackQueueTest {
     }
 
     @Test
-    fun addToPlaylist_appendsToTail() = runTest {
+    fun addToPlaylist_appendsToTail() = runTestWithMain {
         val (controller, _) = newController()
         controller.addToPlaylist(testMusicInfo(1))
         controller.addToPlaylist(testMusicInfo(2))
@@ -74,7 +74,7 @@ class DesktopPlaybackQueueTest {
     }
 
     @Test
-    fun addToPlaylist_deduplicatesWholeQueue() = runTest {
+    fun addToPlaylist_deduplicatesWholeQueue() = runTestWithMain {
         val (controller, _) = newController()
         controller.addToPlaylist(testMusicInfo(1))
         controller.addToPlaylist(testMusicInfo(2))
@@ -84,7 +84,7 @@ class DesktopPlaybackQueueTest {
     }
 
     @Test
-    fun addToPlaylist_doesNotClearExistingQueue() = runTest {
+    fun addToPlaylist_doesNotClearExistingQueue() = runTestWithMain {
         val (controller, _) = newController()
         controller.addToPlaylist(testMusicInfo(1))
         controller.addToPlaylist(testMusicInfo(2))
@@ -98,7 +98,7 @@ class DesktopPlaybackQueueTest {
     }
 
     @Test
-    fun playAt_locatesWithinExistingQueueWithoutRebuilding() = runTest {
+    fun playAt_locatesWithinExistingQueueWithoutRebuilding() = runTestWithMain {
         val (controller, _) = newController()
         controller.addToPlaylist(testMusicInfo(1))
         controller.addToPlaylist(testMusicInfo(2))
@@ -106,7 +106,7 @@ class DesktopPlaybackQueueTest {
         val sizeBefore = controller.currentPlaylist.value.size
 
         controller.playAt(testMusicInfo(2))
-        advanceUntilIdle()
+        runCurrent()
 
         // playAt 定位到既有队列中的下标，队列长度不变
         assertEquals(sizeBefore, controller.currentPlaylist.value.size)
@@ -114,12 +114,12 @@ class DesktopPlaybackQueueTest {
     }
 
     @Test
-    fun playAt_notInQueue_isNoOp() = runTest {
+    fun playAt_notInQueue_isNoOp() = runTestWithMain {
         val (controller, _) = newController()
         controller.addToPlaylist(testMusicInfo(1))
 
         controller.playAt(testMusicInfo(99)) // 不在队列中
-        advanceUntilIdle()
+        runCurrent()
 
         // 记录当前语义：静默 no-op（不追加、不改索引）。接口 KDoc 未定义此情形。
         assertEquals(listOf(1L), controller.currentPlaylist.value.map { it.music.id })
@@ -127,12 +127,12 @@ class DesktopPlaybackQueueTest {
     }
 
     @Test
-    fun playWith_appendsAndPlays_withoutClearingQueue() = runTest {
+    fun playWith_appendsAndPlays_withoutClearingQueue() = runTestWithMain {
         val (controller, _) = newController()
         controller.addToPlaylist(testMusicInfo(1))
 
         controller.playWith(testMusicInfo(2))
-        advanceUntilIdle()
+        runCurrent()
 
         // playWith = addToPlaylist + 播放；队列应含旧曲 + 新曲，且索引指向新曲（证明已播放）
         assertEquals(listOf(1L, 2L), controller.currentPlaylist.value.map { it.music.id })
@@ -140,26 +140,26 @@ class DesktopPlaybackQueueTest {
     }
 
     @Test
-    fun clearPlaylist_emptiesQueueAndResetsIndex() = runTest {
+    fun clearPlaylist_emptiesQueueAndResetsIndex() = runTestWithMain {
         val (controller, _) = newController()
         controller.addToPlaylist(testMusicInfo(1))
         controller.addToPlaylist(testMusicInfo(2))
 
         controller.clearPlaylist()
-        advanceUntilIdle()
+        runCurrent()
 
         assertTrue(controller.currentPlaylist.value.isEmpty())
         assertEquals(0, controller.currentIndex.value)
     }
 
     @Test
-    fun addAllToPlaylistInOrder_replacesEntireQueue_contraryToItsName() = runTest {
+    fun addAllToPlaylistInOrder_replacesEntireQueue_contraryToItsName() = runTestWithMain {
         val (controller, _) = newController()
         controller.addToPlaylist(testMusicInfo(1))
         controller.addToPlaylist(testMusicInfo(2))
 
         controller.addAllToPlaylistInOrder(listOf(testMusicInfo(7), testMusicInfo(8)))
-        advanceUntilIdle()
+        runCurrent()
 
         // 记录「名不副实」的实际语义：整条替换 + 索引归零。
         // UI 侧曾误以为它是"按顺序追加"，用它做列表点播 —— 那会清掉用户队列，

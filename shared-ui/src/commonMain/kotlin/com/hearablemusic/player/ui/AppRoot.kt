@@ -1,8 +1,12 @@
 package com.hearablemusic.player.ui
 import com.hearablemusic.player.ui.generated.resources.Res
 import org.jetbrains.compose.resources.getString
+import com.hearablemusic.player.ui.generated.resources.default_playlist
+import com.hearablemusic.player.ui.generated.resources.heart
 import com.hearablemusic.player.ui.generated.resources.notice_off_taste
 import com.hearablemusic.player.ui.generated.resources.notice_skipped
+import com.hearablemusic.player.ui.generated.resources.recently_played
+import com.hearablemusic.player.ui.startup.DefaultPlaylistGuard
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
@@ -96,6 +100,8 @@ import com.hearablemusic.player.ui.player.viewmodel.PlaybackViewModel
 import com.hearablemusic.player.ui.player.viewmodel.PlaylistQueueViewModel
 import com.hearablemusic.player.ui.settings.viewmodel.SettingsViewModel
 import com.hmp.domain.setting.usecase.LyricsSettingsUseCase
+import com.hmp.domain.playlist.usecase.ManagePlaylistUseCase
+import com.hmp.domain.setting.SettingsRepository
 import com.hmp.domain.agent.infra.PresenceBus
 import com.hmp.domain.agent.infra.PresenceEvent
 import com.hmp.domain.agent.runtime.MasterAgent
@@ -132,6 +138,17 @@ fun AppRoot(darkTheme: Boolean) {
     val masterAgent: MasterAgent = koinInject()
     // 控制台点节目单跳曲目：RadioTrack 只有 id，得按 id 查回 MusicInfo 才能播放（同 HomeScreen 先例）
     val musicRepository: MusicRepository = koinInject()
+
+    // 启动不变量：系统歌单存在性校验 + 自愈（每次启动一次，详见 DefaultPlaylistGuard KDoc）
+    val guardManagePlaylistUseCase: ManagePlaylistUseCase = koinInject()
+    val guardSettingsRepository: SettingsRepository = koinInject()
+    LaunchedEffect(Unit) {
+        DefaultPlaylistGuard(guardManagePlaylistUseCase, guardSettingsRepository).ensureAll(
+            currentName = getString(Res.string.default_playlist),
+            likedName = getString(Res.string.heart),
+            recentName = getString(Res.string.recently_played),
+        )
+    }
 
     val dialogManager = dialogManagerViewModel.dialogManager
     // 订阅调色板、当前曲目与播放状态

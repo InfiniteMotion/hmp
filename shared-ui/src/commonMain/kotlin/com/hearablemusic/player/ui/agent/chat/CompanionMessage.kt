@@ -62,6 +62,15 @@ data class CompanionMessage(
     val confirmItems: List<ConfirmItem> = emptyList(),
     /** 执行回执文案（「已建 9 首，跳过 3 首」式），仅在确认卡执行完毕后非空。 */
     val receipt: UiText? = null,
+    /**
+     * 资源型文案（问候语 / 离线错误一类），与 [text] 二选一：非空时渲染它、[text] 留空。
+     *
+     * 为什么不直接在 ViewModel 里 `getString` 成 [text]：`getString` 走的是**系统**资源
+     * 环境，结果一经调用即被冻结（应用内切语言后不会跟着变，见 `UiText` KDoc）；而且它
+     * 依赖 Android `Resources`，会让 ViewModel 在纯 JVM 的 `androidHostTest` 里直接抛
+     * `Resources.getSystem not mocked`。非 composable 侧只携带引用，解析留给组合期。
+     */
+    val textRes: UiText? = null,
     /** 系统/单测注入的判定文案（渲染快照用）。 */
     val note: String = "",
 )

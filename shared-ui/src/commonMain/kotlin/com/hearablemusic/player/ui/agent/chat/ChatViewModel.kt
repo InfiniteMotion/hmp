@@ -28,7 +28,6 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import com.hmp.log.HmpLog
 import com.hmp.log.LogTag
-import org.jetbrains.compose.resources.getString
 
 /** 待确认的非模态卡片状态（M5-T4）。 */
 data class ConfirmCardState(
@@ -90,10 +89,18 @@ class ChatViewModel(
                     })
                 }
             } else {
-                // 无历史会话：填入问候语（惰性解析，随语言变化）
-                val greet = getString(Res.string.agent_chat_greeting)
+                // 无历史会话：填入问候语。只携带资源引用，解析留给组合期（随语言变化），
+                // 不在 ViewModel 里 getString —— 那样既冻结语言，又让纯 JVM 单测崩。
                 _state.update {
-                    it.copy(messages = listOf(CompanionMessage(id = 1, fromUser = false, text = greet)))
+                    it.copy(
+                        messages = listOf(
+                            CompanionMessage(
+                                id = 1,
+                                fromUser = false,
+                                textRes = Res.string.agent_chat_greeting.asUiText(),
+                            )
+                        )
+                    )
                 }
             }
         }
@@ -257,7 +264,9 @@ class ChatViewModel(
                             bubbles += buildAssistantBubbles(text = event.text, confirmItems = emptyList(), records = event.toolCalls)
                             val ided = bubbles.map { it.copy(id = nextId()) } // 统一分配稳定 id，避免 LazyColumn 撞键（问候=1）
                             HmpLog.i(LogTag.AgentChat) { "💬 chat finished: bubbles=${ided.size} terminated=${event.terminatedBy} text=${event.text.take(119)}…" }
-                            ided.forEach { persist("agent", it.text, it.renderHint) }
+                            // 资源文案气泡（textRes）无已解析文本，不落库（理由同 Failed 分支）
+                            ided.filter { it.text.isNotBlank() }
+                                .forEach { persist("agent", it.text, it.renderHint) }
                             _state.update {
                                 it.copy(
                                     running = false,
@@ -270,7 +279,6 @@ class ChatViewModel(
                             gatewayBridge = null
                         }
                         is ChatAgentEvent.Failed -> {
-                            val err = getString(Res.string.agent_chat_error_offline)
                             HmpLog.w(LogTag.AgentChat) { "💬 chat failed: ${event.message}" }
                             _state.update {
                                 it.copy(
@@ -278,11 +286,14 @@ class ChatViewModel(
                                     runningHint = null,
                                     pendingConfirm = null,
                                     messages = it.messages + CompanionMessage(
-                                        id = nextId(), fromUser = false, text = err,
+                                        id = nextId(),
+                                        fromUser = false,
+                                        textRes = Res.string.agent_chat_error_offline.asUiText(),
                                     ),
                                 )
                             }
-                            persist("agent", err, CompanionRenderHint.TEXT)
+                            // 错误气泡是资源文案，不再落库：库里只能存已解析的字符串，
+                            // 存下去等于把语言冻结在失败那一刻（下次读出来仍是旧语言）。
                             submittedConfirms.clear()
                             gatewayBridge = null
                         }

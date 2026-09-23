@@ -472,7 +472,7 @@ hmp.versionName=7.1.0
 | **编译**（`build`） | `compileAll`、`compileCore`、`compileUi`、`compileDesktop`、`compileAndroid` |
 | **发布**（`release`） | `release`、`releaseAndroid`、`copyAndroidDebug`、`releaseIos`、`releaseDesktop`、`copyDesktopJar`、`checkVersion`、`preflight` |
 | **清理**（`build`） | `cleanReleases`、`cleanOrphans` |
-| **FFmpeg**（`desktop`） | `downloadFFmpeg`、`injectFFmpeg`、`injectFFmpegForDev` |
+| **FFmpeg**（`desktop`） | `downloadFFmpeg`、`injectFFmpeg`（`injectFFmpegForDev` 已于 2026-09 移除，`run` 直接依赖 `downloadFFmpeg`） |
 | **iOS 图标** | `copyIconsToIos`（空转） |
 
 > 注：`android:app` / `android:core-player` **不暴露 `compile*` 任务**（AGP 内置 Kotlin），故 `compileAndroid` 用 `assembleDebug`。

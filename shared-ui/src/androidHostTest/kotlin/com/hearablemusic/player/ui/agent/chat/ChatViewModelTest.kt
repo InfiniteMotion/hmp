@@ -1,5 +1,6 @@
 package com.hearablemusic.player.ui.agent.chat
 
+import com.hearablemusic.player.ui.common.text.UiText
 import com.hmp.domain.agent.port.ConfirmRequest
 import com.hmp.domain.agent.runtime.TerminationReason
 import com.hmp.domain.agent.port.AgentMessageStore
@@ -18,6 +19,7 @@ import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -60,6 +62,7 @@ class ChatViewModelTest {
     fun send_appendsUserBubbleAndRunsWithHint() = runTest(dispatcher.scheduler) {
         val gateway = FakeChatAgentGateway()
         val vm = vm(gateway)
+        runCurrent() // init 里的会话恢复 / 问候填充跑在 viewModelScope 上
 
         assertEquals(1, vm.state.value.messages.size) // 问候区
         vm.onInputChange("帮我建个歌单")
@@ -68,7 +71,9 @@ class ChatViewModelTest {
 
         val state = vm.state.value
         assertTrue(state.running)
-        assertTrue(state.runningHint.isNotBlank())
+        // F14-T2 起 runningHint 是 UiText（组合期才解析），非组合侧只能做结构断言
+        assertNotNull(state.runningHint)
+        assertTrue(state.runningHint is UiText.Res)
         assertEquals(2, state.messages.size)
         val userBubble = state.messages.last()
         assertTrue(userBubble.fromUser)
@@ -92,6 +97,7 @@ class ChatViewModelTest {
     fun sendPreloaded_appendsUserBubbleAndRuns_withoutInputField() = runTest(dispatcher.scheduler) {
         val gateway = FakeChatAgentGateway()
         val vm = vm(gateway)
+        runCurrent() // 等问候区落地
 
         vm.sendPreloaded("你好") // 外部入口带入（M1 锚点 → M5 对话）
         runCurrent()
@@ -173,7 +179,13 @@ class ChatViewModelTest {
         assertEquals(CompanionRenderHint.CONFIRM, confirmBubble.renderHint)
         assertEquals(2, confirmBubble.confirmItems.size)
         assertEquals(1, confirmBubble.confirmItems.count { it.selected })
-        assertTrue(confirmBubble.receipt.contains("执行 1 项"))
+        // 回执同为 UiText：只能断言「资源引用 + 携带的参数」，最终文案要组合期才解析。
+        // 注意 androidHostTest 源集没有生成 Res 访问器（generateResourceAccessorsForCommonTest
+        // NO-SOURCE），故无法比对具体是哪一条字符串资源，改以参数形状区分：
+        // 「执行 n 项 + 跳过 m 项」= [n, m]，「全部跳过」= []。
+        val doneSkipped = confirmBubble.receipt as? UiText.Res
+        assertNotNull(doneSkipped)
+        assertEquals(listOf(1, 1), doneSkipped?.args)
         assertEquals(CompanionRenderHint.TEXT, textBubble.renderHint)
         assertEquals("已整理到歌单", textBubble.text)
     }
@@ -198,13 +210,16 @@ class ChatViewModelTest {
 
         val confirmBubble = vm.state.value.messages[vm.state.value.messages.lastIndex - 1]
         assertTrue(confirmBubble.confirmItems.none { it.selected })
-        assertTrue(confirmBubble.receipt.contains("全部跳过"))
+        val allSkipped = confirmBubble.receipt as? UiText.Res
+        assertNotNull(allSkipped)
+        assertTrue(allSkipped?.args.isNullOrEmpty())
     }
 
     @Test
     fun send_blockedWhileConfirmPendingAndUnsubmitted() = runTest(dispatcher.scheduler) {
         val gateway = FakeChatAgentGateway()
         val vm = vm(gateway)
+        runCurrent() // 等问候区落地
         vm.onInputChange("第一次")
         vm.send()
         runCurrent()
@@ -236,6 +251,8 @@ class ChatViewModelTest {
         assertNull(state.pendingConfirm)
         val last = state.messages.last()
         assertFalse(last.fromUser)
-        assertTrue(last.text.contains("没连上"))
+        // 错误气泡是资源文案（UiText），组合期才解析；这里只能验「挂了资源引用」
+        assertNotNull(last.textRes)
+        assertTrue(last.textRes is UiText.Res)
     }
 }

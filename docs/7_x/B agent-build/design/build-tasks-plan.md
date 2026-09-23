@@ -20,7 +20,7 @@
 | `releaseAndroid` / `copyAndroidDebug` | 根 | Android 打包 |
 | `releaseIos` | 根 | iOS 打包 |
 | `releaseDesktop` / `copyDesktopJar` | 根 | Desktop 打包 |
-| `downloadFFmpeg` / `injectFFmpeg` / `injectFFmpegForDev` | `desktop/app` | FFmpeg 依赖处理 |
+| `downloadFFmpeg` / `injectFFmpeg` | `desktop/app` | FFmpeg 依赖处理 |
 | `copyIconsToIos` | `shared` | iOS 图标拷贝（空转） |
 
 **核心矛盾：任务供给与真实工作流错位。** 发布是低频动作（每个版本一次），却被封装得最完整；而**测试、校验、清理这些高频动作完全没有封装**。
@@ -554,7 +554,7 @@ tasks.register("cleanOrphans") {
 | 任务 | 理由 |
 |---|---|
 | `copyAndroidDebug` | 与 `releaseAndroid` 重叠；debug 包不该进发布目录 |
-| `injectFFmpegForDev` | 挂钩 `run`，触发链长、收益极低 |
+| ~~`injectFFmpegForDev`~~ | 挂钩 `run`，触发链长、收益极低 —— **已于 2026-09-23 删除**（Desktop 播放修复同批） |
 | `copyIconsToIos` | 源目录不存在，纯空转；需同时删 3 处 `finalizedBy` 接线 |
 
 > 阶段六**独立可选**，与前五阶段无依赖。
