@@ -24,8 +24,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.hearablemusic.player.ui.common.text.asString
+import com.hearablemusic.player.ui.generated.resources.Res
+import com.hearablemusic.player.ui.generated.resources.card_greeting_phase
 import com.hmp.domain.agent.card.GreetingContent
 import com.hmp.domain.agent.card.SlideCard
+import org.jetbrains.compose.resources.stringResource
 
 
 
@@ -76,21 +80,21 @@ internal fun FamilyGreetingCard(
             ) {
                 // 时段感知问候
                 Text(
-                    text = "${c.phase.label}好～",
+                    text = stringResource(Res.string.card_greeting_phase, c.phase.label.asString()),
                     color = Color.White.copy(alpha = 0.7f),
-                    fontSize = 14.sp,
-                    modifier = Modifier.padding(bottom = 8.dp),
+                    fontSize = 15.sp,
+                    modifier = Modifier.padding(bottom = 10.dp),
                 )
 
                 // 主文案（居中，根据内容长度自动适配）
                 Text(
                     text = c.text,
                     color = Color.White,
-                    fontSize = 13.sp,
+                    fontSize = 16.sp,
                     fontWeight = FontWeight.Medium,
                     textAlign = TextAlign.Center,
                     overflow = TextOverflow.Ellipsis,
-                    lineHeight = 23.sp,
+                    lineHeight = 27.sp,
                 )
             }
         }

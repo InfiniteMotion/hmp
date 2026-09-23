@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 项目概述
 
-Hearable Music Player (HMP) — 一款跨平台本地音乐播放器，Android / Desktop / iOS 三端共用一套 Compose Multiplatform UI（`shared-ui`），业务层基于 Kotlin Multiplatform。iOS 仅保留原生壳与平台桥接（播放引擎、权限、Live Activity）。当前版本 v7.1.0。
+Hearable Music Player (HMP) — 一款跨平台本地音乐播放器，Android / Desktop / iOS 三端共用一套 Compose Multiplatform UI（`shared-ui`），业务层基于 Kotlin Multiplatform。iOS 仅保留原生壳与平台桥接（播放引擎、权限、Live Activity）。最新发布版本 v7.1.0；**开发中 v7.3（方向 B Agent 化）承载于 `feature/agent-build` 分支，尚未发版**。
 
 **产品边界**：纯本地，不做在线/云同步、不引入账号、不做社交；仅保留用户自填 API 的 AI 推荐。
 
@@ -322,7 +322,7 @@ HMP/
 > 历史说明：早期文档称 CI「部署 Storybook 到 GitHub Pages」，实际 deploy-site job 上传的是 `site/` 目录（手工维护的产品站点），且 Storybook 相关 workflow 已在 v6.10 移除。
 
 ### 已知待完成任务 (TODO.md)
-- v7.x 三大方向：A) KMP 重写 iOS UI / B) AI 功能 Agent 化 / C) 播放功能增强补齐（编排 7.1-7.4，方向论证见 ROADMAP「未来发展方向」，任务分解见 TODO.md「v7.x 阶段」）
+- v7.x 三大方向：A) KMP 重写 iOS UI（v7.1 已完成）/ B) AI 功能 Agent 化（**F1–F14 完成、F10 挂起**，承载于 `feature/agent-build`）/ C) 播放功能增强补齐（尚未启动）
 - v6 遗留：P8.1 iOS 安全存储真加密（现 XOR 伪加密 → CryptoKit AES-GCM + Keychain）；P9 已由方向 A 取代冻结
 - T3: Repository 通用逻辑提取到 commonMain 共享基类
 
@@ -337,5 +337,5 @@ HMP/
 - [docs/ROOM_KMP_SETUP.md](docs/ROOM_KMP_SETUP.md) — Room KMP 跨平台数据库配置指南
 - **AI Agent 体系（v7.3 方向 B）**
   - [docs/7_x/B agent-build/design/agent.md](docs/7_x/B%20agent-build/design/agent.md) — 设计总纲（单一事实来源）
-  - [docs/7_x/B agent-build/taskbook/README.md](docs/7_x/B%20agent-build/taskbook/README.md) — 推进计划（f1–f9 阶段族）
+  - [docs/7_x/B agent-build/taskbook/README.md](docs/7_x/B%20agent-build/taskbook/README.md) — 推进计划（f1–f14 阶段族）
 - **历史版本方案（已完成，备查）**：`docs/5_9/`、`docs/5_10/`、`docs/6_1/`、`docs/6_12/`

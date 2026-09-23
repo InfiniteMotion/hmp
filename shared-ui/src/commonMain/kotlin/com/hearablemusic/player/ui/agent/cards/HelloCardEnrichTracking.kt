@@ -1,4 +1,10 @@
 package com.hearablemusic.player.ui.agent.cards
+import com.hearablemusic.player.ui.generated.resources.card_enrich_mixed_group
+import com.hearablemusic.player.ui.generated.resources.card_enrich_paused
+import com.hearablemusic.player.ui.generated.resources.card_enrich_progress
+import com.hearablemusic.player.ui.generated.resources.card_enrich_running
+import com.hearablemusic.player.ui.generated.resources.Res
+import org.jetbrains.compose.resources.stringResource
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -45,7 +51,7 @@ internal fun FamilyEnrichTrackingCard(
     val c = card.content as EnrichTrackingContent
     val pct = if (c.currentUnitSize > 0) (c.processed * 100 / c.currentUnitSize) else 0
     val isRunning = c.active
-    val artistLabel = c.currentArtist?.let { if (it == "MIXED_GROUP") "混合组" else it }
+    val artistLabel = c.currentArtist?.let { if (it == "MIXED_GROUP") stringResource(Res.string.card_enrich_mixed_group) else it }
     val chunkLabel = if (c.chunkTotal > 0) " · chunk ${c.chunkIndex}/${c.chunkTotal}" else ""
 
     // 点击手势统一处理（RadioStatus 同款）
@@ -87,48 +93,49 @@ internal fun FamilyEnrichTrackingCard(
                 )
                 .padding(horizontal = 20.dp, vertical = 18.dp),
         ) {
+            // 本卡是"信息块 + 进度块"两段式。用 SpaceBetween 在大卡里同样会把两块推到
+            // 上下两端、中间空出一条 → 改为 Center 分组，两段之间只留固定间隔。
             Column(
                 modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.SpaceBetween,
+                verticalArrangement = Arrangement.Center,
             ) {
-                Column {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     // 标题
                     Text(
-                        text = if (isRunning) "富化进行中" else "富化已暂停",
-                        style = MaterialTheme.typography.titleMedium,
+                        text = if (isRunning) stringResource(Res.string.card_enrich_running) else stringResource(Res.string.card_enrich_paused),
+                        style = MaterialTheme.typography.headlineSmall,
                         color = if (isRunning) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
                         fontWeight = FontWeight.SemiBold,
                     )
-                    Spacer(Modifier.height(6.dp))
                     // 歌手 + chunk
                     if (artistLabel != null) {
                         Text(
                             text = "$artistLabel$chunkLabel",
-                            style = MaterialTheme.typography.bodyMedium,
+                            style = MaterialTheme.typography.bodyLarge,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
-                        Spacer(Modifier.height(2.dp))
                     }
                     // 当前阶段
                     Text(
                         text = c.phase,
-                        style = MaterialTheme.typography.bodySmall,
+                        style = MaterialTheme.typography.bodyMedium,
                         color = if (isRunning) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
                     )
                 }
+                Spacer(Modifier.height(28.dp))
                 Column {
                     LinearProgressIndicator(
                         progress = { pct / 100f },
-                        modifier = Modifier.fillMaxWidth().height(6.dp),
+                        modifier = Modifier.fillMaxWidth().height(8.dp),
                         color = if (isRunning) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
                         trackColor = MaterialTheme.colorScheme.surfaceVariant,
                     )
-                    Spacer(Modifier.height(4.dp))
+                    Spacer(Modifier.height(8.dp))
                     Text(
-                        text = "处理 ${c.processed} · 成功 ${c.success} · 失败 ${c.failed} · ${pct}%",
-                        style = MaterialTheme.typography.labelSmall,
+                        text = stringResource(Res.string.card_enrich_progress, c.processed, c.success, c.failed, pct),
+                        style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }

@@ -1,4 +1,18 @@
 package com.hearablemusic.player.ui.library.pages
+import org.jetbrains.compose.resources.stringResource
+import com.hearablemusic.player.ui.generated.resources.play_all
+import com.hearablemusic.player.ui.generated.resources.reco_empty_daily
+import com.hearablemusic.player.ui.generated.resources.reco_empty_private
+import com.hearablemusic.player.ui.generated.resources.reco_hero_private
+import com.hearablemusic.player.ui.generated.resources.reco_label_daily
+import com.hearablemusic.player.ui.generated.resources.reco_label_private
+import com.hearablemusic.player.ui.generated.resources.reco_phase_evening_commute
+import com.hearablemusic.player.ui.generated.resources.reco_phase_evening_leisure
+import com.hearablemusic.player.ui.generated.resources.reco_phase_lunch
+import com.hearablemusic.player.ui.generated.resources.reco_phase_morning_commute
+import com.hearablemusic.player.ui.generated.resources.reco_phase_night
+import com.hearablemusic.player.ui.generated.resources.reco_phase_today
+import com.hearablemusic.player.ui.generated.resources.reco_phase_work
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -6,6 +20,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -138,54 +153,98 @@ fun RecommendListScreen(
     }
 
     val label = if (source == RecommendSource.DAILY) {
-        "每日推荐 · 共 ${items.size} 首"
+        stringResource(Res.string.reco_label_daily, items.size)
     } else {
-        "私人推荐 · 共 ${items.size} 首"
+        stringResource(Res.string.reco_label_private, items.size)
     }
     val heroTitle = if (source == RecommendSource.DAILY) {
         phaseTitle(payload?.phase)
     } else {
-        "为你而选"
+        stringResource(Res.string.reco_hero_private)
     }
 
     Box(Modifier.fillMaxSize().background(pageBg)) {
         when {
             payload == null -> LoadingState(ink)
             items.isEmpty() -> EmptyState(source, inkSecondary, inkTertiary)
-            else -> LazyColumn(modifier = Modifier.fillMaxSize()) {
-                item {
-                    RecommendHero(
-                        modifier = Modifier.fillParentMaxHeight(0.58f),
-                        coverUri = seedUri,
-                        label = label,
-                        title = heroTitle,
-                        overview = payload?.overview.orEmpty(),
-                        scrim = pageBg,
-                        ink = ink,
-                        onBack = { navController.removeLastOrNull() },
-                        onPlayAll = { playFrom(0) },
-                    )
-                }
-                itemsIndexed(items) { index, item ->
-                    RecommendRow(
-                        item = item,
-                        titleColor = ink,
-                        secondaryColor = inkSecondary,
-                        tertiaryColor = inkTertiary,
-                        thumbBg = thumbBg,
-                        onClick = { playFrom(index) },
-                    )
-                    if (index != items.lastIndex) {
-                        Box(
-                            Modifier
-                                .padding(start = 84.dp, end = 16.dp)
-                                .fillMaxWidth()
-                                .height(0.5.dp)
-                                .background(dividerColor)
+            else -> {
+                // F14-T1 自适应：竖屏保持「全出血封面英雄区 + 下方列表」纵向堆叠；
+                // 横屏改「左栏封面英雄区（通高）+ 右栏曲目列表」—— 封面在竖版堆叠下横屏要滚出
+                // 一整屏才见列表，左右式让两者同屏各得其所。
+                val isLandscape = LocalWindowSizeInfo.current.isLandscape
+                if (isLandscape) {
+                    Row(Modifier.fillMaxSize()) {
+                        RecommendHero(
+                            modifier = Modifier.weight(0.42f).fillMaxHeight(),
+                            coverUri = seedUri,
+                            label = label,
+                            title = heroTitle,
+                            overview = payload?.overview.orEmpty(),
+                            scrim = pageBg,
+                            ink = ink,
+                            onBack = { navController.removeLastOrNull() },
+                            onPlayAll = { playFrom(0) },
                         )
+                        LazyColumn(modifier = Modifier.weight(0.58f).fillMaxHeight()) {
+                            itemsIndexed(items) { index, item ->
+                                RecommendRow(
+                                    item = item,
+                                    titleColor = ink,
+                                    secondaryColor = inkSecondary,
+                                    tertiaryColor = inkTertiary,
+                                    thumbBg = thumbBg,
+                                    onClick = { playFrom(index) },
+                                )
+                                if (index != items.lastIndex) {
+                                    Box(
+                                        Modifier
+                                            .padding(start = 84.dp, end = 16.dp)
+                                            .fillMaxWidth()
+                                            .height(0.5.dp)
+                                            .background(dividerColor)
+                                    )
+                                }
+                            }
+                            item { Spacer(Modifier.height(24.dp)) }
+                        }
+                    }
+                } else {
+                    LazyColumn(modifier = Modifier.fillMaxSize()) {
+                        item {
+                            RecommendHero(
+                                modifier = Modifier.fillParentMaxHeight(0.58f),
+                                coverUri = seedUri,
+                                label = label,
+                                title = heroTitle,
+                                overview = payload?.overview.orEmpty(),
+                                scrim = pageBg,
+                                ink = ink,
+                                onBack = { navController.removeLastOrNull() },
+                                onPlayAll = { playFrom(0) },
+                            )
+                        }
+                        itemsIndexed(items) { index, item ->
+                            RecommendRow(
+                                item = item,
+                                titleColor = ink,
+                                secondaryColor = inkSecondary,
+                                tertiaryColor = inkTertiary,
+                                thumbBg = thumbBg,
+                                onClick = { playFrom(index) },
+                            )
+                            if (index != items.lastIndex) {
+                                Box(
+                                    Modifier
+                                        .padding(start = 84.dp, end = 16.dp)
+                                        .fillMaxWidth()
+                                        .height(0.5.dp)
+                                        .background(dividerColor)
+                                )
+                            }
+                        }
+                        item { Spacer(Modifier.height(24.dp)) }
                     }
                 }
-                item { Spacer(Modifier.height(24.dp)) }
             }
         }
     }
@@ -286,7 +345,7 @@ private fun RecommendHero(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    text = "播放全部",
+                    text = stringResource(Res.string.play_all),
                     style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.SemiBold,
                     color = scrim,
@@ -316,9 +375,9 @@ private fun EmptyState(source: RecommendSource, textColor: Color, iconColor: Col
             Spacer(Modifier.height(12.dp))
             Text(
                 text = if (source == RecommendSource.DAILY) {
-                    "今天的推荐还没准备好"
+                    stringResource(Res.string.reco_empty_daily)
                 } else {
-                    "还没有足够的数据生成私人推荐"
+                    stringResource(Res.string.reco_empty_private)
                 },
                 style = MaterialTheme.typography.bodyMedium,
                 color = textColor,
@@ -391,12 +450,13 @@ private fun RecommendRow(
 }
 
 /** 时段 → 英雄区大标题（表现层映射，放在 shared-ui，避免改动 shared 触发大模块重编译） */
+@Composable
 private fun phaseTitle(phase: TimePhase?): String = when (phase) {
-    TimePhase.NIGHT -> "深夜"
-    TimePhase.MORNING_COMMUTE -> "早高峰"
-    TimePhase.WORK -> "工作时段"
-    TimePhase.LUNCH -> "午休"
-    TimePhase.EVENING_COMMUTE -> "晚高峰"
-    TimePhase.EVENING_LEISURE -> "晚间休闲"
-    TimePhase.UNKNOWN, null -> "今日精选"
+    TimePhase.NIGHT -> stringResource(Res.string.reco_phase_night)
+    TimePhase.MORNING_COMMUTE -> stringResource(Res.string.reco_phase_morning_commute)
+    TimePhase.WORK -> stringResource(Res.string.reco_phase_work)
+    TimePhase.LUNCH -> stringResource(Res.string.reco_phase_lunch)
+    TimePhase.EVENING_COMMUTE -> stringResource(Res.string.reco_phase_evening_commute)
+    TimePhase.EVENING_LEISURE -> stringResource(Res.string.reco_phase_evening_leisure)
+    TimePhase.UNKNOWN, null -> stringResource(Res.string.reco_phase_today)
 }

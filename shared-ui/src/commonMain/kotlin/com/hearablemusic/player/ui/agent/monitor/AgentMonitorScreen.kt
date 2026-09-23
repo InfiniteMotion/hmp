@@ -1,10 +1,23 @@
 package com.hearablemusic.player.ui.agent.monitor
+import com.hearablemusic.player.ui.generated.resources.agent_monitor_token_line
+import com.hearablemusic.player.ui.generated.resources.agent_monitor_active
+import com.hearablemusic.player.ui.generated.resources.agent_monitor_log_count
+import com.hearablemusic.player.ui.generated.resources.agent_monitor_log_dialog_title
+import com.hearablemusic.player.ui.generated.resources.agent_monitor_log_meta
+import com.hearablemusic.player.ui.generated.resources.agent_monitor_no_data
+import com.hearablemusic.player.ui.generated.resources.agent_monitor_no_logs
+import com.hearablemusic.player.ui.generated.resources.agent_monitor_quota_line
+import com.hearablemusic.player.ui.generated.resources.agent_monitor_run_logs
+import com.hearablemusic.player.ui.generated.resources.agent_monitor_title
+import com.hearablemusic.player.ui.generated.resources.agent_monitor_token_usage
+import com.hearablemusic.player.ui.generated.resources.agent_monitor_total_usage
 
 import com.hearablemusic.player.ui.agent.AgentStatusColors
 import com.hearablemusic.player.ui.agent.agentDetailOf
 import com.hearablemusic.player.ui.agent.agentIcon
 import com.hearablemusic.player.ui.agent.agentStatusColor
 import com.hearablemusic.player.ui.agent.agentStatusLabel
+import com.hearablemusic.player.ui.common.design.dimens.LocalHMPDimens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -22,6 +35,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -56,9 +70,11 @@ import com.hearablemusic.player.ui.generated.resources.master
 import com.hearablemusic.player.ui.generated.resources.radiowaves
 import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.painterResource
+import org.jetbrains.compose.resources.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation3.runtime.NavBackStack
@@ -75,6 +91,7 @@ import com.hearablemusic.player.ui.common.dialogs.base.ScrimDialog
 import com.hearablemusic.player.ui.common.util.hazeStyleForIntensity
 import com.hearablemusic.player.ui.common.util.hazeTintAlpha
 import co.touchlab.kermit.Severity
+import com.hearablemusic.player.ui.common.layout.LocalWindowSizeInfo
 import com.hearablemusic.player.ui.common.navigation.Routes
 import com.hearablemusic.player.ui.common.pages.base.SubScreen
 import kotlinx.coroutines.launch
@@ -104,21 +121,34 @@ fun AgentMonitorScreen(
     }
     LaunchedEffect(Unit) { reloadAgentTokens() }
 
+    @Composable
     fun tokenTextFor(agentId: String): String? {
         val row = agentRows.firstOrNull { it.label.equals(agentId, ignoreCase = true) } ?: return null
-        return "Token ${fmtTokens(row.totalTokens)} · ${row.calls} 次"
+        return stringResource(Res.string.agent_monitor_token_line, fmtTokens(row.totalTokens), row.calls)
     }
 
     SubScreen(
         onBackClick = { navController.removeLastOrNull() },
-        title = "Agent 看板",
+        title = stringResource(Res.string.agent_monitor_title),
     ) {
+        // F14-T1 自适应：Expanded（桌面宽窗 / 平板横屏）下六卡改「三列两行」一次尽收，
+        // 同时内容整体限宽居中，避免宽窗下拉满导致的超长行；Medium 与 Compact 保持两列。
+        // 横屏（含手机横屏，宽 800–840 也落在 Medium）：三列 + 限宽 —— 横向有余量时两列会拉出超长卡。
+        val window = LocalWindowSizeInfo.current
+        val isExpanded = window.isExpanded
+        val dimens = LocalHMPDimens.current
+        val columns = if (isExpanded || window.isLandscape) 3 else 2
+        val maxBoardWidth = if (isExpanded || window.isLandscape) 1080.dp else Dp.Unspecified
+
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
         Column(
             modifier = Modifier
-                .fillMaxSize()
+                .widthIn(max = maxBoardWidth)
+                .fillMaxWidth()
+                .fillMaxHeight()
                 .hazeSource(state = hazeState)
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp, vertical = 16.dp),
+                .padding(horizontal = dimens.spacing.md, vertical = dimens.spacing.md),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             TokenMonitorCard(
@@ -126,48 +156,35 @@ fun AgentMonitorScreen(
                 onReloaded = { reloadAgentTokens() },
             )
 
-            // 2×2 网格：每行两个，同行两张卡片高度一致。
-            // Row 用 IntrinsicSize.Max 取同行最高内容作为行高，两卡 fillMaxHeight 撑满 → 等高。
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Max),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    MasterMonitorCard(
-                        masterAgent = masterAgent,
-                        tokenText = tokenTextFor("master"),
-                        hazeState = hazeState,
-                        onClick = { navController.add(Routes.AI.AgentConfig("master")) },
-                        modifier = Modifier.weight(1f).fillMaxHeight(),
-                    )
-                    RadioMonitorCard(
-                        masterAgent = masterAgent,
-                        tokenText = tokenTextFor("radio"),
-                        hazeState = hazeState,
-                        onClick = { navController.add(Routes.AI.AgentConfig("radio")) },
-                        modifier = Modifier.weight(1f).fillMaxHeight(),
-                    )
-                }
-                Row(
-                    modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Max),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    EnrichMonitorCard(
-                        masterAgent = masterAgent,
-                        tokenText = tokenTextFor("enrich"),
-                        hazeState = hazeState,
-                        onClick = { navController.add(Routes.AI.AgentConfig("enrich")) },
-                        modifier = Modifier.weight(1f).fillMaxHeight(),
-                    )
-                    HelloMonitorCard(
-                        masterAgent = masterAgent,
-                        tokenText = tokenTextFor("hello"),
-                        hazeState = hazeState,
-                        onClick = { navController.add(Routes.AI.AgentConfig("hello")) },
-                        modifier = Modifier.weight(1f).fillMaxHeight(),
-                    )
+            // 网格：每行 [columns] 张，同行等高。
+            // 等高靠 Row 的 IntrinsicSize.Max 取同行最高内容作为行高（约束的是**纵轴**），
+            // 卡宽则用横轴的 weight(1f) 均分 —— 两个方向互不干扰，故可同时使用。
+            // 末尾行不足一列时用 Spacer(weight) 补位，避免最后一张被拉宽。
+            val cards: List<@Composable (Modifier) -> Unit> = listOf(
+                { m -> MasterMonitorCard(masterAgent = masterAgent, tokenText = tokenTextFor("master"), hazeState = hazeState, onClick = { navController.add(Routes.AI.AgentConfig("master")) }, modifier = m) },
+                { m -> RadioMonitorCard(masterAgent = masterAgent, tokenText = tokenTextFor("radio"), hazeState = hazeState, onClick = { navController.add(Routes.AI.AgentConfig("radio")) }, modifier = m) },
+                { m -> EnrichMonitorCard(masterAgent = masterAgent, tokenText = tokenTextFor("enrich"), hazeState = hazeState, onClick = { navController.add(Routes.AI.AgentConfig("enrich")) }, modifier = m) },
+                { m -> HelloMonitorCard(masterAgent = masterAgent, tokenText = tokenTextFor("hello"), hazeState = hazeState, onClick = { navController.add(Routes.AI.AgentConfig("hello")) }, modifier = m) },
+            )
+            val groups = cards.chunked(columns)
+
+            Column(verticalArrangement = Arrangement.spacedBy(dimens.spacing.sm)) {
+                groups.forEach { group ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Max),
+                        horizontalArrangement = Arrangement.spacedBy(dimens.spacing.sm)
+                    ) {
+                        group.forEach { card ->
+                            card(Modifier.weight(1f))
+                        }
+                        // 末行不足一列时补位
+                        repeat(columns - group.size) {
+                            Spacer(Modifier.weight(1f))
+                        }
+                    }
                 }
             }
+        }
         }
     }
 }
@@ -201,7 +218,7 @@ private fun TokenMonitorCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                SectionLabel("Token 用量")
+                SectionLabel(stringResource(Res.string.agent_monitor_token_usage))
                 IconButton(onClick = { reload() }, modifier = Modifier.size(28.dp)) {
                     Text(
                         "↻",
@@ -220,7 +237,7 @@ private fun TokenMonitorCard(
             )
             Spacer(Modifier.height(2.dp))
             Text(
-                "累计总用量 · 账本全量",
+                stringResource(Res.string.agent_monitor_total_usage),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -229,7 +246,7 @@ private fun TokenMonitorCard(
             SlimProgress(snap.rate)
             Spacer(Modifier.height(6.dp))
             Text(
-                "今日 ${snap.used} · 剩余 ${snap.remaining} · ${(snap.rate * 100).toInt()}%",
+                stringResource(Res.string.agent_monitor_quota_line, snap.used, snap.remaining, (snap.rate * 100).toInt()),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -270,14 +287,14 @@ private fun CardLogSection(
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
             Text(
-                "运行日志",
+                stringResource(Res.string.agent_monitor_run_logs),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1, overflow = TextOverflow.Ellipsis
             )
         }
         Text(
-            "${entries.size} 条 ›",
+            stringResource(Res.string.agent_monitor_log_count, entries.size),
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.primary
         )
@@ -285,7 +302,7 @@ private fun CardLogSection(
 
     if (showDetail) {
         LogDetailDialog(
-            title = "运行日志 · ${buckets.firstOrNull() ?: ""}",
+            title = stringResource(Res.string.agent_monitor_log_dialog_title, buckets.firstOrNull() ?: ""),
             entries = entries,
             hazeState = hazeState,
             onDismiss = { showDetail = false },
@@ -321,7 +338,7 @@ private fun LogDetailDialog(
                 )
                 Spacer(Modifier.height(2.dp))
                 Text(
-                    "进程内易失 · 共 ${entries.size} 条 · 最新在上",
+                    stringResource(Res.string.agent_monitor_log_meta, entries.size),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -336,7 +353,7 @@ private fun LogDetailDialog(
                 Spacer(Modifier.height(10.dp))
                 if (entries.isEmpty()) {
                     Text(
-                        "暂无日志",
+                        stringResource(Res.string.agent_monitor_no_logs),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -359,7 +376,7 @@ private fun LogLine(entry: LogEntry) {
     val color = when (entry.severity) {
         Severity.Verbose, Severity.Debug -> MaterialTheme.colorScheme.onSurfaceVariant
         Severity.Info -> MaterialTheme.colorScheme.onSurface
-        Severity.Warn -> Color(0xFFB26A00)
+        Severity.Warn -> AgentStatusColors.Warn
         Severity.Error, Severity.Assert -> MaterialTheme.colorScheme.error
     }
     Row(modifier = Modifier.fillMaxWidth()) {
@@ -406,7 +423,7 @@ private fun MasterMonitorCard(
         icon = agentIcon("master"),
         title = "MasterAgent",
         status = if (active > 0) CapabilityState.Status.RUNNING else CapabilityState.Status.IDLE,
-        statusText = "活跃 $active / 3",
+        statusText = stringResource(Res.string.agent_monitor_active, active),
         // 编排中枢没有自己的 capability，无 detail → 占位
         detailText = null,
         tokenText = tokenText,
@@ -534,7 +551,7 @@ private fun CardTitle(text: String) {
 @Composable
 private fun CardRow(text: String?) {
     Text(
-        text = text?.takeIf { it.isNotBlank() } ?: "暂无",
+        text = text?.takeIf { it.isNotBlank() } ?: stringResource(Res.string.agent_monitor_no_data),
         style = MaterialTheme.typography.labelSmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         maxLines = 1, overflow = TextOverflow.Ellipsis

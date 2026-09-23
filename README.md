@@ -15,7 +15,7 @@ Hearable Music Player是我个人开发的一款专注于本地音乐播放的�
 - 已集成 DeepSeek API 实现 AI 推荐
 - 已实现 UI 与交互，**三端共用一套 Compose UI**（`shared-ui`，v7.1 起 iOS 亦切换至共享层）
 - 已支持 Android、Desktop 和 iOS 三平台
-- 进行中：AI 功能 Agent 化（v7.3 方向 B，设计资料见 [docs/7_x/B agent-build](docs/7_x/B%20agent-build/)）
+- 已完成：AI 功能 Agent 化（v7.3 方向 B；**F1–F14 已完成**、F10 语音会话挂起；设计资料见 [docs/7_x/B agent-build](docs/7_x/B%20agent-build/)）
 
 ## ✨ 核心功能
 
@@ -214,7 +214,7 @@ Hearable Music Player是我个人开发的一款专注于本地音乐播放的�
 
 ## 📝 开发日志
 
-完整版本历史与变更日志见 **[ROADMAP](ROADMAP.md)**。当前版本：v7.1.0。
+完整版本历史与变更日志见 **[ROADMAP](ROADMAP.md)**。最新发布版本：v7.1.0；**开发中（未发布）：v7.3 方向 B —— Agent 化 F1–F14（承载于 `feature/agent-build` 分支）**。
 
 ## 🤝 贡献指南
 

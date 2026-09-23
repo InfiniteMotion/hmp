@@ -10,7 +10,7 @@ plugins {
 kotlin {
     android {
         namespace = "com.hmp.shared"
-        compileSdk { version = release(36) }
+        compileSdk { version = release(37) }
     }
 
     jvm("desktop")

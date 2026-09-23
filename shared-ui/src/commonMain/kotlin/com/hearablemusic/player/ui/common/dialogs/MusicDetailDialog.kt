@@ -1,8 +1,9 @@
 package com.hearablemusic.player.ui.common.dialogs
 
+import com.hearablemusic.player.ui.common.text.UiText
+import com.hearablemusic.player.ui.common.text.asString
 import com.hearablemusic.player.ui.generated.resources.Res
 import org.jetbrains.compose.resources.DrawableResource
-import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 
@@ -219,7 +220,7 @@ fun MusicDetailDialog(
                         }
 
                         menuOptions.forEach { (icon, label, action) ->
-                            MenuOption(iconRes = icon, labelRes = label, onClick = action)
+                            MenuOption(iconRes = icon, label = label, onClick = action)
                             Spacer(modifier = Modifier.height(8.dp))
                         }
                     }
@@ -271,7 +272,7 @@ private fun InfoRow(
 @Composable
 fun MenuOption(
     iconRes: DrawableResource,
-    labelRes: StringResource,
+    label: UiText,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -284,14 +285,14 @@ fun MenuOption(
     ) {
         Icon(
             painter = painterResource(iconRes),
-            contentDescription = stringResource(labelRes),
+            contentDescription = label.asString(),
             modifier = Modifier
                 .size(18.dp),
             tint = MaterialTheme.colorScheme.primary
         )
         Spacer(modifier = Modifier.width(16.dp))
         Text(
-            text = stringResource(labelRes),
+            text = label.asString(),
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.onBackground,
         )

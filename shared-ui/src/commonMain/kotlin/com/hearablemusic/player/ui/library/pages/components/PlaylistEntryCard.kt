@@ -1,4 +1,7 @@
 package com.hearablemusic.player.ui.library.pages.components
+import org.jetbrains.compose.resources.stringResource
+import com.hearablemusic.player.ui.generated.resources.no_data_available
+import com.hearablemusic.player.ui.generated.resources.songs_count
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -110,7 +113,7 @@ fun PlaylistEntryCard(
                     verticalArrangement = Arrangement.Center,
                 ) {
                     Text(
-                        text = if (isEmpty) "暂无数据" else title,
+                        text = if (isEmpty) stringResource(Res.string.no_data_available) else title,
                         style = MaterialTheme.typography.titleMedium,
                         color = if (isEmpty) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                                else MaterialTheme.colorScheme.onSurface,
@@ -125,7 +128,7 @@ fun PlaylistEntryCard(
                             )
                         }
                         Text(
-                            text = "$count 首",
+                            text = stringResource(Res.string.songs_count, count),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )

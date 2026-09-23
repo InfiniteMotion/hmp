@@ -1,4 +1,13 @@
 package com.hearablemusic.player.ui.agent.chat
+import com.hearablemusic.player.ui.common.text.UiText
+import com.hearablemusic.player.ui.common.text.asString
+import com.hearablemusic.player.ui.generated.resources.agent_chat_always_allow
+import com.hearablemusic.player.ui.generated.resources.agent_chat_always_allow_mark
+import com.hearablemusic.player.ui.generated.resources.agent_chat_confirm_prompt
+import com.hearablemusic.player.ui.generated.resources.agent_chat_do_it
+import com.hearablemusic.player.ui.generated.resources.agent_chat_my_plan
+import com.hearablemusic.player.ui.generated.resources.agent_chat_play_all
+import com.hearablemusic.player.ui.generated.resources.agent_chat_skip
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
@@ -60,7 +69,6 @@ import com.hearablemusic.player.ui.library.pages.components.musiclist.MusicListC
 import com.hearablemusic.player.ui.library.pages.components.musiclist.defaultMusicListConfig
 import com.hearablemusic.player.ui.library.pages.components.musiclist.HeaderConfig
 import com.hmp.domain.music.MusicInfo
-import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 
@@ -136,7 +144,7 @@ private fun BubbleContainer(message: CompanionMessage, callbacks: CompanionCallb
 fun ConfirmMatrixCard(
     items: List<ConfirmItem>,
     submitted: Boolean,
-    receipt: String = "",
+    receipt: UiText? = null,
     callbacks: CompanionCallbacks = CompanionCallbacks(),
     modifier: Modifier = Modifier,
 ) {
@@ -158,7 +166,7 @@ fun ConfirmMatrixCard(
                 )
                 Spacer(Modifier.width(8.dp))
                 Text(
-                    text = "我想这么做，请勾选：",
+                    text = stringResource(Res.string.agent_chat_confirm_prompt),
                     style = MaterialTheme.typography.titleSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -230,7 +238,7 @@ fun ConfirmMatrixCard(
                                 modifier = Modifier.size(28.dp),
                             )
                             Text(
-                                text = "总是允许",
+                                text = stringResource(Res.string.agent_chat_always_allow),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = labelColor,
                             )
@@ -238,7 +246,7 @@ fun ConfirmMatrixCard(
                     } else if (item.alwaysAllow) {
                         // 已提交回执：如果勾了"总是允许"显示标记
                         Text(
-                            text = "✦ 总是允许",
+                            text = stringResource(Res.string.agent_chat_always_allow_mark),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.tertiary,
                         )
@@ -250,9 +258,9 @@ fun ConfirmMatrixCard(
             }
             Spacer(Modifier.height(12.dp))
             if (submitted) {
-                if (receipt.isNotBlank()) {
+                receipt?.let {
                     Text(
-                        text = receipt,
+                        text = it.asString(),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.primary,
                     )
@@ -263,10 +271,10 @@ fun ConfirmMatrixCard(
                     horizontalArrangement = Arrangement.End,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    TextButton(onClick = callbacks.onSkipConfirm) { Text("跳过") }
+                    TextButton(onClick = callbacks.onSkipConfirm) { Text(stringResource(Res.string.agent_chat_skip)) }
                     Spacer(Modifier.width(8.dp))
                     OutlinedButton(onClick = callbacks.onSubmitConfirm) {
-                        Text("照做", color = MaterialTheme.colorScheme.primary)
+                        Text(stringResource(Res.string.agent_chat_do_it), color = MaterialTheme.colorScheme.primary)
                     }
                 }
             }
@@ -373,7 +381,7 @@ private fun SongListBubbleContent(message: CompanionMessage, callbacks: Companio
             )
             Spacer(Modifier.width(6.dp))
             Text(
-                text = "播放全部",
+                text = stringResource(Res.string.agent_chat_play_all),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.primary,
             )
@@ -399,7 +407,7 @@ private fun ExplainBubbleContent(message: CompanionMessage) {
             )
             Spacer(Modifier.width(8.dp))
             Text(
-                text = "我的打算",
+                text = stringResource(Res.string.agent_chat_my_plan),
                 style = MaterialTheme.typography.titleSmall,
                 color = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.weight(1f),

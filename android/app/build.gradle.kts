@@ -12,7 +12,7 @@ plugins {
 android {
     namespace = "com.hearablemusic.player"
     compileSdk {
-        version = release(36)
+        version = release(37)
     }
 
     // 统一签名配置 — 优先 keystore.properties，回退到环境变量/Gradle属性
@@ -39,7 +39,7 @@ android {
     defaultConfig {
         applicationId = "com.hearablemusic.player"
         minSdk = 33
-        targetSdk = 36
+        targetSdk = 37
         versionCode = project.findProperty("hmp.versionCode")?.toString()?.toIntOrNull() ?: 51000
         versionName = project.findProperty("hmp.versionName")?.toString() ?: "5.10.0"
 
@@ -106,10 +106,10 @@ dependencies {
     implementation(libs.androidx.activity.compose)
 
     // 依赖替换（方案 §2.2）：app 壳同步对齐 CMP 1.8.2，避免 BOM 拉高 compose 版本与共享层冲突
-    implementation(libs.jetbrains.compose.runtime)
-    implementation(libs.jetbrains.compose.ui)
-    implementation(libs.jetbrains.compose.ui.tooling.preview)
-    implementation(libs.jetbrains.compose.material3)
+    implementation(libs.compose.runtime)
+    implementation(libs.compose.ui)
+    implementation(libs.compose.ui.tooling.preview)
+    implementation(libs.compose.material3)
 
     implementation(libs.androidx.media3.common)
 
@@ -121,6 +121,6 @@ dependencies {
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.ui.test.junit4)
-    debugImplementation(libs.jetbrains.compose.ui.tooling)
+    debugImplementation(libs.compose.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
 }

@@ -385,19 +385,19 @@ v5.10 是 v5 系列的最后一个版本，标志着跨平台架构搭建完成�
 
 - [x] **A10** iOS 壳收敛 — 仅保留 AppDelegate / 播放引擎 / LiveActivity / WidgetKit 等原生层（17 个 Swift 文件）
 
-### 方向 B：AI 功能 Agent 化（7.3）
+### 方向 B：AI 功能 Agent 化（7.3，承载于 `feature/agent-build`）
 
-- [ ] **B1** OpenAiCompatibleAdapter 扩展：tools（function-calling）参数 + SSE 流式解析，保持 5 家服务商兼容
+> 细化任务分解与推进记录见 [taskbook/README.md](docs/7_x/B%20agent-build/taskbook/README.md)（f1–f14 阶段族）。以下为阶段级状态。
 
-- [ ] **B2** 本地工具注册表：searchLibrary / getListenStats / createPlaylist / addToPlaylist / controlPlayback / getNowPlayingContext（每个工具 = schema + suspend 调既有 UseCase）
-
-- [ ] **B3** AgentOrchestrator（shared domain 层）：agent loop（tool\_call → 执行 → 回传 → 循环至最终答复）+ 护栏（破坏性操作 UI 确认 / 工具白名单 / 步数上限）
-
-- [ ] **B4** 对话式 UI（shared-ui commonMain，三端共享）+ 工具执行过程可视化
-
-- [ ] **B5** 场景落地：自然语言歌单生成、曲库问答
-
-- [ ] **B6** AI 电台：播完基于上下文（时段 + 历史 + 当前曲目）自动续队列
+- [x] **F1–F9** 规划与地基 / 锚点协议 / 工具引擎 / 对话 / 体系重塑 / 电台 / Hello 呈现 / 编排收尾 / 报告与伙伴设置 —— 已于 2026-09-18 收口（含 UserMemory 用户记忆、Capability 统一化、遗忘唤醒）
+- [x] **F11** 后台生命周期（Agent 退后台存活，L1–L3/L5）—— 主体完成（真机核验待手动）
+- [x] **F12** Token 计量与窗口治理（真值账本 / 分账视图 / 64K 固定窗口）—— 主体完成（T2b 配额候补 / T5 成本可见后置）
+- [x] **F13** Agent 工作收尾（可见性收敛 + DI 核对 + 测试补齐，`desktopTest` 961 例全绿）—— 完成
+- [x] **F14** 界面自适应与多语言（T1✅ UI 断点适配；T3✅ 组件基建【①表单基础件替换用户裁定放弃】；T2✅ 字符串收拢 + 14 语言）—— **已完成（2026-09-23）**
+  - [x] **F14-T1** 七页断点适配、HelloCardCoverflow 自绘堆叠与横屏布局优化（2026-09-22 已交付）
+  - [x] **F14-T3** 组件基建对齐（空态统一 `DefaultEmpty` / agent 页 spacing 换 `LocalHMPDimens` / `Severity.Warn` 收进 `AgentStatusColors`；①表单基础件替换用户裁定放弃）（已交付）
+  - [x] **F14-T2** 字符串资源收拢与 14 语言（累计 **305 新键**、14 语言各 **779 键**、键集合一致 + 占位符逐条校验；新增 `UiText` 设施并收拢 7 处旧载体；**agent 子树 UI 面向中文清零**）（2026-09-23）
+- ⏸ **F10** 语音会话（RealtimeVoiceTransport）—— **整体挂起**：独立阶段、与主线解耦，未开工，可整体延期
 
 ### 方向 C：播放功能增强补齐
 

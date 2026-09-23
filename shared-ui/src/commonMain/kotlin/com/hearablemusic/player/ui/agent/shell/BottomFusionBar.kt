@@ -61,6 +61,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.hearablemusic.player.ui.common.text.UiText
+import com.hearablemusic.player.ui.common.text.asString
+import com.hearablemusic.player.ui.common.text.asUiText
 import com.hearablemusic.player.ui.common.util.hazeStyleForIntensity
 import com.hearablemusic.player.ui.common.util.hazeTintAlpha
 import com.hearablemusic.player.ui.common.util.rememberPlatformHaptics
@@ -90,7 +93,6 @@ import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeEffect
 import kotlinx.coroutines.delay
 import org.jetbrains.compose.resources.DrawableResource
-import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import kotlin.math.pow
@@ -104,7 +106,7 @@ enum class FusionBarState {
 }
 
 private data class BottomTabItem(
-    val label: StringResource,
+    val label: UiText,
     val selectedIcon: DrawableResource,
     val unselectedIcon: DrawableResource
 )
@@ -114,9 +116,9 @@ private data class BottomTabItem(
  * 设计总纲 2.2：bottomTabs 去 Home，门面是伙伴的家（点按伙伴胶囊进入），不再是并列 Tab。
  */
 private val bottomTabs = listOf(
-    BottomTabItem(Res.string.tab_gallery, Res.drawable.square_fill_grid_2x2, Res.drawable.square_grid_2x2),
-    BottomTabItem(Res.string.tab_list, Res.drawable.list_bullet, Res.drawable.list_bullet),
-    BottomTabItem(Res.string.tab_user, Res.drawable.person_filled_viewfinder, Res.drawable.person)
+    BottomTabItem(Res.string.tab_gallery.asUiText(), Res.drawable.square_fill_grid_2x2, Res.drawable.square_grid_2x2),
+    BottomTabItem(Res.string.tab_list.asUiText(), Res.drawable.list_bullet, Res.drawable.list_bullet),
+    BottomTabItem(Res.string.tab_user.asUiText(), Res.drawable.person_filled_viewfinder, Res.drawable.person)
 )
 
 /** 页索引 → Tab 索引：页 0（门面）无对应 Tab（-1 = 三 Tab 均不高亮）。internal 供单测（M1-T1）。 */
@@ -403,14 +405,14 @@ private fun NavigationExpandedContent(
             ) {
                 Icon(
                     painter = painterResource(if (isSelected) tab.selectedIcon else tab.unselectedIcon),
-                    contentDescription = stringResource(tab.label),
+                    contentDescription = tab.label.asString(),
                     tint = contentColor,
                     modifier = Modifier.size(24.dp) // 宽度压缩：图标 28→24dp
                 )
                 if (showNavText) {
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = stringResource(tab.label),
+                        text = tab.label.asString(),
                         style = MaterialTheme.typography.labelLarge,
                         fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
                         color = contentColor
@@ -433,8 +435,8 @@ private fun NavigationCollapsedContent(tabIndex: Int) {
     } else {
         bottomTabs[tabIndex].selectedIcon
     }
-    val iconDesc: StringResource = if (isFacePage) {
-        Res.string.library_settings
+    val iconDesc: UiText = if (isFacePage) {
+        Res.string.library_settings.asUiText()
     } else {
         bottomTabs[tabIndex].label
     }
@@ -451,7 +453,7 @@ private fun NavigationCollapsedContent(tabIndex: Int) {
     ) {
         Icon(
             painter = painterResource(iconRes),
-            contentDescription = stringResource(iconDesc),
+            contentDescription = iconDesc.asString(),
             tint = tint,
             modifier = Modifier.size(24.dp)
         )

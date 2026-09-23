@@ -39,6 +39,7 @@
 | **DESIGN_SYSTEM** | [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md) | 设计系统：色彩 / 字体 / 间距 / 组件规范 |
 | **ROOM_KMP_SETUP** | [ROOM_KMP_SETUP.md](ROOM_KMP_SETUP.md) | Room KMP 跨平台数据库配置经验总结 |
 | **LOGGING** | [LOGGING.md](LOGGING.md) | 日志门面（`LogTag` / `HmpLog`）、Tag 层级与 `MemLogWriter` 使用规范 |
+| **灵感 / 候选项日志** | [ideas.md](ideas.md) | 不排期、不承诺的灵感与候选项（💡灵感 / 🔶待评估 / ✅已立项），非事实源 |
 | **Google Play 上架手册** | [google-play-publish-guide.md](google-play-publish-guide.md) | Android 上架全流程指导 |
 | **shared-ios** | [../shared-ios/README.md](../shared-ios/README.md) | iOS 聚合框架模块说明（shared + shared-ui → `sharedIos.framework`） |
 

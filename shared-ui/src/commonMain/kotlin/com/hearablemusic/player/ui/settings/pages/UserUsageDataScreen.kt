@@ -1,4 +1,19 @@
 package com.hearablemusic.player.ui.settings.pages
+import com.hearablemusic.player.ui.common.text.asString
+import com.hearablemusic.player.ui.generated.resources.usage_agent_awareness
+import com.hearablemusic.player.ui.generated.resources.usage_agent_awareness_empty
+import com.hearablemusic.player.ui.generated.resources.usage_genre
+import com.hearablemusic.player.ui.generated.resources.usage_listened_min
+import com.hearablemusic.player.ui.generated.resources.usage_mood
+import com.hearablemusic.player.ui.generated.resources.usage_peak_night
+import com.hearablemusic.player.ui.generated.resources.usage_peak_normal
+import com.hearablemusic.player.ui.generated.resources.usage_period
+import com.hearablemusic.player.ui.generated.resources.usage_play_skip
+import com.hearablemusic.player.ui.generated.resources.usage_rank
+import com.hearablemusic.player.ui.generated.resources.usage_recent
+import com.hearablemusic.player.ui.generated.resources.usage_scenario
+import com.hearablemusic.player.ui.generated.resources.usage_taste
+import com.hearablemusic.player.ui.generated.resources.usage_when
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -161,7 +176,7 @@ private fun DimensionSelector(
 ) {
     val haptic = rememberHapticFeedback()
     val options = Dimension.entries.map { dim ->
-        SegmentedOption(dim.name, dim.zhLabel)
+        SegmentedOption(dim.name, dim.label.asString())
     }
     SegmentedControl(
         modifier = Modifier.fillMaxWidth(),
@@ -202,7 +217,7 @@ private fun OverviewWindowContent(
                     horizontalArrangement = Arrangement.spacedBy(dimens.spacing.sm)
                 ) {
                     Text(
-                        text = "这段时间",
+                        text = stringResource(Res.string.usage_period),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onSurface,
@@ -222,14 +237,14 @@ private fun OverviewWindowContent(
                 }
                 Spacer(modifier = Modifier.height(dimens.spacing.sm))
                 Text(
-                    text = "听了 ${a.totalListeningMinutes} 分钟",
+                    text = stringResource(Res.string.usage_listened_min, a.totalListeningMinutes),
                     style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Spacer(modifier = Modifier.height(dimens.spacing.xs))
                 Text(
-                    text = "共播放 ${a.totalPlayCount} 次，跳过 ${a.totalSkipCount} 次",
+                    text = stringResource(Res.string.usage_play_skip, a.totalPlayCount, a.totalSkipCount),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -290,7 +305,7 @@ private fun TasteWindowContent(
         contentPadding = Modifier.padding(dimens.spacing.lg)
     ) {
         Text(
-            text = "你的口味",
+            text = stringResource(Res.string.usage_taste),
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.SemiBold,
             color = MaterialTheme.colorScheme.onSurface
@@ -308,7 +323,7 @@ private fun TasteWindowContent(
 
         if (windowed.topGenres.isNotEmpty()) {
             Text(
-                text = "风格",
+                text = stringResource(Res.string.usage_genre),
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.Medium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -319,7 +334,7 @@ private fun TasteWindowContent(
         }
         if (windowed.topMoods.isNotEmpty()) {
             Text(
-                text = "情绪",
+                text = stringResource(Res.string.usage_mood),
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.Medium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -330,7 +345,7 @@ private fun TasteWindowContent(
         }
         if (windowed.topScenarios.isNotEmpty()) {
             Text(
-                text = "场景",
+                text = stringResource(Res.string.usage_scenario),
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.Medium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -350,7 +365,7 @@ private fun RankingWindowContent(
     haptic: HapticFeedbackHelper,
 ) {
     val dimens = LocalHMPDimens.current
-    SectionHeader(title = "排行（$rangeLabel）")
+    SectionHeader(title = stringResource(Res.string.usage_rank, rangeLabel))
     Spacer(modifier = Modifier.height(dimens.spacing.sm))
     if (items.isEmpty()) {
         EmptyHint(text = stringResource(Res.string.usage_data_empty))
@@ -387,7 +402,7 @@ private fun RecentWindowContent(
     haptic: HapticFeedbackHelper,
 ) {
     val dimens = LocalHMPDimens.current
-    SectionHeader(title = "最近（$rangeLabel）")
+    SectionHeader(title = stringResource(Res.string.usage_recent, rangeLabel))
     Spacer(modifier = Modifier.height(dimens.spacing.sm))
     if (items.isEmpty()) {
         EmptyHint(text = stringResource(Res.string.usage_data_empty))
@@ -857,7 +872,7 @@ private fun PersonalitySection(bundle: PersonalityBundle) {
                         .background(primary)
                 )
                 Text(
-                    text = "Agent 对你的认知",
+                    text = stringResource(Res.string.usage_agent_awareness),
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.SemiBold,
                     color = primary,
@@ -901,7 +916,7 @@ private fun PersonalitySection(bundle: PersonalityBundle) {
                     }
                 } else {
                     Text(
-                        text = "再听一段时间音乐，Agent 就会形成对你的认知。",
+                        text = stringResource(Res.string.usage_agent_awareness_empty),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
                     )
@@ -991,8 +1006,8 @@ private fun HourlyChart(rows: List<HourlyDistributionRow>) {
     val isNightPeak = peakHour != null && (peakHour in 22..23 || peakHour in 0..5)
     val desc = when {
         peakHour == null -> null
-        isNightPeak -> "深夜 ${formatHourRange(peakHour)} 点是你最常听歌的时段"
-        else -> "${formatHourRange(peakHour)} 点是你最常听歌的时段"
+        isNightPeak -> stringResource(Res.string.usage_peak_night, formatHourRange(peakHour))
+        else -> stringResource(Res.string.usage_peak_normal, formatHourRange(peakHour))
     }
 
     HMPCard(
@@ -1003,7 +1018,7 @@ private fun HourlyChart(rows: List<HourlyDistributionRow>) {
         contentPadding = Modifier.padding(dimens.spacing.lg)
     ) {
         Text(
-            text = "什么时候听的",
+            text = stringResource(Res.string.usage_when),
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.SemiBold,
             color = MaterialTheme.colorScheme.onSurface

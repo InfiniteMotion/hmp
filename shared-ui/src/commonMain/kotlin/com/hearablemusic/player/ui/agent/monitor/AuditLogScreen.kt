@@ -1,4 +1,19 @@
 package com.hearablemusic.player.ui.agent.monitor
+import com.hearablemusic.player.ui.common.text.UiText
+import com.hearablemusic.player.ui.common.text.asString
+import com.hearablemusic.player.ui.common.text.asUiText
+import com.hearablemusic.player.ui.generated.resources.Res
+import org.jetbrains.compose.resources.stringResource
+import com.hearablemusic.player.ui.generated.resources.agent_audit_title
+import com.hearablemusic.player.ui.generated.resources.agent_audit_empty
+import com.hearablemusic.player.ui.generated.resources.agent_audit_empty_detail
+import com.hearablemusic.player.ui.generated.resources.agent_audit_filter_all
+import com.hearablemusic.player.ui.generated.resources.agent_audit_filter_radio
+import com.hearablemusic.player.ui.generated.resources.agent_audit_filter_reorder
+import com.hearablemusic.player.ui.generated.resources.agent_audit_no_detail
+import com.hearablemusic.player.ui.generated.resources.agent_audit_args_hash
+import com.hearablemusic.player.ui.generated.resources.agent_audit_task_id
+import com.hearablemusic.player.ui.generated.resources.agent_audit_record_id
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -8,12 +23,14 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -23,6 +40,8 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import com.hearablemusic.player.ui.common.components.base.DefaultEmpty
+import com.hearablemusic.player.ui.common.design.dimens.LocalHMPDimens
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -33,11 +52,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
 import com.hmp.data.database.AgentAuditLog
 import com.hmp.data.database.AgentAuditLogDao
+import com.hearablemusic.player.ui.common.layout.LocalWindowSizeInfo
 import com.hearablemusic.player.ui.common.pages.base.SubScreen
 import com.hearablemusic.player.ui.common.util.formatEpochMillis
 import org.koin.compose.koinInject
@@ -60,12 +81,56 @@ fun AuditLogScreen(
 
     SubScreen(
         onBackClick = { navController.removeLastOrNull() },
-        title = "操作审计日志",
+        title = stringResource(Res.string.agent_audit_title),
     ) {
-        Column(
+        // F14-T1 自适应：竖屏/窄窗下列表限宽居中（~640dp），避免审计条目（时间/哈希/ID）行长过长；
+        // 横屏改「筛选栏 + 列表」两栏 —— 筛选竖排到左rail，列表吃满剩余宽度（行内有哈希/ID，宽一点更易读）。
+        // Compact maxWidth = Dp.Unspecified → 单栏不加约束，与改造前逐像素一致。
+        val window = LocalWindowSizeInfo.current
+        val isWide = window.isExpanded || window.isMedium
+        val isLandscape = window.isLandscape
+        val dimens = LocalHMPDimens.current
+        val listMaxWidth = if (isWide) 640.dp else Dp.Unspecified
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.TopCenter,
+        ) {
+        if (isLandscape) {
+        Row(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 24.dp, vertical = 8.dp),
+                .padding(horizontal = dimens.spacing.xl, vertical = dimens.spacing.md),
+            horizontalArrangement = Arrangement.spacedBy(dimens.spacing.lg),
+        ) {
+            // 左：筛选 rail（竖排）
+            FilterRail(
+                currentFilter = currentFilter,
+                onFilterSelected = { viewModel.applyFilter(it) },
+                modifier = Modifier.width(160.dp).fillMaxHeight(),
+            )
+            // 右：列表吃满剩余宽度
+            Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
+                if (logs.isEmpty()) {
+                    DefaultEmpty(
+                        message = stringResource(Res.string.agent_audit_empty),
+                        detail = stringResource(Res.string.agent_audit_empty_detail),
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                } else {
+                    LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        items(logs, key = { it.id }) { log -> AuditLogRow(log) }
+                        item { Spacer(Modifier.height(32.dp)) }
+                    }
+                }
+            }
+        }
+        } else {
+        Column(
+            modifier = Modifier
+                .widthIn(max = listMaxWidth)
+                .fillMaxWidth()
+                .fillMaxSize()
+                .padding(horizontal = dimens.spacing.lg, vertical = dimens.spacing.sm),
         ) {
             // 筛选 Tab
             FilterRow(
@@ -76,7 +141,11 @@ fun AuditLogScreen(
             Spacer(Modifier.height(8.dp))
 
             if (logs.isEmpty()) {
-                EmptyState(modifier = Modifier.fillMaxSize())
+                DefaultEmpty(
+                    message = stringResource(Res.string.agent_audit_empty),
+                    detail = stringResource(Res.string.agent_audit_empty_detail),
+                    modifier = Modifier.fillMaxSize(),
+                )
             } else {
                 LazyColumn(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -88,6 +157,8 @@ fun AuditLogScreen(
                 }
             }
         }
+        }
+        }
     }
 }
 
@@ -95,12 +166,12 @@ fun AuditLogScreen(
 // 筛选 Tab
 // ═══════════════════════════════════════════════════════════════
 
-private data class FilterTab(val label: String, val tool: String? = null)
+private data class FilterTab(val label: UiText, val tool: String? = null)
 
 private val filterTabs = listOf(
-    FilterTab("全部"),
-    FilterTab("电台操作", "radio.start"),
-    FilterTab("跳过重排", "radio.reorder"),
+    FilterTab(Res.string.agent_audit_filter_all.asUiText()),
+    FilterTab(Res.string.agent_audit_filter_radio.asUiText(), "radio.start"),
+    FilterTab(Res.string.agent_audit_filter_reorder.asUiText(), "radio.reorder"),
 )
 
 @Composable
@@ -129,7 +200,43 @@ private fun FilterRow(
                         onFilterSelected(AuditLogViewModel.Filter.ByTool(tab.tool))
                     }
                 },
-                label = { Text(tab.label) },
+                label = { Text(tab.label.asString()) },
+            )
+        }
+    }
+}
+
+/**
+ * 横屏左侧筛选 rail：与 [FilterRow] 同一组筛选、同一选中判据，仅改为竖排。
+ *
+ * 内容量小（3 个筛选项），竖排到窄栏后右侧列表可吃满剩余宽度，
+ * 避免审计条目在中心限宽下两侧留大片空白。
+ */
+@Composable
+private fun FilterRail(
+    currentFilter: AuditLogViewModel.Filter,
+    onFilterSelected: (AuditLogViewModel.Filter) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        filterTabs.forEach { tab ->
+            val selected = when (currentFilter) {
+                is AuditLogViewModel.Filter.All -> tab.tool == null
+                is AuditLogViewModel.Filter.ByTool -> tab.tool == currentFilter.tool
+            }
+            FilterChip(
+                selected = selected,
+                onClick = {
+                    if (tab.tool == null) {
+                        onFilterSelected(AuditLogViewModel.Filter.All)
+                    } else {
+                        onFilterSelected(AuditLogViewModel.Filter.ByTool(tab.tool))
+                    }
+                },
+                label = { Text(tab.label.asString()) },
             )
         }
     }
@@ -138,33 +245,6 @@ private fun FilterRow(
 // ═══════════════════════════════════════════════════════════════
 // 空态
 // ═══════════════════════════════════════════════════════════════
-
-@Composable
-private fun EmptyState(modifier: Modifier = Modifier) {
-    Box(
-        modifier = modifier,
-        contentAlignment = Alignment.Center,
-    ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(
-                text = "📋",
-                style = MaterialTheme.typography.displayMedium,
-            )
-            Spacer(Modifier.height(8.dp))
-            Text(
-                text = "还没有审计记录",
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onBackground,
-            )
-            Spacer(Modifier.height(4.dp))
-            Text(
-                text = "开始使用 AI 功能后这里会自动记录所有操作",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-    }
-}
 
 // ═══════════════════════════════════════════════════════════════
 // 单条记录行
@@ -218,27 +298,27 @@ private fun AuditLogRow(log: AgentAuditLog) {
             if (expanded) {
                 Spacer(Modifier.height(8.dp))
                 Text(
-                    text = log.reason ?: "(无详情)",
+                    text = log.reason ?: stringResource(Res.string.agent_audit_no_detail),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurface,
                 )
-                if (log.argsHash != null) {
+                log.argsHash?.let { argsHash ->
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        text = "参数哈希: ${log.argsHash}",
+                        text = stringResource(Res.string.agent_audit_args_hash, argsHash),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                if (log.taskId != null) {
+                log.taskId?.let { taskId ->
                     Text(
-                        text = "任务 ID: ${log.taskId}",
+                        text = stringResource(Res.string.agent_audit_task_id, taskId),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
                 Text(
-                    text = "记录 ID: ${log.id}",
+                    text = stringResource(Res.string.agent_audit_record_id, log.id),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

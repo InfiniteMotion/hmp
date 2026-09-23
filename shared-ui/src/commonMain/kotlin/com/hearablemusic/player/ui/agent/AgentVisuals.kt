@@ -1,4 +1,12 @@
 package com.hearablemusic.player.ui.agent
+import org.jetbrains.compose.resources.stringResource
+import androidx.compose.runtime.Composable
+import com.hearablemusic.player.ui.generated.resources.agent_status_idle
+import com.hearablemusic.player.ui.generated.resources.agent_status_building
+import com.hearablemusic.player.ui.generated.resources.agent_status_running
+import com.hearablemusic.player.ui.generated.resources.agent_status_paused
+import com.hearablemusic.player.ui.generated.resources.agent_status_completed
+import com.hearablemusic.player.ui.generated.resources.agent_status_error
 
 import androidx.compose.ui.graphics.Color
 import com.hearablemusic.player.ui.generated.resources.Res
@@ -42,6 +50,14 @@ object AgentStatusColors {
     val Paused = Color(0xFF5B7C99)
     val Completed = Color(0xFF6F5F86)
     val Error = Color(0xFFB5544A)
+
+    /**
+     * 日志级别 Warn（琥珀色）—— 与「状态色」是两套语义：
+     * 上面六色描述 capability 状态，本色描述日志条目级别（`Severity.Warn`）。
+     * 收在此处是因为二者都靠颜色传达"需要留意"的程度，散在页面里写死会各自漂移
+     * （F14-T3 ④ 就是看板日志弹窗内联 `Color(0xFFB26A00)` 的散点）。
+     */
+    val Warn = Color(0xFFB26A00)
 }
 
 fun agentStatusColor(status: CapabilityState.Status?): Color = when (status) {
@@ -55,14 +71,15 @@ fun agentStatusColor(status: CapabilityState.Status?): Color = when (status) {
 }
 
 /** 状态文案（**纯文字，不带 emoji**）。 */
+@Composable
 fun agentStatusLabel(state: CapabilityState?): String = state?.let { s ->
     when (s.status) {
-        CapabilityState.Status.IDLE -> "空闲"
-        CapabilityState.Status.BUILDING -> "启动中"
-        CapabilityState.Status.RUNNING -> "运行中"
-        CapabilityState.Status.PAUSED -> "已暂停"
-        CapabilityState.Status.COMPLETED -> "完成"
-        CapabilityState.Status.ERROR -> "错误"
+        CapabilityState.Status.IDLE -> stringResource(Res.string.agent_status_idle)
+        CapabilityState.Status.BUILDING -> stringResource(Res.string.agent_status_building)
+        CapabilityState.Status.RUNNING -> stringResource(Res.string.agent_status_running)
+        CapabilityState.Status.PAUSED -> stringResource(Res.string.agent_status_paused)
+        CapabilityState.Status.COMPLETED -> stringResource(Res.string.agent_status_completed)
+        CapabilityState.Status.ERROR -> stringResource(Res.string.agent_status_error)
     }
 } ?: "—"
 
@@ -70,5 +87,6 @@ fun agentStatusLabel(state: CapabilityState?): String = state?.let { s ->
  * 「当前在做什么」= CapabilityState.detail。
  * 与状态文案相同时视为**无增量**（例如 Hello 的 detail 就是「运行中」，状态行已写）→ 返回 null。
  */
+@Composable
 fun agentDetailOf(state: CapabilityState?): String? =
     state?.detail?.takeIf { it.isNotBlank() && it != agentStatusLabel(state) }

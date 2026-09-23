@@ -77,6 +77,13 @@ class ControllerPlaybackCommandPort(
     @com.hmp.platform.Volatile
     private var pendingTrackChange = false
 
+    /**
+     * 执行播放指令，返回 `Pair<是否成功, 结果文案>`。
+     *
+     * ⚠️ **返回的结果文案（「已播放」/「已切到下一首」/「未找到该曲目」…）是 LLM 面向的工具结果**
+     * —— 回填给 agent 循环作为 tool 输出，**不是用户可见 UI 文案**。故按 T2 验收条件
+     * 「LLM 面向白名单除外」**不接入 strings.xml**。若将来需直接展示给用户，请另行本地化。
+     */
     override suspend fun execute(
         command: PlaybackCommand,
         source: CommandSource,

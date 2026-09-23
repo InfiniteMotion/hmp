@@ -1,5 +1,9 @@
 package com.hearablemusic.player.ui.agent.chat
 
+import com.hearablemusic.player.ui.generated.resources.Res
+import com.hearablemusic.player.ui.generated.resources.agent_chat_error_failed
+import com.hearablemusic.player.ui.generated.resources.agent_chat_radio_night_summary
+import com.hearablemusic.player.ui.generated.resources.agent_chat_radio_seed_summary
 import com.hmp.domain.agent.port.ConfirmGate
 import com.hmp.domain.agent.port.ConfirmOutcome
 import com.hmp.domain.agent.port.ConfirmRequest
@@ -27,6 +31,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import com.hmp.log.HmpLog
 import com.hmp.log.LogTag
+import org.jetbrains.compose.resources.getString
 
 /**
  * 对话页 UI 面向 Agent 的接缝事件（真实网关经 MasterChatGateway → MasterAgent 产出；单测注入 Fake 网关）。
@@ -201,7 +206,7 @@ class MasterChatGateway(
         } catch (ce: kotlinx.coroutines.CancellationException) {
             throw ce
         } catch (e: Exception) {
-            emit(ChatAgentEvent.Failed(e.message ?: "对话失败"))
+            emit(ChatAgentEvent.Failed(e.message ?: getString(Res.string.agent_chat_error_failed)))
         }
     }
 
@@ -294,8 +299,11 @@ class MasterChatGateway(
         }.getOrDefault(emptyList())
 
         // 种子标签（从 MasterAgent 或 RadioSubAgent 拿——暂用 playlist 的 why 字段提取）
-        val summary = if (!seed.isNullOrBlank()) "「$seed」电台 · ${tracks.size} 首备选"
-                      else "今夜电台 · ${tracks.size} 首备选"
+        val summary = if (!seed.isNullOrBlank()) {
+            getString(Res.string.agent_chat_radio_seed_summary, seed, tracks.size)
+        } else {
+            getString(Res.string.agent_chat_radio_night_summary, tracks.size)
+        }
 
         HmpLog.i(LogTag.AgentGateway) { "🌉 startRadio: ${tracks.size} tracks → ${musicInfos.size} resolved" }
         return ChatAgentEvent.RadioStarted(

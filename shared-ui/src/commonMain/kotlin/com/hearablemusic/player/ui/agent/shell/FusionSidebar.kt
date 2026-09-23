@@ -35,6 +35,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.hearablemusic.player.ui.common.design.dimens.LocalHMPDimens
+import com.hearablemusic.player.ui.common.text.UiText
+import com.hearablemusic.player.ui.common.text.asString
+import com.hearablemusic.player.ui.common.text.asUiText
 import com.hearablemusic.player.ui.common.util.rememberHapticFeedback
 import com.hearablemusic.player.ui.generated.resources.Res
 import com.hearablemusic.player.ui.generated.resources.house
@@ -50,21 +53,19 @@ import com.hearablemusic.player.ui.generated.resources.tab_list
 import com.hearablemusic.player.ui.generated.resources.tab_user
 import com.hmp.domain.music.MusicInfo
 import org.jetbrains.compose.resources.DrawableResource
-import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.painterResource
-import org.jetbrains.compose.resources.stringResource
 
 private data class SidebarTabItem(
-    val label: StringResource,
+    val label: UiText,
     val selectedIcon: DrawableResource,
     val unselectedIcon: DrawableResource
 )
 
 private val sidebarTabs = listOf(
-    SidebarTabItem(Res.string.tab_home, Res.drawable.house_fill, Res.drawable.house),
-    SidebarTabItem(Res.string.tab_gallery, Res.drawable.square_fill_grid_2x2, Res.drawable.square_grid_2x2),
-    SidebarTabItem(Res.string.tab_list, Res.drawable.list_bullet, Res.drawable.list_bullet),
-    SidebarTabItem(Res.string.tab_user, Res.drawable.person_filled_viewfinder, Res.drawable.person)
+    SidebarTabItem(Res.string.tab_home.asUiText(), Res.drawable.house_fill, Res.drawable.house),
+    SidebarTabItem(Res.string.tab_gallery.asUiText(), Res.drawable.square_fill_grid_2x2, Res.drawable.square_grid_2x2),
+    SidebarTabItem(Res.string.tab_list.asUiText(), Res.drawable.list_bullet, Res.drawable.list_bullet),
+    SidebarTabItem(Res.string.tab_user.asUiText(), Res.drawable.person_filled_viewfinder, Res.drawable.person)
 )
 
 /**
@@ -117,7 +118,7 @@ fun FusionSidebar(
                     painter = painterResource(
                         if (isSelected) tab.selectedIcon else tab.unselectedIcon
                     ),
-                    contentDescription = stringResource(tab.label),
+                    contentDescription = tab.label.asString(),
                     tint = iconTint,
                     modifier = Modifier.size(dimens.icon.md)
                 )

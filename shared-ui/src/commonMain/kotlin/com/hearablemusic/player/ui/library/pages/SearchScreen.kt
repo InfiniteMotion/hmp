@@ -1,4 +1,8 @@
 package com.hearablemusic.player.ui.library.pages
+import com.hearablemusic.player.ui.generated.resources.search_empty_ask
+import com.hearablemusic.player.ui.generated.resources.search_intent_ask
+import com.hearablemusic.player.ui.generated.resources.search_intent_hint
+import com.hearablemusic.player.ui.generated.resources.search_intent_just_search
 
 import com.hearablemusic.player.ui.generated.resources.Res
 import org.jetbrains.compose.resources.painterResource
@@ -180,16 +184,16 @@ fun SearchScreenContent(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Text(
-                        text = "听起来像想让伙伴帮你",
+                        text = stringResource(Res.string.search_intent_hint),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.weight(1f)
                     )
                     TextButton(onClick = { onTalkToCompanion(searchQuery) }) {
-                        Text("交给伙伴", color = MaterialTheme.colorScheme.primary)
+                        Text(stringResource(Res.string.search_intent_ask), color = MaterialTheme.colorScheme.primary)
                     }
                     TextButton(onClick = { showIntentStrip = false }) {
-                        Text("只是搜索", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(stringResource(Res.string.search_intent_just_search), color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }
@@ -235,7 +239,7 @@ fun SearchScreenContent(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             TextButton(onClick = { onTalkToCompanion(searchQuery) }) {
-                                Text("问问伙伴？", color = MaterialTheme.colorScheme.primary)
+                                Text(stringResource(Res.string.search_empty_ask), color = MaterialTheme.colorScheme.primary)
                             }
                         }
                     }

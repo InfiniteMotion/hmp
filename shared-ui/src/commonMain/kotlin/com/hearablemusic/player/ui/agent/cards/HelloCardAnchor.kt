@@ -1,4 +1,7 @@
 package com.hearablemusic.player.ui.agent.cards
+import com.hearablemusic.player.ui.generated.resources.card_anchor_not_playing
+import com.hearablemusic.player.ui.generated.resources.card_unknown
+import org.jetbrains.compose.resources.stringResource
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -196,7 +199,7 @@ internal fun FamilyAnchorCard(
                     modifier = Modifier.weight(1f).padding(8.dp)
                 ) {
                     Text(
-                        text = c.trackTitle ?: "未播放",
+                        text = c.trackTitle ?: stringResource(Res.string.card_anchor_not_playing),
                         color = Color.White,
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Bold,
@@ -205,7 +208,7 @@ internal fun FamilyAnchorCard(
                     )
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        text = c.artistName ?: "未知",
+                        text = c.artistName ?: stringResource(Res.string.card_unknown),
                         color = Color.White.copy(alpha = 0.75f),
                         fontSize = 11.sp,
                         maxLines = 2,

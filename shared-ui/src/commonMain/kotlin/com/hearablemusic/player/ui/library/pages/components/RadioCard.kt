@@ -1,4 +1,16 @@
 package com.hearablemusic.player.ui.library.pages.components
+import org.jetbrains.compose.resources.stringResource
+import com.hearablemusic.player.ui.generated.resources.radio_card_active
+import com.hearablemusic.player.ui.generated.resources.radio_card_building
+import com.hearablemusic.player.ui.generated.resources.radio_card_close
+import com.hearablemusic.player.ui.generated.resources.radio_card_enable_hint
+import com.hearablemusic.player.ui.generated.resources.radio_card_idle
+import com.hearablemusic.player.ui.generated.resources.radio_card_open
+import com.hearablemusic.player.ui.generated.resources.radio_card_picking
+import com.hearablemusic.player.ui.generated.resources.radio_card_renewing
+import com.hearablemusic.player.ui.generated.resources.radio_card_starting
+import com.hearablemusic.player.ui.generated.resources.radio_card_theme_renew
+import com.hearablemusic.player.ui.generated.resources.radio_card_upcoming
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -94,19 +106,19 @@ fun RadioCard(
     }
 
     val title = when {
-        isBuilding -> "电台启动中"
-        isActive -> "电台已开启"
-        else -> "电台"
+        isBuilding -> stringResource(Res.string.radio_card_building)
+        isActive -> stringResource(Res.string.radio_card_active)
+        else -> stringResource(Res.string.radio_card_idle)
     }
     val subtitle = when {
-        isBuilding -> "AI 正在挑选曲目…"
-        isActive -> card.theme?.let { "$it · 自动续歌中" } ?: "自动续歌中"
-        else -> "点击开启自动续歌"
+        isBuilding -> stringResource(Res.string.radio_card_picking)
+        isActive -> card.theme?.let { stringResource(Res.string.radio_card_theme_renew, it) } ?: stringResource(Res.string.radio_card_renewing)
+        else -> stringResource(Res.string.radio_card_enable_hint)
     }
     val actionLabel = when {
-        isBuilding -> "启动中…"
-        isActive -> "关闭电台"
-        else -> "开启电台"
+        isBuilding -> stringResource(Res.string.radio_card_starting)
+        isActive -> stringResource(Res.string.radio_card_close)
+        else -> stringResource(Res.string.radio_card_open)
     }
     val actionIcon = if (isActive) Res.drawable.stop else Res.drawable.play_fill
 
@@ -187,7 +199,7 @@ fun RadioCard(
                 if (isActive && card.upcomingCount > 0) {
                     Spacer(Modifier.height(2.dp))
                     Text(
-                        text = "还有 ${card.upcomingCount} 首待播",
+                        text = stringResource(Res.string.radio_card_upcoming, card.upcomingCount),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,

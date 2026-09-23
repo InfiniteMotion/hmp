@@ -1,4 +1,9 @@
 package com.hearablemusic.player.ui.agent.cards
+import com.hearablemusic.player.ui.generated.resources.card_discover_footnote
+import com.hearablemusic.player.ui.generated.resources.card_discover_title
+import com.hearablemusic.player.ui.generated.resources.card_unknown_artist
+import com.hearablemusic.player.ui.generated.resources.card_unknown_track
+import org.jetbrains.compose.resources.stringResource
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -103,7 +108,7 @@ internal fun FamilyDiscoverCard(
             ) {
                 // ① 主题标签
                 Text(
-                    text = "发现「${c.target}」",
+                    text = stringResource(Res.string.card_discover_title, c.target),
                     color = Color.White,
                     fontSize = 16.sp,
                     fontWeight = FontWeight.SemiBold,
@@ -122,8 +127,8 @@ internal fun FamilyDiscoverCard(
                 // ③ 曲目预览列表（最多 3 首，紧凑布局）
                 c.trackIds.take(3).forEachIndexed { idx, _ ->
                     val uri = albumUris.value.getOrNull(idx)
-                    val title = (c.trackTitles.getOrNull(idx).orEmpty().ifBlank { liveTitles.value.getOrNull(idx).orEmpty() }).ifBlank { "未知曲目" }
-                    val artist = (c.trackArtists.getOrNull(idx).orEmpty().ifBlank { liveArtists.value.getOrNull(idx).orEmpty() }).ifBlank { "未知艺术家" }
+                    val title = (c.trackTitles.getOrNull(idx).orEmpty().ifBlank { liveTitles.value.getOrNull(idx).orEmpty() }).ifBlank { stringResource(Res.string.card_unknown_track) }
+                    val artist = (c.trackArtists.getOrNull(idx).orEmpty().ifBlank { liveArtists.value.getOrNull(idx).orEmpty() }).ifBlank { stringResource(Res.string.card_unknown_artist) }
                     val dur = c.trackDurations.getOrNull(idx)?.coerceAtLeast(0) ?: 0
 
                     Row(
@@ -159,7 +164,7 @@ internal fun FamilyDiscoverCard(
                         // 标题 + 艺术家
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = title.ifBlank { "未知曲目" },
+                                text = title.ifBlank { stringResource(Res.string.card_unknown_track) },
                                 color = Color.White,
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Medium,
@@ -167,7 +172,7 @@ internal fun FamilyDiscoverCard(
                                 overflow = TextOverflow.Ellipsis,
                             )
                             Text(
-                                text = artist.ifBlank { "未知艺术家" },
+                                text = artist.ifBlank { stringResource(Res.string.card_unknown_artist) },
                                 color = Color.White.copy(alpha = 0.55f),
                                 fontSize = 11.sp,
                                 maxLines = 1,
@@ -186,7 +191,7 @@ internal fun FamilyDiscoverCard(
 
                 // ④ 底部总量
                 Text(
-                    text = "· 共 ${c.trackIds.size} 首可探索",
+                    text = stringResource(Res.string.card_discover_footnote, c.trackIds.size),
                     color = Color.White.copy(alpha = 0.5f),
                     fontSize = 12.sp,
                     modifier = Modifier.padding(top = 8.dp),

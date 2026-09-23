@@ -1,4 +1,8 @@
 package com.hearablemusic.player.ui.settings.pages
+import com.hearablemusic.player.ui.common.text.UiText
+import com.hearablemusic.player.ui.common.text.asString
+import com.hearablemusic.player.ui.common.text.asUiText
+import com.hearablemusic.player.ui.generated.resources.agent_ai_memory_log_title
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
@@ -76,27 +80,26 @@ import com.hearablemusic.player.ui.settings.viewmodel.UserUsageDataViewModel
 import com.hearablemusic.player.ui.settings.viewmodel.WindowedBundle
 import com.hmp.domain.setting.model.ListeningDuration
 import org.jetbrains.compose.resources.DrawableResource
-import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 import kotlin.math.abs
 
 private data class SettingsEntry(
-    val title: Any,  // StringResource | String
+    val title: UiText,
     val icon: DrawableResource,
     val route: NavKey
 )
 
 private val settingsItems = listOf(
-    SettingsEntry(Res.string.theme_customization, Res.drawable.slider_vertical_3, Routes.Custom.Custom),
-    SettingsEntry(Res.string.audio_effects, Res.drawable.identify_song, Routes.Player.AudioEffects),
-    SettingsEntry(Res.string.ai_services, Res.drawable.icloud, Routes.AI.AI),
-    SettingsEntry(Res.string.lyrics_settings, Res.drawable.music_note_list, Routes.Settings.LyricsSettings),
-    SettingsEntry(Res.string.backup_settings, Res.drawable.externaldrive, Routes.Settings.BackupSettings),
-    SettingsEntry(Res.string.library_settings, Res.drawable.music, Routes.Settings.LibrarySettings),
-    // M6-T4：AI 伙伴操作审计日志入口（内联文字，后续补 composeResources string）
-    SettingsEntry("伙伴操作日志", Res.drawable.list_bullet, Routes.Settings.AuditLog),
+    SettingsEntry(Res.string.theme_customization.asUiText(), Res.drawable.slider_vertical_3, Routes.Custom.Custom),
+    SettingsEntry(Res.string.audio_effects.asUiText(), Res.drawable.identify_song, Routes.Player.AudioEffects),
+    SettingsEntry(Res.string.ai_services.asUiText(), Res.drawable.icloud, Routes.AI.AI),
+    SettingsEntry(Res.string.lyrics_settings.asUiText(), Res.drawable.music_note_list, Routes.Settings.LyricsSettings),
+    SettingsEntry(Res.string.backup_settings.asUiText(), Res.drawable.externaldrive, Routes.Settings.BackupSettings),
+    SettingsEntry(Res.string.library_settings.asUiText(), Res.drawable.music, Routes.Settings.LibrarySettings),
+    // M6-T4：AI 伙伴操作审计日志入口
+    SettingsEntry(Res.string.agent_ai_memory_log_title.asUiText(), Res.drawable.list_bullet, Routes.Settings.AuditLog),
 )
 
 @Composable
@@ -134,11 +137,7 @@ private fun SettingsListCard(
                     )
                     Spacer(modifier = Modifier.weight(1f))
                     Text(
-                        text = when (title) {
-                            is StringResource -> stringResource(title)
-                            is String -> title
-                            else -> title.toString()
-                        },
+                        text = title.asString(),
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurface
                     )

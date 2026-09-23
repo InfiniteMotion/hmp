@@ -1,4 +1,9 @@
 package com.hearablemusic.player.ui.library.pages
+import com.hearablemusic.player.ui.generated.resources.home_explore
+import com.hearablemusic.player.ui.generated.resources.home_private_reco
+import com.hearablemusic.player.ui.generated.resources.home_recommended
+import com.hearablemusic.player.ui.generated.resources.home_today_reco
+import com.hearablemusic.player.ui.generated.resources.play_all
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -61,6 +66,8 @@ import com.hearablemusic.player.ui.generated.resources.magnifyingglass
 import com.hearablemusic.player.ui.generated.resources.play_fill
 import com.hearablemusic.player.ui.generated.resources.search_placeholder
 import com.hearablemusic.player.ui.library.pages.components.FeatureEntryRow
+import com.hearablemusic.player.ui.agent.cards.CardStackTuning
+import com.hearablemusic.player.ui.agent.cards.HelloCardCoverflow
 import com.hearablemusic.player.ui.agent.cards.HelloSlideCardStack
 import com.hearablemusic.player.ui.library.pages.components.RadioCard
 import com.hearablemusic.player.ui.player.viewmodel.PlaylistQueueViewModel
@@ -76,20 +83,18 @@ fun HomeScreen(
     playlistQueueViewModel: PlaylistQueueViewModel = activityViewModel(),
     navController: NavBackStack<NavKey>
 ) {
-    val isLandscape = LocalWindowSizeInfo.current.isLandscape
+    val windowSize = LocalWindowSizeInfo.current
+    val isLandscape = windowSize.isLandscape
+    // 宽窗右栏"组间间距"分档依据：直接用窗口宽度数值（横屏两栏布局下宽普遍 900–1600dp，
+    // 三档 WindowWidthSizeClass 区分度不够，故按 px 无关的 dp 数值分档）。
+    val widthDp = windowSize.widthDp
 
-    // ── G6：两个推荐入口数据（agent 生成的每日 / 私人推荐列表） ──
-    // payload==null → 生成中（入口置灰）；payload 空 items → 无数据（入口隐藏）；否则正常。
+    // 两个推荐入口数据：payload==null → 生成中（置灰）；空 items → 无数据（隐藏）；否则正常。
     val masterAgent: MasterAgent = koinInject()
-    // MasterAgent 持有的固定转发流（内部镜像 Hello 子代理）——首帧即可拿到，
-    // 不会像透传子代理那样缓存到 null / 旧实例。
     val dailyPayload by masterAgent.dailyRecommendList.collectAsState()
     val privatePayload by masterAgent.privateRecommendList.collectAsState()
 
-    // ── G2：堆叠卡短按 → 直接接入播放 ──
-    // 按卡型分流：能播的播、能跳的跳、纯文案卡不响应。
-    // 长按事件本次不做（骨架保留）。叙事卡（NARRATIVE）点击落点暂空，待 P5 报告页。
-    // 卡片 content 只带 trackId，需按 id 查回 MusicInfo 才能入队播放（入队 API 要 MusicInfo）。
+    // 堆叠卡短按 → 按卡型分流（能播的播、能跳的跳、纯文案卡不响应）
     val musicRepository: MusicRepository = koinInject()
     val cardScope = rememberCoroutineScope()
 
@@ -114,17 +119,8 @@ fun HomeScreen(
     }
 
     val onSlideCardClick: (SlideCard) -> Unit = { card ->
-        // 抽出「按 id 集合播放」的公共路径：查 MusicInfo → 追加到队尾 → 播首曲 → 进播放页
-        //
-        // ⚠️ 这里**曾经**是「clearPlaylist() + addAllToPlaylistInOrder()」，两个问题：
-        //  ① 清空队列会把用户已有的待播列表整个丢掉 —— 卡片点播只应"插进队列"，
-        //     不该当成"换一整个播放列表"；
-        //  ② `addAllToPlaylistInOrder` 名不副实 —— 它做的是
-        //     `_currentPlaylist.value = playlist; currentIndex = 0; playCurrentTrack()`，
-        //     即**整条替换 + 从第一首开始播**，并不是"按顺序追加"。
-        // 正解沿用 agent 侧 `ControllerAgentPorts.replaceQueueWith` 的结论：只追加、不替换 ——
-        // 逐个 `addToPlaylist()`（尾部追加，不动索引、不触发播放；内含整队列去重）
-        // + `playAt()` 把播放定位到目标曲（不重建队列）。
+        // 卡片点播只"追加进队列"、不替换：逐个 addToPlaylist（尾部追加 + 整队列去重）
+        // 再用 playAt 定位到目标曲。不可用 addAllToPlaylistInOrder —— 它实际是整条替换并从首曲播起。
         fun playIds(ids: List<Long>) {
             if (ids.isEmpty()) return
             cardScope.launch {
@@ -158,104 +154,125 @@ fun HomeScreen(
         Box(modifier = Modifier.fillMaxSize()) {
             TabScreen(showHeader = false) {
                 if (isLandscape) {
-                    // ═══════════════════════════════════════
-                    // Expanded 横向布局 — 左右两栏
-                    // 左栏：HelloSlideCardStack（独立展示区）
-                    // 右栏：搜索框 + 区域② + 区域③
-                    // ═══════════════════════════════════════
+                    // Expanded 横向：左栏 Hello 卡堆叠，右栏搜索 + 推荐 + 探索
                     Row(
                         modifier = Modifier.fillMaxSize()
-                            .padding(horizontal = 32.dp, vertical = 16.dp),
-                        horizontalArrangement = Arrangement.spacedBy(24.dp),
+                            // bottom 88dp 为悬浮播放条（MiniPlayerBar）让位，项目既有约定。
+                            .padding(start = 32.dp, end = 32.dp, top = 16.dp, bottom = 88.dp),
+                        horizontalArrangement = Arrangement.spacedBy(44.dp),
+                        verticalAlignment = Alignment.Top,
                     ) {
-                        // ── 左栏：HelloSlideCardStack ──
-                        HelloSlideCardStack(
-                            modifier = Modifier
-                                .weight(0.8f)
-                                .fillMaxHeight().padding(bottom = 80.dp),
+                        // 左栏：横屏调参的卡片堆叠（露邻卡的 3D Coverflow 观感）
+                        HelloCardCoverflow(
+                            modifier = Modifier.weight(0.8f).fillMaxHeight(),
+                            tuning = CardStackTuning.Landscape,
                             onCardClick = onSlideCardClick,
                         )
 
                         // ── 右栏：搜索框 + 推荐 + 探索 ──
-                        Column(
+                        //
+                        // 垂直居中要靠外层 Box：内层 Column 带 verticalScroll，高度约束无界，
+                        // 直接加 verticalArrangement = Center 是空操作。
+                        //
+                        // 组间间距按窗口宽度分档。探索卡改回 1:1 后，其高度 = 卡宽
+                        // （900 窗口下 ≈133dp、1104 下 ≈171dp），右栏固定项 344dp，
+                        // 故窄窗（900×600 可用 496dp）留给两个组间的余量只有 ~19dp。
+                        // 溢出会触发 verticalScroll，而滚动一出现垂直居中即失效，故必须留安全余量。
+                        val groupGap = when {
+                            widthDp < 1100f -> 6.dp
+                            widthDp < 1300f -> 26.dp
+                            else -> 46.dp
+                        }
+                        Box(
                             modifier = Modifier
                                 .weight(1f)
-                                .fillMaxHeight()
-                                .verticalScroll(rememberScrollState()),
-                            verticalArrangement = Arrangement.spacedBy(16.dp),
+                                .fillMaxHeight(),
+                            contentAlignment = Alignment.Center,
                         ) {
-                            // 搜索框
-                            HomeSearchBar(onClick = { navController.add(NavRoutes.Library.Search) })
-                            Spacer(modifier = Modifier.height(32.dp))
-
-                            // 区域② 为你推荐
-                            Text(
-                                text = "为你推荐",
-                                style = MaterialTheme.typography.titleLarge,
-                                color = MaterialTheme.colorScheme.onBackground
-                            )
-                            Row(
-                                modifier = Modifier.fillMaxWidth().height(320.dp),
-                                horizontalArrangement = Arrangement.spacedBy(20.dp),
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .verticalScroll(rememberScrollState()),
                             ) {
-                                RadioCard(
-                                    modifier = Modifier.fillMaxHeight(),
-                                )
-                                Column(
-                                    modifier = Modifier.fillMaxSize(),
-                                    verticalArrangement = Arrangement.spacedBy(20.dp),
-                                ) {
-                                    RecommendEntryCard(
-                                        modifier = Modifier.weight(1f).fillMaxWidth(),
-                                        source = RecommendSource.DAILY,
-                                        payload = dailyPayload,
-                                        onOpen = { navController.add(NavRoutes.Recommend.Daily) },
-                                        onPlay = { playRecommend(RecommendSource.DAILY) },
-                                    )
-                                    RecommendEntryCard(
-                                        modifier = Modifier.weight(1f).fillMaxWidth(),
-                                        source = RecommendSource.PRIVATE,
-                                        payload = privatePayload,
-                                        onOpen = { navController.add(NavRoutes.Recommend.Private) },
-                                        onPlay = { playRecommend(RecommendSource.PRIVATE) },
-                                    )
-                                }
-                            }
+                                // 搜索框
+                                HomeSearchBar(onClick = { navController.add(NavRoutes.Library.Search) })
 
-                            // 区域③ 探索
-                            Text(
-                                text = "探索",
-                                style = MaterialTheme.typography.titleLarge,
-                                color = MaterialTheme.colorScheme.onBackground
-                            )
-                            FeatureEntryRow(navController = navController)
+                                // 组间
+                                Spacer(modifier = Modifier.height(groupGap))
+
+                                // 为你推荐
+                                Text(
+                                    text = stringResource(Res.string.home_recommended),
+                                    style = MaterialTheme.typography.titleLarge,
+                                    color = MaterialTheme.colorScheme.onBackground
+                                )
+                                // 组内
+                                Spacer(modifier = Modifier.height(16.dp))
+                                // Row 高度直接决定 RadioCard 的边长（正方 + fillMaxHeight）
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().height(180.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(20.dp),
+                                ) {
+                                    RadioCard(
+                                        modifier = Modifier.fillMaxHeight(),
+                                    )
+                                    Column(
+                                        modifier = Modifier.fillMaxHeight().weight(1f),
+                                        verticalArrangement = Arrangement.spacedBy(20.dp),
+                                    ) {
+                                        RecommendEntryCard(
+                                            modifier = Modifier.weight(1f).fillMaxWidth(),
+                                            source = RecommendSource.DAILY,
+                                            payload = dailyPayload,
+                                            onOpen = { navController.add(NavRoutes.Recommend.Daily) },
+                                            onPlay = { playRecommend(RecommendSource.DAILY) },
+                                        )
+                                        RecommendEntryCard(
+                                            modifier = Modifier.weight(1f).fillMaxWidth(),
+                                            source = RecommendSource.PRIVATE,
+                                            payload = privatePayload,
+                                            onOpen = { navController.add(NavRoutes.Recommend.Private) },
+                                            onPlay = { playRecommend(RecommendSource.PRIVATE) },
+                                        )
+                                    }
+                                }
+
+                                // 组间
+                                Spacer(modifier = Modifier.height(groupGap))
+
+                                // 探索
+                                Text(
+                                    text = stringResource(Res.string.home_explore),
+                                    style = MaterialTheme.typography.titleLarge,
+                                    color = MaterialTheme.colorScheme.onBackground
+                                )
+                                Spacer(modifier = Modifier.height(12.dp))
+                                FeatureEntryRow(navController = navController)
+
+                                Spacer(modifier = Modifier.height(24.dp))
+                            }
                         }
                     }
                 } else {
-                    // ═══════════════════════════════════════
                     // Compact / Medium 纵向布局
-                    // ① HelloSlideCardStack (16:9)
-                    // ② Row { RadioCard(1:1); Column { 今日推荐; 最近收藏 } }
-                    // ③ FeatureEntryRow
-                    // ═══════════════════════════════════════
                     Column(
                         modifier = Modifier.verticalScroll(rememberScrollState())
                             .padding(16.dp),
                     ) {
-                        // 搜索框
                         HomeSearchBar(onClick = { navController.add(NavRoutes.Library.Search) })
 
-                        // 区域①
+                        // 竖屏：卡纵向内缩 16dp（横向撑满，与上方搜索栏对齐），卡本身 10:9。
+                        // padding 必须在 aspectRatio 之前，否则比例会漂成 1.123 而非 1.111。
+                        // 不露邻卡但能无限循环；下方不再补 Spacer，避免与这里的 bottom 16dp 叠加成 32dp。
                         HelloSlideCardStack(
                             modifier = Modifier
                                 .fillMaxWidth()
+                                .padding(vertical = 16.dp)
                                 .aspectRatio(10f / 9f),
                             onCardClick = onSlideCardClick,
                         )
-                        Spacer(modifier = Modifier.height(16.dp))
-                        // 区域② 快速播放
                         Text(
-                            text = "为你推荐",
+                            text = stringResource(Res.string.home_recommended),
                             modifier = Modifier,
                             style = MaterialTheme.typography.titleLarge,
                             color = MaterialTheme.colorScheme.onBackground
@@ -343,8 +360,8 @@ private fun RecommendEntryCard(
 
     val ready = payload != null && payload.items.isNotEmpty()
     val title = when (source) {
-        RecommendSource.DAILY -> "今日推荐"
-        RecommendSource.PRIVATE -> "私人推荐"
+        RecommendSource.DAILY -> stringResource(Res.string.home_today_reco)
+        RecommendSource.PRIVATE -> stringResource(Res.string.home_private_reco)
     }
 
     // 容器对齐 TitleWidget / User·Setting 页卡片：透明底 + outlineVariant 50% 描边 + dimens.corner.md
@@ -353,6 +370,8 @@ private fun RecommendEntryCard(
             .clickable(enabled = ready) { onOpen() },
         contentPadding = Modifier.padding(horizontal = 14.dp, vertical = 12.dp)
     ) {
+        // 撑满卡片可用区并垂直居中：卡高由调用方决定（宽窗 70dp / Compact 70dp），
+        // 内容只有一行标题 + 圆形按钮，居中后上下留白对称。
         Row(
             modifier = Modifier.fillMaxSize(),
             verticalAlignment = Alignment.CenterVertically,
@@ -382,7 +401,7 @@ private fun RecommendEntryCard(
             ) {
                 Icon(
                     painter = painterResource(Res.drawable.play_fill),
-                    contentDescription = "播放全部",
+                    contentDescription = stringResource(Res.string.play_all),
                 )
             }
         }
