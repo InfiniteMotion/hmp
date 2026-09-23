@@ -25,6 +25,8 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import com.hearablemusic.player.ui.common.components.base.DefaultEmpty
+import com.hearablemusic.player.ui.common.design.dimens.LocalHMPDimens
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -72,6 +74,7 @@ fun AuditLogScreen(
         val window = LocalWindowSizeInfo.current
         val isWide = window.isExpanded || window.isMedium
         val isLandscape = window.isLandscape
+        val dimens = LocalHMPDimens.current
         val listMaxWidth = if (isWide) 640.dp else Dp.Unspecified
         Box(
             modifier = Modifier.fillMaxSize(),
@@ -81,8 +84,8 @@ fun AuditLogScreen(
         Row(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 32.dp, vertical = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(24.dp),
+                .padding(horizontal = dimens.spacing.xl, vertical = dimens.spacing.md),
+            horizontalArrangement = Arrangement.spacedBy(dimens.spacing.lg),
         ) {
             // 左：筛选 rail（竖排）
             FilterRail(
@@ -93,7 +96,11 @@ fun AuditLogScreen(
             // 右：列表吃满剩余宽度
             Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
                 if (logs.isEmpty()) {
-                    EmptyState(modifier = Modifier.fillMaxSize())
+                    DefaultEmpty(
+                        message = "还没有审计记录",
+                        detail = "开始使用 AI 功能后这里会自动记录所有操作",
+                        modifier = Modifier.fillMaxSize(),
+                    )
                 } else {
                     LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         items(logs, key = { it.id }) { log -> AuditLogRow(log) }
@@ -108,7 +115,7 @@ fun AuditLogScreen(
                 .widthIn(max = listMaxWidth)
                 .fillMaxWidth()
                 .fillMaxSize()
-                .padding(horizontal = 24.dp, vertical = 8.dp),
+                .padding(horizontal = dimens.spacing.lg, vertical = dimens.spacing.sm),
         ) {
             // 筛选 Tab
             FilterRow(
@@ -119,7 +126,11 @@ fun AuditLogScreen(
             Spacer(Modifier.height(8.dp))
 
             if (logs.isEmpty()) {
-                EmptyState(modifier = Modifier.fillMaxSize())
+                DefaultEmpty(
+                    message = "还没有审计记录",
+                    detail = "开始使用 AI 功能后这里会自动记录所有操作",
+                    modifier = Modifier.fillMaxSize(),
+                )
             } else {
                 LazyColumn(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -219,33 +230,6 @@ private fun FilterRail(
 // ═══════════════════════════════════════════════════════════════
 // 空态
 // ═══════════════════════════════════════════════════════════════
-
-@Composable
-private fun EmptyState(modifier: Modifier = Modifier) {
-    Box(
-        modifier = modifier,
-        contentAlignment = Alignment.Center,
-    ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(
-                text = "📋",
-                style = MaterialTheme.typography.displayMedium,
-            )
-            Spacer(Modifier.height(8.dp))
-            Text(
-                text = "还没有审计记录",
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onBackground,
-            )
-            Spacer(Modifier.height(4.dp))
-            Text(
-                text = "开始使用 AI 功能后这里会自动记录所有操作",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-    }
-}
 
 // ═══════════════════════════════════════════════════════════════
 // 单条记录行

@@ -36,6 +36,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
+import com.hearablemusic.player.ui.common.design.dimens.LocalHMPDimens
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -223,6 +224,7 @@ private fun AIScreenContent(
         val window = LocalWindowSizeInfo.current
         val isWide = window.isExpanded || window.isMedium
         val isLandscape = window.isLandscape
+        val dimens = LocalHMPDimens.current
         val formMaxWidth = if (isWide) 600.dp else Dp.Unspecified
         Box(
             modifier = Modifier.fillMaxSize(),
@@ -233,8 +235,8 @@ private fun AIScreenContent(
         Row(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 32.dp, vertical = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(32.dp),
+                .padding(horizontal = dimens.spacing.xl, vertical = dimens.spacing.md),
+            horizontalArrangement = Arrangement.spacedBy(dimens.spacing.xl),
             verticalAlignment = Alignment.Top,
         ) {
             Column(
@@ -242,7 +244,7 @@ private fun AIScreenContent(
                     .weight(1f)
                     .fillMaxHeight()
                     .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(24.dp),
+                verticalArrangement = Arrangement.spacedBy(dimens.spacing.lg),
             ) {
                 // 分区 1：AI 接入方式
                 SectionHeader("AI 接入方式")
@@ -269,7 +271,7 @@ private fun AIScreenContent(
                     .weight(1f)
                     .fillMaxHeight()
                     .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(24.dp),
+                verticalArrangement = Arrangement.spacedBy(dimens.spacing.lg),
             ) {
                 // 分区 2：Agent 管理
                 SectionHeader("Agent 管理")
@@ -292,8 +294,8 @@ private fun AIScreenContent(
                 .widthIn(max = formMaxWidth)
                 .fillMaxWidth()
                 .verticalScroll(rememberScrollState())
-                .padding(24.dp),
-            verticalArrangement = Arrangement.spacedBy(24.dp)
+                .padding(dimens.spacing.lg),
+            verticalArrangement = Arrangement.spacedBy(dimens.spacing.lg)
         ) {
             // ═══ 分区 1：AI 接入方式（折叠态只显示概要，展开才配细节）═══
             SectionHeader("AI 接入方式")
