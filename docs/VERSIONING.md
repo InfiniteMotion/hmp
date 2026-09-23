@@ -1,6 +1,6 @@
 # Hearable Music Player — 版本命名与发布规范
 
-本文档为项目**版本号格式、发版流程与分支策略**的正式约定。**自 v5.6.1 起施行**，v6.11.1 起更新发版流程。
+本文档为项目**版本号格式、发版流程与分支策略**的正式约定。**自 v5.6.1 起施行**。
 
 ---
 
@@ -30,12 +30,12 @@
 版本号集中维护在 `gradle.properties`：
 
 ```properties
-hmp.versionCode=61101
-hmp.versionName=6.11.1
+hmp.versionCode=71000
+hmp.versionName=7.1.0
 ```
 
 - **versionName**：与三位版本号一致。各模块通过 `project.findProperty("hmp.versionName")` 引用。
-- **versionCode**：每次发布**严格递增**的整数。建议按 `MAJOR*10000 + MINOR*1000 + PATCH` 换算。
+- **versionCode**：每次发布**严格递增**的整数，按 `MAJOR*10000 + MINOR*1000 + PATCH` 换算（如 `7.1.0` → `71000`）。
 
 ## 4. 分支策略
 
@@ -44,29 +44,27 @@ hmp.versionName=6.11.1
 ```
 master ─────────────────────────────── 已发布版本（保护分支）
   │
-  ├── develop-android ──────────────── Android + shared 开发
-  ├── develop-site ──────────────────── 产品展示站点开发
-  ├── develop-ios ──────────────────── iOS 开发（规划中）
-  ├── feature/* ─────────────────────── 功能分支
-  ├── fix/* ─────────────────────────── 修复分支
+  ├── feature/<line> ────────────────── 长期开发线（一条线一个分支）
+  │     └── feature/agent-build ─────── Agent 线（v7.3 方向 B）
+  │     └── feature/site-sync ───────── 站点同步线
   └── release/X.Y.Z ────────────────── 发版集成分支
 ```
 
 | 分支 | 用途 | 保护 |
 |------|------|------|
 | `master` | 已发布版本，仅通过 release 分支 PR 合入 | ✅ |
-| `develop-android` | Android + shared 模块日常开发 | — |
-| `develop-site` | 产品展示站点开发 | — |
-| `feature/*` | 从 develop 拉出，完成后 PR 合回 | — |
-| `fix/*` | 从 develop 或 master 拉出 | — |
-| `release/X.Y.Z` | 发版集成分支，从 develop 拉出，PR 到 master | — |
+| `feature/<line>` | **长期开发线**：一条工作流一个分支，直接在其上按阶段族提交 | — |
+| `release/X.Y.Z` | 发版集成分支，从 `master` 拉出，PR 到 `master` | — |
+
+> ⚠️ **历史注记**：本规范曾记载按平台拆分的 `develop-android` / `develop-site` / `develop-ios` 三分支模式（v6.0 起），**该模式从未落地，这三个分支在任何时候都不存在**。实际采用的是「**一条开发线一个长期 `feature/` 分支**」——例如 Agent 线的全部阶段族（F1–F9）都在 `feature/agent-build` 上连续提交，站点同步在 `feature/site-sync` 上。本节已按实际校准，不要再按旧的三分支图操作。
 
 ### 日常开发
 
-1. 从对应 develop 分支拉出 `feature/xxx` 分支。
-2. 开发完成后提 PR 合回对应 develop 分支。
-3. 涉及 shared 模块的改动，在 `develop-android` 上开发即可。
-4. 小改动（修 bug、改配置）可直接在 develop 分支上提交。
+1. 在对应开发线上直接建/切到该线的长期分支（如 `feature/agent-build`）。
+2. **按阶段族提交**：一族一笔（`type(<线>): <阶段族名>` + 中文正文），零碎的仓库工程/文档改动攒够后用一笔 `chore(repo)` 收口。
+3. 涉及 shared 模块的改动同样在该线上开发，无需切换分支。
+4. 小改动（修 bug、改配置、重写 commit message）直接在该线上提交。
+5. **合并回 master** 走发布窗口：切 `release/X.Y.Z` → PR → 触发 CI 发版（见 §5）。
 
 ---
 
@@ -77,12 +75,13 @@ master ────────────────────────�
 适用于新功能、架构变更等较大版本升级。
 
 ```bash
-# 1. 从 develop 拉出 release 分支
-git checkout develop-android
+# 1. 从 master 拉出 release 分支
+git checkout master
+git pull
 git checkout -b release/X.Y.0
 
-# 2. 合入其他 develop 分支（如有需要）
-git merge develop-site
+# 2. 合入开发线（改动在 feature/<line> 上，尚未进 master）
+git merge feature/agent-build
 
 # 3. 更新版本号
 #    gradle.properties: hmp.versionCode + hmp.versionName
@@ -112,12 +111,13 @@ PR 合入 master 后，CI 自动执行：
 适用于 bug 修复、配置调整等小改动。
 
 ```bash
-# 1. 从 develop 拉出 release 分支
-git checkout develop-android
+# 1. 从 master 拉出 release 分支
+git checkout master
+git pull
 git checkout -b release/X.Y.Z
 
-# 2. 合入其他 develop 分支（如有需要）
-git merge develop-site
+# 2. 合入开发线（如有需要）
+git merge feature/agent-build
 
 # 3. 更新版本号
 #    gradle.properties: hmp.versionCode++ , hmp.versionName → X.Y.Z
@@ -224,7 +224,7 @@ CI 会自动检查 `gradle.properties` 中的版本号是否与已有 tag 重复
 
 ---
 
-**适用范围**：本规范自 **v5.6.1** 起施行，**v6.11.1** 起更新发版流程。分支策略自 **v6.0** 起调整为按平台拆分的 develop 分支模式。
+**适用范围**：本规范自 **v5.6.1** 起施行。分支策略自 **v6.0** 起调整为按平台拆分的 develop 分支模式（*该模式从未落地*），**自 2026-09 起按实际校准为「一条开发线一个长期 `feature/` 分支」**，见 §4。
 
 ---
 

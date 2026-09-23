@@ -48,7 +48,6 @@ import androidx.navigation3.runtime.NavKey
 import com.hmp.domain.music.MusicExtra
 import com.hmp.domain.music.MusicInfo
 import com.hmp.domain.music.MusicLabel
-import com.hmp.domain.setting.model.DailyMusicInfo
 import com.hmp.domain.setting.model.PlaybackHistory
 import com.hearablemusic.player.ui.library.pages.components.AlbumCover
 import com.hearablemusic.player.ui.common.components.SegmentedControl
@@ -62,6 +61,7 @@ import com.hearablemusic.player.ui.common.navigation.Routes
 import com.hearablemusic.player.ui.common.util.UiState
 import com.hearablemusic.player.ui.common.util.commonFormat
 import com.hearablemusic.player.ui.common.util.formatEpochMillis
+import com.hearablemusic.player.ui.common.util.isRenderableExtra
 import com.hearablemusic.player.ui.common.util.nowEpochMillis
 import com.hearablemusic.player.ui.common.util.rememberHapticFeedback
 import com.hearablemusic.player.ui.library.viewmodel.SongDetailViewModel
@@ -164,7 +164,6 @@ fun SongDetailScreen(
                         val music = data.musicInfo.music
                         val userInfo = data.musicInfo.userInfo
                         val extra = data.musicInfo.extra
-                        val dailyInfo = data.dailyMusicInfo
                         val validLabels = data.labels.filterNotNull().filter { it.label.name.isNotBlank() }
 
                         SongDetailExpanded(
@@ -178,7 +177,6 @@ fun SongDetailScreen(
                             musicExtra = extra,
                             userInfo = userInfo,
                             playbackHistory = data.playbackHistory,
-                            dailyMusicInfo = dailyInfo,
                             validLabels = validLabels,
                         )
                     } else {
@@ -194,7 +192,6 @@ fun SongDetailScreen(
                         )
                         SongDetailInfo(
                             musicInfo = data.musicInfo,
-                            dailyMusicInfo = data.dailyMusicInfo,
                             labels = data.labels,
                             playbackHistory = data.playbackHistory
                         )
@@ -287,7 +284,6 @@ private fun SongDetailExpanded(
     musicExtra: MusicExtra?,
     userInfo: com.hmp.domain.music.UserInfo?,
     playbackHistory: List<PlaybackHistory>,
-    dailyMusicInfo: DailyMusicInfo?,
     validLabels: List<MusicLabel>,
 ) {
     val dimens = LocalHMPDimens.current
@@ -435,57 +431,51 @@ private fun SongDetailExpanded(
             Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(dimens.spacing.lg)
         ) {
-            if (dailyMusicInfo == null) return@Column
+            if (musicExtra == null) return@Column
 
-            if (dailyMusicInfo.errorInfo != "None") {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(22.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.35f)),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-                ) {
-                    Text(text = dailyMusicInfo.errorInfo, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onErrorContainer, modifier = Modifier.padding(16.dp))
-                }
-                return@Column
-            }
+            // 富化文案直接读 MusicExtra：旧 DailyMusicInfo（已删除）的 6 个文本字段本就是同一批列
+            // （lyric 在该表上叫 popLyric），无需再经 getMusicExtraById 回查一次
+            val background = musicExtra.backgroundIntroduce?.takeIf { it.isRenderableExtra() }
+            val description = musicExtra.description?.takeIf { it.isRenderableExtra() }
+            val singerIntroduce = musicExtra.singerIntroduce?.takeIf { it.isRenderableExtra() }
+            val rewards = musicExtra.rewards?.takeIf { it.isRenderableExtra() }
+            val relevantMusic = musicExtra.relevantMusic?.takeIf { it.isRenderableExtra() }
+            val popLyric = musicExtra.popLyric?.takeIf { it.isRenderableExtra() }
 
-            val hasIntroContent = (dailyMusicInfo.backgroundIntroduce.isNotBlank() && dailyMusicInfo.backgroundIntroduce != "None")
-                    || (dailyMusicInfo.description.isNotBlank() && dailyMusicInfo.description != "None")
-                    || (dailyMusicInfo.singerIntroduce.isNotBlank() && dailyMusicInfo.singerIntroduce != "None")
-                    || (dailyMusicInfo.rewards.isNotBlank() && dailyMusicInfo.rewards != "None")
+            val hasIntroContent = background != null || description != null || singerIntroduce != null || rewards != null
 
             if (hasIntroContent) {
                 TitleWidget(title = stringResource(Res.string.song_description)) {
                     Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        if (dailyMusicInfo.backgroundIntroduce.isNotBlank() && dailyMusicInfo.backgroundIntroduce != "None") {
-                            Text(dailyMusicInfo.backgroundIntroduce, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, lineHeight = MaterialTheme.typography.bodyLarge.lineHeight * 1.2)
+                        if (background != null) {
+                            Text(background, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, lineHeight = MaterialTheme.typography.bodyLarge.lineHeight * 1.2)
                             Spacer(modifier = Modifier.height(8.dp))
                             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
                         }
-                        if (dailyMusicInfo.description.isNotBlank() && dailyMusicInfo.description != "None") {
-                            Text(dailyMusicInfo.description, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, lineHeight = MaterialTheme.typography.bodyLarge.lineHeight * 1.2)
+                        if (description != null) {
+                            Text(description, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, lineHeight = MaterialTheme.typography.bodyLarge.lineHeight * 1.2)
                             Spacer(modifier = Modifier.height(8.dp))
                             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
                         }
-                        if (dailyMusicInfo.singerIntroduce.isNotBlank() && dailyMusicInfo.singerIntroduce != "None") {
-                            Text(dailyMusicInfo.singerIntroduce, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, lineHeight = MaterialTheme.typography.bodyLarge.lineHeight * 1.2)
+                        if (singerIntroduce != null) {
+                            Text(singerIntroduce, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, lineHeight = MaterialTheme.typography.bodyLarge.lineHeight * 1.2)
                             Spacer(modifier = Modifier.height(8.dp))
                             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
                         }
-                        if (dailyMusicInfo.rewards.isNotBlank() && dailyMusicInfo.rewards != "None") {
-                            Text(dailyMusicInfo.rewards, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, lineHeight = MaterialTheme.typography.bodyLarge.lineHeight * 1.2)
+                        if (rewards != null) {
+                            Text(rewards, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, lineHeight = MaterialTheme.typography.bodyLarge.lineHeight * 1.2)
                         }
                     }
                 }
             }
-            if (dailyMusicInfo.relevantMusic.isNotBlank() && dailyMusicInfo.relevantMusic != "None") {
+            if (relevantMusic != null) {
                 TitleWidget(title = stringResource(Res.string.similar_music)) {
-                    Text(dailyMusicInfo.relevantMusic, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, lineHeight = MaterialTheme.typography.bodyLarge.lineHeight * 1.2)
+                    Text(relevantMusic, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, lineHeight = MaterialTheme.typography.bodyLarge.lineHeight * 1.2)
                 }
             }
-            if (dailyMusicInfo.lyric.isNotBlank() && dailyMusicInfo.lyric != "None") {
+            if (popLyric != null) {
                 TitleWidget(title = stringResource(Res.string.popular_lyrics)) {
-                    Text(dailyMusicInfo.lyric, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, lineHeight = MaterialTheme.typography.bodyLarge.lineHeight * 1.2)
+                    Text(popLyric, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, lineHeight = MaterialTheme.typography.bodyLarge.lineHeight * 1.2)
                 }
             }
         }
@@ -602,32 +592,20 @@ fun StatItem(label: String, value: String, modifier: Modifier = Modifier) {
 @Composable
 fun SongDetailInfo(
     musicInfo: MusicInfo,
-    dailyMusicInfo: DailyMusicInfo?,
     labels: List<MusicLabel?> = emptyList(),
     playbackHistory: List<PlaybackHistory> = emptyList()
 ) {
     val haptic = rememberHapticFeedback()
 
-    if (dailyMusicInfo == null) return
-
-    if (dailyMusicInfo.errorInfo != "None") {
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(22.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.35f)
-            ),
-            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-        ) {
-            Text(
-                text = dailyMusicInfo.errorInfo,
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onErrorContainer,
-                modifier = Modifier.padding(16.dp)
-            )
-        }
-        return
-    }
+    // 富化文案直接读 MusicExtra：旧 DailyMusicInfo（已删除）的 6 个文本字段本就是同一批列
+    // （lyric 在该表上叫 popLyric），无需再经 getMusicExtraById 回查一次
+    val musicExtra = musicInfo.extra
+    val background = musicExtra?.backgroundIntroduce?.takeIf { it.isRenderableExtra() }
+    val description = musicExtra?.description?.takeIf { it.isRenderableExtra() }
+    val singerIntroduce = musicExtra?.singerIntroduce?.takeIf { it.isRenderableExtra() }
+    val rewards = musicExtra?.rewards?.takeIf { it.isRenderableExtra() }
+    val relevantMusic = musicExtra?.relevantMusic?.takeIf { it.isRenderableExtra() }
+    val popLyric = musicExtra?.popLyric?.takeIf { it.isRenderableExtra() }
 
     Column(modifier = Modifier.fillMaxWidth()) {
         val introId = "intro"
@@ -656,10 +634,10 @@ fun SongDetailInfo(
             introId -> {
 
                 // 创作背景
-                if (dailyMusicInfo.backgroundIntroduce.isNotBlank() && dailyMusicInfo.backgroundIntroduce != "None") {
+                if (background != null) {
                     TitleWidget(title = stringResource(Res.string.creative_background)) {
                         Text(
-                            text = dailyMusicInfo.backgroundIntroduce,
+                            text = background,
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             lineHeight = MaterialTheme.typography.bodyLarge.lineHeight * 1.2
@@ -669,10 +647,10 @@ fun SongDetailInfo(
                 }
 
                 // 描述信息
-                if (dailyMusicInfo.description.isNotBlank() && dailyMusicInfo.description != "None") {
+                if (description != null) {
                     TitleWidget(title = stringResource(Res.string.song_description)) {
                         Text(
-                            text = dailyMusicInfo.description,
+                            text = description,
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             lineHeight = MaterialTheme.typography.bodyLarge.lineHeight * 1.2
@@ -682,10 +660,10 @@ fun SongDetailInfo(
                 }
 
                 // 歌手介绍
-                if (dailyMusicInfo.singerIntroduce.isNotBlank() && dailyMusicInfo.singerIntroduce != "None") {
+                if (singerIntroduce != null) {
                     TitleWidget(title = stringResource(Res.string.artist_introduction)) {
                         Text(
-                            text = dailyMusicInfo.singerIntroduce,
+                            text = singerIntroduce,
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             lineHeight = MaterialTheme.typography.bodyLarge.lineHeight * 1.2
@@ -695,10 +673,10 @@ fun SongDetailInfo(
                 }
 
                 // 奖项成就
-                if (dailyMusicInfo.rewards.isNotBlank() && dailyMusicInfo.rewards != "None") {
+                if (rewards != null) {
                     TitleWidget(title = stringResource(Res.string.song_achievements)) {
                         Text(
-                            text = dailyMusicInfo.rewards,
+                            text = rewards,
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             lineHeight = MaterialTheme.typography.bodyLarge.lineHeight * 1.2
@@ -708,10 +686,10 @@ fun SongDetailInfo(
                 }
 
                 // 相关音乐
-                if (dailyMusicInfo.relevantMusic.isNotBlank() && dailyMusicInfo.relevantMusic != "None") {
+                if (relevantMusic != null) {
                     TitleWidget(title = stringResource(Res.string.similar_music)) {
                         Text(
-                            text = dailyMusicInfo.relevantMusic,
+                            text = relevantMusic,
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             lineHeight = MaterialTheme.typography.bodyLarge.lineHeight * 1.2
@@ -751,10 +729,10 @@ fun SongDetailInfo(
                     .joinToString("\n")
                     .trim()
                 
-                if (dailyMusicInfo.lyric.isNotBlank() && dailyMusicInfo.lyric != "None") {
+                if (popLyric != null) {
                     TitleWidget(title = stringResource(Res.string.popular_lyrics)) {
                         Text(
-                            text = dailyMusicInfo.lyric,
+                            text = popLyric,
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             lineHeight = MaterialTheme.typography.bodyLarge.lineHeight * 1.2

@@ -75,6 +75,9 @@ kotlin {
 
             // NavDisplay 的 ViewModel decorator
             implementation(libs.jetbrains.lifecycle.viewmodel.navigation3)
+
+            // Kermit — ChatViewModel/ChatAgentGateway 日志
+            api(libs.kermit)
         }
 
         androidMain.dependencies {
@@ -108,6 +111,23 @@ kotlin {
             implementation(libs.junit)
             implementation(libs.mockk)
             implementation(libs.kotlinx.coroutines.test)
+        }
+
+        // commonTest：平台无关单元测试源集（收尾第④步第3项·扫障）。
+        // 把纯逻辑测试从 androidHostTest 迁出来，使其能在 desktop JVM 上跑，不再绑死 Android SDK。
+        // 只用多平台安全的测试库（kotlin("test") / kotlinx-coroutines-test），避免污染 iOS 测试编译。
+        commonTest.dependencies {
+            implementation(kotlin("test"))
+            implementation(libs.kotlinx.coroutines.test)
+        }
+
+        // desktopTest（JVM-only）：允许 JVM 专属测试库（mockk / junit）不污染 iOS 测试编译元数据，
+        // 为后续 shared-ui ViewModel 纯逻辑单测（用 mockk 造假依赖）扫清基础设施障碍。
+        val desktopTest by getting {
+            dependencies {
+                implementation(libs.junit)
+                implementation(libs.mockk)
+            }
         }
 
         // desktop actual 所需（skiko 解码 PlatformImage.desktop 用；

@@ -82,6 +82,7 @@
 		D9896B70D4E85FF2BFF3E616 /* ArtworkExtractor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93E07828C0698B068224ACCF /* ArtworkExtractor.swift */; };
 		EA4D80DBCA2361A7CA911A0C /* PlatformServicesBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = F46D2D257DBCB53B63A0D004 /* PlatformServicesBridge.swift */; };
 		EADF0E32E9ECB688F04119D1 /* sixties.png in Resources */ = {isa = PBXBuildFile; fileRef = 5EC210E80647C29091C5099B /* sixties.png */; };
+		EED5F9AFCB9C487CC46125A5 /* HmpLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = A85CFDBFB502FA32DB646944 /* HmpLog.swift */; };
 		F00E5D123EE0920A609FDC69 /* seventies.png in Resources */ = {isa = PBXBuildFile; fileRef = 973E05FEBDC3D588E43ED81E /* seventies.png */; };
 		FC95A98BB6CDA2B515CCE2D3 /* travel.png in Resources */ = {isa = PBXBuildFile; fileRef = 2B36420392A91D583E5431D8 /* travel.png */; };
 		FFD3CC292C263D517E3D8245 /* english.png in Resources */ = {isa = PBXBuildFile; fileRef = 8130BD644FAD2A7C8657AFAB /* english.png */; };
@@ -140,6 +141,7 @@
 		985BA5C8223AC3CF5A52C4D3 /* night.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = night.png; sourceTree = "<group>"; };
 		9EC5FD4AED35ED40AA769501 /* PlayerEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerEngine.swift; sourceTree = "<group>"; };
 		A21F8B87FD4E62138F6A50EB /* funk.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = funk.png; sourceTree = "<group>"; };
+		A85CFDBFB502FA32DB646944 /* HmpLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HmpLog.swift; sourceTree = "<group>"; };
 		AAB0B4A7AE6622A14C313BAC /* meditation.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = meditation.png; sourceTree = "<group>"; };
 		ABA0405BF4D3AFA836980C04 /* dinner.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = dinner.png; sourceTree = "<group>"; };
 		B69DD4757B4795E8776E3F32 /* dark.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = dark.png; sourceTree = "<group>"; };
@@ -188,6 +190,7 @@
 			isa = PBXGroup;
 			children = (
 				5E4F900BBD0EBCA536A3DC0C /* Util */,
+				A85CFDBFB502FA32DB646944 /* HmpLog.swift */,
 			);
 			path = Common;
 			sourceTree = "<group>";
@@ -554,6 +557,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				859A160103C810876D675882 /* AppDelegate.swift in Sources */,
+				EED5F9AFCB9C487CC46125A5 /* HmpLog.swift in Sources */,
 				D9896B70D4E85FF2BFF3E616 /* ArtworkExtractor.swift in Sources */,
 				11200C4F8A2C0C79B8B350EC /* ArtworkLoader.swift in Sources */,
 				734CE123F065BD63D5CB4DD1 /* AudioSessionManager.swift in Sources */,

@@ -21,7 +21,6 @@ class UserBackupSnapshotTest {
         assertTrue(snapshot.musicUserState.userInfos.isEmpty())
         assertTrue(snapshot.playlists.playlists.isEmpty())
         assertTrue(snapshot.listeningStats.listeningDurations.isEmpty())
-        assertNull(snapshot.dailyRecommendation)
     }
 
     @Test
@@ -38,9 +37,6 @@ class UserBackupSnapshotTest {
         assertEquals(0.22f, settings.hazeTintAlpha)
         assertEquals(0f, settings.hazeIntensity)
         assertEquals(true, settings.autoBatchProcess)
-        assertEquals("off", settings.dailyRefreshMode)
-        assertEquals(8, settings.dailyRefreshHours)
-        assertEquals(5, settings.dailyRefreshStartupCount)
         assertEquals("FREE", settings.aiAccessMode)
     }
 
@@ -71,17 +67,6 @@ class UserBackupSnapshotTest {
     }
 
     @Test
-    fun dailyRecommendationSnapshot_defaults() {
-        val snapshot = DailyRecommendationSnapshot()
-        assertNull(snapshot.currentDailyMusicId)
-        assertEquals(0L, snapshot.lastRefreshTimestamp)
-        assertEquals("off", snapshot.mode)
-        assertEquals(8, snapshot.refreshHours)
-        assertEquals(5, snapshot.startupCount)
-        assertEquals(0, snapshot.launchCountSinceRefresh)
-    }
-
-    @Test
     fun fullSnapshot_serialization_roundTrip() {
         val snapshot = UserBackupSnapshot(
             version = 1,
@@ -95,11 +80,7 @@ class UserBackupSnapshotTest {
                 labels = listOf(MusicLabelSnapshot(1, LabelName.POP, LabelCategory.GENRE))
             ),
             playlists = PlaylistsSnapshot(),
-            listeningStats = ListeningStatsSnapshot(),
-            dailyRecommendation = DailyRecommendationSnapshot(
-                currentDailyMusicId = 42,
-                mode = "time"
-            )
+            listeningStats = ListeningStatsSnapshot()
         )
 
         val jsonString = json.encodeToString(UserBackupSnapshot.serializer(), snapshot)
@@ -113,7 +94,5 @@ class UserBackupSnapshotTest {
         assertEquals(true, restored.musicUserState.userInfos[0].liked)
         assertEquals(1, restored.musicUserState.labels.size)
         assertEquals(LabelName.POP, restored.musicUserState.labels[0].label)
-        assertEquals(42, restored.dailyRecommendation?.currentDailyMusicId)
-        assertEquals("time", restored.dailyRecommendation?.mode)
     }
 }

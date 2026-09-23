@@ -17,7 +17,6 @@ import android.media.AudioManager
 import android.os.Binder
 import android.os.Build
 import android.os.IBinder
-import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
@@ -36,6 +35,8 @@ import com.hearablemusic.player.player.R
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import com.hmp.log.HmpLog
+import com.hmp.log.LogTag
 
 interface PlayControl {
     fun play()
@@ -74,7 +75,24 @@ class MusicPlayService : Service(), PlayControl {
         const val ACTION_PAUSE = "com.hearablemusic.player.ACTION_PAUSE"
         const val ACTION_NEXT = "com.hearablemusic.player.ACTION_NEXT"
         const val ACTION_PREV = "com.hearablemusic.player.ACTION_PREV"
+
+        // ── F11-L2：agent 运行时保活 ──
+        /**
+         * agent 运行时（电台等）通过 [AgentKeepAlivePort] 发来的保活诉求。
+         * 携带 [EXTRA_AGENT_ACTIVE] = true/false，让服务在「电台构建中（无音频）」窗口也保持前台。
+         */
+        const val ACTION_AGENT_KEEPALIVE = "com.hearablemusic.player.ACTION_AGENT_KEEPALIVE"
+        const val EXTRA_AGENT_ACTIVE = "agent_active"
+
+        /** 前台通知 ID（原有硬编码 1 收敛为此常量）。 */
+        private const val NOTIFICATION_ID = 1
     }
+
+    /**
+     * F11-L2：agent 保活诉求。true = 电台会话活跃（即使无音频也保持前台，进程不被回收）。
+     */
+    @Volatile
+    private var agentKeepAlive = false
 
     private val binder = MusicPlayServiceBinder()
 
@@ -113,13 +131,13 @@ class MusicPlayService : Service(), PlayControl {
             when (intent?.action) {
                 AudioManager.ACTION_AUDIO_BECOMING_NOISY -> {
                     // 耳机拔出,暂停播放
-                    Log.d("MusicPlayService", "Audio becoming noisy, pausing playback")
+                    HmpLog.d(LogTag.PlayerService) { "📡 Audio becoming noisy, pausing playback" }
                     exoPlayer.pause()
                     playbackListener?.onPlayStateChanged(false)
                 }
                 BluetoothDevice.ACTION_ACL_DISCONNECTED -> {
                     // 蓝牙断开,暂停播放
-                    Log.d("MusicPlayService", "Bluetooth disconnected, pausing playback")
+                    HmpLog.d(LogTag.PlayerService) { "📡 Bluetooth disconnected, pausing playback" }
                     exoPlayer.pause()
                     playbackListener?.onPlayStateChanged(false)
                 }
@@ -157,7 +175,7 @@ class MusicPlayService : Service(), PlayControl {
     // 绑定播放完成回调
     fun setOnMusicCompleteListener(listener: OnMusicCompleteListener) {
         playbackListener = listener
-        Log.d("MusicPlayService", "OnMusicCompleteListener set: ${true}")
+        HmpLog.d(LogTag.PlayerService) { "📡 OnMusicCompleteListener set: ${true}" }
     }
 
     // 返回 Binder 实例
@@ -265,6 +283,65 @@ class MusicPlayService : Service(), PlayControl {
         return builder.build()
     }
 
+    // ── F11-L2：前台状态管理 ──
+
+    /**
+     * 无音频时的占位通知——满足 `startForegroundService` 的前台契约（5s 内必须 startForeground）。
+     * 电台构建中 / 等模型期间进程受前台保护，但还没有可展示的曲目。
+     */
+    private fun buildIdleNotification(): Notification {
+        val builder = NotificationCompat.Builder(this, "music_channel")
+            .setContentTitle("HMP")
+            .setContentText("伙伴陪听中…")
+            .setSmallIcon(R.drawable.player_d)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setOnlyAlertOnce(true)
+            .setOngoing(true)
+        mainActivityClass?.let { cls ->
+            builder.setContentIntent(
+                PendingIntent.getActivity(
+                    this, 0, Intent(this, cls),
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+            )
+        }
+        return builder.build()
+    }
+
+    /** 进入前台（幂等）。有曲目用曲目通知，无曲目用占位通知。 */
+    private fun ensureForeground() {
+        val music = getCurrentPlayingMusic()
+        val cls = mainActivityClass
+        // 有曲目且宿主 Activity 类已就绪 → 曲目通知；否则用占位通知
+        // （不拿 Service 类冒充 Activity 类 —— 那会生成无效的 content intent）
+        val notification = if (music != null && cls != null) {
+            buildNotification(music, currentAlbumArtBitmap, cls, currentLyricLine)
+        } else {
+            buildIdleNotification()
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
+        } else {
+            startForeground(NOTIFICATION_ID, notification)
+        }
+    }
+
+    /**
+     * 按「音频在播 **或** agent 保活」决定是否保持前台（F11-L2）。
+     *
+     * 两者皆否 → 撤前台（进程回归可回收；此时没有需要保护的 agent 会话）。
+     * 注意：不 `stopSelf()` —— 服务仍可能被前台 UI 绑定（`BIND_AUTO_CREATE`），
+     * 由绑定方决定其存续；未绑定时系统可回收，符合预期。
+     */
+    private fun refreshForeground() {
+        val wantForeground = exoPlayer.isPlaying || agentKeepAlive
+        if (wantForeground) {
+            ensureForeground()
+        } else {
+            stopForeground(STOP_FOREGROUND_REMOVE)
+        }
+    }
+
     @SuppressLint("RestrictedApi")
     override fun onCreate() {
         super.onCreate()
@@ -284,13 +361,15 @@ class MusicPlayService : Service(), PlayControl {
                     }
                 }
                 override fun onIsPlayingChanged(isPlaying: Boolean) {
-                    Log.d("MusicPlayService", "onIsPlayingChanged: $isPlaying")
+                    HmpLog.d(LogTag.PlayerService) { "📡 onIsPlayingChanged: $isPlaying" }
                     getCurrentPlayingMusic()?.let { updateNotificationPlaybackState(it) }
                     playbackListener?.onPlayStateChanged(isPlaying)
+                    // F11-L2：播放/暂停 → 重算前台态（在播或 agent 保活才保持前台）
+                    refreshForeground()
                 }
 
                 override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
-                    Log.e("MusicPlayService", "Player error: ${error.message}", error)
+                    HmpLog.e(LogTag.PlayerService, error) { "📡 Player error: ${error.message}" }
                     playbackListener?.onPlayStateChanged(false)
                 }
             })
@@ -314,13 +393,13 @@ class MusicPlayService : Service(), PlayControl {
 
             // 重写 seekToNext 方法
             override fun seekToNext() {
-                Log.d("MusicPlayService", "ForwardingPlayer.seekToNext() called")
+                HmpLog.d(LogTag.PlayerService) { "📡 ForwardingPlayer.seekToNext() called" }
                 playbackListener?.onPlaybackNext()
             }
 
             // 重写 seekToPrevious 方法
             override fun seekToPrevious() {
-                Log.d("MusicPlayService", "ForwardingPlayer.seekToPrevious() called")
+                HmpLog.d(LogTag.PlayerService) { "📡 ForwardingPlayer.seekToPrevious() called" }
                 playbackListener?.onPlaybackPrev()
             }
 
@@ -354,10 +433,10 @@ class MusicPlayService : Service(), PlayControl {
                     controller: MediaSession.ControllerInfo,
                     playerCommand: Int
                 ): Int {
-                    Log.d("MusicPlayService", "onPlayerCommandRequest: $playerCommand, listener: ${playbackListener != null}")
+                    HmpLog.d(LogTag.PlayerService) { "📡 onPlayerCommandRequest: $playerCommand, listener: ${playbackListener != null}" }
                     when (playerCommand) {
                         Player.COMMAND_SEEK_TO_NEXT, Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM -> {
-                            Log.d("MusicPlayService", "Seek to next requested")
+                            HmpLog.d(LogTag.PlayerService) { "📡 Seek to next requested" }
                             // 在主线程调用 listener
                             CoroutineScope(Dispatchers.Main).launch {
                                 playbackListener?.onPlaybackNext()
@@ -365,7 +444,7 @@ class MusicPlayService : Service(), PlayControl {
                             return SessionResult.RESULT_SUCCESS
                         }
                         Player.COMMAND_SEEK_TO_PREVIOUS, Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM -> {
-                            Log.d("MusicPlayService", "Seek to previous requested")
+                            HmpLog.d(LogTag.PlayerService) { "📡 Seek to previous requested" }
                             // 在主线程调用 listener
                             CoroutineScope(Dispatchers.Main).launch {
                                 playbackListener?.onPlaybackPrev()
@@ -396,7 +475,7 @@ class MusicPlayService : Service(), PlayControl {
             }
             registerReceiver(audioBecomingNoisyReceiver, filter)
             isReceiverRegistered = true
-            Log.d("MusicPlayService", "Audio device receiver registered")
+            HmpLog.d(LogTag.PlayerService) { "📡 Audio device receiver registered" }
         }
     }
 
@@ -406,9 +485,9 @@ class MusicPlayService : Service(), PlayControl {
             try {
                 unregisterReceiver(audioBecomingNoisyReceiver)
                 isReceiverRegistered = false
-                Log.d("MusicPlayService", "Audio device receiver unregistered")
+                HmpLog.d(LogTag.PlayerService) { "📡 Audio device receiver unregistered" }
             } catch (e: IllegalArgumentException) {
-                Log.e("MusicPlayService", "Receiver already unregistered", e)
+                HmpLog.e(LogTag.PlayerService, e) { "📡 Receiver already unregistered" }
             }
         }
     }
@@ -491,52 +570,54 @@ class MusicPlayService : Service(), PlayControl {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        var keepAliveChanged = false
         when (intent?.action) {
             ACTION_PLAY -> {
                 exoPlayer.play()
                 getCurrentPlayingMusic()?.let { updateNotificationPlaybackState(it) }
-                playbackListener?.onPlayStateChanged(true) // 新增
+                playbackListener?.onPlayStateChanged(true)
             }
             ACTION_PAUSE -> {
                 exoPlayer.pause()
                 getCurrentPlayingMusic()?.let { updateNotificationPlaybackState(it) }
-                playbackListener?.onPlayStateChanged(false) // 新增
+                playbackListener?.onPlayStateChanged(false)
             }
             ACTION_NEXT -> playbackListener?.onPlaybackNext()
             ACTION_PREV -> playbackListener?.onPlaybackPrev()
+            // F11-L2：agent 运行时（电台）保活诉求——无音频也保持前台
+            ACTION_AGENT_KEEPALIVE -> {
+                val active = intent.getBooleanExtra(EXTRA_AGENT_ACTIVE, false)
+                if (active != agentKeepAlive) {
+                    agentKeepAlive = active
+                    keepAliveChanged = true
+                    HmpLog.i(LogTag.PlayerService) { "📡 agentKeepAlive=$active" }
+                }
+            }
         }
 
-        val music = getCurrentPlayingMusic()
-        music?.let {
-            // 切换到主线程
-            CoroutineScope(Dispatchers.Main).launch {
-                val notification = buildNotification(it, null, mainActivityClass ?: return@launch)
-                // API 34+ 需要指定前台服务类型
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-                    startForeground(
-                        1,
-                        notification,
-                        ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
-                    )
-                } else {
-                    startForeground(1, notification)
-                }
+        // F11-L2：无条件确保前台 —— 满足 `startForegroundService` 的 5s 前台契约。
+        // 有曲目 → 曲目通知；无曲目（电台构建中 / 仅保活）→ 占位通知。
+        ensureForeground()
+        // 保活诉求被撤销且无音频在播 → 撤前台（进程回归可回收）
+        if (keepAliveChanged && !agentKeepAlive && !exoPlayer.isPlaying) {
+            refreshForeground()
+        }
 
-                // 异步加载封面
-                CoroutineScope(Dispatchers.IO).launch {
-                    val request = ImageRequest.Builder(this@MusicPlayService)
-                        .data(music.albumArtUri)
-                        .allowHardware(false)
-                        .build()
-                    val result = imageLoader.execute(request)
-                    val bitmap = (result.drawable as? android.graphics.drawable.BitmapDrawable)?.bitmap
-                    if (bitmap != null) {
-                        // 回到主线程更新通知
-                        CoroutineScope(Dispatchers.Main).launch {
-                            val updatedNotification = buildNotification(it, bitmap, mainActivityClass ?: return@launch)
-                            val manager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
-                            manager.notify(1, updatedNotification)
-                        }
+        // 有曲目 → 异步补封面
+        getCurrentPlayingMusic()?.let { music ->
+            CoroutineScope(Dispatchers.IO).launch {
+                val request = ImageRequest.Builder(this@MusicPlayService)
+                    .data(music.albumArtUri)
+                    .allowHardware(false)
+                    .build()
+                val result = imageLoader.execute(request)
+                val bitmap = (result.drawable as? android.graphics.drawable.BitmapDrawable)?.bitmap
+                if (bitmap != null) {
+                    currentAlbumArtBitmap = bitmap
+                    CoroutineScope(Dispatchers.Main).launch {
+                        val updatedNotification = buildNotification(music, bitmap, mainActivityClass ?: return@launch)
+                        val manager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+                        manager.notify(NOTIFICATION_ID, updatedNotification)
                     }
                 }
             }
@@ -632,18 +713,18 @@ class MusicPlayService : Service(), PlayControl {
                 val success = audioEffectManager.initialize(sessionId)
                 if (success) {
                     isAudioEffectInitialized = true
-                    Log.d("MusicPlayService", "Audio effects initialized successfully")
+                    HmpLog.d(LogTag.PlayerService) { "📡 Audio effects initialized successfully" }
                     
                     // 恢复之前的音效设置
                     restoreAudioEffectSettings()
                 } else {
-                    Log.w("MusicPlayService", "Failed to initialize audio effects (attempt $audioEffectInitRetryCount)")
+                    HmpLog.w(LogTag.PlayerService) { "📡 Failed to initialize audio effects (attempt $audioEffectInitRetryCount)" }
                 }
             } else {
-                Log.w("MusicPlayService", "Invalid audio session ID: $sessionId")
+                HmpLog.w(LogTag.PlayerService) { "📡 Invalid audio session ID: $sessionId" }
             }
         } catch (e: Exception) {
-            Log.e("MusicPlayService", "Error initializing audio effects", e)
+            HmpLog.e(LogTag.PlayerService, e) { "📡 Error initializing audio effects" }
         }
     }
     
@@ -672,9 +753,9 @@ class MusicPlayService : Service(), PlayControl {
     override fun setEqualizerPreset(preset: Int) {
         if (audioEffectManager.setEqualizerPreset(preset)) {
             equalizerPreset = preset
-            Log.d("MusicPlayService", "Set equalizer preset: $preset")
+            HmpLog.d(LogTag.PlayerService) { "📡 Set equalizer preset: $preset" }
         } else {
-            Log.w("MusicPlayService", "Failed to set equalizer preset: $preset")
+            HmpLog.w(LogTag.PlayerService) { "📡 Failed to set equalizer preset: $preset" }
         }
     }
     
@@ -682,27 +763,27 @@ class MusicPlayService : Service(), PlayControl {
         val strength = (level * 10).toShort()
         if (audioEffectManager.setBassBoostStrength(strength)) {
             bassBoostLevel = level
-            Log.d("MusicPlayService", "Set bass boost level: $level (strength: $strength)")
+            HmpLog.d(LogTag.PlayerService) { "📡 Set bass boost level: $level (strength: $strength)" }
         } else {
-            Log.w("MusicPlayService", "Failed to set bass boost level: $level")
+            HmpLog.w(LogTag.PlayerService) { "📡 Failed to set bass boost level: $level" }
         }
     }
     
     override fun setSurroundSound(enabled: Boolean) {
         if (audioEffectManager.setVirtualizerEnabled(enabled)) {
             surroundSoundEnabled = enabled
-            Log.d("MusicPlayService", "Set surround sound: $enabled")
+            HmpLog.d(LogTag.PlayerService) { "📡 Set surround sound: $enabled" }
         } else {
-            Log.w("MusicPlayService", "Failed to set surround sound: $enabled")
+            HmpLog.w(LogTag.PlayerService) { "📡 Failed to set surround sound: $enabled" }
         }
     }
     
     override fun setReverb(preset: Int) {
         if (audioEffectManager.setReverbPreset(preset.toShort())) {
             reverbPreset = preset
-            Log.d("MusicPlayService", "Set reverb preset: $preset")
+            HmpLog.d(LogTag.PlayerService) { "📡 Set reverb preset: $preset" }
         } else {
-            Log.w("MusicPlayService", "Failed to set reverb preset: $preset")
+            HmpLog.w(LogTag.PlayerService) { "📡 Failed to set reverb preset: $preset" }
         }
     }
     
@@ -716,9 +797,9 @@ class MusicPlayService : Service(), PlayControl {
         
         if (success) {
             customEqualizerLevels = bandLevels
-            Log.d("MusicPlayService", "Set custom equalizer levels: ${bandLevels.contentToString()}")
+            HmpLog.d(LogTag.PlayerService) { "📡 Set custom equalizer levels: ${bandLevels.contentToString()}" }
         } else {
-            Log.w("MusicPlayService", "Failed to set some custom equalizer levels")
+            HmpLog.w(LogTag.PlayerService) { "📡 Failed to set some custom equalizer levels" }
         }
     }
     

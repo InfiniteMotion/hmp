@@ -22,6 +22,7 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 import com.hearablemusic.player.ui.common.util.activityViewModel
 import androidx.navigation3.runtime.NavBackStack
@@ -201,7 +202,9 @@ fun PlayerScreen(
             lyricsSettingsState = lyricsSettingsState,
             paletteColors = paletteColors,
             callbacks = playerCallbacks,
-            hazeState = hazeState
+            hazeState = hazeState,
+            // 轻量浮层已移除：播放页「对话」按钮直接进对话页（不带话）
+            onOpenChat = { navController.add(Routes.Companion.Chat) },
         )
     }
 }

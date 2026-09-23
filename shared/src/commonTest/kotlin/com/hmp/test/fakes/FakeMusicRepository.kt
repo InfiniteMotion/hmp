@@ -1,15 +1,22 @@
 package com.hmp.test.fakes
 
+import com.hmp.data.database.MusicLabel as DataMusicLabel
+import com.hmp.domain.agent.enrich.EnrichBatchResult
+import com.hmp.domain.agent.enrich.EnrichHealth
 import com.hmp.domain.backup.ListeningStatsSnapshot
 import com.hmp.domain.backup.MusicUserStateSnapshot
 import com.hmp.domain.enum.LabelCategory
 import com.hmp.domain.enum.LabelName
 import com.hmp.domain.music.EditableMusicTags
+import com.hmp.domain.music.MusicExtra
+import com.hmp.domain.music.MusicExtraTexts
 import com.hmp.domain.music.MusicInfo
 import com.hmp.domain.music.MusicLabel
+import com.hmp.domain.agent.profile.BehaviorSnapshot
+import com.hmp.domain.agent.profile.LibraryContentSnapshot
+import com.hmp.domain.agent.profile.LibraryStateSnapshot
 import com.hmp.domain.music.MusicRepository
 import com.hmp.domain.setting.model.AiEndpointConfig
-import com.hmp.domain.setting.model.DailyMusicInfo
 import com.hmp.domain.setting.model.ListeningDuration
 import com.hmp.domain.setting.model.PlaybackHistory
 import com.hmp.domain.setting.model.UserUsageAnalytics
@@ -24,9 +31,10 @@ class FakeMusicRepository : MusicRepository {
     private val musicList = mutableListOf<MusicInfo>()
     private val deletedMusic = mutableListOf<MusicInfo>()
     private val labels = mutableMapOf<Long, MutableList<MusicLabel>>()
+    /** 富化/标签溯源用 data 层 entity 存储（含 source/confidence/createdAt 字段）。 */
+    private val dataLabels = mutableMapOf<Long, MutableList<DataMusicLabel>>()
     private val likedStatus = mutableMapOf<Long, Boolean>()
     private val lyrics = mutableMapOf<Long, String>()
-    private val extras = mutableMapOf<Long, DailyMusicInfo>()
     private val playbackHistory = mutableListOf<PlaybackHistory>()
     private val listeningDurations = mutableListOf<ListeningDuration>()
     private var nextPlaybackId = 1L
@@ -67,6 +75,24 @@ class FakeMusicRepository : MusicRepository {
     override suspend fun getMusicListByAlbum(albumName: String): List<MusicInfo> =
         musicList.filter { it.music.album == albumName }
 
+    override suspend fun getAllArtistsSummary(limit: Int): List<Pair<String, Int>> =
+        musicList
+            .filter { !it.music.artist.isBlank() }
+            .groupBy { it.music.artist }
+            .mapValues { (_, list) -> list.size }
+            .toList()
+            .sortedByDescending { it.second }
+            .take(limit)
+
+    override suspend fun getAllAlbumsSummary(limit: Int): List<Pair<String, Int>> =
+        musicList
+            .filter { !it.music.album.isBlank() }
+            .groupBy { it.music.album }
+            .mapValues { (_, list) -> list.size }
+            .toList()
+            .sortedByDescending { it.second }
+            .take(limit)
+
     override suspend fun searchMusic(query: String): List<MusicInfo> {
         val q = query.lowercase()
         return musicList.filter {
@@ -79,14 +105,14 @@ class FakeMusicRepository : MusicRepository {
     override suspend fun getRandomMusicInfoWithMissingExtra(): MusicInfo? =
         musicList.filter { it.extra?.isGetExtraInfo != true }.randomOrNull()
 
-    override suspend fun getRandomMusicInfoWithExtra(): MusicInfo? =
-        musicList.filter { it.extra?.isGetExtraInfo == true }.randomOrNull()
-
     override suspend fun updateLikedStatus(id: Long, liked: Boolean) {
         likedStatus[id] = liked
     }
 
     override suspend fun getLikedStatus(id: Long): Boolean = likedStatus[id] ?: false
+
+    override suspend fun getLikedMusicIds(): List<Long> =
+        likedStatus.filterValues { it }.keys.toList()
 
     override suspend fun removeFromLibrary(ids: List<Long>) {
         val toRemove = musicList.filter { it.music.id in ids }
@@ -108,6 +134,32 @@ class FakeMusicRepository : MusicRepository {
 
     override suspend fun addMusicLabel(label: MusicLabel) {
         labels.getOrPut(label.musicId) { mutableListOf() }.add(label)
+        dataLabels.getOrPut(label.musicId) { mutableListOf() }.add(
+            DataMusicLabel(
+                musicId = label.musicId,
+                type = com.hmp.data.database.myenum.LabelCategory.valueOf(label.type.name),
+                label = com.hmp.data.database.myenum.LabelName.valueOf(label.label.name),
+                source = "LLM",
+                confidence = 0.6,
+                createdAt = System.currentTimeMillis(),
+                updatedAt = System.currentTimeMillis(),
+            )
+        )
+    }
+
+    override suspend fun addUserMusicLabel(label: MusicLabel, confidence: Double) {
+        labels.getOrPut(label.musicId) { mutableListOf() }.add(label)
+        dataLabels.getOrPut(label.musicId) { mutableListOf() }.add(
+            DataMusicLabel(
+                musicId = label.musicId,
+                type = com.hmp.data.database.myenum.LabelCategory.valueOf(label.type.name),
+                label = com.hmp.data.database.myenum.LabelName.valueOf(label.label.name),
+                source = "USER",
+                confidence = confidence,
+                createdAt = System.currentTimeMillis(),
+                updatedAt = System.currentTimeMillis(),
+            )
+        )
     }
 
     override fun getLabelNamesByType(type: LabelCategory): Flow<List<LabelName>> {
@@ -118,13 +170,18 @@ class FakeMusicRepository : MusicRepository {
         return flowOf(names)
     }
 
-    override suspend fun getMusicIdListByType(labelName: LabelName): List<Long> =
+    override suspend fun getMusicIdListByType(labelName: LabelName, limit: Int): List<Long> =
         labels.entries
             .filter { (_, labelList) -> labelList.any { it.label == labelName } }
             .map { it.key }
+            .take(limit)
 
     override suspend fun getMusicLabels(musicId: Long): List<MusicLabel> =
         labels[musicId] ?: emptyList()
+
+    override suspend fun removeUserMusicLabel(musicId: Long, label: LabelName) {
+        labels[musicId]?.removeAll { it.label == label }
+    }
 
     override suspend fun updateMusicTags(musicId: Long, tags: EditableMusicTags): Result<Unit> {
         val index = musicList.indexOfFirst { it.music.id == musicId }
@@ -153,23 +210,35 @@ class FakeMusicRepository : MusicRepository {
 
     override suspend fun getMusicLyrics(musicId: Long): String? = lyrics[musicId]
 
-    override suspend fun insertMusicExtra(musicId: Long, musicExtraInfo: DailyMusicInfo) {
-        extras[musicId] = musicExtraInfo
+    /**
+     * 与生产同语义：写入 musicExtra 表的 6 列，读侧表现为 `MusicInfo.extra`；
+     * 且 `updateExtraFieldsById` 的 SQL 会**一并把 `isGetExtraInfo` 置 true**
+     * （写入富化文案 = 标记已富化），这里必须同步，否则
+     * `getMusicWithMissingExtraCount` 一类统计在测试里永远不收敛。
+     */
+    override suspend fun updateMusicExtraTexts(musicId: Long, texts: MusicExtraTexts) {
+        val index = musicList.indexOfFirst { it.music.id == musicId }
+        if (index < 0) return
+        val old = musicList[index]
+        val base = old.extra ?: MusicExtra(id = musicId, isGetExtraInfo = false)
+        musicList[index] = old.copy(
+            extra = base.copy(
+                isGetExtraInfo = true,
+                rewards = texts.rewards,
+                popLyric = texts.popLyric,
+                singerIntroduce = texts.singerIntroduce,
+                backgroundIntroduce = texts.backgroundIntroduce,
+                description = texts.description,
+                relevantMusic = texts.relevantMusic,
+            )
+        )
     }
-
-    override suspend fun getMusicExtraById(musicId: Long): DailyMusicInfo =
-        extras[musicId] ?: throw IllegalArgumentException("No extra for music $musicId")
 
     override suspend fun loadMusicFromDevice(): Result<Unit> = Result.success(Unit)
 
     override val isScanning: Flow<Boolean> = _isScanning.asStateFlow()
 
     override suspend fun syncMusicFromDeviceIncremental(): Result<Unit> = Result.success(Unit)
-
-    override suspend fun fetchMusicExtraInfoWithProvider(
-        config: AiEndpointConfig, title: String, artist: String
-    ): Result<DailyMusicInfo> = Result.failure(NotImplementedError())
-
     override suspend fun validateProviderApiKey(config: AiEndpointConfig): Result<Boolean> =
         Result.success(true)
 
@@ -229,4 +298,134 @@ class FakeMusicRepository : MusicRepository {
         ListeningStatsSnapshot()
 
     override suspend fun restoreListeningStats(snapshot: ListeningStatsSnapshot) {}
+
+    // region Agent T2: 富化健康度查询
+
+    private val SOURCE_LLM = "LLM"
+    private val SOURCE_AGENT = "AGENT"
+
+    private fun allDataLabels(): List<DataMusicLabel> = dataLabels.values.flatten()
+
+    override suspend fun getEnrichHealth(): EnrichHealth {
+        val all = allDataLabels()
+        val enrichedIds = all
+            .filter { it.source == SOURCE_LLM || it.source == SOURCE_AGENT }
+            .map { it.musicId }
+            .toSet()
+        val lowConfCount = all
+            .filter { (it.source == SOURCE_LLM || it.source == SOURCE_AGENT) && (it.confidence != null && it.confidence < 0.5) }
+            .map { it.musicId }
+            .distinct()
+            .size
+        return EnrichHealth(
+            enrichedSongCount = enrichedIds.size,
+            totalSongCount = musicList.size,
+            lowConfidenceCount = lowConfCount,
+        )
+    }
+
+    override suspend fun getUnenrichedSongs(limit: Int): List<MusicInfo> {
+        val enrichedIds = allDataLabels()
+            .filter { it.source == SOURCE_LLM || it.source == SOURCE_AGENT }
+            .map { it.musicId }
+            .toSet()
+        return musicList.filter { it.music.id !in enrichedIds }.take(limit)
+    }
+
+    override suspend fun getFailedEnrichSongs(limit: Int): List<MusicInfo> {
+        val lowConfIds = allDataLabels()
+            .filter { (it.source == SOURCE_LLM || it.source == SOURCE_AGENT) && (it.confidence != null && it.confidence < 0.5) }
+            .map { it.musicId }
+            .distinct()
+        val lowConfSet = lowConfIds.toSet()
+        return musicList.filter { it.music.id in lowConfSet }.take(limit)
+    }
+
+    override suspend fun fetchNextEnrichWorkUnit(bigArtistThreshold: Int, mixGroupSize: Int): com.hmp.domain.agent.enrich.EnrichWorkUnit? {
+        val allLabels = allDataLabels()
+        val enrichedIds = allLabels
+            .filter { it.source == SOURCE_LLM || it.source == SOURCE_AGENT }
+            .map { it.musicId }.toSet()
+        val unenriched = musicList.filter { it.music.id !in enrichedIds }
+        if (unenriched.isEmpty()) return null
+
+        val byArtist = unenriched.groupBy { it.music.artist }
+        val sortedArtists = byArtist.entries.sortedByDescending { it.value.size }
+
+        val bigArtist = sortedArtists.firstOrNull { it.value.size >= bigArtistThreshold }
+        if (bigArtist != null) {
+            return com.hmp.domain.agent.enrich.EnrichWorkUnit.ArtistGroup(bigArtist.key, bigArtist.value)
+        }
+        val mixed = sortedArtists.flatMap { it.value }
+        if (mixed.isEmpty()) return null
+        return com.hmp.domain.agent.enrich.EnrichWorkUnit.MixedGroup(if (mixed.size >= mixGroupSize) mixed.take(mixGroupSize) else mixed)
+    }
+
+    override suspend fun getRecentEnrichResults(since: Long): EnrichBatchResult {
+        val recentLabels = allDataLabels()
+            .filter { (it.source == SOURCE_LLM || it.source == SOURCE_AGENT) && (it.createdAt != null && it.createdAt >= since) }
+        val successMusicIds = recentLabels.map { it.musicId }.distinct().size
+        return EnrichBatchResult(successCount = successMusicIds, failureCount = 0)
+    }
+
+    // ═══ W0 HelloSubAgent stub ═══
+    override suspend fun getRecentSkipRate(limit: Int, days: Int): List<Long> = emptyList()
+    override suspend fun getRecentPlayRate(limit: Int, days: Int): List<Long> = emptyList()
+    override suspend fun getForgottenTracks(days: Int, limit: Int): List<Pair<Long, Long?>> = emptyList()
+    override suspend fun getAnniversaryTracks(date: String): List<Triple<Long, Long, Int>> = emptyList()
+    override suspend fun getGlobalTopLabels(limit: Int): List<com.hmp.domain.enum.LabelName> = emptyList()
+    override suspend fun getMusicInfoByIds(ids: List<Long>): List<com.hmp.domain.music.MusicInfo> {
+        if (ids.isEmpty()) return emptyList()
+        val idSet = ids.toSet()
+        return musicList.filter { it.music.id in idSet }
+    }
+    override suspend fun getAvgDailyListeningMinutes(days: Int): Float = 0f
+    override suspend fun getHourlyDistribution(windowDays: Int): List<com.hmp.domain.music.HourlyDistributionRow> = emptyList()
+    private val _forgottenDelivered = mutableSetOf<Long>()
+    override suspend fun markForgottenDelivered(musicId: Long) { _forgottenDelivered += musicId }
+    override suspend fun isForgottenDelivered(musicId: Long): Boolean = musicId in _forgottenDelivered
+
+    // ── 用户认识模块（画像）快照：替身默认返回空，忘传即等于测"无数据退化" ──
+
+    /** 测试可注入：内容快照（默认空 → 等于测"没有标签时的退化路径"） */
+    var contentSnapshot: LibraryContentSnapshot = LibraryContentSnapshot(totalSongs = 0, enrichedSongs = 0)
+
+    /** 测试可注入：状态快照（默认全空） */
+    var stateSnapshot: LibraryStateSnapshot =
+        LibraryStateSnapshot(totalSongs = 0, likedCount = 0, dislikedCount = 0, hiddenFolderCount = 0)
+
+    /** 测试可注入：行为快照（默认无播放） */
+    var behaviorSnapshot: BehaviorSnapshot? = null
+
+    override suspend fun getLibraryContentSnapshot(): LibraryContentSnapshot = contentSnapshot
+
+    override suspend fun getLibraryStateSnapshot(): LibraryStateSnapshot = stateSnapshot
+
+    override suspend fun getBehaviorSnapshot(windowDays: Int): BehaviorSnapshot =
+        behaviorSnapshot ?: BehaviorSnapshot(windowDays = windowDays, totalPlays = 0, activeDays = 0)
+
+    // region ANNIVERSARY 扩展空实现
+    override suspend fun getAnniversaryPlaylists(date: String): List<com.hmp.domain.music.PlaylistAnniversaryRow> = emptyList()
+    override suspend fun getAllMusicDurations(): List<com.hmp.domain.music.MusicDurationRow> = emptyList()
+    override suspend fun getMusicIdsPlayedOn(date: String): List<Long> = emptyList()
+    override suspend fun getPlaybackCountForPlaylist(playlistName: String): Int = 0
+    // endregion
+
+    // region Windowed Analytics 空实现
+    override suspend fun getWindowedAnalytics(days: Int): com.hmp.domain.setting.model.WindowedUsageAnalytics =
+        com.hmp.domain.setting.model.WindowedUsageAnalytics(
+            totalListeningMinutes = 0, completionRate = 0f, skipRate = 0f,
+            totalPlayCount = 0, totalSkipCount = 0,
+        )
+    override suspend fun getWindowedSourceBreakdown(days: Int): Map<String, Int> = emptyMap()
+    override suspend fun getWindowedTopLabels(
+        days: Int,
+        category: com.hmp.data.database.myenum.LabelCategory,
+        limit: Int
+    ): List<com.hmp.domain.setting.model.LabelCountEntry> = emptyList()
+    override suspend fun getWindowedTopSongs(days: Int, limit: Int): List<com.hmp.domain.setting.model.TopPlayedEntry> = emptyList()
+    override suspend fun getWindowedRecentPlayback(days: Int, limit: Int): List<com.hmp.domain.setting.model.RecentPlaybackEntry> = emptyList()
+    // endregion
+
+    // endregion
 }

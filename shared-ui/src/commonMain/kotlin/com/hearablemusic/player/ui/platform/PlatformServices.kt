@@ -9,7 +9,7 @@ import com.hmp.domain.music.EditableMusicTags
  * 接口 + Koin 注入，非 expect/actual——expect/actual 只留给无状态纯逻辑。
  * Desktop 给空实现/等价实现。
  *
- * 调用点映射表：docs/shared-ui-extract/接口冻结-调用点映射表.md
+ * 调用点映射表：docs/7_x/A shared-ui/接口冻结-调用点映射表.md
  */
 
 /** 分享请求（DialogEvent.ShareMusic 的平台无关形态）。 */

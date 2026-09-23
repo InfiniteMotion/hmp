@@ -14,6 +14,8 @@ import javax.sound.sampled.AudioFormat
 import javax.sound.sampled.AudioSystem
 import javax.sound.sampled.DataLine
 import javax.sound.sampled.SourceDataLine
+import com.hmp.log.HmpLog
+import com.hmp.log.LogTag
 
 class FFmpegAudioEngine : AudioEngine {
 
@@ -95,7 +97,7 @@ class FFmpegAudioEngine : AudioEngine {
         seekPositionMs = 0L
         bytesWritten = 0L
 
-        println("[AudioEngine] play: $path, ffmpeg=$ffmpegPath")
+        HmpLog.i(LogTag.PlayerFfmpeg) { "🎬 play: $path, ffmpeg=$ffmpegPath" }
         startPlayback(path, 0L)
     }
 
@@ -186,7 +188,7 @@ class FFmpegAudioEngine : AudioEngine {
     private suspend fun probeDuration(path: String) = withContext(Dispatchers.IO) {
         var process: Process? = null
         try {
-            println("[AudioEngine] probing: $ffmpegPath -i $path")
+            HmpLog.d(LogTag.PlayerFfmpeg) { "🎬 probing: $ffmpegPath -i $path" }
             process = ProcessBuilder(
                 ffmpegPath, "-i", path,
                 "-f", "null", "-"
@@ -196,7 +198,7 @@ class FFmpegAudioEngine : AudioEngine {
 
             val output = process.inputStream.bufferedReader().readText()
             val exitCode = process.waitFor()
-            println("[AudioEngine] probe exit=$exitCode, output: ${output.take(300)}")
+            HmpLog.d(LogTag.PlayerFfmpeg) { "🎬 probe exit=$exitCode, output: ${output.take(300)}" }
 
             // Parse duration from ffmpeg output: Duration: HH:MM:SS.ss
             val durationRegex = Regex("""Duration:\s*(\d+):(\d+):(\d+)\.(\d+)""")
@@ -274,13 +276,13 @@ class FFmpegAudioEngine : AudioEngine {
                     "-"
                 )
 
-                println("[AudioEngine] command: ${command.joinToString(" ")}")
+                HmpLog.d(LogTag.PlayerFfmpeg) { "🎬 command: ${command.joinToString(" ")}" }
 
                 val pb = ProcessBuilder(command)
                 pb.redirectErrorStream(false)
                 val process = pb.start()
                 ffmpegProcess = process
-                println("[AudioEngine] process started, alive=${process.isAlive}")
+                HmpLog.d(LogTag.PlayerFfmpeg) { "🎬 process started, alive=${process.isAlive}" }
 
                 // Capture stderr for error diagnosis
                 var stderrOutput = ""
@@ -303,11 +305,11 @@ class FFmpegAudioEngine : AudioEngine {
                     false
                 )
                 val info = DataLine.Info(SourceDataLine::class.java, format)
-                println("[AudioEngine] format: ${sampleRate.toInt()}Hz ${channels}ch 16bit frameSize=$frameSize")
+                HmpLog.d(LogTag.PlayerFfmpeg) { "🎬 format: ${sampleRate.toInt()}Hz ${channels}ch 16bit frameSize=$frameSize" }
 
                 if (!AudioSystem.isLineSupported(info)) {
                     val msg = "Audio line not supported for format: ${sampleRate.toInt()}Hz ${channels}ch"
-                    println("[AudioEngine] ERROR: $msg")
+                    HmpLog.e(LogTag.PlayerFfmpeg) { "🎬 ERROR: $msg" }
                     withContext(Dispatchers.Main) {
                         onError?.invoke(Exception(msg))
                     }
@@ -318,13 +320,13 @@ class FFmpegAudioEngine : AudioEngine {
                 sourceLine = line
                 line.open(format)
                 line.start()
-                println("[AudioEngine] SourceDataLine opened and started")
+                HmpLog.i(LogTag.PlayerFfmpeg) { "🎬 SourceDataLine opened and started" }
 
                 sampleSizeInBytes = 2
 
                 val buffer = ByteArray(8192)
                 val audioStream = BufferedInputStream(process.inputStream)
-                println("[AudioEngine] reading PCM data, format=${sampleRate.toInt()}Hz ${channels}ch 16bit")
+                HmpLog.d(LogTag.PlayerFfmpeg) { "🎬 reading PCM data, format=${sampleRate.toInt()}Hz ${channels}ch 16bit" }
 
                 while (isActive && !isStopped) {
                     if (isPaused) {
@@ -344,7 +346,7 @@ class FFmpegAudioEngine : AudioEngine {
                     bytesWritten += bytesRead
                 }
 
-                println("[AudioEngine] read loop ended, bytesWritten=$bytesWritten, isStopped=$isStopped")
+                HmpLog.d(LogTag.PlayerFfmpeg) { "🎬 read loop ended, bytesWritten=$bytesWritten, isStopped=$isStopped" }
 
                 line.drain()
                 line.stop()
@@ -356,7 +358,7 @@ class FFmpegAudioEngine : AudioEngine {
                 val exitCode = process.waitFor()
                 process.destroyForcibly()
 
-                println("[AudioEngine] process exited with code $exitCode, stderr: ${stderrOutput.take(300)}")
+                HmpLog.i(LogTag.PlayerFfmpeg) { "🎬 process exited with code $exitCode, stderr: ${stderrOutput.take(300)}" }
 
                 if (!isStopped && isActive) {
                     if (exitCode != 0 && bytesWritten == 0L) {
@@ -370,7 +372,7 @@ class FFmpegAudioEngine : AudioEngine {
                     }
                 }
             } catch (e: Exception) {
-                println("[AudioEngine] exception: ${e.message}")
+                HmpLog.e(LogTag.PlayerFfmpeg, e) { "🎬 exception: ${e.message}" }
                 if (!isStopped) {
                     withContext(Dispatchers.Main) {
                         onError?.invoke(e)

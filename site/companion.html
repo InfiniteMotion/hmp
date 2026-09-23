@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="HMP 音乐伙伴 — 以播放器为身体的 AI 伙伴：对话打理曲库、AI 电台替你排歌、逐首认识你的音乐、听歌报告与遗忘唤醒。记忆只存设备，没有账号。">
+<meta name="theme-color" content="#121212">
+<title>音乐伙伴 — HMP Hearable Music Player</title>
+<link rel="canonical" href="https://infinitemotion.github.io/HMP/companion.html">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Hearable Music Player">
+<meta property="og:title" content="音乐伙伴 — HMP Hearable Music Player">
+<meta property="og:description" content="以播放器为身体的 AI 伙伴：对话打理曲库、AI 电台替你排歌、逐首认识你的音乐。记忆只存设备。">
+<meta property="og:image" content="https://infinitemotion.github.io/HMP/assets/screenshots/screenshot-home-desktop.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+<link rel="icon" href="assets/ic_launcher_foreground.webp" type="image/webp">
+<script>var st=localStorage.getItem('theme');if(st)document.documentElement.setAttribute('data-theme',st);else if(window.matchMedia('(prefers-color-scheme:dark)').matches)document.documentElement.setAttribute('data-theme','dark');else if(window.matchMedia('(prefers-color-scheme:light)').matches)document.documentElement.setAttribute('data-theme','light');</script>
+<style>
+  /* ── 版式：总述图卡 + 分述卡片 ─────────────────────── */
+  .comp-fig { padding:26px; margin-bottom:22px; border-radius:var(--radius); background:var(--glass-bg); backdrop-filter:blur(var(--glass-blur)); -webkit-backdrop-filter:blur(var(--glass-blur)); border:1px solid var(--glass-border); }
+
+  .comp-lead { margin-bottom:20px; font-size:0.95rem; line-height:1.9; color:var(--text-secondary); }
+  .comp-lead strong { color:var(--text); font-weight:600; }
+
+  .comp-points { display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:14px; }
+  .comp-point { padding:16px 18px; border-radius:12px; background:var(--glass-bg); border:1px solid var(--glass-border); }
+  .comp-point b { display:block; margin-bottom:4px; font-size:0.92rem; }
+  .comp-point span { font-size:0.8rem; line-height:1.65; color:var(--text-secondary); }
+
+  /* ── 三个执行域的浮层详情（点击图中卡片弹出）──────────── */
+  .ag-node { cursor:pointer; }
+  .ag-node .ag-hot { transition:stroke .18s, fill .18s; }
+  .ag-node:hover .ag-hot, .ag-node:focus-visible .ag-hot { stroke:var(--red); }
+  .ag-node:focus-visible { outline:none; }
+
+  .comp-modal { position:fixed; inset:0; z-index:200; display:none; }
+  .comp-modal.open { display:block; }
+  .comp-modal-bg { position:absolute; inset:0; background:rgba(0,0,0,0.62); backdrop-filter:blur(3px); -webkit-backdrop-filter:blur(3px); animation:cmFade .18s ease; }
+  .comp-modal-card { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:min(980px,calc(100% - 40px)); max-height:min(84vh,700px); overflow-y:auto; padding:28px 30px 26px; border-radius:var(--radius); background:var(--bg-elevated,rgba(28,28,30,0.98)); border:1px solid var(--glass-border); box-shadow:0 24px 80px rgba(0,0,0,0.5); animation:cmPop .22s cubic-bezier(0.2,0.9,0.3,1); }
+  [data-theme="light"] .comp-modal-card { background:#fff; }
+  @keyframes cmFade { from { opacity:0; } to { opacity:1; } }
+  @keyframes cmPop { from { opacity:0; transform:translate(-50%,-46%) scale(0.97); } to { opacity:1; transform:translate(-50%,-50%) scale(1); } }
+  .comp-modal-head { display:flex; flex-wrap:wrap; align-items:baseline; gap:8px 14px; margin-bottom:18px; padding-right:44px; }
+  .comp-modal-head h3 { font-size:1.2rem; font-weight:700; }
+  .comp-modal-hint { font-size:0.74rem; padding:3px 11px; border-radius:100px; background:rgba(201,44,44,0.10); color:var(--red); }
+  .comp-modal-close { position:absolute; top:18px; right:18px; width:32px; height:32px; display:flex; align-items:center; justify-content:center; border-radius:8px; border:1px solid var(--glass-border); background:transparent; color:var(--text-secondary); font-size:1.1rem; line-height:1; cursor:pointer; transition:color .18s, border-color .18s; }
+  .comp-modal-close:hover { color:var(--text); border-color:var(--red); }
+  /* 图左文右：充分利用浮层的横向空间 */
+  .comp-modal-main { display:grid; grid-template-columns:minmax(0,0.92fr) minmax(0,1.08fr); gap:24px; align-items:start; }
+  .comp-modal-body { min-width:0; }
+  .comp-modal-body p { margin-top:0; font-size:0.88rem; line-height:1.9; color:var(--text-secondary); }
+  .comp-modal-body p + p { margin-top:13px; }
+  .comp-modal-body p strong { color:var(--text); font-weight:600; }
+  .comp-modal-body .feature-tags { margin-top:18px; }
+  .comp-modal-fig { padding:14px; border-radius:12px; background:rgba(255,255,255,0.03); }
+  [data-theme="light"] .comp-modal-fig { background:rgba(0,0,0,0.02); }
+  .comp-modal-fig > .ag-svg { width:100%; min-width:0; }
+  @media (max-width:820px) {
+    .comp-modal-main { grid-template-columns:1fr; gap:18px; }
+    .comp-modal-fig { overflow-x:auto; }
+    .comp-modal-fig > .ag-svg { min-width:360px; }
+  }
+
+  .comp-duo { display:grid; grid-template-columns:repeat(auto-fit,minmax(420px,1fr)); gap:16px; }
+  .comp-card { display:flex; flex-direction:column; gap:12px; padding:20px; border-radius:var(--radius); background:var(--glass-bg); backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); border:1px solid var(--glass-border); }
+  /* 第三张卡横跨整行并改为「图左文右」：三列并排时图解会被压到读不清 */
+  .comp-duo > .comp-card:last-child { grid-column:1 / -1; display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.05fr); align-items:center; gap:8px 24px; }
+  .comp-duo > .comp-card:last-child > .comp-fig-mini { grid-column:1; grid-row:1 / span 2; }
+  .comp-duo > .comp-card:last-child > h3 { grid-column:2; grid-row:1; align-self:end; }
+  .comp-duo > .comp-card:last-child > p { grid-column:2; grid-row:2; align-self:start; }
+  .comp-card h3 { font-size:1rem; font-weight:600; }
+  .comp-card p { font-size:0.85rem; line-height:1.75; color:var(--text-secondary); }
+  .comp-fig-mini { padding:10px; border-radius:12px; background:rgba(255,255,255,0.03); }
+  [data-theme="light"] .comp-fig-mini { background:rgba(0,0,0,0.02); }
+
+  .comp-keys { display:flex; flex-wrap:wrap; gap:10px; margin-top:18px; }
+  .comp-key { display:inline-flex; align-items:center; gap:8px; padding:8px 14px; border-radius:100px; background:var(--glass-bg); border:1px solid var(--glass-border); font-size:0.82rem; color:var(--text-secondary); }
+  .comp-key kbd { padding:2px 9px; border-radius:6px; background:rgba(255,255,255,0.10); border:1px solid var(--glass-border); color:var(--text); font-family:inherit; font-size:0.78rem; font-weight:600; }
+  .comp-key > span { color:var(--text-secondary); font-size:0.78rem; }
+  .comp-key > span::before { content:'· '; }
+  [data-theme="light"] .comp-key kbd { background:rgba(0,0,0,0.06); }
+
+  /* ── 图解通用语汇（随主题变色） ─────────────────────── */
+  .ag-svg { width:100%; height:auto; display:block; }
+  .ag-svg text { font-family:inherit; }
+  .ag-band { fill:rgba(255,255,255,0.045); stroke:rgba(255,255,255,0.14); stroke-width:1; }
+  [data-theme="light"] .ag-band { fill:rgba(0,0,0,0.022); stroke:rgba(0,0,0,0.10); }
+  .ag-chip { fill:rgba(255,255,255,0.08); stroke:rgba(255,255,255,0.15); stroke-width:1; }
+  [data-theme="light"] .ag-chip { fill:rgba(255,255,255,0.85); stroke:rgba(0,0,0,0.11); }
+  .ag-sub { fill:rgba(255,255,255,0.04); stroke:rgba(255,255,255,0.10); stroke-width:1; }
+  [data-theme="light"] .ag-sub { fill:rgba(0,0,0,0.03); stroke:rgba(0,0,0,0.08); }
+  .ag-core { fill:rgba(201,44,44,0.12); stroke:rgba(201,44,44,0.5); stroke-width:1.2; }
+  .ag-device { fill:none; stroke:var(--text-secondary); stroke-width:1.2; stroke-dasharray:7 6; opacity:0.7; }
+  .ag-t { fill:var(--text); font-size:12.5px; }
+  .ag-t-b { fill:var(--text); font-size:14px; font-weight:700; }
+  .ag-t-m { fill:var(--text); font-size:11.5px; font-weight:600; }
+  .ag-t-s { fill:var(--text-secondary); font-size:10.5px; }
+  .ag-t-xs { fill:var(--text-secondary); font-size:9.5px; }
+  .ag-red { fill:var(--red); }
+  .ag-strike { fill:var(--text-secondary); font-size:9.5px; text-decoration:line-through; }
+  .ag-bar { fill:rgba(255,255,255,0.16); }
+  [data-theme="light"] .ag-bar { fill:rgba(0,0,0,0.10); }
+  .ag-fill { fill:var(--red); opacity:0.75; }
+  .ag-live { fill:var(--red); }
+  .ag-flow { fill:none; stroke:var(--text-secondary); stroke-width:1.4; opacity:0.75; }
+  .ag-flow-r { fill:none; stroke:var(--red); stroke-width:1.6; }
+  .ag-head { fill:none; stroke:var(--text-secondary); stroke-width:1.6; stroke-linecap:round; stroke-linejoin:round; }
+  .ag-head-r { fill:none; stroke:var(--red); stroke-width:1.6; stroke-linecap:round; stroke-linejoin:round; }
+
+  @media (max-width:860px) {
+    .comp-fig { padding:16px; }
+    /* 图解按比例缩放到窄屏会小到读不清，改为容器内横向滑动（保持原字号） */
+    .comp-fig, .comp-fig-mini { overflow-x:auto; -webkit-overflow-scrolling:touch; }
+    .comp-fig > .ag-svg { min-width:720px; }
+    .comp-fig-mini > .ag-svg { min-width:300px; }
+    .comp-duo { grid-template-columns:1fr; }
+    .comp-duo > .comp-card:last-child { grid-template-columns:1fr; }
+    .comp-duo > .comp-card:last-child > .comp-fig-mini { grid-column:1; grid-row:auto; }
+    .comp-duo > .comp-card:last-child > h3,
+    .comp-duo > .comp-card:last-child > p { grid-column:1; grid-row:auto; align-self:auto; }
+  }
+</style>
+</head>
+<body>
+<a class="skip-link" href="#main">跳到主要内容</a>
+
+<div class="aurora-bg">
+  <div class="hero-orb"></div>
+  <div class="hero-orb"></div>
+  <div class="hero-orb"></div>
+</div>
+
+<nav class="site-nav" aria-label="站点导航">
+  <a href="index.html">首页</a>
+  <a href="features.html">功能</a>
+  <a href="companion.html" aria-current="page">伙伴</a>
+  <a href="gallery.html">画廊</a>
+  <a href="download.html">下载</a>
+  <a href="changelog.html">更新</a>
+</nav>
+
+<div class="bottom-bar">
+  <a href="https://github.com/InfiniteMotion/HMP" class="bottom-link">GitHub</a>
+  <button class="theme-toggle" onclick="toggleTheme()" aria-label="切换主题">
+    <span id="themeIcon">&#9789;</span>
+  </button>
+</div>
+
+<div class="content-page" id="main">
+  <div class="content-header">
+    <a href="index.html" class="back-link">&larr; 返回首页</a>
+    <h1>音乐伙伴</h1>
+    <p>HMP 里住着一位以播放器为身体的音乐伙伴。它陪你听歌、替你打理音乐事务；你听下去还是跳过，都会改变它的下一次决定。<strong>记忆只存你的设备</strong>——没有账号，没有云同步。</p>
+  </div>
+
+  <!-- ══════════ 总述：一个大脑 + 三个执行域 ══════════ -->
+  <section class="section" id="overview">
+    <div class="section-head"><span class="section-idx">01</span><h2>体系总览</h2><span class="section-rule" aria-hidden="true"></span><span class="section-count">一个大脑 · 三个域</span></div>
+
+    <p class="comp-lead">它长在既有播放器上，没有另起一套架构。<strong>MasterAgent</strong> 是唯一大脑：处理你的对话、管理后台任务、统管全局基建，永不暂停。<strong>电台、曲库认识、门面问候</strong>是三个各自独立的执行域——各有自己的模型连接与上下文预算，按优先级被调度，彼此不互相调用。再往下是它们共用的基建与本地数据层；扫描、播放、标签这些身体能力仍走既有实现。</p>
+
+    <div class="comp-fig">
+      <svg class="ag-svg" viewBox="0 0 900 480" role="img" aria-label="示意图：agent 体系结构——MasterAgent 一个大脑、三个可展开的执行域、共用基建">
+        <defs>
+          <marker id="agA" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="ag-head" d="M1 1.5L7 5L1 8.5"/></marker>
+          <marker id="agAR" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="ag-head-r" d="M1 1.5L7 5L1 8.5"/></marker>
+        </defs>
+
+        <!-- 两侧 -->
+        <rect class="ag-band" x="30" y="24" width="176" height="112" rx="14"/>
+        <text class="ag-t-b" x="50" y="50">用户侧</text>
+        <text class="ag-t-s" x="50" y="74">说一句话</text>
+        <text class="ag-t-s" x="50" y="94">确认或否决</text>
+        <text class="ag-t-s" x="50" y="114">听歌中表态</text>
+
+        <rect class="ag-band" x="694" y="24" width="176" height="112" rx="14"/>
+        <text class="ag-t-b" x="714" y="50">播放器侧</text>
+        <text class="ag-t-s" x="714" y="74">曲库与标签</text>
+        <text class="ag-t-s" x="714" y="94">播放队列与状态</text>
+        <text class="ag-t-s" x="714" y="114">三套播放引擎</text>
+
+        <!-- MasterAgent（可点击弹出浮层）-->
+        <g class="ag-node" role="button" tabindex="0" data-agent="master" aria-label="查看唯一大脑 MasterAgent 详情">
+          <rect class="ag-core ag-hot" x="270" y="24" width="360" height="62" rx="14"/>
+          <text class="ag-t-b" x="450" y="50" text-anchor="middle">MasterAgent · 唯一大脑</text>
+          <text class="ag-t-xs" x="450" y="72" text-anchor="middle">对话处理 · 后台管理 · 全局基建　永不暂停</text>
+        </g>
+
+        <path class="ag-flow-r" d="M206 60 H 270" marker-end="url(#agAR)"/>
+        <text class="ag-t-xs" x="238" y="52" text-anchor="middle">意图</text>
+        <path class="ag-flow" d="M630 60 H 694" marker-end="url(#agA)"/>
+        <text class="ag-t-xs" x="662" y="52" text-anchor="middle">调用</text>
+
+        <!-- 两条路径 -->
+        <rect class="ag-chip" x="270" y="100" width="360" height="52" rx="12"/>
+        <text class="ag-t-xs" x="450" y="122" text-anchor="middle">两条调度路径：工具循环（30 个原子工具）· 内建意图（不经模型）</text>
+        <text class="ag-t-xs" x="450" y="140" text-anchor="middle">前者灵活可组合，后者高频指令零 token 直达</text>
+
+        <path class="ag-flow" d="M450 152 V 182" marker-end="url(#agA)"/>
+        <text class="ag-t-xs" x="462" y="174">启动 / 停止</text>
+
+        <!-- 三个域入口（可点击弹出浮层）-->
+        <rect class="ag-band" x="30" y="182" width="840" height="140" rx="16"/>
+        <text class="ag-t-b" x="50" y="208">三个执行域 · 各自独立可调度</text>
+        <text class="ag-t-xs" x="50" y="226">各持独立模型连接与独立上下文预算；互不调用，只调基建</text>
+
+        <g class="ag-node" role="button" tabindex="0" data-agent="radio" aria-label="查看电台域详情">
+          <rect class="ag-chip ag-hot" x="50" y="240" width="256" height="66" rx="12"/>
+          <text class="ag-t-m" x="178" y="266" text-anchor="middle">① 电台 Radio</text>
+          <text class="ag-t-xs" x="178" y="288" text-anchor="middle">按语境排节目单，跟着你的反应走</text>
+        </g>
+
+        <g class="ag-node" role="button" tabindex="0" data-agent="enrich" aria-label="查看曲库认识域详情">
+          <rect class="ag-chip ag-hot" x="322" y="240" width="256" height="66" rx="12"/>
+          <text class="ag-t-m" x="450" y="266" text-anchor="middle">② 曲库认识 Enrich</text>
+          <text class="ag-t-xs" x="450" y="288" text-anchor="middle">逐首读你的歌，越用越认得</text>
+        </g>
+
+        <g class="ag-node" role="button" tabindex="0" data-agent="hello" aria-label="查看门面问候域详情">
+          <rect class="ag-chip ag-hot" x="594" y="240" width="256" height="66" rx="12"/>
+          <text class="ag-t-m" x="722" y="266" text-anchor="middle">③ 门面问候 Hello</text>
+          <text class="ag-t-xs" x="722" y="288" text-anchor="middle">每日轮播几张卡，不多说一句</text>
+        </g>
+
+        <path class="ag-flow" d="M450 322 V 352" marker-end="url(#agA)"/>
+
+        <!-- 基建 -->
+        <rect class="ag-band" x="30" y="352" width="840" height="72" rx="14"/>
+        <text class="ag-t-m" x="50" y="378">共用基建</text>
+        <g class="ag-chips">
+          <rect class="ag-sub" x="50" y="388" width="92" height="24" rx="7"/><text class="ag-t-xs" x="96" y="404" text-anchor="middle">工具目录</text>
+          <rect class="ag-sub" x="150" y="388" width="96" height="24" rx="7"/><text class="ag-t-xs" x="198" y="404" text-anchor="middle">许可与信任</text>
+          <rect class="ag-sub" x="254" y="388" width="96" height="24" rx="7"/><text class="ag-t-xs" x="302" y="404" text-anchor="middle">上下文预算</text>
+          <rect class="ag-sub" x="358" y="388" width="92" height="24" rx="7"/><text class="ag-t-xs" x="404" y="404" text-anchor="middle">用量记账</text>
+          <rect class="ag-sub" x="458" y="388" width="92" height="24" rx="7"/><text class="ag-t-xs" x="504" y="404" text-anchor="middle">本地词表</text>
+          <rect class="ag-sub" x="558" y="388" width="96" height="24" rx="7"/><text class="ag-t-xs" x="606" y="404" text-anchor="middle">存在感总线</text>
+          <rect class="ag-sub" x="662" y="388" width="96" height="24" rx="7"/><text class="ag-t-xs" x="710" y="404" text-anchor="middle">记忆子系统</text>
+          <rect class="ag-sub" x="766" y="388" width="84" height="24" rx="7"/><text class="ag-t-xs" x="808" y="404" text-anchor="middle">调度器</text>
+        </g>
+
+        <text class="ag-t-xs" x="450" y="450" text-anchor="middle">下接本地数据层（只加表）· 三个域各持独立模型连接，记忆与密钥不出设备</text>
+      </svg>
+    </div>
+
+    <!-- 浮层详情：由图中卡片 / 大脑 data-agent 触发 -->
+    <div class="comp-modal" id="modal-master" data-agent="master" role="dialog" aria-modal="true" aria-labelledby="modal-master-title">
+      <div class="comp-modal-bg" data-close></div>
+      <div class="comp-modal-card">
+        <button class="comp-modal-close" type="button" data-close aria-label="关闭">✕</button>
+        <div class="comp-modal-head">
+          <h3 id="modal-master-title">MasterAgent —— 唯一大脑</h3>
+          <span class="comp-modal-hint">优先级 1 · 永不暂停</span>
+        </div>
+        <div class="comp-modal-main">
+        <div class="comp-modal-fig">
+          <svg class="ag-svg" viewBox="0 0 420 470" role="img" aria-label="示意图：一句话从本地词表到云端决策再到工具执行的决策回路">
+            <defs>
+              <marker id="agM1" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="ag-head" d="M1 1.5L7 5L1 8.5"/></marker>
+              <marker id="agM1R" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="ag-head-r" d="M1 1.5L7 5L1 8.5"/></marker>
+            </defs>
+            <rect class="ag-chip" x="56" y="16" width="308" height="52" rx="12"/>
+            <text class="ag-t-m" x="210" y="38" text-anchor="middle">你说一句话</text>
+            <text class="ag-t-xs" x="210" y="56" text-anchor="middle">或在界面上点一下</text>
+            <path class="ag-flow" d="M210 68 V84" marker-end="url(#agM1)"/>
+
+            <rect class="ag-chip" x="56" y="92" width="308" height="52" rx="12"/>
+            <text class="ag-t-m" x="210" y="114" text-anchor="middle">本地词表先过一遍</text>
+            <text class="ag-t-xs" x="210" y="132" text-anchor="middle">高频命令 50ms 内执行 · 零 token</text>
+            <path class="ag-flow" d="M210 144 V160" marker-end="url(#agM1)"/>
+
+            <rect class="ag-chip" x="56" y="168" width="308" height="52" rx="12"/>
+            <text class="ag-t-m" x="210" y="190" text-anchor="middle">模糊需求升级为任务</text>
+            <text class="ag-t-xs" x="210" y="208" text-anchor="middle">记忆不占窗口 · 窗口固定 64K · 步数硬熔断</text>
+            <path class="ag-flow" d="M210 220 V236" marker-end="url(#agM1)"/>
+
+            <rect class="ag-chip" x="56" y="244" width="308" height="52" rx="12"/>
+            <text class="ag-t-m" x="210" y="266" text-anchor="middle">云端决策</text>
+            <text class="ag-t-xs" x="210" y="284" text-anchor="middle">发往你自己填写的 AI 端点</text>
+            <path class="ag-flow" d="M210 296 V312" marker-end="url(#agM1)"/>
+
+            <rect class="ag-core" x="56" y="320" width="308" height="52" rx="12"/>
+            <text class="ag-t-m" x="210" y="342" text-anchor="middle">工具执行先过许可门</text>
+            <text class="ag-t-xs" x="210" y="360" text-anchor="middle">静默 · 通知 · 确认 · 强确认</text>
+
+            <path class="ag-flow" d="M364 346 H 394 V 42 H 366" marker-end="url(#agM1)"/>
+            <text class="ag-t-xs" x="210" y="404" text-anchor="middle">它还管后台：启停电台 / 曲库认识 / 门面问候三个域</text>
+            <text class="ag-t-xs" x="210" y="426" text-anchor="middle">三个域都可以停，大脑一直在线</text>
+            <text class="ag-t-xs" x="210" y="456" text-anchor="middle">听下去还是跳过，都会回写进记忆</text>
+          </svg>
+        </div>
+        <div class="comp-modal-body">
+          <p>它是唯一的大脑，<strong>永不暂停</strong>。你的话先过一遍本地词表——「下一首」「暂停」这类高频命令毫秒级直接执行，一个 token 都不花；只有模糊的需求才升级成多轮任务：检索曲库、核对标签、算出候选，必要时反问你一句。</p>
+          <p>它也管后台：启停电台、曲库认识、门面问候这三个域，判断你这句话是「要它干什么」还是「要它去干活」。三个域都可以停，大脑一直在线。每次任务都有<strong>步数硬熔断</strong>，上下文窗口固定 64K；所有写入都要先过许可门，由它决定是静默执行、事后通知，还是先征求你的同意。</p>
+          <div class="feature-tags">
+            <span class="feature-tag">两级漏斗</span>
+            <span class="feature-tag">步数熔断</span>
+            <span class="feature-tag">上下文 64K</span>
+            <span class="feature-tag">许可门</span>
+          </div>
+        </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="comp-modal" id="modal-radio" data-agent="radio" role="dialog" aria-modal="true" aria-labelledby="modal-radio-title">
+      <div class="comp-modal-bg" data-close></div>
+      <div class="comp-modal-card">
+        <button class="comp-modal-close" type="button" data-close aria-label="关闭">✕</button>
+        <div class="comp-modal-head">
+          <h3 id="modal-radio-title">① 电台 Radio —— 它替你排歌，不唠嗑</h3>
+          <span class="comp-modal-hint">优先级 2 · 电量 ≥20% 或 WiFi 时运行</span>
+        </div>
+        <div class="comp-modal-main">
+        <div class="comp-modal-fig">
+          <svg class="ag-svg" viewBox="0 0 420 300" role="img" aria-label="示意图：电台按情境编排节目单，边播边听你的反应再调整方向">
+            <defs>
+              <marker id="agR1" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="ag-head" d="M1 1.5L7 5L1 8.5"/></marker>
+              <marker id="agR1R" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="ag-head-r" d="M1 1.5L7 5L1 8.5"/></marker>
+            </defs>
+            <rect class="ag-chip" x="20" y="20" width="180" height="66" rx="12"/>
+            <text class="ag-t-m" x="34" y="44">看语境</text>
+            <text class="ag-t-xs" x="34" y="62">时段 · 最近在听</text>
+            <text class="ag-t-xs" x="34" y="78">对曲库的全部认识</text>
+            <rect class="ag-chip" x="220" y="20" width="180" height="66" rx="12"/>
+            <text class="ag-t-m" x="234" y="44">排这一档节目单</text>
+            <text class="ag-t-xs" x="234" y="62">顺着语境挑歌</text>
+            <text class="ag-t-xs" x="234" y="78">说得少，主要靠选歌</text>
+            <path class="ag-flow" d="M200 53 H 220" marker-end="url(#agR1)"/>
+
+            <rect class="ag-core" x="20" y="116" width="180" height="66" rx="12"/>
+            <text class="ag-t-m" x="34" y="140">听着你的反应</text>
+            <text class="ag-t-xs" x="34" y="158">跳过 · 听完都如实记下</text>
+            <text class="ag-t-xs" x="34" y="174">带进下一轮上下文</text>
+            <rect class="ag-chip" x="220" y="116" width="180" height="66" rx="12"/>
+            <text class="ag-t-m" x="234" y="140">只做两个动作</text>
+            <text class="ag-t-xs" x="234" y="158">追加队列 / 替换队列</text>
+            <text class="ag-t-xs" x="234" y="174">默认「不动」</text>
+            <path class="ag-flow" d="M310 86 V 116" marker-end="url(#agR1)"/>
+            <path class="ag-flow-r" d="M200 149 H 220" marker-end="url(#agR1R)"/>
+            <path class="ag-flow-r" d="M20 149 H 6 V 53 H 20" marker-end="url(#agR1R)"/>
+
+            <text class="ag-t-xs" x="20" y="216">开播期间底栏胶囊换成电波图标，长按拉起控制台</text>
+            <text class="ag-t-xs" x="20" y="238">滑动收档：音乐暂停、队列保留，情境连续可续上</text>
+            <text class="ag-t-xs" x="20" y="266">不落盘——状态只活在内存里，每一档都是临场编排</text>
+          </svg>
+        </div>
+        <div class="comp-modal-body">
+          <p>你按下开播，它不给你一份歌单，而是直接铺开一晚上的路。它看此刻的时段、最近在听什么、对曲库的全部认识，排出这一档节目。它话不多，主要靠选歌说话。</p>
+          <p>然后它开始听着你的反应。你跳过、你听完，它都如实记下，带进下一轮判断。开播期间底栏胶囊换成电波图标，长按拉起控制台，把「这一档在播什么」摊开给你看：在播卡、节目单、它最近的编排思路。结束要滑动确认——音乐暂停、队列保留，情境连续时再开可以续上。</p>
+          <p><strong>每一档都是临场编排。</strong>电台状态只活在内存里、不落盘，不会拿一份过期节目单糊弄你。它背后的决策内核其实很简单：一次电台就是一段对话，模型能做的只有「追加」或「替换队列」，默认姿态是「不动」——没有规则引擎在替它拿主意。</p>
+          <div class="feature-tags">
+            <span class="feature-tag">节目单</span>
+            <span class="feature-tag">少说话</span>
+            <span class="feature-tag">跳过感知</span>
+            <span class="feature-tag">滑动收档</span>
+            <span class="feature-tag">状态不落盘</span>
+          </div>
+        </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="comp-modal" id="modal-enrich" data-agent="enrich" role="dialog" aria-modal="true" aria-labelledby="modal-enrich-title">
+      <div class="comp-modal-bg" data-close></div>
+      <div class="comp-modal-card">
+        <button class="comp-modal-close" type="button" data-close aria-label="关闭">✕</button>
+        <div class="comp-modal-head">
+          <h3 id="modal-enrich-title">② 曲库认识 Enrich —— 导入即认识，越用越认得</h3>
+          <span class="comp-modal-hint">优先级 3 · 电量 ≥50% 且 WiFi 才运行</span>
+        </div>
+        <div class="comp-modal-main">
+        <div class="comp-modal-fig">
+          <svg class="ag-svg" viewBox="0 0 420 300" role="img" aria-label="示意图：新歌逐首走完六轮编排，沉淀为可溯源的长期认识">
+            <defs>
+              <marker id="agE1" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="ag-head" d="M1 1.5L7 5L1 8.5"/></marker>
+            </defs>
+            <rect class="ag-chip" x="20" y="20" width="380" height="48" rx="12"/>
+            <text class="ag-t-m" x="34" y="42">新歌进库 · 逐首认识</text>
+            <text class="ag-t-xs" x="34" y="60">只在电量 ≥50% 且连着 WiFi 时开工，慢功夫</text>
+
+            <rect class="ag-sub" x="20" y="88" width="70" height="42" rx="10"/><text class="ag-t-xs" x="55" y="114" text-anchor="middle">① 预热</text>
+            <rect class="ag-sub" x="98" y="88" width="70" height="42" rx="10"/><text class="ag-t-xs" x="133" y="114" text-anchor="middle">② 枚举</text>
+            <rect class="ag-sub" x="176" y="88" width="70" height="42" rx="10"/><text class="ag-t-xs" x="211" y="114" text-anchor="middle">③ 自检</text>
+            <rect class="ag-sub" x="254" y="88" width="70" height="42" rx="10"/><text class="ag-t-xs" x="289" y="114" text-anchor="middle">④ 写正文</text>
+            <rect class="ag-sub" x="332" y="88" width="68" height="42" rx="10"/><text class="ag-t-xs" x="366" y="114" text-anchor="middle">⑤ 反思</text>
+            <text class="ag-t-xs" x="20" y="150">一个大歌手拆成若干批，六轮走完——目标把九成以上的歌都认下来</text>
+            <path class="ag-flow" d="M210 158 V 178" marker-end="url(#agE1)"/>
+
+            <rect class="ag-core" x="20" y="186" width="176" height="66" rx="12"/>
+            <text class="ag-t-m" x="34" y="210">五维标签</text>
+            <text class="ag-t-xs" x="34" y="228">流派 · 情绪 · 场景</text>
+            <text class="ag-t-xs" x="34" y="244">语言 · 年代</text>
+            <rect class="ag-chip" x="224" y="186" width="176" height="66" rx="12"/>
+            <text class="ag-t-m" x="238" y="210">长期认识</text>
+            <text class="ag-t-xs" x="238" y="228">你的修正优先级最高</text>
+            <text class="ag-t-xs" x="238" y="244">带来源与置信度 · 可溯源</text>
+
+            <text class="ag-t-xs" x="20" y="278">进度每天往上走，是它自己的阅历</text>
+          </svg>
+        </div>
+        <div class="comp-modal-body">
+          <p>这是一个慢功夫的活，也是一件你会逐渐察觉的事。新歌进库后，它逐首标注流派、情绪、场景、语言、年代五个维度，并写下背景与歌手介绍。标签用来检索，正文用来对话——你说「接着上礼拜你迷的那个乐队」，它引用的正是这些。</p>
+          <p>它做得不快，因为它只在<strong>电量过半、连着 WiFi</strong> 的时候开工。一个大歌手会拆成若干批，六轮走完：预热、枚举、枚举自检、写正文、总体反思。目标是把九成以上的歌都认下来。</p>
+          <p>认识是长期记忆，不是一次性任务：每条标签都带来源与置信度，可溯源、可修正。你在对话里做的修正优先级最高，其次是行为留下的事实，最后才是模型的判断。进度一天天往上走，是它自己的阅历。</p>
+          <div class="feature-tags">
+            <span class="feature-tag">五维标签</span>
+            <span class="feature-tag">正文记忆</span>
+            <span class="feature-tag">来源与置信度</span>
+            <span class="feature-tag">六轮编排</span>
+            <span class="feature-tag">认识进度</span>
+          </div>
+        </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="comp-modal" id="modal-hello" data-agent="hello" role="dialog" aria-modal="true" aria-labelledby="modal-hello-title">
+      <div class="comp-modal-bg" data-close></div>
+      <div class="comp-modal-card">
+        <button class="comp-modal-close" type="button" data-close aria-label="关闭">✕</button>
+        <div class="comp-modal-head">
+          <h3 id="modal-hello-title">③ 门面问候 Hello —— 它知道什么时候该闭嘴</h3>
+          <span class="comp-modal-hint">优先级 4 · 永不暂停，最靠近用户</span>
+        </div>
+        <div class="comp-modal-main">
+        <div class="comp-modal-fig">
+          <svg class="ag-svg" viewBox="0 0 420 300" role="img" aria-label="示意图：每日刷新一批卡片轮播问候，但听歌与操作时它保持沉默">
+            <defs>
+              <marker id="agH1" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="ag-head" d="M1 1.5L7 5L1 8.5"/></marker>
+              <marker id="agH1R" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="ag-head-r" d="M1 1.5L7 5L1 8.5"/></marker>
+            </defs>
+            <rect class="ag-chip" x="20" y="20" width="200" height="52" rx="12"/>
+            <text class="ag-t-m" x="34" y="42">每天刷新一批卡</text>
+            <text class="ag-t-xs" x="34" y="60">推荐 / 探索 / 唤醒 / 纪念日，最多四张</text>
+            <rect class="ag-chip" x="20" y="84" width="200" height="52" rx="12"/>
+            <text class="ag-t-m" x="34" y="106">附上「为什么」</text>
+            <text class="ag-t-xs" x="34" y="124">理由来自你的真实行为，不是猜的</text>
+            <rect class="ag-chip" x="20" y="148" width="200" height="52" rx="12"/>
+            <text class="ag-t-m" x="34" y="170">遗忘唤醒</text>
+            <text class="ag-t-xs" x="34" y="188">「你 90 天没听这首曾经的最爱」</text>
+            <path class="ag-flow" d="M220 146 H 258" marker-end="url(#agH1)"/>
+
+            <circle class="ag-core" cx="320" cy="110" r="62"/>
+            <text class="ag-t-m" x="320" y="104" text-anchor="middle">最要紧的</text>
+            <text class="ag-t-m" x="320" y="124" text-anchor="middle">动作是</text>
+            <text class="ag-t-b" x="320" y="146" text-anchor="middle">不说话</text>
+
+            <path class="ag-flow-r" d="M258 200 H 84" marker-end="url(#agH1R)"/>
+            <rect class="ag-sub" x="20" y="216" width="380" height="30" rx="10"/>
+            <text class="ag-t-xs" x="34" y="236">你在听歌、正在操作 → 闭嘴　·　同一件事不跨天重复 → 不打扰</text>
+            <text class="ag-t-xs" x="20" y="272">不点开就不追问，点开才算送达；完整理由留在审计日志页，随时可查</text>
+          </svg>
+        </div>
+        <div class="comp-modal-body">
+          <p>它不靠弹窗刷存在感，靠的是分寸。每天凌晨刷新一批卡，首页轮播：今日推荐会附上「为什么是这首」——你上周夜里听了三次电子，这首更慢一点，理由是实的，不是猜的。此外还有歌手风格探索、遗忘唤醒——「你 90 天没听这首曾经的最爱」、音乐纪念日；认识进度与听歌报告也会在轮播里露脸。一张张轮着来，每张只停十几秒。</p>
+          <p>但它最要紧的动作是<strong>不说话</strong>：你在听歌、正在操作，它闭嘴；同一件事不会跨天重复打扰；不点开就不追问，点开才算送达。它是三个域里唯一永不暂停的——最靠近你，所以一直醒着；也正因为一直醒着，才更要管住嘴。完整理由留在审计日志页——信任来自随时可查，不是每次都念一遍。</p>
+          <div class="feature-tags">
+            <span class="feature-tag">每日问候</span>
+            <span class="feature-tag">推荐理由</span>
+            <span class="feature-tag">遗忘唤醒</span>
+            <span class="feature-tag">每日刷新</span>
+            <span class="feature-tag">不打扰</span>
+          </div>
+        </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="comp-points">
+      <div class="comp-point"><b>一个大脑</b><span>所有对话与派活都由 MasterAgent 编排，三个域只有执行权——不会各说各话。</span></div>
+      <div class="comp-point"><b>三个独立域</b><span>电台、曲库认识、门面问候各有自己的模型连接与上下文预算，按优先级被调度。</span></div>
+      <div class="comp-point"><b>两条路径</b><span>模糊需求走工具循环；「下一首」这类高频指令走本地词表，毫秒直达、零 token。</span></div>
+      <div class="comp-point"><b>三端一套</b><span>界面与业务代码三端共享，伙伴的新能力默认三端同时交付。</span></div>
+    </div>
+  </section>
+
+  <!-- ══════════ 贯穿体系的三条纪律 ══════════ -->
+  <section class="section" id="rules">
+    <div class="section-head"><span class="section-idx">02</span><h2>贯穿体系的三条纪律</h2><span class="section-rule" aria-hidden="true"></span><span class="section-count">许可 · 记忆 · 成本</span></div>
+    <div class="comp-duo">
+
+      <div class="comp-card">
+        <div class="comp-fig-mini">
+          <svg class="ag-svg" viewBox="0 0 420 300" role="img" aria-label="示意图：四级许可阶梯与信任梯度">
+            <defs>
+              <marker id="agA4" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="ag-head" d="M1 1.5L7 5L1 8.5"/></marker>
+            </defs>
+            <path class="ag-flow" d="M12 262 V96" marker-end="url(#agA4)"/>
+            <rect class="ag-chip" x="24" y="210" width="86" height="58" rx="10"/>
+            <text class="ag-t-xs" x="67" y="236" text-anchor="middle">静默执行</text>
+            <text class="ag-t-xs" x="67" y="252" text-anchor="middle">读与算</text>
+            <rect class="ag-chip" x="120" y="170" width="86" height="98" rx="10"/>
+            <text class="ag-t-xs" x="163" y="196" text-anchor="middle">通知 + 撤销</text>
+            <text class="ag-t-xs" x="163" y="212" text-anchor="middle">可逆小动作</text>
+            <rect class="ag-chip" x="216" y="130" width="86" height="138" rx="10"/>
+            <text class="ag-t-xs" x="259" y="156" text-anchor="middle">先问一句</text>
+            <text class="ag-t-xs" x="259" y="172" text-anchor="middle">写入类操作</text>
+            <rect class="ag-core" x="312" y="88" width="86" height="180" rx="10"/>
+            <text class="ag-t-xs" x="355" y="114" text-anchor="middle">强确认</text>
+            <text class="ag-t-xs" x="355" y="130" text-anchor="middle">不可逆操作</text>
+            <text class="ag-t-xs" x="24" y="290">越不可逆，越少自动；每一档都能回看与回拨</text>
+          </svg>
+        </div>
+        <h3>许可与撤销</h3>
+        <p>读与算静默执行，不留痕迹；可逆的小动作做完通知你、随时撤销；批量写入会逐个弹确认、逐项过目；不可逆操作走强确认，没有例外。信任梯度让每类动作从「建议」起步，连续被接受才升到「代劳」乃至「静默」，每一档在设置里可查。</p>
+      </div>
+
+      <div class="comp-card">
+        <div class="comp-fig-mini">
+          <svg class="ag-svg" viewBox="0 0 420 316" role="img" aria-label="示意图：三类证据汇入它对你的认识，每条认识都能回答审计四问">
+            <defs>
+              <marker id="agA5" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="ag-head" d="M1 1.5L7 5L1 8.5"/></marker>
+            </defs>
+            <rect class="ag-chip" x="20" y="22" width="200" height="62" rx="12"/>
+            <text class="ag-t-m" x="34" y="44">行为事实</text>
+            <text class="ag-t-xs" x="34" y="62">播放 · 跳过 · 完播 · 收藏</text>
+            <text class="ag-red" x="34" y="77" font-size="9.5">客观事实</text>
+
+            <rect class="ag-chip" x="20" y="94" width="200" height="62" rx="12"/>
+            <text class="ag-t-m" x="34" y="116">你的修正</text>
+            <text class="ag-t-xs" x="34" y="134">改标签 · 建歌单</text>
+            <text class="ag-red" x="34" y="149" font-size="9.5">你的话最算数</text>
+
+            <rect class="ag-chip" x="20" y="166" width="200" height="62" rx="12"/>
+            <text class="ag-t-m" x="34" y="188">模型认识</text>
+            <text class="ag-t-xs" x="34" y="206">标签 · 简介 · 推荐理由</text>
+            <text class="ag-red" x="34" y="221" font-size="9.5">可修正</text>
+
+            <path class="ag-flow" d="M220 53 C 262 53 280 102 290 114" marker-end="url(#agA5)"/>
+            <path class="ag-flow" d="M220 125 H 288" marker-end="url(#agA5)"/>
+            <path class="ag-flow" d="M220 197 C 262 197 280 148 290 136" marker-end="url(#agA5)"/>
+            <circle class="ag-core" cx="340" cy="125" r="52"/>
+            <text class="ag-t-m" x="340" y="120" text-anchor="middle">它对你的</text>
+            <text class="ag-t-m" x="340" y="138" text-anchor="middle">认识</text>
+
+            <rect class="ag-sub" x="20" y="244" width="92" height="28" rx="9"/><text class="ag-t-xs" x="66" y="262" text-anchor="middle">来源？</text>
+            <rect class="ag-sub" x="120" y="244" width="92" height="28" rx="9"/><text class="ag-t-xs" x="166" y="262" text-anchor="middle">何时建立</text>
+            <rect class="ag-sub" x="220" y="244" width="92" height="28" rx="9"/><text class="ag-t-xs" x="266" y="262" text-anchor="middle">被确证过？</text>
+            <rect class="ag-sub" x="320" y="244" width="80" height="28" rx="9"/><text class="ag-t-xs" x="360" y="262" text-anchor="middle">被谁修正</text>
+            <text class="ag-t-xs" x="20" y="296">推断音乐，不推断人——拒绝 MBTI 式人格标签</text>
+          </svg>
+        </div>
+        <h3>记忆与证据</h3>
+        <p>三类证据汇入它对你的认识，但分量不同：你的修正优先级最高，行为留下的事实次之，模型自己的判断排在最后。任何一个标签、任何一句推荐理由，都能回答审计四问：来源、何时建立、被行为确证过吗、被谁修正过。</p>
+      </div>
+
+      <div class="comp-card">
+        <div class="comp-fig-mini">
+          <svg class="ag-svg" viewBox="0 0 460 316" role="img" aria-label="示意图：记忆留在设备内，只有对话与曲库摘要等少量上下文发往你自己填写的 AI 端点">
+            <defs>
+              <marker id="agA6" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="ag-head-r" d="M1 1.5L7 5L1 8.5"/></marker>
+            </defs>
+            <rect class="ag-device" x="16" y="22" width="232" height="244" rx="18"/>
+            <text class="ag-t-m" x="32" y="48">你的设备</text>
+            <rect class="ag-chip" x="32" y="60" width="200" height="62" rx="12"/>
+            <text class="ag-t-xs" x="44" y="82">记忆与记录</text>
+            <text class="ag-t-xs" x="44" y="100">画像 · 对话 · 审计 · 用量账本</text>
+            <rect class="ag-sub" x="32" y="132" width="200" height="54" rx="12"/>
+            <text class="ag-t-xs" x="44" y="154">API Key</text>
+            <text class="ag-t-xs" x="44" y="172">加密存储在本机</text>
+            <text class="ag-strike" x="32" y="214">没有账号</text>
+            <text class="ag-strike" x="124" y="214">没有云同步</text>
+
+            <path class="ag-flow-r" d="M252 130 H 330" marker-end="url(#agA6)"/>
+            <path class="ag-flow-r" d="M252 158 H 330" marker-end="url(#agA6)"/>
+            <text class="ag-red" x="291" y="120" text-anchor="middle" font-size="9.5">对话与上下文</text>
+            <text class="ag-red" x="291" y="176" text-anchor="middle" font-size="9.5">曲库摘要</text>
+
+            <circle class="ag-sub" cx="392" cy="144" r="46"/>
+            <text class="ag-t-xs" x="392" y="140" text-anchor="middle">AI 端点</text>
+            <text class="ag-t-xs" x="392" y="156" text-anchor="middle">你自己填的</text>
+
+            <text class="ag-t-xs" x="16" y="294">用哪家、发什么，界面明示；其余不出设备</text>
+          </svg>
+        </div>
+        <h3>成本与隐私</h3>
+        <p>画像、对话、审计、用量账本全部存在本地数据库；没有账号，没有云同步。发往你自己填写的 AI 端点的，是对话、曲库摘要，以及认识歌曲时需要的歌名歌手、画像片段等上下文——发什么、发往哪家，界面明示。每次模型调用的用量按角色、端点、时间入账，监控看板实时可查。</p>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ══════════ 怎么找到它 ══════════ -->
+  <section class="section" id="anchors">
+    <div class="section-head"><span class="section-idx">03</span><h2>怎么找到它</h2><span class="section-rule" aria-hidden="true"></span><span class="section-count">一个主锚点</span></div>
+
+    <div class="comp-fig">
+      <svg class="ag-svg" viewBox="0 0 760 250" role="img" aria-label="示意图：底栏首枚伙伴胶囊——点按回首页、长按进对话，电台开播时换成电波图标">
+        <defs>
+          <marker id="agA7" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="ag-head" d="M1 1.5L7 5L1 8.5"/></marker>
+          <linearGradient id="agCoverD" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#002FA7"/><stop offset="1" stop-color="#6C5CE7"/></linearGradient>
+        </defs>
+
+        <rect class="ag-chip" x="470" y="14" width="250" height="62" rx="16"/>
+        <circle class="ag-core" cx="500" cy="45" r="11"/>
+        <text class="ag-t-xs" x="522" y="40">电台开播时</text>
+        <text class="ag-t-xs" x="522" y="56">图标换电波 · 长按唤起控制台</text>
+
+        <path class="ag-flow" d="M330 104 V72" marker-end="url(#agA7)"/>
+        <text class="ag-t-xs" x="330" y="60" text-anchor="middle">点按回首页 · 长按进对话页</text>
+
+        <rect class="ag-band" x="30" y="104" width="700" height="76" rx="38"/>
+        <rect class="ag-chip" x="50" y="120" width="210" height="44" rx="22"/>
+        <circle class="ag-bar" cx="90" cy="142" r="9"/>
+        <circle class="ag-bar" cx="130" cy="142" r="9"/>
+        <circle class="ag-bar" cx="170" cy="142" r="9"/>
+
+        <rect class="ag-core" x="290" y="114" width="140" height="56" rx="28"/>
+        <circle class="ag-chip" cx="330" cy="142" r="19"/>
+        <text class="ag-t-m" x="360" y="147">伙伴</text>
+
+        <rect class="ag-chip" x="460" y="120" width="250" height="44" rx="22"/>
+        <rect x="478" y="128" width="28" height="28" rx="6" fill="url(#agCoverD)"/>
+        <rect class="ag-bar" x="516" y="134" width="70" height="6" rx="3"/>
+        <rect class="ag-bar" x="516" y="146" width="44" height="5" rx="2.5"/>
+        <circle class="ag-bar" cx="620" cy="142" r="8"/>
+        <circle class="ag-bar" cx="652" cy="142" r="8"/>
+        <circle class="ag-bar" cx="684" cy="142" r="8"/>
+
+        <text class="ag-t-xs" x="30" y="206">电台开播期间，胶囊换成电波图标并恒定高亮</text>
+        <text class="ag-t-xs" x="30" y="228">面板内滑动结束这一档：音乐暂停、队列保留</text>
+      </svg>
+    </div>
+
+    <div class="comp-keys">
+      <span class="comp-key">播放页「对话」按钮<span>一键进对话页，正在听的歌挂在顶部</span></span>
+      <span class="comp-key">搜索框条带<span>输入自然语言，输入框下方递出伙伴的解读</span></span>
+      <span class="comp-key"><kbd>C</kbd><span>桌面端直达对话页</span></span>
+      <span class="comp-key"><kbd>Esc</kbd><span>收起电台控制台</span></span>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="cta-band">
+      <div class="cta-band-text">
+        <h2>始于一个会选歌的播放器，终于一个记得你们所有歌的伙伴</h2>
+        <p>配置一个 AI 端点，伙伴就上岗；不配置，播放器依然完整。</p>
+      </div>
+      <div class="cta-band-actions">
+        <a href="download.html" class="btn btn-primary">下载 HMP</a>
+        <a href="features.html" class="btn btn-outline">功能全景</a>
+      </div>
+    </div>
+  </section>
+</div>
+
+<span class="bottom-copy">&copy; 2026 Hearable Music Player &middot; By WLYB &middot; <a href="privacy-policy.html" style="color:inherit;text-decoration:underline;">隐私政策</a> &middot; <a href="changelog.html" style="color:inherit;text-decoration:underline;">更新日志</a></span>
+
+<script src="js/config.js"></script>
+<script src="js/main.js"></script>
+<script>
+(function () {
+  var modals = document.querySelectorAll('.comp-modal');
+  if (!modals.length) return;
+  var lastFocus = null;
+
+  function open(name) {
+    var m = document.getElementById('modal-' + name);
+    if (!m) return;
+    lastFocus = document.activeElement;
+    m.classList.add('open');
+    document.body.style.overflow = 'hidden';
+    var btn = m.querySelector('.comp-modal-close');
+    if (btn) btn.focus();
+  }
+  function close(m) {
+    m.classList.remove('open');
+    if (!document.querySelector('.comp-modal.open')) document.body.style.overflow = '';
+    if (lastFocus && lastFocus.focus) lastFocus.focus();
+  }
+
+  document.querySelectorAll('.ag-node').forEach(function (node) {
+    var name = node.getAttribute('data-agent');
+    node.addEventListener('click', function () { open(name); });
+    node.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(name); }
+    });
+  });
+
+  modals.forEach(function (m) {
+    m.addEventListener('click', function (e) {
+      if (e.target.hasAttribute('data-close')) close(m);
+    });
+  });
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape') return;
+    var openM = document.querySelector('.comp-modal.open');
+    if (openM) close(openM);
+  });
+})();
+</script>
+</body>
+</html>

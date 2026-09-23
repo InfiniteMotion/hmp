@@ -4,8 +4,8 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
+import android.os.Build
 import android.os.IBinder
-import android.util.Log
 import androidx.media3.common.util.UnstableApi
 import com.hmp.domain.enum.PlaybackMode
 import com.hmp.domain.lyrics.LrcParser
@@ -41,7 +41,10 @@ import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
+import com.hmp.log.HmpLog
+import com.hmp.log.LogTag
 
 @UnstableApi
 class MusicController(
@@ -60,10 +63,25 @@ class MusicController(
         const val PROGRESS_TRACKING_INTERVAL_MS = 100L
         /** 播放位置持久化节流间隔 */
         const val PROGRESS_PERSIST_INTERVAL_MS = 5_000L
+
+        /** [release] 结束会话时用于观测面的 switchSource 标记（对应 TrackOutcome.STOPPED）。 */
+        const val RELEASE_SOURCE = "Release"
     }
 
     private var playControl: PlayControl? = null
     private var activityClass: Class<*>? = null
+
+    /**
+     * 观测面出口 —— 由 DI 注入 shared 侧的 [com.hmp.domain.agent.port.PlaybackObservationBus]。
+     *
+     * 只在**会话结算点**回调（一首歌播完或被切走时各一次），不是每次 UI 操作都回调，
+     * 因此不会影响播放性能。为 null 时（测试 / 未接线）全部跳过。
+     *
+     * 注意：这里**只报事实**（播了多久、怎么结束的），不做任何"算不算跳过"的判断 ——
+     * 本项目里已有的 `skipThresholdMs` / `skipThresholdPercent` 是给播放历史统计用的，
+     * agent 侧明确不复用（见 `docs/7_x/B agent-build/design/agent-radio.md` §2.2）。
+     */
+    var playbackObserver: com.hmp.domain.agent.port.PlaybackObservationSink? = null
 
     fun setTargetActivityClass(clazz: Class<*>) {
         activityClass = clazz
@@ -89,11 +107,32 @@ class MusicController(
         context.bindService(intent, connection, Context.BIND_AUTO_CREATE)
     }
 
+    /**
+     * F11-L2：把播放服务以「已启动 + 前台」态拉起，使其**自持**（不再仅靠 Activity 绑定）。
+     *
+     * 原实现只有 `bindService(BIND_AUTO_CREATE)`，服务生命周期绑在 Activity 上 ——
+     * 退后台被回收时服务与同进程的 agent 一起消失（见 `design/agent-lifecycle.md` RC2）。
+     * 改为 `startForegroundService` 后服务 `START_STICKY` 自持；前台化由服务内部按
+     * 「音频在播 或 agent 保活」决定。
+     *
+     * 需在前台调用（播放由用户手势发起，满足 Android 12+ 的前台服务启动限制）。
+     */
+    fun ensurePlaybackServiceStarted() {
+        runCatching {
+            val intent = Intent(context, MusicPlayService::class.java)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                context.startForegroundService(intent)
+            } else {
+                context.startService(intent)
+            }
+        }.onFailure { e -> HmpLog.w(LogTag.PlayerService, e) { "📡 ensurePlaybackServiceStarted failed (non-fatal)" } }
+    }
+
     fun unbindService() {
         try {
             context.unbindService(connection)
         } catch (e: Exception) {
-            Log.e("MusicController", "Error unbinding service", e)
+            HmpLog.e(LogTag.PlayerService, e) { "📡 Error unbinding service" }
         }
         bindPlayControl(null)
     }
@@ -164,7 +203,11 @@ class MusicController(
         currentIndex
     ) { playlist, index ->
         playlist.getOrNull(index)
-    }.stateIn(scope, SharingStarted.WhileSubscribed(5000), null)
+        // Eagerly 而非 WhileSubscribed：这个值会被**同步读取**（ControllerNowPlayingProvider
+        // 直接取 .value 判断"当前在播什么"）。用 WhileSubscribed 时，一旦没人订阅，
+        // 上游就不再收集，.value 会永远停在初始的 null —— 电台就是因此误判"没有在播曲目"，
+        // 走了从零起播的路径，把用户正在听的歌顶掉了。
+    }.stateIn(scope, SharingStarted.Eagerly, null)
 
     // Like Status
     var likeStatus = MutableStateFlow(false)
@@ -199,6 +242,8 @@ class MusicController(
 
     // 互动数据记录追踪
     private var currentPlaybackHistoryId: Long? = null
+    /** 当前会话正在播的曲目（结算时用它，避免反查派生的 currentPlayingMusic 带来的时序歧义）。 */
+    private var sessionTrack: MusicInfo? = null
     private var totalPlayedDurationInSession: Long = 0L
     private val skipThresholdMs = 20000L // 20秒以内切歌算跳过
     private val skipThresholdPercent = 0.15f // 播放不足15%算跳过
@@ -370,33 +415,33 @@ class MusicController(
 
     fun playOrResume() {
         if (playControl == null) {
-            Log.e("MusicController", "playOrResume: playControl is null")
+            HmpLog.e(LogTag.PlayerService) { "📡 playOrResume: playControl is null" }
             return
         }
         playStartTime = System.currentTimeMillis()
         lastDurationRecordTime = playStartTime
-        val path = currentMusicPath()
-        if (path != null && isMusicLoaded(path) == true) {
-            playControl?.proceedMusic()
-            showToast("继续")
-            // 如果是从暂停状态恢复，确保UI进度与Service同步
-            scope.launch {
+        // ⚠️ 播放判定与操作**整体切到主线程**（scope = Dispatchers.Main）：
+        // 原来 `isMusicLoaded` 在调用方线程同步摸 ExoPlayer —— agent 从
+        // Dispatchers.Default 调进来时会抛 "Player is accessed on the wrong thread"
+        // （真机 2026-09-19 电台开播"补 PLAY 起声"路径踩到，导致 fallback 从头重放）。
+        scope.launch {
+            val path = currentMusicPath()
+            if (path != null && isMusicLoaded(path) == true) {
+                playControl?.proceedMusic()
+                showToast("继续")
+                // 如果是从暂停状态恢复，确保UI进度与Service同步
                 val currentPos = playControl?.getCurrentPosition() ?: 0L
                 if (currentPos > 0) {
                     _currentPosition.value = currentPos
                 }
-            }
-        } else {
-            // 如果是初始状态（未加载），则尝试恢复上次进度播放
-            val lastPos = _currentPosition.value
-            if (lastPos > 0) {
-                 scope.launch { 
-                     playCurrentTrack("Resume", startPosition = lastPos)
-                 }
             } else {
-                 scope.launch { 
-                     playCurrentTrack("Resume")
-                 }
+                // 如果是初始状态（未加载），则尝试恢复上次进度播放
+                val lastPos = _currentPosition.value
+                if (lastPos > 0) {
+                    playCurrentTrack("Resume", startPosition = lastPos)
+                } else {
+                    playCurrentTrack("Resume")
+                }
             }
         }
         startProgressTracking()
@@ -404,7 +449,7 @@ class MusicController(
 
     fun pauseMusic() {
         if (playControl == null) {
-            Log.e("MusicController", "pauseMusic: playControl is null")
+            HmpLog.e(LogTag.PlayerService) { "📡 pauseMusic: playControl is null" }
             return
         }
         if (playStartTime > 0) {
@@ -416,7 +461,7 @@ class MusicController(
                 }
             }
         }
-        playControl?.pause()
+        scope.launch { playControl?.pause() }
         showToast("暂停")
         playStartTime = 0L
         lastDurationRecordTime = 0L
@@ -525,21 +570,31 @@ class MusicController(
     }
 
     override fun onPlayStateChanged(isPlaying: Boolean) {
+        val changed = _isPlaying.value != isPlaying
         _isPlaying.value = isPlaying
+        // 观测面：只在真的翻转时报（通知栏 / 耳机按键等外部来源也走这个回调）
+        if (changed) playbackObserver?.onPauseStateChanged(isPlaying)
     }
 
     private fun playCurrentTrack(source: String, startPosition: Long = 0L) {
         if (playControl == null) {
-            Log.e("MusicController", "playCurrentTrack: playControl is null")
+            HmpLog.e(LogTag.PlayerService) { "📡 playCurrentTrack: playControl is null" }
             return
         }
-        
-        // 结束上一个会话（如果有的话）
-        endCurrentPlaybackSession(isCompleted = false)
+
+        // 结束上一个会话（如果有的话）。
+        // 「有的话」必须是 sessionTrack != null：自然播完（onPlaybackEnded）已经结算过
+        // 并清空了 sessionTrack —— 这时 playNext 的自动续播若再结算一次，会回退到
+        // currentPlayingMusic（还是刚播完那首）+ 时长 0，给同一首歌再发一条
+        // 0% 的 SKIPPED_NEXT 假结算（真机 23:58《日落大道》观测到，0% 对电台模型
+        // 是最强负反馈信号）。手动切歌时 sessionTrack 仍在，正常结算不受影响。
+        if (sessionTrack != null) {
+            endCurrentPlaybackSession(isCompleted = false, switchSource = source)
+        }
 
         stopProgressTracking()
         val track = _currentPlaylist.value.getOrNull(_currentIndex.value) ?: return
-        
+
         scope.launch {
             try {
                 val recentId = withTimeoutOrNull(1000) {
@@ -555,30 +610,47 @@ class MusicController(
 
         persistCurrentMusic(track.music.id)
         _currentPosition.value = startPosition
-        playControl?.playSingleMusic(track.music)
-        if (startPosition > 0) {
-            playControl?.seekTo(startPosition)
-        }
         _duration.value = track.music.duration
-        
+
+        // F11-L2：确保服务以「已启动 + 前台」态自持（不再只靠 Activity 绑定）
+        ensurePlaybackServiceStarted()
+
+        // Media3 操作必须在 Main dispatcher
+        scope.launch {
+            playControl?.playSingleMusic(track.music)
+            if (startPosition > 0) {
+                playControl?.seekTo(startPosition)
+            }
+        }
+
         // 重置会话追踪数据
         playStartTime = System.currentTimeMillis()
         lastDurationRecordTime = playStartTime
         totalPlayedDurationInSession = 0L
-        
+
         startProgressTracking()
-        startNewPlaybackSession(track.music.id, source)
+        startNewPlaybackSession(track, source)
     }
 
-    private fun startNewPlaybackSession(musicId: Long, source: String?) {
+    private fun startNewPlaybackSession(track: MusicInfo, source: String?) {
+        // 记住这首曲目本身：结算时不能再靠 currentPlayingMusic 反查 ——
+        // 它是 combine(playlist, index) 派生的，而 playNext() 会**先改 index 再结算**，
+        // 反查到的是新曲目还是旧曲目取决于调度时机。观测面必须拿到确定的那一首。
+        sessionTrack = track
         scope.launch {
-            currentPlaybackHistoryId = playbackHistoryUseCase.startPlaybackSession(musicId, source)
+            currentPlaybackHistoryId = playbackHistoryUseCase.startPlaybackSession(track.music.id, source)
         }
     }
 
-    private fun endCurrentPlaybackSession(isCompleted: Boolean) {
-        val historyId = currentPlaybackHistoryId ?: return
-        val currentMusic = currentPlayingMusic.value ?: return
+    /**
+     * 结算一首歌的播放会话。
+     *
+     * @param isCompleted true = 自然播完；false = 中途结束（切走 / 停止）
+     * @param switchSource 结束原因（[playCurrentTrack] 的 source，或 `RELEASE_SOURCE`），
+     *                     仅用于观测面区分结局，不影响播放历史统计
+     */
+    private fun endCurrentPlaybackSession(isCompleted: Boolean, switchSource: String? = null) {
+        val currentMusic = sessionTrack ?: currentPlayingMusic.value ?: return
         val musicId = currentMusic.music.id
         
         // 计算最后的播放时长
@@ -588,7 +660,29 @@ class MusicController(
         
         val duration = totalPlayedDurationInSession
         val totalDuration = currentMusic.music.duration
-        
+
+        // 观测面：报事实（结局 + 实际播放时长），不做任何判断。
+        // 刻意**不依赖 currentPlaybackHistoryId** —— 那个 id 是 scope.launch 异步赋值的，
+        // 连跳时很可能还没写回来。观测丢事件恰恰发生在我们最需要它的场合，不能忍。
+        playbackObserver?.onTrackSettled(
+            musicId = musicId,
+            title = currentMusic.music.title,
+            outcome = when {
+                isCompleted -> com.hmp.domain.agent.port.TrackOutcome.COMPLETED
+                switchSource == "Next" -> com.hmp.domain.agent.port.TrackOutcome.SKIPPED_NEXT
+                switchSource == "Previous" -> com.hmp.domain.agent.port.TrackOutcome.SKIPPED_PREV
+                switchSource == RELEASE_SOURCE -> com.hmp.domain.agent.port.TrackOutcome.STOPPED
+                else -> com.hmp.domain.agent.port.TrackOutcome.SWITCHED_AWAY
+            },
+            playedMs = duration,
+            totalMs = totalDuration,
+        )
+
+        // 播放历史落库仍需 historyId；没拿到就只跳过写库，不影响上面已经报出去的观测
+        val historyId = currentPlaybackHistoryId ?: run {
+            resetSessionTracking()
+            return
+        }
         scope.launch {
             if (isCompleted) {
                 playbackHistoryUseCase.completePlaybackSession(historyId, musicId, totalDuration)
@@ -598,7 +692,12 @@ class MusicController(
             }
         }
         
+        resetSessionTracking()
+    }
+
+    private fun resetSessionTracking() {
         currentPlaybackHistoryId = null
+        sessionTrack = null
         totalPlayedDurationInSession = 0L
         playStartTime = 0L
     }
@@ -812,7 +911,7 @@ class MusicController(
                 )
                 
             } catch (e: Exception) {
-                Log.e("MusicController", "Failed to restore audio effect settings", e)
+                HmpLog.e(LogTag.PlayerService, e) { "📡 Failed to restore audio effect settings" }
             }
         }
     }
@@ -902,7 +1001,7 @@ class MusicController(
             try {
                 save()
             } catch (e: Exception) {
-                Log.e("MusicController", "Failed to save audio effect setting", e)
+                HmpLog.e(LogTag.PlayerService, e) { "📡 Failed to save audio effect setting" }
             }
         }
     }
@@ -930,7 +1029,10 @@ class MusicController(
     fun release() {
         timerJob?.cancel()
         timerJob = null
-        endCurrentPlaybackSession(isCompleted = false)
+        // 与 playCurrentTrack 同理：没有活动会话（自然播完已结算）不再发幻影 STOPPED
+        if (sessionTrack != null) {
+            endCurrentPlaybackSession(isCompleted = false, switchSource = RELEASE_SOURCE)
+        }
         stopProgressTracking()
         unbindService()
         scope.launch {

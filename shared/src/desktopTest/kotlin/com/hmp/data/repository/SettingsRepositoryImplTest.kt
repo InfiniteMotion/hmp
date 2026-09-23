@@ -272,38 +272,6 @@ class SettingsRepositoryImplTest {
         assertEquals(initial - 1, repo.getAiFreeTrialRemainingCount())
     }
 
-    // ===== Daily Refresh =====
-
-    @Test
-    fun dailyRefreshHours_default24() = runTest {
-        assertEquals(24, repo.dailyRefreshHours.first())
-    }
-
-    @Test
-    fun saveDailyRefreshHours() = runTest {
-        repo.saveDailyRefreshHours(24)
-        assertEquals(24, repo.dailyRefreshHours.first())
-    }
-
-    @Test
-    fun incrementAppLaunchCount() = runTest {
-        assertEquals(0, repo.appLaunchCountSinceRefresh.first())
-        repo.incrementAppLaunchCount()
-        repo.incrementAppLaunchCount()
-        assertEquals(2, repo.appLaunchCountSinceRefresh.first())
-    }
-
-    @Test
-    fun currentDailyMusicId_defaultNull() = runTest {
-        assertNull(repo.getCurrentDailyMusicId())
-    }
-
-    @Test
-    fun saveCurrentDailyMusicId() = runTest {
-        repo.saveCurrentDailyMusicId(42)
-        assertEquals(42, repo.getCurrentDailyMusicId())
-    }
-
     // ===== Gallery Sort =====
 
     @Test
@@ -432,9 +400,6 @@ class SettingsRepositoryImplTest {
             hazeTintAlpha = 0.3f,
             hazeIntensity = 0.5f,
             autoBatchProcess = true,
-            dailyRefreshMode = "time",
-            dailyRefreshHours = 24,
-            dailyRefreshStartupCount = 3,
             aiAccessMode = "FREE",
             customAiEndpoint = "",
             customAiModel = ""
@@ -442,13 +407,6 @@ class SettingsRepositoryImplTest {
         repo.restoreFromSnapshot(snapshot)
         assertEquals("dark", repo.themeMode.first())
         assertEquals("SOLID", repo.backgroundStyle.first())
-    }
-
-    @Test
-    fun exportDailyRecommendationSnapshot() = runTest {
-        val snapshot = repo.exportDailyRecommendationSnapshot()
-        assertNotNull(snapshot)
-        assertEquals("time", snapshot!!.mode)
     }
 
     private fun assertNotNull(value: Any?) {

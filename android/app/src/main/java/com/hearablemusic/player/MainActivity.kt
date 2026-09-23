@@ -102,13 +102,13 @@ class MainActivity : ComponentActivity() {
                 val context = LocalContext.current
 
                 // 权限授予后的初始化副作用（旧版行为恢复）：
-                // 头像已由 SettingsViewModel.init 承接；此处保留每日推荐刷新与自动批处理
+                // 头像已由 SettingsViewModel.init 承接；此处保留自动批处理
+                // （每日推荐生成的调度已由 MasterAgent → HelloSubAgent 的 dailyRefreshLoop 接管）
                 LaunchedEffect(Unit) {
                     val musicReadGranted = ContextCompat.checkSelfPermission(
                         context, Manifest.permission.READ_MEDIA_AUDIO
                     ) == PackageManager.PERMISSION_GRANTED
                     if (musicReadGranted) {
-                        recommendationViewModel.getDailyMusicInfo()
                         if (autoBatchProcess) {
                             delay(2000)
                             recommendationViewModel.startAutoProcessWithCurrentProvider()

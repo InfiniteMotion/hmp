@@ -1,4 +1,5 @@
 import AVFoundation
+import sharedIos
 
 /// 音频会话管理器 - 处理音频焦点、中断和路由变化
 class AudioSessionManager {
@@ -17,9 +18,9 @@ class AudioSessionManager {
                 options: .allowAirPlay
             )
             try AVAudioSession.sharedInstance().setActive(true)
-            print("[AudioSession] Setup successful: category=playback, options=allowAirPlay, active=true")
+            HmpLog.i(HmpTag.playerAudioSession, "🔊 Setup successful: category=playback, options=allowAirPlay, active=true")
         } catch {
-            print("[AudioSession] setup failed: \(error)")
+            HmpLog.e(HmpTag.playerAudioSession, "🔊 setup failed: \(error)")
         }
     }
 
@@ -77,7 +78,7 @@ class AudioSessionManager {
         do {
             try AVAudioSession.sharedInstance().setActive(active)
         } catch {
-            print("[AudioSession] setActive failed: \(error)")
+            HmpLog.e(HmpTag.playerAudioSession, "🔊 setActive failed: \(error)")
         }
     }
 }

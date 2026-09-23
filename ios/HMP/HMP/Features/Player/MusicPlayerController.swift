@@ -77,13 +77,13 @@ class MusicPlayerController {
     }
 
     @objc private func handleAppDidEnterBackground() {
-        print("[MusicPlayerController] App did enter background, saving playback state")
+        HmpLog.d(HmpTag.playerIos, "▶️ App did enter background, saving playback state")
         persistPlaybackState()
         saveCurrentPosition()
     }
 
     @objc private func handleAppWillTerminate() {
-        print("[MusicPlayerController] App will terminate, saving playback state")
+        HmpLog.d(HmpTag.playerIos, "▶️ App will terminate, saving playback state")
         persistPlaybackState()
         saveCurrentPosition()
         HMPMediaSession.shared.onPlaybackStopped()
@@ -109,7 +109,7 @@ class MusicPlayerController {
             self?.saveCurrentPosition()
         }
         engine.onError = { [weak self] msg in
-            print("[MusicPlayerController] error: \(msg)")
+            HmpLog.e(HmpTag.playerIos, "▶️ error: \(msg)")
         }
         engine.onReady = { [weak self] in
             self?.handleEngineReady()
@@ -120,7 +120,7 @@ class MusicPlayerController {
     private func handleEngineReady() {
         if pendingSeekPosition > 0 {
             engine.seekToMs(pendingSeekPosition)
-            print("[MusicPlayerController] Engine ready, seeking to: \(pendingSeekPosition)ms")
+            HmpLog.i(HmpTag.playerIos, "▶️ Engine ready, seeking to: \(pendingSeekPosition)ms")
             pendingSeekPosition = 0
         }
     }
@@ -353,7 +353,7 @@ class MusicPlayerController {
                 let liked = try await currentPlaybackUseCase.getLikedStatus(musicId: musicId)
                 await MainActor.run { self.likeStatus = liked.boolValue }
             } catch {
-                print("[MusicPlayerController] getLikedStatus failed: \(error)")
+                HmpLog.e(HmpTag.playerIos, "▶️ getLikedStatus failed: \(error)")
             }
         }
 
@@ -362,7 +362,7 @@ class MusicPlayerController {
                 let lyrics = try await currentPlaybackUseCase.getMusicLyrics(musicId: musicId)
                 await MainActor.run { self.currentMusicLyrics = lyrics }
             } catch {
-                print("[MusicPlayerController] getMusicLyrics failed: \(error)")
+                HmpLog.e(HmpTag.playerIos, "▶️ getMusicLyrics failed: \(error)")
             }
         }
     }
@@ -396,7 +396,7 @@ class MusicPlayerController {
                 let historyId = try await playbackHistoryUseCase.startPlaybackSession(musicId: musicId, source: nil)
                 await MainActor.run { self.currentPlaybackHistoryId = historyId.int64Value }
             } catch {
-                print("[MusicPlayerController] startPlaybackSession failed: \(error)")
+                HmpLog.e(HmpTag.playerIos, "▶️ startPlaybackSession failed: \(error)")
             }
         }
 
@@ -427,7 +427,7 @@ class MusicPlayerController {
                     )
                 }
             } catch {
-                print("[MusicPlayerController] endPlaybackSession failed: \(error)")
+                HmpLog.e(HmpTag.playerIos, "▶️ endPlaybackSession failed: \(error)")
             }
         }
 
@@ -466,7 +466,7 @@ class MusicPlayerController {
             do {
                 try await playbackHistoryUseCase.recordListeningDuration(duration: duration)
             } catch {
-                print("[MusicPlayerController] recordListeningDuration failed: \(error)")
+                HmpLog.e(HmpTag.playerIos, "▶️ recordListeningDuration failed: \(error)")
             }
         }
     }
@@ -509,7 +509,7 @@ class MusicPlayerController {
             do {
                 try await currentPlaybackUseCase.updateLikedStatus(musicId: musicInfo.music.id, liked: liked)
             } catch {
-                print("[MusicPlayerController] updateLikedStatus failed: \(error)")
+                HmpLog.e(HmpTag.playerIos, "▶️ updateLikedStatus failed: \(error)")
             }
         }
     }
@@ -526,7 +526,7 @@ class MusicPlayerController {
                     try await persistCurrentPlaylistToDatabase(playlistId: playlistId.int64Value)
                 }
             } catch {
-                print("[MusicPlayerController] persistPlaybackState failed: \(error)")
+                HmpLog.e(HmpTag.playerIos, "▶️ persistPlaybackState failed: \(error)")
             }
         }
     }
@@ -535,7 +535,7 @@ class MusicPlayerController {
         do {
             try await managePlaylistUseCase.resetPlaylistItems(playlistId: playlistId, playlist: currentPlaylist)
         } catch {
-            print("[MusicPlayerController] persistCurrentPlaylistToDatabase failed: \(error)")
+            HmpLog.e(HmpTag.playerIos, "▶️ persistCurrentPlaylistToDatabase failed: \(error)")
         }
     }
 
@@ -545,13 +545,13 @@ class MusicPlayerController {
             guard let pid = playlistId else { return }
             try await persistCurrentPlaylistToDatabase(playlistId: pid.int64Value)
         } catch {
-            print("[MusicPlayerController] persistCurrentPlaylistToDatabaseWithCurrentId failed: \(error)")
+            HmpLog.e(HmpTag.playerIos, "▶️ persistCurrentPlaylistToDatabaseWithCurrentId failed: \(error)")
         }
     }
 
     func initializeDefaultPlaylists() async {
         if isInitializing {
-            print("[MusicPlayerController] Already initializing, skipping")
+            HmpLog.d(HmpTag.playerIos, "▶️ Already initializing, skipping")
             return
         }
         isInitializing = true
@@ -562,7 +562,7 @@ class MusicPlayerController {
                 try? await managePlaylistUseCase.removePlaylist(name: "默认播放列表")
                 let defaultId = try await managePlaylistUseCase.createPlaylist(name: "默认播放列表")
                 try await settingsRepository.saveCurrentPlaylistId(playlistId: defaultId.int64Value)
-                print("[MusicPlayerController] Created default playlist with id: \(defaultId)")
+                HmpLog.i(HmpTag.playerIos, "▶️ Created default playlist with id: \(defaultId)")
             }
 
             // 检查并创建红心播放列表
@@ -570,7 +570,7 @@ class MusicPlayerController {
                 try? await managePlaylistUseCase.removePlaylist(name: "红心")
                 let likedId = try await managePlaylistUseCase.createPlaylist(name: "红心")
                 try await settingsRepository.saveLikedPlaylistId(playlistId: likedId.int64Value)
-                print("[MusicPlayerController] Created liked playlist with id: \(likedId)")
+                HmpLog.i(HmpTag.playerIos, "▶️ Created liked playlist with id: \(likedId)")
             }
 
             // 检查并创建最近播放列表
@@ -578,7 +578,7 @@ class MusicPlayerController {
                 try? await managePlaylistUseCase.removePlaylist(name: "最近播放")
                 let recentId = try await managePlaylistUseCase.createPlaylist(name: "最近播放")
                 try await settingsRepository.saveRecentPlaylistId(playlistId: recentId.int64Value)
-                print("[MusicPlayerController] Created recent playlist with id: \(recentId)")
+                HmpLog.i(HmpTag.playerIos, "▶️ Created recent playlist with id: \(recentId)")
             }
 
             // 初始化完成后，恢复播放状态
@@ -587,10 +587,10 @@ class MusicPlayerController {
             
             await MainActor.run {
                 self.isInitializationComplete = true
-                print("[MusicPlayerController] Initialization complete")
+                HmpLog.i(HmpTag.playerIos, "▶️ Initialization complete")
             }
         } catch {
-            print("[MusicPlayerController] Failed to initialize playlists: \(error)")
+            HmpLog.e(HmpTag.playerIos, "▶️ Failed to initialize playlists: \(error)")
             await MainActor.run {
                 self.isInitializationComplete = true
             }
@@ -606,7 +606,7 @@ class MusicPlayerController {
     private func loadPlaylistFromSettings() async {
         do {
             guard let playlistId = try await settingsRepository.getCurrentPlaylistId() else {
-                print("[MusicPlayerController] loadPlaylistFromSettings: no currentPlaylistId")
+                HmpLog.d(HmpTag.playerIos, "▶️ loadPlaylistFromSettings: no currentPlaylistId")
                 return
             }
             let currentMusicId = try await KoinHelperKt.getCurrentMusicId()
@@ -622,13 +622,13 @@ class MusicPlayerController {
                         self.currentIndex = idx
                         self.currentPlayingMusic = list[idx]
                         self.isMiniPlayerVisible = true
-                        print("[MusicPlayerController] Restored playback state: musicId=\(musicId), index=\(idx)")
+                        HmpLog.i(HmpTag.playerIos, "▶️ Restored playback state: musicId=\(musicId), index=\(idx)")
                     } else {
                         // 如果保存的歌曲不在当前列表中，重置状态
                         self.currentIndex = 0
                         self.currentPlayingMusic = list.first
                         self.isMiniPlayerVisible = !list.isEmpty
-                        print("[MusicPlayerController] Saved music not found in playlist, resetting to first item")
+                        HmpLog.d(HmpTag.playerIos, "▶️ Saved music not found in playlist, resetting to first item")
                     }
                 } else {
                     self.currentIndex = 0
@@ -637,7 +637,7 @@ class MusicPlayerController {
                 }
             }
         } catch {
-            print("[MusicPlayerController] loadPlaylistFromSettings failed: \(error)")
+            HmpLog.e(HmpTag.playerIos, "▶️ loadPlaylistFromSettings failed: \(error)")
         }
     }
 
@@ -647,16 +647,16 @@ class MusicPlayerController {
             let lastPosValue = lastPos.int64Value
             await MainActor.run {
                 self.currentPosition = lastPosValue
-                print("[MusicPlayerController] Restored position: \(lastPosValue)ms")
+                HmpLog.i(HmpTag.playerIos, "▶️ Restored position: \(lastPosValue)ms")
                 
                 // 如果有当前歌曲且位置大于0，设置待恢复位置
                 if self.currentPlayingMusic != nil && lastPosValue > 0 {
                     self.pendingSeekPosition = lastPosValue
-                    print("[MusicPlayerController] Pending seek position: \(lastPosValue)ms")
+                    HmpLog.d(HmpTag.playerIos, "▶️ Pending seek position: \(lastPosValue)ms")
                 }
             }
         } catch {
-            print("[MusicPlayerController] restoreLastPosition failed: \(error)")
+            HmpLog.e(HmpTag.playerIos, "▶️ restoreLastPosition failed: \(error)")
         }
     }
 
@@ -665,7 +665,7 @@ class MusicPlayerController {
             do {
                 try await settingsRepository.saveCurrentPosition(position: currentPosition)
             } catch {
-                print("[MusicPlayerController] saveCurrentPosition failed: \(error)")
+                HmpLog.e(HmpTag.playerIos, "▶️ saveCurrentPosition failed: \(error)")
             }
         }
     }

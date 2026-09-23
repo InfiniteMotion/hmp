@@ -4,7 +4,8 @@ import android.media.audiofx.BassBoost
 import android.media.audiofx.Equalizer
 import android.media.audiofx.PresetReverb
 import android.media.audiofx.Virtualizer
-import android.util.Log
+import com.hmp.log.HmpLog
+import com.hmp.log.LogTag
 
 /**
  * 音效管理器
@@ -12,9 +13,7 @@ import android.util.Log
  */
 class AudioEffectManager {
     
-    companion object {
-        private const val TAG = "AudioEffectManager"
-        
+    companion object {        
         // 自定义均衡器预设（毫贝尔单位，范围 -1500 到 1500）
         // 每个预设包含 5 个频段的增益值
         private val CUSTOM_EQUALIZER_PRESETS = arrayOf(
@@ -54,7 +53,7 @@ class AudioEffectManager {
      */
     fun initialize(audioSessionId: Int): Boolean {
         if (audioSessionId <= 0) {
-            Log.w(TAG, "Invalid audio session ID: $audioSessionId")
+            HmpLog.w(LogTag.PlayerAudioEffect) { "🎛️ Invalid audio session ID: $audioSessionId" }
             return false
         }
         
@@ -66,9 +65,9 @@ class AudioEffectManager {
                 equalizer = Equalizer(0, audioSessionId).apply {
                     enabled = true
                 }
-                Log.d(TAG, "Equalizer initialized successfully")
+                HmpLog.d(LogTag.PlayerAudioEffect) { "🎛️ Equalizer initialized successfully" }
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to initialize Equalizer", e)
+                HmpLog.e(LogTag.PlayerAudioEffect, e) { "🎛️ Failed to initialize Equalizer" }
             }
             
             // 初始化低音增强
@@ -76,9 +75,9 @@ class AudioEffectManager {
                 bassBoost = BassBoost(0, audioSessionId).apply {
                     enabled = true
                 }
-                Log.d(TAG, "BassBoost initialized successfully")
+                HmpLog.d(LogTag.PlayerAudioEffect) { "🎛️ BassBoost initialized successfully" }
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to initialize BassBoost", e)
+                HmpLog.e(LogTag.PlayerAudioEffect, e) { "🎛️ Failed to initialize BassBoost" }
             }
             
             // 初始化虚拟器（环绕声）
@@ -86,9 +85,9 @@ class AudioEffectManager {
                 virtualizer = Virtualizer(0, audioSessionId).apply {
                     enabled = false // 默认关闭
                 }
-                Log.d(TAG, "Virtualizer initialized successfully")
+                HmpLog.d(LogTag.PlayerAudioEffect) { "🎛️ Virtualizer initialized successfully" }
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to initialize Virtualizer", e)
+                HmpLog.e(LogTag.PlayerAudioEffect, e) { "🎛️ Failed to initialize Virtualizer" }
             }
             
             // 初始化预设混响
@@ -96,17 +95,17 @@ class AudioEffectManager {
                 presetReverb = PresetReverb(0, audioSessionId).apply {
                     enabled = false // 默认关闭
                 }
-                Log.d(TAG, "PresetReverb initialized successfully")
+                HmpLog.d(LogTag.PlayerAudioEffect) { "🎛️ PresetReverb initialized successfully" }
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to initialize PresetReverb", e)
+                HmpLog.e(LogTag.PlayerAudioEffect, e) { "🎛️ Failed to initialize PresetReverb" }
             }
             
             isInitialized = true
-            Log.d(TAG, "AudioEffectManager initialized with session ID: $audioSessionId")
+            HmpLog.d(LogTag.PlayerAudioEffect) { "🎛️ AudioEffectManager initialized with session ID: $audioSessionId" }
             return true
             
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to initialize AudioEffectManager", e)
+            HmpLog.e(LogTag.PlayerAudioEffect, e) { "🎛️ Failed to initialize AudioEffectManager" }
             release()
             return false
         }
@@ -128,9 +127,9 @@ class AudioEffectManager {
             presetReverb = null
             
             isInitialized = false
-            Log.d(TAG, "AudioEffectManager released")
+            HmpLog.d(LogTag.PlayerAudioEffect) { "🎛️ AudioEffectManager released" }
         } catch (e: Exception) {
-            Log.e(TAG, "Error releasing audio effects", e)
+            HmpLog.e(LogTag.PlayerAudioEffect, e) { "🎛️ Error releasing audio effects" }
         }
     }
     
@@ -141,12 +140,12 @@ class AudioEffectManager {
      */
     fun setEqualizerPreset(preset: Int): Boolean {
         if (!isInitialized || equalizer == null) {
-            Log.w(TAG, "Equalizer not initialized")
+            HmpLog.w(LogTag.PlayerAudioEffect) { "🎛️ Equalizer not initialized" }
             return false
         }
         
         if (preset !in 0..9) {
-            Log.w(TAG, "Invalid equalizer preset: $preset")
+            HmpLog.w(LogTag.PlayerAudioEffect) { "🎛️ Invalid equalizer preset: $preset" }
             return false
         }
         
@@ -164,13 +163,13 @@ class AudioEffectManager {
                 }
                 
                 currentEqualizerPreset = preset
-                Log.d(TAG, "Equalizer preset set to: $preset")
+                HmpLog.d(LogTag.PlayerAudioEffect) { "🎛️ Equalizer preset set to: $preset" }
                 return true
             }
             
             return false
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to set equalizer preset", e)
+            HmpLog.e(LogTag.PlayerAudioEffect, e) { "🎛️ Failed to set equalizer preset" }
             return false
         }
     }
@@ -183,7 +182,7 @@ class AudioEffectManager {
      */
     fun setEqualizerBandLevel(band: Int, level: Short): Boolean {
         if (!isInitialized || equalizer == null) {
-            Log.w(TAG, "Equalizer not initialized")
+            HmpLog.w(LogTag.PlayerAudioEffect) { "🎛️ Equalizer not initialized" }
             return false
         }
         
@@ -192,14 +191,14 @@ class AudioEffectManager {
             
             if (band >= 0 && band < eq.numberOfBands.toInt()) {
                 eq.setBandLevel(band.toShort(), level)
-                Log.d(TAG, "Equalizer band $band set to level: $level")
+                HmpLog.d(LogTag.PlayerAudioEffect) { "🎛️ Equalizer band $band set to level: $level" }
                 return true
             }
             
-            Log.w(TAG, "Invalid band index: $band")
+            HmpLog.w(LogTag.PlayerAudioEffect) { "🎛️ Invalid band index: $band" }
             return false
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to set equalizer band level", e)
+            HmpLog.e(LogTag.PlayerAudioEffect, e) { "🎛️ Failed to set equalizer band level" }
             return false
         }
     }
@@ -211,7 +210,7 @@ class AudioEffectManager {
      */
     fun setBassBoostStrength(strength: Short): Boolean {
         if (!isInitialized || bassBoost == null) {
-            Log.w(TAG, "BassBoost not initialized")
+            HmpLog.w(LogTag.PlayerAudioEffect) { "🎛️ BassBoost not initialized" }
             return false
         }
         
@@ -219,10 +218,10 @@ class AudioEffectManager {
             val validStrength = strength.coerceIn(0, 1000)
             bassBoost?.setStrength(validStrength)
             currentBassBoostStrength = validStrength
-            Log.d(TAG, "BassBoost strength set to: $validStrength")
+            HmpLog.d(LogTag.PlayerAudioEffect) { "🎛️ BassBoost strength set to: $validStrength" }
             return true
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to set bass boost strength", e)
+            HmpLog.e(LogTag.PlayerAudioEffect, e) { "🎛️ Failed to set bass boost strength" }
             return false
         }
     }
@@ -234,7 +233,7 @@ class AudioEffectManager {
      */
     fun setVirtualizerEnabled(enabled: Boolean): Boolean {
         if (!isInitialized || virtualizer == null) {
-            Log.w(TAG, "Virtualizer not initialized")
+            HmpLog.w(LogTag.PlayerAudioEffect) { "🎛️ Virtualizer not initialized" }
             return false
         }
         
@@ -248,10 +247,10 @@ class AudioEffectManager {
             }
             
             isVirtualizerEnabled = enabled
-            Log.d(TAG, "Virtualizer enabled: $enabled")
+            HmpLog.d(LogTag.PlayerAudioEffect) { "🎛️ Virtualizer enabled: $enabled" }
             return true
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to set virtualizer", e)
+            HmpLog.e(LogTag.PlayerAudioEffect, e) { "🎛️ Failed to set virtualizer" }
             return false
         }
     }
@@ -263,7 +262,7 @@ class AudioEffectManager {
      */
     fun setReverbPreset(preset: Short): Boolean {
         if (!isInitialized || presetReverb == null) {
-            Log.w(TAG, "PresetReverb not initialized")
+            HmpLog.w(LogTag.PlayerAudioEffect) { "🎛️ PresetReverb not initialized" }
             return false
         }
         
@@ -292,16 +291,16 @@ class AudioEffectManager {
                     reverb.preset = PresetReverb.PRESET_PLATE
                 }
                 else -> {
-                    Log.w(TAG, "Invalid reverb preset: $preset")
+                    HmpLog.w(LogTag.PlayerAudioEffect) { "🎛️ Invalid reverb preset: $preset" }
                     return false
                 }
             }
             
             currentReverbPreset = preset
-            Log.d(TAG, "Reverb preset set to: $preset")
+            HmpLog.d(LogTag.PlayerAudioEffect) { "🎛️ Reverb preset set to: $preset" }
             return true
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to set reverb preset", e)
+            HmpLog.e(LogTag.PlayerAudioEffect, e) { "🎛️ Failed to set reverb preset" }
             return false
         }
     }
@@ -401,7 +400,7 @@ class AudioEffectManager {
                 shortArrayOf()
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to get equalizer band levels", e)
+            HmpLog.e(LogTag.PlayerAudioEffect, e) { "🎛️ Failed to get equalizer band levels" }
             shortArrayOf()
         }
     }

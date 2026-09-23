@@ -61,6 +61,9 @@ data class MusicIdPath(val id: Long, val path: String)
 
 data class MusicExtraIdDate(val id: Long, val date: Long?)
 
+/** FORGOTTEN 卡候选：曲目 ID + 上次播放时间（null=从未播放） */
+data class ForgottenRow(val id: Long, val lastPlayed: Long?)
+
 data class MusicInfo(
     @Embedded val music: Music,
 
@@ -238,6 +241,18 @@ interface UserInfoDao {
     @Query("SELECT liked FROM userInfo WHERE id = :id")
     suspend fun getLikedStatus(id: Long): Boolean
 
+    /** G6：批量取全部已收藏（liked=1）且未删除的曲目 id */
+    @Query("SELECT id FROM userInfo WHERE liked = 1 AND isDeleted = 0")
+    suspend fun getLikedMusicIds(): List<Long>
+
+    /** 画像·状态快照：明确不喜欢的数量（负向信号，比"喜欢什么"更能收紧推荐） */
+    @Query("SELECT COUNT(*) FROM userInfo WHERE disLiked = 1 AND isDeleted = 0")
+    suspend fun countDisliked(): Int
+
+    /** 画像·状态快照：打过分的数量（用户显式给的分，T1 强度） */
+    @Query("SELECT COUNT(*) FROM userInfo WHERE userRating IS NOT NULL AND isDeleted = 0")
+    suspend fun countRated(): Int
+
     @Query("DELETE FROM userInfo WHERE id IN (:ids)")
     suspend fun deleteUserInfoByIds(ids: List<Long>)
 
@@ -255,6 +270,15 @@ interface UserInfoDao {
 
     @Query("SELECT * FROM userInfo")
     suspend fun getAllUserInfos(): List<UserInfo>
+
+    /** days 天内未播放的曲目 (id, lastPlayedMs)。lastPlayed 为 null 表示从未播放过。按最久未播排序。 */
+    @Query("""
+        SELECT id, lastPlayed FROM userInfo
+        WHERE isDeleted = 0 AND (lastPlayed IS NULL OR lastPlayed < :thresholdMs)
+        ORDER BY lastPlayed ASC
+        LIMIT :limit
+    """)
+    suspend fun getForgottenIds(thresholdMs: Long, limit: Int): List<ForgottenRow>
 }
 
 @Dao
@@ -289,17 +313,6 @@ interface MusicAllDao {
         LIMIT 1
     """)
     suspend fun getRandomMusicInfoWithMissingExtra(): MusicInfo?
-
-    @Transaction
-    @Query("""
-        SELECT * FROM music
-        WHERE isDeleted = 0 AND id IN (
-            SELECT id FROM musicExtra WHERE isGetExtraInfo = 1 AND isDeleted = 0
-        )
-        ORDER BY RANDOM()
-        LIMIT 1
-    """)
-    suspend fun getRandomMusicInfoWithExtra(): MusicInfo?
 
     @Transaction
     @Query("SELECT * FROM music WHERE isDeleted = 0 AND id IN (:ids)")

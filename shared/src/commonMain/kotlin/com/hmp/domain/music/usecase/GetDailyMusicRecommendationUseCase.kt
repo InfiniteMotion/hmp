@@ -1,109 +1,45 @@
 package com.hmp.domain.music.usecase
 
-import com.hmp.domain.setting.model.AiAccessMode
-import com.hmp.domain.setting.model.DailyMusicInfo
 import com.hmp.domain.setting.model.ListeningDuration
 import com.hmp.domain.music.MusicInfo
 import com.hmp.domain.music.MusicLabel
 import com.hmp.domain.music.MusicRepository
 import com.hmp.domain.setting.SettingsRepository
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.withTimeoutOrNull
+import com.hmp.log.HmpLog
+import com.hmp.log.LogTag
 
 class GetDailyMusicRecommendationUseCase(
     private val musicRepository: MusicRepository,
     private val settingsRepository: SettingsRepository,
-    private val musicLabelUseCase: MusicLabelUseCase
 ) {
 
-    private var _isPaused = false
-    private var _isCancelled = false
-
-    fun pauseProcessing() {
-        _isPaused = true
-        println("[DBG] Processing paused")
-    }
-
-    fun resumeProcessing() {
-        _isPaused = false
-        println("[DBG] Processing resumed")
-    }
-
-    fun cancelProcessing() {
-        _isCancelled = true
-        _isPaused = false
-        println("[DBG] Processing cancelled")
-    }
-
-    fun resetProcessingState() {
-        _isPaused = false
-        _isCancelled = false
-    }
-
-    fun isPaused(): Boolean = _isPaused
-
-    fun isCancelled(): Boolean = _isCancelled
-
-    data class ProcessingResult(
-        val totalProcessed: Int = 0,
-        val successCount: Int = 0,
-        val skippedCount: Int = 0,
-        val failedCount: Int = 0,
-        val errors: List<String> = emptyList(),
-        val wasCancelled: Boolean = false
-    ) {
-        val isAllSuccess: Boolean
-            get() = totalProcessed > 0 && failedCount == 0 && skippedCount == 0
-    }
-
-    sealed class ExtraInfoResult {
-        data class Success(val intro: DailyMusicInfo) : ExtraInfoResult()
-        data object Skipped : ExtraInfoResult()
-        data class Error(val message: String) : ExtraInfoResult()
-    }
-
+    /**
+     * 富化文案（创作背景/简介/歌手介绍/奖项/相似歌曲/精选歌词）随 `MusicInfo.extra` 一起返回，
+     * 不再单独回查——那是旧 DailyMusicInfo（已删除）读的同一批列。
+     */
     data class MusicRecommendation(
         val musicInfo: MusicInfo?,
-        val dailyMusicInfo: DailyMusicInfo?,
         val labels: List<MusicLabel?>
     )
-
-    suspend fun getRandomMusicWithExtra(): MusicRecommendation {
-        val musicInfo = musicRepository.getRandomMusicInfoWithExtra()
-        val dailyMusicInfo = musicInfo?.music?.id?.let { musicRepository.getMusicExtraById(it) }
-        val labels = musicInfo?.music?.id?.let { musicRepository.getMusicLabels(it) } ?: emptyList()
-        return MusicRecommendation(musicInfo, dailyMusicInfo, labels)
-    }
 
     suspend fun getMusicWithExtraById(musicId: Long): MusicRecommendation? {
         try {
             val musicInfo = withTimeoutOrNull(2000) {
                 musicRepository.getMusicInfoById(musicId).firstOrNull()
             } ?: run {
-                println("[WRN] getMusicWithExtraById: Timeout or null for id $musicId")
+                HmpLog.w(LogTag.DataMusicRepo) { "🎵 getMusicWithExtraById | timeout or null | musicId=$musicId | timeoutMs=2000" }
                 return null
             }
 
-            val dailyMusicInfo = musicRepository.getMusicExtraById(musicId)
             val labels = musicRepository.getMusicLabels(musicId)
-            return MusicRecommendation(musicInfo, dailyMusicInfo, labels)
+            return MusicRecommendation(musicInfo, labels)
         } catch (e: Exception) {
-            println("[ERR] Error fetching music by id: $musicId")
+            HmpLog.e(LogTag.DataMusicRepo, e) { "🎵 getMusicWithExtraById failed | musicId=$musicId | reason=${e.message}" }
             return null
         }
-    }
-
-    private suspend fun saveMusicLabels(musicId: Long, dailyMusicInfo: DailyMusicInfo) {
-        val labels = MusicLabels(
-            genres = dailyMusicInfo.genre,
-            moods = dailyMusicInfo.mood,
-            scenarios = dailyMusicInfo.scenario,
-            language = dailyMusicInfo.language,
-            era = dailyMusicInfo.era
-        )
-        musicLabelUseCase.addMusicLabels(musicId, labels)
     }
 
     suspend fun validateProviderApiKey(): Boolean {
@@ -117,108 +53,6 @@ class GetDailyMusicRecommendationUseCase(
 
     suspend fun fetchModels(config: com.hmp.domain.setting.model.AiEndpointConfig): kotlin.Result<List<String>> {
         return musicRepository.fetchAvailableModels(config)
-    }
-
-    suspend fun autoProcessMissingExtraInfoWithCurrentProvider(
-        onProgress: suspend (MusicInfo) -> Unit = {},
-        onComplete: suspend (ProcessingResult) -> Unit = {},
-        delayMillis: Long = 500
-    ) {
-        resetProcessingState()
-
-        val activeConfig = settingsRepository.getActiveAiConfig()
-
-        if (!activeConfig.isConfigured) {
-            println("[WRN] No AI provider configured, skipping auto process")
-            onComplete(ProcessingResult())
-            return
-        }
-
-        var successCount = 0
-        var skippedCount = 0
-        var failedCount = 0
-        val errors = mutableListOf<String>()
-
-        while (true) {
-            if (isCancelled()) {
-                println("[DBG] Processing cancelled by user")
-                break
-            }
-
-            while (isPaused()) {
-                delay(100)
-                if (isCancelled()) break
-            }
-
-            if (isCancelled()) break
-
-            val music = musicRepository.getRandomMusicInfoWithMissingExtra() ?: break
-
-            onProgress(music)
-
-            when (val result = getMusicExtraInfoWithCurrentProviderAndResult(music)) {
-                is ExtraInfoResult.Success -> successCount++
-                is ExtraInfoResult.Skipped -> skippedCount++
-                is ExtraInfoResult.Error -> {
-                    failedCount++
-                    errors.add("${music.music.title}: ${result.message}")
-                }
-            }
-
-            delay(delayMillis)
-        }
-
-        val processingResult = ProcessingResult(
-            totalProcessed = successCount + skippedCount + failedCount,
-            successCount = successCount,
-            skippedCount = skippedCount,
-            failedCount = failedCount,
-            errors = errors,
-            wasCancelled = isCancelled()
-        )
-
-        onComplete(processingResult)
-        println("[DBG] Processing completed: $processingResult")
-    }
-
-    private suspend fun getMusicExtraInfoWithCurrentProviderAndResult(input: MusicInfo): ExtraInfoResult {
-        val activeConfig = settingsRepository.getActiveAiConfig()
-
-        if (!activeConfig.isConfigured) {
-            return ExtraInfoResult.Skipped
-        }
-
-        // 检查免费额度
-        val mode = settingsRepository.getAiAccessMode()
-        if (mode == AiAccessMode.FREE) {
-            val remaining = settingsRepository.getAiFreeTrialRemainingCount()
-            if (remaining <= 0) {
-                return ExtraInfoResult.Error("免费体验次数已用完，请配置 API Key 继续使用")
-            }
-        }
-
-        val result = musicRepository.fetchMusicExtraInfoWithProvider(
-            activeConfig,
-            input.music.title,
-            input.music.artist
-        )
-
-        return result.fold(
-            onSuccess = { intro ->
-                musicRepository.insertMusicExtra(input.music.id, intro)
-                saveMusicLabels(input.music.id, intro)
-                // 免费模式下递减计数
-                if (mode == AiAccessMode.FREE) {
-                    settingsRepository.decrementAiFreeTrialCount()
-                }
-                println("[DBG] Successfully processed music via ${activeConfig.endpoint}")
-                ExtraInfoResult.Success(intro)
-            },
-            onFailure = { exception ->
-                println("[ERR] Fetch extra info failed: ${exception.message}")
-                ExtraInfoResult.Error(exception.message ?: "Unknown error")
-            }
-        )
     }
 
     fun getRecentListeningDurations(): Flow<List<ListeningDuration>> {

@@ -1,7 +1,5 @@
 package com.hmp.domain.setting.usecase
 
-import com.hmp.data.database.currentTimeMillis
-import com.hmp.domain.config.DailyRefreshConfig
 import com.hmp.domain.setting.SettingsRepository
 import com.hmp.domain.setting.model.AiAccessMode
 import com.hmp.domain.setting.model.AiEndpointConfig
@@ -114,69 +112,4 @@ class UserSettingsUseCase(
         settingsRepository.saveAutoBatchProcess(enabled)
     }
 
-    val dailyRefreshMode: Flow<String> = settingsRepository.dailyRefreshMode
-
-    val dailyRefreshHours: Flow<Int> = settingsRepository.dailyRefreshHours
-
-    val dailyRefreshStartupCount: Flow<Int> = settingsRepository.dailyRefreshStartupCount
-
-    val lastDailyRefreshTimestamp: Flow<Long> = settingsRepository.lastDailyRefreshTimestamp
-
-    val appLaunchCountSinceRefresh: Flow<Int> = settingsRepository.appLaunchCountSinceRefresh
-
-    suspend fun saveDailyRefreshMode(mode: String) {
-        settingsRepository.saveDailyRefreshMode(mode)
-    }
-
-    suspend fun saveDailyRefreshHours(hours: Int) {
-        settingsRepository.saveDailyRefreshHours(hours)
-    }
-
-    suspend fun saveDailyRefreshStartupCount(count: Int) {
-        settingsRepository.saveDailyRefreshStartupCount(count)
-    }
-
-    suspend fun updateLastDailyRefreshTimestamp() {
-        settingsRepository.updateLastDailyRefreshTimestamp()
-    }
-
-    suspend fun saveCurrentDailyMusicId(musicId: Long) {
-        settingsRepository.saveCurrentDailyMusicId(musicId)
-    }
-
-    suspend fun getCurrentDailyMusicId(): Long? {
-        return settingsRepository.getCurrentDailyMusicId()
-    }
-
-    suspend fun incrementAppLaunchCount() {
-        settingsRepository.incrementAppLaunchCount()
-    }
-
-    suspend fun getDailyRefreshConfig(): DailyRefreshConfig {
-        return settingsRepository.getDailyRefreshConfig()
-    }
-
-    suspend fun shouldRefreshDailyRecommendation(): Boolean {
-        val config = getDailyRefreshConfig()
-        val currentTime = currentTimeMillis()
-
-        if (config.lastRefreshTimestamp == 0L) {
-            return true
-        }
-
-        return when (config.mode) {
-            "time" -> {
-                val hoursSinceRefresh = (currentTime - config.lastRefreshTimestamp) / (1000L * 60 * 60)
-                hoursSinceRefresh >= config.refreshHours
-            }
-            "startup" -> {
-                config.launchCountSinceRefresh > config.startupCount
-            }
-            "smart" -> {
-                val hoursSinceRefresh = (currentTime - config.lastRefreshTimestamp) / (1000L * 60 * 60)
-                hoursSinceRefresh >= 24
-            }
-            else -> false
-        }
-    }
 }

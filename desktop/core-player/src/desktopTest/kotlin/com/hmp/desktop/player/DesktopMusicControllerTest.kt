@@ -3,7 +3,6 @@ package com.hmp.desktop.player
 import com.hmp.domain.backup.ListeningStatsSnapshot
 import com.hmp.domain.backup.MusicUserStateSnapshot
 import com.hmp.domain.backup.PlaylistsSnapshot
-import com.hmp.domain.config.DailyRefreshConfig
 import com.hmp.domain.config.DisplayMode
 import com.hmp.domain.config.LyricsAlignment
 import com.hmp.domain.enum.LabelCategory
@@ -17,7 +16,6 @@ import com.hmp.domain.playlist.PlaylistRepository
 import com.hmp.domain.setting.SettingsRepository
 import com.hmp.domain.setting.model.AiAccessMode
 import com.hmp.domain.setting.model.AiEndpointConfig
-import com.hmp.domain.setting.model.DailyMusicInfo
 import com.hmp.domain.setting.model.ListeningDuration
 import com.hmp.domain.setting.model.PlaybackHistory
 import com.hmp.domain.setting.model.ScanDirectoryConfig

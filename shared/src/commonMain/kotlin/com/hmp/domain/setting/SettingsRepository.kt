@@ -1,6 +1,5 @@
 package com.hmp.domain.setting
 
-import com.hmp.domain.config.DailyRefreshConfig
 import com.hmp.domain.config.DisplayMode
 import com.hmp.domain.config.LyricsAlignment
 import com.hmp.domain.setting.model.AiAccessMode
@@ -77,11 +76,26 @@ interface SettingsRepository {
     suspend fun saveAiAccessMode(mode: AiAccessMode)
 
     // Custom AI Config (user-provided endpoint + key + model)
+    val customAiConfig: Flow<AiEndpointConfig>
     suspend fun getCustomAiConfig(): AiEndpointConfig
     suspend fun saveCustomAiConfig(config: AiEndpointConfig)
 
     // Active AI Config (returns config based on current mode)
     suspend fun getActiveAiConfig(): AiEndpointConfig
+
+    // Per-Agent AI Endpoint Config — 每个 Agent 可独立 endpoint/apiKey/model
+    // null = 跟随全局默认（getActiveAiConfig），非 null = 覆盖
+    suspend fun getAgentEndpointConfig(agentRole: String): AiEndpointConfig?
+    suspend fun saveAgentEndpointConfig(agentRole: String, config: AiEndpointConfig?)
+
+    // Agent Policy Config — per-Agent 信任档位 + 永远允许白名单 + 运行参数 + Prompt 覆盖
+    // role: "master" | "enrich" | "radio" | "hello"
+    suspend fun getAgentPolicyConfig(agentRole: String): com.hmp.domain.agent.policy.AgentPolicyConfig
+    suspend fun saveAgentPolicyConfig(agentRole: String, config: com.hmp.domain.agent.policy.AgentPolicyConfig)
+
+    // Global Agent Config — 不属于任何 Agent role 的全局参数（人格选择 / 配额 / 语言 / 语音开关）
+    suspend fun getGlobalAgentConfig(): com.hmp.domain.agent.runtime.GlobalAgentConfig
+    suspend fun saveGlobalAgentConfig(config: com.hmp.domain.agent.runtime.GlobalAgentConfig)
 
     // Free Trial Quota
     val aiFreeTrialRemainingCount: Flow<Int>
@@ -107,10 +121,6 @@ interface SettingsRepository {
     // AI Batch Process
     val autoBatchProcess: Flow<Boolean>
     suspend fun saveAutoBatchProcess(enabled: Boolean)
-
-    // Daily Refresh Strategy
-    val dailyRefreshMode: Flow<String>
-    suspend fun saveDailyRefreshMode(mode: String)
 
     // Lyrics Configuration (per-component)
     val lyricsPlayerConfig: Flow<String>
@@ -176,23 +186,6 @@ interface SettingsRepository {
     suspend fun saveLyricsKaraokeEnabled(enabled: Boolean)
     suspend fun getLyricsKaraokeEnabled(): Boolean
 
-    val dailyRefreshHours: Flow<Int>
-    suspend fun saveDailyRefreshHours(hours: Int)
-
-    val dailyRefreshStartupCount: Flow<Int>
-    suspend fun saveDailyRefreshStartupCount(count: Int)
-
-    val lastDailyRefreshTimestamp: Flow<Long>
-    suspend fun updateLastDailyRefreshTimestamp()
-
-    val appLaunchCountSinceRefresh: Flow<Int>
-    suspend fun incrementAppLaunchCount()
-
-    suspend fun getDailyRefreshConfig(): DailyRefreshConfig
-
-    suspend fun saveCurrentDailyMusicId(musicId: Long)
-    suspend fun getCurrentDailyMusicId(): Long?
-
     // Gallery Sort
     val galleryOrderBy: Flow<String>
     suspend fun saveGalleryOrderBy(orderBy: String)
@@ -218,9 +211,6 @@ interface SettingsRepository {
     suspend fun exportAppSettingsSnapshot(): com.hmp.domain.backup.AppSettingsSnapshot
     suspend fun restoreFromSnapshot(snapshot: com.hmp.domain.backup.AppSettingsSnapshot)
     
-    suspend fun exportDailyRecommendationSnapshot(): com.hmp.domain.backup.DailyRecommendationSnapshot?
-    suspend fun restoreDailyRecommendationSnapshot(snapshot: com.hmp.domain.backup.DailyRecommendationSnapshot)
-
     suspend fun backupSettings(): Result<String>
     suspend fun restoreSettings(backupFilePath: String): Result<Unit>
     suspend fun cleanOldBackups(keepCount: Int = 3): Result<Unit>

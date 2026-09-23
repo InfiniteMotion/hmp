@@ -12,12 +12,14 @@ import com.hearablemusic.player.ui.library.viewmodel.LibraryViewModel
 import com.hearablemusic.player.ui.library.viewmodel.EditMusicTagsViewModel
 import com.hearablemusic.player.ui.library.viewmodel.SearchViewModel
 import com.hearablemusic.player.ui.library.viewmodel.SongDetailViewModel
+import com.hearablemusic.player.ui.agent.chat.ChatViewModel
+import com.hearablemusic.player.ui.agent.chat.chatGatewayModule
 import com.hearablemusic.player.ui.player.viewmodel.PlaybackViewModel
 import com.hearablemusic.player.ui.player.viewmodel.PlaylistQueueViewModel
 import com.hearablemusic.player.ui.playlist.viewmodel.PlaylistViewModel
 import com.hearablemusic.player.ui.playlist.viewmodel.ArtistAlbumViewModel
 import com.hearablemusic.player.ui.settings.viewmodel.AudioEffectViewModel
-import com.hearablemusic.player.ui.settings.viewmodel.AiSettingsViewModel
+import com.hearablemusic.player.ui.agent.config.AiSettingsViewModel
 import com.hearablemusic.player.ui.settings.viewmodel.BackupViewModel
 import com.hearablemusic.player.ui.settings.viewmodel.LyricsSettingsViewModel
 import com.hearablemusic.player.ui.settings.viewmodel.RecommendationViewModel
@@ -28,12 +30,14 @@ import org.koin.androidx.viewmodel.dsl.viewModel
 import org.koin.dsl.module
 
 val uiModule = module {
+    includes(chatGatewayModule)
+
     single { DialogManager() }
     single<PlaybackController> { MusicControllerPlaybackAdapter(get()) }
     viewModel { DialogManagerViewModel(get()) }
     viewModel { DialogViewModel(get(), get(), get(), get(), get(), get()) }
 
-    viewModel { LibraryViewModel(get(), get(), get(), get(), get(), get(), get()) }
+    viewModel { LibraryViewModel(get(), get(), get(), get(), get(), get(), get(), get<com.hmp.domain.agent.runtime.MasterAgent>()) }
     viewModel { SearchViewModel(get()) }
     viewModel { SongDetailViewModel(get(), get()) }
     viewModel { EditMusicTagsViewModel(get(), get(), get()) }
@@ -46,8 +50,9 @@ val uiModule = module {
     viewModel { BackupViewModel(get(), get(), get(), get()) }
     viewModel { AiSettingsViewModel(get(), get()) }
     viewModel { LyricsSettingsViewModel(get()) }
-    viewModel { RecommendationViewModel(get(), get(), get(), get()) }
-    viewModel { UserUsageDataViewModel(get()) }
+    viewModel { RecommendationViewModel(get(), get(), get()) }
+    viewModel { UserUsageDataViewModel(get<com.hmp.domain.music.MusicRepository>(), get<com.hmp.domain.agent.runtime.MasterAgent>()) }
+    viewModel { ChatViewModel(get(), get(), get(), get()) }
     single<AlbumArtPixelsLoader> { CoilAlbumArtPixelsLoader(androidContext()) }
     viewModel { ThemeViewModel(get(), get()) }
 }

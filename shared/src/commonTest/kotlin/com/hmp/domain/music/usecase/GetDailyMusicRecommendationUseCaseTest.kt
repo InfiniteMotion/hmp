@@ -2,17 +2,15 @@ package com.hmp.domain.music.usecase
 
 import com.hmp.domain.music.Music
 import com.hmp.domain.music.MusicExtra
+import com.hmp.domain.music.MusicExtraTexts
 import com.hmp.domain.music.MusicInfo
 import com.hmp.domain.music.UserInfo
-import com.hmp.domain.setting.model.DailyMusicInfo
 import com.hmp.test.fakes.FakeMusicRepository
-import com.hmp.test.fakes.FakePlaylistRepository
 import com.hmp.test.fakes.FakeSettingsRepository
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -21,9 +19,7 @@ class GetDailyMusicRecommendationUseCaseTest {
 
     private val musicRepository = FakeMusicRepository()
     private val settingsRepository = FakeSettingsRepository()
-    private val playlistRepository = FakePlaylistRepository()
-    private val musicLabelUseCase = MusicLabelUseCase(musicRepository, playlistRepository)
-    private val useCase = GetDailyMusicRecommendationUseCase(musicRepository, settingsRepository, musicLabelUseCase)
+    private val useCase = GetDailyMusicRecommendationUseCase(musicRepository, settingsRepository)
 
     private fun musicInfo(id: Long, hasExtra: Boolean = true) = MusicInfo(
         music = Music(id = id, title = "Song$id", artist = "Artist${id % 5}", album = "Album${id % 3}", duration = 100, path = "/$id.mp3", albumArtUri = ""),
@@ -31,129 +27,16 @@ class GetDailyMusicRecommendationUseCaseTest {
         userInfo = UserInfo(id = id)
     )
 
-    private fun dailyMusicInfo() = DailyMusicInfo(
-        genre = listOf("Pop"), mood = listOf("Happy"), scenario = listOf("Workout"),
-        language = "English", era = "2020s", rewards = "", lyric = "",
-        singerIntroduce = "", backgroundIntroduce = "", description = "",
-        relevantMusic = "", errorInfo = ""
+    /** Enrich 管道落库的 6 列文本（写端形状）。 */
+    private fun extraTexts(id: Long) = MusicExtraTexts(
+        rewards = "格莱美$id", popLyric = "歌词$id", singerIntroduce = "歌手介绍$id",
+        backgroundIntroduce = "创作背景$id", description = "歌曲简介$id",
+        relevantMusic = "相似歌曲$id",
     )
 
     private suspend fun addMusicWithExtra(id: Long) {
         musicRepository.addMusic(musicInfo(id))
-        musicRepository.insertMusicExtra(id, dailyMusicInfo())
-    }
-
-    // ===== Processing state management =====
-
-    @Test
-    fun initialProcessingState_isNotPausedNotCancelled() {
-        assertFalse(useCase.isPaused())
-        assertFalse(useCase.isCancelled())
-    }
-
-    @Test
-    fun pauseProcessing_setsPaused() {
-        useCase.pauseProcessing()
-        assertTrue(useCase.isPaused())
-        assertFalse(useCase.isCancelled())
-    }
-
-    @Test
-    fun resumeProcessing_clearsPaused() {
-        useCase.pauseProcessing()
-        useCase.resumeProcessing()
-        assertFalse(useCase.isPaused())
-    }
-
-    @Test
-    fun cancelProcessing_setsCancelledAndUnpaused() {
-        useCase.pauseProcessing()
-        useCase.cancelProcessing()
-        assertFalse(useCase.isPaused())
-        assertTrue(useCase.isCancelled())
-    }
-
-    @Test
-    fun resetProcessingState_clearsAllFlags() {
-        useCase.pauseProcessing()
-        useCase.cancelProcessing()
-        useCase.resetProcessingState()
-        assertFalse(useCase.isPaused())
-        assertFalse(useCase.isCancelled())
-    }
-
-    // ===== ProcessingResult =====
-
-    @Test
-    fun processingResult_isAllSuccess_allSuccess() {
-        val result = GetDailyMusicRecommendationUseCase.ProcessingResult(
-            totalProcessed = 5, successCount = 5, skippedCount = 0, failedCount = 0
-        )
-        assertTrue(result.isAllSuccess)
-    }
-
-    @Test
-    fun processingResult_isAllSuccess_withFailures() {
-        val result = GetDailyMusicRecommendationUseCase.ProcessingResult(
-            totalProcessed = 5, successCount = 3, skippedCount = 0, failedCount = 2
-        )
-        assertFalse(result.isAllSuccess)
-    }
-
-    @Test
-    fun processingResult_isAllSuccess_withSkipped() {
-        val result = GetDailyMusicRecommendationUseCase.ProcessingResult(
-            totalProcessed = 5, successCount = 3, skippedCount = 2, failedCount = 0
-        )
-        assertFalse(result.isAllSuccess)
-    }
-
-    @Test
-    fun processingResult_isAllSuccess_zeroProcessed() {
-        val result = GetDailyMusicRecommendationUseCase.ProcessingResult(
-            totalProcessed = 0, successCount = 0
-        )
-        assertFalse(result.isAllSuccess)
-    }
-
-    @Test
-    fun processingResult_defaults() {
-        val result = GetDailyMusicRecommendationUseCase.ProcessingResult()
-        assertEquals(0, result.totalProcessed)
-        assertEquals(0, result.successCount)
-        assertEquals(0, result.skippedCount)
-        assertEquals(0, result.failedCount)
-        assertTrue(result.errors.isEmpty())
-        assertFalse(result.wasCancelled)
-    }
-
-    // ===== getRandomMusicWithExtra =====
-
-    @Test
-    fun getRandomMusicWithExtra_emptyRepository_returnsNullRecommendation() = runTest {
-        val result = useCase.getRandomMusicWithExtra()
-        assertNull(result.musicInfo)
-        assertNull(result.dailyMusicInfo)
-        assertTrue(result.labels.isEmpty())
-    }
-
-    @Test
-    fun getRandomMusicWithExtra_withMusicAndExtra_returnsRecommendation() = runTest {
-        addMusicWithExtra(1)
-
-        val result = useCase.getRandomMusicWithExtra()
-        assertNotNull(result.musicInfo)
-        assertEquals(1L, result.musicInfo!!.music.id)
-        assertNotNull(result.dailyMusicInfo)
-    }
-
-    @Test
-    fun getRandomMusicWithExtra_onlyNoExtraMusic_returnsNull() = runTest {
-        musicRepository.addMusic(musicInfo(1, hasExtra = false))
-        musicRepository.addMusic(musicInfo(2, hasExtra = false))
-
-        val result = useCase.getRandomMusicWithExtra()
-        assertNull(result.musicInfo)
+        musicRepository.updateMusicExtraTexts(id, extraTexts(id))
     }
 
     // ===== getMusicWithExtraById =====
@@ -165,7 +48,10 @@ class GetDailyMusicRecommendationUseCaseTest {
         val result = useCase.getMusicWithExtraById(42)
         assertNotNull(result)
         assertEquals(42L, result.musicInfo!!.music.id)
-        assertNotNull(result.dailyMusicInfo)
+        assertEquals("创作背景42", result.musicInfo!!.extra?.backgroundIntroduce)
+        assertEquals("歌手介绍42", result.musicInfo!!.extra?.singerIntroduce)
+        assertEquals("格莱美42", result.musicInfo!!.extra?.rewards)
+        assertEquals("相似歌曲42", result.musicInfo!!.extra?.relevantMusic)
     }
 
     @Test
@@ -174,19 +60,21 @@ class GetDailyMusicRecommendationUseCaseTest {
         assertNull(result)
     }
 
+    /**
+     * 「曲目存在但未富化」：仍返回该曲目，富化文案为 null（由 UI 侧判空决定是否渲染）。
+     *
+     * 旧版此用例断言 null，依据是 `FakeMusicRepository.getMusicExtraById` 会抛异常；
+     * 而生产 `MusicRepositoryBase.getMusicExtraById` **从不抛异常**（缺行时返回空壳）。
+     * 把断言建立在 Fake 特有的行为上，是这个用例长期"绿得没道理"的原因，已改为断言真实行为。
+     */
     @Test
-    fun getMusicWithExtraById_musicExistsButNoExtra_returnsNull() = runTest {
-        musicRepository.addMusic(musicInfo(10, hasExtra = true))
-        // No insertMusicExtra for id=10 -> fake throws -> caught -> returns null
+    fun getMusicWithExtraById_musicExistsButNoExtra_stillReturnsMusic() = runTest {
+        musicRepository.addMusic(musicInfo(10, hasExtra = false))
+
         val result = useCase.getMusicWithExtraById(10)
-        assertNull(result)
-    }
-
-    // ===== MusicRecommendation data class =====
-
-    @Test
-    fun musicRecommendation_labels_defaultEmpty() = runTest {
-        val result = useCase.getRandomMusicWithExtra()
+        assertNotNull(result)
+        assertEquals(10L, result.musicInfo!!.music.id)
+        assertNull(result.musicInfo!!.extra?.description)
         assertTrue(result.labels.isEmpty())
     }
 

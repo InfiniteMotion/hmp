@@ -504,4 +504,6 @@
     <string name="section_basic_info">基本信息</string>
     <string name="section_detail_info">详细信息</string>
     <string name="unsaved_changes">有未保存的更改</string>
+    <string name="agent_capsule_desc">伙伴</string>
+    <string name="agent_capsule_radio_desc">电台已开启，长按打开控制台</string>
 </resources>

@@ -11,6 +11,7 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.displayCutoutPadding
@@ -34,13 +35,22 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.graphics.Color.Companion.Transparent
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
-import com.hearablemusic.player.ui.common.components.BottomFusionBar
-import com.hearablemusic.player.ui.common.components.FusionSidebar
+import com.hearablemusic.player.ui.agent.shell.AgentNoticeBar
+import com.hearablemusic.player.ui.agent.shell.BottomFusionBar
+import com.hearablemusic.player.ui.agent.shell.FusionSidebar
+import com.hearablemusic.player.ui.agent.shell.AgentNotice
+import com.hearablemusic.player.ui.agent.shell.RadioConsole
 import com.hearablemusic.player.ui.common.components.TabPageIndicator
 import com.hearablemusic.player.ui.common.design.animation.AnimationTokens
 import com.hearablemusic.player.ui.common.design.dimens.LocalHMPDimens
@@ -58,6 +68,7 @@ import com.hearablemusic.player.ui.common.dialogs.viewmodel.DialogManagerViewMod
 import com.hearablemusic.player.ui.common.dialogs.viewmodel.DialogViewModel
 import com.hearablemusic.player.ui.common.layout.LocalTitleBarInset
 import com.hearablemusic.player.ui.common.layout.LocalWindowSizeInfo
+import com.hearablemusic.player.ui.common.util.rememberHapticFeedback
 import com.hearablemusic.player.ui.common.layout.WindowWidthSizeClass
 import com.hearablemusic.player.ui.common.layout.rememberAppWindowSizeInfo
 import com.hearablemusic.player.ui.common.navigation.Routes
@@ -81,8 +92,14 @@ import com.hearablemusic.player.ui.player.viewmodel.PlaybackViewModel
 import com.hearablemusic.player.ui.player.viewmodel.PlaylistQueueViewModel
 import com.hearablemusic.player.ui.settings.viewmodel.SettingsViewModel
 import com.hmp.domain.setting.usecase.LyricsSettingsUseCase
+import com.hmp.domain.agent.infra.PresenceBus
+import com.hmp.domain.agent.infra.PresenceEvent
+import com.hmp.domain.agent.runtime.MasterAgent
+import com.hmp.domain.agent.runtime.sub.radio.RadioState
+import com.hmp.domain.music.MusicRepository
 import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.rememberHazeState
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
@@ -96,6 +113,7 @@ import org.koin.compose.koinInject
  *
  * @param darkTheme 由 app 壳（MainActivity）按用户主题偏好计算后传入
  */
+@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun AppRoot(darkTheme: Boolean) {
     val settingsViewModel: SettingsViewModel = activityViewModel()
@@ -105,6 +123,11 @@ fun AppRoot(darkTheme: Boolean) {
     val dialogManagerViewModel: DialogManagerViewModel = activityViewModel()
     val dialogViewModel: DialogViewModel = activityViewModel()
     val platformServices = koinInject<com.hearablemusic.player.ui.platform.PlatformServices>()
+    val presenceBus = koinInject<PresenceBus>()
+    // 电台状态：伙伴胶囊在电台开启期间兼任电台状态位（换图标 + 长按打开控制台）
+    val masterAgent: MasterAgent = koinInject()
+    // 控制台点节目单跳曲目：RadioTrack 只有 id，得按 id 查回 MusicInfo 才能播放（同 HomeScreen 先例）
+    val musicRepository: MusicRepository = koinInject()
 
     val dialogManager = dialogManagerViewModel.dialogManager
     // 订阅调色板、当前曲目与播放状态
@@ -113,6 +136,13 @@ fun AppRoot(darkTheme: Boolean) {
     val isPlaying by playbackViewModel.isPlaying.collectAsState()
     val currentPosition by playbackViewModel.currentPosition.collectAsState()
     val duration by playbackViewModel.duration.collectAsState()
+
+    // 电台「已开启」= PLAYING / PAUSED / BUILDING（外部不区分停止与暂停，与 RadioCard 同一口径）：
+    // 暂停态由电台自管且可恢复，对它显示"已关闭"会误导。
+    val radioState by masterAgent.radioState.collectAsState()
+    val radioActive = radioState is RadioState.PLAYING ||
+        radioState is RadioState.PAUSED ||
+        radioState is RadioState.BUILDING
 
     // 背景样式与 haze 渲染设置
     val backgroundStyleString by settingsViewModel.backgroundStyle.collectAsState("FLUID")
@@ -197,13 +227,57 @@ fun AppRoot(darkTheme: Boolean) {
     val pagerState = rememberPagerState(
         initialPage = savedTabIndex.intValue
     ) { tabCount }
+    val haptic = rememberHapticFeedback()
+
+    // ── M1 锚点系统状态（Fake 驱动；M4 接 PresenceBus）──
+    // 「找伙伴」统一出口：**直接进对话页**（轻量浮层已于 2026-09-19 彻底移除）。
+    // 长按伙伴胶囊（电台未开启时）/ C 键（Desktop）都走这里；
+    // 电台开启时长按让位给电台控制台（见下方 BottomFusionBar 的分流）。
+    val openCompanionChat: () -> Unit = {
+        if (navController.none { it is Routes.Companion.Chat }) {
+            navController.add(Routes.Companion.Chat)
+        }
+    }
+
+    // 长按伙伴胶囊（电台开启时）唤起的电台控制台 —— 弹窗
+    var radioConsoleVisible by remember { mutableStateOf(false) }
+    val radioConsoleScope = rememberCoroutineScope()
+    // 电台一旦不在（用户收档 / 对话说停电台 / 看板停止），面板自动收起；
+    // 滑动收档 → stopRadio → 这里触发 → 面板淡出，正是"收档"的收尾动作。
+    LaunchedEffect(radioActive) {
+        if (!radioActive) radioConsoleVisible = false
+    }
+
+    // ── M6-T2c/M6-T3：PresenceBus → AgentNoticeBar 侧条 ──
+    var currentNotice by remember { mutableStateOf<AgentNotice?>(null) }
+    var noticeIdCounter by remember { mutableIntStateOf(0) }
+    LaunchedEffect(Unit) {
+        presenceBus.events.collectLatest { event ->
+            when (event) {
+                is PresenceEvent.SkipDetected -> {
+                    noticeIdCounter++
+                    val title = event.trackTitle ?: "这首不太合你口味"
+                    currentNotice = AgentNotice(
+                        id = noticeIdCounter.toLong(),
+                        message = "跳过了「$title」，正在换一批…",
+                        showUndo = false,
+                    )
+                }
+                else -> Unit  // 其他事件不触发侧条
+            }
+        }
+    }
+
     LaunchedEffect(pagerState.currentPage) {
         savedTabIndex.intValue = pagerState.currentPage
     }
+    // TabPageIndicator：3 条（音乐库/歌单/个人），门面页(index 0)不参与
+    val indicatorTotal = 3
+    val indicatorPage = (pagerState.currentPage - 1).coerceIn(0, indicatorTotal - 1)
     val tabHeader: @Composable () -> Unit = {
         TabPageIndicator(
-            currentPage = pagerState.currentPage,
-            totalPages = tabCount,
+            currentPage = indicatorPage,
+            totalPages = indicatorTotal,
             modifier = Modifier
                 .fillMaxWidth()
         )
@@ -234,6 +308,30 @@ fun AppRoot(darkTheme: Boolean) {
                             Box(
                                 modifier = Modifier
                                     .fillMaxSize()
+                                    // M1-T5 键盘锚点：C = 直达对话页（原为唤起轻量浮层，该层已移除）、
+                                    // Esc = 关闭电台控制台。
+                                    // 用 onKeyEvent（冒泡阶段）而非 onPreviewKeyEvent（捕获阶段）：
+                                    // 冒泡阶段子节点先消费按键——文本输入聚焦时字母 C/Esc 由输入框先行处理，
+                                    // 根节点只收到未被消费的按键，不会吞掉用户正在输入的字符（review 修复 2026-08-28）
+                                    .onKeyEvent { event ->
+                                        when {
+                                            // C 键（Desktop）：直达对话页（原为唤起轻量浮层）
+                                            event.type == KeyEventType.KeyDown &&
+                                                event.key == Key.C &&
+                                                !radioConsoleVisible -> {
+                                                haptic.performClick()
+                                                openCompanionChat()
+                                                true
+                                            }
+                                            event.type == KeyEventType.KeyDown &&
+                                                event.key == Key.Escape &&
+                                                radioConsoleVisible -> {
+                                                radioConsoleVisible = false
+                                                true
+                                            }
+                                            else -> false
+                                        }
+                                    }
                                     .hazeSource(state = hazeState)
                             ) {
                                 // 1. 静态背景层 (始终存在，确保无黑屏)
@@ -369,7 +467,7 @@ fun AppRoot(darkTheme: Boolean) {
                                         // TabPageIndicator
                                         val isInTabs = navController.size == 1 && navController.lastOrNull() is Routes.Main.Tabs
                                         AnimatedVisibility(
-                                            visible = isInTabs && !windowSizeInfo.useFusionSidebar && !windowSizeInfo.isLandscape,
+                                            visible = isInTabs && !windowSizeInfo.useFusionSidebar && !windowSizeInfo.isLandscape && pagerState.currentPage > 0,
                                             enter = fadeIn(
                                                 animationSpec = tween(300, easing = AnimationTokens.EASE_OUT)
                                             ) + scaleIn(
@@ -438,7 +536,7 @@ fun AppRoot(darkTheme: Boolean) {
                                 // 底部融合栏 = Tab 导航 + 迷你播放器：Tab 页常驻显示（无歌曲时仍提供
                                 // Tab 导航，迷你播放器区显示空态；子页面由进入播放/歌词页才隐藏）
                                 AnimatedVisibility(
-                                    visible = navController.none { it is Routes.Player.Player || it is Routes.Player.Lyrics },
+                                    visible = navController.none { it is Routes.Player.Player || it is Routes.Player.Lyrics || it is Routes.Companion.Chat },
                                     enter = slideInVertically(
                                         initialOffsetY = { it },
                                         animationSpec = tween(durationMillis = AnimationTokens.TRANSITION, easing = AnimationTokens.EASE_IN_OUT)
@@ -450,18 +548,42 @@ fun AppRoot(darkTheme: Boolean) {
                                     modifier = Modifier
                                         .align(Alignment.BottomCenter)
                                 ) {
-                                    Box {
-                                        BottomFusionBar(
-                                            musicInfo = currentMusic,
-                                            isPlaying = isPlaying,
-                                            progress = if (duration > 0) currentPosition.toFloat() / duration.toFloat() else 0f,
-                                            selectedTabIndex = pagerState.currentPage,
-                                            onTabSelected = { index ->
-                                                bfbScope.launch {
-                                                    pagerState.animateScrollToPage(index)
-                                                }
-                                            },
-                                            hazeState = hazeState,
+                                    // 侧条锚定在底栏上方（设计总纲 3.3：有底栏贴底栏上方、无底栏贴屏底）
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        // M6-T2c/M6-T3：AgentNoticeBar 侧条（PresenceBus 事件 → 4s 自动退场）
+                                        AgentNoticeBar(
+                                            notice = currentNotice,
+                                            onDismiss = { currentNotice = null },
+                                            modifier = Modifier.padding(bottom = 4.dp),
+                                        )
+                                        Box {
+                                            BottomFusionBar(
+                                                musicInfo = currentMusic,
+                                                isPlaying = isPlaying,
+                                                progress = if (duration > 0) currentPosition.toFloat() / duration.toFloat() else 0f,
+                                                selectedTabIndex = pagerState.currentPage,
+                                                onTabSelected = { index ->
+                                                    bfbScope.launch {
+                                                        // tab N ↔ 页 N+1（门面页 0 无对应 Tab，设计总纲 2.2）
+                                                        pagerState.animateScrollToPage(index + 1)
+                                                    }
+                                                },
+                                                onCompanionClick = {
+                                                    // 设计总纲 2.2：子页面态点按伙伴胶囊 = pop 回 Tabs + 滚到门面（第 0 页）
+                                                    bfbScope.launch {
+                                                        while (navController.size > 1) {
+                                                            navController.removeLastOrNull()
+                                                        }
+                                                        pagerState.animateScrollToPage(0)
+                                                    }
+                                                },
+                                                onCompanionLongPress = {
+                                                    // 电台未开启时长按 = 直接进对话页（轻量浮层已移除）
+                                                    openCompanionChat()
+                                                },
+                                                radioActive = radioActive,
+                                                onOpenRadioConsole = { radioConsoleVisible = true },
+                                                hazeState = hazeState,
                                             showNavText = windowSizeInfo.isLandscape,
                                             showNavCapsule = bfbIsOnTabPage,
                                             maxWidth = when (windowSizeInfo.widthSizeClass) {
@@ -483,6 +605,7 @@ fun AppRoot(darkTheme: Boolean) {
                                     }
                                 }
                             }
+                        }
 
                             val activeDialogState by dialogViewModel.activeDialog.collectAsState()
                             when (val state = activeDialogState) {
@@ -542,6 +665,54 @@ fun AppRoot(darkTheme: Boolean) {
                                 null -> Unit
                             }
 
+                            // ── M6-T5：STRONG_CONFIRM 双确认链 DialogHost ──
+                            (dialogEvent as? DialogEvent.ConfirmChain)?.let { chain ->
+                                val step = chain.steps.getOrNull(chain.stepIndex)
+                                if (step != null) {
+                                    androidx.compose.material3.AlertDialog(
+                                        onDismissRequest = { dialogManager.cancelConfirmChain(chain.id) },
+                                        title = {
+                                            Column {
+                                                androidx.compose.material3.Text(
+                                                    text = step.title,
+                                                    style = MaterialTheme.typography.titleMedium
+                                                )
+                                                if (chain.steps.size > 1) {
+                                                    androidx.compose.material3.Text(
+                                                        text = "（${chain.stepIndex + 1}/${chain.steps.size}）",
+                                                        style = MaterialTheme.typography.labelSmall,
+                                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                    )
+                                                }
+                                            }
+                                        },
+                                        text = {
+                                            androidx.compose.material3.Text(
+                                                text = step.message,
+                                                style = MaterialTheme.typography.bodyMedium
+                                            )
+                                        },
+                                        confirmButton = {
+                                            androidx.compose.material3.TextButton(
+                                                onClick = { dialogManager.advanceConfirmStep(chain.id) }
+                                            ) {
+                                                androidx.compose.material3.Text(
+                                                    step.confirmLabel,
+                                                    color = MaterialTheme.colorScheme.primary
+                                                )
+                                            }
+                                        },
+                                        dismissButton = {
+                                            androidx.compose.material3.TextButton(
+                                                onClick = { dialogManager.denyConfirmChain(chain.id) }
+                                            ) {
+                                                androidx.compose.material3.Text(step.denyLabel)
+                                            }
+                                        }
+                                    )
+                                }
+                            }
+
                             messageToShowState.value?.let { message ->
                                 MessageToast(
                                     message = message.message,
@@ -552,6 +723,34 @@ fun AppRoot(darkTheme: Boolean) {
                                     onDismiss = { messageToShowState.value = null }
                                 )
                             }
+
+                            // ── 电台控制台：长按伙伴胶囊（电台开启时）唤起的全屏浮层弹窗 ──
+                            // 覆盖在底栏与所有内容之上；面板打开期间电台照常运行（只读观察窗）。
+                            RadioConsole(
+                                visible = radioConsoleVisible,
+                                onDismiss = { radioConsoleVisible = false },
+                                onEndSession = {
+                                    radioConsoleVisible = false
+                                    radioConsoleScope.launch { masterAgent.stopRadio() }
+                                },
+                                onPlayTrack = { musicId ->
+                                    // 跳到那首：**在既有队列里定位并播**，不新建队列 ——
+                                    // 新建会把主播刚排的队冲掉。`playWith` = `addToPlaylist`
+                                    // （尾部追加，整队列去重 ⇒ 已在队列中则原地不动、不重复入队）
+                                    // + `playAt`（在既有队列里定位播放，**不重建队列**）。
+                                    // **不收起面板**（用户决议）：跳一首不代表"用完了控制台"——
+                                    // 留着才能接着看编排、继续跳下一首；面板只读，开着不干扰播放。
+                                    radioConsoleScope.launch {
+                                        val info = runCatching {
+                                            musicRepository.getMusicInfoByIds(listOf(musicId))
+                                        }.getOrNull()?.firstOrNull()
+                                        if (info != null) playlistQueueViewModel.playWith(info)
+                                    }
+                                },
+                                nowCoverUri = currentMusic?.music?.albumArtUri,
+                                hazeState = hazeState,
+                                hazeRenderSettings = hazeRenderSettings,
+                            )
                         }
                     } // CompositionLocalProvider LocalTabHeaderContent
                 } // CompositionLocalProvider HMPDimens

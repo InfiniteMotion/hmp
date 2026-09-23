@@ -16,7 +16,7 @@ import kotlinx.coroutines.flow.StateFlow
  * - Android：androidMain MusicControllerPlaybackAdapter（适配 Media3）
  * - Desktop：desktopMain DesktopMusicControllerPlaybackAdapter（适配 FFmpeg）
  *
- * 调用点映射表：docs/shared-ui-extract/接口冻结-调用点映射表.md
+ * 调用点映射表：docs/7_x/A shared-ui/接口冻结-调用点映射表.md
  */
 interface PlaybackController {
 
