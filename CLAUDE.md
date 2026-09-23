@@ -322,7 +322,7 @@ HMP/
 > 历史说明：早期文档称 CI「部署 Storybook 到 GitHub Pages」，实际 deploy-site job 上传的是 `site/` 目录（手工维护的产品站点），且 Storybook 相关 workflow 已在 v6.10 移除。
 
 ### 已知待完成任务 (TODO.md)
-- v7.x 三大方向：A) KMP 重写 iOS UI（v7.1 已完成）/ B) AI 功能 Agent 化（**F1–F13 完成、F14 进行中、F10 挂起，承载于 `feature/agent-build`）/ C) 播放功能增强补齐（尚未启动）
+- v7.x 三大方向：A) KMP 重写 iOS UI（v7.1 已完成）/ B) AI 功能 Agent 化（**F1–F14 完成、F10 挂起**，承载于 `feature/agent-build`）/ C) 播放功能增强补齐（尚未启动）
 - v6 遗留：P8.1 iOS 安全存储真加密（现 XOR 伪加密 → CryptoKit AES-GCM + Keychain）；P9 已由方向 A 取代冻结
 - T3: Repository 通用逻辑提取到 commonMain 共享基类
 

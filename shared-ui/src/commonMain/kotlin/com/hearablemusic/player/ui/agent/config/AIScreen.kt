@@ -1,4 +1,42 @@
 package com.hearablemusic.player.ui.agent.config
+import com.hearablemusic.player.ui.generated.resources.agent_ai_access_header
+import com.hearablemusic.player.ui.generated.resources.agent_ai_agent_mgmt_header
+import com.hearablemusic.player.ui.generated.resources.agent_ai_collapse
+import com.hearablemusic.player.ui.generated.resources.agent_ai_coming_soon
+import com.hearablemusic.player.ui.generated.resources.agent_ai_custom_endpoint
+import com.hearablemusic.player.ui.generated.resources.agent_ai_endpoint_prereq
+import com.hearablemusic.player.ui.generated.resources.agent_ai_expand
+import com.hearablemusic.player.ui.generated.resources.agent_ai_free_remaining
+import com.hearablemusic.player.ui.generated.resources.agent_ai_free_tier
+import com.hearablemusic.player.ui.generated.resources.agent_ai_lang_auto
+import com.hearablemusic.player.ui.generated.resources.agent_ai_lang_en
+import com.hearablemusic.player.ui.generated.resources.agent_ai_lang_follow_global_desc
+import com.hearablemusic.player.ui.generated.resources.agent_ai_lang_voice_header
+import com.hearablemusic.player.ui.generated.resources.agent_ai_lang_zh
+import com.hearablemusic.player.ui.generated.resources.agent_ai_memory_about_you
+import com.hearablemusic.player.ui.generated.resources.agent_ai_memory_count
+import com.hearablemusic.player.ui.generated.resources.agent_ai_memory_disabled_note
+import com.hearablemusic.player.ui.generated.resources.agent_ai_memory_empty
+import com.hearablemusic.player.ui.generated.resources.agent_ai_memory_feature
+import com.hearablemusic.player.ui.generated.resources.agent_ai_memory_forget
+import com.hearablemusic.player.ui.generated.resources.agent_ai_memory_header
+import com.hearablemusic.player.ui.generated.resources.agent_ai_memory_inferred
+import com.hearablemusic.player.ui.generated.resources.agent_ai_memory_log_desc
+import com.hearablemusic.player.ui.generated.resources.agent_ai_memory_log_title
+import com.hearablemusic.player.ui.generated.resources.agent_ai_memory_log_view
+import com.hearablemusic.player.ui.generated.resources.agent_ai_memory_more
+import com.hearablemusic.player.ui.generated.resources.agent_ai_memory_off_desc
+import com.hearablemusic.player.ui.generated.resources.agent_ai_memory_reset
+import com.hearablemusic.player.ui.generated.resources.agent_ai_memory_reset_btn
+import com.hearablemusic.player.ui.generated.resources.agent_ai_memory_reset_desc
+import com.hearablemusic.player.ui.generated.resources.agent_ai_not_configured
+import com.hearablemusic.player.ui.generated.resources.agent_ai_paid_mode
+import com.hearablemusic.player.ui.generated.resources.agent_ai_reset_confirm_btn
+import com.hearablemusic.player.ui.generated.resources.agent_ai_reset_dialog_text
+import com.hearablemusic.player.ui.generated.resources.agent_ai_reset_dialog_title
+import com.hearablemusic.player.ui.generated.resources.agent_ai_voice_desc
+import com.hearablemusic.player.ui.generated.resources.agent_ai_voice_locked
+import com.hearablemusic.player.ui.generated.resources.agent_ai_voice_title
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -247,7 +285,7 @@ private fun AIScreenContent(
                 verticalArrangement = Arrangement.spacedBy(dimens.spacing.lg),
             ) {
                 // 分区 1：AI 接入方式
-                SectionHeader("AI 接入方式")
+                SectionHeader(stringResource(Res.string.agent_ai_access_header))
                 AiAccessSection(
                     aiAccessMode = aiAccessMode,
                     freeTrialRemaining = freeTrialRemaining,
@@ -262,7 +300,7 @@ private fun AIScreenContent(
                     dialogManager = dialogManager,
                 )
                 // 分区 3：语言和语音
-                SectionHeader("语言和语音")
+                SectionHeader(stringResource(Res.string.agent_ai_lang_voice_header))
                 ReplyLanguageSection(masterAgent = masterAgent)
                 VoiceSection()
             }
@@ -274,13 +312,13 @@ private fun AIScreenContent(
                 verticalArrangement = Arrangement.spacedBy(dimens.spacing.lg),
             ) {
                 // 分区 2：Agent 管理
-                SectionHeader("Agent 管理")
+                SectionHeader(stringResource(Res.string.agent_ai_agent_mgmt_header))
                 AgentQuickEntries(
                     masterAgent = masterAgent,
                     onAgentClick = { role -> navController.add(Routes.AI.AgentConfig(role)) }
                 )
                 // 分区 4：记忆管理
-                SectionHeader("记忆管理")
+                SectionHeader(stringResource(Res.string.agent_ai_memory_header))
                 MemoryManagementSection(
                     masterAgent = masterAgent,
                     navController = navController,
@@ -298,7 +336,7 @@ private fun AIScreenContent(
             verticalArrangement = Arrangement.spacedBy(dimens.spacing.lg)
         ) {
             // ═══ 分区 1：AI 接入方式（折叠态只显示概要，展开才配细节）═══
-            SectionHeader("AI 接入方式")
+            SectionHeader(stringResource(Res.string.agent_ai_access_header))
             AiAccessSection(
                 aiAccessMode = aiAccessMode,
                 freeTrialRemaining = freeTrialRemaining,
@@ -314,19 +352,19 @@ private fun AIScreenContent(
             )
 
             // ═══ 分区 2：Agent 管理 —— 监控看板 + 配置入口 ═══
-            SectionHeader("Agent 管理")
+            SectionHeader(stringResource(Res.string.agent_ai_agent_mgmt_header))
             AgentQuickEntries(
                 masterAgent = masterAgent,
                 onAgentClick = { role -> navController.add(Routes.AI.AgentConfig(role)) }
             )
 
             // ═══ 分区 3：语言和语音 —— 回复语言（可配）+ 语音对话（M7 gate 占位）═══
-            SectionHeader("语言和语音")
+            SectionHeader(stringResource(Res.string.agent_ai_lang_voice_header))
             ReplyLanguageSection(masterAgent = masterAgent)
             VoiceSection()
 
             // ═══ 分区 4：记忆管理 —— 侧写展示 / 重置 / 操作日志 ═══
-            SectionHeader("记忆管理")
+            SectionHeader(stringResource(Res.string.agent_ai_memory_header))
             MemoryManagementSection(
                 masterAgent = masterAgent,
                 navController = navController,
@@ -345,21 +383,22 @@ private fun AIScreenContent(
 private data class AccessSummary(val title: String, val detail: String)
 
 /** 折叠态要显示的「当前方式概要」——只回答"现在用的是什么"，不堆参数。 */
+@Composable
 private fun accessSummary(
     mode: AiAccessMode,
     config: AiEndpointConfig,
     freeTrialRemaining: Int,
 ): AccessSummary = when (mode) {
-    AiAccessMode.FREE -> AccessSummary("免费体验", "剩余 $freeTrialRemaining 次")
+    AiAccessMode.FREE -> AccessSummary(stringResource(Res.string.agent_ai_free_tier), stringResource(Res.string.agent_ai_free_remaining, freeTrialRemaining))
     AiAccessMode.CUSTOM -> {
         val detail = when {
             config.selectedModel.isNotBlank() -> config.selectedModel
             config.endpoint.isNotBlank() -> config.endpoint
-            else -> "未配置"
+            else -> stringResource(Res.string.agent_ai_not_configured)
         }
-        AccessSummary("自定义端点", detail)
+        AccessSummary(stringResource(Res.string.agent_ai_custom_endpoint), detail)
     }
-    AiAccessMode.PAID -> AccessSummary("付费模式", "敬请期待")
+    AiAccessMode.PAID -> AccessSummary(stringResource(Res.string.agent_ai_paid_mode), stringResource(Res.string.agent_ai_coming_soon))
 }
 
 /**
@@ -411,7 +450,7 @@ private fun AiAccessSection(
                 }
                 Spacer(Modifier.width(8.dp))
                 Text(
-                    if (expanded) "收起" else "展开",
+                    if (expanded) stringResource(Res.string.agent_ai_collapse) else stringResource(Res.string.agent_ai_expand),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.primary
                 )
@@ -589,7 +628,7 @@ private fun CustomConfigContent(
 
             // F12-T3：端点窗口前提声明（无法配置时探测，故显式告知用户前提是 ≥64K）
             Text(
-                "端点须支持 ≥64K 上下文窗口：本应用按 64K 固定假设计费与超窗护栏，窗口更小会导致请求被拒并降级。",
+                stringResource(Res.string.agent_ai_endpoint_prereq),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -780,9 +819,9 @@ private fun ReplyLanguageSection(
             SegmentedControl(
                 modifier = Modifier.weight(1f),
                 options = listOf(
-                    SegmentedOption("zh", "中文"),
-                    SegmentedOption("en", "英文"),
-                    SegmentedOption("auto", "自动"),
+                    SegmentedOption("zh", stringResource(Res.string.agent_ai_lang_zh)),
+                    SegmentedOption("en", stringResource(Res.string.agent_ai_lang_en)),
+                    SegmentedOption("auto", stringResource(Res.string.agent_ai_lang_auto)),
                 ),
                 selectedOption = replyLanguage,
                 onOptionSelected = { key ->
@@ -794,7 +833,7 @@ private fun ReplyLanguageSection(
             )
         }
         Text(
-            "「跟随全局」Agent 的 prompt 语言从此处取值；每个 Agent 可单独覆盖。",
+            stringResource(Res.string.agent_ai_lang_follow_global_desc),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -809,17 +848,17 @@ private fun VoiceSection() {
     HMPCard(contentPadding = Modifier.padding(16.dp)) {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(
-                text = "实时语音对话",
+                text = stringResource(Res.string.agent_ai_voice_title),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurface
             )
             Text(
-                text = "伙伴可以用语音回应你（beta）",
+                text = stringResource(Res.string.agent_ai_voice_desc),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Text(
-                text = "此项功能需要后续语音端点支持，暂未开放",
+                text = stringResource(Res.string.agent_ai_voice_locked),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
             )
@@ -864,12 +903,12 @@ private fun MemoryManagementSection(
             ) {
                 Column {
                     Text(
-                        text = "记忆功能",
+                        text = stringResource(Res.string.agent_ai_memory_feature),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = "关闭后伙伴不再记住你，已记住的内容会被清空",
+                        text = stringResource(Res.string.agent_ai_memory_off_desc),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -896,12 +935,12 @@ private fun MemoryManagementSection(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "伙伴对你的认识",
+                    text = stringResource(Res.string.agent_ai_memory_about_you),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
-                    text = "${portraits.size} 条",
+                    text = stringResource(Res.string.agent_ai_memory_count, portraits.size),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -909,7 +948,7 @@ private fun MemoryManagementSection(
 
             if (portraits.isEmpty()) {
                 Text(
-                    text = "伙伴还不了解你。多听歌、多和伙伴聊天，它会慢慢认识你。",
+                    text = stringResource(Res.string.agent_ai_memory_empty),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -923,7 +962,7 @@ private fun MemoryManagementSection(
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = p.type.displayName + if (p.type.weakEvidence) "（推测）" else "",
+                                text = p.type.displayName + if (p.type.weakEvidence) stringResource(Res.string.agent_ai_memory_inferred) else "",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
@@ -939,7 +978,7 @@ private fun MemoryManagementSection(
                             }
                         }
                         Text(
-                            text = "忘记",
+                            text = stringResource(Res.string.agent_ai_memory_forget),
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.primary,
                             modifier = Modifier
@@ -950,7 +989,7 @@ private fun MemoryManagementSection(
                 }
                 if (portraits.size > 6) {
                     Text(
-                        text = "还有 ${portraits.size - 6} 条认识…",
+                        text = stringResource(Res.string.agent_ai_memory_more, portraits.size - 6),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -967,12 +1006,12 @@ private fun MemoryManagementSection(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "重置认识",
+                        text = stringResource(Res.string.agent_ai_memory_reset),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = "重置后伙伴会重新认识你，此操作不可撤销。",
+                        text = stringResource(Res.string.agent_ai_memory_reset_desc),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -983,7 +1022,7 @@ private fun MemoryManagementSection(
                         containerColor = MaterialTheme.colorScheme.error
                     )
                 ) {
-                    Text("重置", color = MaterialTheme.colorScheme.onError)
+                    Text(stringResource(Res.string.agent_ai_memory_reset_btn), color = MaterialTheme.colorScheme.onError)
                 }
             }
 
@@ -1001,25 +1040,25 @@ private fun MemoryManagementSection(
             ) {
                 Column {
                     Text(
-                        text = "伙伴操作日志",
+                        text = stringResource(Res.string.agent_ai_memory_log_title),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = "查看伙伴做了什么",
+                        text = stringResource(Res.string.agent_ai_memory_log_desc),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
                 Text(
-                    text = "查看 ›",
+                    text = stringResource(Res.string.agent_ai_memory_log_view),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.primary
                 )
             }
             } else {
                 Text(
-                    text = "记忆功能已关闭。开启后伙伴才会重新了解你，已记住的内容已被清空。",
+                    text = stringResource(Res.string.agent_ai_memory_disabled_note),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -1037,13 +1076,13 @@ private fun MemoryManagementSection(
                         onClearAllMemory()
                         portraits = emptyList()
                     }
-                ) { Text("确认重置", color = MaterialTheme.colorScheme.error) }
+                ) { Text(stringResource(Res.string.agent_ai_reset_confirm_btn), color = MaterialTheme.colorScheme.error) }
             },
             dismissButton = {
-                TextButton(onClick = { showConfirmClear = false }) { Text("取消") }
+                TextButton(onClick = { showConfirmClear = false }) { Text(stringResource(Res.string.cancel)) }
             },
-            title = { Text("重置全部认识？") },
-            text = { Text("伙伴对你的所有认识将被删除，且无法恢复。重置后伙伴会重新认识你。") }
+            title = { Text(stringResource(Res.string.agent_ai_reset_dialog_title)) },
+            text = { Text(stringResource(Res.string.agent_ai_reset_dialog_text)) }
         )
     }
 }

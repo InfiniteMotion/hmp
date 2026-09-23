@@ -1,4 +1,17 @@
 package com.hearablemusic.player.ui.agent.shell
+import com.hearablemusic.player.ui.generated.resources.agent_radio_anchor_thought
+import com.hearablemusic.player.ui.generated.resources.agent_radio_auto_theme
+import com.hearablemusic.player.ui.generated.resources.agent_radio_collapse
+import com.hearablemusic.player.ui.generated.resources.agent_radio_end_hint
+import com.hearablemusic.player.ui.generated.resources.agent_radio_status_building
+import com.hearablemusic.player.ui.generated.resources.agent_radio_status_line
+import com.hearablemusic.player.ui.generated.resources.agent_radio_status_paused
+import com.hearablemusic.player.ui.generated.resources.agent_radio_status_playing
+import com.hearablemusic.player.ui.generated.resources.agent_radio_status_stopped
+import com.hearablemusic.player.ui.generated.resources.agent_radio_swipe_end
+import com.hearablemusic.player.ui.generated.resources.agent_radio_upcoming_full
+import com.hearablemusic.player.ui.generated.resources.agent_radio_upcoming_none
+import com.hearablemusic.player.ui.generated.resources.agent_radio_upcoming_preview
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
@@ -57,6 +70,7 @@ import com.hearablemusic.player.ui.common.util.hazeTintAlpha
 import com.hearablemusic.player.ui.common.util.rememberPlatformHaptics
 import com.hearablemusic.player.ui.generated.resources.Res
 import com.hearablemusic.player.ui.generated.resources.radiowaves
+import org.jetbrains.compose.resources.stringResource
 import com.hearablemusic.player.ui.library.pages.components.AlbumCover
 import com.hearablemusic.player.ui.platform.HapticEffect
 import dev.chrisbanes.haze.HazeState
@@ -129,10 +143,10 @@ fun RadioConsole(
     val preview: List<RadioTrack> = remember(upcoming) { upcoming.take(UPCOMING_PREVIEW) }
 
     val stateText = when (radioState) {
-        is RadioState.BUILDING -> "正在编排…"
-        is RadioState.PAUSED -> "已暂停"
-        is RadioState.PLAYING -> "运行中"
-        else -> "已停止"
+        is RadioState.BUILDING -> stringResource(Res.string.agent_radio_status_building)
+        is RadioState.PAUSED -> stringResource(Res.string.agent_radio_status_paused)
+        is RadioState.PLAYING -> stringResource(Res.string.agent_radio_status_playing)
+        else -> stringResource(Res.string.agent_radio_status_stopped)
     }
 
     val resolvedHazeRenderSettings = hazeRenderSettings ?: LocalHazeRenderSettings.current
@@ -194,21 +208,21 @@ fun RadioConsole(
                         Spacer(modifier = Modifier.width(12.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = card.theme?.takeIf { it.isNotBlank() } ?: "自动电台",
+                                text = card.theme?.takeIf { it.isNotBlank() } ?: stringResource(Res.string.agent_radio_auto_theme),
                                 style = MaterialTheme.typography.headlineMedium,
                                 color = MaterialTheme.colorScheme.onBackground,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                             )
                             Text(
-                                text = "$stateText · 待播 ${card.upcomingCount} 首",
+                                text = stringResource(Res.string.agent_radio_status_line, stateText, card.upcomingCount),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onBackground,
                             )
                         }
                         // 唯一刻意保留的偏离：满屏面板下，24dp 外缝太薄，单靠点外关闭不好按
                         Text(
-                            text = "收起",
+                            text = stringResource(Res.string.agent_radio_collapse),
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.primary,
                             modifier = Modifier
@@ -290,10 +304,10 @@ fun RadioConsole(
                         // ③ 节目单（主角：主播为这段收听排的东西；只列前 5 首，点任一可跳到那首）
                         Text(
                             text = when {
-                                upcoming.isEmpty() -> "接下来 · 暂无待播"
+                                upcoming.isEmpty() -> stringResource(Res.string.agent_radio_upcoming_none)
                                 upcoming.size > UPCOMING_PREVIEW ->
-                                    "接下来 · 主播排的 ${upcoming.size} 首（此处列前 $UPCOMING_PREVIEW）"
-                                else -> "接下来 · 主播排的 ${upcoming.size} 首"
+                                    stringResource(Res.string.agent_radio_upcoming_preview, upcoming.size, UPCOMING_PREVIEW)
+                                else -> stringResource(Res.string.agent_radio_upcoming_full, upcoming.size)
                             },
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onBackground,
@@ -342,7 +356,7 @@ fun RadioConsole(
                         card.lastAdjust?.takeIf { it.isNotBlank() }?.let { intent ->
                             Spacer(modifier = Modifier.height(16.dp))
                             Text(
-                                text = "主播思路 · 最近一轮",
+                                text = stringResource(Res.string.agent_radio_anchor_thought),
                                 style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.onBackground,
                             )
@@ -431,7 +445,7 @@ private fun EndSessionSlider(
             contentAlignment = Alignment.Center,
         ) {
             Text(
-                text = "滑动结束这一档",
+                text = stringResource(Res.string.agent_radio_swipe_end),
                 style = MaterialTheme.typography.labelMedium,
                 color = dangerColor.copy(alpha = 0.75f),
             )
@@ -453,7 +467,7 @@ private fun EndSessionSlider(
         }
         Spacer(modifier = Modifier.height(8.dp))
         Text(
-            text = "音乐将暂停，队列保留；情境连续时再次开启可续上这一档",
+            text = stringResource(Res.string.agent_radio_end_hint),
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onBackground,
         )

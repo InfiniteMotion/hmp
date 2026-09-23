@@ -1,4 +1,16 @@
 package com.hearablemusic.player.ui.common.dialogs.controller
+import com.hearablemusic.player.ui.generated.resources.Res
+import org.jetbrains.compose.resources.getString
+import com.hearablemusic.player.ui.generated.resources.cancel
+import com.hearablemusic.player.ui.generated.resources.confirm_agree
+import com.hearablemusic.player.ui.generated.resources.confirm_allow
+import com.hearablemusic.player.ui.generated.resources.confirm_deny
+import com.hearablemusic.player.ui.generated.resources.confirm_do
+import com.hearablemusic.player.ui.generated.resources.confirm_message
+import com.hearablemusic.player.ui.generated.resources.confirm_message_sensitive
+import com.hearablemusic.player.ui.generated.resources.confirm_title_normal
+import com.hearablemusic.player.ui.generated.resources.confirm_title_sensitive
+import com.hearablemusic.player.ui.generated.resources.confirm_title_strong
 
 import com.hmp.domain.agent.port.ConfirmDecision
 import com.hmp.domain.agent.port.ConfirmStep
@@ -31,27 +43,27 @@ class DialogConfirmGateAdapter(
         }
     }
 
-    private fun buildStepsFor(req: ConfirmRequest): List<ConfirmStep> = when (req.permissionLevel) {
+    private suspend fun buildStepsFor(req: ConfirmRequest): List<ConfirmStep> = when (req.permissionLevel) {
         ToolPermissionLevel.STRONG_CONFIRM -> listOf(
             ConfirmStep(
-                title = "AI 想做什么？",
-                message = "Agent 想执行「${req.toolName}」：${req.argsSummary}",
-                confirmLabel = "我同意",
-                denyLabel = "取消",
+                title = getString(Res.string.confirm_title_strong),
+                message = getString(Res.string.confirm_message, req.toolName, req.argsSummary),
+                confirmLabel = getString(Res.string.confirm_agree),
+                denyLabel = getString(Res.string.cancel),
             ),
             ConfirmStep(
-                title = "⚠️ 敏感操作确认",
-                message = "这是高风险操作。确认执行吗？",
-                confirmLabel = "确认执行",
-                denyLabel = "取消",
+                title = getString(Res.string.confirm_title_sensitive),
+                message = getString(Res.string.confirm_message_sensitive),
+                confirmLabel = getString(Res.string.confirm_do),
+                denyLabel = getString(Res.string.cancel),
             ),
         )
         else -> listOf(
             ConfirmStep(
-                title = "AI 请求执行操作",
-                message = "Agent 想执行「${req.toolName}」：${req.argsSummary}",
-                confirmLabel = "允许",
-                denyLabel = "拒绝",
+                title = getString(Res.string.confirm_title_normal),
+                message = getString(Res.string.confirm_message, req.toolName, req.argsSummary),
+                confirmLabel = getString(Res.string.confirm_allow),
+                denyLabel = getString(Res.string.confirm_deny),
             )
         )
     }

@@ -33,7 +33,15 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
+import com.hearablemusic.player.ui.common.text.UiText
+import com.hearablemusic.player.ui.common.text.asString
 import com.hearablemusic.player.ui.generated.resources.Res
+import com.hearablemusic.player.ui.generated.resources.card_label_recommend_phase
+import com.hearablemusic.player.ui.generated.resources.card_single_ai_pick
+import com.hearablemusic.player.ui.generated.resources.card_single_days_ago
+import com.hearablemusic.player.ui.generated.resources.card_single_source_ai
+import com.hearablemusic.player.ui.generated.resources.card_single_unknown
+import com.hearablemusic.player.ui.generated.resources.card_total_plays
 import com.hearablemusic.player.ui.generated.resources.unknown
 import com.hmp.domain.agent.card.ForgottenContent
 import com.hmp.domain.agent.card.RecommendContent
@@ -106,7 +114,7 @@ internal fun FamilySingleTrackCard(
             ) {
                 // 标签
                 Text(
-                    text = meta.label,
+                    text = meta.label.asString(),
                     color = Color.White.copy(alpha = 0.65f),
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Medium,
@@ -116,7 +124,7 @@ internal fun FamilySingleTrackCard(
 
                 // 歌曲名（加大字号，作为视觉焦点）
                 Text(
-                    text = meta.title,
+                    text = meta.title.asString(),
                     color = Color.White,
                     fontSize = 22.sp,
                     fontWeight = FontWeight.Bold,
@@ -163,7 +171,7 @@ internal fun FamilySingleTrackCard(
                 ) {
                     meta.subtitle?.let {
                         Text(
-                            text = it,
+                            text = it.asString(),
                             color = Color.White.copy(alpha = 0.82f),
                             fontSize = 13.sp,
                             lineHeight = 17.sp,
@@ -180,7 +188,7 @@ internal fun FamilySingleTrackCard(
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
                     ) {
                         Text(
-                            text = footerText,
+                            text = footerText.asString(),
                             color = Color.White.copy(alpha = 0.55f),
                             fontSize = 12.sp,
                         )
@@ -211,10 +219,10 @@ internal fun FamilySingleTrackCard(
 
 private data class SingleTrackMeta(
     val trackId: Long,
-    val label: String,
-    val title: String,
-    val subtitle: String?,       // 补充文案（推荐理由 / 情感化文本）
-    val footer: String?,          // 底部数字条文本
+    val label: UiText,
+    val title: UiText,
+    val subtitle: UiText?,       // 补充文案（LLM 产出 → Raw）
+    val footer: UiText?,          // 底部数字条文本
     val durationSec: Int,
     val themeColor: Color,
 )
@@ -223,26 +231,32 @@ private fun buildSingleTrackMeta(card: SlideCard): SingleTrackMeta {
     return when (val c = card.content) {
         is RecommendContent -> SingleTrackMeta(
             trackId = c.trackId,
-            label = "为你推荐 · ${c.currentPhase.label}",
-            title = c.trackTitle,
-            subtitle = c.reason,
-            footer = if (!c.sourceLabel.isNullOrEmpty()) "来自 ${c.sourceLabel} · AI 推荐" else "AI 推荐",
+            label = UiText.Res(Res.string.card_label_recommend_phase, listOf(c.currentPhase.label)),
+            title = UiText.Raw(c.trackTitle),
+            subtitle = c.reason?.let { UiText.Raw(it) },
+            footer = if (!c.sourceLabel.isNullOrEmpty()) {
+                UiText.Res(Res.string.card_single_source_ai, listOf(c.sourceLabel.orEmpty()))
+            } else {
+                UiText.Res(Res.string.card_single_ai_pick)
+            },
             durationSec = c.durationSec,
             themeColor = Color(0xFF7C4DFF),
         )
 
         is ForgottenContent -> SingleTrackMeta(
             trackId = c.trackId,
-            label = "${c.daysSince} 天没听了",
-            title = c.trackTitle,
-            subtitle = c.emotionText,
-            footer = "累计 ${c.playCount} 次",
+            label = UiText.Res(Res.string.card_single_days_ago, listOf(c.daysSince)),
+            title = UiText.Raw(c.trackTitle),
+            subtitle = c.emotionText?.let { UiText.Raw(it) },
+            footer = UiText.Res(Res.string.card_total_plays, listOf(c.playCount)),
             durationSec = c.durationSec,
             themeColor = Color(0xFF78909C),
         )
 
         else -> SingleTrackMeta(
-            trackId = 0, label = "未知", title = "未知",
+            trackId = 0,
+            label = UiText.Res(Res.string.card_single_unknown),
+            title = UiText.Res(Res.string.card_single_unknown),
             subtitle = null, footer = null, durationSec = 0,
             themeColor = Color.Gray,
         )

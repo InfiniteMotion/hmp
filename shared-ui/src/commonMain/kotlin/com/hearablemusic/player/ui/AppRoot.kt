@@ -1,4 +1,8 @@
 package com.hearablemusic.player.ui
+import com.hearablemusic.player.ui.generated.resources.Res
+import org.jetbrains.compose.resources.getString
+import com.hearablemusic.player.ui.generated.resources.notice_off_taste
+import com.hearablemusic.player.ui.generated.resources.notice_skipped
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
@@ -256,10 +260,10 @@ fun AppRoot(darkTheme: Boolean) {
             when (event) {
                 is PresenceEvent.SkipDetected -> {
                     noticeIdCounter++
-                    val title = event.trackTitle ?: "这首不太合你口味"
+                    val title = event.trackTitle ?: getString(Res.string.notice_off_taste)
                     currentNotice = AgentNotice(
                         id = noticeIdCounter.toLong(),
-                        message = "跳过了「$title」，正在换一批…",
+                        message = getString(Res.string.notice_skipped, title),
                         showUndo = false,
                     )
                 }

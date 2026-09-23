@@ -1,4 +1,9 @@
 package com.hearablemusic.player.ui.agent.chat
+import com.hearablemusic.player.ui.common.text.UiText
+import com.hearablemusic.player.ui.common.text.asString
+import com.hearablemusic.player.ui.generated.resources.agent_chat_input_placeholder
+import com.hearablemusic.player.ui.generated.resources.agent_chat_send
+import com.hearablemusic.player.ui.generated.resources.agent_chat_title
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
@@ -47,6 +52,7 @@ import com.hearablemusic.player.ui.common.pages.base.SubScreen
 import com.hearablemusic.player.ui.common.components.base.HMPTextField
 import com.hearablemusic.player.ui.common.layout.LocalWindowSizeInfo
 import com.hearablemusic.player.ui.generated.resources.Res
+import org.jetbrains.compose.resources.stringResource
 import com.hearablemusic.player.ui.generated.resources.chevron_up
 import com.hearablemusic.player.ui.platform.PlaybackController
 import com.hmp.domain.music.MusicInfo
@@ -123,7 +129,7 @@ private fun ChatScreenContent(
     )
 
     // 对话页：用 SubScreen 顶栏（返回 + 标题）；内容列 imePadding —— 键盘弹出时整块内容随之上移重排
-    SubScreen(onBackClick = onBackClick, title = "听歌伙伴") {
+    SubScreen(onBackClick = onBackClick, title = stringResource(Res.string.agent_chat_title)) {
         // F14-T1 自适应：宽窗（Medium/Expanded）下对话内容限宽居中，避免行长过长伤可读性；
         // 横屏（手机横屏 / 平板、桌面宽窗）抬高限宽 —— 对话确需更宽才不显局促，但也不能无限拉长行长，
         // 故取 840dp 而非铺满。Compact（手机竖屏）maxWidth 为 Dp.Unspecified → 不加约束，行为与改造前逐像素一致。
@@ -163,7 +169,6 @@ private fun ChatScreenContent(
                 ConfirmMatrixCard(
                     items = p.items,
                     submitted = p.submitted,
-                    receipt = "",
                     callbacks = callbacks,
                 )
             }
@@ -186,7 +191,7 @@ private fun ChatScreenContent(
 private fun ChatMessageList(
     messages: List<CompanionMessage>,
     running: Boolean,
-    runningHint: String,
+    runningHint: UiText?,
     callbacks: CompanionCallbacks,
     inputFocused: Boolean = false,
     modifier: Modifier = Modifier,
@@ -230,14 +235,14 @@ private fun ChatMessageList(
         }
         if (running) {
             item(key = "running-hint") {
-                RunningHint(runningHint)
+                runningHint?.let { RunningHint(it) }
             }
         }
     }
 }
 
 @Composable
-private fun RunningHint(hint: String) {
+private fun RunningHint(hint: UiText) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier.padding(vertical = 4.dp),
@@ -245,7 +250,7 @@ private fun RunningHint(hint: String) {
         CircularProgressIndicator(modifier = Modifier.size(14.dp), strokeWidth = 2.dp)
         Spacer(Modifier.width(8.dp))
         Text(
-            text = hint,
+            text = hint.asString(),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -271,7 +276,7 @@ private fun ChatInputBar(
         HMPTextField(
             value = input,
             onValueChange = onInputChange,
-            placeholder = "想找歌、整理歌单，或看看听歌排行？",
+            placeholder = stringResource(Res.string.agent_chat_input_placeholder),
             modifier = Modifier.weight(1f),
             enabled = !running,
             onFocusChanged = onFocusChanged,
@@ -290,7 +295,7 @@ private fun ChatInputBar(
         ) {
             Icon(
                 painter = painterResource(Res.drawable.chevron_up),
-                contentDescription = "发送",
+                contentDescription = stringResource(Res.string.agent_chat_send),
                 modifier = Modifier.size(20.dp),
             )
         }

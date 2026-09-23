@@ -1,4 +1,9 @@
 package com.hearablemusic.player.ui.library.pages
+import com.hearablemusic.player.ui.generated.resources.home_explore
+import com.hearablemusic.player.ui.generated.resources.home_private_reco
+import com.hearablemusic.player.ui.generated.resources.home_recommended
+import com.hearablemusic.player.ui.generated.resources.home_today_reco
+import com.hearablemusic.player.ui.generated.resources.play_all
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -197,7 +202,7 @@ fun HomeScreen(
 
                                 // 为你推荐
                                 Text(
-                                    text = "为你推荐",
+                                    text = stringResource(Res.string.home_recommended),
                                     style = MaterialTheme.typography.titleLarge,
                                     color = MaterialTheme.colorScheme.onBackground
                                 )
@@ -237,7 +242,7 @@ fun HomeScreen(
 
                                 // 探索
                                 Text(
-                                    text = "探索",
+                                    text = stringResource(Res.string.home_explore),
                                     style = MaterialTheme.typography.titleLarge,
                                     color = MaterialTheme.colorScheme.onBackground
                                 )
@@ -267,7 +272,7 @@ fun HomeScreen(
                             onCardClick = onSlideCardClick,
                         )
                         Text(
-                            text = "为你推荐",
+                            text = stringResource(Res.string.home_recommended),
                             modifier = Modifier,
                             style = MaterialTheme.typography.titleLarge,
                             color = MaterialTheme.colorScheme.onBackground
@@ -355,8 +360,8 @@ private fun RecommendEntryCard(
 
     val ready = payload != null && payload.items.isNotEmpty()
     val title = when (source) {
-        RecommendSource.DAILY -> "今日推荐"
-        RecommendSource.PRIVATE -> "私人推荐"
+        RecommendSource.DAILY -> stringResource(Res.string.home_today_reco)
+        RecommendSource.PRIVATE -> stringResource(Res.string.home_private_reco)
     }
 
     // 容器对齐 TitleWidget / User·Setting 页卡片：透明底 + outlineVariant 50% 描边 + dimens.corner.md
@@ -396,7 +401,7 @@ private fun RecommendEntryCard(
             ) {
                 Icon(
                     painter = painterResource(Res.drawable.play_fill),
-                    contentDescription = "播放全部",
+                    contentDescription = stringResource(Res.string.play_all),
                 )
             }
         }

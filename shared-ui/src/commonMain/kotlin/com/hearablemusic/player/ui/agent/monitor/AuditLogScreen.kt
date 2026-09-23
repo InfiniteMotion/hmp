@@ -1,4 +1,19 @@
 package com.hearablemusic.player.ui.agent.monitor
+import com.hearablemusic.player.ui.common.text.UiText
+import com.hearablemusic.player.ui.common.text.asString
+import com.hearablemusic.player.ui.common.text.asUiText
+import com.hearablemusic.player.ui.generated.resources.Res
+import org.jetbrains.compose.resources.stringResource
+import com.hearablemusic.player.ui.generated.resources.agent_audit_title
+import com.hearablemusic.player.ui.generated.resources.agent_audit_empty
+import com.hearablemusic.player.ui.generated.resources.agent_audit_empty_detail
+import com.hearablemusic.player.ui.generated.resources.agent_audit_filter_all
+import com.hearablemusic.player.ui.generated.resources.agent_audit_filter_radio
+import com.hearablemusic.player.ui.generated.resources.agent_audit_filter_reorder
+import com.hearablemusic.player.ui.generated.resources.agent_audit_no_detail
+import com.hearablemusic.player.ui.generated.resources.agent_audit_args_hash
+import com.hearablemusic.player.ui.generated.resources.agent_audit_task_id
+import com.hearablemusic.player.ui.generated.resources.agent_audit_record_id
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -66,7 +81,7 @@ fun AuditLogScreen(
 
     SubScreen(
         onBackClick = { navController.removeLastOrNull() },
-        title = "操作审计日志",
+        title = stringResource(Res.string.agent_audit_title),
     ) {
         // F14-T1 自适应：竖屏/窄窗下列表限宽居中（~640dp），避免审计条目（时间/哈希/ID）行长过长；
         // 横屏改「筛选栏 + 列表」两栏 —— 筛选竖排到左rail，列表吃满剩余宽度（行内有哈希/ID，宽一点更易读）。
@@ -97,8 +112,8 @@ fun AuditLogScreen(
             Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
                 if (logs.isEmpty()) {
                     DefaultEmpty(
-                        message = "还没有审计记录",
-                        detail = "开始使用 AI 功能后这里会自动记录所有操作",
+                        message = stringResource(Res.string.agent_audit_empty),
+                        detail = stringResource(Res.string.agent_audit_empty_detail),
                         modifier = Modifier.fillMaxSize(),
                     )
                 } else {
@@ -127,8 +142,8 @@ fun AuditLogScreen(
 
             if (logs.isEmpty()) {
                 DefaultEmpty(
-                    message = "还没有审计记录",
-                    detail = "开始使用 AI 功能后这里会自动记录所有操作",
+                    message = stringResource(Res.string.agent_audit_empty),
+                    detail = stringResource(Res.string.agent_audit_empty_detail),
                     modifier = Modifier.fillMaxSize(),
                 )
             } else {
@@ -151,12 +166,12 @@ fun AuditLogScreen(
 // 筛选 Tab
 // ═══════════════════════════════════════════════════════════════
 
-private data class FilterTab(val label: String, val tool: String? = null)
+private data class FilterTab(val label: UiText, val tool: String? = null)
 
 private val filterTabs = listOf(
-    FilterTab("全部"),
-    FilterTab("电台操作", "radio.start"),
-    FilterTab("跳过重排", "radio.reorder"),
+    FilterTab(Res.string.agent_audit_filter_all.asUiText()),
+    FilterTab(Res.string.agent_audit_filter_radio.asUiText(), "radio.start"),
+    FilterTab(Res.string.agent_audit_filter_reorder.asUiText(), "radio.reorder"),
 )
 
 @Composable
@@ -185,7 +200,7 @@ private fun FilterRow(
                         onFilterSelected(AuditLogViewModel.Filter.ByTool(tab.tool))
                     }
                 },
-                label = { Text(tab.label) },
+                label = { Text(tab.label.asString()) },
             )
         }
     }
@@ -221,7 +236,7 @@ private fun FilterRail(
                         onFilterSelected(AuditLogViewModel.Filter.ByTool(tab.tool))
                     }
                 },
-                label = { Text(tab.label) },
+                label = { Text(tab.label.asString()) },
             )
         }
     }
@@ -283,27 +298,27 @@ private fun AuditLogRow(log: AgentAuditLog) {
             if (expanded) {
                 Spacer(Modifier.height(8.dp))
                 Text(
-                    text = log.reason ?: "(无详情)",
+                    text = log.reason ?: stringResource(Res.string.agent_audit_no_detail),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurface,
                 )
-                if (log.argsHash != null) {
+                log.argsHash?.let { argsHash ->
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        text = "参数哈希: ${log.argsHash}",
+                        text = stringResource(Res.string.agent_audit_args_hash, argsHash),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                if (log.taskId != null) {
+                log.taskId?.let { taskId ->
                     Text(
-                        text = "任务 ID: ${log.taskId}",
+                        text = stringResource(Res.string.agent_audit_task_id, taskId),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
                 Text(
-                    text = "记录 ID: ${log.id}",
+                    text = stringResource(Res.string.agent_audit_record_id, log.id),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

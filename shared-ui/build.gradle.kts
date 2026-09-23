@@ -87,8 +87,6 @@ kotlin {
             implementation(libs.androidx.core.ktx)
             implementation(libs.androidx.activity.compose)
 
-            implementation(libs.compose.ui.tooling.preview)
-
             // media3：@UnstableApi 注解（MusicControllerPlaybackAdapter）
             implementation(libs.androidx.media3.common)
 
@@ -101,9 +99,6 @@ kotlin {
             implementation(libs.material3.adaptive)
             implementation(libs.material3.adaptive.layout)
             implementation(libs.material3.adaptive.navigation)
-
-            // 原为 debugImplementation，KMP 源集无 debug 变体，并入 androidMain
-            implementation(libs.compose.ui.tooling)
         }
 
         // androidHostTest 源集无预生成访问器，用 getByName（AGP 9 KMP）

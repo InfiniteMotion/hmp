@@ -1,4 +1,10 @@
 package com.hearablemusic.player.ui.agent.cards
+import com.hearablemusic.player.ui.generated.resources.card_enrich_mixed_group
+import com.hearablemusic.player.ui.generated.resources.card_enrich_paused
+import com.hearablemusic.player.ui.generated.resources.card_enrich_progress
+import com.hearablemusic.player.ui.generated.resources.card_enrich_running
+import com.hearablemusic.player.ui.generated.resources.Res
+import org.jetbrains.compose.resources.stringResource
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -45,7 +51,7 @@ internal fun FamilyEnrichTrackingCard(
     val c = card.content as EnrichTrackingContent
     val pct = if (c.currentUnitSize > 0) (c.processed * 100 / c.currentUnitSize) else 0
     val isRunning = c.active
-    val artistLabel = c.currentArtist?.let { if (it == "MIXED_GROUP") "混合组" else it }
+    val artistLabel = c.currentArtist?.let { if (it == "MIXED_GROUP") stringResource(Res.string.card_enrich_mixed_group) else it }
     val chunkLabel = if (c.chunkTotal > 0) " · chunk ${c.chunkIndex}/${c.chunkTotal}" else ""
 
     // 点击手势统一处理（RadioStatus 同款）
@@ -96,7 +102,7 @@ internal fun FamilyEnrichTrackingCard(
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     // 标题
                     Text(
-                        text = if (isRunning) "富化进行中" else "富化已暂停",
+                        text = if (isRunning) stringResource(Res.string.card_enrich_running) else stringResource(Res.string.card_enrich_paused),
                         style = MaterialTheme.typography.headlineSmall,
                         color = if (isRunning) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
                         fontWeight = FontWeight.SemiBold,
@@ -128,7 +134,7 @@ internal fun FamilyEnrichTrackingCard(
                     )
                     Spacer(Modifier.height(8.dp))
                     Text(
-                        text = "处理 ${c.processed} · 成功 ${c.success} · 失败 ${c.failed} · ${pct}%",
+                        text = stringResource(Res.string.card_enrich_progress, c.processed, c.success, c.failed, pct),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )

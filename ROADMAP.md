@@ -337,7 +337,7 @@
 
 ### 计划中功能（v7.x 三大方向，详见「未来发展方向」）
 - 🔄 方向 A：KMP 重写 iOS UI（Compose 取代 SwiftUI）—— **主线已于 v7.1.0 完成**（iOS 已切共享层 Compose UI，SwiftUI 旧层删除）；剩余观感打磨 / 真机交互级核验
-- 🔄 方向 B：AI 功能 Agent 化（工具调用 + 编排）—— **F1–F13 已完成、F14 进行中（T1 UI 自适应已交付，T3/T2 待开工）；F10 语音会话挂起**（承载于 `feature/agent-build`，尚未合入 master）
+- 🔄 方向 B：AI 功能 Agent 化（工具调用 + 编排）—— **F1–F14 已完成（F14 于 2026-09-23 收口）；F10 语音会话挂起**（承载于 `feature/agent-build`，尚未合入 master）
 - 🔄 方向 C：播放增强（播放速度 / Gapless / ReplayGain / 交叉淡入 / Desktop 音效 / 格式扩展）
 - 🔄 桌面小组件 / 手势操作（README 既定承诺）
 
@@ -421,7 +421,7 @@
 
 **方向 B — AI 功能 Agent 化**
 > **进度（2026-09-18）**：**F1–F9 全部完成并收口**（B0-B6 + R/S/T/U/V/W/A0 各横切阶段）。F9 三笔交付：**T0 用户认识模块（画像，2026-09-16，契约 v3.8）** —— 归属 Master 定名 `UserMemory`，认领 `agent-architecture.md` 长期悬空的两处承诺（`偏好画像` / `AgentMemory`）与 `f5` 未闭环的「Feedback → Recall → 推荐闭环」，定稿为**两层画像**（侧写层 + 证据层，Room v6 两张表）+ **分级记忆 L1/L2/L3** + **认知准入标准**，据此**明确拒绝 MBTI 等类型学**；**A0 Capability 统一化**（2026-09-16）—— `Capability` 接口统一三个 SubAgent 能力面 + `CapabilityStatusTool` + 删除 8 个 DJ 遗留工具；**T1 听歌报告双轴筛选重构（2026-09-17）** —— `UserUsageDataScreen` 5 维度 × 5 时段窗口查询（方案 B：维度拆分 SQL、零内存聚合、零 Room 版本升级）+ `ForgottenDelivery` 遗忘唤醒；**T2 伙伴设置页（2026-09-18）** —— AI 页收拢为参数化 `AgentConfig(agentRole)` 单路由六分区。**语音会话（原 F9-T3/T4）已拆出为后续独立阶段 F10**：B6 里唯一真正新增的传输层，需真实端点验证，与报告/设置页无耦合，**独立 gate**（端点不可用即整体延期，v1 完整性不依赖语音）。契约见 [docs/7_x/B agent-build/design/agent-profile.md](docs/7_x/B%20agent-build/design/agent-profile.md)，推进记录见 [taskbook/README.md](docs/7_x/B%20agent-build/taskbook/README.md)。
-> **进度（2026-09-23 更新）**：方向 B 已推进至 **F14**（承载于 `feature/agent-build` 分支，相对 master 领先 21 个提交）。**F11 后台生命周期**（L1–L3/L5 主体完成，真机核验待手动）、**F12 Token 计量与窗口治理**（T1–T4 落地；T2b 配额候补 / T5 成本可见后置）、**F13 Agent 工作收尾**（可见性收敛 + DI 核对 + 测试补齐，`desktopTest` 961 例全绿）全部完成。**F14 界面自适应与多语言**进行中：**T1 UI 自适应 ✅ 已交付（2026-09-22）**；**T3 组件基建对齐 ⬜ / T2 字符串收拢 + 14 语言 ⬜ 待开工**（执行序 T1→T3→T2）。**F10 语音会话（RealtimeVoiceTransport）整体挂起**：独立阶段、与主线解耦，未开工，可整体延期。设计总纲见 [docs/7_x/B agent-build/design/agent.md](docs/7_x/B%20agent-build/design/agent.md)，推进计划见 [taskbook/README.md](docs/7_x/B%20agent-build/taskbook/README.md)。
+> **进度（2026-09-23 更新）**：方向 B 已推进至 **F14**（承载于 `feature/agent-build` 分支，相对 master 领先 40 个提交）。**F11 后台生命周期**（L1–L3/L5 主体完成，真机核验待手动）、**F12 Token 计量与窗口治理**（T1–T4 落地；T2b 配额候补 / T5 成本可见后置）、**F13 Agent 工作收尾**（可见性收敛 + DI 核对 + 测试补齐，`desktopTest` 961 例全绿）全部完成。**F14 界面自适应与多语言 ✅ 全部完成**（执行序 T1→T3→T2）：**T1 UI 自适应**（2026-09-22）、**T3 组件基建对齐**、**T2 字符串收拢 + 14 语言**（2026-09-23 收口 —— 累计 **305 新键**、14 语言各 **779 键**、键集合一致 + 占位符逐条校验、**agent 子树 UI 面向中文清零**，新增 `UiText` 设施）。**F10 语音会话（RealtimeVoiceTransport）整体挂起**：独立阶段、与主线解耦，未开工，可整体延期。设计总纲见 [docs/7_x/B agent-build/design/agent.md](docs/7_x/B%20agent-build/design/agent.md)，推进计划见 [taskbook/README.md](docs/7_x/B%20agent-build/taskbook/README.md)。
 > **进度（2026-09-01）**：B0-B4 + R + S + **T** 代码层全完成（M0-M4 + R 债务清零 + S 工具层终局 27 原子工具 + T 阶段 Master 内核/Enrich SubAgent/权限体系/四层组件解耦）。**T 阶段代码层 8/8 退出条件达成**（E1/E2 待手动冒烟，E4 开发阶段放开额度）——四层组件 LlmCallExecutor/ToolCallExecutor/ReActLoop/StopSignal 彻底解耦，权限体系简化 9→6 概念（TrustTier→trustLevel Int、AgentPolicyConfig 2 字段、TrustLedger 复活），AgentPolicyConfig DataStore 三端持久化闭环，EnrichSubAgent 接入 ToolCallExecutor + PolicyGuard（不再 DirectToolExecutor 裸跑），ConfirmGate "总是允许" UI 全链路。审计页/撤销、本地化横切待跟进。
 - OpenAiCompatibleAdapter 扩展 tools（function-calling）与 SSE 流式；现有 5 家服务商均走 OpenAI 兼容协议，协议层只改一处
 - shared domain 层新增 AgentOrchestrator：本地工具注册表（曲库检索/听歌统计/歌单管理/播放控制）+ agent loop + 护栏（破坏性操作 UI 确认、工具白名单、步数上限）
@@ -434,7 +434,7 @@
 - 格式支持：三端白名单统一到 commonMain 常量；Desktop 放行 DSD/APE/WV（FFmpeg 原生可解）；iOS 补 opus
 - 进阶（待评估）：bit-perfect 输出（WASAPI 独占等，发烧友向）
 
-**版本编排**：**7.1.0 已发布**（方向 A 主线全量完成 + C 批 1）→ 7.2 收尾打磨（A 残留观感 / 真机交互核验 + C 批 2）→ 7.3 智能化（方向 B，**F1–F13 已完成、F14 进行中（T1 已交付，T3/T2 待开工）；F10 语音会话挂起**）→ 7.4 遗留清理
+**版本编排**：**7.1.0 已发布**（方向 A 主线全量完成 + C 批 1）→ 7.2 收尾打磨（A 残留观感 / 真机交互核验 + C 批 2）→ 7.3 智能化（方向 B，**F1–F14 已完成；F10 语音会话挂起**）→ 7.4 遗留清理
 
 ### 中期目标
 1. 桌面小组件与手势操作（README 既定承诺，穿插于 v7.x）
@@ -449,7 +449,7 @@
 
 **最后更新时间**: 2026-09-23
 **当前版本**: v7.1.0（已发布）
-**开发中（未发布）**: 7.3 方向 B —— Agent 化 F1–F14（F1–F13 完成，F14 进行中；F10 语音会话挂起），承载于 `feature/agent-build` 分支，尚未合入 master / 未发版
+**开发中（未发布）**: 7.3 方向 B —— Agent 化 F1–F14（**F1–F14 全部完成**；F10 语音会话挂起），承载于 `feature/agent-build` 分支，尚未合入 master / 未发版
 
 ---
 

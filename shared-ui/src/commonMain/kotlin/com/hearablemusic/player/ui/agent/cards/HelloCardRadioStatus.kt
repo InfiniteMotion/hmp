@@ -1,4 +1,18 @@
 package com.hearablemusic.player.ui.agent.cards
+import com.hearablemusic.player.ui.generated.resources.card_radio_candidate
+import com.hearablemusic.player.ui.generated.resources.card_radio_continuing
+import com.hearablemusic.player.ui.generated.resources.card_radio_enrich_optimizing
+import com.hearablemusic.player.ui.generated.resources.card_radio_next
+import com.hearablemusic.player.ui.generated.resources.card_radio_paused
+import com.hearablemusic.player.ui.generated.resources.card_radio_playing
+import com.hearablemusic.player.ui.generated.resources.card_radio_reorder_skipped
+import com.hearablemusic.player.ui.generated.resources.card_radio_theme_ready
+import com.hearablemusic.player.ui.generated.resources.card_radio_title_default
+import com.hearablemusic.player.ui.generated.resources.card_radio_title_theme
+import com.hearablemusic.player.ui.generated.resources.card_radio_upcoming
+import com.hearablemusic.player.ui.generated.resources.card_radio_why
+import org.jetbrains.compose.resources.getString
+import org.jetbrains.compose.resources.stringResource
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -49,9 +63,17 @@ import org.koin.compose.koinInject
 
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
+/**
+ * 主播按语的机械标签黑名单 —— 这些是**上游下发的内部标记**（非自然语言），不上 UI。
+ * 属数据约定值（与 `RadioSubAgent` 的 `why` 字段同源），**不参与本地化**。
+ */
+private const val WHY_TAG_MATCH_PREFIX = "标签匹配"
+
+private val MECHANICAL_WHY_TAGS =
+    setOf("在播", "在播·电台起点", "电台续播", "热门曲目", "补充曲目")
+
 private fun hostWhy(why: String?): String? = why?.takeIf {
-    it.isNotBlank() && !it.startsWith("标签匹配") &&
-        it !in setOf("在播", "在播·电台起点", "电台续播", "热门曲目", "补充曲目")
+    it.isNotBlank() && !it.startsWith(WHY_TAG_MATCH_PREFIX) && it !in MECHANICAL_WHY_TAGS
 }
 
 internal suspend fun buildRadioStatusCard(
@@ -115,7 +137,7 @@ internal suspend fun buildRadioStatusCard(
                 type = SlideType.RADIO_STATUS,
                 content = RadioStatusContent(
                     stationTheme = stationTheme,
-                    actionText = "播放中",
+                    actionText = getString(Res.string.card_radio_playing),
                     nowPlayingTitle = currentTitle,
                     nowPlayingArtist = currentArtist,
                     albumArtUri = albumArtUri,
@@ -144,7 +166,7 @@ internal suspend fun buildRadioStatusCard(
                 type = SlideType.RADIO_STATUS,
                 content = RadioStatusContent(
                     stationTheme = stationTheme,
-                    actionText = "已暂停",
+                    actionText = getString(Res.string.card_radio_paused),
                     nowPlayingTitle = nowPlaying?.currentMusicInfo?.music?.title
                         ?: nowPlayingTrack?.title,
                     nowPlayingArtist = nowPlaying?.currentMusicInfo?.music?.artist
@@ -230,7 +252,9 @@ internal fun FamilyRadioStatusCard(
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
                 // —— 顶部主题栏（横跨全宽）——
-                val titleMain = c.stationTheme?.let { "${it}电台" } ?: "电台"
+                val titleMain = c.stationTheme?.let {
+                    stringResource(Res.string.card_radio_title_theme, it)
+                } ?: stringResource(Res.string.card_radio_title_default)
                 Text(
                     text = "$titleMain · ${c.actionText}",
                     color = Color.White,
@@ -324,7 +348,7 @@ internal fun FamilyRadioStatusCard(
                             c.nowPlayingTitle?.let {
                                 Spacer(Modifier.height(6.dp))
                                 Text(
-                                    text = "候选：$it",
+                                    text = stringResource(Res.string.card_radio_candidate, it),
                                     color = Color.White.copy(alpha = 0.55f),
                                     fontSize = 11.sp,
                                     maxLines = 1,
@@ -337,7 +361,7 @@ internal fun FamilyRadioStatusCard(
                             // 整段的编排思路（lastAdjust）是主播内部工作记忆，不上 UI。
                             c.nowPlayingWhy?.let { why ->
                                 Text(
-                                    text = "「$why」",
+                                    text = stringResource(Res.string.card_radio_why, why),
                                     color = Color.White,
                                     fontSize = 15.sp,
                                     fontWeight = FontWeight.Medium,
@@ -351,7 +375,7 @@ internal fun FamilyRadioStatusCard(
                             // 队列动态：待播数与下一首分行（下一首本地推断兜底）
                             if (radioCard.upcomingCount > 0) {
                                 Text(
-                                    text = "还有 ${radioCard.upcomingCount} 首待播",
+                                    text = stringResource(Res.string.card_radio_upcoming, radioCard.upcomingCount),
                                     color = Color.White.copy(alpha = 0.7f),
                                     fontSize = 12.sp,
                                     maxLines = 1,
@@ -361,7 +385,7 @@ internal fun FamilyRadioStatusCard(
                             }
                             (radioCard.nextTitle ?: c.nextTrackTitle)?.let {
                                 Text(
-                                    text = "下一首：$it",
+                                    text = stringResource(Res.string.card_radio_next, it),
                                     color = Color.White.copy(alpha = 0.85f),
                                     fontSize = 12.sp,
                                     maxLines = 1,
@@ -374,13 +398,13 @@ internal fun FamilyRadioStatusCard(
                             radioMessage?.let { msg ->
                                 val msgText = when (msg) {
                                     is RadioMessage.ReorderSkipped ->
-                                        "跳过 ${msg.count} 首，正在重选..."
+                                        stringResource(Res.string.card_radio_reorder_skipped, msg.count)
                                     is RadioMessage.EnrichOptimizing ->
-                                        "AI 正在优化歌单..."
+                                        stringResource(Res.string.card_radio_enrich_optimizing)
                                     is RadioMessage.TrackContinuing ->
-                                        "续播「${msg.title}」"
+                                        stringResource(Res.string.card_radio_continuing, msg.title)
                                     is RadioMessage.ThemeChanged ->
-                                        "${msg.theme} 已就绪"
+                                        stringResource(Res.string.card_radio_theme_ready, msg.theme)
                                 }
                                 Text(
                                     text = msgText,

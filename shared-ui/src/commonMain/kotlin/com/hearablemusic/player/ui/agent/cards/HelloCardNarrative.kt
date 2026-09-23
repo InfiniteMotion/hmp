@@ -26,9 +26,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.hearablemusic.player.ui.common.text.asString
+import com.hearablemusic.player.ui.generated.resources.Res
+import com.hearablemusic.player.ui.generated.resources.card_narrative_avg_daily
 import com.hmp.domain.agent.card.NarrativeContent
 import com.hmp.domain.agent.card.SlideCard
 import com.hmp.domain.agent.card.zhName
+import org.jetbrains.compose.resources.stringResource
 
 
 
@@ -100,7 +104,7 @@ internal fun FamilyNarrativeCard(
                             fontWeight = FontWeight.Medium,
                         )
                         Text(
-                            text = formatGeneratedAgo(c.generatedAt),
+                            text = formatGeneratedAgo(c.generatedAt)?.asString().orEmpty(),
                             color = Color.White.copy(alpha = 0.45f),
                             fontSize = 10.sp,
                             modifier = Modifier
@@ -127,7 +131,7 @@ internal fun FamilyNarrativeCard(
                 if (avg != null && avg > 0f) {
                     Spacer(Modifier.height(18.dp))
                     Text(
-                        text = "日均听歌 ${formatAvgMinutes(avg)}",
+                        text = stringResource(Res.string.card_narrative_avg_daily, formatAvgMinutes(avg).asString()),
                         color = Color.White.copy(alpha = 0.5f),
                         fontSize = 11.sp,
                     )

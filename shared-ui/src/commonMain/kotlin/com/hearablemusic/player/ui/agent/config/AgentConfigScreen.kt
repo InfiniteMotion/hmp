@@ -1,4 +1,99 @@
 package com.hearablemusic.player.ui.agent.config
+import com.hearablemusic.player.ui.common.text.UiText
+import com.hearablemusic.player.ui.common.text.asString
+import com.hearablemusic.player.ui.common.text.asUiText
+import com.hearablemusic.player.ui.generated.resources.agent_ai_collapse
+import com.hearablemusic.player.ui.generated.resources.agent_ai_lang_auto
+import com.hearablemusic.player.ui.generated.resources.agent_ai_lang_en
+import com.hearablemusic.player.ui.generated.resources.agent_ai_lang_zh
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_all_default
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_always_allow_count
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_auto_renew
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_builtin
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_change_global_hint
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_config_suffix
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_count_tracks
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_customized_count
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_daily_count
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_daily_count_value
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_desc_enrich
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_desc_hello
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_desc_master
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_desc_radio
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_disabled_hint
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_discard_changes
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_edit
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_effective_lang
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_endpoint_config
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_endpoint_custom
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_endpoint_url_label
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_endpoint_value
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_following_global
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_hello_prompt_desc
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_lang_desc
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_lang_follow_global
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_lang_follow_global_default
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_lang_follow_system
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_lang_global_auto
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_lang_global_en
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_lang_global_zh
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_language
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_loading
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_missing_placeholder
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_model_label
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_model_value
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_placeholder_default
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_placeholders_needed
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_playlist_len
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_prompt_desc
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_radio_params
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_reco_params
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_restore_default
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_restore_factory
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_save
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_status_default
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_status_overridden
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_status_unsaved
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_step_budget
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_step_budget_value
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_target_count
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_target_cov
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_temperature
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_trust_act
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_trust_desc
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_trust_silent
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_trust_suggest
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_trust_title
+import com.hearablemusic.player.ui.generated.resources.Res
+import com.hearablemusic.player.ui.generated.resources.agent_hello_forgotten_card
+import com.hearablemusic.player.ui.generated.resources.agent_hello_forgotten_card_hint
+import com.hearablemusic.player.ui.generated.resources.agent_hello_forgotten_essay
+import com.hearablemusic.player.ui.generated.resources.agent_hello_forgotten_essay_hint
+import com.hearablemusic.player.ui.generated.resources.agent_hello_greeting_artist
+import com.hearablemusic.player.ui.generated.resources.agent_hello_greeting_artist_hint
+import com.hearablemusic.player.ui.generated.resources.agent_hello_greeting_fact
+import com.hearablemusic.player.ui.generated.resources.agent_hello_greeting_fact_hint
+import com.hearablemusic.player.ui.generated.resources.agent_hello_greeting_history
+import com.hearablemusic.player.ui.generated.resources.agent_hello_greeting_history_hint
+import com.hearablemusic.player.ui.generated.resources.agent_hello_greeting_listen
+import com.hearablemusic.player.ui.generated.resources.agent_hello_greeting_listen_hint
+import com.hearablemusic.player.ui.generated.resources.agent_hello_greeting_lyric_gold
+import com.hearablemusic.player.ui.generated.resources.agent_hello_greeting_lyric_gold_hint
+import com.hearablemusic.player.ui.generated.resources.agent_hello_greeting_quote
+import com.hearablemusic.player.ui.generated.resources.agent_hello_greeting_quote_hint
+import com.hearablemusic.player.ui.generated.resources.agent_hello_greeting_story
+import com.hearablemusic.player.ui.generated.resources.agent_hello_greeting_story_hint
+import com.hearablemusic.player.ui.generated.resources.agent_hello_group_forgotten
+import com.hearablemusic.player.ui.generated.resources.agent_hello_group_greeting
+import com.hearablemusic.player.ui.generated.resources.agent_hello_group_recommend
+import com.hearablemusic.player.ui.generated.resources.agent_hello_recommend_full
+import com.hearablemusic.player.ui.generated.resources.agent_hello_recommend_full_hint
+import com.hearablemusic.player.ui.generated.resources.agent_hello_recommend_list
+import com.hearablemusic.player.ui.generated.resources.agent_hello_recommend_list_hint
+import com.hearablemusic.player.ui.generated.resources.agent_hello_recommend_short
+import com.hearablemusic.player.ui.generated.resources.agent_hello_recommend_short_hint
+import org.jetbrains.compose.resources.StringResource
+import org.jetbrains.compose.resources.stringResource
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -283,7 +378,7 @@ fun AgentConfigScreen(
 
     SubScreen(
         onBackClick = { navController.removeLastOrNull() },
-        title = "${agentLabelFor(agentRole)} · 配置",
+        title = agentLabelFor(agentRole) + stringResource(Res.string.agent_cfg_config_suffix),
     ) {
         val dimens = LocalHMPDimens.current
         // F14-T1 自适应：竖屏/窄窗单栏限宽居中；横屏（手机横屏 / 平板、桌面宽窗）改双栏，
@@ -407,8 +502,8 @@ fun AgentConfigScreen(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    Button(onClick = reset, modifier = Modifier.weight(1f)) { Text("恢复默认") }
-                    Button(onClick = save, modifier = Modifier.weight(1f)) { Text("保存") }
+                    Button(onClick = reset, modifier = Modifier.weight(1f)) { Text(stringResource(Res.string.agent_cfg_restore_default)) }
+                    Button(onClick = save, modifier = Modifier.weight(1f)) { Text(stringResource(Res.string.agent_cfg_save)) }
                 }
             }
         }
@@ -432,20 +527,20 @@ fun AgentConfigScreen(
                     Switch(checked = agentEnabled, onCheckedChange = { agentEnabled = it })
                 }
                 Spacer(Modifier.height(8.dp))
-                Text("关闭后不再运行。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(stringResource(Res.string.agent_cfg_disabled_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
 
             // ═══ ② 模型与语言（所有 Agent 都有）═══
             HMPCard {
-                Text("语言", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text(stringResource(Res.string.agent_cfg_language), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(8.dp))
                 SegmentedControl(
                     modifier = Modifier.fillMaxWidth(),
                     options = listOf(
-                        SegmentedOption("global", "跟随全局"),
-                        SegmentedOption("zh", "中文"),
-                        SegmentedOption("en", "English"),
-                        SegmentedOption("auto", "Auto"),
+                        SegmentedOption("global", stringResource(Res.string.agent_cfg_lang_follow_global)),
+                        SegmentedOption("zh", stringResource(Res.string.agent_ai_lang_zh)),
+                        SegmentedOption("en", stringResource(Res.string.agent_ai_lang_en)),
+                        SegmentedOption("auto", stringResource(Res.string.agent_ai_lang_auto)),
                     ),
                     selectedOption = preferredLang,
                     onOptionSelected = { newLang ->
@@ -474,12 +569,12 @@ fun AgentConfigScreen(
                 )
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    "此 Agent 的回复语言。「跟随全局」用全局设置里的回复语言。",
+                    stringResource(Res.string.agent_cfg_lang_desc),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(Modifier.height(16.dp))
-                Text("采样温度", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text(stringResource(Res.string.agent_cfg_temperature), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(8.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Slider(
@@ -495,13 +590,13 @@ fun AgentConfigScreen(
 
             // ═══ ③ AI 端点配置（所有 Agent 都有 —— per-Agent 独立 endpoint）═══
             HMPCard {
-                Text("AI 端点配置", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text(stringResource(Res.string.agent_cfg_endpoint_config), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(8.dp))
                 SegmentedControl(
                     modifier = Modifier.fillMaxWidth(),
                     options = listOf(
-                        SegmentedOption("global", "跟随全局默认"),
-                        SegmentedOption("custom", "独立端点"),
+                        SegmentedOption("global", stringResource(Res.string.agent_cfg_lang_follow_global_default)),
+                        SegmentedOption("custom", stringResource(Res.string.agent_cfg_endpoint_custom)),
                     ),
                     selectedOption = if (useCustomEndpoint) "custom" else "global",
                     onOptionSelected = { useCustomEndpoint = it == "custom" },
@@ -511,7 +606,7 @@ fun AgentConfigScreen(
                     OutlinedTextField(
                         value = customEndpoint,
                         onValueChange = { customEndpoint = it },
-                        label = { Text("端点 URL") },
+                        label = { Text(stringResource(Res.string.agent_cfg_endpoint_url_label)) },
                         modifier = Modifier.fillMaxWidth(),
                         placeholder = { Text("https://api.deepseek.com/v1") },
                     )
@@ -527,30 +622,30 @@ fun AgentConfigScreen(
                     OutlinedTextField(
                         value = customModel,
                         onValueChange = { customModel = it },
-                        label = { Text("模型") },
+                        label = { Text(stringResource(Res.string.agent_cfg_model_label)) },
                         modifier = Modifier.fillMaxWidth(),
                         placeholder = { Text("deepseek-chat / gpt-4o-mini / ...") },
                     )
                 } else {
                     // 全局默认只读预览（异步加载，加载完成前显示占位）
                     Text(
-                        "当前跟随全局 AI 设置",
+                        stringResource(Res.string.agent_cfg_following_global),
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Medium
                     )
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        if (!endpointLoaded) "读取中…"
+                        if (!endpointLoaded) stringResource(Res.string.agent_cfg_loading)
                         else buildString {
-                            append("端点: ${if (globalEndpoint.endpoint.isNotBlank()) globalEndpoint.endpoint else "(内置)"}")
-                            if (globalEndpoint.selectedModel.isNotBlank()) append("  ·  模型: ${globalEndpoint.selectedModel}")
+                            append(stringResource(Res.string.agent_cfg_endpoint_value, if (globalEndpoint.endpoint.isNotBlank()) globalEndpoint.endpoint else stringResource(Res.string.agent_cfg_builtin)))
+                            if (globalEndpoint.selectedModel.isNotBlank()) append(stringResource(Res.string.agent_cfg_model_value, globalEndpoint.selectedModel))
                         },
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        "改全局默认请前往 AI 设置。",
+                        stringResource(Res.string.agent_cfg_change_global_hint),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -559,10 +654,10 @@ fun AgentConfigScreen(
 
             // ═══ ④ 信任与权限（所有 Agent 各自持有 trustLevel）═══
             HMPCard {
-                Text("权限与信任", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text(stringResource(Res.string.agent_cfg_trust_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(8.dp))
                 Text(
-                    "决定此 Agent 能自动执行哪些工具操作。",
+                    stringResource(Res.string.agent_cfg_trust_desc),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -570,16 +665,16 @@ fun AgentConfigScreen(
                 SegmentedControl(
                     modifier = Modifier.fillMaxWidth(),
                     options = listOf(
-                        SegmentedOption(TrustLevel.SUGGEST.toString(), "谨慎"),
-                        SegmentedOption(TrustLevel.ACT.toString(), "代劳"),
-                        SegmentedOption(TrustLevel.SILENT.toString(), "静默"),
+                        SegmentedOption(TrustLevel.SUGGEST.toString(), stringResource(Res.string.agent_cfg_trust_suggest)),
+                        SegmentedOption(TrustLevel.ACT.toString(), stringResource(Res.string.agent_cfg_trust_act)),
+                        SegmentedOption(TrustLevel.SILENT.toString(), stringResource(Res.string.agent_cfg_trust_silent)),
                     ),
                     selectedOption = trustLevel.toString(),
                     onOptionSelected = { trustLevel = it.toIntOrNull() ?: TrustLevel.SUGGEST },
                 )
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    "已授权免确认工具：${policyConfig.alwaysAllow.size} 项",
+                    stringResource(Res.string.agent_cfg_always_allow_count, policyConfig.alwaysAllow.size),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -587,7 +682,7 @@ fun AgentConfigScreen(
                 // Master 专属：执行预算（并入本组 —— 同属"我可以自己做到什么程度"）
                 if (agentRole == "master") {
                     Spacer(Modifier.height(16.dp))
-                    Text("步数预算", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text(stringResource(Res.string.agent_cfg_step_budget), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     Spacer(Modifier.height(8.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Slider(
@@ -598,7 +693,7 @@ fun AgentConfigScreen(
                             modifier = Modifier.weight(1f),
                         )
                         Spacer(Modifier.width(8.dp))
-                        Text("$stepBudget 步", modifier = Modifier.width(48.dp))
+                        Text(stringResource(Res.string.agent_cfg_step_budget_value, stepBudget), modifier = Modifier.width(48.dp))
                     }
                 }
             }
@@ -606,9 +701,9 @@ fun AgentConfigScreen(
             // ═══ ⑤ 专属参数（按 agent 能力差异化）═══
             if (agentRole == "hello") {
                 HMPCard {
-                    Text("推荐卡参数", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text(stringResource(Res.string.agent_cfg_reco_params), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     Spacer(Modifier.height(12.dp))
-                    Text("每日数量")
+                    Text(stringResource(Res.string.agent_cfg_daily_count))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Slider(
                             value = dailyRecommendCount.toFloat(),
@@ -617,10 +712,10 @@ fun AgentConfigScreen(
                             steps = 3,
                             modifier = Modifier.weight(1f),
                         )
-                        Text("$dailyRecommendCount 张")
+                        Text(stringResource(Res.string.agent_cfg_daily_count_value, dailyRecommendCount))
                     }
                     Spacer(Modifier.height(8.dp))
-                    Text("歌单长度")
+                    Text(stringResource(Res.string.agent_cfg_playlist_len))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Slider(
                             value = recommendListSize.toFloat(),
@@ -629,14 +724,14 @@ fun AgentConfigScreen(
                             steps = 14,
                             modifier = Modifier.weight(1f),
                         )
-                        Text("$recommendListSize 首")
+                        Text(stringResource(Res.string.agent_cfg_count_tracks, recommendListSize))
                     }
                 }
             }
 
             if (agentRole == "enrich") {
                 HMPCard {
-                    Text("目标覆盖率", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text(stringResource(Res.string.agent_cfg_target_cov), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     Spacer(Modifier.height(8.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Slider(
@@ -653,9 +748,9 @@ fun AgentConfigScreen(
 
             if (agentRole == "radio") {
                 HMPCard {
-                    Text("电台参数", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text(stringResource(Res.string.agent_cfg_radio_params), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     Spacer(Modifier.height(12.dp))
-                    Text("目标曲目数")
+                    Text(stringResource(Res.string.agent_cfg_target_count))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Slider(
                             value = targetCount.toFloat(),
@@ -664,7 +759,7 @@ fun AgentConfigScreen(
                             steps = 21,
                             modifier = Modifier.weight(1f),
                         )
-                        Text("$targetCount 首")
+                        Text(stringResource(Res.string.agent_cfg_count_tracks, targetCount))
                     }
                     Spacer(Modifier.height(12.dp))
                     Row(
@@ -672,7 +767,7 @@ fun AgentConfigScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text("自动续歌")
+                        Text(stringResource(Res.string.agent_cfg_auto_renew))
                         Switch(checked = autoRenew, onCheckedChange = { autoRenew = it })
                     }
                 }
@@ -681,13 +776,13 @@ fun AgentConfigScreen(
             // ═══ ⑥ System Prompt ═══
             // 值推导：生效语言提示 + 出厂默认（供恢复/比对）
             val effectiveLang = when (preferredLang) {
-                "zh" -> "中文"
-                "en" -> "English"
-                "auto" -> "跟随系统"
+                "zh" -> stringResource(Res.string.agent_ai_lang_zh)
+                "en" -> stringResource(Res.string.agent_ai_lang_en)
+                "auto" -> stringResource(Res.string.agent_cfg_lang_follow_system)
                 else -> when (globalReplyLang) {  // "global"
-                    "en" -> "跟随全局（English）"
-                    "auto" -> "跟随全局（Auto）"
-                    else -> "跟随全局（中文）"
+                    "en" -> stringResource(Res.string.agent_cfg_lang_global_en)
+                    "auto" -> stringResource(Res.string.agent_cfg_lang_global_auto)
+                    else -> stringResource(Res.string.agent_cfg_lang_global_zh)
                 }
             }
 
@@ -704,14 +799,14 @@ fun AgentConfigScreen(
                     ) {
                         Text("System Prompt", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                         Text(
-                            if (overriddenCount > 0) "$overriddenCount/${helloEntries.size} 已自定义" else "全部出厂默认",
+                            if (overriddenCount > 0) stringResource(Res.string.agent_cfg_customized_count, overriddenCount, helloEntries.size) else stringResource(Res.string.agent_cfg_all_default),
                             style = MaterialTheme.typography.labelSmall,
                             color = if (overriddenCount > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        "每类卡片各有自己的 prompt，可逐项修改。生效语言: $effectiveLang",
+                        stringResource(Res.string.agent_cfg_hello_prompt_desc, effectiveLang),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -719,7 +814,7 @@ fun AgentConfigScreen(
                     helloPromptGroups().forEach { (groupName, entries) ->
                         Spacer(Modifier.height(14.dp))
                         Text(
-                            groupName,
+                            groupName.asString(),
                             style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.onSurface,
@@ -744,12 +839,12 @@ fun AgentConfigScreen(
                                 ) {
                                     Column(modifier = Modifier.weight(1f)) {
                                         Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Text(entry.label, style = MaterialTheme.typography.bodyMedium)
+                                            Text(entry.label.asString(), style = MaterialTheme.typography.bodyMedium)
                                             Spacer(Modifier.width(6.dp))
                                             val badge = when {
-                                                changed -> "未保存"
-                                                overridden -> "已自定义"
-                                                else -> "默认"
+                                                changed -> stringResource(Res.string.agent_cfg_status_unsaved)
+                                                overridden -> stringResource(Res.string.agent_cfg_status_overridden)
+                                                else -> stringResource(Res.string.agent_cfg_status_default)
                                             }
                                             Text(
                                                 badge,
@@ -762,13 +857,13 @@ fun AgentConfigScreen(
                                             )
                                         }
                                         Text(
-                                            entry.hint,
+                                            entry.hint.asString(),
                                             style = MaterialTheme.typography.labelSmall,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         )
                                     }
                                     Text(
-                                        if (isOpen) "收起" else "编辑",
+                                        if (isOpen) stringResource(Res.string.agent_ai_collapse) else stringResource(Res.string.agent_cfg_edit),
                                         style = MaterialTheme.typography.labelMedium,
                                         color = MaterialTheme.colorScheme.primary,
                                     )
@@ -786,7 +881,7 @@ fun AgentConfigScreen(
                                             .widthIn(max = wideRowMaxWidth)
                                             .fillMaxWidth()
                                             .height(180.dp),
-                                        placeholder = { Text("留空 = 使用出厂默认") },
+                                        placeholder = { Text(stringResource(Res.string.agent_cfg_placeholder_default)) },
                                     )
                                     Spacer(Modifier.height(4.dp))
                                     Row(
@@ -796,13 +891,13 @@ fun AgentConfigScreen(
                                         androidx.compose.material3.TextButton(onClick = {
                                             multiPromptTexts = multiPromptTexts + (entry.key to factory)
                                             multiPromptDirty = multiPromptDirty + entry.key
-                                        }) { Text("恢复默认") }
+                                        }) { Text(stringResource(Res.string.agent_cfg_restore_default)) }
                                         if (changed) {
                                             androidx.compose.material3.TextButton(onClick = {
                                                 multiPromptTexts = multiPromptTexts +
                                                     (entry.key to (resolved.promptOverrides[entry.key] ?: factory))
                                                 multiPromptDirty = multiPromptDirty - entry.key
-                                            }) { Text("放弃改动") }
+                                            }) { Text(stringResource(Res.string.agent_cfg_discard_changes)) }
                                         }
                                     }
                                 }
@@ -821,20 +916,20 @@ fun AgentConfigScreen(
                     ) {
                         Text("System Prompt", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                         Text(
-                            if (hasOverride) "已自定义" else "出厂默认",
+                            if (hasOverride) stringResource(Res.string.agent_cfg_status_overridden) else stringResource(Res.string.agent_cfg_status_default),
                             style = MaterialTheme.typography.labelSmall,
                             color = if (hasOverride) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        "此 Agent 当前生效的 prompt，可直接编辑。清空或改回与默认一致即恢复默认。",
+                        stringResource(Res.string.agent_cfg_prompt_desc),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Spacer(Modifier.height(8.dp))
                     Text(
-                        "生效语言: $effectiveLang",
+                        stringResource(Res.string.agent_cfg_effective_lang, effectiveLang),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -847,7 +942,7 @@ fun AgentConfigScreen(
                             .widthIn(max = wideRowMaxWidth)
                             .fillMaxWidth()
                             .height(220.dp),
-                        placeholder = { Text("留空 = 使用出厂默认") },
+                        placeholder = { Text(stringResource(Res.string.agent_cfg_placeholder_default)) },
                     )
 
                     // 占位符护栏（编辑时实时显示）—— 以出厂默认模板为基准
@@ -858,7 +953,7 @@ fun AgentConfigScreen(
                             val missing = requiredPlaceholders.filter { !systemPrompt.contains("{{$it}}") }
                             Spacer(Modifier.height(4.dp))
                             Text(
-                                "需要的占位符 (${userHas.size}/${requiredPlaceholders.size})：",
+                                stringResource(Res.string.agent_cfg_placeholders_needed, userHas.size, requiredPlaceholders.size),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -872,7 +967,7 @@ fun AgentConfigScreen(
                             )
                             if (missing.isNotEmpty()) {
                                 Text(
-                                    "⚠️ 缺少 ${{ missing.joinToString(", ") { "{{$it}}" } }}，保存后将恢复默认。",
+                                    stringResource(Res.string.agent_cfg_missing_placeholder, missing.joinToString(", ") { "{{$it}}" }),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.error
                                 )
@@ -887,19 +982,19 @@ fun AgentConfigScreen(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         val templateLang = when (preferredLang) {
-                            "en" -> "English"
-                            else -> "中文"
+                            "en" -> stringResource(Res.string.agent_ai_lang_en)
+                            else -> stringResource(Res.string.agent_ai_lang_zh)
                         }
                         androidx.compose.material3.TextButton(
                             onClick = { systemPrompt = factoryPrompt; promptDirty = true }
                         ) {
-                            Text("恢复出厂默认 ($templateLang)")
+                            Text(stringResource(Res.string.agent_cfg_restore_factory, templateLang))
                         }
                         if (promptDirty || hasOverride) {
                             androidx.compose.material3.TextButton(
                                 onClick = { systemPrompt = factoryPrompt; promptDirty = false }
                             ) {
-                                Text("放弃改动")
+                                Text(stringResource(Res.string.agent_cfg_discard_changes))
                             }
                         }
                     }
@@ -911,8 +1006,8 @@ fun AgentConfigScreen(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                Button(onClick = reset, modifier = Modifier.weight(1f)) { Text("恢复默认") }
-                Button(onClick = save, modifier = Modifier.weight(1f)) { Text("保存") }
+                Button(onClick = reset, modifier = Modifier.weight(1f)) { Text(stringResource(Res.string.agent_cfg_restore_default)) }
+                Button(onClick = save, modifier = Modifier.weight(1f)) { Text(stringResource(Res.string.agent_cfg_save)) }
             }
             // 给全局悬浮音乐胶囊预留底部空间
             MiniPlayerSafeSpacer(height = 56.dp)
@@ -976,32 +1071,32 @@ private fun ConfigFormLeftColumn(
             Switch(checked = agentEnabled, onCheckedChange = onAgentEnabledChange)
         }
         Spacer(Modifier.height(8.dp))
-        Text("关闭后不再运行。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(stringResource(Res.string.agent_cfg_disabled_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 
     // ═══ ② 模型与语言 ═══
     HMPCard {
-        Text("语言", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        Text(stringResource(Res.string.agent_cfg_language), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(8.dp))
         SegmentedControl(
             modifier = Modifier.fillMaxWidth(),
             options = listOf(
-                SegmentedOption("global", "跟随全局"),
-                SegmentedOption("zh", "中文"),
-                SegmentedOption("en", "English"),
-                SegmentedOption("auto", "Auto"),
+                SegmentedOption("global", stringResource(Res.string.agent_cfg_lang_follow_global)),
+                SegmentedOption("zh", stringResource(Res.string.agent_ai_lang_zh)),
+                SegmentedOption("en", stringResource(Res.string.agent_ai_lang_en)),
+                SegmentedOption("auto", stringResource(Res.string.agent_ai_lang_auto)),
             ),
             selectedOption = preferredLang,
             onOptionSelected = onPreferredLangSelected,
         )
         Spacer(Modifier.height(4.dp))
         Text(
-            "此 Agent 的回复语言。「跟随全局」用全局设置里的回复语言。",
+            stringResource(Res.string.agent_cfg_lang_desc),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Spacer(Modifier.height(16.dp))
-        Text("采样温度", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        Text(stringResource(Res.string.agent_cfg_temperature), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(8.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
             Slider(
@@ -1017,13 +1112,13 @@ private fun ConfigFormLeftColumn(
 
     // ═══ ③ AI 端点配置 ═══
     HMPCard {
-        Text("AI 端点配置", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        Text(stringResource(Res.string.agent_cfg_endpoint_config), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(8.dp))
         SegmentedControl(
             modifier = Modifier.fillMaxWidth(),
             options = listOf(
-                SegmentedOption("global", "跟随全局默认"),
-                SegmentedOption("custom", "独立端点"),
+                SegmentedOption("global", stringResource(Res.string.agent_cfg_lang_follow_global_default)),
+                SegmentedOption("custom", stringResource(Res.string.agent_cfg_endpoint_custom)),
             ),
             selectedOption = if (useCustomEndpoint) "custom" else "global",
             onOptionSelected = { onUseCustomEndpointChange(it == "custom") },
@@ -1033,7 +1128,7 @@ private fun ConfigFormLeftColumn(
             OutlinedTextField(
                 value = customEndpoint,
                 onValueChange = onCustomEndpointChange,
-                label = { Text("端点 URL") },
+                label = { Text(stringResource(Res.string.agent_cfg_endpoint_url_label)) },
                 modifier = Modifier.fillMaxWidth(),
                 placeholder = { Text("https://api.deepseek.com/v1") },
             )
@@ -1049,29 +1144,29 @@ private fun ConfigFormLeftColumn(
             OutlinedTextField(
                 value = customModel,
                 onValueChange = onCustomModelChange,
-                label = { Text("模型") },
+                label = { Text(stringResource(Res.string.agent_cfg_model_label)) },
                 modifier = Modifier.fillMaxWidth(),
                 placeholder = { Text("deepseek-chat / gpt-4o-mini / ...") },
             )
         } else {
             Text(
-                "当前跟随全局 AI 设置",
+                stringResource(Res.string.agent_cfg_following_global),
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.Medium
             )
             Spacer(Modifier.height(4.dp))
             Text(
-                if (!endpointLoaded) "读取中…"
+                if (!endpointLoaded) stringResource(Res.string.agent_cfg_loading)
                 else buildString {
-                    append("端点: ${if (globalEndpoint.endpoint.isNotBlank()) globalEndpoint.endpoint else "(内置)"}")
-                    if (globalEndpoint.selectedModel.isNotBlank()) append("  ·  模型: ${globalEndpoint.selectedModel}")
+                    append(stringResource(Res.string.agent_cfg_endpoint_value, if (globalEndpoint.endpoint.isNotBlank()) globalEndpoint.endpoint else stringResource(Res.string.agent_cfg_builtin)))
+                    if (globalEndpoint.selectedModel.isNotBlank()) append(stringResource(Res.string.agent_cfg_model_value, globalEndpoint.selectedModel))
                 },
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Spacer(Modifier.height(4.dp))
             Text(
-                "改全局默认请前往 AI 设置。",
+                stringResource(Res.string.agent_cfg_change_global_hint),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -1080,10 +1175,10 @@ private fun ConfigFormLeftColumn(
 
     // ═══ ④ 信任与权限 ═══
     HMPCard {
-        Text("权限与信任", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        Text(stringResource(Res.string.agent_cfg_trust_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(8.dp))
         Text(
-            "决定此 Agent 能自动执行哪些工具操作。",
+            stringResource(Res.string.agent_cfg_trust_desc),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -1091,22 +1186,22 @@ private fun ConfigFormLeftColumn(
         SegmentedControl(
             modifier = Modifier.fillMaxWidth(),
             options = listOf(
-                SegmentedOption(TrustLevel.SUGGEST.toString(), "谨慎"),
-                SegmentedOption(TrustLevel.ACT.toString(), "代劳"),
-                SegmentedOption(TrustLevel.SILENT.toString(), "静默"),
+                SegmentedOption(TrustLevel.SUGGEST.toString(), stringResource(Res.string.agent_cfg_trust_suggest)),
+                SegmentedOption(TrustLevel.ACT.toString(), stringResource(Res.string.agent_cfg_trust_act)),
+                SegmentedOption(TrustLevel.SILENT.toString(), stringResource(Res.string.agent_cfg_trust_silent)),
             ),
             selectedOption = trustLevel.toString(),
             onOptionSelected = { onTrustLevelChange(it.toIntOrNull() ?: TrustLevel.SUGGEST) },
         )
         Spacer(Modifier.height(4.dp))
         Text(
-            "已授权免确认工具：$alwaysAllowCount 项",
+            stringResource(Res.string.agent_cfg_always_allow_count, alwaysAllowCount),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         if (agentRole == "master") {
             Spacer(Modifier.height(16.dp))
-            Text("步数预算", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text(stringResource(Res.string.agent_cfg_step_budget), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(8.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Slider(
@@ -1117,7 +1212,7 @@ private fun ConfigFormLeftColumn(
                     modifier = Modifier.weight(1f),
                 )
                 Spacer(Modifier.width(8.dp))
-                Text("$stepBudget 步", modifier = Modifier.width(48.dp))
+                Text(stringResource(Res.string.agent_cfg_step_budget_value, stepBudget), modifier = Modifier.width(48.dp))
             }
         }
     }
@@ -1125,9 +1220,9 @@ private fun ConfigFormLeftColumn(
     // ═══ ⑤ 专属参数 ═══
     when (agentRole) {
         "hello" -> HMPCard {
-            Text("推荐卡参数", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text(stringResource(Res.string.agent_cfg_reco_params), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(12.dp))
-            Text("每日数量")
+            Text(stringResource(Res.string.agent_cfg_daily_count))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Slider(
                     value = dailyRecommendCount.toFloat(),
@@ -1136,10 +1231,10 @@ private fun ConfigFormLeftColumn(
                     steps = 3,
                     modifier = Modifier.weight(1f),
                 )
-                Text("$dailyRecommendCount 张")
+                Text(stringResource(Res.string.agent_cfg_daily_count_value, dailyRecommendCount))
             }
             Spacer(Modifier.height(8.dp))
-            Text("歌单长度")
+            Text(stringResource(Res.string.agent_cfg_playlist_len))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Slider(
                     value = recommendListSize.toFloat(),
@@ -1148,12 +1243,12 @@ private fun ConfigFormLeftColumn(
                     steps = 14,
                     modifier = Modifier.weight(1f),
                 )
-                Text("$recommendListSize 首")
+                Text(stringResource(Res.string.agent_cfg_count_tracks, recommendListSize))
             }
         }
 
         "enrich" -> HMPCard {
-            Text("目标覆盖率", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text(stringResource(Res.string.agent_cfg_target_cov), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(8.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Slider(
@@ -1168,9 +1263,9 @@ private fun ConfigFormLeftColumn(
         }
 
         "radio" -> HMPCard {
-            Text("电台参数", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text(stringResource(Res.string.agent_cfg_radio_params), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(12.dp))
-            Text("目标曲目数")
+            Text(stringResource(Res.string.agent_cfg_target_count))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Slider(
                     value = targetCount.toFloat(),
@@ -1179,7 +1274,7 @@ private fun ConfigFormLeftColumn(
                     steps = 21,
                     modifier = Modifier.weight(1f),
                 )
-                Text("$targetCount 首")
+                Text(stringResource(Res.string.agent_cfg_count_tracks, targetCount))
             }
             Spacer(Modifier.height(12.dp))
             Row(
@@ -1187,7 +1282,7 @@ private fun ConfigFormLeftColumn(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("自动续歌")
+                Text(stringResource(Res.string.agent_cfg_auto_renew))
                 Switch(checked = autoRenew, onCheckedChange = onAutoRenewChange)
             }
         }
@@ -1224,13 +1319,13 @@ private fun SystemPromptSection(
 ) {
     // 生效语言提示
     val effectiveLang = when (preferredLang) {
-        "zh" -> "中文"
-        "en" -> "English"
-        "auto" -> "跟随系统"
+        "zh" -> stringResource(Res.string.agent_ai_lang_zh)
+        "en" -> stringResource(Res.string.agent_ai_lang_en)
+        "auto" -> stringResource(Res.string.agent_cfg_lang_follow_system)
         else -> when (globalReplyLang) {
-            "en" -> "跟随全局（English）"
-            "auto" -> "跟随全局（Auto）"
-            else -> "跟随全局（中文）"
+            "en" -> stringResource(Res.string.agent_cfg_lang_global_en)
+            "auto" -> stringResource(Res.string.agent_cfg_lang_global_auto)
+            else -> stringResource(Res.string.agent_cfg_lang_global_zh)
         }
     }
 
@@ -1247,14 +1342,14 @@ private fun SystemPromptSection(
             ) {
                 Text("System Prompt", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 Text(
-                    if (overriddenCount > 0) "$overriddenCount/${helloEntries.size} 已自定义" else "全部出厂默认",
+                    if (overriddenCount > 0) stringResource(Res.string.agent_cfg_customized_count, overriddenCount, helloEntries.size) else stringResource(Res.string.agent_cfg_all_default),
                     style = MaterialTheme.typography.labelSmall,
                     color = if (overriddenCount > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
             Spacer(Modifier.height(4.dp))
             Text(
-                "每类卡片各有自己的 prompt，可逐项修改。生效语言: $effectiveLang",
+                stringResource(Res.string.agent_cfg_hello_prompt_desc, effectiveLang),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -1262,7 +1357,7 @@ private fun SystemPromptSection(
             helloPromptGroups().forEach { (groupName, entries) ->
                 Spacer(Modifier.height(14.dp))
                 Text(
-                    groupName,
+                    groupName.asString(),
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurface,
@@ -1287,12 +1382,12 @@ private fun SystemPromptSection(
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text(entry.label, style = MaterialTheme.typography.bodyMedium)
+                                    Text(entry.label.asString(), style = MaterialTheme.typography.bodyMedium)
                                     Spacer(Modifier.width(6.dp))
                                     val badge = when {
-                                        changed -> "未保存"
-                                        overridden -> "已自定义"
-                                        else -> "默认"
+                                        changed -> stringResource(Res.string.agent_cfg_status_unsaved)
+                                        overridden -> stringResource(Res.string.agent_cfg_status_overridden)
+                                        else -> stringResource(Res.string.agent_cfg_status_default)
                                     }
                                     Text(
                                         badge,
@@ -1305,13 +1400,13 @@ private fun SystemPromptSection(
                                     )
                                 }
                                 Text(
-                                    entry.hint,
+                                    entry.hint.asString(),
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                             }
                             Text(
-                                if (isOpen) "收起" else "编辑",
+                                if (isOpen) stringResource(Res.string.agent_ai_collapse) else stringResource(Res.string.agent_cfg_edit),
                                 style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.primary,
                             )
@@ -1328,7 +1423,7 @@ private fun SystemPromptSection(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .height(180.dp),
-                                placeholder = { Text("留空 = 使用出厂默认") },
+                                placeholder = { Text(stringResource(Res.string.agent_cfg_placeholder_default)) },
                             )
                             Spacer(Modifier.height(4.dp))
                             Row(
@@ -1338,14 +1433,14 @@ private fun SystemPromptSection(
                                 androidx.compose.material3.TextButton(onClick = {
                                     onMultiPromptTextsChange(multiPromptTexts + (entry.key to factory))
                                     onMultiPromptDirtyChange(multiPromptDirty + entry.key)
-                                }) { Text("恢复默认") }
+                                }) { Text(stringResource(Res.string.agent_cfg_restore_default)) }
                                 if (changed) {
                                     androidx.compose.material3.TextButton(onClick = {
                                         onMultiPromptTextsChange(
                                             multiPromptTexts + (entry.key to (resolvedOverrides[entry.key] ?: factory))
                                         )
                                         onMultiPromptDirtyChange(multiPromptDirty - entry.key)
-                                    }) { Text("放弃改动") }
+                                    }) { Text(stringResource(Res.string.agent_cfg_discard_changes)) }
                                 }
                             }
                         }
@@ -1364,20 +1459,20 @@ private fun SystemPromptSection(
             ) {
                 Text("System Prompt", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 Text(
-                    if (hasOverride) "已自定义" else "出厂默认",
+                    if (hasOverride) stringResource(Res.string.agent_cfg_status_overridden) else stringResource(Res.string.agent_cfg_status_default),
                     style = MaterialTheme.typography.labelSmall,
                     color = if (hasOverride) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
             Spacer(Modifier.height(4.dp))
             Text(
-                "此 Agent 当前生效的 prompt，可直接编辑。清空或改回与默认一致即恢复默认。",
+                stringResource(Res.string.agent_cfg_prompt_desc),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Spacer(Modifier.height(8.dp))
             Text(
-                "生效语言: $effectiveLang",
+                stringResource(Res.string.agent_cfg_effective_lang, effectiveLang),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -1389,7 +1484,7 @@ private fun SystemPromptSection(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(220.dp),
-                placeholder = { Text("留空 = 使用出厂默认") },
+                placeholder = { Text(stringResource(Res.string.agent_cfg_placeholder_default)) },
             )
 
             // 占位符护栏（编辑时实时显示）—— 以出厂默认模板为基准
@@ -1400,7 +1495,7 @@ private fun SystemPromptSection(
                     val missing = requiredPlaceholders.filter { !systemPrompt.contains("{{$it}}") }
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        "需要的占位符 (${userHas.size}/${requiredPlaceholders.size})：",
+                        stringResource(Res.string.agent_cfg_placeholders_needed, userHas.size, requiredPlaceholders.size),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -1414,7 +1509,7 @@ private fun SystemPromptSection(
                     )
                     if (missing.isNotEmpty()) {
                         Text(
-                            "⚠️ 缺少 ${{ missing.joinToString(", ") { "{{$it}}" } }}，保存后将恢复默认。",
+                            stringResource(Res.string.agent_cfg_missing_placeholder, missing.joinToString(", ") { "{{$it}}" }),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.error
                         )
@@ -1429,19 +1524,19 @@ private fun SystemPromptSection(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 val templateLang = when (preferredLang) {
-                    "en" -> "English"
-                    else -> "中文"
+                    "en" -> stringResource(Res.string.agent_ai_lang_en)
+                    else -> stringResource(Res.string.agent_ai_lang_zh)
                 }
                 androidx.compose.material3.TextButton(
                     onClick = onRestoreFactoryPrompt
                 ) {
-                    Text("恢复出厂默认 ($templateLang)")
+                    Text(stringResource(Res.string.agent_cfg_restore_factory, templateLang))
                 }
                 if (promptDirty || hasOverride) {
                     androidx.compose.material3.TextButton(
                         onClick = onDiscardPromptChanges
                     ) {
-                        Text("放弃改动")
+                        Text(stringResource(Res.string.agent_cfg_discard_changes))
                     }
                 }
             }
@@ -1459,11 +1554,12 @@ private fun agentLabelFor(role: String) = when (role) {
     else -> role
 }
 
+@Composable
 private fun agentDescFor(role: String) = when (role) {
-    "master" -> "统筹子代理，理解你的听歌习惯"
-    "hello" -> "每日挑选新歌，生成推荐卡"
-    "enrich" -> "补全曲库缺失的元数据与标签"
-    "radio" -> "连贯播放、按口味续歌的电台"
+    "master" -> stringResource(Res.string.agent_cfg_desc_master)
+    "hello" -> stringResource(Res.string.agent_cfg_desc_hello)
+    "enrich" -> stringResource(Res.string.agent_cfg_desc_enrich)
+    "radio" -> stringResource(Res.string.agent_cfg_desc_radio)
     else -> ""
 }
 
@@ -1490,34 +1586,38 @@ private fun defaultPromptKeyFor(role: String) = when (role) {
  * 分三组对应三类卡片：问候（GREETING，按类型路由）→ 推荐（RECOMMEND）→ 怀旧（FORGOTTEN）。
  * 顺序即 UI 展示顺序；[PromptEntry.label] 是给用户看的卡名，不是内部 key。
  */
-private data class PromptEntry(val key: String, val label: String, val hint: String)
+private data class PromptEntry(val key: String, val label: UiText, val hint: UiText)
+
+/** 目录项简写：label / hint 都是资源，包装成 [UiText] 以便渲染期解析。 */
+private fun promptEntry(key: String, label: StringResource, hint: StringResource) =
+    PromptEntry(key, label.asUiText(), hint.asUiText())
 
 private val HELLO_GREETING_PROMPTS = listOf(
-    PromptEntry("hello.greeting.quote", "名言", "引一句契合当下心境的音乐名句"),
-    PromptEntry("hello.greeting.lyric_gold", "金句歌词", "找一句击中人的歌词"),
-    PromptEntry("hello.greeting.fact", "音乐冷知识", "讲一条准确的音乐小知识"),
-    PromptEntry("hello.greeting.story", "歌背后的故事", "挖出歌曲不为人知的来历"),
-    PromptEntry("hello.greeting.artist", "音乐人轶事", "聊聊音乐人的趣事"),
-    PromptEntry("hello.greeting.listen", "场景推荐", "按当下场景推荐对味的歌"),
-    PromptEntry("hello.greeting.history", "音乐史上的今天", "讲一件这天真实发生过的音乐事件"),
+    promptEntry("hello.greeting.quote", Res.string.agent_hello_greeting_quote, Res.string.agent_hello_greeting_quote_hint),
+    promptEntry("hello.greeting.lyric_gold", Res.string.agent_hello_greeting_lyric_gold, Res.string.agent_hello_greeting_lyric_gold_hint),
+    promptEntry("hello.greeting.fact", Res.string.agent_hello_greeting_fact, Res.string.agent_hello_greeting_fact_hint),
+    promptEntry("hello.greeting.story", Res.string.agent_hello_greeting_story, Res.string.agent_hello_greeting_story_hint),
+    promptEntry("hello.greeting.artist", Res.string.agent_hello_greeting_artist, Res.string.agent_hello_greeting_artist_hint),
+    promptEntry("hello.greeting.listen", Res.string.agent_hello_greeting_listen, Res.string.agent_hello_greeting_listen_hint),
+    promptEntry("hello.greeting.history", Res.string.agent_hello_greeting_history, Res.string.agent_hello_greeting_history_hint),
 )
 
 private val HELLO_RECOMMEND_PROMPTS = listOf(
-    PromptEntry("hello.recommend.full", "完整推荐", "结合歌词与听众历史写一篇有画面感的推荐"),
-    PromptEntry("hello.recommend.short", "简短开场", "一句温暖简洁的开场白"),
-    PromptEntry("hello.recommend.list", "歌单推荐", "为一组推荐歌写整体说明"),
+    promptEntry("hello.recommend.full", Res.string.agent_hello_recommend_full, Res.string.agent_hello_recommend_full_hint),
+    promptEntry("hello.recommend.short", Res.string.agent_hello_recommend_short, Res.string.agent_hello_recommend_short_hint),
+    promptEntry("hello.recommend.list", Res.string.agent_hello_recommend_list, Res.string.agent_hello_recommend_list_hint),
 )
 
 private val HELLO_FORGOTTEN_PROMPTS = listOf(
-    PromptEntry("hello.forgotten.essay", "怀旧随笔", "从歌词、旋律、时间跨度写怀旧文字"),
-    PromptEntry("hello.forgotten.card", "久违卡片", "用温暖简洁的文字唤起回忆"),
+    promptEntry("hello.forgotten.essay", Res.string.agent_hello_forgotten_essay, Res.string.agent_hello_forgotten_essay_hint),
+    promptEntry("hello.forgotten.card", Res.string.agent_hello_forgotten_card, Res.string.agent_hello_forgotten_card_hint),
 )
 
 /** Hello 的「分组 → 条目」全表，供 UI 分节渲染。 */
-private fun helloPromptGroups(): List<Pair<String, List<PromptEntry>>> = listOf(
-    "问候卡（按类型自动选用）" to HELLO_GREETING_PROMPTS,
-    "推荐卡" to HELLO_RECOMMEND_PROMPTS,
-    "久违卡" to HELLO_FORGOTTEN_PROMPTS,
+private fun helloPromptGroups(): List<Pair<UiText, List<PromptEntry>>> = listOf(
+    Res.string.agent_hello_group_greeting.asUiText() to HELLO_GREETING_PROMPTS,
+    Res.string.agent_hello_group_recommend.asUiText() to HELLO_RECOMMEND_PROMPTS,
+    Res.string.agent_hello_group_forgotten.asUiText() to HELLO_FORGOTTEN_PROMPTS,
 )
 
 /** 该 Agent 是否为多卡型 prompt（需要分组编辑器）。 */

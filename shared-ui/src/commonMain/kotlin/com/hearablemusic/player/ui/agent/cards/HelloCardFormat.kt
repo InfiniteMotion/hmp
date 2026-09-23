@@ -1,5 +1,22 @@
 package com.hearablemusic.player.ui.agent.cards
 
+import com.hearablemusic.player.ui.common.text.UiText
+import com.hearablemusic.player.ui.common.text.asUiText
+import com.hearablemusic.player.ui.generated.resources.Res
+import com.hearablemusic.player.ui.generated.resources.card_ago_days
+import com.hearablemusic.player.ui.generated.resources.card_ago_just_now
+import com.hearablemusic.player.ui.generated.resources.card_ago_months
+import com.hearablemusic.player.ui.generated.resources.card_ago_today
+import com.hearablemusic.player.ui.generated.resources.card_ago_years
+import com.hearablemusic.player.ui.generated.resources.card_ago_yesterday
+import com.hearablemusic.player.ui.generated.resources.card_avg_hours
+import com.hearablemusic.player.ui.generated.resources.card_avg_minutes
+import com.hearablemusic.player.ui.generated.resources.card_phase_evening_commute
+import com.hearablemusic.player.ui.generated.resources.card_phase_evening_leisure
+import com.hearablemusic.player.ui.generated.resources.card_phase_lunch
+import com.hearablemusic.player.ui.generated.resources.card_phase_morning_commute
+import com.hearablemusic.player.ui.generated.resources.card_phase_night
+import com.hearablemusic.player.ui.generated.resources.card_phase_work
 import com.hmp.data.database.currentTimeMillis
 import com.hmp.domain.agent.card.AnchorContent
 import com.hmp.domain.agent.card.SlideCard
@@ -8,38 +25,38 @@ import com.hmp.domain.agent.card.TimePhase
 
 
 
-internal fun formatGeneratedAgo(generatedAt: Long): String {
-    if (generatedAt <= 0L) return ""
+internal fun formatGeneratedAgo(generatedAt: Long): UiText? {
+    if (generatedAt <= 0L) return null
     val diffMs = currentTimeMillis() - generatedAt
-    if (diffMs < 0) return "刚刚"
+    if (diffMs < 0) return UiText.Res(Res.string.card_ago_just_now)
     val days = (diffMs / 86_400_000L).toInt()
     return when {
-        days <= 0 -> "今天生成"
-        days == 1 -> "昨天生成"
-        days < 30 -> "$days 天前生成"
-        days < 365 -> "${days / 30} 个月前生成"
-        else -> "${days / 365} 年前生成"
+        days <= 0 -> UiText.Res(Res.string.card_ago_today)
+        days == 1 -> UiText.Res(Res.string.card_ago_yesterday)
+        days < 30 -> UiText.Res(Res.string.card_ago_days, listOf(days))
+        days < 365 -> UiText.Res(Res.string.card_ago_months, listOf(days / 30))
+        else -> UiText.Res(Res.string.card_ago_years, listOf(days / 365))
     }
 }
 
 /** 日均听歌分钟 → "48 分钟" / "1.5 小时" */
-internal fun formatAvgMinutes(minutes: Float): String =
-    if (minutes < 60f) "${minutes.toInt()} 分钟"
-    else "${((minutes / 6f).toInt() / 10f)} 小时"
+internal fun formatAvgMinutes(minutes: Float): UiText =
+    if (minutes < 60f) UiText.Res(Res.string.card_avg_minutes, listOf(minutes.toInt()))
+    else UiText.Res(Res.string.card_avg_hours, listOf((minutes / 6f).toInt() / 10f))
 
 // ═══════════════════════════════════════════════════════════════════
 // 工具函数
 // ═══════════════════════════════════════════════════════════════════
 
-internal val TimePhase.label: String
+internal val TimePhase.label: UiText
     get() = when (this) {
-        TimePhase.NIGHT -> "深夜"
-        TimePhase.MORNING_COMMUTE -> "早高峰"
-        TimePhase.WORK -> "工作"
-        TimePhase.LUNCH -> "午休"
-        TimePhase.EVENING_COMMUTE -> "晚高峰"
-        TimePhase.EVENING_LEISURE -> "晚间"
-        TimePhase.UNKNOWN -> ""
+        TimePhase.NIGHT -> Res.string.card_phase_night.asUiText()
+        TimePhase.MORNING_COMMUTE -> Res.string.card_phase_morning_commute.asUiText()
+        TimePhase.WORK -> Res.string.card_phase_work.asUiText()
+        TimePhase.LUNCH -> Res.string.card_phase_lunch.asUiText()
+        TimePhase.EVENING_COMMUTE -> Res.string.card_phase_evening_commute.asUiText()
+        TimePhase.EVENING_LEISURE -> Res.string.card_phase_evening_leisure.asUiText()
+        TimePhase.UNKNOWN -> UiText.Raw("")
     }
 
 internal fun formatDurationSec(sec: Int): String {

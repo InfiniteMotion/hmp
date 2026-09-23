@@ -1,5 +1,10 @@
 package com.hearablemusic.player.ui.agent.chat
 
+import com.hearablemusic.player.ui.common.text.UiText
+import com.hearablemusic.player.ui.generated.resources.Res
+import com.hearablemusic.player.ui.generated.resources.agent_chat_receipt_all_skipped
+import com.hearablemusic.player.ui.generated.resources.agent_chat_receipt_done
+import com.hearablemusic.player.ui.generated.resources.agent_chat_receipt_done_skipped
 import com.hmp.domain.agent.runtime.ToolExecutionRecord
 import com.hmp.domain.music.MusicInfo
 import com.hmp.domain.playlist.Playlist
@@ -56,7 +61,7 @@ data class CompanionMessage(
     /** [CompanionRenderHint.CONFIRM] 确认矩阵。 */
     val confirmItems: List<ConfirmItem> = emptyList(),
     /** 执行回执文案（「已建 9 首，跳过 3 首」式），仅在确认卡执行完毕后非空。 */
-    val receipt: String = "",
+    val receipt: UiText? = null,
     /** 系统/单测注入的判定文案（渲染快照用）。 */
     val note: String = "",
 )
@@ -77,13 +82,13 @@ internal fun buildAssistantBubbles(
     if (confirmItems.isNotEmpty()) {
         val accepted = confirmItems.filter { it.selected }
         val skipped = confirmItems.size - accepted.size
-        val receipt = if (accepted.isEmpty()) "本轮已全部跳过，未做改动。"
-        else buildString {
-            append("已按你勾选执行 ")
-            append(accepted.size)
-            append(" 项")
-            if (skipped > 0) append("，跳过 $skipped 项")
-            append("。")
+        val receipt: UiText = when {
+            accepted.isEmpty() -> UiText.Res(Res.string.agent_chat_receipt_all_skipped)
+            skipped > 0 -> UiText.Res(
+                Res.string.agent_chat_receipt_done_skipped,
+                listOf(accepted.size, skipped),
+            )
+            else -> UiText.Res(Res.string.agent_chat_receipt_done, listOf(accepted.size))
         }
         out += CompanionMessage(
             id = 0, // 占位；由 ChatViewModel 统一 nextId() 赋值，避免撞键

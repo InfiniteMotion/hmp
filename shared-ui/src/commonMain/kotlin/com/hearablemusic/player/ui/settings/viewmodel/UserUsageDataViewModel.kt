@@ -1,4 +1,12 @@
 package com.hearablemusic.player.ui.settings.viewmodel
+import com.hearablemusic.player.ui.common.text.UiText
+import com.hearablemusic.player.ui.common.text.asUiText
+import com.hearablemusic.player.ui.generated.resources.Res
+import com.hearablemusic.player.ui.generated.resources.dim_hour
+import com.hearablemusic.player.ui.generated.resources.dim_overview
+import com.hearablemusic.player.ui.generated.resources.dim_rank
+import com.hearablemusic.player.ui.generated.resources.dim_recent
+import com.hearablemusic.player.ui.generated.resources.dim_taste
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -21,12 +29,12 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 
 /** 维度筛选枚举 — 决定下方内容区渲染什么组件。 */
-enum class Dimension(val zhLabel: String) {
-    OVERVIEW("概览"),
-    TASTE("口味"),
-    HOUR("时段"),
-    RANK("排行"),
-    RECENT("最近"),
+enum class Dimension(val label: UiText) {
+    OVERVIEW(Res.string.dim_overview.asUiText()),
+    TASTE(Res.string.dim_taste.asUiText()),
+    HOUR(Res.string.dim_hour.asUiText()),
+    RANK(Res.string.dim_rank.asUiText()),
+    RECENT(Res.string.dim_recent.asUiText()),
 }
 
 /** WindowedBundle — 时间窗口 + 维度筛选交叉产出的所有数据。 */

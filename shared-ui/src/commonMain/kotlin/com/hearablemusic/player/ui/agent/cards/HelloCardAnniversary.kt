@@ -29,6 +29,19 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.hearablemusic.player.ui.common.text.UiText
+import com.hearablemusic.player.ui.common.text.asString
+import com.hearablemusic.player.ui.generated.resources.Res
+import com.hearablemusic.player.ui.generated.resources.card_ann_milestone
+import com.hearablemusic.player.ui.generated.resources.card_ann_playlist
+import com.hearablemusic.player.ui.generated.resources.card_ann_that_day_plays
+import com.hearablemusic.player.ui.generated.resources.card_ann_times_played
+import com.hearablemusic.player.ui.generated.resources.card_ann_times_unit
+import com.hearablemusic.player.ui.generated.resources.card_ann_total_times
+import com.hearablemusic.player.ui.generated.resources.card_ann_years_ago_playlist
+import com.hearablemusic.player.ui.generated.resources.card_ann_years_ago_short
+import com.hearablemusic.player.ui.generated.resources.card_ann_years_ago_today
+import com.hearablemusic.player.ui.generated.resources.card_total_plays
 import com.hmp.domain.agent.card.AnniversaryContent
 import com.hmp.domain.agent.card.AnniversarySubtype
 import com.hmp.domain.agent.card.SlideCard
@@ -42,56 +55,56 @@ import com.hmp.domain.agent.card.SlideCard
 /** ANNIVERSARY 子类型 → 视觉配置（颜色、emoji、徽章文本、标签）。 */
 private data class AnniversaryVisual(
     val themeColor: Color,
-    val label: String,        // 顶部小标签（如 "N 年前的今天"）
-    val badgeMain: String,    // 徽章主文本（如 "3" / "100" / "50h"）
-    val badgeSub: String?,    // 徽章副文本（如 "年前" / "次" / null）
-    val footerParts: List<String>,  // 底部数字条分片
+    val label: UiText,        // 顶部小标签（如 "N 年前的今天"）
+    val badgeMain: UiText,    // 徽章主文本（如 "3" / "100" / "50h"）
+    val badgeSub: UiText?,    // 徽章副文本（如 "年前" / "次" / null）
+    val footerParts: List<UiText>,  // 底部数字条分片
 )
 
 private fun AnniversaryContent.resolveVisual(): AnniversaryVisual = when (subtype) {
     AnniversarySubtype.FIRST_PLAY -> AnniversaryVisual(
         themeColor = Color(0xFFFFA000),
-        label = "$yearsAgo 年前的今天",
-        badgeMain = (yearsAgo ?: 1).toString(),
-        badgeSub = "年前",
+        label = UiText.Res(Res.string.card_ann_years_ago_today, listOf(yearsAgo ?: 1)),
+        badgeMain = UiText.Raw((yearsAgo ?: 1).toString()),
+        badgeSub = UiText.Res(Res.string.card_ann_years_ago_short),
         footerParts = buildList {
             // 只取日期部分，"N 年前" 已由 label + 徽章表达
-            specificDate?.substringBefore("·")?.trim()?.let { add(it) }
-            if ((thatDayPlays ?: 0) > 0) add("那天听了 $thatDayPlays 遍")
-            add("累计 $totalPlays 次")
-            totalListenHours?.let { if (it > 0) add("${it}h") }
+            specificDate?.substringBefore("·")?.trim()?.let { add(UiText.Raw(it)) }
+            if ((thatDayPlays ?: 0) > 0) add(UiText.Res(Res.string.card_ann_that_day_plays, listOf(thatDayPlays ?: 0)))
+            add(UiText.Res(Res.string.card_total_plays, listOf(totalPlays)))
+            totalListenHours?.let { if (it > 0) add(UiText.Raw("${it}h")) }
         },
     )
     AnniversarySubtype.PLAYLIST_CREATE -> AnniversaryVisual(
         themeColor = Color(0xFFAB47BC),
-        label = "$yearsAgo 年前建的歌单",
-        badgeMain = "歌单",
+        label = UiText.Res(Res.string.card_ann_years_ago_playlist, listOf(yearsAgo ?: 1)),
+        badgeMain = UiText.Res(Res.string.card_ann_playlist),
         badgeSub = null,
         footerParts = buildList {
-            specificDate?.substringBefore("·")?.trim()?.let { add(it) }
-            add("$totalPlays 次播放")
+            specificDate?.substringBefore("·")?.trim()?.let { add(UiText.Raw(it)) }
+            add(UiText.Res(Res.string.card_ann_times_played, listOf(totalPlays)))
         },
     )
     AnniversarySubtype.PLAY_MILESTONE -> AnniversaryVisual(
         themeColor = Color(0xFF26A69A),
-        label = "里程碑",
-        badgeMain = (milestoneValue ?: 100).toString(),
-        badgeSub = "次",
+        label = UiText.Res(Res.string.card_ann_milestone),
+        badgeMain = UiText.Raw((milestoneValue ?: 100).toString()),
+        badgeSub = UiText.Res(Res.string.card_ann_times_unit),
         footerParts = buildList {
             // "100 次" 已由徽章表达，放总数供参考
-            add("共 $totalPlays 次")
-            totalListenHours?.let { if (it > 0) add("${it}h") }
+            add(UiText.Res(Res.string.card_ann_total_times, listOf(totalPlays)))
+            totalListenHours?.let { if (it > 0) add(UiText.Raw("${it}h")) }
         },
     )
     AnniversarySubtype.DURATION_MILESTONE -> AnniversaryVisual(
         themeColor = Color(0xFF42A5F5),
-        label = "里程碑",
-        badgeMain = "${milestoneValue ?: 10}h",
+        label = UiText.Res(Res.string.card_ann_milestone),
+        badgeMain = UiText.Raw("${milestoneValue ?: 10}h"),
         badgeSub = null,
         footerParts = buildList {
             // "50h" 已由徽章表达，放累计总数 + 播放次数
-            add("共 $totalPlays 次")
-            totalListenHours?.let { if (it > 0) add("${it}h") }
+            add(UiText.Res(Res.string.card_ann_total_times, listOf(totalPlays)))
+            totalListenHours?.let { if (it > 0) add(UiText.Raw("${it}h")) }
         },
     )
 }
@@ -168,7 +181,7 @@ internal fun FamilyAnniversaryCard(
                 ) {
                     // 标签
                     Text(
-                        text = visual.label,
+                        text = visual.label.asString(),
                         color = Color.White.copy(alpha = 0.65f),
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Medium,
@@ -215,7 +228,7 @@ internal fun FamilyAnniversaryCard(
                     ) {
                         visual.footerParts.forEach { part ->
                             Text(
-                                text = "· $part",
+                                text = "· ${part.asString()}",
                                 color = Color.White.copy(alpha = 0.55f),
                                 fontSize = 12.sp,
                                 maxLines = 1,
@@ -234,7 +247,10 @@ private fun AnniversaryBadge(
     visual: AnniversaryVisual,
     size: androidx.compose.ui.unit.Dp,
 ) {
-    val isSquareEmoji = visual.badgeSub == null && visual.badgeMain.length <= 2
+    // 长度判断必须在解析之后：本地化后文本长度会变（如「歌单」→ "Playlist"）
+    val badgeMainText = visual.badgeMain.asString()
+    val badgeSubText = visual.badgeSub?.asString()
+    val isSquareEmoji = badgeSubText == null && badgeMainText.length <= 2
     Box(
         modifier = Modifier
             .size(size)
@@ -242,16 +258,16 @@ private fun AnniversaryBadge(
             .background(Color.White.copy(alpha = 0.18f)),
         contentAlignment = Alignment.Center,
     ) {
-        if (visual.badgeSub != null) {
+        if (badgeSubText != null) {
             // 徽章主副两行（如 "3" + "年前" / "100" + "次"）
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center,
             ) {
                 Text(
-                    text = visual.badgeMain,
+                    text = badgeMainText,
                     color = Color.White,
-                    fontSize = when (visual.badgeMain.length) {
+                    fontSize = when (badgeMainText.length) {
                         in 1..2 -> 26.sp
                         3 -> 20.sp
                         else -> 16.sp
@@ -260,7 +276,7 @@ private fun AnniversaryBadge(
                     maxLines = 1,
                 )
                 Text(
-                    text = visual.badgeSub,
+                    text = badgeSubText,
                     color = Color.White.copy(alpha = 0.75f),
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Medium,
@@ -270,11 +286,11 @@ private fun AnniversaryBadge(
         } else {
             // 单行徽章文本（如 "歌单" / "50h"）
             Text(
-                text = visual.badgeMain,
+                text = badgeMainText,
                 color = Color.White,
                 fontSize = when {
-                    visual.badgeMain.length <= 2 -> 22.sp
-                    visual.badgeMain.length <= 4 -> 18.sp
+                    badgeMainText.length <= 2 -> 22.sp
+                    badgeMainText.length <= 4 -> 18.sp
                     else -> 16.sp
                 },
                 fontWeight = FontWeight.Bold,

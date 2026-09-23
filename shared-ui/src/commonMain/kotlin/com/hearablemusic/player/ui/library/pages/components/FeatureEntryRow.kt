@@ -1,4 +1,8 @@
 package com.hearablemusic.player.ui.library.pages.components
+import org.jetbrains.compose.resources.stringResource
+import com.hearablemusic.player.ui.generated.resources.feature_agent_config
+import com.hearablemusic.player.ui.generated.resources.feature_agent_monitor
+import com.hearablemusic.player.ui.generated.resources.feature_chat
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
@@ -58,7 +62,7 @@ fun FeatureEntryRow(
         FeatureEntryCard(
             modifier = Modifier.weight(1f),
             iconResource = Res.drawable.person_filled_viewfinder,
-            title = "和伙伴聊聊",
+            title = stringResource(Res.string.feature_chat),
             onClick = {
                 haptic.performClick()
                 navController.add(NavRoutes.Companion.Chat)
@@ -67,7 +71,7 @@ fun FeatureEntryRow(
         FeatureEntryCard(
             modifier = Modifier.weight(1f),
             iconResource = Res.drawable.gearshape,
-            title = "Agent 配置",
+            title = stringResource(Res.string.feature_agent_config),
             onClick = {
                 haptic.performClick()
                 navController.add(NavRoutes.AI.AI)
@@ -76,7 +80,7 @@ fun FeatureEntryRow(
         FeatureEntryCard(
             modifier = Modifier.weight(1f),
             iconResource = Res.drawable.list_bullet_circle,
-            title = "Agent 看板",
+            title = stringResource(Res.string.feature_agent_monitor),
             onClick = {
                 haptic.performClick()
                 navController.add(NavRoutes.Settings.AgentMonitor)

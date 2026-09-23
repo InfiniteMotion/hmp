@@ -1,4 +1,5 @@
 package com.hearablemusic.player.ui.agent.shell
+import com.hearablemusic.player.ui.generated.resources.agent_notice_undo
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
@@ -27,7 +28,9 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.hearablemusic.player.ui.common.layout.LocalWindowSizeInfo
 import com.hearablemusic.player.ui.common.util.rememberHapticFeedback
+import com.hearablemusic.player.ui.generated.resources.Res
 import kotlinx.coroutines.delay
+import org.jetbrains.compose.resources.stringResource
 
 /**
  * R-T6 / M5-T3 AgentNoticeBar —— 伙伴通知侧条（总纲 5.4）。
@@ -42,7 +45,7 @@ import kotlinx.coroutines.delay
 data class AgentNotice(
     val id: Long,
     val message: String,
-    val undoLabel: String = "撤销",
+    val undoLabel: String? = null,
     val showUndo: Boolean = true,
 )
 
@@ -88,7 +91,7 @@ fun AgentNoticeBar(
                 )
                 if (n.showUndo && onUndo != null) {
                     TextButton(onClick = { haptic.performConfirm(); onUndo() }) {
-                        Text(n.undoLabel, color = MaterialTheme.colorScheme.primary)
+                        Text(n.undoLabel ?: stringResource(Res.string.agent_notice_undo), color = MaterialTheme.colorScheme.primary)
                     }
                 }
             }

@@ -2,6 +2,15 @@ package com.hearablemusic.player.ui.agent.chat
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.hearablemusic.player.ui.common.text.UiText
+import com.hearablemusic.player.ui.common.text.asUiText
+import com.hearablemusic.player.ui.generated.resources.Res
+import com.hearablemusic.player.ui.generated.resources.agent_chat_error_offline
+import com.hearablemusic.player.ui.generated.resources.agent_chat_greeting
+import com.hearablemusic.player.ui.generated.resources.agent_chat_hint_playlist
+import com.hearablemusic.player.ui.generated.resources.agent_chat_hint_scanning
+import com.hearablemusic.player.ui.generated.resources.agent_chat_hint_thinking
+import com.hearablemusic.player.ui.generated.resources.agent_chat_hint_wait
 import com.hearablemusic.player.ui.platform.currentTimeMillis
 import com.hmp.domain.agent.port.ConfirmOutcome
 import com.hmp.domain.agent.funnel.CommandLexicon
@@ -19,6 +28,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import com.hmp.log.HmpLog
 import com.hmp.log.LogTag
+import org.jetbrains.compose.resources.getString
 
 /** 待确认的非模态卡片状态（M5-T4）。 */
 data class ConfirmCardState(
@@ -32,7 +42,7 @@ data class ConfirmCardState(
 data class ChatUiState(
     val messages: List<CompanionMessage> = emptyList(),
     val running: Boolean = false,
-    val runningHint: String = "",
+    val runningHint: UiText? = null,
     val pendingConfirm: ConfirmCardState? = null,
     val input: String = "",
 )
@@ -50,7 +60,7 @@ class ChatViewModel(
     private val agentMessageStore: AgentMessageStore,
 ) : ViewModel() {
 
-    private val _state = MutableStateFlow(ChatUiState(messages = listOf(greeting())))
+    private val _state = MutableStateFlow(ChatUiState())
     val state: StateFlow<ChatUiState> = _state.asStateFlow()
 
     private var idCounter = 1000L
@@ -78,6 +88,12 @@ class ChatViewModel(
                             renderHint = hintFromStore(m.renderHint),
                         )
                     })
+                }
+            } else {
+                // 无历史会话：填入问候语（惰性解析，随语言变化）
+                val greet = getString(Res.string.agent_chat_greeting)
+                _state.update {
+                    it.copy(messages = listOf(CompanionMessage(id = 1, fromUser = false, text = greet)))
                 }
             }
         }
@@ -245,7 +261,7 @@ class ChatViewModel(
                             _state.update {
                                 it.copy(
                                     running = false,
-                                    runningHint = "",
+                                    runningHint = null,
                                     pendingConfirm = null,
                                     messages = it.messages + ided,
                                 )
@@ -254,12 +270,12 @@ class ChatViewModel(
                             gatewayBridge = null
                         }
                         is ChatAgentEvent.Failed -> {
-                            val err = "（暂时没连上伙伴，稍后再试）"
+                            val err = getString(Res.string.agent_chat_error_offline)
                             HmpLog.w(LogTag.AgentChat) { "💬 chat failed: ${event.message}" }
                             _state.update {
                                 it.copy(
                                     running = false,
-                                    runningHint = "",
+                                    runningHint = null,
                                     pendingConfirm = null,
                                     messages = it.messages + CompanionMessage(
                                         id = nextId(), fromUser = false, text = err,
@@ -291,7 +307,7 @@ class ChatViewModel(
                 }
             } finally {
                 // 兜底清理：无论正常/异常，运行态复位（正常终态分支已复位，此处幂等）
-                _state.update { if (it.running) it.copy(running = false, runningHint = "") else it }
+                _state.update { if (it.running) it.copy(running = false, runningHint = null) else it }
                 gatewayBridge = null
             }
         }
@@ -299,18 +315,16 @@ class ChatViewModel(
 
     private fun nextId(): Long = idCounter++
 
-    private fun pickRunningHint(messages: Int): String =
+    private fun pickRunningHint(messages: Int): UiText =
         RUNNING_HINTS[(messages % RUNNING_HINTS.size).coerceIn(RUNNING_HINTS.indices)]
 
     companion object {
         private const val SESSION_LOAD_LIMIT = 50
         private val RUNNING_HINTS = listOf(
-            "正在翻你的曲库…", "让我想想…", "正在整理歌单…", "再等一下…",
-        )
-        private fun greeting() = CompanionMessage(
-            id = 1,
-            fromUser = false,
-            text = "嗨，我是你的听歌伙伴。想找某首歌、整理歌单，还是问问你的听歌排行？直接告诉我就行。",
+            Res.string.agent_chat_hint_scanning.asUiText(),
+            Res.string.agent_chat_hint_thinking.asUiText(),
+            Res.string.agent_chat_hint_playlist.asUiText(),
+            Res.string.agent_chat_hint_wait.asUiText(),
         )
         private fun hintFromStore(hint: String?): CompanionRenderHint =
             hint?.uppercase()?.let { s -> CompanionRenderHint.entries.firstOrNull { it.name == s } }
