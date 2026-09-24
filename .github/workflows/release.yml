@@ -54,11 +54,14 @@ jobs:
 
       - name: Cleanup Gradle/Kotlin daemons
         if: always()
+        shell: bash   # 统一 shell：Windows 默认 pwsh 会把 `> /dev/null` 当成 D:\dev\null 去写，直接失败
         run: |
-          ./gradlew --stop > /dev/null 2>&1 || true
-          pkill -f KotlinCompileDaemon || true
-          pkill -f GradleDaemon || true
-          pkill -f GradleWorkerMain || true
+          ./gradlew --stop || true
+          case "$RUNNER_OS" in
+            # Git Bash 里没有 pkill，Windows 用 taskkill；//F 是 MSYS 的转义写法
+            Windows) taskkill //F //IM java.exe //T >/dev/null 2>&1 || true ;;
+            *) pkill -f 'GradleDaemon|KotlinCompileDaemon|GradleWorkerMain' || true ;;
+          esac
 
   # ============================================================
   # 2. Android 构建（与桌面端并行）
@@ -105,11 +108,14 @@ jobs:
 
       - name: Cleanup Gradle/Kotlin daemons
         if: always()
+        shell: bash   # 统一 shell：Windows 默认 pwsh 会把 `> /dev/null` 当成 D:\dev\null 去写，直接失败
         run: |
-          ./gradlew --stop > /dev/null 2>&1 || true
-          pkill -f KotlinCompileDaemon || true
-          pkill -f GradleDaemon || true
-          pkill -f GradleWorkerMain || true
+          ./gradlew --stop || true
+          case "$RUNNER_OS" in
+            # Git Bash 里没有 pkill，Windows 用 taskkill；//F 是 MSYS 的转义写法
+            Windows) taskkill //F //IM java.exe //T >/dev/null 2>&1 || true ;;
+            *) pkill -f 'GradleDaemon|KotlinCompileDaemon|GradleWorkerMain' || true ;;
+          esac
 
   # ============================================================
   # 3. 桌面端构建（与 Android 并行）
@@ -144,11 +150,14 @@ jobs:
 
       - name: Cleanup Gradle/Kotlin daemons
         if: always()
+        shell: bash   # 统一 shell：Windows 默认 pwsh 会把 `> /dev/null` 当成 D:\dev\null 去写，直接失败
         run: |
-          ./gradlew --stop > /dev/null 2>&1 || true
-          pkill -f KotlinCompileDaemon || true
-          pkill -f GradleDaemon || true
-          pkill -f GradleWorkerMain || true
+          ./gradlew --stop || true
+          case "$RUNNER_OS" in
+            # Git Bash 里没有 pkill，Windows 用 taskkill；//F 是 MSYS 的转义写法
+            Windows) taskkill //F //IM java.exe //T >/dev/null 2>&1 || true ;;
+            *) pkill -f 'GradleDaemon|KotlinCompileDaemon|GradleWorkerMain' || true ;;
+          esac
 
   build-desktop-windows:
     needs: [validate]
@@ -183,11 +192,14 @@ jobs:
 
       - name: Cleanup Gradle/Kotlin daemons
         if: always()
+        shell: bash   # 统一 shell：Windows 默认 pwsh 会把 `> /dev/null` 当成 D:\dev\null 去写，直接失败
         run: |
-          ./gradlew --stop > /dev/null 2>&1 || true
-          pkill -f KotlinCompileDaemon || true
-          pkill -f GradleDaemon || true
-          pkill -f GradleWorkerMain || true
+          ./gradlew --stop || true
+          case "$RUNNER_OS" in
+            # Git Bash 里没有 pkill，Windows 用 taskkill；//F 是 MSYS 的转义写法
+            Windows) taskkill //F //IM java.exe //T >/dev/null 2>&1 || true ;;
+            *) pkill -f 'GradleDaemon|KotlinCompileDaemon|GradleWorkerMain' || true ;;
+          esac
 
   build-desktop-linux:
     needs: [validate]
@@ -224,11 +236,14 @@ jobs:
 
       - name: Cleanup Gradle/Kotlin daemons
         if: always()
+        shell: bash   # 统一 shell：Windows 默认 pwsh 会把 `> /dev/null` 当成 D:\dev\null 去写，直接失败
         run: |
-          ./gradlew --stop > /dev/null 2>&1 || true
-          pkill -f KotlinCompileDaemon || true
-          pkill -f GradleDaemon || true
-          pkill -f GradleWorkerMain || true
+          ./gradlew --stop || true
+          case "$RUNNER_OS" in
+            # Git Bash 里没有 pkill，Windows 用 taskkill；//F 是 MSYS 的转义写法
+            Windows) taskkill //F //IM java.exe //T >/dev/null 2>&1 || true ;;
+            *) pkill -f 'GradleDaemon|KotlinCompileDaemon|GradleWorkerMain' || true ;;
+          esac
 
   # ============================================================
   # 4. 发布：收集产物 + 生成 Notes + 创建 Release
