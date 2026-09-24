@@ -213,16 +213,46 @@ val downloadFFmpeg by tasks.registering {
 
 // ── Inject FFmpeg into native distribution ──────────────────────────────
 
+// FFmpeg 注入分两条通道，互为保险：
+//   ① jpackage `--resource-dir`：CMP 对每种格式（DMG/MSI/DEB/AppImage）都会传，
+//      落点 $APPDIR/resources/ffmpeg，运行时按 `compose.application.resources.dir` 命中。
+//      这条通道**不依赖任务顺序**，是 Windows/Linux 唯一的通道（见下方长注释）。
+//   ② app image 的 runtime/bin（即运行时 java.home/bin）：仅 macOS 的 DMG 会经过
+//      createDistributable，作为 ① 之外的第二落点保留。
+//
+// ① 的投放：把下载好的 ffmpeg 声明为 prepareAppResources（CMP 的 Sync 任务，产出目录就是
+// jpackage `--resource-dir` 的来源）的**输入文件**，由 Sync 自己搬运到目的地。
+// 不能用 doLast/doFirst 拷贝：本项目未启用 appResourcesRootDir，该任务在无输入时是
+// NO-SOURCE，而 NO-SOURCE 会跳过**整个任务的所有动作**（本机两次实测，doLast/doFirst 都不执行）。
+// 声明成输入后任务不再 NO-SOURCE，且 ffmpeg 变化会让 Sync 自动重跑。
+//
+// 不挂在 injectFFmpeg 上的原因：injectFFmpeg 被 createDistributable 以 finalizedBy 绑定，
+// 而 createDistributable 依赖 prepareAppResources，反向依赖会成环
+// （实测 "Circular dependency between the following tasks"）。
+// prepareAppResources 由 compose 插件在脚本求值之后才注册，故要等 afterEvaluate 才能按名取到。
+afterEvaluate {
+    tasks.named<Sync>("prepareAppResources") {
+        // ffmpeg 是 downloadFFmpeg 的产物，Sync 直接引用它 → 必须显式声明依赖
+        // （否则 Gradle 9 以「uses this output ... without declaring an explicit dependency」直接失败）
+        dependsOn(downloadFFmpeg)
+        // 注入的 ffmpeg 必须盖在 Sync 的 into() 之后，否则 from 会被改写到别的子目录
+        val destDir = destinationDir
+        from(File(ffmpegDir, ffmpegFileName)) { into(".") }
+        into(destDir)
+    }
+}
+
 val injectFFmpeg by tasks.registering {
     group = "desktop"
-    description = "把 FFmpeg 注入 app image（必须早于 DMG/MSI/DEB 打包）"
+    description = "把 FFmpeg 注入 app image 的 runtime/bin（通道 ②，macOS DMG 路径）"
     notCompatibleWithConfigurationCache("uses project object references")
     dependsOn(downloadFFmpeg)
 
     doLast {
         val binDir = layout.buildDirectory.dir("compose/binaries/main").get().asFile
         if (!binDir.exists()) {
-            println("!! 未发现分发包目录，跳过 FFmpeg 注入（未执行打包任务？）")
+            // Windows/Linux 不产出 main/app（根因见 TODO R32），通道 ① 已覆盖，不再当失败
+            println("· 无 app image 目录（Windows/Linux 正常），资源目录通道已覆盖")
             return@doLast
         }
 
@@ -231,12 +261,9 @@ val injectFFmpeg by tasks.registering {
             throw GradleException("FFmpeg 尚未就绪，无法注入: $ffmpegSrc")
         }
 
-        // 三端一条规则：jlink 出的 runtime 根 = 装着 JVM 的那一层。
-        // 位置各端不同：Windows 是 bin/server/jvm.dll，macOS 是 lib/server/libjvm.dylib，
-        // Linux 是 lib/server/libjvm.so —— 两种判据都认，别按平台写死路径形状。
-        // 运行时按 java.home/bin/ffmpeg 找（FFmpegAudioEngine.resolveFfmpegPath），而 macOS 的
-        // runtime 里**没有 bin 目录**（启动器是 Contents/MacOS/HMP，不依赖 bin/java）—— 这才是
-        // DMG 一直缺 FFmpeg 的根因；故由这里补建 bin 再投放，运行时零改动即可命中。
+        // 归一到「装着 JVM 的那一层」= 运行时 java.home（jlink 布局：Windows 是
+        // bin/server/jvm.dll，macOS/Linux 是 lib/server/libjvm.*）；macOS 的 runtime 里
+        // 原本没有 bin 层，故缺就补建。
         val roots = binDir.walk().filter { it.isDirectory }.mapNotNull { d ->
             when {
                 // macOS / Linux：java.home 这一层直接带 lib/server
@@ -352,6 +379,9 @@ compose.desktop {
 tasks.matching { it.name == "createDistributable" }.configureEach {
     finalizedBy(injectFFmpeg)
 }
+// prepareAppResources 是 CMP 的 Sync 任务，它的产出目录就是 jpackage `--resource-dir`
+// 的来源。通道 ① 的投放挂在上面的 tasks.matching 块里，这里不再需要任何反向依赖
+// （挂了会与 createDistributable 成环）。
 tasks.matching {
     it.name in setOf("packageDmg", "packageMsi", "packageDeb", "packageAppImage")
 }.configureEach {

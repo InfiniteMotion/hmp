@@ -438,8 +438,8 @@ open HMP.xcworkspace
 版本号集中维护在 `gradle.properties` 中：
 
 ```properties
-hmp.versionCode=72005
-hmp.versionName=7.2.5
+hmp.versionCode=72006
+hmp.versionName=7.2.6
 ```
 
 各模块通过 `project.findProperty("hmp.versionCode")` 引用，避免多处手动同步。

@@ -54,10 +54,22 @@ class FFmpegAudioEngine : AudioEngine {
         // Explicit system property (set by Gradle during development)
         val explicit = System.getProperty("hmp.ffmpeg.path")?.let { File(it) }
 
-        // Bundled ffmpeg (inside packaged distribution's runtime/bin)
-        val bundledCandidates = if (javaHome.isNotEmpty()) {
-            listOf(File(javaHome, "bin/$ffmpegName"))
-        } else emptyList()
+        // 打包发行版里 ffmpeg 的权威位置：jpackage 的 --resource-dir 拷贝目标。
+        // CMP 对每种格式（DMG/MSI/DEB/AppImage）都传
+        // `-Dcompose.application.resources.dir=$APPDIR/resources`（见
+        // desktop/app/build.gradle.kts 的 injectFFmpeg），与打包任务顺序无关；
+        // java.home 相邻的 bin 只覆盖「app image 的 runtime/bin」这条历史路径。
+        val home = if (javaHome.isNotEmpty()) File(javaHome) else null
+        val packagedCandidates = listOfNotNull(
+            System.getProperty("compose.application.resources.dir")
+                ?.takeIf { it.isNotBlank() }
+                ?.let { File(it, ffmpegName) },
+            home?.let { File(it, "bin/$ffmpegName") },
+            // macOS app image：java.home = HMP.app/Contents/runtime/Contents/Home，
+            // 资源目录是 HMP.app/Contents/app/resources。
+            home?.parentFile?.parentFile?.parentFile
+                ?.let { File(it, "app/resources/$ffmpegName") }
+        )
 
         // Common install locations.
         // macOS 显式列出 /opt/homebrew/bin：jpackage 应用从 Finder 启动时拿到的是 launchd
@@ -85,7 +97,8 @@ class FFmpegAudioEngine : AudioEngine {
         val pathDirs = System.getenv("PATH")?.split(File.pathSeparator) ?: emptyList()
         val pathCandidates = pathDirs.map { File(it, ffmpegName) }
 
-        val ordered = listOfNotNull(explicit) + bundledCandidates + commonCandidates + pathCandidates
+        val ordered = listOfNotNull(explicit) + packagedCandidates +
+            commonCandidates + pathCandidates
         for (candidate in ordered.distinctBy { it.absolutePath }) {
             if (!candidate.isFile || !candidate.canExecute()) continue
             if (runsOnThisMachine(candidate)) return candidate.absolutePath

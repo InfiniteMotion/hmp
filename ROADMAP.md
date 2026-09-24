@@ -281,10 +281,21 @@
 - 版本号 **7.2.4 / versionCode 72004**
 
 
-### v7.2.5 (2026-09-24) 【在发：release/7.2.5】
-> ⚠️ 无一次发布成功过：**v7.2.0 / 7.2.1 / 7.2.2 / 7.2.3 / 7.2.4 都没有 tag、没有产物**（代码全在 master）。v7.2.4 与 v7.2.5 都是为绕开发版通道故障而新建的号，本身没有新功能。
+### v7.2.6 (2026-09-24) 【在发：release/7.2.6】
+> 本版内容 = v7.2.0–v7.2.5 的全部代码（**代码未变，仅换号 + 修桌面端 ffmpeg 投递**）：v7.2.5 的产物自检抓出了真问题——三端桌面安装包**都没有内置 ffmpeg**，本版修的就是它。
 
-- **修 macOS 桌面包缺解码器的根因**：`injectFFmpeg` 旧判据是「找名为 `bin` 的目录」，而 macOS 的 jlink runtime **根本没有 `bin` 层**（启动器是 `Contents/MacOS/HMP`）——于是自始至终一次都没注入成功，产出的每个 `.dmg` 都缺 FFmpeg，且任务**静默通过**。现在改为先归一化定位 JVM 根（macOS/Linux 认 `lib/server`，Windows 认 `bin/server` 再上溯两级），运行时按 `java.home/bin/ffmpeg` 查找，缺目录就补建 —— 运行时代码零改动即可命中；找不到 JVM 根则**直接失败并打印实际目录树**，不再静默放行。本机已双验：Windows 真实 app image（jlink 剥掉启动器，`bin` 下 69 项无 `java.exe`，所以「bin 里有 java」这条判据是错的）+ 合成的 macOS 目录形状；macOS/Linux 真实布局待本次发布验证
+- **桌面端缺解码器的真根因（复核后改写 R32 的旧结论）**：原实现把注入挂在 `createDistributable` 的 `finalizedBy` 上，而 CMP 1.11 的任务图里**只有 macOS 的 `packageDmg` 依赖 `createDistributable`**，Windows(`packageMsi`)/Linux(`packageDeb`) 各自起 jlink + jpackage、从不执行它 → `injectFFmpeg` 连触发都没有（v7.1.0 三次成功 job 的日志实证：Windows/Linux 任务序里都没有 `createDistributable`，任务静默通过）；macOS 虽触发，但 finalizer 排在 `packageDmg` 之后，DMG 早已封包。**实证**：v7.1.0 的 `.deb`（259 个文件）里 ffmpeg 命中数为 0，`/opt/hmp/lib/app/resources` 目录存在但为空 —— 即 v7.1.0 及更早的 MSI/DEB/DMG **全部不含解码器**，只因开发机装了 ffmpeg（运行时回落 PATH）而长期未被发现
+- **改走 `--resource-dir`（与任务顺序解耦）**：把下载好的 ffmpeg 声明为 `prepareAppResources`（CMP 的 Sync 任务，其产出目录即 jpackage `--resource-dir` 来源）的**输入文件**，由 Sync 搬到 `$APPDIR/resources/ffmpeg`；CMP 对每种格式都传该目录，三端 DMG / MSI / DEB / AppImage 因此都能带上。踩到两个坑并已固化注释：① `prepareAppResources` 无输入时是 `NO-SOURCE`，`NO-SOURCE` 会跳过任务**所有动作**（`doLast`/`doFirst` 都不执行）→ 必须做成输入而非动作内拷贝；② 该任务由插件在脚本求值后注册，需 `afterEvaluate` 才能按名取到，且 `from` 要盖在 Sync 的 `into()` 之后
+- **运行时按权威位置解析**：`FFmpegAudioEngine.resolveFfmpegPath` 优先取 `compose.application.resources.dir`（jpackage 启动器注入的系统属性）下的 `ffmpeg`，`java.home/bin` 降为回退；macOS 另补 `Contents/app/resources` 候选
+- **保留 app image 通道**：macOS 的 `runtime/bin` 注入继续保留（本机已验证 DMG 内含 `Contents/runtime/Contents/Home/bin/ffmpeg`），`createDistributable` 不存在时不再报错（Windows/Linux 本就无 `main/app`）
+- 版本号 **7.2.6 / versionCode 72006**
+
+
+### v7.2.5 (2026-09-24) 【未发布：产物自检抓出三端缺 ffmpeg，作废；承接 v7.2.6】
+> ⚠️ 无一次发布成功过：**v7.2.0 / 7.2.1 / 7.2.2 / 7.2.3 / 7.2.4 都没有 tag、没有产物**（代码全在 master）。v7.2.4 与 v7.2.5 都是为绕开发版通道故障而新建的号，本身没有新功能，内容并入 v7.2.6。
+> **本节结论已被推翻（2026-09-24 复核）**：下面第 1 条声称「macOS 的 DMG 从此带上 FFmpeg」**不成立** —— v7.2.5 的 CI 产物自检显示 DMG 仍未带上，真正根因见 v7.2.6 条目。
+
+- **修 macOS 桌面包缺解码器的根因**（**当时判断有误**）：`injectFFmpeg` 旧判据改为「归一化定位 JVM 根」（macOS/Linux 认 `lib/server`，Windows 认 `bin/server` 再上溯两级），找不到就失败并打印目录树。本机双验（Windows 真实 app image + 伪造 macOS 形状），但**该判据本身不是根因**：真实失败原因是注入任务在 Windows/Linux 上从不触发、在 macOS 上跑在打包之后
 - **产物自检补上**：三端各加一步断言（macOS 挂载 DMG 后查 `ffmpeg*`、Windows 查 app image、Linux `dpkg -c` 列 deb），把「CI 全绿但用户拿到的包不能播放」这种形态变成构建失败。只查任务日志不够，故查最终产物
 - **修清理步骤自己把 job 弄失败**：`run:` 在 Windows 默认是 pwsh，`> /dev/null` 被解析成 `D:\dev\null` 直接报错，`pkill` 也不存在。5 处 daemon 清理统一加 `shell: bash`，Windows 分支改用 `taskkill`
 - 版本号 **7.2.5 / versionCode 72005**
@@ -501,9 +512,9 @@
 ---
 
 **最后更新时间**: 2026-09-24
-**当前版本**: v7.2.5（`release/7.2.5` → master，待发布）
-**已发布至 master 但未产出发布物**: v7.2.0 / v7.2.1 / v7.2.2 / v7.2.3 / v7.2.4（代码在 master，CI 未跑通，无 tag 与产物）
-**最新可下载安装包**: v7.1.0
+**当前版本**: v7.2.6（`release/7.2.6` → master，待发布）
+**已发布至 master 但未产出发布物**: v7.2.0 / v7.2.1 / v7.2.2 / v7.2.3 / v7.2.4 / v7.2.5（代码在 master，CI 未跑通，无 tag 与产物）
+**最新可下载安装包**: v7.1.0（⚠️ 该包及其之前所有桌面包**都不含内置 ffmpeg**，见 v7.2.6 条目）
 **开发中（未发布）**: 方向 C 播放增强（C1–C9 未启动）；方向 B 残留 —— F10 语音会话挂起、F11 真机核验、F12 T2b 配额候补 / T5 成本可见后置
 
 ---

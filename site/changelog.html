@@ -96,12 +96,36 @@
 
   <div class="changelog-timeline">
 
-    <!-- v7.2.5 -->
+    <!-- v7.2.6 -->
     <div class="cl-entry">
       <div class="cl-head">
         <span class="cl-version" data-site="version"></span>
         <span class="cl-date">2026-09-24</span>
         <span class="cl-latest">Latest</span>
+      </div>
+      <div class="cl-card">
+        <div class="cl-section">
+          <div class="cl-section-title">本包包含什么</div>
+          <ul>
+            <li>本版改动集中在<strong>桌面端安装包</strong>：修复自有安装包一直缺少内置音频解码组件的问题；功能内容与 v7.2.0 起的全部更新一致</li>
+          </ul>
+        </div>
+        <div class="cl-section">
+          <div class="cl-section-title">桌面端安装包</div>
+          <ul>
+            <li>从本版起，<strong>macOS / Windows / Linux 的安装包都自带音频解码组件</strong>，无需再自行安装。此前版本即使安装成功，也可能因缺少该组件而<strong>无法播放</strong>（除非系统里已装好解码器）</li>
+            <li>发布流程会逐个解包核验三平台安装包内是否真的含有该组件，缺失即拒绝发布</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- v7.2.5 -->
+    <div class="cl-entry">
+      <div class="cl-head">
+        <span class="cl-version">v7.2.5</span>
+        <span class="cl-date">2026-09-24</span>
+        <span class="cl-void">未发布 · 改动并入 v7.2.6</span>
       </div>
       <div class="cl-card">
         <div class="cl-section">

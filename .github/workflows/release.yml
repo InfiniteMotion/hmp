@@ -362,20 +362,37 @@ jobs:
           # 分类生成，与 ROADMAP 各说各话，发布说明里的完成度口径没人负责。
           # 条目里的 `>` 引用块是给内部看的（进度注记、文档指针），不进公开发布说明。
           #
-          # 要收录的不只当前版本：上一版代码可能已合入 master 却没发出去（v7.2.0 就是这样——）
+          # 要收录的不只当前版本：上一版代码可能已合入 master 却没发出去（v7.2.0 就是这样——
           # PR #34 合并、CI 三平台全挂、没有 tag），只抽当前条目会给用户一份不含 Agent 化的
           # 说明。故取 ROADMAP 里所有「比最新 tag 更新」的条目，倒序（最新在前）拼接。
+          #
+          # 注意：旧实现在循环开头写了 `[ "$v" != "$LATEST" ] || break` —— 当前版本号必然
+          # 不等于 LATEST，所以**第一个条目就把循环断掉**，正文恒为空（发布说明只剩产物表）。
+          # 这里改为只在遇到旧条目时跳出，并且只收录**有实质内容**的条目：纯「换号再试一次」
+          # 的条目由人在标题行写「承接 v…」标记，据此跳过，否则正文会被几段几乎相同的字占满。
           LATEST=$(git tag --sort=-v:refname | head -1 | sed 's/^v//')
           [ -z "$LATEST" ] && LATEST="0.0.0"
           {
             echo "## Hearable Music Player ${TAG}"
             echo
             for v in $(grep -oE '^### v[0-9]+\.[0-9]+\.[0-9]+' ROADMAP.md | sed 's/^### v//' | sort -V -r); do
-              [ "$v" != "$LATEST" ] || break
+              # 已发布过的版本（<= 最新 tag）到此为止
               [ "$(printf '%s\n%s\n' "$LATEST" "$v" | sort -V | tail -1)" = "$v" ] || break
+              # 取该条目（含标题行本身，便于识别「换号重发」标记；输出时再删掉标题行）
+              entry=$(awk -v head="### v${v}" '
+                index($0, head)==1 { f=1; print; next }
+                f && (/^### v[0-9]/ || /^## /) { exit }
+                f
+              ' ROADMAP.md)
+              # 纯换号条目（无新增内容）不进正文。标记只写在标题行上，故先看第一行——正文要点
+              # 里出现同样的词也不会误判当前版本。
+              if printf '%s\n' "$entry" | head -1 | grep -q '承接 v'; then
+                echo "（v${v} 为换号重发，内容并入本版，略）" >&2
+                continue
+              fi
               echo "#### v${v}"
               echo
-              awk -v head="### v${v} (" 'index($0, head)==1 { f=1; next } f && (/^### v[0-9]/ || /^## /) { exit } f' ROADMAP.md
+              printf '%s\n' "$entry" | tail -n +2
             done
           } | grep -v '^> ' > body.md
 
