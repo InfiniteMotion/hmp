@@ -342,21 +342,41 @@ tasks.register("release") {
 
 tasks.register("checkVersion") {
     group = "release"
-    description = "校验版本号未与已有 git tag 重复（对齐 CI 的 validate 步骤）"
+    description = "校验版本号：未与已有 tag 重复、versionCode 与 versionName 换算一致且严格递增（CI 的 validate 复用本任务）"
+    notCompatibleWithConfigurationCache("读 git 与上一 tag 的文件内容")
 
     doLast {
         // 本机 bash shim 损坏，不能走 shell，直接进程调用
-        val pb = ProcessBuilder("git", "tag", "--sort=-v:refname")
-        pb.directory(projectDirFile)
-        pb.redirectErrorStream(true)
-        val out = pb.start().inputStream.bufferedReader().use { it.readText() }
-        val latestTag = out.lineSequence()
+        fun gitOut(vararg args: String): String {
+            val pb = ProcessBuilder(listOf("git") + args)
+            pb.directory(projectDirFile)
+            pb.redirectErrorStream(true)
+            return pb.start().inputStream.bufferedReader().use { it.readText() }
+        }
+
+        val latestTag = gitOut("tag", "--sort=-v:refname").lineSequence()
             .map { it.trim() }
             .firstOrNull { it.isNotEmpty() }
             ?.removePrefix("v")
 
-        println("当前版本: $versionName")
+        val currentCode = versionCode.toIntOrNull()
+            ?: throw GradleException("hmp.versionCode 不是整数: $versionCode")
+
+        println("当前版本: $versionName (code $currentCode)")
         println("最新 tag: ${latestTag ?: "(无)"}")
+
+        // ① versionName ↔ versionCode 必须自洽（VERSIONING.md §3：MAJOR*10000 + MINOR*1000 + PATCH）
+        val parts = versionName.split(".")
+        if (parts.size != 3 || parts.any { it.toIntOrNull() == null }) {
+            throw GradleException("hmp.versionName 必须是 MAJOR.MINOR.PATCH，当前: $versionName")
+        }
+        val derivedCode = parts[0].toInt() * 10000 + parts[1].toInt() * 1000 + parts[2].toInt()
+        if (derivedCode != currentCode) {
+            throw GradleException(
+                "versionCode 与 versionName 不自洽：$versionName 应推得 $derivedCode，" +
+                    "实际 $currentCode（见 docs/VERSIONING.md §3）。"
+            )
+        }
 
         if (latestTag != null && versionName == latestTag) {
             throw GradleException(
@@ -364,7 +384,90 @@ tasks.register("checkVersion") {
                     "请先更新 gradle.properties 的 hmp.versionName / hmp.versionCode。"
             )
         }
-        println("OK 版本号未重复")
+
+        // ② versionCode 严格递增 —— 回退的包在 Android 上直接装不上，CI 原来完全不检查
+        if (latestTag != null) {
+            val prev = gitOut("show", "v$latestTag:gradle.properties")
+            val prevCode = Regex("(?m)^hmp\\.versionCode=(\\d+)\\s*$").find(prev)?.groupValues?.get(1)?.toIntOrNull()
+            if (prevCode == null) {
+                println("  [!] tag v$latestTag 的 gradle.properties 里读不到 versionCode，跳过递增校验")
+            } else if (currentCode <= prevCode) {
+                throw GradleException(
+                    "versionCode 必须严格递增：v$latestTag 已是 $prevCode，当前 $currentCode。"
+                )
+            } else {
+                println("  [OK] versionCode 递增：$prevCode → $currentCode")
+            }
+        }
+        println("OK 版本号自洽、未重复且递增")
+    }
+}
+
+tasks.register("checkReleaseConsistency") {
+    group = "release"
+    description = "以 gradle.properties 为唯一真源，核对站点 / iOS 工程 / 文档里的版本声明是否同步（只读校验，不改文件）"
+    notCompatibleWithConfigurationCache("执行期读取多个仓库文件")
+
+    doLast {
+        val expect = versionName
+        val drift = mutableListOf<String>()
+
+        fun read(rel: String): String {
+            val f = rootDir.resolve(rel)
+            if (!f.isFile) throw GradleException("文件不存在：$rel")
+            return f.readText()
+        }
+
+        fun check(label: String, rel: String, pattern: Regex, allowSuffix: Boolean = false) {
+            val actual = try {
+                pattern.find(read(rel))?.groupValues?.get(1)?.trim()
+            } catch (e: Exception) {
+                drift += "$label —— 读取失败：${e.message}"
+                return
+            }
+            if (actual == null) {
+                drift += "$label —— $rel 里找不到声明（模式：${pattern.pattern}）"
+                return
+            }
+            val ok = if (allowSuffix) actual.startsWith(expect) else actual == expect
+            if (!ok) drift += "$label —— $rel 里是 \"$actual\"，应为 $expect"
+            else println("  [OK] $label = $actual")
+        }
+
+        println("以 gradle.properties 的 hmp.versionName=$expect 为真源核对：")
+
+        check("站点版本源", "site/js/config.js", Regex("(?m)^\\s*version:\\s*'([^']+)'"))
+        check("站点 JSON-LD", "site/index.html", Regex("\"softwareVersion\"\\s*:\\s*\"([^\"]+)\""))
+        check("iOS 工程 CFBundleShortVersionString", "ios/HMP/project.yml", Regex("(?m)^\\s*CFBundleShortVersionString:\\s*\"([^\"]+)\""))
+        check("iOS 工程 MARKETING_VERSION", "ios/HMP/project.yml", Regex("(?m)^\\s*MARKETING_VERSION:\\s*\"([^\"]+)\""))
+        check("iOS Info.plist", "ios/HMP/HMP/Info.plist", Regex("CFBundleShortVersionString</key>\\s*<string>\\s*([^<]+?)\\s*</string>"))
+        check("Xcode 工程配置", "ios/HMP/HMP.xcodeproj/project.pbxproj", Regex("(?m)^\\s*MARKETING_VERSION\\s*=\\s*([^;]+);"))
+        check("shared-ios 框架版本", "shared-ios/src/iosMain/kotlin/com/hmp/ios/Anchor.kt",
+            Regex("SHARED_IOS_FRAMEWORK_VERSION[^=]*=\\s*\"([^\"]+)\""), allowSuffix = true)
+
+        // 发版记录类：存在性检查（不是抓值）
+        listOf(
+            "site/changelog.html" to "<!-- v$expect -->",
+            "ROADMAP.md" to "### v$expect (",
+        ).forEach { (rel, needle) ->
+            val text = try {
+                read(rel)
+            } catch (e: Exception) {
+                drift += "$rel —— 读取失败：${e.message}"
+                return@forEach
+            }
+            if (!text.contains(needle)) drift += "$rel —— 没有本次版本的条目（找不到 \"$needle\"）"
+            else println("  [OK] $rel 已有 v$expect 条目")
+        }
+
+        if (drift.isNotEmpty()) {
+            throw GradleException(
+                "版本声明不一致（真源 gradle.properties = $expect）：\n" +
+                    drift.joinToString("\n") { "  - $it" } +
+                    "\n\n发版前请同步这些文件，或把它们接上自动生成（见 TODO R34）。"
+            )
+        }
+        println("OK 版本声明全部与真源一致")
     }
 }
 
@@ -373,14 +476,14 @@ tasks.register("preflight") {
     description = "发布前预检：版本号校验 + 全量单元测试 + 当前平台可产出产物告知"
     notCompatibleWithConfigurationCache("release preflight")
 
-    dependsOn("checkVersion", "testAll")
+    dependsOn("checkVersion", "checkReleaseConsistency", "testAll")
 
     doLast {
         println("")
         println("=====================================")
         println("  发布前预检 (HMP v$versionName)")
         println("=====================================")
-        println("  [OK] 版本号未与已有 tag 重复")
+        println("  [OK] 版本号自洽 / 未重复 / 递增，且站点与 iOS 声明一致")
         println("  [OK] 全部单元测试通过")
         println("")
         println("  构建目标: $buildTargetLabel")

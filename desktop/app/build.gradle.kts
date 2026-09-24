@@ -231,39 +231,21 @@ val injectFFmpeg by tasks.registering {
             throw GradleException("FFmpeg 尚未就绪，无法注入: $ffmpegSrc")
         }
 
-        // Locate the runtime bin directory based on format
-        val targets = when {
-            isMacOS -> {
-                // HMP.app/Contents/runtime/Contents/Home/bin/
-                binDir.walk().filter {
-                    it.isDirectory && it.name == "bin"
-                        && it.absolutePath.contains("runtime")
-                        && it.absolutePath.endsWith("Home/bin")
-                }.toList()
-            }
-            isWindows -> {
-                // HMP/runtime/bin/
-                binDir.walk().filter {
-                    it.isDirectory && it.name == "bin"
-                        && it.parentFile?.name == "runtime"
-                }.toList()
-            }
-            isLinux -> {
-                // HMP/lib/runtime/bin/
-                binDir.walk().filter {
-                    it.isDirectory && it.name == "bin"
-                        && it.parentFile?.name == "runtime"
-                }.toList()
-            }
-            else -> emptyList()
-        }
+        // 三端一条规则：名为 bin、且路径里带 runtime（macOS 多一层 Contents/Home 也无所谓）。
+        // 不能用「bin 里有 java 可执行文件」判定 —— 打包用的 jlink runtime 剥掉了启动器，
+        // 该目录下只有 dll/dylib/so（实测 Windows 本地 69 项无 java.exe）。
+        val targets = binDir.walk().filter {
+            it.isDirectory && it.name == "bin" && it.absolutePath.contains("runtime")
+        }.toList()
 
         // 旧实现在找不到目标时静默通过，正是「DMG 里没有 ffmpeg」被长期掩盖的原因
         if (targets.isEmpty()) {
             throw GradleException(
-                "app image 已生成但未找到 runtime bin 目录，FFmpeg 未注入。\n" +
+                "app image 已生成但未找到 JRE bin 目录，FFmpeg 未注入。\n" +
                     "  binDir=$binDir\n" +
-                    "  若 Compose 打包布局有变，请同步更新 injectFFmpeg 的目标匹配规则。"
+                    "  实际目录树（前 80 项，据此核对布局）：\n" +
+                    binDir.walk().filter { it.isDirectory }.take(80)
+                        .joinToString("\n") { "    " + it.relativeTo(binDir).path }
             )
         }
 

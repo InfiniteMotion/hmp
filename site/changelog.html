@@ -94,12 +94,45 @@
 
   <div class="changelog-timeline">
 
-    <!-- v7.2.0 -->
+    <!-- v7.2.1 -->
     <div class="cl-entry">
       <div class="cl-head">
         <span class="cl-version" data-site="version"></span>
         <span class="cl-date">2026-09-24</span>
         <span class="cl-latest">Latest</span>
+      </div>
+      <div class="cl-card">
+        <div class="cl-section">
+          <div class="cl-section-title">桌面端安装包</div>
+          <ul>
+            <li>修复 macOS <code>.dmg</code> 缺少音频解码组件的问题 —— 上一版桌面包在 Mac 上打不开部分格式</li>
+            <li>修复 Windows 打包中断，<code>.msi</code> 恢复产出</li>
+            <li>发布流程会校验三平台产物是否齐全，缺任何一个就不再发布</li>
+          </ul>
+        </div>
+        <div class="cl-section">
+          <div class="cl-section-title">AI 音乐伙伴稳定性</div>
+          <ul>
+            <li>电台暂停后重新开启不再卡死，关闭后重开也正常</li>
+            <li>你在设置里关掉的音乐伙伴，重启应用后不会自己重新打开</li>
+            <li>删除播放列表这类不可逆操作，不再被「总是允许」永久跳过确认</li>
+            <li>点「停止」后不再继续执行剩下的操作</li>
+          </ul>
+        </div>
+        <div class="cl-section">
+          <div class="cl-section-title">数据安全</div>
+          <ul>
+            <li>用较新版本建过的音乐库回退到本版本时，不再被静默清空</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- v7.2.0 -->
+    <div class="cl-entry">
+      <div class="cl-head">
+        <span class="cl-version">v7.2.0</span>
+        <span class="cl-date">2026-09-24</span>
       </div>
       <div class="cl-card">
         <div class="cl-section">
