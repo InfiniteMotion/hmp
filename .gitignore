@@ -169,6 +169,10 @@ androidx.datastore/
 releases/
 *.apk
 *.aab
+# 桌面安装包产物（releases/ 之外的落点也一并挡住）
+*.dmg
+*.deb
+*.AppImage
 
 # Misc
 .env

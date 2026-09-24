@@ -52,16 +52,10 @@ jobs:
       - name: Run unit tests
         run: ./gradlew testAll --no-daemon --no-configuration-cache
 
-      - name: Validate version
-        run: |
-          VERSION=$(grep '^hmp.versionName=' gradle.properties | cut -d'=' -f2)
-          LATEST_TAG=$(git tag --sort=-v:refname | head -1 | sed 's/^v//')
-          echo "Current: $VERSION, Latest tag: $LATEST_TAG"
-
-          if [ "$VERSION" = "$LATEST_TAG" ]; then
-            echo "::error::Version $VERSION already exists! Please bump version in gradle.properties."
-            exit 1
-          fi
+      # 版本校验只留 Gradle 一处实现。原先这里是第二套内联实现：规则与 checkVersion
+      # 不一致（只比最新 tag、不比 versionCode 自洽与递增），且完全不管 iOS/站点声明是否跟上。
+      - name: Check version & release consistency
+        run: ./gradlew checkVersion checkReleaseConsistency --no-daemon --no-configuration-cache
 
   # ============================================================
   # 2. Android 构建（与桌面端并行）
@@ -255,66 +249,110 @@ jobs:
 
           ls -lh release-assets/
 
+      # 上面的收集全是 `[ -f ... ] && cp`，某个平台产物缺失时会静默跳过、Release 照样发布成功。
+      # 这里做硬断言：必需产物一个都不能少。
+      - name: Assert all artifacts present
+        run: |
+          VERSION=$(grep '^hmp.versionName=' gradle.properties | cut -d'=' -f2)
+          missing=0
+          for f in "HMP-v${VERSION}-release.apk" "HMP-v${VERSION}-macos.dmg" \
+                   "HMP-v${VERSION}-windows.msi" "HMP-v${VERSION}-linux.deb" \
+                   "HMP-v${VERSION}-linux.AppImage"; do
+            if [ ! -s "release-assets/$f" ]; then
+              echo "::error::缺产物：$f"
+              missing=1
+            fi
+          done
+          [ "$missing" = "0" ] || { echo "::error::产物不齐全，拒绝发布（宁可不发，也不发一个缺平台的 Release）"; exit 1; }
+          echo "OK 五份必需产物齐全"
+
       - name: Generate SHA256 checksums
         run: |
           cd release-assets
           sha256sum HMP-* > SHA256SUMS.txt
           cat SHA256SUMS.txt
 
-      - name: Generate categorized release notes
+      - name: Build release notes
         id: notes
         run: |
+          VERSION=$(grep '^hmp.versionName=' gradle.properties | cut -d'=' -f2)
+          TAG="v${VERSION}"
+
+          # 正文 = ROADMAP 的本次版本条目（单一事实来源）。原来 Notes 只由 commit 前缀
+          # 分类生成，与 ROADMAP 各说各话，发布说明里的完成度口径没人负责。
+          # 条目里的 `>` 引用块是给内部看的（进度注记、文档指针），不进公开发布说明。
+          {
+            echo "## Hearable Music Player ${TAG}"
+            echo
+            awk -v head="### v${VERSION} (" 'index($0, head)==1 {f=1; next} /^### v[0-9]/ {if (f) exit} f' ROADMAP.md \
+              | grep -v '^> '
+            cat <<TABLE
+
+          ---
+
+          ### 📥 产物
+          | 平台 | 文件 |
+          |------|------|
+          | Android | \`HMP-v${VERSION}-release.apk\`（\`.aab\` 走 Google Play） |
+          | macOS | \`HMP-v${VERSION}-macos.dmg\` |
+          | Windows | \`HMP-v${VERSION}-windows.msi\` |
+          | Linux | \`HMP-v${VERSION}-linux.deb\` / \`.AppImage\` |
+          | 校验和 | \`SHA256SUMS.txt\`（\`sha256sum -c SHA256SUMS.txt\`） |
+
+          > iOS 不随本次发布提供安装包：需 macOS + Xcode 源码自构建，见 README「安装步骤」。
+          TABLE
+          } > body.md
+
+          # commit 分类降级为附录
           PREV_TAG=$(git tag --sort=-v:refname | head -1)
           if [ -n "$PREV_TAG" ]; then
             COMMITS=$(git log "$PREV_TAG..HEAD" --pretty=format:"%s" --no-merges)
           else
             COMMITS="Initial release"
           fi
-
-          # Categorize commits
           FEATURES=$(echo "$COMMITS" | grep -iE "^(feat|feature)" | sed 's/^/- /' || true)
           FIXES=$(echo "$COMMITS" | grep -iE "^fix" | sed 's/^/- /' || true)
           PERF=$(echo "$COMMITS" | grep -iE "^(perf|optimize|refactor)" | sed 's/^/- /' || true)
           OTHERS=$(echo "$COMMITS" | grep -viE "^(feat|feature|fix|perf|optimize|refactor)" | sed 's/^/- /' || true)
-
           {
-            echo "NOTES<<EOF"
-            [ -n "$FEATURES" ] && echo "### ✨ New Features" && echo "$FEATURES" && echo ""
-            [ -n "$FIXES" ] && echo "### 🐛 Bug Fixes" && echo "$FIXES" && echo ""
-            [ -n "$PERF" ] && echo "### ⚡ Performance & Refactoring" && echo "$PERF" && echo ""
-            [ -n "$OTHERS" ] && echo "### 📦 Other Changes" && echo "$OTHERS" && echo ""
-            echo "EOF"
-          } >> $GITHUB_OUTPUT
+            echo
+            echo "---"
+            echo
+            echo "### 工程提交（附录，自动生成）"
+            [ -n "$FEATURES" ] && echo "#### ✨ Features" && echo "$FEATURES" && echo ""
+            [ -n "$FIXES" ] && echo "#### 🐛 Fixes" && echo "$FIXES" && echo ""
+            [ -n "$PERF" ] && echo "#### ⚡ Performance & Refactoring" && echo "$PERF" && echo ""
+            [ -n "$OTHERS" ] && echo "#### 📦 Other" && echo "$OTHERS" && echo ""
+          } > appendix.md
+          wc -l body.md appendix.md
 
       - name: Create tag and GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          VERSION=${{ steps.version.outputs.VERSION }}
+          VERSION=$(grep '^hmp.versionName=' gradle.properties | cut -d'=' -f2)
           TAG="v${VERSION}"
-
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag "$TAG"
-          git push origin "$TAG"
 
-          gh release create "$TAG" \
-            --repo "$GITHUB_REPOSITORY" \
-            --title "$TAG" \
-            --notes "## Hearable Music ${TAG}
+          # 幂等：原来先 git tag 再 gh release create，任一步中途失败后重跑必死于
+          # "tag already exists"，只能人工删 tag。现在存在即复用。
+          if git rev-parse -q --verify "refs/tags/${TAG}" >/dev/null; then
+            echo "tag ${TAG} 已存在 → 复用（通常是上次发布中途失败后重跑）"
+          else
+            git tag "${TAG}"
+            git push origin "${TAG}"
+          fi
 
-          ${{ steps.notes.outputs.NOTES }}
+          cat body.md appendix.md > notes.md
 
-          ---
-          ### 📥 Assets
-          | Platform | File |
-          |----------|------|
-          | Android | \`HMP-v${VERSION}-release.apk\` / \`.aab\` (Google Play) |
-          | macOS | \`HMP-v${VERSION}-macos.dmg\` |
-          | Windows | \`HMP-v${VERSION}-windows.msi\` |
-          | Linux | \`HMP-v${VERSION}-linux.deb\` / \`.AppImage\` |
-          | Checksums | \`SHA256SUMS.txt\` |" \
-            release-assets/*
+          if gh release view "${TAG}" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release edit "${TAG}" --repo "$GITHUB_REPOSITORY" --title "${TAG}" --notes-file notes.md
+            gh release upload "${TAG}" release-assets/* --clobber --repo "$GITHUB_REPOSITORY"
+          else
+            gh release create "${TAG}" --repo "$GITHUB_REPOSITORY" --title "${TAG}" \
+              --notes-file notes.md release-assets/*
+          fi
 
   # ============================================================
   # 5. 站点部署
