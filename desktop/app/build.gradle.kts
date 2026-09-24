@@ -231,23 +231,33 @@ val injectFFmpeg by tasks.registering {
             throw GradleException("FFmpeg 尚未就绪，无法注入: $ffmpegSrc")
         }
 
-        // 三端一条规则：名为 bin、且路径里带 runtime（macOS 多一层 Contents/Home 也无所谓）。
-        // 不能用「bin 里有 java 可执行文件」判定 —— 打包用的 jlink runtime 剥掉了启动器，
-        // 该目录下只有 dll/dylib/so（实测 Windows 本地 69 项无 java.exe）。
-        val targets = binDir.walk().filter {
-            it.isDirectory && it.name == "bin" && it.absolutePath.contains("runtime")
-        }.toList()
+        // 三端一条规则：jlink 出的 runtime 根 = 装着 JVM 的那一层。
+        // 位置各端不同：Windows 是 bin/server/jvm.dll，macOS 是 lib/server/libjvm.dylib，
+        // Linux 是 lib/server/libjvm.so —— 两种判据都认，别按平台写死路径形状。
+        // 运行时按 java.home/bin/ffmpeg 找（FFmpegAudioEngine.resolveFfmpegPath），而 macOS 的
+        // runtime 里**没有 bin 目录**（启动器是 Contents/MacOS/HMP，不依赖 bin/java）—— 这才是
+        // DMG 一直缺 FFmpeg 的根因；故由这里补建 bin 再投放，运行时零改动即可命中。
+        val roots = binDir.walk().filter { it.isDirectory }.mapNotNull { d ->
+            when {
+                // macOS / Linux：java.home 这一层直接带 lib/server
+                File(d, "lib/server").isDirectory -> d
+                // Windows：server 在 bin/ 下，往上两级才是 java.home
+                d.name == "server" && d.parentFile?.name == "bin" -> d.parentFile?.parentFile
+                else -> null
+            }
+        }.distinctBy { it.absolutePath }.toList()
 
         // 旧实现在找不到目标时静默通过，正是「DMG 里没有 ffmpeg」被长期掩盖的原因
-        if (targets.isEmpty()) {
+        if (roots.isEmpty()) {
             throw GradleException(
-                "app image 已生成但未找到 JRE bin 目录，FFmpeg 未注入。\n" +
+                "app image 已生成但未找到 jlink runtime（判据：lib/server 或 bin/server），FFmpeg 未注入。\n" +
                     "  binDir=$binDir\n" +
                     "  实际目录树（前 80 项，据此核对布局）：\n" +
                     binDir.walk().filter { it.isDirectory }.take(80)
                         .joinToString("\n") { "    " + it.relativeTo(binDir).path }
             )
         }
+        val targets = roots.map { File(it, "bin").also { b -> b.mkdirs() } }
 
         for (target in targets) {
             val dest = File(target, ffmpegFileName)
