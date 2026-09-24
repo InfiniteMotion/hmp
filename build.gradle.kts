@@ -403,68 +403,167 @@ tasks.register("checkVersion") {
     }
 }
 
+// ── 版本号声明点：syncVersion 写入、checkReleaseConsistency 校验，共用一张表 ──────
+
+/**
+ * 一处版本声明。[pattern] 必须含三个捕获组：前缀、版本值、后缀。
+ * [isCode] 表示该处存的是 versionCode；[allowSuffix] 保留原值尾缀（shared-ios 的 "7.2.3-a1"）；
+ * [all] 表示同文件多处替换（pbxproj 的 Debug/Release 两份配置）。
+ */
+private class VersionSite(
+    val label: String,
+    val relPath: String,
+    val pattern: Regex,
+    val isCode: Boolean = false,
+    val allowSuffix: Boolean = false,
+    val all: Boolean = false,
+)
+
+/** versionCode 由 versionName 推导（VERSIONING §3），杜绝手写算错。 */
+private fun versionCodeOf(name: String): Int {
+    val p = name.split(".")
+    if (p.size != 3 || p.any { it.toIntOrNull() == null }) {
+        throw GradleException("版本号必须是 MAJOR.MINOR.PATCH，当前: $name")
+    }
+    return p[0].toInt() * 10000 + p[1].toInt() * 1000 + p[2].toInt()
+}
+
+private val versionSites = listOf(
+    // 真源
+    VersionSite("gradle.properties versionName", "gradle.properties",
+        Regex("(?m)^(hmp\\.versionName=)([^\\r\\n]+?)([ \\t]*\\r?)$")),
+    VersionSite("gradle.properties versionCode", "gradle.properties",
+        Regex("(?m)^(hmp\\.versionCode=)(\\d+)([ \\t]*\\r?)$"), isCode = true),
+    // 站点
+    VersionSite("site/js/config.js", "site/js/config.js",
+        Regex("(?m)^([ \\t]*version: ')([^']+)(',[ \\t]*\\r?)$")),
+    VersionSite("site/index.html JSON-LD", "site/index.html",
+        Regex("(\"softwareVersion\"\\s*:\\s*\")([^\"]+)(\")")),
+    // iOS 工程（源头 + 两份生成物；pbxproj 若改用 xcconfig 可从表里摘掉，见 TODO R34）
+    VersionSite("project.yml CFBundleShortVersionString", "ios/HMP/project.yml",
+        Regex("(?m)^([ \\t]*CFBundleShortVersionString:\\s*\")([^\"]+)(\"[ \\t]*\\r?)$")),
+    VersionSite("project.yml MARKETING_VERSION", "ios/HMP/project.yml",
+        Regex("(?m)^([ \\t]*MARKETING_VERSION:\\s*\")([^\"]+)(\"[ \\t]*\\r?)$")),
+    VersionSite("Info.plist CFBundleShortVersionString", "ios/HMP/HMP/Info.plist",
+        Regex("(CFBundleShortVersionString</key>\\s*<string>\\s*)([^<]+?)(\\s*</string>)")),
+    VersionSite("pbxproj MARKETING_VERSION", "ios/HMP/HMP.xcodeproj/project.pbxproj",
+        Regex("(?m)^([ \\t]*MARKETING_VERSION = )([^;\\r\\n]+)(;[ \\t]*\\r?)$"), all = true),
+    VersionSite("shared-ios 框架版本", "shared-ios/src/iosMain/kotlin/com/hmp/ios/Anchor.kt",
+        Regex("(SHARED_IOS_FRAMEWORK_VERSION[^=\\r\\n]*=\\s*\")([^\"]+)(\")"), allowSuffix = true),
+    // 文档里的机械声明（叙述性内容不在这里，见 syncVersion 的提示）
+    VersionSite("CLAUDE.md 应用版本", "CLAUDE.md",
+        Regex("(?m)^(- 应用版本: )([0-9][0-9.]*)( ?\\(versionCode [0-9]+\\).*)$")),
+    VersionSite("CLAUDE.md versionCode", "CLAUDE.md",
+        Regex("(?m)^(- 应用版本: [0-9.]+ \\(versionCode )(\\d+)(\\).*)$"), isCode = true),
+    VersionSite("DEVELOP.md versionName", "DEVELOP.md",
+        Regex("(?m)^(hmp\\.versionName=)([^\\r\\n]+?)([ \\t]*\\r?)$")),
+    VersionSite("DEVELOP.md versionCode", "DEVELOP.md",
+        Regex("(?m)^(hmp\\.versionCode=)(\\d+)([ \\t]*\\r?)$"), isCode = true),
+)
+
+/** 需要人写内容的两处：脚本只查不代笔，免得生成一份与实态无关的发布说明。 */
+private val handWrittenNotes = listOf("ROADMAP.md", "site/changelog.html")
+
+private fun siteValue(text: String, site: VersionSite): String? =
+    site.pattern.find(text)?.groupValues?.get(2)?.trim()
+
+private fun rewriteSite(text: String, site: VersionSite, name: String, code: Int): String {
+    val base = if (site.isCode) code.toString() else name
+    fun one(m: MatchResult, src: String): String {
+        val old = m.groupValues[2]
+        val tail = if (site.allowSuffix) (Regex("[-+][^\r\n\"]*").find(old)?.value ?: "") else ""
+        return src.replaceRange(m.range, m.groupValues[1] + base + tail + m.groupValues[3])
+    }
+    if (!site.all) return site.pattern.find(text)?.let { one(it, text) } ?: text
+    var out = text
+    // 从后往前替换，避免前面的替换让后面的 range 失效
+    for (m in site.pattern.findAll(text).toList().asReversed()) out = one(m, out)
+    return out
+}
+
+tasks.register("syncVersion") {
+    group = "release"
+    description = "版本号下发：-Phmp.newVersion=X.Y.Z 改真源并同步全部声明点；不带参数则按当前真源重发"
+    notCompatibleWithConfigurationCache("执行期读写多个仓库文件")
+
+    doLast {
+        val target = (project.findProperty("hmp.newVersion")?.toString() ?: versionName).trim()
+        val code = versionCodeOf(target)
+        println("下发版本 $target（versionCode $code，由 versionName 推导）：")
+
+        val changed = linkedSetOf<String>()
+        for (site in versionSites) {
+            val f = rootDir.resolve(site.relPath)
+            if (!f.isFile) throw GradleException("${site.label}：文件不存在 ${site.relPath}")
+            val text = f.readText()
+            val current = siteValue(text, site)
+                ?: throw GradleException("${site.label}：在 ${site.relPath} 里没匹配到（正则失效？改 versionSites）")
+            val updated = rewriteSite(text, site, target, code)
+            if (updated == text) {
+                println("  [=] ${site.label} 已是 $current")
+            } else {
+                f.writeText(updated)
+                changed.add(site.relPath)
+                println("  [→] ${site.label}: $current → ${if (site.isCode) code else target}")
+            }
+        }
+        println(if (changed.isEmpty()) "无需改动" else "改动文件：${changed.joinToString()}")
+
+        val todo = handWrittenNotes.filterNot {
+            rootDir.resolve(it).readText().contains("v$target")
+        }
+        if (todo.isEmpty()) {
+            println("OK 发版记录条目已存在")
+        } else {
+            println("")
+            println("!! 还要人写（脚本不代笔）：${todo.joinToString()} 缺 v$target 条目")
+            println("   ROADMAP 模板：### v$target (${java.time.LocalDate.now()})")
+        }
+    }
+}
+
 tasks.register("checkReleaseConsistency") {
     group = "release"
-    description = "以 gradle.properties 为唯一真源，核对站点 / iOS 工程 / 文档里的版本声明是否同步（只读校验，不改文件）"
+    description = "以 gradle.properties 为唯一真源，核对所有版本声明点（只读，CI 用）"
     notCompatibleWithConfigurationCache("执行期读取多个仓库文件")
 
     doLast {
-        val expect = versionName
         val drift = mutableListOf<String>()
-
-        fun read(rel: String): String {
-            val f = rootDir.resolve(rel)
-            if (!f.isFile) throw GradleException("文件不存在：$rel")
-            return f.readText()
-        }
-
-        fun check(label: String, rel: String, pattern: Regex, allowSuffix: Boolean = false) {
-            val actual = try {
-                pattern.find(read(rel))?.groupValues?.get(1)?.trim()
-            } catch (e: Exception) {
-                drift += "$label —— 读取失败：${e.message}"
-                return
-            }
-            if (actual == null) {
-                drift += "$label —— $rel 里找不到声明（模式：${pattern.pattern}）"
-                return
-            }
-            val ok = if (allowSuffix) actual.startsWith(expect) else actual == expect
-            if (!ok) drift += "$label —— $rel 里是 \"$actual\"，应为 $expect"
-            else println("  [OK] $label = $actual")
-        }
-
-        println("以 gradle.properties 的 hmp.versionName=$expect 为真源核对：")
-
-        check("站点版本源", "site/js/config.js", Regex("(?m)^\\s*version:\\s*'([^']+)'"))
-        check("站点 JSON-LD", "site/index.html", Regex("\"softwareVersion\"\\s*:\\s*\"([^\"]+)\""))
-        check("iOS 工程 CFBundleShortVersionString", "ios/HMP/project.yml", Regex("(?m)^\\s*CFBundleShortVersionString:\\s*\"([^\"]+)\""))
-        check("iOS 工程 MARKETING_VERSION", "ios/HMP/project.yml", Regex("(?m)^\\s*MARKETING_VERSION:\\s*\"([^\"]+)\""))
-        check("iOS Info.plist", "ios/HMP/HMP/Info.plist", Regex("CFBundleShortVersionString</key>\\s*<string>\\s*([^<]+?)\\s*</string>"))
-        check("Xcode 工程配置", "ios/HMP/HMP.xcodeproj/project.pbxproj", Regex("(?m)^\\s*MARKETING_VERSION\\s*=\\s*([^;]+);"))
-        check("shared-ios 框架版本", "shared-ios/src/iosMain/kotlin/com/hmp/ios/Anchor.kt",
-            Regex("SHARED_IOS_FRAMEWORK_VERSION[^=]*=\\s*\"([^\"]+)\""), allowSuffix = true)
-
-        // 发版记录类：存在性检查（不是抓值）
-        listOf(
-            "site/changelog.html" to "<!-- v$expect -->",
-            "ROADMAP.md" to "### v$expect (",
-        ).forEach { (rel, needle) ->
+        for (site in versionSites) {
             val text = try {
-                read(rel)
+                rootDir.resolve(site.relPath).readText()
             } catch (e: Exception) {
-                drift += "$rel —— 读取失败：${e.message}"
-                return@forEach
+                drift += "${site.label}：读取 ${site.relPath} 失败 ${e.message}"; continue
             }
-            if (!text.contains(needle)) drift += "$rel —— 没有本次版本的条目（找不到 \"$needle\"）"
-            else println("  [OK] $rel 已有 v$expect 条目")
+            val actual = siteValue(text, site)
+            val expect = if (site.isCode) versionCodeOf(versionName).toString() else versionName
+            when {
+                actual == null ->
+                    drift += "${site.label}：${site.relPath} 里没匹配到（正则失效？改 versionSites）"
+                site.allowSuffix && actual != expect && !actual.startsWith("$expect-") ->
+                    drift += "${site.label}：${site.relPath} 是 \"$actual\"，应为 $expect 或 $expect-后缀"
+                !site.allowSuffix && actual != expect ->
+                    drift += "${site.label}：${site.relPath} 是 \"$actual\"，应为 $expect"
+                else -> println("  [OK] ${site.label} = $actual")
+            }
         }
-
+        handWrittenNotes.forEach { rel ->
+            val text = try {
+                rootDir.resolve(rel).readText()
+            } catch (e: Exception) {
+                drift += "$rel：${e.message}"; return@forEach
+            }
+            if (!text.contains("### v$versionName") && !text.contains("<!-- v$versionName")) {
+                drift += "$rel：没有 v$versionName 的发版记录条目"
+            } else {
+                println("  [OK] $rel 已有 v$versionName 条目")
+            }
+        }
         if (drift.isNotEmpty()) {
             throw GradleException(
-                "版本声明不一致（真源 gradle.properties = $expect）：\n" +
+                "版本声明不一致（真源 hmp.versionName=$versionName）：\n" +
                     drift.joinToString("\n") { "  - $it" } +
-                    "\n\n发版前请同步这些文件，或把它们接上自动生成（见 TODO R34）。"
+                    "\n\n一条命令下发：./gradlew syncVersion -Phmp.newVersion=$versionName"
             )
         }
         println("OK 版本声明全部与真源一致")

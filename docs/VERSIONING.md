@@ -37,6 +37,30 @@ hmp.versionName=7.1.0
 - **versionName**：与三位版本号一致。各模块通过 `project.findProperty("hmp.versionName")` 引用。
 - **versionCode**：每次发布**严格递增**的整数，按 `MAJOR*10000 + MINOR*1000 + PATCH` 换算（如 `7.1.0` → `71000`）。
 
+### 3.1 改版本号：只敲一条命令
+
+```bash
+./gradlew syncVersion -Phmp.newVersion=7.2.4
+```
+
+它把 `gradle.properties` 当唯一真源，写入全部声明点，并**自动推导 versionCode**（不要手算，手写容易错）：
+
+| 目标 | 处数 |
+|---|---|
+| `gradle.properties`（真源 name + code） | 2 |
+| 站点 `site/js/config.js`、`site/index.html` JSON-LD | 2 |
+| iOS `project.yml`（源头）+ `Info.plist` + `pbxproj`（两份配置） | 4 |
+| `shared-ios` 框架版本常量（保留 `-aN` 后缀） | 1 |
+| `CLAUDE.md`、`DEVELOP.md` 的机械版本行 | 4 |
+
+不带参数直接跑 `./gradlew syncVersion` = 按当前真源重新下发（手改完真源后用它对齐其余）。
+
+**仍需人写两处**（脚本刻意不代笔，缺了会失败并给出模板）：`ROADMAP.md` 的 `### vX.Y.Z` 条目、`site/changelog.html` 的版本条目。
+
+**改完校验**：`./gradlew checkVersion checkReleaseConsistency`（CI 的 validate 就跑这两个），发版前整体门是 `./gradlew preflight`（含全量单测 —— CI 已不跑单测，这是唯一守门人）。
+
+**新增声明点时**：只需在 `build.gradle.kts` 的 `versionSites` 表里加一行（`label` / `path` / 三段正则：前缀、值、后缀）。正则失配会**硬失败并指名文件**，不会静默漏改。
+
 ## 4. 分支策略
 
 ### 分支结构
