@@ -13,6 +13,7 @@ import com.hmp.domain.agent.policy.PolicyGuard
 import com.hmp.log.HmpLog
 import com.hmp.log.LogTag
 import com.hmp.domain.agent.tool.spec.ToolRegistry
+import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 
@@ -174,6 +175,8 @@ internal class ToolCallExecutor(
                 summary = result.summary,
                 detail = result.detail,
             )
+        } catch (ce: CancellationException) {
+            throw ce  // 协程取消不吞：吞掉会继续执行剩余 toolCalls 并写库（同 LlmCallExecutor 的约定）
         } catch (e: Exception) {
             auditLog?.record(AuditEntry(
                 tool = tc.name, outcome = "failed",

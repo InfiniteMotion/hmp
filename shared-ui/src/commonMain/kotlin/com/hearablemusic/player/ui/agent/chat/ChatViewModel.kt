@@ -13,6 +13,7 @@ import com.hearablemusic.player.ui.generated.resources.agent_chat_hint_thinking
 import com.hearablemusic.player.ui.generated.resources.agent_chat_hint_wait
 import com.hearablemusic.player.ui.platform.currentTimeMillis
 import com.hmp.domain.agent.port.ConfirmOutcome
+import com.hmp.domain.agent.port.ToolPermissionLevel
 import com.hmp.domain.agent.funnel.CommandLexicon
 import com.hmp.domain.agent.funnel.FunnelResult
 import com.hmp.domain.agent.port.AgentMessageStore
@@ -155,7 +156,7 @@ class ChatViewModel(
         val p = _state.value.pendingConfirm ?: return
         if (p.submitted) return
         val items = p.items.map {
-            if (it.id == itemId) {
+            if (it.id == itemId && !it.permanentAllowForbidden) {
                 val newAlways = !it.alwaysAllow
                 it.copy(alwaysAllow = newAlways, selected = it.selected || newAlways)
             } else it
@@ -249,8 +250,11 @@ class ChatViewModel(
                             val current = _state.value.pendingConfirm
                             if (current != null && !current.submitted) return@collect
                             val items = event.requests.map { r ->
+                                val strong = r.permissionLevel == ToolPermissionLevel.STRONG_CONFIRM
                                 ConfirmItem(id = r.toolName + "#" + r.argsSummary.hashCode(),
-                                    toolName = r.toolName, argsSummary = r.argsSummary, selected = true)
+                                    toolName = r.toolName, argsSummary = r.argsSummary,
+                                    // 不可逆项不预选：用户必须看清它改的是什么再自己勾上
+                                    selected = !strong, permissionLevel = r.permissionLevel)
                             }
                             _state.update { it.copy(pendingConfirm = ConfirmCardState(event.turnId, items)) }
                         }

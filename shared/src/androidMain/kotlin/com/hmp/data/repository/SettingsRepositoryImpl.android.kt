@@ -66,6 +66,7 @@ class SettingsRepositoryImpl(
         fun agentRuntimeParamsKey(role: String) = stringPreferencesKey("agent_policy_${role}_runtime_params")
         fun agentPromptOverridesKey(role: String) = stringPreferencesKey("agent_policy_${role}_prompt_overrides")
         fun agentPreferredLangKey(role: String) = stringPreferencesKey("agent_policy_${role}_preferred_lang")
+        fun agentEnabledKey(role: String) = booleanPreferencesKey("agent_policy_${role}_enabled")
         // Per-Agent AI Endpoint Config — 独立 endpoint/apiKey/model
         fun agentEndpointKey(role: String) = stringPreferencesKey("agent_endpoint_${role}")
         fun agentApiKeyKey(role: String) = stringPreferencesKey("agent_apikey_${role}")
@@ -363,6 +364,7 @@ class SettingsRepositoryImpl(
         val runtimeParamsJson = prefs[PreferencesKeys.agentRuntimeParamsKey(agentRole)]
         val promptOverridesJson = prefs[PreferencesKeys.agentPromptOverridesKey(agentRole)]
         val preferredLang = prefs[PreferencesKeys.agentPreferredLangKey(agentRole)] ?: "global"
+        val enabled = prefs[PreferencesKeys.agentEnabledKey(agentRole)] ?: true
         val json = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
         return com.hmp.domain.agent.policy.AgentPolicyConfig(
             trustLevel = trustLevel.coerceIn(0, com.hmp.domain.agent.policy.TrustLevel.MAX),
@@ -371,6 +373,7 @@ class SettingsRepositoryImpl(
             runtimeParams = runtimeParamsJson?.let { runCatching { json.decodeFromString<Map<String, String>>(it) }.getOrNull() }?.toMutableMap() ?: mutableMapOf(),
             promptOverrides = promptOverridesJson?.let { runCatching { json.decodeFromString<Map<String, String>>(it) }.getOrNull() }?.toMutableMap() ?: mutableMapOf(),
             preferredLang = preferredLang,
+            enabled = enabled,
         )
     }
 
@@ -383,6 +386,7 @@ class SettingsRepositoryImpl(
             prefs[PreferencesKeys.agentRuntimeParamsKey(agentRole)] = json.encodeToString(config.runtimeParams)
             prefs[PreferencesKeys.agentPromptOverridesKey(agentRole)] = json.encodeToString(config.promptOverrides)
             prefs[PreferencesKeys.agentPreferredLangKey(agentRole)] = config.preferredLang
+            prefs[PreferencesKeys.agentEnabledKey(agentRole)] = config.enabled
         }
     }
 

@@ -323,9 +323,9 @@ HMP/
 > 历史说明：早期文档称 CI「部署 Storybook 到 GitHub Pages」，实际 deploy-site job 上传的是 `site/` 目录（手工维护的产品站点），且 Storybook 相关 workflow 已在 v6.10 移除。
 
 ### 已知待完成任务 (TODO.md)
-- v7.x 三大方向：A) KMP 重写 iOS UI（v7.1 已完成）/ B) AI 功能 Agent 化（**F1–F14 完成、F10 挂起**，承载于 `feature/agent-build`）/ C) 播放功能增强补齐（尚未启动）
-- v6 遗留：P8.1 iOS 安全存储真加密（现 XOR 伪加密 → CryptoKit AES-GCM + Keychain）；P9 已由方向 A 取代冻结
-- T3: Repository 通用逻辑提取到 commonMain 共享基类
+- v7.x 三大方向：A) KMP 重写 iOS UI（v7.1 已完成）/ B) AI 功能 Agent 化（F1–F14 已随 v7.2.0 交付、**F10 挂起**）/ C) 播放功能增强补齐（**C1–C9 未排期**）
+- v7.2.0 合入前 review 的遗留：B 级 **R1–R17**、C 级 **R20–R30**（证据与分级出处见 `docs/7_x/B agent-build/review-7.2.md`）
+- iOS 原生层残留 **I1/I2**（标签技术元数据与歌词、`MusicPlayService.swift` 死文件）
 
 ### 文档索引
 - [README.md](README.md) — 项目概览
@@ -338,5 +338,6 @@ HMP/
 - [docs/ROOM_KMP_SETUP.md](docs/ROOM_KMP_SETUP.md) — Room KMP 跨平台数据库配置指南
 - **AI Agent 体系（方向 B，已随 v7.2.0 交付）**
   - [docs/7_x/B agent-build/design/agent.md](docs/7_x/B%20agent-build/design/agent.md) — 设计总纲（单一事实来源）
-  - [docs/7_x/B agent-build/taskbook/README.md](docs/7_x/B%20agent-build/taskbook/README.md) — 推进计划（f1–f14 阶段族）
+  - [docs/7_x/B agent-build/taskbook/README.md](docs/7_x/B%20agent-build/taskbook/README.md) — 推进计划（f1–f14 阶段族；**完成度口径以代码为准，见 review 报告**）
+  - [docs/7_x/B agent-build/review-7.2.md](docs/7_x/B%20agent-build/review-7.2.md) — v7.2.0 合入前审查报告 + 处置记录
 - **历史版本方案（已完成，备查）**：`docs/5_9/`、`docs/5_10/`、`docs/6_1/`、`docs/6_12/`

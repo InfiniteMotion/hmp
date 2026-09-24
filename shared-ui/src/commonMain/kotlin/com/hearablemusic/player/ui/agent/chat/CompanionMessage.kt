@@ -5,6 +5,7 @@ import com.hearablemusic.player.ui.generated.resources.Res
 import com.hearablemusic.player.ui.generated.resources.agent_chat_receipt_all_skipped
 import com.hearablemusic.player.ui.generated.resources.agent_chat_receipt_done
 import com.hearablemusic.player.ui.generated.resources.agent_chat_receipt_done_skipped
+import com.hmp.domain.agent.port.ToolPermissionLevel
 import com.hmp.domain.agent.runtime.ToolExecutionRecord
 import com.hmp.domain.music.MusicInfo
 import com.hmp.domain.playlist.Playlist
@@ -43,7 +44,12 @@ data class ConfirmItem(
     val selected: Boolean,
     /** v7.1 新增：勾上后该工具将写入 agentPolicy.config.alwaysAllow，后续不再弹确认 */
     val alwaysAllow: Boolean = false,
-)
+    /** 许可级。**STRONG_CONFIRM（不可逆操作）默认不预选、且不提供「总是允许」**——见 [CompanionBubble]。 */
+    val permissionLevel: ToolPermissionLevel = ToolPermissionLevel.CONFIRM,
+) {
+    /** 不可逆项：不给永久白名单这条路。 */
+    val permanentAllowForbidden: Boolean get() = permissionLevel == ToolPermissionLevel.STRONG_CONFIRM
+}
 
 /** 单条对话消息（UI 展平模型，含渲染类型与可选载荷）。 */
 data class CompanionMessage(

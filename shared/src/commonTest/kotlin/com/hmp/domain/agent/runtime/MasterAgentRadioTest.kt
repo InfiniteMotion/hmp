@@ -172,4 +172,74 @@ class MasterAgentRadioTest {
         assertEquals(listOf(3L, 2L), forwarded.drop(1).map { it.musicId }, "镜像头部=在播 1 号，其余为模型队列")
         assertEquals("收住夜色", forwarded.first { it.musicId == 3L }.why, "whys 按 id 对齐落库")
     }
+
+    // ── 回归（v7.2.0 review A1）：生命周期不得自锁 / 不得等一个还在自旋的旧循环 ──
+
+    private class Fixture {
+        val musicRepo = FakeAgentMusicRepository()
+        val playback = RecordingPlaybackPort()
+        val transport = FakeLlmTransport(
+            perTurnScript = listOf(
+                listOf(LlmEvent.TextDelta("""{"musicIds":[3,2,1]}"""), LlmEvent.Completed),
+            ),
+        )
+        val master = MasterAgent(
+            timeProvider = { 0L },
+            musicRepository = musicRepo,
+            chatToolRegistry = createBaseToolRegistry(
+                ToolDependencies(
+                    musicRepository = musicRepo,
+                    playlistRepository = FakeAgentPlaylistRepository(),
+                    settingsRepository = FakeSettingsRepository(),
+                    nowPlayingContextProvider = FakeNowPlayingContextProvider,
+                    playbackCommandPort = playback,
+                )
+            ),
+            radioTransport = transport,
+            defaultLlmConfig = AiEndpointConfig(isConfigured = true),
+            playbackPort = playback,
+            nowPlayingProvider = FakeNowPlayingContextProvider,
+        )
+
+        init {
+            listOf(song(1, "夜航", "甲"), song(2, "清晨", "乙"), song(3, "回声", "丙")).forEach {
+                musicRepo.songs[it.music.id] = it
+            }
+            musicRepo.musicIdsByLabel[LabelName.ROCK] = listOf(1L, 2L, 3L)
+        }
+    }
+
+    /**
+     * 暂停后再开电台。修复前两处在同一把 `radioLifecycleMutex` 里等死：
+     * ① `startRadio` 开头无条件 `radioRunLoopJob.join()`，而 `pauseRadio` 只翻状态、
+     *    不清 `isActive`，旧 runLoop 仍在自旋 → join 永不返回；
+     * ② 走到「先停再重建」时锁内调公开 `stopRadio()`，重入同一把非重入 Mutex → 自锁。
+     * 之后所有 start/stop 全部挂起，只能杀进程。
+     */
+    @Test
+    fun startRadio_afterPause_doesNotHang() = runBlocking {
+        val f = Fixture()
+        f.master.startRadio(seed = "摇滚")
+        withTimeout(10_000) { while (f.master.queryRadioState() !is com.hmp.domain.agent.runtime.sub.radio.RadioState.PLAYING) delay(20) }
+        f.master.pauseRadio()
+        val callsBefore = f.transport.calls.size
+
+        withTimeout(20_000) { f.master.startRadio(seed = "摇滚") }
+
+        // 真的重建并跑了新一轮（不是短路返回空队列）
+        withTimeout(20_000) { while (f.transport.calls.size <= callsBefore) delay(20) }
+    }
+
+    /** 关闭后再开电台：走公开 `stopRadio()` 收摊路径，同样不得卡死。 */
+    @Test
+    fun startRadio_afterStop_doesNotHang() = runBlocking {
+        val f = Fixture()
+        f.master.startRadio(seed = "摇滚")
+        withTimeout(10_000) { while (f.master.queryRadioState() !is com.hmp.domain.agent.runtime.sub.radio.RadioState.PLAYING) delay(20) }
+        f.master.stopRadio()
+        val callsBefore = f.transport.calls.size
+
+        withTimeout(20_000) { f.master.startRadio(seed = "摇滚") }
+        withTimeout(20_000) { while (f.transport.calls.size <= callsBefore) delay(20) }
+    }
 }

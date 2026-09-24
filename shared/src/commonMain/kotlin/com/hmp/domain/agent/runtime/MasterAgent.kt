@@ -593,22 +593,18 @@ class MasterAgent internal constructor(
      */
     internal suspend fun startEnrich(task: EnrichTask, enrichTransport: LlmTransport? = null) {
         enrichLifecycleMutex.withLock {
-            // 等待旧 runLoop 协程完全退出（如果有），再创建新实例
-            enrichRunLoopJob?.join()
-            enrichRunLoopJob = null
-
-            // 幂等检查：已有活跃实例 → 跳过
-            _subAgents["enrich"]?.let { existing ->
-                if (existing !is com.hmp.domain.agent.runtime.sub.enrich.EnrichSubAgent) {
-                    HmpLog.w(LogTag.AgentMaster) { "🤖 [Master] existing enrich is not EnrichSubAgent, force cleanup" }
-                    stopEnrich()
-                } else if (existing.state() == com.hmp.domain.agent.runtime.AgentRunState.RUNNING) {
-                    HmpLog.w(LogTag.AgentMaster) { "🤖 [Master] Enrich already active, skip create" }
-                    return
-                } else {
-                    // 旧实例非活跃但未清理干净 → 先停再重建
-                    stopEnrich()
-                }
+            // 幂等检查：已有活跃实例 → 跳过。
+            // 必须先判活跃再等旧 runLoop 退出——暂停中的 runLoop 仍在自旋，先 join 就是卡死。
+            val existing = _subAgents["enrich"]
+            if (existing != null && existing !is com.hmp.domain.agent.runtime.sub.enrich.EnrichSubAgent) {
+                HmpLog.w(LogTag.AgentMaster) { "🤖 [Master] existing enrich is not EnrichSubAgent, force cleanup" }
+                stopEnrichLocked()
+            } else if (existing?.state() == com.hmp.domain.agent.runtime.AgentRunState.RUNNING) {
+                HmpLog.w(LogTag.AgentMaster) { "🤖 [Master] Enrich already active, skip create" }
+                return
+            } else if (existing != null || enrichRunLoopJob?.isActive == true) {
+                // 旧实例非活跃但未清理干净 → 先停再重建
+                stopEnrichLocked()
             }
 
             if (!enrichPolicyConfig.enabled) {
@@ -685,16 +681,22 @@ class MasterAgent internal constructor(
 
     /** Master 下令销毁 Enrich（F1：只有 Master 能下令） */
     suspend fun stopEnrich() {
-        enrichLifecycleMutex.withLock {
-            _subAgents["enrich"]?.let { enrich ->
-                enrich.shutdown()
-                scheduler.unregisterAgent("enrich")
-                _subAgents.remove("enrich")
-                HmpLog.i(LogTag.AgentMaster) { "🤖 [Master] Enrich stopped" }
-            }
-            enrichRunLoopJob?.cancel()
-            enrichRunLoopJob = null
+        enrichLifecycleMutex.withLock { stopEnrichLocked() }
+    }
+
+    /** 收摊本体。**调用方必须已持有 [enrichLifecycleMutex]**（Mutex 不可重入，锁内调 `stopEnrich()` 会自锁） */
+    private suspend fun stopEnrichLocked() {
+        _subAgents["enrich"]?.let { enrich ->
+            enrich.shutdown()
+            scheduler.unregisterAgent("enrich")
+            _subAgents.remove("enrich")
+            HmpLog.i(LogTag.AgentMaster) { "🤖 [Master] Enrich stopped" }
         }
+        enrichRunLoopJob?.let { old ->
+            old.cancel()
+            old.join()   // 等旧 runLoop 真正退出，重建时不会两代并存
+        }
+        enrichRunLoopJob = null
     }
 
     // ===== Radio 电台管理（M6-T1 · F1：Master 唯一决策） =====
@@ -718,20 +720,18 @@ class MasterAgent internal constructor(
         chatContext: String? = null,
     ): List<com.hmp.domain.agent.runtime.sub.shared.RadioTrack> {
         return radioLifecycleMutex.withLock {
-            // 等待旧 runLoop 协程完全退出
-            radioRunLoopJob?.join()
-            radioRunLoopJob = null
-
-            // 幂等：已有活跃实例 → 委托给它
-            _subAgents["radio"]?.let { existing ->
-                val radio = existing as? com.hmp.domain.agent.runtime.sub.radio.RadioSubAgent
-                if (radio != null && radio.state() == com.hmp.domain.agent.runtime.AgentRunState.RUNNING) {
-                    HmpLog.w(LogTag.AgentMaster) { "🤖 [Master] Radio already active, delegating to existing" }
-                    return@withLock radio.startRadio(seed, trigger, chatContext)
-                }
-                // 非活跃实例 → 先停再重建
-                stopRadio()
+            // 幂等：已有活跃实例 → 委托给它。
+            // 注意这一步必须在「等旧 runLoop 退出」之前：暂停中的电台 runLoop 仍在自旋
+            // （pauseRadio 只翻状态、不清 isActive），先 join 就是把开播卡死。
+            val raw = _subAgents["radio"]
+            val existing = raw as? com.hmp.domain.agent.runtime.sub.radio.RadioSubAgent
+            if (existing != null && existing.state() == com.hmp.domain.agent.runtime.AgentRunState.RUNNING) {
+                HmpLog.w(LogTag.AgentMaster) { "🤖 [Master] Radio already active, delegating to existing" }
+                return@withLock existing.startRadio(seed, trigger, chatContext)
             }
+            // 陈旧 / 暂停 / 已退出的上一档 → 先收摊（内含 cancel + join），再重建，
+            // 否则两代决策环会同时往播放队列里写。
+            if (raw != null || radioRunLoopJob?.isActive == true) stopRadioLocked()
 
             if (!radioPolicyConfig.enabled) {
                 HmpLog.i(LogTag.AgentMaster) { "🤖 [Master] Radio 已关闭，跳过启动" }
@@ -867,44 +867,50 @@ class MasterAgent internal constructor(
             )
         }
 
-        radioLifecycleMutex.withLock {
-            // ① 先 cancel 信号采集协程（防止电台已关但信号还在往决策环投递）
-            radioSettledListenerJob?.cancel()
-            radioSettledListenerJob = null
-            radioPauseListenerJob?.cancel()
-            radioPauseListenerJob = null
-            radioTrackChangeListenerJob?.cancel()
-            radioTrackChangeListenerJob = null
-            radioListenersStarted = false   // 重置守卫，下次 startRadio 会重新注册
-            // ② 停 SubAgent
-            _subAgents["radio"]?.let { radio ->
-                // 关闭电台只暂停、不清播放列表，所以对话往往还有效 —— 存下来供下次复用
-                retainedRadio = (radio as? com.hmp.domain.agent.runtime.sub.radio.RadioSubAgent)?.exportConversation()
-                (radio as? com.hmp.domain.agent.runtime.sub.radio.RadioSubAgent)?.stopRadio()
-                radio.shutdown()
-                scheduler.unregisterAgent("radio")
-                _subAgents.remove("radio")
-                HmpLog.i(LogTag.AgentMaster) { "🤖 [Master] Radio stopped" }
-            }
-            // F11-L1：电台会话已结束 → 撤销保活诉求
-            updateRadioKeepAlive(false)
-            // ③ 播放已在 ⓪ 暂停（只暂停、不清空播放队列 —— 关闭电台不等于清空播放列表）。
-            //    这里再补一次：若 ⓪ 时状态还没就绪（极端时序），确保最终是暂停态。
-            muteObservation()
-            playbackPort?.execute(com.hmp.domain.agent.port.PlaybackCommand.PAUSE, com.hmp.domain.agent.port.CommandSource.AGENT_INTERNAL)
-            radioRunLoopJob?.cancel()
-            radioRunLoopJob = null
-            // ④ 停转发协程 + 清固定 _radioState（UI 层据此隐藏 RADIO_STATUS 卡）
-            radioStateForwarderJob?.cancel()
-            radioStateForwarderJob = null
-            radioCardStateForwarderJob?.cancel()
-            radioCardStateForwarderJob = null
-            radioPlaylistForwarderJob?.cancel()
-            radioPlaylistForwarderJob = null
-            _radioCardState.value = com.hmp.domain.agent.runtime.sub.radio.RadioCardState(null, 0, null, null)
-            _radioPlaylist.value = emptyList()
-            _radioState.value = null
+        radioLifecycleMutex.withLock { stopRadioLocked() }
+    }
+
+    /** 收摊本体。**调用方必须已持有 [radioLifecycleMutex]**（Mutex 不可重入，锁内调 `stopRadio()` 会自锁） */
+    private suspend fun stopRadioLocked() {
+        // ① 先 cancel 信号采集协程（防止电台已关但信号还在往决策环投递）
+        radioSettledListenerJob?.cancel()
+        radioSettledListenerJob = null
+        radioPauseListenerJob?.cancel()
+        radioPauseListenerJob = null
+        radioTrackChangeListenerJob?.cancel()
+        radioTrackChangeListenerJob = null
+        radioListenersStarted = false   // 重置守卫，下次 startRadio 会重新注册
+        // ② 停 SubAgent
+        _subAgents["radio"]?.let { radio ->
+            // 关闭电台只暂停、不清播放列表，所以对话往往还有效 —— 存下来供下次复用
+            retainedRadio = (radio as? com.hmp.domain.agent.runtime.sub.radio.RadioSubAgent)?.exportConversation()
+            (radio as? com.hmp.domain.agent.runtime.sub.radio.RadioSubAgent)?.stopRadio()
+            radio.shutdown()
+            scheduler.unregisterAgent("radio")
+            _subAgents.remove("radio")
+            HmpLog.i(LogTag.AgentMaster) { "🤖 [Master] Radio stopped" }
         }
+        // F11-L1：电台会话已结束 → 撤销保活诉求
+        updateRadioKeepAlive(false)
+        // ③ 播放已在 ⓪ 暂停（只暂停、不清空播放队列 —— 关闭电台不等于清空播放列表）。
+        //    这里再补一次：若 ⓪ 时状态还没就绪（极端时序），确保最终是暂停态。
+        muteObservation()
+        playbackPort?.execute(com.hmp.domain.agent.port.PlaybackCommand.PAUSE, com.hmp.domain.agent.port.CommandSource.AGENT_INTERNAL)
+        radioRunLoopJob?.let { old ->
+            old.cancel()
+            old.join()   // 等旧决策环真正退出，重建时不会两代并存
+        }
+        radioRunLoopJob = null
+        // ④ 停转发协程 + 清固定 _radioState（UI 层据此隐藏 RADIO_STATUS 卡）
+        radioStateForwarderJob?.cancel()
+        radioStateForwarderJob = null
+        radioCardStateForwarderJob?.cancel()
+        radioCardStateForwarderJob = null
+        radioPlaylistForwarderJob?.cancel()
+        radioPlaylistForwarderJob = null
+        _radioCardState.value = com.hmp.domain.agent.runtime.sub.radio.RadioCardState(null, 0, null, null)
+        _radioPlaylist.value = emptyList()
+        _radioState.value = null
     }
 
     /** 编排动作前静默观测，避免自己的播放指令被当成用户行为。 */
@@ -956,20 +962,16 @@ class MasterAgent internal constructor(
      */
     internal suspend fun startHello(): HelloSubAgent? {
         return helloLifecycleMutex.withLock {
-            // 等待旧 runLoop 协程完全退出
-            helloRunLoopJob?.join()
-            helloRunLoopJob = null
-
-            // ① 幂等守卫：活跃实例 → 跳过
-            _subAgents["hello"]?.let { existing ->
-                val hello = existing as? HelloSubAgent
-                if (hello != null && hello.state() != com.hmp.domain.agent.runtime.AgentRunState.UNREGISTERED) {
-                    HmpLog.w(LogTag.AgentMaster) { "🤖 [Master] Hello already active, skip create" }
-                    return@withLock hello
-                }
-                // 非活跃实例 → 先停再重建
-                stopHello()
+            // ① 幂等守卫：活跃实例 → 跳过。
+            // 先判活跃、后等退出——暂停中的 runLoop 仍在自旋，开头就 join 会把自己卡死。
+            val raw = _subAgents["hello"]
+            val hello = raw as? HelloSubAgent
+            if (hello != null && hello.state() != com.hmp.domain.agent.runtime.AgentRunState.UNREGISTERED) {
+                HmpLog.w(LogTag.AgentMaster) { "🤖 [Master] Hello already active, skip create" }
+                return@withLock hello
             }
+            // 陈旧 / 已退出的上一实例 → 先收摊（含 cancel + join）再重建
+            if (raw != null || helloRunLoopJob?.isActive == true) stopHelloLocked()
 
             if (!helloPolicyConfig.enabled) {
                 HmpLog.i(LogTag.AgentMaster) { "🤖 [Master] Hello 已关闭，跳过启动" }
@@ -1047,22 +1049,28 @@ class MasterAgent internal constructor(
 
     /** Master 下令销毁 Hello */
     internal suspend fun stopHello() {
-        helloLifecycleMutex.withLock {
-            _subAgents["hello"]?.let { hello ->
-                hello.shutdown()
-                scheduler.unregisterAgent("hello")
-                _subAgents.remove("hello")
-                HmpLog.i(LogTag.AgentMaster) { "🤖 [Master] Hello stopped" }
-            }
-            helloRunLoopJob?.cancel()
-            helloRunLoopJob = null
+        helloLifecycleMutex.withLock { stopHelloLocked() }
+    }
 
-            // G6：停止推荐列表转发并清空（避免 UI 停留在上一个实例的陈旧数据）
-            recommendListForwarderJob?.cancel()
-            recommendListForwarderJob = null
-            _dailyRecommendList.value = null
-            _privateRecommendList.value = null
+    /** 收摊本体。**调用方必须已持有 [helloLifecycleMutex]**（Mutex 不可重入，锁内调 `stopHello()` 会自锁） */
+    private suspend fun stopHelloLocked() {
+        _subAgents["hello"]?.let { hello ->
+            hello.shutdown()
+            scheduler.unregisterAgent("hello")
+            _subAgents.remove("hello")
+            HmpLog.i(LogTag.AgentMaster) { "🤖 [Master] Hello stopped" }
         }
+        helloRunLoopJob?.let { old ->
+            old.cancel()
+            old.join()   // 等旧 runLoop 真正退出，重建时不会两代并存
+        }
+        helloRunLoopJob = null
+
+        // G6：停止推荐列表转发并清空（避免 UI 停留在上一个实例的陈旧数据）
+        recommendListForwarderJob?.cancel()
+        recommendListForwarderJob = null
+        _dailyRecommendList.value = null
+        _privateRecommendList.value = null
     }
 
     // ═══ 热更新 AI 配置 ═══

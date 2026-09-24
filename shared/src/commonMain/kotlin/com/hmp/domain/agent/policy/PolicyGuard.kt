@@ -42,8 +42,10 @@ class PolicyGuard(
         level: ToolPermissionLevel,
         taskId: Long?,
     ): PermissionDecision {
-        // ═══ Phase 0: 用户主动设的 alwaysAllow（最高优先级）═══
-        if (agentPolicy.isAlwaysAllow(toolName)) {
+        // ═══ Phase 0: 用户主动设的 alwaysAllow（最高优先级；STRONG_CONFIRM 不吃白名单）═══
+        //   不可逆操作（删播放列表等）必须每次显式确认：白名单是永久 + 无撤销入口的，
+        //   一旦命中就等于把硬规则永久关闭，见 Phase 2 的 STRONG_CONFIRM 分支。
+        if (level != ToolPermissionLevel.STRONG_CONFIRM && agentPolicy.isAlwaysAllow(toolName)) {
             auditLog.record(AuditEntry(
                 tool = toolName, outcome = "allowed_silent",
                 reason = "Phase0-alwaysAllow: role=${agentPolicy.role}", taskId = taskId,

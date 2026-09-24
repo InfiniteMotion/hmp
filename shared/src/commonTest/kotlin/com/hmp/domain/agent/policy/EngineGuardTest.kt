@@ -110,7 +110,7 @@ class PolicyGuardTest {
     }
 
     @Test
-    fun `Phase0 alwaysAllow whitelist bypasses all later phases`() = kotlinx.coroutines.runBlocking {
+    fun `Phase0 alwaysAllow whitelist bypasses CONFIRM but never STRONG_CONFIRM`() = kotlinx.coroutines.runBlocking {
         val audit = FakeAuditLogPort()
         val g = PolicyGuard(audit)
         val policy = AgentPolicy.master(
@@ -122,8 +122,8 @@ class PolicyGuardTest {
 
         // CONFIRM 级 + SUGGEST 档 → 本来 RequireConfirm，但白名单命中 → AllowSilent
         assertEquals(PermissionDecision.AllowSilent, g.decide(policy, "editPlaylist", ToolPermissionLevel.CONFIRM, null))
-        // STRONG_CONFIRM 级也被白名单绕过
-        assertEquals(PermissionDecision.AllowSilent, g.decide(policy, "editPlaylist", ToolPermissionLevel.STRONG_CONFIRM, null))
+        // 不可逆项不吃白名单：白名单是永久且无撤销入口的，命中即等于把硬规则永久关闭
+        assertEquals(PermissionDecision.RequireConfirm, g.decide(policy, "editPlaylist", ToolPermissionLevel.STRONG_CONFIRM, null))
         // 没在白名单里的 CONFIRM 级 → 正常 RequireConfirm
         assertEquals(PermissionDecision.RequireConfirm, g.decide(policy, "createPlaylist", ToolPermissionLevel.CONFIRM, null))
     }

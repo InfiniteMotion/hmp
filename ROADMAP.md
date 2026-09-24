@@ -244,19 +244,22 @@
 - **修复**：底部融合栏 Tab 常驻（移除显示条件对 `isMiniPlayerVisible` 的依赖，无歌曲时导航可见）；shared 模块绝对路径任务（`schemaDirectory` / `copyIconsToIos`）导致的 iOS 任务图校验失败
 
 ### v7.2.0 (2026-09-24)
-- **AI 功能 Agent 化全量落地（方向 B，F1–F14，自 `feature/agent-build` 合入）**：
-  - 引擎与工具层：Master + SubAgent 编排；四层组件解耦（`LlmCallExecutor` / `ToolCallExecutor` / `ReActLoop` / `StopSignal`）；工具层 27 原子工具终局；权限体系 9→6 概念收敛（`TrustTier` → `trustLevel`、`AgentPolicyConfig` 2 字段）+ `PolicyGuard` 与 ConfirmGate「总是允许」全链路，配置三端持久化闭环
-  - 场景交付：对话页与交互主干、AI 电台（主播化 + 播完基于上下文续队列）、Hello 呈现（设计包 + 引擎落地 + 卡片堆叠）、听歌报告双轴筛选（5 维度 × 5 时段窗口，维度拆分 SQL / 零内存聚合）、伙伴设置页（`AgentConfig(agentRole)` 单路由六分区）
+> 合入前 review 结论见 [docs/7_x/B agent-build/review-7.2.md](docs/7_x/B%20agent-build/review-7.2.md)：4 项 A 级（生命周期锁自锁、alwaysAllow 覆盖 STRONG_CONFIRM、Agent 启用开关不落盘、降级静默清库）+ B3 取消被吞，**已在本分支修完并补回归用例**；余项按 B/C 级归档为 TODO 的 **R1–R29**（v7.2.1 作业）。本条描述按该报告校准，不按 taskbook 的完成口吻照抄。
+
+- **AI 功能 Agent 化落地（方向 B，F1–F14，自 `feature/agent-build` 合入）**：
+  - 引擎与工具层：Master + SubAgent 编排；四层组件解耦（`LlmCallExecutor` / `ToolCallExecutor` / `ReActLoop` / `StopSignal`）；工具面 29 基础 + `capability_status`；权限体系 9→6 概念收敛（`TrustTier` → `trustLevel`、`AgentPolicyConfig` 2 字段）+ `PolicyGuard` 与 ConfirmGate 全链路
+  - 场景交付：对话页与交互主干、AI 电台（播完基于上下文续队列）、Hello 呈现（设计包 + 引擎落地 + 卡片堆叠）、听歌报告双轴筛选（5 维度 × 5 时段窗口，维度拆分 SQL / 零内存聚合）、伙伴设置页（`AgentConfig(agentRole)` 单路由，**四分区**）
   - 用户认识模块 `UserMemory`：两层画像（侧写层 + 证据层）+ 分级记忆 L1/L2/L3 + 认知准入标准（明确拒绝类型学），遗忘唤醒 `ForgottenDelivery`；`Capability` 接口统一三个 SubAgent 能力面 + `CapabilityStatusTool`，删除 8 个 DJ 遗留工具
-  - F11 后台生命周期（L1–L3/L5 主体完成，**真机核验待手动**）、F12 Token 计量与窗口治理（真值账本 / 分账视图 / 64K 固定窗口，Room **v8 → v9** 新增 `token_ledger`；T2b 配额候补、T5 成本可见后置）
-  - F14 界面自适应与多语言：七页断点适配与横屏布局、空态 `DefaultEmpty` / `LocalHMPDimens` / `AgentStatusColors` 基建对齐、字符串资源收拢（**305 新键 / 14 语言各 779 键**、键集合一致 + 占位符逐条校验、新增 `UiText` 设施、agent 子树 UI 面向中文清零）
-  - **F10 语音会话（RealtimeVoiceTransport）整体挂起**，独立阶段、未开工，不在本版
+  - F11 后台生命周期：**Android 落地**（Desktop/iOS 仍为首次进 UI 懒初始化，`AgentKeepAlivePort` Desktop 无实现），真机核验未做
+  - F12 Token 计量：真值入账四路径 + 窗口治理（64K 先压后拒，**Master 主对话不经该守卫**）；Room **v8 → v9** 新增 `token_ledger`。看板分账**仅「按 Agent + 累计总量」两格**，端点/模型与分时两维只有明细落库（四个 DAO 聚合零调用方），`measured` 真假值 UI 不区分
+  - F14 界面自适应与多语言：六页断点适配与横屏布局、空态 `DefaultEmpty` / `LocalHMPDimens` / `AgentStatusColors` 基建对齐、字符串资源收拢（14 语言各 **789 键**、键集合一致 + 占位符逐条校验，新增 `UiText` 设施）。口径限定：**新译覆盖本轮 317 键**，泰语存量约 57% 仍为英文；中文残留于电台/问候的状态文案经端口上屏，未达成「清零」
+  - **F10 语音会话（RealtimeVoiceTransport）整体挂起**，未开工，不在本版
 - **官网改版与站点同步（自 `feature/site-sync` 合入）**：多页面结构与 canvas 动态背景、运行时语言切换与多语种词典、站点元信息单源化（`site/js/config.js`）并接入 Release 流水线自动同步、新增音乐伙伴介绍页与全站事实校准
 - **依赖升级**：Compose Multiplatform → **1.11.1**、AGP → **9.1.1**，版本目录整理
 - **首启与能力回归**：三端首启引导修复、`IntroScreen` 横屏适配、音乐扫描提速、平台能力搬迁点检回归
 - **桌面端修复**：播放队列丢失、FFmpeg 架构错配导致的解码失败
-- **日志规范**：Agent 域日志规范推广至全仓三端
-- **测试**：`desktopTest` 961 例全绿（F13 可见性收敛 + DI 核对 + 测试补齐）
+- **日志规范**：Agent 域日志规范推广至全仓三端（全仓非测试 `println` 归零）
+- **测试**：`desktopTest` 961 例实跑通过（F13 可见性收敛 + DI 核对 + 测试补齐）
 
 ## 🛠️ 关键技术演进
 
@@ -416,7 +419,7 @@
 - 收益：v6.x 遗留的「iOS 双实现对齐」债务永久消失，新功能默认三端交付
 
 ### 阶段10：智能化与站点同步 (v7.2，2026-09)
-- v7.2.0：方向 B Agent 化自 `feature/agent-build` 并入发版 —— Master + SubAgent 编排、27 原子工具、权限护栏、UserMemory 用户认识、Token 计量与窗口治理、界面自适应与 14 语言
+- v7.2.0：方向 B Agent 化自 `feature/agent-build` 并入发版 —— Master + SubAgent 编排、29 工具面、权限护栏、UserMemory 用户认识、Token 计量、界面自适应与 14 语言（残留项见 `docs/7_x/B agent-build/review-7.2.md`）
 - v7.2.0：官网改版与站点元信息单源化，版本号由 Release 流水线自动同步
 - 遗留：F10 语音会话挂起；F11 后台生命周期真机核验；方向 C 播放增强（C1–C9）未启动
 

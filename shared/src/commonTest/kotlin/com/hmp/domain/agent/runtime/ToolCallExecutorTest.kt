@@ -17,6 +17,7 @@ import com.hmp.test.fakes.RecordingTool
 import com.hmp.test.fakes.ThrowingTool
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
+import kotlin.test.assertFailsWith
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
@@ -79,6 +80,29 @@ class ToolCallExecutorTest {
         }
         assertEquals(true, approvals["id_strong_tool"])
         assertTrue(policy.config.alwaysAllow.contains("strong_tool"))
+    }
+
+    /**
+     * 回归（v7.2.0 review B3）：协程取消不是「工具执行失败」。
+     * 被 `catch (Exception)` 吞掉时，剩余 toolCalls 会继续执行并写库、写审计，
+     * 用户点停止后仍看到数据被改。LlmCallExecutor 早已复抛，此处漏改。
+     */
+    @Test
+    fun `CancellationException 复抛而非记为 failed`() = runTest {
+        val ex = executor(listOf(CancellingTool()))
+        assertFailsWith<kotlinx.coroutines.CancellationException> {
+            ex.executeOne(toolCall("cancelling_tool"), messages = null, approved = true)
+        }
+        assertTrue(audit.entries.none { it.tool == "cancelling_tool" }, "取消不该留下执行回执")
+    }
+
+    private class CancellingTool : com.hmp.domain.agent.tool.spec.AgentTool {
+        override val name = "cancelling_tool"
+        override val description = "cancels on run"
+        override val params: List<com.hmp.domain.agent.tool.spec.ToolParam> = emptyList()
+        override val permissionLevel = ToolPermissionLevel.SILENT
+        override suspend fun run(args: com.hmp.domain.agent.tool.spec.ToolArgs): ToolResult =
+            throw kotlinx.coroutines.CancellationException("cancelled")
     }
 
     // ===== 单工具执行 =====

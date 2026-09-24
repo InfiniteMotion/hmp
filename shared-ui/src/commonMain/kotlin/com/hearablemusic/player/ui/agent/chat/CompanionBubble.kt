@@ -222,8 +222,8 @@ fun ConfirmMatrixCard(
                         )
                     }
 
-                    // 右侧："总是允许" checkbox（仅未提交时可操作）
-                    if (!submitted) {
+                    // 右侧："总是允许" checkbox（仅未提交时可操作；不可逆项不提供永久放行）
+                    if (!submitted && !item.permanentAllowForbidden) {
                         val labelColor = if (item.alwaysAllow)
                             MaterialTheme.colorScheme.tertiary
                         else
