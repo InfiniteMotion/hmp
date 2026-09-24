@@ -261,7 +261,7 @@
 - **日志规范**：Agent 域日志规范推广至全仓三端（全仓非测试 `println` 归零）
 - **测试**：`desktopTest` 961 例实跑通过（F13 可见性收敛 + DI 核对 + 测试补齐）
 
-### v7.2.2 (2026-09-24)
+### v7.2.2 (2026-09-24) 【未发布：CI 挂掉，无 tag 无产物】
 > **v7.2.0 从未真正发布**：PR #34 已把代码合进 master，但 CI 三平台构建全部失败、没有 `v7.2.0` tag 与产物。本版是承载方向 B Agent 化的**第一个可安装发布物**，发布说明正文会同时带上下方 v7.2.0 条目。
 
 - **桌面端三平台产物恢复可发布**：
@@ -272,13 +272,22 @@
 - **CI 静默挂死处置中（未结案）**：删去 `org.gradle.configureondemand`（与 parallel 组合的配置期锁竞态；实测本仓配置耗时无差别 9.2s vs 9.2s）、validate 加 `timeout-minutes: 20`、`concurrency.cancel-in-progress: true`（原为 false，一个挂死的 run 会堵住之后所有发版尝试）
 
 
-### v7.2.4 (2026-09-24)
+### v7.2.4 (2026-09-24) 【未发布：发版通道故障，作废】
 > ⚠️ v7.2.0 / 7.2.1 / 7.2.2 / 7.2.3 都没有对应发布物（代码已合入 master，无 tag、无产物）—— 首次跑通的发布会把这几节一并写进 Release Notes。
 > 本节即"原 v7.2.3"：那次 bump 被 `checkReleaseConsistency` 拦下（`DEVELOP.md` 的版本声明漏改），未发布即作废，为避开已用过的 7.2.3 号而顺延为 7.2.4，内容不变。
 
 - **CI 不再跑单元测试**：`testAll` 在 runner 上静默挂死（最后一行停在某个 `> Task` 之后无输出；plain console 的标题行只代表任务**开始**，所以看到的不是卡住的那个任务）。头号嫌疑是 `:android:core-player` 的三个 Robolectric 用例在测试执行期从 Maven Central 现拉 `android-all` 大 jar —— 默认无超时也不输出，且 `setup-gradle` 只缓存 Gradle home、不缓存 `~/.m2`，本机热缓存故永远复现不出。已从 validate 移除，单元测试改由**本机 `./gradlew preflight`** 守门（写进 VERSIONING §5/§6 与 CLAUDE 发版流程），validate 保留 `timeout-minutes: 10`。成因未结案，恢复路径记在 TODO R31
 - **版本号下发脚本**：新增 `syncVersion`，以 `gradle.properties` 为唯一真源，把版本号写入 13 处声明点（站点 `config.js` / JSON-LD、iOS `project.yml` / `Info.plist` / `pbxproj`、`shared-ios` 框架版本、CLAUDE / DEVELOP），**`versionCode` 由 `versionName` 推导**（此前我手写算错过两次）；`checkReleaseConsistency` 与它共用同一张声明点表，ROADMAP 与站点 changelog 仍要求人来写 —— 脚本只查不代笔，缺条目就失败并给出模板
 - 版本号 **7.2.4 / versionCode 72004**
+
+
+### v7.2.5 (2026-09-24) 【在发：release/7.2.5】
+> ⚠️ 无一次发布成功过：**v7.2.0 / 7.2.1 / 7.2.2 / 7.2.3 / 7.2.4 都没有 tag、没有产物**（代码全在 master）。v7.2.4 与 v7.2.5 都是为绕开发版通道故障而新建的号，本身没有新功能。
+
+- **修 macOS 桌面包缺解码器的根因**：`injectFFmpeg` 旧判据是「找名为 `bin` 的目录」，而 macOS 的 jlink runtime **根本没有 `bin` 层**（启动器是 `Contents/MacOS/HMP`）——于是自始至终一次都没注入成功，产出的每个 `.dmg` 都缺 FFmpeg，且任务**静默通过**。现在改为先归一化定位 JVM 根（macOS/Linux 认 `lib/server`，Windows 认 `bin/server` 再上溯两级），运行时按 `java.home/bin/ffmpeg` 查找，缺目录就补建 —— 运行时代码零改动即可命中；找不到 JVM 根则**直接失败并打印实际目录树**，不再静默放行。本机已双验：Windows 真实 app image（jlink 剥掉启动器，`bin` 下 69 项无 `java.exe`，所以「bin 里有 java」这条判据是错的）+ 合成的 macOS 目录形状；macOS/Linux 真实布局待本次发布验证
+- **产物自检补上**：三端各加一步断言（macOS 挂载 DMG 后查 `ffmpeg*`、Windows 查 app image、Linux `dpkg -c` 列 deb），把「CI 全绿但用户拿到的包不能播放」这种形态变成构建失败。只查任务日志不够，故查最终产物
+- **修清理步骤自己把 job 弄失败**：`run:` 在 Windows 默认是 pwsh，`> /dev/null` 被解析成 `D:\dev\null` 直接报错，`pkill` 也不存在。5 处 daemon 清理统一加 `shell: bash`，Windows 分支改用 `taskkill`
+- 版本号 **7.2.5 / versionCode 72005**
 
 
 ## 🛠️ 关键技术演进
@@ -492,8 +501,8 @@
 ---
 
 **最后更新时间**: 2026-09-24
-**当前版本**: v7.2.4（`release/7.2.4` → master，待发布）
-**已发布至 master 但未产出发布物**: v7.2.0 / v7.2.1 / v7.2.2 / v7.2.3（代码在 master，CI 未跑通，无 tag 与产物）
+**当前版本**: v7.2.5（`release/7.2.5` → master，待发布）
+**已发布至 master 但未产出发布物**: v7.2.0 / v7.2.1 / v7.2.2 / v7.2.3 / v7.2.4（代码在 master，CI 未跑通，无 tag 与产物）
 **最新可下载安装包**: v7.1.0
 **开发中（未发布）**: 方向 C 播放增强（C1–C9 未启动）；方向 B 残留 —— F10 语音会话挂起、F11 真机核验、F12 T2b 配额候补 / T5 成本可见后置
 

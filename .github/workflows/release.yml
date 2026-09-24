@@ -54,11 +54,14 @@ jobs:
 
       - name: Cleanup Gradle/Kotlin daemons
         if: always()
+        shell: bash   # 统一 shell：Windows 默认 pwsh 会把 `> /dev/null` 当成 D:\dev\null 去写，直接失败
         run: |
-          ./gradlew --stop > /dev/null 2>&1 || true
-          pkill -f KotlinCompileDaemon || true
-          pkill -f GradleDaemon || true
-          pkill -f GradleWorkerMain || true
+          ./gradlew --stop || true
+          case "$RUNNER_OS" in
+            # Git Bash 里没有 pkill，Windows 用 taskkill；//F 是 MSYS 的转义写法
+            Windows) taskkill //F //IM java.exe //T >/dev/null 2>&1 || true ;;
+            *) pkill -f 'GradleDaemon|KotlinCompileDaemon|GradleWorkerMain' || true ;;
+          esac
 
   # ============================================================
   # 2. Android 构建（与桌面端并行）
@@ -105,11 +108,14 @@ jobs:
 
       - name: Cleanup Gradle/Kotlin daemons
         if: always()
+        shell: bash   # 统一 shell：Windows 默认 pwsh 会把 `> /dev/null` 当成 D:\dev\null 去写，直接失败
         run: |
-          ./gradlew --stop > /dev/null 2>&1 || true
-          pkill -f KotlinCompileDaemon || true
-          pkill -f GradleDaemon || true
-          pkill -f GradleWorkerMain || true
+          ./gradlew --stop || true
+          case "$RUNNER_OS" in
+            # Git Bash 里没有 pkill，Windows 用 taskkill；//F 是 MSYS 的转义写法
+            Windows) taskkill //F //IM java.exe //T >/dev/null 2>&1 || true ;;
+            *) pkill -f 'GradleDaemon|KotlinCompileDaemon|GradleWorkerMain' || true ;;
+          esac
 
   # ============================================================
   # 3. 桌面端构建（与 Android 并行）
@@ -135,6 +141,19 @@ jobs:
       - name: Build macOS DMG
         run: ./gradlew :desktop:app:packageDistributionForCurrentOS '-Phmp.release-build=true' --no-daemon --no-configuration-cache
 
+      - name: Verify FFmpeg inside DMG
+        shell: bash
+        run: |
+          set -euo pipefail
+          dmg=$(ls desktop/app/build/compose/binaries/main/dmg/*.dmg | head -1)
+          mp=$(mktemp -d)
+          # 装包而不是只看 app image：injectFFmpeg 若排在 packageDmg 之后，image 里有、DMG 里没有，
+          # 正是上一版「CI 全绿但用户拿到缺解码器的包」的形态。
+          hdiutil attach -nobrowse -readonly -mountpoint "$mp" "$dmg" >/dev/null
+          trap 'hdiutil detach -force "$mp" || true' EXIT
+          find "$mp" -type f -name 'ffmpeg*' -print | grep -q . \
+            || { echo "!! DMG 内没有 FFmpeg：$dmg"; exit 1; }
+
       - name: Upload macOS artifact
         uses: actions/upload-artifact@v4
         with:
@@ -144,11 +163,14 @@ jobs:
 
       - name: Cleanup Gradle/Kotlin daemons
         if: always()
+        shell: bash   # 统一 shell：Windows 默认 pwsh 会把 `> /dev/null` 当成 D:\dev\null 去写，直接失败
         run: |
-          ./gradlew --stop > /dev/null 2>&1 || true
-          pkill -f KotlinCompileDaemon || true
-          pkill -f GradleDaemon || true
-          pkill -f GradleWorkerMain || true
+          ./gradlew --stop || true
+          case "$RUNNER_OS" in
+            # Git Bash 里没有 pkill，Windows 用 taskkill；//F 是 MSYS 的转义写法
+            Windows) taskkill //F //IM java.exe //T >/dev/null 2>&1 || true ;;
+            *) pkill -f 'GradleDaemon|KotlinCompileDaemon|GradleWorkerMain' || true ;;
+          esac
 
   build-desktop-windows:
     needs: [validate]
@@ -174,6 +196,14 @@ jobs:
       - name: Build Windows MSI
         run: ./gradlew :desktop:app:packageDistributionForCurrentOS '-Phmp.release-build=true' --no-daemon --no-configuration-cache
 
+      - name: Verify FFmpeg inside app image
+        shell: bash
+        run: |
+          set -euo pipefail
+          # MSI 是对 app image 目录的整目录收割，查 image 即可（解包 msi 要 dark，路径不稳定）。
+          find desktop/app/build/compose/binaries/main/app -type f -iname 'ffmpeg.exe' -print \
+            | grep -q . || { echo "!! app image 内没有 ffmpeg.exe"; exit 1; }
+
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
         with:
@@ -183,11 +213,14 @@ jobs:
 
       - name: Cleanup Gradle/Kotlin daemons
         if: always()
+        shell: bash   # 统一 shell：Windows 默认 pwsh 会把 `> /dev/null` 当成 D:\dev\null 去写，直接失败
         run: |
-          ./gradlew --stop > /dev/null 2>&1 || true
-          pkill -f KotlinCompileDaemon || true
-          pkill -f GradleDaemon || true
-          pkill -f GradleWorkerMain || true
+          ./gradlew --stop || true
+          case "$RUNNER_OS" in
+            # Git Bash 里没有 pkill，Windows 用 taskkill；//F 是 MSYS 的转义写法
+            Windows) taskkill //F //IM java.exe //T >/dev/null 2>&1 || true ;;
+            *) pkill -f 'GradleDaemon|KotlinCompileDaemon|GradleWorkerMain' || true ;;
+          esac
 
   build-desktop-linux:
     needs: [validate]
@@ -213,6 +246,15 @@ jobs:
       - name: Build Linux DEB + AppImage
         run: ./gradlew :desktop:app:packageDistributionForCurrentOS '-Phmp.release-build=true' --no-daemon --no-configuration-cache
 
+      - name: Verify FFmpeg inside deb
+        shell: bash
+        run: |
+          set -euo pipefail
+          deb=$(ls desktop/app/build/compose/binaries/main/deb/*.deb | head -1)
+          # 纯列表比对，不挂载、不解包，无 fuse 依赖。
+          dpkg -c "$deb" | grep -E '/bin/ffmpeg$' \
+            || { echo "!! deb 内没有 FFmpeg：$deb"; exit 1; }
+
       - name: Upload Linux artifact
         uses: actions/upload-artifact@v4
         with:
@@ -224,11 +266,14 @@ jobs:
 
       - name: Cleanup Gradle/Kotlin daemons
         if: always()
+        shell: bash   # 统一 shell：Windows 默认 pwsh 会把 `> /dev/null` 当成 D:\dev\null 去写，直接失败
         run: |
-          ./gradlew --stop > /dev/null 2>&1 || true
-          pkill -f KotlinCompileDaemon || true
-          pkill -f GradleDaemon || true
-          pkill -f GradleWorkerMain || true
+          ./gradlew --stop || true
+          case "$RUNNER_OS" in
+            # Git Bash 里没有 pkill，Windows 用 taskkill；//F 是 MSYS 的转义写法
+            Windows) taskkill //F //IM java.exe //T >/dev/null 2>&1 || true ;;
+            *) pkill -f 'GradleDaemon|KotlinCompileDaemon|GradleWorkerMain' || true ;;
+          esac
 
   # ============================================================
   # 4. 发布：收集产物 + 生成 Notes + 创建 Release
