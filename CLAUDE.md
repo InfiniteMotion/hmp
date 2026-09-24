@@ -286,7 +286,7 @@ HMP/
 ## 开发注意事项
 
 ### 版本信息
-- 应用版本: 7.2.4 (versionCode 72004)
+- 应用版本: 7.2.5 (versionCode 72005)
 - JDK 工具链: 21（Desktop jpackage 要求 Gradle Daemon 运行于 JDK 21，配置说明见 `gradle.properties` 注释）
 - Kotlin: 2.3.21
 - AGP: 9.1.1

@@ -33,6 +33,8 @@
   .cl-version { font-size:1.15rem; font-weight:700; }
   .cl-date { font-size:0.8rem; color:var(--text-secondary); }
   .cl-latest { font-size:0.7rem; font-weight:600; padding:2px 10px; border-radius:100px; background:rgba(201,44,44,0.15); color:var(--red); }
+  .cl-void { font-size:0.7rem; font-weight:600; padding:2px 10px; border-radius:100px; background:rgba(128,128,128,0.18); color:var(--text-secondary); }
+  .cl-entry--void .cl-version { text-decoration:line-through; text-decoration-color:var(--text-secondary); }
 
   .cl-card { background:var(--glass-bg); backdrop-filter:blur(var(--glass-blur)); -webkit-backdrop-filter:blur(var(--glass-blur)); border:1px solid var(--glass-border); border-radius:var(--radius); padding:20px 24px; }
   .cl-section { margin-bottom:14px; }
@@ -94,7 +96,7 @@
 
   <div class="changelog-timeline">
 
-    <!-- v7.2.4 -->
+    <!-- v7.2.5 -->
     <div class="cl-entry">
       <div class="cl-head">
         <span class="cl-version" data-site="version"></span>
@@ -105,7 +107,7 @@
         <div class="cl-section">
           <div class="cl-section-title">本包包含什么</div>
           <ul>
-            <li>这是 <strong>AI 音乐伙伴</strong>与桌面端三平台安装包的<strong>首个可下载安装版本</strong> —— v7.2.0 / v7.2.1 / v7.2.2 的代码当时未发布成功，改动一并收在这里</li>
+            <li>这是 <strong>AI 音乐伙伴</strong>与桌面端三平台安装包的<strong>首个可下载安装版本</strong> —— v7.2.0 至 v7.2.4 都曾尝试发布而未产出安装包，改动一并收在这里</li>
           </ul>
         </div>
         <div class="cl-section">
@@ -135,10 +137,11 @@
     </div>
 
     <!-- v7.2.2 -->
-    <div class="cl-entry">
+    <div class="cl-entry cl-entry--void">
       <div class="cl-head">
         <span class="cl-version">v7.2.0</span>
         <span class="cl-date">2026-09-24</span>
+        <span class="cl-void">未发布 · 改动并入 v7.2.5</span>
       </div>
       <div class="cl-card">
         <div class="cl-section">
