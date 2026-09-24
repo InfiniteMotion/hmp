@@ -6,23 +6,23 @@
 
 ### 整体架构
 
-项目采用MVVM（Model-View-ViewModel）架构模式，结合Kotlin Multiplatform (KMP) 实现跨平台开发，在Android上使用Jetpack Compose，Desktop上使用Compose Multiplatform，在iOS上使用SwiftUI，实现了清晰的职责分离和可维护性。
+项目采用MVVM（Model-View-ViewModel）架构模式，结合Kotlin Multiplatform (KMP) 实现跨平台开发。UI 层使用 Compose Multiplatform，Android / Desktop / iOS 三端共用 `shared-ui` 中的一套 Compose UI，平台差异收口到各自的桥接层；业务逻辑、数据模型与 Repository 接口沉淀在 `shared` 模块，实现了清晰的职责分离和可维护性。
 
 ```
 ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
 │  UI Layer       │     │ ViewModel Layer │     │   Domain Layer  │
-│  (Android:      │────▶│  (Koin          │────▶│  (Use Cases,    │
-│   Jetpack       │     │   ViewModel)    │     │   Repository)   │
-│   Compose,      │     └─────────────────┘     └─────────────────┘
-│  Desktop: CMP,  │                                   │
-│  iOS: SwiftUI)  │                                   ▼
-└─────────────────┘     ┌─────────────────┐     ┌─────────────────┐
-                         │  Service Layer  │     │  Network Layer  │
-                         │  (Media3,       │     │  (Ktor          │
-                         │   FFmpeg/JNA,   │     │   Client)       │
-                         │   AVFoundation) │     └─────────────────┘
-                         └─────────────────┘              │
-                                                          ▼
+│  (Compose       │────▶│  (Koin          │────▶│  (Use Cases,    │
+│   Multiplatform │     │   ViewModel)    │     │   Repository)   │
+│   三端共用)      │     └─────────────────┘     └─────────────────┘
+└─────────────────┘                                   │
+        │                                             ▼
+        │               ┌─────────────────┐     ┌─────────────────┐
+        │               │  Service Layer  │     │  Network Layer  │
+        │               │  (Media3,       │     │  (Ktor          │
+        │               │   FFmpeg/JNA,   │     │   Client)       │
+        │               │   AVFoundation) │     └─────────────────┘
+        │               └─────────────────┘              │
+        ▼                                                ▼
 ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
 │  Data Layer     │     │  Shared Module  │     │  Platform       │
 │  (Room,         │     │  (KMP,          │     │  Specific      │
@@ -36,28 +36,27 @@
 
 #### 核心模块
 
-- **shared**: 跨平台共享模块，包含业务逻辑、数据模型、Repository接口和Koin依赖注入配置
+- **shared**: 跨平台共享模块，包含业务逻辑、数据模型、Repository 接口和 Koin 依赖注入配置
+- **shared-ui**: 跨平台共享 UI 模块，包含 Compose 页面与 ViewModel；**Android / Desktop / iOS 三端共用 commonMain 一套 UI**（v7.0 完成 Android/Desktop，v7.1 完成 iOS），平台差异收口到 androidMain / desktopMain / iosMain 桥接层
+- **shared-ios**: iOS 聚合框架，把 `shared` + `shared-ui` 链接为单一 `sharedIos.framework` 接入 CocoaPods
 - **android/app**: Android应用入口模块，包含MainActivity和Application类
 - **android/core-player**: Android播放核心模块，包含Media3服务和播放控制逻辑
-- **shared-ui**: 共享UI模块（KMP化中），包含Compose页面和组件，现位于androidMain，逐步迁移至commonMain
 - **desktop/app**: Desktop应用入口模块，包含窗口管理、系统托盘和应用生命周期
 - **desktop/core-player**: Desktop播放核心模块，包含FFmpeg音频引擎和播放控制逻辑
-- **desktop/feature-ui**: Desktop UI功能模块，包含Compose Multiplatform页面和组件
-- **ios**: iOS应用模块，包含SwiftUI页面和组件
-- **storybook**: 组件展示与文档模块 (Kotlin/Wasm)
+- **ios**: iOS 应用模块，原生壳（原生层：AppDelegate / 播放引擎 / MediaSession / 桥，共 17 个 Swift 文件）+ 共享 Compose UI
+- **storybook**: 组件展示与文档模块 (Kotlin/Wasm) —— **已移出构建**（`380f225` 起不在 `settings.gradle.kts` 中），源码保留
 
 ### 模块间依赖关系
 
 ```
-:shared-ui ──▶ :android/core-player
 :shared-ui ──▶ :shared
+:shared-ui ──▶ :android/core-player   (androidMain 桥接)
+:shared-ui ──▶ :desktop/core-player   (desktopMain 桥接)
+:android/app ──▶ :shared + :shared-ui
+:desktop/app ──▶ :shared + :shared-ui + :desktop/core-player
 :android/core-player ──▶ :shared
-:desktop/feature-ui ──▶ :desktop/core-player
-:desktop/feature-ui ──▶ :shared
 :desktop/core-player ──▶ :shared
-:desktop/app ──▶ :desktop/feature-ui
-:desktop/app ──▶ :desktop/core-player
-:ios ──▶ :shared (via CocoaPods)
+:ios ──▶ :shared-ios (via CocoaPods；聚合 :shared + :shared-ui)
 ```
 
 ### 模块化进展
@@ -66,8 +65,8 @@
 - ✅ 已创建跨平台shared模块，包含核心业务逻辑和数据模型
 - ✅ 已将Android-specific代码移至android目录下的模块
 - ✅ 已创建Desktop模块，包含Compose Multiplatform页面和组件
-- ✅ 已创建iOS模块，包含SwiftUI页面和组件
-- ✅ 已配置CocoaPods集成，实现iOS对shared模块的依赖
+- ✅ 已创建iOS模块；v7.1 起 iOS 亦切换到共享层 Compose UI，原 SwiftUI 页面层删除，只保留原生壳
+- ✅ 已配置CocoaPods集成（`shared-ios` 聚合框架），实现iOS对 `shared` + `shared-ui` 的依赖
 - ✅ 已实现平台特定的Repository实现（Android、Desktop和iOS）
 - ✅ 已实现桌面端自研音频引擎（FFmpeg + JNA）
 - ✅ 已实现桌面端响应式布局系统（Compact/Expanded模式）
@@ -150,15 +149,15 @@
 - 支持 API 连接测试功能
 - 用户可在配置界面自由切换服务商
 
-#### 9. 导航系统：Navigation 3 (Android) + 自研导航 (Desktop) + SwiftUI Navigation (iOS)
+#### 9. 导航系统：Navigation 3 + 自研 NavController（三端共用）
 
-**选择理由**：Navigation 3 提供了类型安全的导航方式，支持编译时路由检查和参数验证。Desktop 端实现了自研的导航系统（NavController + NavigationGraph + 深度链接），适配桌面端的响应式布局需求。
+**选择理由**：Navigation 3 提供了类型安全的导航方式，支持编译时路由检查和参数验证。为同时满足移动端单栏栈式导航与桌面端多面板响应式导航，项目在 Navigation 3 之上叠了一层自研 NavController + NavigationGraph（含深度链接支持），并在 `shared-ui` 的 commonMain 中实现，三端共用。
 
 **实现细节**：
-- Android端：使用 @Serializable 注解定义路由，集中式路由管理，支持类型安全的参数传递
-- Desktop端：自研 NavController + NavigationGraph 实现多面板路由，支持 Compact/Expanded 布局切换
-- iOS端：使用SwiftUI NavigationStack和NavigationLink实现导航，支持类型安全的参数传递
-- 平台特定实现，保持各自平台的导航最佳实践
+- 使用 @Serializable 注解定义路由，集中式路由管理，支持类型安全的参数传递
+- 自研 NavController + NavigationGraph 实现多面板路由，支持 Compact/Expanded 布局切换
+- 导航逻辑位于 `shared-ui` commonMain，Android / Desktop / iOS 三端复用同一套路由定义
+- 平台差异（返回手势、窗口尺寸判定）收口到各自平台的桥接层
 
 #### 10. 视觉效果：毛玻璃效果
 
@@ -198,29 +197,33 @@ Hearable Music Player/
 │   │   │           └── repository/   # iOS Repository实现
 │   ├── build.gradle.kts              # 共享模块构建配置
 │   └── shared.podspec               # CocoaPods配置
+├── shared-ui/                        # 三端共享 UI 模块（Compose Multiplatform）
+│   ├── src/
+│   │   ├── commonMain/kotlin/com/hearablemusic/player/ui/
+│   │   │   ├── common/               # 通用组件、主题、导航
+│   │   │   ├── library/              # 音乐库页面
+│   │   │   ├── player/               # 播放页面
+│   │   │   ├── playlist/             # 播放列表页面
+│   │   │   ├── settings/             # 设置页面
+│   │   │   └── platform/             # expect 声明与平台服务接口
+│   │   ├── commonMain/composeResources/  # 共享资源
+│   │   ├── androidMain/              # Android 侧 actual 实现
+│   │   ├── desktopMain/              # Desktop 侧 actual 实现
+│   │   └── iosMain/                  # iOS 侧 actual 实现（ObjC bridge）
+│   └── build.gradle.kts
+├── shared-ios/                       # iOS 聚合 framework（导出 shared + shared-ui）
+│   └── build.gradle.kts
 ├── android/                          # Android平台代码
 │   ├── app/                          # Android应用入口
-│   │   ├── src/
-│   │   │   ├── main/
-│   │   │   │   ├── java/com/example/hearablemusicplayer/
-│   │   │   │   │   ├── MainActivity.kt
-│   │   │   │   │   └── MusicApplication.kt
-│   │   │   │   └── res/             # 资源文件
-│   │   │   └── test/                # 单元测试
-│   │   └── build.gradle.kts         # 模块构建配置
-│   ├── core-player/                  # 播放核心模块
-│   │   ├── src/
-│   │   │   ├── main/
-│   │   │   │   ├── java/com/example/hearablemusicplayer/
-│   │   │   │   │   └── player/      # 播放控制逻辑
-│   │   │   └── test/                # 测试代码
-│   │   └── build.gradle.kts
-│   └── feature-ui/                   # UI功能模块
-│       ├── src/
-│       │   ├── main/
-│       │   │   ├── java/com/example/hearablemusicplayer/
-│       │   │   │   └── ui/          # Compose页面和组件
-│       │   └── test/                # UI测试
+│   │   ├── src/main/
+│   │   │   ├── java/com/hearablemusic/player/
+│   │   │   │   ├── MainActivity.kt
+│   │   │   │   └── MusicApplication.kt
+│   │   │   └── res/                  # 资源文件
+│   │   └── build.gradle.kts          # 模块构建配置
+│   └── core-player/                  # 播放核心模块（Media3）
+│       ├── src/main/java/com/hearablemusic/player/
+│       │   └── player/               # 播放控制逻辑
 │       └── build.gradle.kts
 ├── desktop/                           # Desktop平台代码
 │   ├── app/                           # Desktop应用入口
@@ -230,30 +233,27 @@ Hearable Music Player/
 │   │   │   ├── SystemTrayManager.kt  # 系统托盘管理
 │   │   │   └── WindowHelper.kt       # 窗口工具
 │   │   └── build.gradle.kts
-│   ├── core-player/                   # 桌面播放核心模块
-│   │   ├── src/desktopMain/kotlin/com/hmp/desktop/player/
-│   │   │   ├── FFmpegAudioEngine.kt   # FFmpeg音频引擎
-│   │   │   └── DesktopMusicController.kt # 播放控制器
-│   │   └── build.gradle.kts
-│   └── feature-ui/                    # 桌面UI模块 (Compose Multiplatform)
-│       ├── src/
-│       │   ├── commonMain/composeResources/  # 共享资源
-│       │   └── desktopMain/kotlin/com/hmp/desktop/ui/
-│       │       ├── common/            # 通用组件、主题、导航
-│       │       ├── library/           # 音乐库页面
-│       │       ├── player/            # 播放页面
-│       │       ├── playlist/          # 播放列表页面
-│       │       └── settings/          # 设置页面
+│   └── core-player/                   # 桌面播放核心模块（FFmpeg）
+│       ├── src/desktopMain/kotlin/com/hmp/desktop/player/
+│       │   ├── FFmpegAudioEngine.kt   # FFmpeg音频引擎
+│       │   └── DesktopMusicController.kt # 播放控制器
 │       └── build.gradle.kts
 ├── ios/                              # iOS平台代码
 │   ├── HMP/                          # iOS应用
-│   │   ├── HMP/                      # SwiftUI页面与组件
-│   │   │   ├── HMPApp.swift          # iOS应用入口
-│   │   │   └── Features/            # 按功能组织的Swift文件
+│   │   ├── HMP/                      # 应用壳（原生文件已大幅收敛，见模块化进展）
+│   │   │   ├── HMPApp.swift          # iOS应用入口（挂载共享 Compose UI）
+│   │   │   └── Platform/            # 平台桥接（播放器、权限、Live Activity 等）
 │   │   ├── HMPNowPlaying/           # Live Activity 扩展
 │   │   └── HMP.xcodeproj            # Xcode项目文件
 │   ├── Podfile                       # CocoaPods配置
 │   └── HMP.xcworkspace              # Xcode工作空间
+├── docs/                             # 项目文档
+│   ├── 7_x/                          # 当前进行中的工作（按项目线分区）
+│   │   ├── A shared-ui/              # 共享 UI 提取线（v7.0 → v7.1，已完成）
+│   │   └── B agent-build/            # AI Agent 线（方向 B，已随 v7.2.0 交付）
+│   │       ├── design/               # 设计资料（要建成什么样）
+│   │       └── taskbook/             # 推进计划（做到哪了）
+│   └── 5_9, 5_10, 6_1, 6_12/         # 历史版本开发方案（存档）
 ├── gradle/
 │   └── wrapper/
 ├── .gitignore
@@ -438,8 +438,8 @@ open HMP.xcworkspace
 版本号集中维护在 `gradle.properties` 中：
 
 ```properties
-hmp.versionCode=61000
-hmp.versionName=6.10.0
+hmp.versionCode=72000
+hmp.versionName=7.2.0
 ```
 
 各模块通过 `project.findProperty("hmp.versionCode")` 引用，避免多处手动同步。
@@ -448,25 +448,75 @@ hmp.versionName=6.10.0
 
 版本号与发布步骤详见 **[docs/VERSIONING.md](docs/VERSIONING.md)**，摘要如下：
 
-1. **确定版本类型**：按变更内容决定升级 MAJOR / MINOR / PATCH，得到新版本号（如 6.0.0）
+1. **确定版本类型**：按变更内容决定升级 MAJOR / MINOR / PATCH，得到新版本号（如 7.2.0）
 2. **创建 release 分支**：从 master 拉出 `release/X.Y`，将各 develop 分支合入
 3. **更新版本号**：在 `gradle.properties` 中更新 `hmp.versionCode` 和 `hmp.versionName`
 4. **更新 ROADMAP**：在 [ROADMAP.md](ROADMAP.md) 中新增该版本条目与「当前版本」
-5. 本地构建发布包：`./gradlew release`（输出到 `releases/` 目录）
+5. 本地构建发布包：`./gradlew release`（输出到 `releases/` 目录，含 Android + Desktop；macOS 上额外含 iOS）
    - `./gradlew releaseAndroid` — 仅 Android（APK + AAB）
+   - `./gradlew releaseDesktop` — 仅 Desktop（DMG/MSI/DEB/AppImage）
    - `./gradlew releaseIos` — 仅 iOS（需 macOS）
-   - `./gradlew releaseStorybook` — 仅 Storybook 离线包
-6. 将 release/X.Y PR 到 master，CI 自动构建并发布 GitHub Release + 部署 Storybook
+   - `./gradlew copyAndroidDebug` / `copyDesktopJar` — 辅助：Debug APK / Uber JAR
+6. 将 release/X.Y PR 到 master，CI 自动构建并发布 GitHub Release
+
+> 注：`releaseStorybook` 已移除 —— `:storybook` 模块自 `380f225` 起移出构建（见 `settings.gradle.kts`）。
+> 上述封装任务仅便于本地使用；CI 不使用它们，而是直接调用各模块底层任务并自行归集产物。
+
+#### 自定义 Gradle 任务
+
+项目自行注册的任务共 **26 个**：
+
+| 类别 | 任务 |
+|---|---|
+| **测试**（`verification`） | `testAll`、`testCore`、`testQuick`、`testUi`、`testUiDesktop`、`testDesktop`、`testAndroid` |
+| **编译**（`build`） | `compileAll`、`compileCore`、`compileUi`、`compileDesktop`、`compileAndroid` |
+| **发布**（`release`） | `release`、`releaseAndroid`、`copyAndroidDebug`、`releaseIos`、`releaseDesktop`、`copyDesktopJar`、`checkVersion`、`preflight` |
+| **清理**（`build`） | `cleanReleases`、`cleanOrphans` |
+| **FFmpeg**（`desktop`） | `downloadFFmpeg`、`injectFFmpeg`（`injectFFmpegForDev` 已于 2026-09 移除，`run` 直接依赖 `downloadFFmpeg`） |
+| **iOS 图标** | `copyIconsToIos`（空转） |
+
+> 注：`android:app` / `android:core-player` **不暴露 `compile*` 任务**（AGP 内置 Kotlin），故 `compileAndroid` 用 `assembleDebug`。
+> `cleanOrphans` **只打印清单、不自动删除** —— 删除属破坏性操作，需人工确认。
+> **`shared-ui` 的测试全在 `androidHostTest` 源集**（`desktopTest` 是空的），故 `testUi` 同时挂 `testAndroidHostTest`；无 Android SDK 时用 `testUiDesktop`。
+
+#### 低内存构建
+
+本机 Android Studio 常驻占内存，默认 `-Xmx4096m` + `parallel=true` 会让 Gradle/Kotlin daemon 被 OS 静默杀死（日志停在 "Reusing configuration cache."，报 `daemon disappeared`，无 hs_err）。
+
+**用包装脚本代替 `gradlew`**：
+
+```bash
+./gradlew-lowmem.bat testCore   # Windows
+./gradlew-lowmem testCore       # macOS / Linux / Git Bash
+```
+
+> `org.gradle.jvmargs` / `parallel` / `workers.max` 是 Gradle **启动期属性**，无法在 `build.gradle.kts` 里条件化覆盖 —— 只能用包装脚本在命令行层面覆盖。这是引入 `gradlew-lowmem` 的原因。
+>
+> **实测关键参数**（2026-09-15）：daemon 堆必须压到 **`1024m`**，Kotlin 编译器走 **`in-process`**。
+> `1536m`/`2048m` 能编译但会在 fork 测试 JVM 时被 OS 杀掉；已固化进包装脚本。
+
+#### 日常开发选任务
+
+| 改动范围 | 建议命令 |
+|---|---|
+| `shared` 的 Domain / Agent | `./gradlew-lowmem.bat testCore` |
+| `shared-ui` 的 UI | `./gradlew-lowmem.bat testUi` |
+| `shared-ui` 的 UI（无 Android SDK） | `./gradlew-lowmem.bat testUiDesktop` |
+| 改了公共 API | `./gradlew-lowmem.bat compileAll`（快速定位下游编译破坏） |
+| 提交前 | `./gradlew-lowmem.bat testAll` |
+| 发版前 | `./gradlew preflight` |
+
+其余数百个任务（`assemble*` / `bundle*` / `link*` / `compile*` / `package*` 等）均由 Gradle 与各插件自动生成，非本项目编写。
 
 #### CI/CD 自动发布
 
 项目配置了 GitHub Actions 自动发布工作流 (`.github/workflows/release.yml`)：
 
 - **触发条件**：`release/*` 分支的 PR 合并到 `master` 时自动触发
+- **test job**：跑 `./gradlew testAll`（封装任务，见上「自定义 Gradle 任务」）并校验版本号未重复
 - **desktop-macos / desktop-windows / desktop-linux job**：并行构建桌面三平台安装包
 - **release job**：构建 Android APK + AAB，汇总桌面产物，基于上一个 tag 自动生成 changelog，创建 GitHub Release 并上传所有产物
-- **storybook job**：构建 Storybook WASM 站点
-- **deploy-pages job**：将 Storybook 部署到 GitHub Pages
+- **deploy-site job**：将手工维护的产品站点 `site/` 部署到 GitHub Pages（非 Storybook）
 
 ## 🎯 关键实现细节
 

@@ -2,6 +2,8 @@ package com.hearablemusic.player.ui.common.dialogs.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.hearablemusic.player.ui.common.text.UiText
+import com.hearablemusic.player.ui.common.text.asUiText
 import com.hmp.domain.music.MusicInfo
 import com.hmp.domain.music.UserInfo
 import com.hmp.domain.music.usecase.GetAllMusicUseCase
@@ -49,7 +51,6 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.DrawableResource
-import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.getString
 
 /**
@@ -57,7 +58,7 @@ import org.jetbrains.compose.resources.getString
  *
  * - 文案经 CMP 挂起 getString 获取；歌单名校验为挂起函数，
  *   调用点需在协程内调用。
- * - 菜单项为 Triple<DrawableResource, StringResource, () -> Unit>，
+ * - 菜单项为 Triple<DrawableResource, UiText, () -> Unit>，
  *   由渲染端 Compose 解析。
  */
 class DialogViewModel(
@@ -257,32 +258,32 @@ class DialogViewModel(
     }
 
     // 获取菜单选项（资源引用由渲染端 Compose 解析）
-    fun getMenuOptions(onComplete: () -> Unit): List<Triple<DrawableResource, StringResource, () -> Unit>> {
+    fun getMenuOptions(onComplete: () -> Unit): List<Triple<DrawableResource, UiText, () -> Unit>> {
         val currentState = (_activeDialog.value as? DialogUiState.MusicDetail)?.state ?: return emptyList()
         val menuConfig = currentState.menuConfig
-        val menuOptions = mutableListOf<Triple<DrawableResource, StringResource, () -> Unit>>()
+        val menuOptions = mutableListOf<Triple<DrawableResource, UiText, () -> Unit>>()
         // 音乐详情
         if (menuConfig.showViewDetail) {
-            menuOptions.add(Triple(Res.drawable.music, Res.string.title_song_detail) {
+            menuOptions.add(Triple(Res.drawable.music, Res.string.title_song_detail.asUiText()) {
                 viewDetail()
             })
         }
 
         // 分享
         if (menuConfig.showShare) {
-            menuOptions.add(Triple(Res.drawable.share, Res.string.share) { shareMusic() })
+            menuOptions.add(Triple(Res.drawable.share, Res.string.share.asUiText()) { shareMusic() })
         }
 
         // 编辑标签
         if (menuConfig.showEditTags) {
-            menuOptions.add(Triple(Res.drawable.rename, Res.string.edit_music_tags) {
+            menuOptions.add(Triple(Res.drawable.rename, Res.string.edit_music_tags.asUiText()) {
                 editTags()
             })
         }
 
         // 添加到指定音乐列表
         if (menuConfig.showAddToSpecificPlaylist) {
-            menuOptions.add(Triple(Res.drawable.plus_square, Res.string.add_to_specific_playlist) {
+            menuOptions.add(Triple(Res.drawable.plus_square, Res.string.add_to_specific_playlist.asUiText()) {
                 addToSpecificPlaylist(
                     onComplete
                 )
@@ -291,12 +292,12 @@ class DialogViewModel(
 
         // 下一首播放
         if (menuConfig.showPlayNext) {
-            menuOptions.add(Triple(Res.drawable.forward_end_fill, Res.string.play_next) { playNext() })
+            menuOptions.add(Triple(Res.drawable.forward_end_fill, Res.string.play_next.asUiText()) { playNext() })
         }
 
         // 从当前列表移除
         if (menuConfig.showRemoveFromCurrentPlaylist) {
-            menuOptions.add(Triple(Res.drawable.trash, Res.string.remove_from_current_playlist) {
+            menuOptions.add(Triple(Res.drawable.trash, Res.string.remove_from_current_playlist.asUiText()) {
                 removeFromCurrentPlaylist(
                     onComplete
                 )
@@ -305,7 +306,7 @@ class DialogViewModel(
 
         // 删除
         if (menuConfig.showDelete) {
-            menuOptions.add(Triple(Res.drawable.trash, Res.string.delete) { deleteMusic(onComplete) })
+            menuOptions.add(Triple(Res.drawable.trash, Res.string.delete.asUiText()) { deleteMusic(onComplete) })
         }
         return menuOptions
     }

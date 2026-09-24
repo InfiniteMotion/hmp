@@ -22,6 +22,7 @@ import com.hearablemusic.player.ui.generated.resources.*
 @Composable
 fun DefaultEmpty(
     message: String = stringResource(Res.string.no_data_available),
+    detail: String? = null,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -42,5 +43,14 @@ fun DefaultEmpty(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center
         )
+        if (detail != null) {
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = detail,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center
+            )
+        }
     }
 }

@@ -47,8 +47,7 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
 
       - name: Run unit tests
-        continue-on-error: true
-        run: ./gradlew :shared:test :shared-ui:testDebugUnitTest --no-daemon --no-configuration-cache
+        run: ./gradlew testAll --no-daemon --no-configuration-cache
 
       - name: Validate version
         run: |
@@ -126,7 +125,7 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
 
       - name: Build macOS DMG
-        run: ./gradlew :desktop:app:packageDistributionForCurrentOS --no-daemon --no-configuration-cache
+        run: ./gradlew :desktop:app:packageDistributionForCurrentOS -Phmp.release-build=true --no-daemon --no-configuration-cache
 
       - name: Upload macOS artifact
         uses: actions/upload-artifact@v4
@@ -157,7 +156,7 @@ jobs:
         run: choco install wixtoolset -y
 
       - name: Build Windows MSI
-        run: ./gradlew :desktop:app:packageDistributionForCurrentOS --no-daemon --no-configuration-cache
+        run: ./gradlew :desktop:app:packageDistributionForCurrentOS -Phmp.release-build=true --no-daemon --no-configuration-cache
 
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
@@ -188,7 +187,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y dpkg fakeroot
 
       - name: Build Linux DEB + AppImage
-        run: ./gradlew :desktop:app:packageDistributionForCurrentOS --no-daemon --no-configuration-cache
+        run: ./gradlew :desktop:app:packageDistributionForCurrentOS -Phmp.release-build=true --no-daemon --no-configuration-cache
 
       - name: Upload Linux artifact
         uses: actions/upload-artifact@v4
@@ -326,6 +325,24 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      # 站点元信息单源在 site/js/config.js；部署时以本次 Release 为准
+      # 现场改写版本号与发布日期，不回写仓库——部署产物永远与 Release 严格一致
+      - name: Sync site config with released version
+        run: |
+          VERSION=$(grep '^hmp.versionName=' gradle.properties | cut -d'=' -f2 | tr -d '[:space:]')
+          RELEASED=$(gh release view "v${VERSION}" --repo "${{ github.repository }}" \
+            --json publishedAt --jq '.publishedAt' | cut -d'T' -f1)
+          if [ -z "$RELEASED" ] || [ "$RELEASED" = "null" ]; then
+            RELEASED=$(date -u +%F)
+            echo "::warning::Release v${VERSION} not found, falling back to today's date"
+          fi
+          sed -i "s/^  version: '.*',/  version: '${VERSION}',/" site/js/config.js
+          sed -i "s/^  released: '.*',/  released: '${RELEASED}',/" site/js/config.js
+          echo "Site config synced: v${VERSION} (${RELEASED})"
+          grep -E "version:|released:" site/js/config.js
+        env:
+          GH_TOKEN: ${{ github.token }}
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3

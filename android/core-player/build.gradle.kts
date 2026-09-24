@@ -7,7 +7,7 @@ plugins {
 
 android {
     namespace = "com.hearablemusic.player.player"
-    compileSdk = 36
+    compileSdk = 37
 
     defaultConfig {
         minSdk = 33

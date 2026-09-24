@@ -70,7 +70,9 @@ project.xcworkspace
 # Kotlin Multiplatform
 .kotlin/
 build/
-shared/schemas/
+shared/schemas/**
+!shared/schemas/**/
+!shared/schemas/**/*.json
 
 # Android/IntelliJ
 #
@@ -176,3 +178,14 @@ releases/
 .env.production.local
 clean-feature-ui.bat
 gradle/gradle-daemon-jvm.properties
+
+# AI 助手工作目录
+.workbuddy/
+.cursor/
+.trae/
+
+# DevEco Studio 构建缓存（HarmonyOS 工具链，本项目不使用）
+.hvigor/
+
+# 文档重组归档（临时）
+*.md.bak

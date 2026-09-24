@@ -1,5 +1,6 @@
 package com.hmp.data.database
 
+import androidx.room.ColumnInfo
 import androidx.room.Dao
 import androidx.room.Entity
 import androidx.room.Insert
@@ -16,7 +17,17 @@ import kotlinx.coroutines.flow.Flow
 data class MusicLabel(
     val musicId: Long,
     val type: LabelCategory,
-    val label: LabelName
+    val label: LabelName,
+    /** 认识来源：LLM（模型富化）/ USER（用户修正，永不被模型覆盖）/ AGENT（agent 主动写入）。v1 存量行为 null，按 LLM 旧认识处理。 */
+    val source: String? = null,
+    /** 可信度 0-1：行为确证/证伪动态调整（设计总纲 3.2 规则 ②） */
+    val confidence: Double? = null,
+    /** 认识建立时间（审计四问·何时建立） */
+    @ColumnInfo(name = "created_at")
+    val createdAt: Long? = null,
+    /** 最近修正/确证时间（审计四问·被确证过吗） */
+    @ColumnInfo(name = "updated_at")
+    val updatedAt: Long? = null,
 )
 
 
@@ -41,12 +52,55 @@ interface MusicLabelDao {
     SELECT musicId
     FROM musicLabel
     WHERE label = :label
+    LIMIT :limit
 """)
-    suspend fun getMusicIdListByType(label: LabelName): List<Long>
+    suspend fun getMusicIdListByType(label: LabelName, limit: Int = 100): List<Long>
+
+    /** SQL GROUP BY 查 top N label（替代 getAllLabels + 内存 groupBy）。 */
+    @Query("""
+    SELECT label, COUNT(*) as cnt
+    FROM musicLabel
+    GROUP BY label
+    ORDER BY cnt DESC
+    LIMIT :limit
+""")
+    suspend fun getTopLabels(limit: Int): List<LabelCountPair>
+
+    /**
+     * 按来源计数 —— 画像·状态快照用：`source = "USER"` 的数量即"用户亲手修正过几条标签"，
+     * 它同时暴露分类偏好与**模型的系统性错法**（契约 §4.3）。
+     */
+    @Query("SELECT COUNT(*) FROM musicLabel WHERE source = :source")
+    suspend fun countBySource(source: String): Int
 
     @Query("SELECT * FROM musicLabel")
     suspend fun getAllLabels(): List<MusicLabel>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(labels: List<MusicLabel>)
+
+    /** 删除指定 (musicId, label) 的 USER 源标签（domain 层 removeUserMusicLabel 调用）。 */
+    @Query("DELETE FROM musicLabel WHERE musicId = :musicId AND label = :label AND source = 'USER'")
+    suspend fun deleteUserLabel(musicId: Long, label: LabelName)
+
+    /**
+     * 窗口内 Top N 标签（按窗口内播放次数加权）。
+     * JOIN PlaybackHistory 只统计窗口内被播放过的标签。
+     */
+    @Query("""
+        SELECT l.label AS label, COUNT(h.id) AS cnt
+        FROM musicLabel l
+        INNER JOIN PlaybackHistory h ON h.musicId = l.musicId
+        WHERE h.playedAt >= :cutoff AND l.type = :category
+        GROUP BY l.label
+        ORDER BY cnt DESC
+        LIMIT :limit
+    """)
+    suspend fun getTopLabelsSince(cutoff: Long, category: LabelCategory, limit: Int): List<LabelCountPair>
 }
+
+/** DAO SQL GROUP BY 返回的 label+数量对。 */
+data class LabelCountPair(
+    val label: LabelName,
+    val cnt: Int,
+)

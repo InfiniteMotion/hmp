@@ -6,7 +6,6 @@ import androidx.lifecycle.viewModelScope
 import com.hmp.domain.music.MusicInfo
 import com.hmp.domain.music.MusicLabel
 import com.hmp.domain.music.usecase.GetDailyMusicRecommendationUseCase
-import com.hmp.domain.setting.model.DailyMusicInfo
 import com.hmp.domain.setting.model.PlaybackHistory
 import com.hmp.domain.setting.usecase.PlaybackHistoryUseCase
 import com.hearablemusic.player.ui.common.util.UiState
@@ -22,7 +21,6 @@ import org.jetbrains.compose.resources.getString
 
 data class SongDetailData(
     val musicInfo: MusicInfo,
-    val dailyMusicInfo: DailyMusicInfo?,
     val labels: List<MusicLabel?>,
     val playbackHistory: List<PlaybackHistory> = emptyList()
 )
@@ -51,7 +49,6 @@ class SongDetailViewModel(
                         _uiState.value = UiState.Success(
                             SongDetailData(
                                 musicInfo = recommendation.musicInfo!!,
-                                dailyMusicInfo = recommendation.dailyMusicInfo,
                                 labels = recommendation.labels,
                                 playbackHistory = history
                             )

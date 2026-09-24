@@ -24,10 +24,6 @@ class ImportUserDataBackupUseCase(
             musicRepository.restoreMusicUserState(snapshot.musicUserState)
             musicRepository.restoreListeningStats(snapshot.listeningStats)
             playlistRepository.restoreFromSnapshot(snapshot.playlists)
-            
-            snapshot.dailyRecommendation?.let {
-                settingsRepository.restoreDailyRecommendationSnapshot(it)
-            }
 
             Result.success(Unit)
         } catch (e: Exception) {

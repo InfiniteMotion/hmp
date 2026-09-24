@@ -10,7 +10,7 @@ plugins {
 kotlin {
     android {
         namespace = "com.hmp.shared"
-        compileSdk { version = release(36) }
+        compileSdk { version = release(37) }
     }
 
     jvm("desktop")
@@ -47,6 +47,7 @@ kotlin {
             implementation(libs.ktor.serialization.json)
             implementation(libs.ktor.logging)
             implementation(libs.kotlinx.coroutines)
+            api(libs.kermit)
         }
         androidMain.dependencies {
             implementation(libs.koin.android)
@@ -65,10 +66,20 @@ kotlin {
                 implementation(libs.kotlinx.coroutines.swing)
             }
         }
+        val desktopTest by getting {
+            dependencies {
+                // room-testing 仅桌面 JVM 使用（迁移测试在 desktopTest 源集）；
+                // 不能进 commonTest——room-migration 未发布 iosArm64 目标，会破坏 iOS 测试编译元数据解析
+                // （androidx.room:room-migration-iosarm64:2.8.3 不存在，IDE 同步 transform*ForIde 会失败）
+                implementation(libs.androidx.room.testing)
+            }
+        }
         commonTest.dependencies {
             implementation(kotlin("test"))
             implementation(libs.kotlinx.coroutines.test)
             implementation(libs.turbine)
+            // ktor-client-mock 为完整 KMP（iosArm64/iossimulatorarm64 构件齐全），可留在 commonTest
+            implementation(libs.ktor.client.mock)
         }
     }
 }
@@ -82,8 +93,9 @@ dependencies {
 }
 
 room {
-    // exportSchema=false，此目录仅占位（绝对路径 /schemas 会与 copyIconsToIos 冲突触发
-    // Gradle 输出位置重叠校验，改为模块相对路径）
+    // exportSchema=true（AppDatabase @Database）：KSP 导出 schemas/<fqn>/{1,2}.json，
+    // 供 desktopTest 的 MigrationTestHelper（room-testing）跑 v1→v2 迁移测试。
+    // 模块相对路径避免与 copyIconsToIos 隐式输出重叠校验冲突。
     schemaDirectory("schemas")
 }
 

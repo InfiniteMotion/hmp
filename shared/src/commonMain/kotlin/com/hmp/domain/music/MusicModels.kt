@@ -34,6 +34,25 @@ data class MusicExtra(
     val relevantMusic : String? = null
 )
 
+/**
+ * 富化写入的 6 个文本列（musicExtra 表），**写侧专用**。
+ *
+ * 与 [MusicExtra] 的关系：[MusicExtra] 是**读模型**（含技术信息 lyrics/bitRate/format/…
+ * 与首次读取时间），这 6 列只是其中一部分；写侧单独成类型，是为了避免调用方为了改 6 个
+ * 文本列而去构造一个完整 [MusicExtra] —— 那样容易顺手覆盖掉技术字段。
+ *
+ * 写入会把 `isGetExtraInfo` 一并置 true（见 `MusicExtraDao.updateExtraFieldsById` 的 SQL），
+ * 即「写入富化文案」同时意味着「标记该曲已富化」。
+ */
+data class MusicExtraTexts(
+    val rewards: String? = null,
+    val popLyric: String? = null,
+    val singerIntroduce: String? = null,
+    val backgroundIntroduce: String? = null,
+    val description: String? = null,
+    val relevantMusic: String? = null,
+)
+
 data class MusicInfo(
     val music: Music,
     val extra: MusicExtra?,

@@ -76,6 +76,30 @@ class ThemeViewModel(
         }
     }
 
+    /**
+     * G6：对任意封面 URI 取色，**不写全局主题态**（供推荐页英雄区等页面局部使用）。
+     * 复用同一 paletteCache / pixelsLoader / analyzeColors。
+     */
+    suspend fun paletteFor(albumArtUri: String?): PaletteColors {
+        if (albumArtUri.isNullOrBlank()) return PaletteColors()
+        paletteCache[albumArtUri]?.let { return it }
+        return try {
+            val pixels = pixelsLoader.loadPixels(albumArtUri)
+            val colors = if (pixels != null) {
+                withContext(Dispatchers.Default) { analyzeColors(pixels) }
+            } else {
+                PaletteColors()
+            }
+            if (paletteCache.size >= 50) {
+                paletteCache.remove(paletteCache.keys.first())
+            }
+            paletteCache[albumArtUri] = colors
+            colors
+        } catch (e: Exception) {
+            PaletteColors()
+        }
+    }
+
     // ── 3D 颜色直方图 + 峰值检测 ─────────────────────────────────
 
     private data class ColorPeak(

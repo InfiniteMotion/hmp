@@ -6,12 +6,15 @@ import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
 import com.hearablemusic.player.ui.MainShell
-import com.hearablemusic.player.ui.settings.pages.AIScreen
+import com.hearablemusic.player.ui.agent.chat.ChatScreen
+import com.hearablemusic.player.ui.agent.config.AIScreen
+import com.hearablemusic.player.ui.agent.config.AgentConfigScreen
 import com.hearablemusic.player.ui.library.pages.AlbumScreen
 import com.hearablemusic.player.ui.library.pages.ArtistScreen
 import com.hearablemusic.player.ui.settings.pages.AudioEffectsScreen
 import com.hearablemusic.player.ui.library.pages.CustomScreen
 import com.hearablemusic.player.ui.library.pages.EditMusicTagsScreen
+import com.hearablemusic.player.ui.library.pages.RecommendListScreen
 import com.hearablemusic.player.ui.library.pages.SearchScreen
 import com.hearablemusic.player.ui.library.pages.SongDetailScreen
 import com.hearablemusic.player.ui.settings.pages.UserUsageDataScreen
@@ -24,6 +27,7 @@ import com.hearablemusic.player.ui.settings.pages.LyricsSettingsPage
 import com.hearablemusic.player.ui.settings.pages.LibrarySettingsScreen
 import com.hearablemusic.player.ui.settings.pages.ProfileSettingsScreen
 import com.hearablemusic.player.ui.settings.pages.SettingScreen
+import com.hmp.domain.agent.card.RecommendSource
 import com.hmp.domain.setting.usecase.LyricsSettingsUseCase
 import org.koin.compose.koinInject
 
@@ -102,6 +106,14 @@ fun navigationGraph(
         )
     }
 
+    entry<Routes.Settings.AuditLog> {
+        com.hearablemusic.player.ui.agent.monitor.AuditLogScreen(navController = navController)
+    }
+
+    entry<Routes.Settings.AgentMonitor> {
+        com.hearablemusic.player.ui.agent.monitor.AgentMonitorScreen(navController = navController)
+    }
+
     // Library 模块
     entry<Routes.Library.Search> {
         SearchScreen(
@@ -158,6 +170,12 @@ fun navigationGraph(
             navController = navController
         )
     }
+    entry<Routes.AI.AgentConfig> { route ->
+        AgentConfigScreen(
+            agentRole = route.agentRole,
+            navController = navController
+        )
+    }
 
     // Custom 模块
     entry<Routes.Custom.Custom> {
@@ -167,5 +185,24 @@ fun navigationGraph(
     // UserData 模块
     entry<Routes.UserData.UserUsageData> {
         UserUsageDataScreen(navController = navController)
+    }
+
+    // Companion（听歌伙伴对话）
+    entry<Routes.Companion.Chat> {
+        ChatScreen(navController = navController)
+    }
+
+    // Recommend（G6：每日推荐 / 私人推荐，同构页面）
+    entry<Routes.Recommend.Daily> {
+        RecommendListScreen(
+            source = RecommendSource.DAILY,
+            navController = navController,
+        )
+    }
+    entry<Routes.Recommend.Private> {
+        RecommendListScreen(
+            source = RecommendSource.PRIVATE,
+            navController = navController,
+        )
     }
 }

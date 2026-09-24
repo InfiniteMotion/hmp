@@ -1,10 +1,9 @@
 package com.hmp.domain.setting.usecase
 
-import com.hmp.data.database.currentTimeMillis
-import com.hmp.domain.config.DailyRefreshConfig
 import com.hmp.domain.setting.SettingsRepository
 import com.hmp.domain.setting.model.AiAccessMode
 import com.hmp.domain.setting.model.AiEndpointConfig
+import com.hmp.domain.setting.model.ScanDirectoryConfig
 import kotlinx.coroutines.flow.Flow
 
 class UserSettingsUseCase(
@@ -114,69 +113,17 @@ class UserSettingsUseCase(
         settingsRepository.saveAutoBatchProcess(enabled)
     }
 
-    val dailyRefreshMode: Flow<String> = settingsRepository.dailyRefreshMode
+    /**
+     * 目录管理配置（扫描目录 / 屏蔽目录）。
+     *
+     * 语义按平台落地：Desktop 为文件系统扫描根；Android 为 MediaStore 查询的 include/exclude 过滤。
+     * 此前该配置在 UI 层长期无任何读写入口（v7.1 桌面 UI 层删除时丢失），见
+     * `docs/7_x/A shared-ui/UI层统一-能力搬迁点检.md` R3。
+     */
+    val scanDirectoryConfig: Flow<ScanDirectoryConfig> = settingsRepository.scanDirectoryConfig
 
-    val dailyRefreshHours: Flow<Int> = settingsRepository.dailyRefreshHours
-
-    val dailyRefreshStartupCount: Flow<Int> = settingsRepository.dailyRefreshStartupCount
-
-    val lastDailyRefreshTimestamp: Flow<Long> = settingsRepository.lastDailyRefreshTimestamp
-
-    val appLaunchCountSinceRefresh: Flow<Int> = settingsRepository.appLaunchCountSinceRefresh
-
-    suspend fun saveDailyRefreshMode(mode: String) {
-        settingsRepository.saveDailyRefreshMode(mode)
+    suspend fun saveScanDirectoryConfig(config: ScanDirectoryConfig) {
+        settingsRepository.saveScanDirectoryConfig(config)
     }
 
-    suspend fun saveDailyRefreshHours(hours: Int) {
-        settingsRepository.saveDailyRefreshHours(hours)
-    }
-
-    suspend fun saveDailyRefreshStartupCount(count: Int) {
-        settingsRepository.saveDailyRefreshStartupCount(count)
-    }
-
-    suspend fun updateLastDailyRefreshTimestamp() {
-        settingsRepository.updateLastDailyRefreshTimestamp()
-    }
-
-    suspend fun saveCurrentDailyMusicId(musicId: Long) {
-        settingsRepository.saveCurrentDailyMusicId(musicId)
-    }
-
-    suspend fun getCurrentDailyMusicId(): Long? {
-        return settingsRepository.getCurrentDailyMusicId()
-    }
-
-    suspend fun incrementAppLaunchCount() {
-        settingsRepository.incrementAppLaunchCount()
-    }
-
-    suspend fun getDailyRefreshConfig(): DailyRefreshConfig {
-        return settingsRepository.getDailyRefreshConfig()
-    }
-
-    suspend fun shouldRefreshDailyRecommendation(): Boolean {
-        val config = getDailyRefreshConfig()
-        val currentTime = currentTimeMillis()
-
-        if (config.lastRefreshTimestamp == 0L) {
-            return true
-        }
-
-        return when (config.mode) {
-            "time" -> {
-                val hoursSinceRefresh = (currentTime - config.lastRefreshTimestamp) / (1000L * 60 * 60)
-                hoursSinceRefresh >= config.refreshHours
-            }
-            "startup" -> {
-                config.launchCountSinceRefresh > config.startupCount
-            }
-            "smart" -> {
-                val hoursSinceRefresh = (currentTime - config.lastRefreshTimestamp) / (1000L * 60 * 60)
-                hoursSinceRefresh >= 24
-            }
-            else -> false
-        }
-    }
 }

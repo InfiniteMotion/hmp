@@ -11,7 +11,7 @@ kotlin {
     // AGP 9 内置 Kotlin 支持的新式 KMP 库 DSL（与 :shared 模块同模式）
     android {
         namespace = "com.hearablemusic.player.ui"
-        compileSdk { version = release(36) }
+        compileSdk { version = release(37) }
         // res 支持（R 类生成）：AGP 9 KMP 库插件默认关闭，需显式 opt-in（kotlinlang.org AGP 9 迁移指南）
         androidResources {
             enable = true
@@ -46,17 +46,17 @@ kotlin {
 
             // androidx.compose → Compose Multiplatform（同包名，代码 import 不变）
             // 版本 1.9.3：AGP 9.0 要求 CMP ≥1.9.3（官方兼容矩阵）；material3 独立版本见 libs.versions.toml
-            implementation(libs.jetbrains.compose.runtime)
-            implementation(libs.jetbrains.compose.foundation)
-            implementation(libs.jetbrains.compose.material3)
-            implementation(libs.jetbrains.compose.ui)
-            implementation(libs.jetbrains.compose.animation)
+            implementation(libs.compose.runtime)
+            implementation(libs.compose.foundation)
+            implementation(libs.compose.material3)
+            implementation(libs.compose.ui)
+            implementation(libs.compose.animation)
 
             // navigation3 runtime（KMP）
-            implementation(libs.androidx.navigation3.runtime)
+            implementation(libs.navigation3.runtime)
             // api：AppRoot 的公开类型面（NavDisplay）；desktop 壳接 nav3 返回
             // 需要 navigationevent-compose（本依赖的传递项），implementation 不传递
-            api(libs.jetbrains.navigation3.ui)
+            api(libs.navigation3.ui)
 
             // nav3 NavKey @Serializable 序列化支持
             implementation(libs.kotlinx.serialization.json)
@@ -66,7 +66,7 @@ kotlin {
             implementation(libs.haze.materials)
 
             // api：LocalAppViewModelStoreOwner 公开类型 ViewModelStoreOwner 的来源（desktop 壳需触达）
-            api(libs.jetbrains.lifecycle.viewmodel.compose)  // ViewModel/viewModelScope（KMP 分发）
+            api(libs.lifecycle.viewmodel.compose)  // ViewModel/viewModelScope（KMP 分发）
             // 注意：libs.koin.compose 的实际坐标是 koin-androidx-compose（纯 Android AAR），
             // commonMain 误用它曾致 desktop JavaCompile 变体解析失败；
             // KMP 版（org.koin.compose.*）在 koin-compose-multiplatform alias 下
@@ -74,7 +74,10 @@ kotlin {
             implementation(libs.koin.compose.viewmodel)   // koinViewModel()（KMP）
 
             // NavDisplay 的 ViewModel decorator
-            implementation(libs.jetbrains.lifecycle.viewmodel.navigation3)
+            implementation(libs.lifecycle.viewmodel.navigation3)
+
+            // Kermit — ChatViewModel/ChatAgentGateway 日志
+            api(libs.kermit)
         }
 
         androidMain.dependencies {
@@ -83,8 +86,6 @@ kotlin {
 
             implementation(libs.androidx.core.ktx)
             implementation(libs.androidx.activity.compose)
-
-            implementation(libs.jetbrains.compose.ui.tooling.preview)
 
             // media3：@UnstableApi 注解（MusicControllerPlaybackAdapter）
             implementation(libs.androidx.media3.common)
@@ -95,12 +96,9 @@ kotlin {
             implementation(libs.koin.android)
 
             // Material3 Adaptive → CMP 分发版
-            implementation(libs.jetbrains.material3.adaptive)
-            implementation(libs.jetbrains.material3.adaptive.layout)
-            implementation(libs.jetbrains.material3.adaptive.navigation)
-
-            // 原为 debugImplementation，KMP 源集无 debug 变体，并入 androidMain
-            implementation(libs.jetbrains.compose.ui.tooling)
+            implementation(libs.material3.adaptive)
+            implementation(libs.material3.adaptive.layout)
+            implementation(libs.material3.adaptive.navigation)
         }
 
         // androidHostTest 源集无预生成访问器，用 getByName（AGP 9 KMP）
@@ -108,6 +106,23 @@ kotlin {
             implementation(libs.junit)
             implementation(libs.mockk)
             implementation(libs.kotlinx.coroutines.test)
+        }
+
+        // commonTest：平台无关单元测试源集（收尾第④步第3项·扫障）。
+        // 把纯逻辑测试从 androidHostTest 迁出来，使其能在 desktop JVM 上跑，不再绑死 Android SDK。
+        // 只用多平台安全的测试库（kotlin("test") / kotlinx-coroutines-test），避免污染 iOS 测试编译。
+        commonTest.dependencies {
+            implementation(kotlin("test"))
+            implementation(libs.kotlinx.coroutines.test)
+        }
+
+        // desktopTest（JVM-only）：允许 JVM 专属测试库（mockk / junit）不污染 iOS 测试编译元数据，
+        // 为后续 shared-ui ViewModel 纯逻辑单测（用 mockk 造假依赖）扫清基础设施障碍。
+        val desktopTest by getting {
+            dependencies {
+                implementation(libs.junit)
+                implementation(libs.mockk)
+            }
         }
 
         // desktop actual 所需（skiko 解码 PlatformImage.desktop 用；

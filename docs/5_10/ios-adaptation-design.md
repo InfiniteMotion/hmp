@@ -143,7 +143,7 @@ HMP/
 ├── docs/
 │   ├── README.md
 │   ├── VERSIONING.md
-│   └── superpowers/specs/
+│   └── 7_x/                             # 项目线设计资料与推进计划
 ├── README.md
 ├── ROADMAP.md
 ├── DEVELOP.md

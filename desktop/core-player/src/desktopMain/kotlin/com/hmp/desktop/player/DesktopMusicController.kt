@@ -10,6 +10,8 @@ import com.hmp.domain.setting.model.AudioEffectSettings
 import com.hmp.domain.setting.usecase.CurrentPlaybackUseCase
 import com.hmp.domain.setting.usecase.PlaybackHistoryUseCase
 import com.hmp.domain.setting.usecase.TimerUseCase
+import com.hmp.log.HmpLog
+import com.hmp.log.LogTag
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -154,17 +156,11 @@ class DesktopMusicController(
             restoreLastPosition()
         }
 
-        scope.launch {
-            currentPlayListId
-                .filterNotNull()
-                .collectLatest { playlistId ->
-                    managePlaylistUseCase.getMusicInfoInPlaylist(playlistId)
-                        .collect { playlist ->
-                            _currentPlaylist.value = playlist
-                            updateCurrentIndex()
-                        }
-                }
-        }
+        // 注意：这里**不再**常驻收集 DB 队列回流。内存队列是播放的事实源，DB 只是
+        // 持久化副本：运行中用 DB 快照覆写内存会把刚入队的曲目抹掉——而写库失败
+        // （系统歌单行缺失导致 FK 必败）时回流永远带空快照，每次都清空队列，正是
+        // 播放胶囊「闪一下消失」的根因。DB 快照只在启动恢复
+        // （[loadPlaylistFromSettings]）时采纳一次。
 
         scope.launch {
             currentPlayingMusic
@@ -486,17 +482,31 @@ class DesktopMusicController(
     fun setPlaylist(list: List<MusicInfo>, startIndex: Int = 0) {
         _currentPlaylist.value = list
         _currentIndex.value = startIndex.coerceIn(0, (list.size - 1).coerceAtLeast(0))
-        persistCurrentPlaylistToDatabase()
+        persistCurrentPlaylistToDatabase(_currentPlaylist.value)
         val music = list.getOrNull(_currentIndex.value) ?: return
         playMusic(music)
     }
 
-    private fun persistCurrentPlaylistToDatabase() {
+    /**
+     * 把 [snapshot] 整条写回当前播放列表。
+     *
+     * 必须由调用方在**改完内存队列的那一刻**传入快照，不能在协程里惰性读
+     * `_currentPlaylist.value`：协程真正运行时队列可能已被后续操作改过，
+     * 那样写回的就不是「这次操作对应的队列状态」。
+     *
+     * 写失败不上抛（播放不因 DB 故障中断），但必须可见——外键失败多半意味着
+     * 系统歌单行缺失，DefaultPlaylistGuard 的自愈事件应与此日志对照排查。
+     */
+    private fun persistCurrentPlaylistToDatabase(snapshot: List<MusicInfo>) {
         scope.launch {
             try {
                 val playlistId = currentPlayListId.filterNotNull().first()
-                managePlaylistUseCase.resetPlaylistItems(playlistId, _currentPlaylist.value)
-            } catch (_: Exception) {}
+                managePlaylistUseCase.resetPlaylistItems(playlistId, snapshot)
+            } catch (e: Exception) {
+                HmpLog.w(LogTag.PlayerCore, e) {
+                    "播放队列持久化失败 size=${snapshot.size}（目标歌单行缺失或 DB 异常）"
+                }
+            }
         }
     }
 
@@ -516,13 +526,13 @@ class DesktopMusicController(
     fun addToPlaylist(musicInfo: MusicInfo) {
         if (_currentPlaylist.value.none { it.music.id == musicInfo.music.id }) {
             _currentPlaylist.value = _currentPlaylist.value + musicInfo
-            persistCurrentPlaylistToDatabase()
+            persistCurrentPlaylistToDatabase(_currentPlaylist.value)
         }
     }
 
     fun removeFromPlaylist(musicInfo: MusicInfo) {
         _currentPlaylist.value = _currentPlaylist.value.filter { it.music.id != musicInfo.music.id }
-        persistCurrentPlaylistToDatabase()
+        persistCurrentPlaylistToDatabase(_currentPlaylist.value)
         updateCurrentIndex()
     }
 
@@ -547,13 +557,13 @@ class DesktopMusicController(
 
         newList.add(insertIndex, musicInfo)
         _currentPlaylist.value = newList
-        persistCurrentPlaylistToDatabase()
+        persistCurrentPlaylistToDatabase(_currentPlaylist.value)
     }
 
     fun clearPlaylist() {
         _currentPlaylist.value = emptyList()
         _currentIndex.value = 0
-        persistCurrentPlaylistToDatabase()
+        persistCurrentPlaylistToDatabase(_currentPlaylist.value)
     }
 
     fun moveToTop(musicInfo: MusicInfo) {
@@ -563,7 +573,7 @@ class DesktopMusicController(
             val item = playlist.removeAt(index)
             playlist.add(0, item)
             _currentPlaylist.value = playlist
-            persistCurrentPlaylistToDatabase()
+            persistCurrentPlaylistToDatabase(_currentPlaylist.value)
             updateCurrentIndex()
             showToast("已置顶：${musicInfo.music.title}")
         }
@@ -573,7 +583,7 @@ class DesktopMusicController(
         _currentPlaylist.value = musicInfoList.shuffled()
         _playbackMode.value = PlaybackMode.SHUFFLE
         _currentIndex.value = 0
-        persistCurrentPlaylistToDatabase()
+        persistCurrentPlaylistToDatabase(_currentPlaylist.value)
         val music = _currentPlaylist.value.firstOrNull() ?: return
         playMusic(music)
     }
@@ -582,7 +592,7 @@ class DesktopMusicController(
         _currentPlaylist.value = musicInfoList
         _playbackMode.value = PlaybackMode.SEQUENTIAL
         _currentIndex.value = 0
-        persistCurrentPlaylistToDatabase()
+        persistCurrentPlaylistToDatabase(_currentPlaylist.value)
         val music = musicInfoList.firstOrNull() ?: return
         playMusic(music)
     }
@@ -601,7 +611,7 @@ class DesktopMusicController(
                         _currentPlaylist.value = newList
                         _playbackMode.value = PlaybackMode.SEQUENTIAL
                         _currentIndex.value = 0
-                        persistCurrentPlaylistToDatabase()
+                        persistCurrentPlaylistToDatabase(_currentPlaylist.value)
                         playMusic(currentMusic)
                         showToast("为你推荐${similarSongs.size}首心动歌曲")
                     } else {
@@ -689,7 +699,7 @@ class DesktopMusicController(
         stopProgressTracking()
         endCurrentPlaybackSession(isCompleted = false)
         persistCurrentPosition(_currentPosition.value)
-        persistCurrentPlaylistToDatabase()
+        persistCurrentPlaylistToDatabase(_currentPlaylist.value)
         audioEngine.release()
     }
 

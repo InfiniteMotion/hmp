@@ -19,15 +19,13 @@ class ExportUserDataBackupUseCase(
             val musicUserState = musicRepository.exportMusicUserStateSnapshot()
             val listeningStats = musicRepository.exportListeningStatsSnapshot()
             val playlists = playlistRepository.exportPlaylistsSnapshot()
-            val dailyRecommendation = settingsRepository.exportDailyRecommendationSnapshot()
 
             val snapshot = UserBackupSnapshot(
                 createdAt = currentTimeMillis(),
                 appSettings = appSettings,
                 musicUserState = musicUserState,
                 listeningStats = listeningStats,
-                playlists = playlists,
-                dailyRecommendation = dailyRecommendation
+                playlists = playlists
             )
 
             backupFileRepository.saveBackup(snapshot)

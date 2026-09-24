@@ -13,6 +13,7 @@ import com.hmp.domain.playlist.usecase.ManagePlaylistUseCase
 import com.hmp.domain.setting.SettingsRepository
 import com.hearablemusic.player.ui.common.util.UiState
 import com.hearablemusic.player.ui.common.util.nowEpochMillis
+import com.hearablemusic.player.ui.startup.DefaultPlaylistGuard
 import com.hearablemusic.player.ui.generated.resources.Res
 import com.hearablemusic.player.ui.generated.resources.default_list
 import com.hearablemusic.player.ui.generated.resources.default_playlist
@@ -104,23 +105,14 @@ class PlaylistViewModel(
 
     fun initializeDefaultPlaylists() {
         viewModelScope.launch {
-            if (settingsRepository.getCurrentPlaylistId() == null) {
-                managePlaylistUseCase.removePlaylist(name = getString(Res.string.default_playlist))
-                val defaultId = managePlaylistUseCase.createPlaylist(name = getString(Res.string.default_playlist))
-                settingsRepository.saveCurrentPlaylistId(defaultId)
-            }
-
-            if (settingsRepository.getLikedPlaylistId() == null) {
-                managePlaylistUseCase.removePlaylist(name = getString(Res.string.heart))
-                val likedId = managePlaylistUseCase.createPlaylist(name = getString(Res.string.heart))
-                settingsRepository.saveLikedPlaylistId(likedId)
-            }
-
-            if (settingsRepository.getRecentPlaylistId() == null) {
-                managePlaylistUseCase.removePlaylist(name = getString(Res.string.recently_played))
-                val recentId = managePlaylistUseCase.createPlaylist(name = getString(Res.string.recently_played))
-                settingsRepository.saveRecentPlaylistId(recentId)
-            }
+            // 判据已升级（原为 id==null 才建）：id 指向的 DB 行不存在也算失效——
+            // destructive migration 清库后 DataStore 残留旧 id 会让旧判据永远不触发。
+            // 逻辑收敛在 DefaultPlaylistGuard，与 AppRoot 启动自愈共用一份实现。
+            DefaultPlaylistGuard(managePlaylistUseCase, settingsRepository).ensureAll(
+                currentName = getString(Res.string.default_playlist),
+                likedName = getString(Res.string.heart),
+                recentName = getString(Res.string.recently_played),
+            )
         }
     }
 

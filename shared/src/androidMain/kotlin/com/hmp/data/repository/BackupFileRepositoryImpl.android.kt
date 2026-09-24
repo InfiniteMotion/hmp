@@ -1,7 +1,6 @@
 package com.hmp.data.repository
 
 import android.content.Context
-import android.util.Log
 import com.hmp.domain.backup.BackupFileRepository
 import com.hmp.domain.backup.UserBackupSnapshot
 import kotlinx.serialization.json.Json
@@ -9,6 +8,8 @@ import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import com.hmp.log.HmpLog
+import com.hmp.log.LogTag
 
 class BackupFileRepositoryImpl(
     private val context: Context,
@@ -28,10 +29,10 @@ class BackupFileRepositoryImpl(
             val file = File(backupDir, filename)
 
             file.writeText(json.encodeToString(UserBackupSnapshot.serializer(), snapshot))
-            Log.i("BackupFileRepository", "Backup saved to ${file.absolutePath}")
+            HmpLog.i(LogTag.DataBackup) { "💾 Backup saved to ${file.absolutePath}" }
             Result.success(file.absolutePath)
         } catch (e: Exception) {
-            Log.e("BackupFileRepository", "Failed to save backup", e)
+            HmpLog.e(LogTag.DataBackup, e) { "💾 Failed to save backup" }
             Result.failure(e)
         }
     }
@@ -49,7 +50,7 @@ class BackupFileRepositoryImpl(
             val snapshot = json.decodeFromString(UserBackupSnapshot.serializer(), jsonString)
             Result.success(snapshot)
         } catch (e: Exception) {
-            Log.e("BackupFileRepository", "Failed to load backup", e)
+            HmpLog.e(LogTag.DataBackup, e) { "💾 Failed to load backup" }
             Result.failure(e)
         }
     }

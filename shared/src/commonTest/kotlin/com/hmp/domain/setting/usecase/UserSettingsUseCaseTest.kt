@@ -137,15 +137,4 @@ class UserSettingsUseCaseTest {
         useCase.saveAutoBatchProcess(false)
         assertFalse(useCase.autoBatchProcess.first())
     }
-
-    @Test
-    fun dailyRefreshMode_defaultOff() = runTest {
-        assertEquals("off", useCase.dailyRefreshMode.first())
-    }
-
-    @Test
-    fun saveAndReadDailyRefreshMode() = runTest {
-        useCase.saveDailyRefreshMode("time")
-        assertEquals("time", useCase.dailyRefreshMode.first())
-    }
 }

@@ -112,18 +112,24 @@ object Routes {
     object Settings {
         /** 设置页路由 */
         @Serializable object Setting : NavKey
-        
+
         /** 个人资料设置路由 */
         @Serializable object ProfileSettings : NavKey
-        
+
         /** 备份设置路由 */
         @Serializable object BackupSettings : NavKey
-        
+
         /** 音乐库设置路由 */
         @Serializable object LibrarySettings : NavKey
 
         /** 歌词设置路由 */
         @Serializable object LyricsSettings : NavKey
+
+        /** M6-T4：Agent 操作审计日志页 */
+        @Serializable object AuditLog : NavKey
+
+        /** W1-P4：Agent 运行态监控 + 撤销（当前占位，P4 实施时接 AuditLog Screen） */
+        @Serializable object AgentMonitor : NavKey
     }
     
     /**
@@ -133,6 +139,8 @@ object Routes {
     object AI {
         /** AI页路由 */
         @Serializable object AI : NavKey
+        /** 通用 Agent 配置页——按 agentRole 参数决定渲染 Master/Hello/Enrich/Radio 哪个 Agent 的配置表单 */
+        @Serializable data class AgentConfig(val agentRole: String) : NavKey
     }
     
     /**
@@ -151,5 +159,26 @@ object Routes {
     object UserData {
         /** 用户使用数据页路由 */
         @Serializable object UserUsageData : NavKey
+    }
+
+    /**
+     * 听歌伙伴（AI 对话）模块路由
+     * 包含存在感召唤/提问的对话页
+     */
+    object Companion {
+        /** 对话页路由（M5 确认卡片流宿主界面） */
+        @Serializable object Chat : NavKey
+    }
+
+    /**
+     * 推荐列表模块路由（G6）
+     * 首页堆叠卡下方区域② 两个入口 → 两个同构推荐二级页
+     */
+    object Recommend {
+        /** 每日推荐页路由 */
+        @Serializable object Daily : NavKey
+
+        /** 私人推荐页路由 */
+        @Serializable object Private : NavKey
     }
 }

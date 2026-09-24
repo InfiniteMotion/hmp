@@ -31,7 +31,12 @@ import com.hmp.desktop.player.DesktopMusicController
 import com.hearablemusic.player.ui.AppRoot
 import com.hearablemusic.player.ui.common.design.theme.ThemeExtensionManager
 import com.hearablemusic.player.ui.common.layout.LocalTitleBarInset
+import com.hearablemusic.player.ui.common.pages.IntroScreen
 import com.hearablemusic.player.ui.common.util.LocalAppViewModelStoreOwner
+import com.hearablemusic.player.ui.common.util.activityViewModel
+import com.hearablemusic.player.ui.library.viewmodel.LibraryViewModel
+import com.hearablemusic.player.ui.settings.viewmodel.RecommendationViewModel
+import com.hearablemusic.player.ui.settings.viewmodel.SettingsViewModel
 import com.hmp.desktop.DwmHelper
 import com.sun.jna.platform.win32.WinDef
 import androidx.navigationevent.DirectNavigationEventInput
@@ -44,8 +49,14 @@ import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.concurrent.CountDownLatch
 import kotlin.concurrent.thread
+import com.hmp.initKermit
+import co.touchlab.kermit.Severity
+import com.hmp.log.HmpLog
+import com.hmp.log.LogTag
 
 fun main() {
+    val releaseBuild = System.getProperty("hmp.release-build")?.toBooleanStrictOrNull() ?: false
+    initKermit(if (releaseBuild) Severity.Warn else Severity.Debug)
     val t0 = System.currentTimeMillis()
 
     // File-based startup log for diagnosing installed/packaged builds
@@ -57,14 +68,14 @@ fun main() {
         logFile.createNewFile()
         logFile
     } catch (e: Throwable) {
-        println("[Startup] Cannot create startup log file: ${e.message}")
+        HmpLog.w(LogTag.SystemLifecycle) { "🚀 Cannot create startup log file: ${e.message}" }
         null
     }
 
     fun stamp(label: String) {
         val line = "[Startup] +${System.currentTimeMillis() - t0}ms — $label"
-        println(line)
-        fileLog?.appendText(line + "\n")
+        HmpLog.i(LogTag.SystemLifecycle) { "🚀 $line" }
+        fileLog?.appendText(line + "🚀 \n")
     }
 
     // HiDPI scaling: must be set before any AWT/Compose class is loaded
@@ -78,7 +89,7 @@ fun main() {
 
     // Single-instance guard: exit immediately if another instance is running
     if (!SingleInstanceGuard.tryAcquire()) {
-        println("HMP is already running. Exiting.")
+        HmpLog.w(LogTag.SystemLifecycle) { "🚀 HMP is already running. Exiting." }
         return
     }
 
@@ -88,6 +99,13 @@ fun main() {
     HmpDesktopApplication.init()
 
     stamp("Koin init done")
+
+    // MasterAgent 生命周期绑定：进程退出时清理 SubAgent（正常退出 + 杀进程都覆盖）
+    Runtime.getRuntime().addShutdownHook(Thread {
+        runCatching {
+            GlobalContext.get().get<com.hmp.domain.agent.runtime.MasterAgent>().close()
+        }
+    })
 
     // Pre-warm JNA native library on background thread so the first
     // DwmHelper call in detectSystemDarkMode() doesn't pay the DLL load cost.
@@ -272,7 +290,26 @@ fun main() {
                         LocalNavigationEventDispatcherOwner provides navEventOwner,
                         LocalTitleBarInset provides TITLE_BAR_HEIGHT,
                     ) {
-                        AppRoot(darkTheme = appIsDark)
+                        // 首启分流（与 Android MainActivity / iOS IosAppRoot 对齐）。
+                        // 桌面无运行时权限体系 → skipPermissionStep，直接从「扫描」步开始
+                        //（旧桌面 UI 层那份未接线的 IntroScreen 也是这个取舍）。
+                        val settingsViewModel: SettingsViewModel = activityViewModel()
+                        val isFirstLaunch by settingsViewModel.isFirstLaunch.collectAsState(true)
+                        if (isFirstLaunch) {
+                            val libraryViewModel: LibraryViewModel = activityViewModel()
+                            val recommendationViewModel: RecommendationViewModel = activityViewModel()
+                            IntroScreen(
+                                settingsViewModel = settingsViewModel,
+                                libraryViewModel = libraryViewModel,
+                                recommendationViewModel = recommendationViewModel,
+                                onFinished = {
+                                    settingsViewModel.saveIsFirstLaunchStatus(false)
+                                },
+                                skipPermissionStep = true
+                            )
+                        } else {
+                            AppRoot(darkTheme = appIsDark)
+                        }
                     }
 
                     // Collect playback state reactively for immersive title bar
@@ -365,10 +402,10 @@ private fun getHwndFromAwt(window: java.awt.Window): WinDef.HWND? {
         if (hwndPtr != null) {
             return WinDef.HWND(com.sun.jna.Pointer(hwndPtr))
         }
-        println("[Main] Could not find hwnd field on peer")
+        HmpLog.w(LogTag.SystemLifecycle) { "🚀 Could not find hwnd field on peer" }
         null
     } catch (e: Throwable) {
-        println("[Main] Could not extract HWND from AWT: ${e.message}")
+        HmpLog.e(LogTag.SystemLifecycle, e) { "🚀 Could not extract HWND from AWT: ${e.message}" }
         null
     }
 }

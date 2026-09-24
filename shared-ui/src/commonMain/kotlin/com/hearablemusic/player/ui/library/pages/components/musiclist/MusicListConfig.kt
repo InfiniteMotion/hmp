@@ -124,15 +124,15 @@ data class ListConfig(
 // ---------- Edit ----------
 
 /**
- * 编辑模式配置：是否启用、是否显示工具栏、[toolbarActions] 决定显示的批量操作、文案可本地化。
+ * 编辑模式配置：是否启用、是否显示工具栏、[toolbarActions] 决定显示的批量操作。
+ *
+ * 注：原 `selectAllLabel` / `deselectAllLabel` / `confirmLabel` 三个字段**全仓零读取**（只写不读的
+ * 死字段），其内联中文默认值是遗留硬编码，T2 已删除；工具栏文案实际由 `EditToolbarAction` 承载。
  */
 data class EditConfig(
     val enabled: Boolean = false,
     val showToolbar: Boolean = true,
     val toolbarActions: List<EditToolbarAction> = defaultEditToolbarActions(),
-    val selectAllLabel: String = "全选",
-    val deselectAllLabel: String = "取消全选",
-    val confirmLabel: String = "确认",
     val selectedCountFormat: (Int) -> String = { it.toString() },
 )
 
@@ -381,6 +381,14 @@ private fun formatFileSize(bytes: Long): String = when {
 /**
  * 智能锚点：id（添加顺序）按位置分位，锚点数量随列表长度调整。
  * [orderType] 为 DESC 时列表为「新→旧」，锚点「早」应对应列表末尾、「末」对应列表头，故反转映射。
+ */
+/**
+ * 智能锚点标签（`早` / `1/4` / `1/2` / `3/4` / `末`）与「未知」哨兵。
+ *
+ * ⚠️ **已知缺口（f14 §3.13 登记，本轮不抽取）**：这些标签**未接入 strings.xml** —— 它们既是
+ * 滚动条的**显示文案**，又充当 [computeDateStylePositionAnchors] 的**哨兵值**
+ * （`labels.getOrNull(0) == "未知"` 比较）。本地化需先拆成「内部稳定哨兵 + 显示层文案」两层，
+ * 属结构改造，故延后。
  */
 private fun computeIdSmartAnchors(list: List<MusicInfo>, orderType: String = "ASC"): Pair<List<String>, Map<Int, Int>> {
     if (list.isEmpty()) return Pair(emptyList(), emptyMap())

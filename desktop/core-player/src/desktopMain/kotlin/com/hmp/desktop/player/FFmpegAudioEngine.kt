@@ -10,10 +10,13 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.BufferedInputStream
 import java.io.File
+import java.util.concurrent.TimeUnit
 import javax.sound.sampled.AudioFormat
 import javax.sound.sampled.AudioSystem
 import javax.sound.sampled.DataLine
 import javax.sound.sampled.SourceDataLine
+import com.hmp.log.HmpLog
+import com.hmp.log.LogTag
 
 class FFmpegAudioEngine : AudioEngine {
 
@@ -37,55 +40,84 @@ class FFmpegAudioEngine : AudioEngine {
     override var onPlaybackComplete: (() -> Unit)? = null
     override var onError: ((Exception) -> Unit)? = null
 
+    @Volatile
+    private var resolvedFfmpegPath: String? = null
+
     private val ffmpegPath: String
-        get() {
-            val isWindows = System.getProperty("os.name").lowercase().contains("win")
-            val javaHome = System.getProperty("java.home") ?: ""
-            val ffmpegName = if (isWindows) "ffmpeg.exe" else "ffmpeg"
+        get() = resolvedFfmpegPath ?: resolveFfmpegPath().also { resolvedFfmpegPath = it }
 
-            // Explicit system property (set by Gradle during development)
-            System.getProperty("hmp.ffmpeg.path")?.let { path ->
-                val file = File(path)
-                if (file.exists() && file.canExecute()) return file.absolutePath
-            }
+    private fun resolveFfmpegPath(): String {
+        val isWindows = System.getProperty("os.name").lowercase().contains("win")
+        val javaHome = System.getProperty("java.home") ?: ""
+        val ffmpegName = if (isWindows) "ffmpeg.exe" else "ffmpeg"
 
-            // Bundled ffmpeg (inside packaged distribution's runtime/bin)
-            val bundledCandidates = if (javaHome.isNotEmpty()) {
-                listOf(File(javaHome, "bin/$ffmpegName"))
-            } else emptyList()
+        // Explicit system property (set by Gradle during development)
+        val explicit = System.getProperty("hmp.ffmpeg.path")?.let { File(it) }
 
-            // Common install locations
-            val commonCandidates = if (isWindows) {
-                val localAppData = System.getenv("LOCALAPPDATA") ?: ""
-                val programFiles = System.getenv("ProgramFiles") ?: ""
-                val programFilesX86 = System.getenv("ProgramFiles(x86)") ?: ""
-                listOfNotNull(
-                    File("C:/ffmpeg/bin/$ffmpegName"),
-                    if (localAppData.isNotEmpty()) File("$localAppData/ffmpeg/bin/$ffmpegName") else null,
-                    if (programFiles.isNotEmpty()) File("$programFiles/ffmpeg/bin/$ffmpegName") else null,
-                    if (programFilesX86.isNotEmpty()) File("$programFilesX86/ffmpeg/bin/$ffmpegName") else null
-                )
-            } else {
-                listOf(
-                    File("/usr/bin/$ffmpegName"),
-                    File("/usr/local/bin/$ffmpegName"),
-                    File("${System.getProperty("user.home")}/ffmpeg/bin/$ffmpegName")
-                )
-            }
+        // Bundled ffmpeg (inside packaged distribution's runtime/bin)
+        val bundledCandidates = if (javaHome.isNotEmpty()) {
+            listOf(File(javaHome, "bin/$ffmpegName"))
+        } else emptyList()
 
-            // Check PATH environment variable
-            val pathDirs = System.getenv("PATH")?.split(File.pathSeparator) ?: emptyList()
-            val pathCandidates = pathDirs.map { File(it, ffmpegName) }
-
-            for (candidate in bundledCandidates + commonCandidates + pathCandidates) {
-                if (candidate.exists() && candidate.canExecute()) {
-                    return candidate.absolutePath
-                }
-            }
-
-            // Fallback: bare name (relies on OS PATH resolution)
-            return ffmpegName
+        // Common install locations.
+        // macOS 显式列出 /opt/homebrew/bin：jpackage 应用从 Finder 启动时拿到的是 launchd
+        // 的最小 PATH（不含 Homebrew 前缀），只靠 PATH 会漏掉用户已装的 ffmpeg。
+        val commonCandidates = if (isWindows) {
+            val localAppData = System.getenv("LOCALAPPDATA") ?: ""
+            val programFiles = System.getenv("ProgramFiles") ?: ""
+            val programFilesX86 = System.getenv("ProgramFiles(x86)") ?: ""
+            listOfNotNull(
+                File("C:/ffmpeg/bin/$ffmpegName"),
+                if (localAppData.isNotEmpty()) File("$localAppData/ffmpeg/bin/$ffmpegName") else null,
+                if (programFiles.isNotEmpty()) File("$programFiles/ffmpeg/bin/$ffmpegName") else null,
+                if (programFilesX86.isNotEmpty()) File("$programFilesX86/ffmpeg/bin/$ffmpegName") else null
+            )
+        } else {
+            listOf(
+                File("/opt/homebrew/bin/$ffmpegName"),
+                File("/usr/local/bin/$ffmpegName"),
+                File("/usr/bin/$ffmpegName"),
+                File("${System.getProperty("user.home")}/ffmpeg/bin/$ffmpegName")
+            )
         }
+
+        // Check PATH environment variable
+        val pathDirs = System.getenv("PATH")?.split(File.pathSeparator) ?: emptyList()
+        val pathCandidates = pathDirs.map { File(it, ffmpegName) }
+
+        val ordered = listOfNotNull(explicit) + bundledCandidates + commonCandidates + pathCandidates
+        for (candidate in ordered.distinctBy { it.absolutePath }) {
+            if (!candidate.isFile || !candidate.canExecute()) continue
+            if (runsOnThisMachine(candidate)) return candidate.absolutePath
+            // canExecute() 只看权限位，架构不匹配的二进制（Apple Silicon 上的 x86_64、
+            // 未装 Rosetta）会通过权限检查却无法执行，这里跳过而不是交给 play() 去失败。
+            HmpLog.w(LogTag.PlayerFfmpeg) {
+                "跳过无法执行的 ffmpeg（架构不匹配或文件损坏）: ${candidate.absolutePath}"
+            }
+        }
+
+        // Fallback: bare name (relies on OS PATH resolution)
+        return ffmpegName
+    }
+
+    /**
+     * 真正执行一次 `ffmpeg -version`，确认该二进制能在本机跑起来。
+     * 只查权限位不够：架构不匹配时 start() 会抛 EBADARCH（error 86）。
+     */
+    private fun runsOnThisMachine(candidate: File): Boolean {
+        var process: Process? = null
+        return try {
+            process = ProcessBuilder(candidate.absolutePath, "-version")
+                .redirectErrorStream(true)
+                .redirectOutput(ProcessBuilder.Redirect.DISCARD)
+                .start()
+            if (process.waitFor(3, TimeUnit.SECONDS)) process.exitValue() == 0 else false
+        } catch (_: Exception) {
+            false
+        } finally {
+            process?.let { if (it.isAlive) it.destroyForcibly() }
+        }
+    }
 
     override fun play(path: String) {
         stop()
@@ -95,7 +127,7 @@ class FFmpegAudioEngine : AudioEngine {
         seekPositionMs = 0L
         bytesWritten = 0L
 
-        println("[AudioEngine] play: $path, ffmpeg=$ffmpegPath")
+        HmpLog.i(LogTag.PlayerFfmpeg) { "🎬 play: $path, ffmpeg=$ffmpegPath" }
         startPlayback(path, 0L)
     }
 
@@ -186,7 +218,7 @@ class FFmpegAudioEngine : AudioEngine {
     private suspend fun probeDuration(path: String) = withContext(Dispatchers.IO) {
         var process: Process? = null
         try {
-            println("[AudioEngine] probing: $ffmpegPath -i $path")
+            HmpLog.d(LogTag.PlayerFfmpeg) { "🎬 probing: $ffmpegPath -i $path" }
             process = ProcessBuilder(
                 ffmpegPath, "-i", path,
                 "-f", "null", "-"
@@ -196,7 +228,7 @@ class FFmpegAudioEngine : AudioEngine {
 
             val output = process.inputStream.bufferedReader().readText()
             val exitCode = process.waitFor()
-            println("[AudioEngine] probe exit=$exitCode, output: ${output.take(300)}")
+            HmpLog.d(LogTag.PlayerFfmpeg) { "🎬 probe exit=$exitCode, output: ${output.take(300)}" }
 
             // Parse duration from ffmpeg output: Duration: HH:MM:SS.ss
             val durationRegex = Regex("""Duration:\s*(\d+):(\d+):(\d+)\.(\d+)""")
@@ -274,13 +306,13 @@ class FFmpegAudioEngine : AudioEngine {
                     "-"
                 )
 
-                println("[AudioEngine] command: ${command.joinToString(" ")}")
+                HmpLog.d(LogTag.PlayerFfmpeg) { "🎬 command: ${command.joinToString(" ")}" }
 
                 val pb = ProcessBuilder(command)
                 pb.redirectErrorStream(false)
                 val process = pb.start()
                 ffmpegProcess = process
-                println("[AudioEngine] process started, alive=${process.isAlive}")
+                HmpLog.d(LogTag.PlayerFfmpeg) { "🎬 process started, alive=${process.isAlive}" }
 
                 // Capture stderr for error diagnosis
                 var stderrOutput = ""
@@ -303,11 +335,11 @@ class FFmpegAudioEngine : AudioEngine {
                     false
                 )
                 val info = DataLine.Info(SourceDataLine::class.java, format)
-                println("[AudioEngine] format: ${sampleRate.toInt()}Hz ${channels}ch 16bit frameSize=$frameSize")
+                HmpLog.d(LogTag.PlayerFfmpeg) { "🎬 format: ${sampleRate.toInt()}Hz ${channels}ch 16bit frameSize=$frameSize" }
 
                 if (!AudioSystem.isLineSupported(info)) {
                     val msg = "Audio line not supported for format: ${sampleRate.toInt()}Hz ${channels}ch"
-                    println("[AudioEngine] ERROR: $msg")
+                    HmpLog.e(LogTag.PlayerFfmpeg) { "🎬 ERROR: $msg" }
                     withContext(Dispatchers.Main) {
                         onError?.invoke(Exception(msg))
                     }
@@ -318,13 +350,13 @@ class FFmpegAudioEngine : AudioEngine {
                 sourceLine = line
                 line.open(format)
                 line.start()
-                println("[AudioEngine] SourceDataLine opened and started")
+                HmpLog.i(LogTag.PlayerFfmpeg) { "🎬 SourceDataLine opened and started" }
 
                 sampleSizeInBytes = 2
 
                 val buffer = ByteArray(8192)
                 val audioStream = BufferedInputStream(process.inputStream)
-                println("[AudioEngine] reading PCM data, format=${sampleRate.toInt()}Hz ${channels}ch 16bit")
+                HmpLog.d(LogTag.PlayerFfmpeg) { "🎬 reading PCM data, format=${sampleRate.toInt()}Hz ${channels}ch 16bit" }
 
                 while (isActive && !isStopped) {
                     if (isPaused) {
@@ -344,7 +376,7 @@ class FFmpegAudioEngine : AudioEngine {
                     bytesWritten += bytesRead
                 }
 
-                println("[AudioEngine] read loop ended, bytesWritten=$bytesWritten, isStopped=$isStopped")
+                HmpLog.d(LogTag.PlayerFfmpeg) { "🎬 read loop ended, bytesWritten=$bytesWritten, isStopped=$isStopped" }
 
                 line.drain()
                 line.stop()
@@ -356,7 +388,7 @@ class FFmpegAudioEngine : AudioEngine {
                 val exitCode = process.waitFor()
                 process.destroyForcibly()
 
-                println("[AudioEngine] process exited with code $exitCode, stderr: ${stderrOutput.take(300)}")
+                HmpLog.i(LogTag.PlayerFfmpeg) { "🎬 process exited with code $exitCode, stderr: ${stderrOutput.take(300)}" }
 
                 if (!isStopped && isActive) {
                     if (exitCode != 0 && bytesWritten == 0L) {
@@ -370,7 +402,7 @@ class FFmpegAudioEngine : AudioEngine {
                     }
                 }
             } catch (e: Exception) {
-                println("[AudioEngine] exception: ${e.message}")
+                HmpLog.e(LogTag.PlayerFfmpeg, e) { "🎬 exception: ${e.message}" }
                 if (!isStopped) {
                     withContext(Dispatchers.Main) {
                         onError?.invoke(e)

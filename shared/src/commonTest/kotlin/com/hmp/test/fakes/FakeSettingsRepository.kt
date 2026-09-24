@@ -1,8 +1,6 @@
 package com.hmp.test.fakes
 
 import com.hmp.domain.backup.AppSettingsSnapshot
-import com.hmp.domain.backup.DailyRecommendationSnapshot
-import com.hmp.domain.config.DailyRefreshConfig
 import com.hmp.domain.config.DisplayMode
 import com.hmp.domain.config.LyricsAlignment
 import com.hmp.domain.setting.SettingsRepository
@@ -96,14 +94,22 @@ class FakeSettingsRepository : SettingsRepository {
     override suspend fun getAiAccessMode(): AiAccessMode = _aiAccessMode.value
     override suspend fun saveAiAccessMode(mode: AiAccessMode) { _aiAccessMode.value = mode }
 
-    private var customAiConfig = AiEndpointConfig()
-    override suspend fun getCustomAiConfig(): AiEndpointConfig = customAiConfig
-    override suspend fun saveCustomAiConfig(config: AiEndpointConfig) { customAiConfig = config }
+    private val _customAiConfig = kotlinx.coroutines.flow.MutableStateFlow(AiEndpointConfig())
+    override val customAiConfig: kotlinx.coroutines.flow.Flow<AiEndpointConfig> = _customAiConfig
+    override suspend fun getCustomAiConfig(): AiEndpointConfig = _customAiConfig.value
+    override suspend fun saveCustomAiConfig(config: AiEndpointConfig) { _customAiConfig.value = config }
 
     override suspend fun getActiveAiConfig(): AiEndpointConfig = when (_aiAccessMode.value) {
         AiAccessMode.FREE -> AiEndpointConfig(isConfigured = true)
-        AiAccessMode.CUSTOM -> customAiConfig
+        AiAccessMode.CUSTOM -> _customAiConfig.value
         AiAccessMode.PAID -> AiEndpointConfig()
+    }
+
+    // Per-Agent endpoint config（测试里简单实现）
+    private val _agentEndpointConfigs = mutableMapOf<String, AiEndpointConfig>()
+    override suspend fun getAgentEndpointConfig(agentRole: String): AiEndpointConfig? = _agentEndpointConfigs[agentRole]
+    override suspend fun saveAgentEndpointConfig(agentRole: String, config: AiEndpointConfig?) {
+        if (config == null) _agentEndpointConfigs.remove(agentRole) else _agentEndpointConfigs[agentRole] = config
     }
 
     private val _aiFreeTrialRemainingCount = MutableStateFlow(100)
@@ -134,10 +140,6 @@ class FakeSettingsRepository : SettingsRepository {
     private val _autoBatchProcess = MutableStateFlow(true)
     override val autoBatchProcess: Flow<Boolean> = _autoBatchProcess.asStateFlow()
     override suspend fun saveAutoBatchProcess(enabled: Boolean) { _autoBatchProcess.value = enabled }
-
-    private val _dailyRefreshMode = MutableStateFlow("off")
-    override val dailyRefreshMode: Flow<String> = _dailyRefreshMode.asStateFlow()
-    override suspend fun saveDailyRefreshMode(mode: String) { _dailyRefreshMode.value = mode }
 
     private val _lyricsPlayerConfig = MutableStateFlow("{}")
     override val lyricsPlayerConfig: Flow<String> = _lyricsPlayerConfig.asStateFlow()
@@ -218,34 +220,6 @@ class FakeSettingsRepository : SettingsRepository {
     override suspend fun saveLyricsKaraokeEnabled(enabled: Boolean) { _lyricsKaraokeEnabled.value = enabled }
     override suspend fun getLyricsKaraokeEnabled(): Boolean = _lyricsKaraokeEnabled.value
 
-    private val _dailyRefreshHours = MutableStateFlow(8)
-    override val dailyRefreshHours: Flow<Int> = _dailyRefreshHours.asStateFlow()
-    override suspend fun saveDailyRefreshHours(hours: Int) { _dailyRefreshHours.value = hours }
-
-    private val _dailyRefreshStartupCount = MutableStateFlow(5)
-    override val dailyRefreshStartupCount: Flow<Int> = _dailyRefreshStartupCount.asStateFlow()
-    override suspend fun saveDailyRefreshStartupCount(count: Int) { _dailyRefreshStartupCount.value = count }
-
-    private val _lastDailyRefreshTimestamp = MutableStateFlow(0L)
-    override val lastDailyRefreshTimestamp: Flow<Long> = _lastDailyRefreshTimestamp.asStateFlow()
-    override suspend fun updateLastDailyRefreshTimestamp() { _lastDailyRefreshTimestamp.value = com.hmp.data.database.currentTimeMillis() }
-
-    private val _appLaunchCountSinceRefresh = MutableStateFlow(0)
-    override val appLaunchCountSinceRefresh: Flow<Int> = _appLaunchCountSinceRefresh.asStateFlow()
-    override suspend fun incrementAppLaunchCount() { _appLaunchCountSinceRefresh.value += 1 }
-
-    override suspend fun getDailyRefreshConfig(): DailyRefreshConfig = DailyRefreshConfig(
-        mode = _dailyRefreshMode.value,
-        refreshHours = _dailyRefreshHours.value,
-        startupCount = _dailyRefreshStartupCount.value,
-        lastRefreshTimestamp = _lastDailyRefreshTimestamp.value,
-        launchCountSinceRefresh = _appLaunchCountSinceRefresh.value
-    )
-
-    private var currentDailyMusicId: Long? = null
-    override suspend fun saveCurrentDailyMusicId(musicId: Long) { currentDailyMusicId = musicId }
-    override suspend fun getCurrentDailyMusicId(): Long? = currentDailyMusicId
-
     private val _galleryOrderBy = MutableStateFlow("title")
     override val galleryOrderBy: Flow<String> = _galleryOrderBy.asStateFlow()
     override suspend fun saveGalleryOrderBy(orderBy: String) { _galleryOrderBy.value = orderBy }
@@ -272,10 +246,15 @@ class FakeSettingsRepository : SettingsRepository {
     override suspend fun exportAppSettingsSnapshot(): AppSettingsSnapshot = AppSettingsSnapshot()
     override suspend fun restoreFromSnapshot(snapshot: AppSettingsSnapshot) {}
 
-    override suspend fun exportDailyRecommendationSnapshot(): DailyRecommendationSnapshot? = null
-    override suspend fun restoreDailyRecommendationSnapshot(snapshot: DailyRecommendationSnapshot) {}
-
     override suspend fun backupSettings(): Result<String> = Result.success("/backup.json")
     override suspend fun restoreSettings(backupFilePath: String): Result<Unit> = Result.success(Unit)
     override suspend fun cleanOldBackups(keepCount: Int): Result<Unit> = Result.success(Unit)
+
+    override suspend fun getAgentPolicyConfig(agentRole: String): com.hmp.domain.agent.policy.AgentPolicyConfig =
+        com.hmp.domain.agent.policy.AgentPolicyConfig()
+    override suspend fun saveAgentPolicyConfig(agentRole: String, config: com.hmp.domain.agent.policy.AgentPolicyConfig) {}
+
+    private val _globalAgentConfig = com.hmp.domain.agent.runtime.GlobalAgentConfig()
+    override suspend fun getGlobalAgentConfig(): com.hmp.domain.agent.runtime.GlobalAgentConfig = _globalAgentConfig
+    override suspend fun saveGlobalAgentConfig(config: com.hmp.domain.agent.runtime.GlobalAgentConfig) {}
 }
