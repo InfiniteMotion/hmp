@@ -71,7 +71,13 @@
 - [ ] **R29** 发版前必做的实机核验：① **A4 之后降级库的表现完全没测过** —— 三端都去掉了 destructive 兜底且没注册 `RoomDatabase.Callback`，拿一个 `user_version=10` 的库在三端各跑一次，按结果决定要不要加「库版本较新，请升回新版本或恢复备份」的提示；② `iosMain` 本机（Windows）无法编译，本次 A3/A4 的 iOS 分支只做了源码级核对；③ F11 后台存活真机核验、iOS 锁屏 / Live Activity 交互核验（原 P7.46–P7.49）、三端首启引导实操
 - [ ] **R30** 工程一致性：`checkVersion` 补 `notCompatibleWithConfigurationCache`（现配置缓存下直接构建失败，发版预检被卡）；`android/app/build.gradle.kts` 的 `51000`/`"5.10.0"` 兜底改为读不到就失败；`SettingsRepositoryImpl` 三平台各 ~500 行高度重复（原 T3）→ 通用逻辑提取到 commonMain 基类，**本次 A3 加的 `enabled` 键正是第四处需要三端手工同步的例子**
 
-## 五、挂起（不排期，可整体延后）
+## 五、CI / 发版通道（2026-09-24 排障追加）
+
+- [ ] **R31** CI 可观测性：`Test` 任务仍无挂钟超时（validate 只能靠 job 级 `timeout-minutes: 20` 掐断，卡住时看不出卡在哪个用例）→ 诊断期给 `tasks.withType<Test>` 加 `timeout = 10.minutes` + `testLogging { events(STARTED) }`，定位后撤掉 STARTED 免污染日志。validate 静默挂死**尚未结案**：已删 `org.gradle.configureondemand`（与 parallel 的配置期锁竞态、AGP 不兼容、实测配置耗时无差别），需连绿两次才算收口
+- [ ] **R32** `injectFFmpeg` 规则实机收口：已放宽为「目录名 `bin` + 路径含 `runtime`」，并在失败时打印真实目录树。Windows 本机实测注入成功（落到 `app/HMP/runtime/bin/ffmpeg.exe`）；**顺带发现 jlink runtime 里没有 `java.exe`**（只有 69 个 dll），所以"用有没有 java 可执行文件判定 JRE bin"这个看似更稳的判据不成立。macOS 仍未实机验证 —— 若 CMP 1.11 把 runtime 目录整个改名，下次 CI 的目录树输出即答案；Windows job 在加引号前从未真正跑到该任务
+- [ ] **R33** 发布口径核对：`-Phmp.release-build=true` 是 `8ba051cc`(2026-09-01) 一次加进三个 job 的，而 Windows 的 `run:` 默认 pwsh 会在点号处断词 → **推断自那以后每个 Windows job 都该失败**，需在 Actions 历史确认最后一次成功的 MSI 是哪一版；macOS 侧 `injectFFmpeg` 的断言是 `d977e41` 新加的，它一响就说明此前 DMG 一直没带上 FFmpeg（长期静默失败）。结论：v7.2.0 的 Release Notes 里"桌面端三平台可安装"必须等三平台产物真出来后按实物写
+
+## 六、挂起（不排期，可整体延后）
 
 - ⏸ **F10** 语音会话（`RealtimeVoiceTransport`）—— 方向 B 里唯一真正新增的传输层，需真实端点验证，与主线解耦、未开工；端点不可用即整体延期，v1 完整性不依赖语音
 

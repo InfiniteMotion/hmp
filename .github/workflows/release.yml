@@ -19,7 +19,8 @@ permissions:
 
 concurrency:
   group: release
-  cancel-in-progress: false
+  # 新 push 取代旧的 run：false 会让一个挂死的 run 堵住后续所有发版尝试
+  cancel-in-progress: true
 
 jobs:
   # ============================================================
@@ -31,6 +32,8 @@ jobs:
       || (github.event.pull_request.merged == true
           && startsWith(github.event.pull_request.head.ref, 'release/'))
     runs-on: ubuntu-latest
+    # validate 曾静默挂死 1 小时无输出；设上限，让它失败并留下最后一段日志
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -125,7 +128,7 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
 
       - name: Build macOS DMG
-        run: ./gradlew :desktop:app:packageDistributionForCurrentOS -Phmp.release-build=true --no-daemon --no-configuration-cache
+        run: ./gradlew :desktop:app:packageDistributionForCurrentOS '-Phmp.release-build=true' --no-daemon --no-configuration-cache
 
       - name: Upload macOS artifact
         uses: actions/upload-artifact@v4
@@ -156,7 +159,7 @@ jobs:
         run: choco install wixtoolset -y
 
       - name: Build Windows MSI
-        run: ./gradlew :desktop:app:packageDistributionForCurrentOS -Phmp.release-build=true --no-daemon --no-configuration-cache
+        run: ./gradlew :desktop:app:packageDistributionForCurrentOS '-Phmp.release-build=true' --no-daemon --no-configuration-cache
 
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
@@ -187,7 +190,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y dpkg fakeroot
 
       - name: Build Linux DEB + AppImage
-        run: ./gradlew :desktop:app:packageDistributionForCurrentOS -Phmp.release-build=true --no-daemon --no-configuration-cache
+        run: ./gradlew :desktop:app:packageDistributionForCurrentOS '-Phmp.release-build=true' --no-daemon --no-configuration-cache
 
       - name: Upload Linux artifact
         uses: actions/upload-artifact@v4
