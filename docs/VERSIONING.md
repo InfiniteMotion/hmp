@@ -88,7 +88,8 @@ git merge feature/agent-build
 #    ROADMAP.md: 新增版本条目 + 更新「当前版本」
 #    site/: 更新版本号链接
 
-# 4. 本地构建验证
+# 4. 本地构建验证（CI 已不跑单元测试 —— 这一步是唯一守门人，别跳）
+./gradlew preflight
 ./gradlew :android:app:assembleRelease
 
 # 5. 提交版本 bump
@@ -100,11 +101,15 @@ git push origin release/X.Y.0
 ```
 
 PR 合入 master 后，CI 自动执行：
-- 单元测试 + 版本号校验
+- 版本号不变量 + 发布一致性校验（`checkVersion` / `checkReleaseConsistency`）
 - Android + 桌面端并行构建
-- 生成分类 Release Notes + SHA256 校验
-- 创建 `vX.Y.0` tag + GitHub Release
+- 产物齐全断言 + SHA256 + 分类 Release Notes（正文取 ROADMAP 条目）
+- 创建 `vX.Y.0` tag + GitHub Release（可原地重跑：tag 存在即复用）
 - 部署产品展示站点到 GitHub Pages
+
+> ⚠️ **单元测试不在 CI 跑**（自 2026-09-24）：`testAll` 在 runner 上会静默挂死、拖住整条发版通道，
+> 成因未查清（TODO R31），故从 validate 移除。代价是**master 上的测试回归没有无人值守的把关**，
+> 单元测试改由本机 `./gradlew preflight` 在 bump 前负责 —— 这一步现在是唯一的守门人，别跳。
 
 ### 5.2 PATCH 发版
 
@@ -124,7 +129,8 @@ git merge feature/agent-build
 #    ROADMAP.md: 新增版本条目 + 更新「当前版本」
 #    site/: 更新版本号链接
 
-# 4. 本地构建验证
+# 4. 本地构建验证（CI 已不跑单元测试 —— 这一步是唯一守门人，别跳）
+./gradlew preflight
 ./gradlew :android:app:assembleRelease
 
 # 5. 提交版本 bump
@@ -162,6 +168,7 @@ PATCH 发版流程与 MINOR/MAJOR 相同，统一走 `release/* → master` PR �
 - [ ] 站点 `site/changelog.html` 已新增版本条目
 
 ### 构建验证
+- [ ] **本地 `./gradlew preflight` 通过**（版本号不变量 + 发布一致性 + 全量单元测试；**CI 不跑单元测试，这里是唯一把关**）
 - [ ] 本地 Release 构建通过
 - [ ] 真机测试通过（如涉及功能改动）
   - [ ] **平台能力路径必测**（历次 UI 层统一曾在此漏检，见 `7_x/A shared-ui/UI层统一-能力搬迁点检.md`）：
@@ -181,7 +188,7 @@ PATCH 发版流程与 MINOR/MAJOR 相同，统一走 `release/* → master` PR �
 ### 流程图
 
 ```
-                    ┌─ validate（单元测试 + 版本号校验）
+                    ┌─ validate（版本号不变量 + 发布一致性；不跑单元测试）
                     │
 PR 合入 master ────┼─ build-android ──────┐
                     │                       │
