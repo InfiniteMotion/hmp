@@ -243,6 +243,21 @@
 - **工程与真机**：iOS bundle id `com.hmp.HMP` → `com.hearablemusic.HMP`（免费团队唯一标识注册要求）；Podfile 适配 Kotlin 2.3（`linkPodFramework` 任务 + composeResources 打包布局）；真机（iPhone 13）构建 / 安装 / 启动验证通过
 - **修复**：底部融合栏 Tab 常驻（移除显示条件对 `isMiniPlayerVisible` 的依赖，无歌曲时导航可见）；shared 模块绝对路径任务（`schemaDirectory` / `copyIconsToIos`）导致的 iOS 任务图校验失败
 
+### v7.2.0 (2026-09-24)
+- **AI 功能 Agent 化全量落地（方向 B，F1–F14，自 `feature/agent-build` 合入）**：
+  - 引擎与工具层：Master + SubAgent 编排；四层组件解耦（`LlmCallExecutor` / `ToolCallExecutor` / `ReActLoop` / `StopSignal`）；工具层 27 原子工具终局；权限体系 9→6 概念收敛（`TrustTier` → `trustLevel`、`AgentPolicyConfig` 2 字段）+ `PolicyGuard` 与 ConfirmGate「总是允许」全链路，配置三端持久化闭环
+  - 场景交付：对话页与交互主干、AI 电台（主播化 + 播完基于上下文续队列）、Hello 呈现（设计包 + 引擎落地 + 卡片堆叠）、听歌报告双轴筛选（5 维度 × 5 时段窗口，维度拆分 SQL / 零内存聚合）、伙伴设置页（`AgentConfig(agentRole)` 单路由六分区）
+  - 用户认识模块 `UserMemory`：两层画像（侧写层 + 证据层）+ 分级记忆 L1/L2/L3 + 认知准入标准（明确拒绝类型学），遗忘唤醒 `ForgottenDelivery`；`Capability` 接口统一三个 SubAgent 能力面 + `CapabilityStatusTool`，删除 8 个 DJ 遗留工具
+  - F11 后台生命周期（L1–L3/L5 主体完成，**真机核验待手动**）、F12 Token 计量与窗口治理（真值账本 / 分账视图 / 64K 固定窗口，Room **v8 → v9** 新增 `token_ledger`；T2b 配额候补、T5 成本可见后置）
+  - F14 界面自适应与多语言：七页断点适配与横屏布局、空态 `DefaultEmpty` / `LocalHMPDimens` / `AgentStatusColors` 基建对齐、字符串资源收拢（**305 新键 / 14 语言各 779 键**、键集合一致 + 占位符逐条校验、新增 `UiText` 设施、agent 子树 UI 面向中文清零）
+  - **F10 语音会话（RealtimeVoiceTransport）整体挂起**，独立阶段、未开工，不在本版
+- **官网改版与站点同步（自 `feature/site-sync` 合入）**：多页面结构与 canvas 动态背景、运行时语言切换与多语种词典、站点元信息单源化（`site/js/config.js`）并接入 Release 流水线自动同步、新增音乐伙伴介绍页与全站事实校准
+- **依赖升级**：Compose Multiplatform → **1.11.1**、AGP → **9.1.1**，版本目录整理
+- **首启与能力回归**：三端首启引导修复、`IntroScreen` 横屏适配、音乐扫描提速、平台能力搬迁点检回归
+- **桌面端修复**：播放队列丢失、FFmpeg 架构错配导致的解码失败
+- **日志规范**：Agent 域日志规范推广至全仓三端
+- **测试**：`desktopTest` 961 例全绿（F13 可见性收敛 + DI 核对 + 测试补齐）
+
 ## 🛠️ 关键技术演进
 
 ### 架构演进
@@ -334,10 +349,11 @@
 - ✅ iOS锁屏控制与Live Activity
 - ✅ CI/CD自动发布（GitHub Actions）
 - ✅ 单元测试覆盖（650+ 用例）
+- ✅ AI 音乐 Agent 化（多 SubAgent 编排 + 原子工具 + 权限护栏，v7.2.0）
 
 ### 计划中功能（v7.x 三大方向，详见「未来发展方向」）
 - 🔄 方向 A：KMP 重写 iOS UI（Compose 取代 SwiftUI）—— **主线已于 v7.1.0 完成**（iOS 已切共享层 Compose UI，SwiftUI 旧层删除）；剩余观感打磨 / 真机交互级核验
-- 🔄 方向 B：AI 功能 Agent 化（工具调用 + 编排）—— **F1–F14 已完成（F14 于 2026-09-23 收口）；F10 语音会话挂起**（承载于 `feature/agent-build`，尚未合入 master）
+- ✅ 方向 B：AI 功能 Agent 化（工具调用 + 编排）—— **F1–F14 已于 v7.2.0 发版**；残留 F10 语音会话（挂起）与 F11 真机核验 / F12 T2b·T5 后置项
 - 🔄 方向 C：播放增强（播放速度 / Gapless / ReplayGain / 交叉淡入 / Desktop 音效 / 格式扩展）
 - 🔄 桌面小组件 / 手势操作（README 既定承诺）
 
@@ -399,6 +415,11 @@
 - v7.1.0：iOS 切换共享层 Compose UI —— `shared-ui` 增加 iOS targets，删除 67 个 SwiftUI 页面/组件，三端共用同一套 UI
 - 收益：v6.x 遗留的「iOS 双实现对齐」债务永久消失，新功能默认三端交付
 
+### 阶段10：智能化与站点同步 (v7.2，2026-09)
+- v7.2.0：方向 B Agent 化自 `feature/agent-build` 并入发版 —— Master + SubAgent 编排、27 原子工具、权限护栏、UserMemory 用户认识、Token 计量与窗口治理、界面自适应与 14 语言
+- v7.2.0：官网改版与站点元信息单源化，版本号由 Release 流水线自动同步
+- 遗留：F10 语音会话挂起；F11 后台生命周期真机核验；方向 C 播放增强（C1–C9）未启动
+
 ## 🚀 未来发展方向
 
 **产品边界**：坚持纯本地，不做在线/云同步、不引入账号、不做社交；仅保留用户自填 API 的 AI 推荐。
@@ -434,7 +455,7 @@
 - 格式支持：三端白名单统一到 commonMain 常量；Desktop 放行 DSD/APE/WV（FFmpeg 原生可解）；iOS 补 opus
 - 进阶（待评估）：bit-perfect 输出（WASAPI 独占等，发烧友向）
 
-**版本编排**：**7.1.0 已发布**（方向 A 主线全量完成 + C 批 1）→ 7.2 收尾打磨（A 残留观感 / 真机交互核验 + C 批 2）→ 7.3 智能化（方向 B，**F1–F14 已完成；F10 语音会话挂起**）→ 7.4 遗留清理
+**版本编排**：**7.1.0 已发布**（方向 A 主线全量完成 + C 批 1）→ **7.2.0 = 本版**（收尾打磨 + 站点同步 + 方向 B Agent 化 F1–F14，原排 7.3 提前并入）→ 后续版本承载方向 C 播放增强（C1–C9，号未定）与遗留清理；F10 语音会话独立挂起
 
 ### 中期目标
 1. 桌面小组件与手势操作（README 既定承诺，穿插于 v7.x）
@@ -447,9 +468,9 @@
 
 ---
 
-**最后更新时间**: 2026-09-23
-**当前版本**: v7.1.0（已发布）
-**开发中（未发布）**: 7.3 方向 B —— Agent 化 F1–F14（**F1–F14 全部完成**；F10 语音会话挂起），承载于 `feature/agent-build` 分支，尚未合入 master / 未发版
+**最后更新时间**: 2026-09-24
+**当前版本**: v7.2.0（`release/7.2.0` 待发布；master 仍为 v7.1.0）
+**开发中（未发布）**: 方向 C 播放增强（C1–C9 未启动）；方向 B 残留 —— F10 语音会话挂起、F11 真机核验、F12 T2b 配额候补 / T5 成本可见后置
 
 ---
 

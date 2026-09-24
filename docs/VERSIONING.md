@@ -45,7 +45,7 @@ hmp.versionName=7.1.0
 master ─────────────────────────────── 已发布版本（保护分支）
   │
   ├── feature/<line> ────────────────── 长期开发线（一条线一个分支）
-  │     └── feature/agent-build ─────── Agent 线（v7.3 方向 B）
+  │     └── feature/agent-build ─────── Agent 线（方向 B，已随 v7.2.0 合入 release）
   │     └── feature/site-sync ───────── 站点同步线
   └── release/X.Y.Z ────────────────── 发版集成分支
 ```

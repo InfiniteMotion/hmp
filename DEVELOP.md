@@ -250,7 +250,7 @@ Hearable Music Player/
 ├── docs/                             # 项目文档
 │   ├── 7_x/                          # 当前进行中的工作（按项目线分区）
 │   │   ├── A shared-ui/              # 共享 UI 提取线（v7.0 → v7.1，已完成）
-│   │   └── B agent-build/            # AI Agent 线（v7.3 方向 B，进行中）
+│   │   └── B agent-build/            # AI Agent 线（方向 B，已随 v7.2.0 交付）
 │   │       ├── design/               # 设计资料（要建成什么样）
 │   │       └── taskbook/             # 推进计划（做到哪了）
 │   └── 5_9, 5_10, 6_1, 6_12/         # 历史版本开发方案（存档）
@@ -438,8 +438,8 @@ open HMP.xcworkspace
 版本号集中维护在 `gradle.properties` 中：
 
 ```properties
-hmp.versionCode=71000
-hmp.versionName=7.1.0
+hmp.versionCode=72000
+hmp.versionName=7.2.0
 ```
 
 各模块通过 `project.findProperty("hmp.versionCode")` 引用，避免多处手动同步。

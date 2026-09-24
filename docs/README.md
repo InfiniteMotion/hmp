@@ -77,7 +77,7 @@ docs/7_x/
 │   ├── UI层统一-能力搬迁点检.md       平台能力倒退点检（R1–R3）+ 能力搬迁检查清单
 │   └── baseline/README.md            阶段一切换前基线：旧版 UI 截图存档 + 交互清单
 │
-└── B agent-build/    AI Agent 体系（v7.3 方向 B，已收口）
+└── B agent-build/    AI Agent 体系（方向 B，已随 v7.2.0 交付）
     ├── design/                      设计资料 —— 要建成什么样（按主题，一个子系统一份）
     │   ├── README.md                入口索引
     │   ├── agent.md                 设计总纲（单一事实来源，含 §4.4 语音二档制）

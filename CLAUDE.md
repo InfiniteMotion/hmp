@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 项目概述
 
-Hearable Music Player (HMP) — 一款跨平台本地音乐播放器，Android / Desktop / iOS 三端共用一套 Compose Multiplatform UI（`shared-ui`），业务层基于 Kotlin Multiplatform。iOS 仅保留原生壳与平台桥接（播放引擎、权限、Live Activity）。最新发布版本 v7.1.0；**开发中 v7.3（方向 B Agent 化）承载于 `feature/agent-build` 分支，尚未发版**。
+Hearable Music Player (HMP) — 一款跨平台本地音乐播放器，Android / Desktop / iOS 三端共用一套 Compose Multiplatform UI（`shared-ui`），业务层基于 Kotlin Multiplatform。iOS 仅保留原生壳与平台桥接（播放引擎、权限、Live Activity）。master 最新发布版本 v7.1.0；**v7.2.0 发布中（`release/7.2.0` → master，含方向 B Agent 化 F1–F14 与官网改版）**。
 
 **产品边界**：纯本地，不做在线/云同步、不引入账号、不做社交；仅保留用户自填 API 的 AI 推荐。
 
@@ -286,10 +286,11 @@ HMP/
 ## 开发注意事项
 
 ### 版本信息
-- 应用版本: 7.1.0 (versionCode 71000)
+- 应用版本: 7.2.0 (versionCode 72000)
 - JDK 工具链: 21（Desktop jpackage 要求 Gradle Daemon 运行于 JDK 21，配置说明见 `gradle.properties` 注释）
 - Kotlin: 2.3.21
-- AGP: 9.0.0
+- AGP: 9.1.1
+- Compose Multiplatform: 1.11.1
 - Gradle: 9.x
 - Android SDK: compileSdk 36, minSdk 33, targetSdk 36
 - Koin: 4.2.2（4.2.2 起 iOS 端与 lifecycle 2.10 稳定 ID 对齐，修复 Koin 反射探测 SavedStateHandle 的 IrLinkageError）
@@ -335,7 +336,7 @@ HMP/
 - [docs/VERSIONING.md](docs/VERSIONING.md) — 版本号规范
 - [docs/DESIGN_SYSTEM.md](docs/DESIGN_SYSTEM.md) — 设计系统规范
 - [docs/ROOM_KMP_SETUP.md](docs/ROOM_KMP_SETUP.md) — Room KMP 跨平台数据库配置指南
-- **AI Agent 体系（v7.3 方向 B）**
+- **AI Agent 体系（方向 B，已随 v7.2.0 交付）**
   - [docs/7_x/B agent-build/design/agent.md](docs/7_x/B%20agent-build/design/agent.md) — 设计总纲（单一事实来源）
   - [docs/7_x/B agent-build/taskbook/README.md](docs/7_x/B%20agent-build/taskbook/README.md) — 推进计划（f1–f14 阶段族）
 - **历史版本方案（已完成，备查）**：`docs/5_9/`、`docs/5_10/`、`docs/6_1/`、`docs/6_12/`
