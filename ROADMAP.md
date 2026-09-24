@@ -261,6 +261,17 @@
 - **日志规范**：Agent 域日志规范推广至全仓三端（全仓非测试 `println` 归零）
 - **测试**：`desktopTest` 961 例实跑通过（F13 可见性收敛 + DI 核对 + 测试补齐）
 
+### v7.2.1 (2026-09-24)
+> **v7.2.0 从未真正发布**：PR #34 已把代码合进 master，但 CI 三平台构建全部失败、没有 `v7.2.0` tag 与产物。本版是承载方向 B Agent 化的**第一个可安装发布物**，发布说明正文会同时带上下方 v7.2.0 条目。
+
+- **桌面端三平台产物恢复可发布**：
+  - `injectFFmpeg` 的目标匹配由「按平台各写一套路径形状」收为一条规则（目录名 `bin` 且路径含 `runtime`），失败时打印真实目录树。macOS 在 CMP 1.11 布局下静默失配，**导致 DMG 一直没带上 FFmpeg**（`d977e41` 新加的断言把它炸了出来）；Windows 本机实测注入落到 `app/HMP/runtime/bin/ffmpeg.exe`
+  - CI 的 `run:` 在 Windows 默认走 pwsh，`-Phmp.release-build=true` 在点号处被断词成 `-Phmp` + `.release-build=true`，Gradle 把后半截当任务名 → 三个 job 全部加引号。该 flag 自 `8ba051cc`(2026-09-01) 起就在，推断**此后每个 Windows job 都失败**（最后一次成功的 MSI 待查）
+- **发版通道防「绿了不等于对」**：产物齐全硬断言（缺任一平台即拒发）；tag / release 幂等（中途失败可原地重跑，原来必死于 `tag already exists`）；版本校验从两处收成一处并扩为三条不变量（`versionName`↔`versionCode` 自洽、不与 tag 重复、**`versionCode` 严格递增**——回退包在 Android 上装不上而原先无人检查）；新增 `checkReleaseConsistency`，以 `gradle.properties` 为真源核对站点 / iOS 工程 / 发版记录共 9 处声明；Release Notes 正文改取 ROADMAP 条目、commit 分类降为附录；`.gitignore` 补 `*.dmg` / `*.deb` / `*.AppImage`
+- **合入前 review 的修复随本包首次交到用户手上**（代码在 v7.2.0 那批）：A1 生命周期锁自锁与「等一个仍在自旋的旧循环」、A2 `alwaysAllow` 可永久静默放行不可逆操作、A3 Agent 启用开关不落盘（关掉后重启自启）、A4 降级静默清库、B3 取消被吞后继续写库；余项归档 TODO **R1–R34**
+- **CI 静默挂死处置中（未结案）**：删去 `org.gradle.configureondemand`（与 parallel 组合的配置期锁竞态；实测本仓配置耗时无差别 9.2s vs 9.2s）、validate 加 `timeout-minutes: 20`、`concurrency.cancel-in-progress: true`（原为 false，一个挂死的 run 会堵住之后所有发版尝试）
+
+
 ## 🛠️ 关键技术演进
 
 ### 架构演进
@@ -458,7 +469,7 @@
 - 格式支持：三端白名单统一到 commonMain 常量；Desktop 放行 DSD/APE/WV（FFmpeg 原生可解）；iOS 补 opus
 - 进阶（待评估）：bit-perfect 输出（WASAPI 独占等，发烧友向）
 
-**版本编排**：**7.1.0 已发布**（方向 A 主线全量完成 + C 批 1）→ **7.2.0 = 本版**（收尾打磨 + 站点同步 + 方向 B Agent 化 F1–F14，原排 7.3 提前并入）→ 后续版本承载方向 C 播放增强（C1–C9，号未定）与遗留清理；F10 语音会话独立挂起
+**版本编排**：**7.1.0 已发布**（方向 A 主线全量完成 + C 批 1）→ **7.2.0 代码已合入 master 但未产出发布物**（CI 三平台构建失败，无 tag）→ **7.2.1 = 本版**（修好发版通道，作为方向 B 的首个可安装包，正文发布说明会连带覆盖 7.2.0）→ 后续版本承载方向 C 播放增强（C1–C9，号未定）与遗留清理；F10 语音会话独立挂起
 
 ### 中期目标
 1. 桌面小组件与手势操作（README 既定承诺，穿插于 v7.x）
@@ -472,7 +483,9 @@
 ---
 
 **最后更新时间**: 2026-09-24
-**当前版本**: v7.2.0（`release/7.2.0` 待发布；master 仍为 v7.1.0）
+**当前版本**: v7.2.1（`release/7.2.1` → master，待发布）
+**已发布至 master 但未产出发布物**: v7.2.0（PR #34 合入，CI 三平台构建失败、无 `v7.2.0` tag）
+**最新可下载安装包**: v7.1.0
 **开发中（未发布）**: 方向 C 播放增强（C1–C9 未启动）；方向 B 残留 —— F10 语音会话挂起、F11 真机核验、F12 T2b 配额候补 / T5 成本可见后置
 
 ---

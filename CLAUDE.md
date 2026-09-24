@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 项目概述
 
-Hearable Music Player (HMP) — 一款跨平台本地音乐播放器，Android / Desktop / iOS 三端共用一套 Compose Multiplatform UI（`shared-ui`），业务层基于 Kotlin Multiplatform。iOS 仅保留原生壳与平台桥接（播放引擎、权限、Live Activity）。master 最新发布版本 v7.1.0；**v7.2.0 发布中（`release/7.2.0` → master，含方向 B Agent 化 F1–F14 与官网改版）**。
+Hearable Music Player (HMP) — 一款跨平台本地音乐播放器，Android / Desktop / iOS 三端共用一套 Compose Multiplatform UI（`shared-ui`），业务层基于 Kotlin Multiplatform。iOS 仅保留原生壳与平台桥接（播放引擎、权限、Live Activity）。**master 已含 v7.2.0 代码但没有 v7.2.0 发布物**（PR #34 合并后 CI 三平台构建全挂）；**v7.2.1 发布中**（`release/7.2.1` → master），修好发版通道并成为方向 B Agent 化的首个可安装包。
 
 **产品边界**：纯本地，不做在线/云同步、不引入账号、不做社交；仅保留用户自填 API 的 AI 推荐。
 
@@ -286,7 +286,7 @@ HMP/
 ## 开发注意事项
 
 ### 版本信息
-- 应用版本: 7.2.0 (versionCode 72000)
+- 应用版本: 7.2.1 (versionCode 72001)
 - JDK 工具链: 21（Desktop jpackage 要求 Gradle Daemon 运行于 JDK 21，配置说明见 `gradle.properties` 注释）
 - Kotlin: 2.3.21
 - AGP: 9.1.1

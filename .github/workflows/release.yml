@@ -281,12 +281,26 @@ jobs:
           # 正文 = ROADMAP 的本次版本条目（单一事实来源）。原来 Notes 只由 commit 前缀
           # 分类生成，与 ROADMAP 各说各话，发布说明里的完成度口径没人负责。
           # 条目里的 `>` 引用块是给内部看的（进度注记、文档指针），不进公开发布说明。
+          #
+          # 要收录的不只当前版本：上一版代码可能已合入 master 却没发出去（v7.2.0 就是这样——
+          # PR #34 合并、CI 三平台全挂、没有 tag），只抽当前条目会给用户一份不含 Agent 化的
+          # 说明。故取 ROADMAP 里所有「比最新 tag 更新」的条目，倒序（最新在前）拼接。
+          LATEST=$(git tag --sort=-v:refname | head -1 | sed 's/^v//')
+          [ -z "$LATEST" ] && LATEST="0.0.0"
           {
             echo "## Hearable Music Player ${TAG}"
             echo
-            awk -v head="### v${VERSION} (" 'index($0, head)==1 {f=1; next} /^### v[0-9]/ {if (f) exit} f' ROADMAP.md \
-              | grep -v '^> '
-            cat <<TABLE
+            for v in $(grep -oE '^### v[0-9]+\.[0-9]+\.[0-9]+' ROADMAP.md | sed 's/^### v//' | sort -V -r); do
+              [ "$v" != "$LATEST" ] || break
+              [ "$(printf '%s\n%s\n' "$LATEST" "$v" | sort -V | tail -1)" = "$v" ] || break
+              echo "#### v${v}"
+              echo
+              awk -v head="### v${v} (" 'index($0, head)==1 { f=1; next } f && (/^### v[0-9]/ || /^## /) { exit } f' ROADMAP.md
+            done
+          } | grep -v '^> ' > body.md
+
+          # 产物表与 iOS 口径追加在正文之后（不过滤 `>` 行）
+          cat >> body.md <<TABLE
 
           ---
 
@@ -301,7 +315,6 @@ jobs:
 
           > iOS 不随本次发布提供安装包：需 macOS + Xcode 源码自构建，见 README「安装步骤」。
           TABLE
-          } > body.md
 
           # commit 分类降级为附录
           PREV_TAG=$(git tag --sort=-v:refname | head -1)
