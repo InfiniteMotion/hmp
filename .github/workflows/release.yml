@@ -24,7 +24,7 @@ concurrency:
 
 jobs:
   # ============================================================
-  # 1. 校验：单元测试 + 版本号检查
+  # 1. 校验：版本号与发布一致性（单元测试不在 CI 跑，见 TODO R31）
   # ============================================================
   validate:
     if: >-
@@ -32,8 +32,8 @@ jobs:
       || (github.event.pull_request.merged == true
           && startsWith(github.event.pull_request.head.ref, 'release/'))
     runs-on: ubuntu-latest
-    # validate 曾静默挂死 1 小时无输出；设上限，让它失败并留下最后一段日志
-    timeout-minutes: 20
+    # 保留上限作保险：validate 曾静默挂死 1 小时无输出（testAll 已从本 job 移除，成因未结案）
+    timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -49,54 +49,6 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      # testAll 曾静默挂到 20 分钟超时被砍，日志里只剩一行 "> Task :xxx:testDebugUnitTest"，
-      # 什么也看不出来。这里包一层看门狗：输出连续 4 分钟不增长就抓 JVM 线程栈 + 连接表，
-      # 把"在等什么"打出来再终止构建。（诊断完可撤，见 TODO R31）
-      - name: Run unit tests (stall watchdog)
-        run: |
-          set +e
-          ./gradlew testAll --no-daemon --no-configuration-cache > gradle.log 2>&1 &
-          CLIENT=$!
-          last=-1; stall=0
-          while kill -0 "$CLIENT" 2>/dev/null; do
-            sleep 20
-            size=$(wc -c < gradle.log)
-            if [ "$size" = "$last" ]; then stall=$((stall+20)); else stall=0; last=$size; fi
-            if [ "$stall" -ge 240 ]; then
-              echo "::error::Gradle 输出已静默 ${stall}s，抓取诊断信息"
-              echo "----- 最后一次任务行 -----"; tail -5 gradle.log
-              echo "----- 进程 -----"
-              for p in $(jps -l | awk '{print $1}'); do
-                name=$(jps -l | awk -v P="$p" '$1==P{print $2}')
-                echo "===== pid $p $name ====="
-                timeout 60 jstack -l "$p" 2>&1 | grep -A 12 -E "^\"" | head -160
-              done
-              echo "----- TCP 连接（找 Robolectric / Maven 拉取卡住）-----"
-              ss -tnp 2>/dev/null | head -25 || netstat -tnp 2>/dev/null | head -25
-              echo "----- 本地 robolectric 缓存状态 -----"
-              ls -R ~/.m2/repository/org/robolectric 2>/dev/null | head -20 || echo "(无 ~/.m2 robolectric)"
-              kill -TERM "$CLIENT" 2>/dev/null; sleep 5; kill -KILL "$CLIENT" 2>/dev/null
-              ./gradlew --stop > /dev/null 2>&1 || true
-              pkill -f KotlinCompileDaemon || true
-              pkill -f GradleDaemon || true
-              pkill -f GradleWorkerMain || true
-              exit 1
-            fi
-          done
-          wait "$CLIENT"; rc=$?
-          tail -25 gradle.log
-          echo "testAll exit=$rc"
-
-          # 确保 Gradle / Kotlin daemon 完全退出，避免 CI job 收尾时挂住
-          ./gradlew --stop > /dev/null 2>&1 || true
-          pkill -f KotlinCompileDaemon || true
-          pkill -f GradleDaemon || true
-          pkill -f GradleWorkerMain || true
-
-          exit $rc
-
-      # 版本校验只留 Gradle 一处实现。原先这里是第二套内联实现：规则与 checkVersion
-      # 不一致（只比最新 tag、不比 versionCode 自洽与递增），且完全不管 iOS/站点声明是否跟上。
       - name: Check version & release consistency
         run: ./gradlew checkVersion checkReleaseConsistency --no-daemon --no-configuration-cache
 

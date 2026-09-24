@@ -272,6 +272,14 @@
 - **CI 静默挂死处置中（未结案）**：删去 `org.gradle.configureondemand`（与 parallel 组合的配置期锁竞态；实测本仓配置耗时无差别 9.2s vs 9.2s）、validate 加 `timeout-minutes: 20`、`concurrency.cancel-in-progress: true`（原为 false，一个挂死的 run 会堵住之后所有发版尝试）
 
 
+### v7.2.3 (2026-09-24)
+> ⚠️ v7.2.0 / 7.2.1 / 7.2.2 都还没有对应发布物（无 tag、无产物）—— 首次跑通的发布会把这几节一并写进 Release Notes。
+
+- **CI 不再跑单元测试**：`testAll` 在 runner 上静默挂死（最后一行停在某个 `> Task` 之后无输出；plain console 的标题行只代表任务**开始**，所以看到的不是卡住的那个任务）。头号嫌疑是 `:android:core-player` 的三个 Robolectric 用例在测试执行期从 Maven Central 现拉 `android-all` 大 jar —— 默认无超时也不输出，且 `setup-gradle` 只缓存 Gradle home、不缓存 `~/.m2`，本机热缓存故永远复现不出。已从 validate 移除，单元测试改由**本机 `./gradlew preflight`** 守门（写进 VERSIONING §5/§6 与 CLAUDE 发版流程），validate 保留 `timeout-minutes: 10`。成因未结案，恢复路径记在 TODO R31
+- **版本号下发脚本**：新增 `syncVersion`，以 `gradle.properties` 为唯一真源，把版本号写入 13 处声明点（站点 `config.js` / JSON-LD、iOS `project.yml` / `Info.plist` / `pbxproj`、`shared-ios` 框架版本、CLAUDE / DEVELOP），**`versionCode` 由 `versionName` 推导**（此前我手写算错过两次）；`checkReleaseConsistency` 与它共用同一张声明点表，ROADMAP 与站点 changelog 仍要求人来写 —— 脚本只查不代笔，缺条目就失败并给出模板
+- 版本号 **7.2.3 / versionCode 72003**
+
+
 ## 🛠️ 关键技术演进
 
 ### 架构演进
@@ -483,8 +491,8 @@
 ---
 
 **最后更新时间**: 2026-09-24
-**当前版本**: v7.2.2（`release/7.2.2` → master，待发布）
-**已发布至 master 但未产出发布物**: v7.2.0（PR #34 合入，CI 三平台构建失败、无 `v7.2.0` tag）
+**当前版本**: v7.2.3（`release/7.2.3` → master，待发布）
+**已发布至 master 但未产出发布物**: v7.2.0 / v7.2.1 / v7.2.2（代码在 master，CI 未跑通，无 tag 与产物）
 **最新可下载安装包**: v7.1.0
 **开发中（未发布）**: 方向 C 播放增强（C1–C9 未启动）；方向 B 残留 —— F10 语音会话挂起、F11 真机核验、F12 T2b 配额候补 / T5 成本可见后置
 
