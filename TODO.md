@@ -69,9 +69,16 @@
 - [ ] **R27** `getMusicIdListByType` 新默认 `LIMIT 100` 且无 `ORDER BY` → 未显式传 limit 的调用点被静默截断、取哪 100 条不确定。给默认值改 `MAX_VALUE` 或调用点显式传，并补确定序
 - [ ] **R28** 测试盲区：生命周期并发重入、`AgentScheduler` 仲裁循环、`ToolCallExecutor` 之外的 CE 吞没点（agent 域 `catch (Exception)`/`runCatching` 共 184 处，仅 4 处复抛 CE）、Hello 有效行为（现 4 例全是「零依赖构造不崩」）、`pauseResume_transitionsRunState` 把错误语义锁进了断言。**本次新增的两条 A1 用例只断言「不超时」，没断言旧实例确实被收摊；enrich/hello 同形改动也无等价用例** → 补这三块
 - [ ] **R29** 发版前必做的实机核验：① **A4 之后降级库的表现完全没测过** —— 三端都去掉了 destructive 兜底且没注册 `RoomDatabase.Callback`，拿一个 `user_version=10` 的库在三端各跑一次，按结果决定要不要加「库版本较新，请升回新版本或恢复备份」的提示；② `iosMain` 本机（Windows）无法编译，本次 A3/A4 的 iOS 分支只做了源码级核对；③ F11 后台存活真机核验、iOS 锁屏 / Live Activity 交互核验（原 P7.46–P7.49）、三端首启引导实操
-- [ ] **R30** 工程一致性：`checkVersion` 补 `notCompatibleWithConfigurationCache`（现配置缓存下直接构建失败，发版预检被卡）；`android/app/build.gradle.kts` 的 `51000`/`"5.10.0"` 兜底改为读不到就失败；`SettingsRepositoryImpl` 三平台各 ~500 行高度重复（原 T3）→ 通用逻辑提取到 commonMain 基类，**本次 A3 加的 `enabled` 键正是第四处需要三端手工同步的例子**
+- [ ] **R30** 工程一致性：`android/app/build.gradle.kts` 的 `51000`/`"5.10.0"` 兜底改为读不到就失败（现在会静默产出一个版本号错误的包）；`SettingsRepositoryImpl` 三平台各 ~500 行高度重复（原 T3）→ 通用逻辑提取到 commonMain 基类，**A3 加的 `enabled` 键正是第四处需要三端手工同步的例子**。~~`checkVersion` 缺 `notCompatibleWithConfigurationCache`~~ 已修（本轮，同时把它扩成 versionName↔versionCode 自洽 + 递增 + 跨文件一致性三件事）
 
-## 五、挂起（不排期，可整体延后）
+## 五、CI / 发版通道（2026-09-24 排障追加）
+
+- [ ] **R31** 单元测试已移出 CI（2026-09-24）：`testAll` 在 runner 上会**静默挂死**（最后一行停在某个 `> Task`，之后无输出；plain console 的标题行只代表任务开始，所以看到的不是卡住的那个任务）。头号嫌疑是 `:android:core-player` 的三个 Robolectric 用例在执行期从 Maven Central 现拉 `android-all` 大 jar（默认无超时、不输出，`setup-gradle` 只缓存 Gradle home 不缓存 `~/.m2`）；本机 `~/.m2` 是热的，所以本地永远复现不出来。**未结案**，代价是 master 的测试回归从此无人值守 → 本机 `preflight` 成为唯一守门人（已写进 `docs/VERSIONING.md` §5/§6）。恢复 CI 跑测的路径，二选一：① 缓存 `~/.m2/repository/org/robolectric` + 给 `Test` 任务加挂钟超时；② 上一版加过的「输出静默 240s 就 dump `jstack` + `ss -tnp`」看门狗（代码在 `af51437`，取回来用一次就能定案）。另外 `configure-on-demand` 已从 `gradle.properties` 删除（与 parallel 的配置期锁竞态；实测配置耗时无差别），validate 保留 `timeout-minutes: 10`
+- [ ] **R32** `injectFFmpeg` 根因已定、待 CI 复验：CI 打出的目录树证明 **macOS 的 app image 里没有 `bin` 目录**（jlink 只出 `Contents/Home/{lib,legal,conf}`，启动器是 `Contents/MacOS/HMP`），而运行时按 `java.home/bin/ffmpeg` 找 —— 所以 DMG 从来没带上 FFmpeg，旧规则 `endsWith("Home/bin")` 从一开始就不可能命中。现规则改为「归一化到 java.home」：Windows 走 `bin/server`（jvm.dll 在 bin 下）、macOS/Linux 走 `lib/server`，找到后**缺 bin 就补建**。本机已双路验证：Windows 真产物注入 `runtime/bin/ffmpeg.exe`；伪造 macOS 形态（只有 `Home/lib/server`）也被认出并补出 `Home/bin`。**未验证**：Linux 布局（旧规则曾通过，形态应与 macOS 同支）与 macOS 真机 —— 若仍失配，报错会把整棵目录树打出来
+- [ ] **R33** 发布口径核对：`-Phmp.release-build=true` 是 `8ba051cc`(2026-09-01) 一次加进三个 job 的，而 Windows 的 `run:` 默认 pwsh 会在点号处断词 → **推断自那以后每个 Windows job 都该失败**，需在 Actions 历史确认最后一次成功的 MSI 是哪一版；macOS 侧 `injectFFmpeg` 的断言是 `d977e41` 新加的，它一响就说明此前 DMG 一直没带上 FFmpeg（长期静默失败）。结论：v7.2.0 的 Release Notes 里"桌面端三平台可安装"必须等三平台产物真出来后按实物写
+- [ ] **R34** 版本声明由「校验」升级为「生成」：`checkReleaseConsistency` 已能挡住漂移（改错 `site/js/config.js` 就红，已负测），但同步仍靠人手。下一步加 `syncVersion` 任务，从 `gradle.properties` 渲染 `site/js/config.js` / `site/index.html` 的 JSON-LD / iOS `project.yml`，并把 iOS 版本从 `pbxproj` + `Info.plist` 迁到一份 `.xcconfig`（**pbxproj 改动需在 macOS 上用 xcodegen 验一次**，Windows 本机改不了也验不了）
+
+## 六、挂起（不排期，可整体延后）
 
 - ⏸ **F10** 语音会话（`RealtimeVoiceTransport`）—— 方向 B 里唯一真正新增的传输层，需真实端点验证，与主线解耦、未开工；端点不可用即整体延期，v1 完整性不依赖语音
 

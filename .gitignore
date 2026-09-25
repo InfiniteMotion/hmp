@@ -169,6 +169,10 @@ androidx.datastore/
 releases/
 *.apk
 *.aab
+# 桌面安装包产物（releases/ 之外的落点也一并挡住）
+*.dmg
+*.deb
+*.AppImage
 
 # Misc
 .env
@@ -189,3 +193,9 @@ gradle/gradle-daemon-jvm.properties
 
 # 文档重组归档（临时）
 *.md.bak
+
+# 发版预检（pr-check.yml）下载的 FFmpeg 包缓存，动辄上百 MB，勿入库
+.ffmpeg-cache/
+
+# Python 字节码（.github/scripts/ 下的预检脚本）
+__pycache__/

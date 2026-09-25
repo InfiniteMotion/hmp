@@ -94,12 +94,38 @@
 
   <div class="changelog-timeline">
 
-    <!-- v7.2.0 -->
+    <!-- v7.2.1 -->
     <div class="cl-entry">
       <div class="cl-head">
         <span class="cl-version" data-site="version"></span>
-        <span class="cl-date">2026-09-24</span>
+        <span class="cl-date">2026-09-25</span>
         <span class="cl-latest">Latest</span>
+      </div>
+      <div class="cl-card">
+        <div class="cl-section">
+          <div class="cl-section-title">发版通道修复</div>
+          <ul>
+            <li>修复桌面端 macOS / Windows / Linux 三平台打包失败，v7.2.1 起发版通道恢复正常</li>
+            <li>Linux：补齐 appimagetool 与 libfuse2，AppImage 打包不再必挂</li>
+            <li>Windows：改用 bash 并显式注入 WiX candle / light，MSI 打包恢复正常</li>
+            <li>macOS：解码库下载源统一到本仓库 Release，避免第三方源受限中断打包</li>
+          </ul>
+        </div>
+        <div class="cl-section">
+          <div class="cl-section-title">稳定性</div>
+          <ul>
+            <li>发版前自动校验版本号自洽与递增，并核对站点 / iOS 多端版本声明是否同步</li>
+            <li>产物缺失时拒绝发布：Release 必需文件不全即中断，不再发布缺平台的版本</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- v7.2.0 -->
+    <div class="cl-entry">
+      <div class="cl-head">
+        <span class="cl-version">v7.2.0</span>
+        <span class="cl-date">2026-09-24</span>
       </div>
       <div class="cl-card">
         <div class="cl-section">

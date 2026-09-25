@@ -261,6 +261,13 @@
 - **日志规范**：Agent 域日志规范推广至全仓三端（全仓非测试 `println` 归零）
 - **测试**：`desktopTest` 961 例实跑通过（F13 可见性收敛 + DI 核对 + 测试补齐）
 
+### v7.2.1 (2026-09-25)
+- **发版通道与桌面三端打包修复（CI 工具链加固）**：
+  - 桌面端打包工具链：Linux 装 `appimagetool` + `libfuse2`（修 AppImage 打包必挂）、Windows 改用 `bash` 并显式将 WiX `candle`/`light` 注入 `PATH`（修 MSI 打包失败）
+  - FFmpeg 二进制源统一为本仓库 Release `ffmpeg-binaries`（与 CI 出网同源，避免第三方源受限导致 macOS/Linux/Windows 三端打包失败）；二进制由发版人手动上传，打包时按 SHA256 校验，不符立即失败
+  - 发版护栏：`build.gradle.kts` 新增 `syncVersion` / `checkReleaseConsistency`；`release.yml` 收口单测移出 CI、ROADMAP 发布说明、版本一致性校验、三端产物断言 FFmpeg 已进包
+  - `gradle.properties` 禁用 `org.gradle.configureondemand`（与 parallel 有配置期锁竞态，会导致 `testAll` 无输出静默挂死）
+
 ## 🛠️ 关键技术演进
 
 ### 架构演进
@@ -471,8 +478,8 @@
 
 ---
 
-**最后更新时间**: 2026-09-24
-**当前版本**: v7.2.0（`release/7.2.0` 待发布；master 仍为 v7.1.0）
+**最后更新时间**: 2026-09-25
+**当前版本**: v7.2.1（本版；修复发版通道与桌面三端打包，master 已就绪待发布）
 **开发中（未发布）**: 方向 C 播放增强（C1–C9 未启动）；方向 B 残留 —— F10 语音会话挂起、F11 真机核验、F12 T2b 配额候补 / T5 成本可见后置
 
 ---

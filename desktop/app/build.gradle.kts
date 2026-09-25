@@ -46,6 +46,9 @@ kotlin {
 //     - 可复现：同一 commit 在任何机器上拿到同一份字节；
 //     - 可核验：校验失败立即中断构建，不会静默用错二进制；
 //     - 不进 git：二进制落在 build/ffmpeg/ 下由 Gradle 缓存，仓库不膨胀。
+//     - 二进制托管到本仓库 Release `ffmpeg-binaries`（github.com 同源），由发版人
+//       手动上传；CI 只从 Release 同源下载，不负责上传。
+//       （注：GitHub 网页上传单文件 ≤25MB，超大的 windows 包需走 API / gh CLI 上传。）
 //
 // 架构以「构建机」为准：jpackage 打包的是同架构 JRE，产物本身即单架构，
 // 因此 ffmpeg 匹配构建机 == 匹配目标用户。
@@ -67,29 +70,19 @@ data class FFmpegArtifact(
 // 升级 FFmpeg 时同步更新 version / url / sha256 三者。
 val ffmpegArtifacts: Map<String, FFmpegArtifact> = mapOf(
     "macos/arm64" to FFmpegArtifact(
-        version = "8.1.1",
-        url = "https://ffmpeg.martin-riedl.de/download/macos/arm64/1778761665_8.1.1/ffmpeg.zip",
-        sha256 = "a05b1a47bb3ac89a95a55eec713f8bbb347051bb07015f3b7d08fb62ed81a21e",
-    ),
-    "macos/amd64" to FFmpegArtifact(
-        version = "8.1.1",
-        url = "https://ffmpeg.martin-riedl.de/download/macos/amd64/1778768838_8.1.1/ffmpeg.zip",
-        sha256 = "8cb711bfa6f66033112d708dc275220419d0fdb49c5b752f8db25f11a92d321f",
+        version = "9.0",
+        url = "https://github.com/InfiniteMotion/hmp/releases/download/ffmpeg-binaries/ffmpeg-9.0-macos-arm64.zip",
+        sha256 = "5267ef149ee0d208057a1b316aac079b661b0476574dee5da7d225769773c603",
     ),
     "linux/amd64" to FFmpegArtifact(
-        version = "8.1.1",
-        url = "https://ffmpeg.martin-riedl.de/download/linux/amd64/1778762264_8.1.1/ffmpeg.zip",
-        sha256 = "50b9360d9f0de1555bb4dd354c708427027562624d553e93bb26060059bef16a",
-    ),
-    "linux/arm64" to FFmpegArtifact(
-        version = "8.1.1",
-        url = "https://ffmpeg.martin-riedl.de/download/linux/arm64/1778760876_8.1.1/ffmpeg.zip",
-        sha256 = "5499ff0fb22b051f21f1458ebfb461ab1994467f037b911f4188ddac6c189037",
+        version = "9.0.2",
+        url = "https://github.com/InfiniteMotion/hmp/releases/download/ffmpeg-binaries/ffmpeg-9.0.2-linux-amd64.zip",
+        sha256 = "fa8ecf4abbd290d98f7d188b8649cc6b391ae209a98452be955a15aab1909d7f",
     ),
     "windows/amd64" to FFmpegArtifact(
         version = "9.0.2",
-        url = "https://www.gyan.dev/ffmpeg/builds/packages/ffmpeg-9.0.2-essentials_build.zip",
-        sha256 = "60f467265b1e312373dbcd92200c2618a74850f98d3d078e94296bb3fa2047ba",
+        url = "https://github.com/InfiniteMotion/hmp/releases/download/ffmpeg-binaries/ffmpeg-9.0.2-windows-amd64.zip",
+        sha256 = "37e69a271258197a13187ac9864a558c7325b34885f4f77ef0aa316f226150be",
     ),
 )
 
@@ -160,22 +153,53 @@ val downloadFFmpeg by tasks.registering {
             target.delete()
         }
 
-        println("下载 FFmpeg ${ffmpegArtifact.version} [$ffmpegArtifactKey]")
-        println("  ${ffmpegArtifact.url}")
-        val tempFile = File(ffmpegDir, "ffmpeg-download.tmp")
-        URI(ffmpegArtifact.url).toURL().openStream().use { input ->
-            tempFile.outputStream().use { output -> input.copyTo(output) }
+        // 归档落地文件：优先用仓库预置（ffmpeg-vendor/<os>/<arch>/ffmpeg[.exe]），
+        // 缺失再联网下载。预置让 CI 不依赖第三方个人站点、字节可复现；
+        // 下载则带重试，缓解 runner 出网抖动。两者都过同一道 SHA256 校验。
+        val vendorFile = File(project.rootDir, "ffmpeg-vendor/$ffmpegArtifactKey/$ffmpegFileName")
+        val archiveFile = File(ffmpegDir, "ffmpeg-download.tmp")
+
+        if (vendorFile.isFile) {
+            println("使用仓库预置 FFmpeg: $vendorFile")
+            vendorFile.copyTo(archiveFile, overwrite = true)
+        } else {
+            println("下载 FFmpeg ${ffmpegArtifact.version} [$ffmpegArtifactKey]")
+            println("  ${ffmpegArtifact.url}")
+            var lastErr: Exception? = null
+            repeat(3) { attempt ->
+                try {
+                    URI(ffmpegArtifact.url).toURL().openStream().use { input ->
+                        archiveFile.outputStream().use { out -> input.copyTo(out) }
+                    }
+                    lastErr = null
+                    return@repeat
+                } catch (e: Exception) {
+                    lastErr = e
+                    println("  下载失败（第 ${attempt + 1} 次），1s 后重试: ${e.message}")
+                    Thread.sleep(1000)
+                }
+            }
+            if (lastErr != null) {
+                throw GradleException(
+                    "FFmpeg 下载失败（已重试 3 次）: ${ffmpegArtifact.url}\n" +
+                        "  最后一次错误: ${lastErr!!.message}\n" +
+                        "  若 CI 出网受限，可把对应二进制放到 ffmpeg-vendor/$ffmpegArtifactKey/$ffmpegFileName 走预置通道。"
+                )
+            }
         }
 
-        val actualSha256 = sha256Of(tempFile)
+        val actualSha256 = sha256Of(archiveFile)
         if (!actualSha256.equals(ffmpegArtifact.sha256, ignoreCase = true)) {
-            tempFile.delete()
+            archiveFile.delete()
             throw GradleException(
                 "FFmpeg SHA256 校验失败，构建已中断。\n" +
                     "  期望: ${ffmpegArtifact.sha256}\n" +
                     "  实际: $actualSha256\n" +
                     "  来源: ${ffmpegArtifact.url}\n" +
-                    "  若上游确已更新，请同步更新 ffmpegArtifacts 中该条目的 version/url/sha256。"
+                    if (vendorFile.isFile)
+                        "  你预置的 ffmpeg-vendor/$ffmpegArtifactKey/$ffmpegFileName 与 ffmpegArtifacts 声明不一致，请同步 version/url/sha256。\n"
+                    else
+                        "  若上游确已更新，请同步更新 ffmpegArtifacts 中该条目的 version/url/sha256。\n"
             )
         }
         println("  SHA256 校验通过")
@@ -186,12 +210,12 @@ val downloadFFmpeg by tasks.registering {
 
         when (ffmpegArtifact.archive) {
             "zip" -> project.copy {
-                from(project.zipTree(tempFile))
+                from(project.zipTree(archiveFile))
                 into(tempExtractDir)
             }
             "tar.xz" -> {
                 val process = ProcessBuilder(
-                    "tar", "xf", tempFile.absolutePath, "-C", tempExtractDir.absolutePath
+                    "tar", "xf", archiveFile.absolutePath, "-C", tempExtractDir.absolutePath
                 ).inheritIO().start()
                 if (process.waitFor() != 0) throw GradleException("tar 解包失败")
             }
@@ -203,7 +227,7 @@ val downloadFFmpeg by tasks.registering {
         found.copyTo(target, overwrite = true)
         target.setExecutable(true)
 
-        tempFile.delete()
+        archiveFile.delete()
         tempExtractDir.deleteRecursively()
         // 落指纹：下次构建据此判断「本地这份是不是当前产物」，无需重新下载。
         ffmpegMarker.writeText(ffmpegFingerprint)
@@ -231,41 +255,33 @@ val injectFFmpeg by tasks.registering {
             throw GradleException("FFmpeg 尚未就绪，无法注入: $ffmpegSrc")
         }
 
-        // Locate the runtime bin directory based on format
-        val targets = when {
-            isMacOS -> {
-                // HMP.app/Contents/runtime/Contents/Home/bin/
-                binDir.walk().filter {
-                    it.isDirectory && it.name == "bin"
-                        && it.absolutePath.contains("runtime")
-                        && it.absolutePath.endsWith("Home/bin")
-                }.toList()
+        // 三端一条规则：jlink 出的 runtime 根 = 装着 JVM 的那一层。
+        // 位置各端不同：Windows 是 bin/server/jvm.dll，macOS 是 lib/server/libjvm.dylib，
+        // Linux 是 lib/server/libjvm.so —— 两种判据都认，别按平台写死路径形状。
+        // 运行时按 java.home/bin/ffmpeg 找（FFmpegAudioEngine.resolveFfmpegPath），而 macOS 的
+        // runtime 里**没有 bin 目录**（启动器是 Contents/MacOS/HMP，不依赖 bin/java）—— 这才是
+        // DMG 一直缺 FFmpeg 的根因；故由这里补建 bin 再投放，运行时零改动即可命中。
+        val roots = binDir.walk().filter { it.isDirectory }.mapNotNull { d ->
+            when {
+                // macOS / Linux：java.home 这一层直接带 lib/server
+                File(d, "lib/server").isDirectory -> d
+                // Windows：server 在 bin/ 下，往上两级才是 java.home
+                d.name == "server" && d.parentFile?.name == "bin" -> d.parentFile?.parentFile
+                else -> null
             }
-            isWindows -> {
-                // HMP/runtime/bin/
-                binDir.walk().filter {
-                    it.isDirectory && it.name == "bin"
-                        && it.parentFile?.name == "runtime"
-                }.toList()
-            }
-            isLinux -> {
-                // HMP/lib/runtime/bin/
-                binDir.walk().filter {
-                    it.isDirectory && it.name == "bin"
-                        && it.parentFile?.name == "runtime"
-                }.toList()
-            }
-            else -> emptyList()
-        }
+        }.distinctBy { it.absolutePath }.toList()
 
         // 旧实现在找不到目标时静默通过，正是「DMG 里没有 ffmpeg」被长期掩盖的原因
-        if (targets.isEmpty()) {
+        if (roots.isEmpty()) {
             throw GradleException(
-                "app image 已生成但未找到 runtime bin 目录，FFmpeg 未注入。\n" +
+                "app image 已生成但未找到 jlink runtime（判据：lib/server 或 bin/server），FFmpeg 未注入。\n" +
                     "  binDir=$binDir\n" +
-                    "  若 Compose 打包布局有变，请同步更新 injectFFmpeg 的目标匹配规则。"
+                    "  实际目录树（前 80 项，据此核对布局）：\n" +
+                    binDir.walk().filter { it.isDirectory }.take(80)
+                        .joinToString("\n") { "    " + it.relativeTo(binDir).path }
             )
         }
+        val targets = roots.map { File(it, "bin").also { b -> b.mkdirs() } }
 
         for (target in targets) {
             val dest = File(target, ffmpegFileName)

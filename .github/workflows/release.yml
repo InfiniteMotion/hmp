@@ -19,11 +19,12 @@ permissions:
 
 concurrency:
   group: release
-  cancel-in-progress: false
+  # 新 push 取代旧的 run：false 会让一个挂死的 run 堵住后续所有发版尝试
+  cancel-in-progress: true
 
 jobs:
   # ============================================================
-  # 1. 校验：单元测试 + 版本号检查
+  # 1. 校验：版本号与发布一致性（单元测试不在 CI 跑，见 TODO R31）
   # ============================================================
   validate:
     if: >-
@@ -31,6 +32,8 @@ jobs:
       || (github.event.pull_request.merged == true
           && startsWith(github.event.pull_request.head.ref, 'release/'))
     runs-on: ubuntu-latest
+    # 保留上限作保险：validate 曾静默挂死 1 小时无输出（testAll 已从本 job 移除，成因未结案）
+    timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -46,19 +49,21 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Run unit tests
-        run: ./gradlew testAll --no-daemon --no-configuration-cache
+      # 版本校验只留 Gradle 一处实现。原先这里是第二套内联实现：规则与 checkVersion
+      # 不一致（只比最新 tag、不比 versionCode 自洽与递增），且完全不管 iOS/站点声明是否跟上。
+      - name: Check version & release consistency
+        run: ./gradlew checkVersion checkReleaseConsistency --no-daemon --no-configuration-cache
 
-      - name: Validate version
+      - name: Cleanup Gradle/Kotlin daemons
+        if: always()
+        shell: bash   # 统一 shell：Windows 默认 pwsh 会把 `> /dev/null` 当成 D:\dev\null 去写，直接失败
         run: |
-          VERSION=$(grep '^hmp.versionName=' gradle.properties | cut -d'=' -f2)
-          LATEST_TAG=$(git tag --sort=-v:refname | head -1 | sed 's/^v//')
-          echo "Current: $VERSION, Latest tag: $LATEST_TAG"
-
-          if [ "$VERSION" = "$LATEST_TAG" ]; then
-            echo "::error::Version $VERSION already exists! Please bump version in gradle.properties."
-            exit 1
-          fi
+          ./gradlew --stop || true
+          case "$RUNNER_OS" in
+            # Git Bash 里没有 pkill，Windows 用 taskkill；//F 是 MSYS 的转义写法
+            Windows) taskkill //F //IM java.exe //T >/dev/null 2>&1 || true ;;
+            *) pkill -f 'GradleDaemon|KotlinCompileDaemon|GradleWorkerMain' || true ;;
+          esac
 
   # ============================================================
   # 2. Android 构建（与桌面端并行）
@@ -103,6 +108,17 @@ jobs:
             android/app/build/outputs/bundle/release/app-release.aab
           retention-days: 5
 
+      - name: Cleanup Gradle/Kotlin daemons
+        if: always()
+        shell: bash   # 统一 shell：Windows 默认 pwsh 会把 `> /dev/null` 当成 D:\dev\null 去写，直接失败
+        run: |
+          ./gradlew --stop || true
+          case "$RUNNER_OS" in
+            # Git Bash 里没有 pkill，Windows 用 taskkill；//F 是 MSYS 的转义写法
+            Windows) taskkill //F //IM java.exe //T >/dev/null 2>&1 || true ;;
+            *) pkill -f 'GradleDaemon|KotlinCompileDaemon|GradleWorkerMain' || true ;;
+          esac
+
   # ============================================================
   # 3. 桌面端构建（与 Android 并行）
   # ============================================================
@@ -125,7 +141,7 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
 
       - name: Build macOS DMG
-        run: ./gradlew :desktop:app:packageDistributionForCurrentOS -Phmp.release-build=true --no-daemon --no-configuration-cache
+        run: ./gradlew :desktop:app:packageDistributionForCurrentOS '-Phmp.release-build=true' --no-daemon --no-configuration-cache
 
       - name: Upload macOS artifact
         uses: actions/upload-artifact@v4
@@ -133,6 +149,17 @@ jobs:
           name: build-desktop-macos
           path: desktop/app/build/compose/binaries/main/dmg/
           retention-days: 5
+
+      - name: Cleanup Gradle/Kotlin daemons
+        if: always()
+        shell: bash   # 统一 shell：Windows 默认 pwsh 会把 `> /dev/null` 当成 D:\dev\null 去写，直接失败
+        run: |
+          ./gradlew --stop || true
+          case "$RUNNER_OS" in
+            # Git Bash 里没有 pkill，Windows 用 taskkill；//F 是 MSYS 的转义写法
+            Windows) taskkill //F //IM java.exe //T >/dev/null 2>&1 || true ;;
+            *) pkill -f 'GradleDaemon|KotlinCompileDaemon|GradleWorkerMain' || true ;;
+          esac
 
   build-desktop-windows:
     needs: [validate]
@@ -153,10 +180,20 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
 
       - name: Install WiX Toolset
-        run: choco install wixtoolset -y
+        shell: pwsh
+        run: |
+          choco install wixtoolset -y
+          # choco 改的是机器 PATH，需显式灌进 GITHUB_PATH 才能让后续 build 步骤找到 candle/light。
+          # 用通配定位，避免写死 v3.11 路径。
+          $wixBin = (Get-ChildItem "C:\Program Files (x86)\WiX Toolset*" -Recurse -Filter candle.exe -ErrorAction SilentlyContinue |
+                     Select-Object -First 1).DirectoryName
+          if (-not $wixBin) { throw "WiX candle.exe 未找到，MSI 打包必失败" }
+          echo "$wixBin" | Out-File -Append -Encoding utf8 $env:GITHUB_PATH
+          Write-Host "WiX bin on PATH: $wixBin"
 
       - name: Build Windows MSI
-        run: ./gradlew :desktop:app:packageDistributionForCurrentOS -Phmp.release-build=true --no-daemon --no-configuration-cache
+        shell: bash
+        run: ./gradlew :desktop:app:packageDistributionForCurrentOS '-Phmp.release-build=true' --no-daemon --no-configuration-cache
 
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
@@ -164,6 +201,17 @@ jobs:
           name: build-desktop-windows
           path: desktop/app/build/compose/binaries/main/msi/
           retention-days: 5
+
+      - name: Cleanup Gradle/Kotlin daemons
+        if: always()
+        shell: bash   # 统一 shell：Windows 默认 pwsh 会把 `> /dev/null` 当成 D:\dev\null 去写，直接失败
+        run: |
+          ./gradlew --stop || true
+          case "$RUNNER_OS" in
+            # Git Bash 里没有 pkill，Windows 用 taskkill；//F 是 MSYS 的转义写法
+            Windows) taskkill //F //IM java.exe //T >/dev/null 2>&1 || true ;;
+            *) pkill -f 'GradleDaemon|KotlinCompileDaemon|GradleWorkerMain' || true ;;
+          esac
 
   build-desktop-linux:
     needs: [validate]
@@ -184,10 +232,18 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
 
       - name: Install dependencies
-        run: sudo apt-get update && sudo apt-get install -y dpkg fakeroot
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y dpkg fakeroot libfuse2
+          # AppImageKit 的 appimagetool 是 Compose packageAppImage 的硬依赖，CI 干净镜像里没有；
+          # 不装则 Linux 打包（Deb + AppImage）必失败。它自身是个 AppImage，运行需 libfuse2。
+          wget -q "https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage" -O /tmp/appimagetool
+          chmod +x /tmp/appimagetool
+          sudo mv /tmp/appimagetool /usr/local/bin/appimagetool
+          appimagetool --version
 
       - name: Build Linux DEB + AppImage
-        run: ./gradlew :desktop:app:packageDistributionForCurrentOS -Phmp.release-build=true --no-daemon --no-configuration-cache
+        run: ./gradlew :desktop:app:packageDistributionForCurrentOS '-Phmp.release-build=true' --no-daemon --no-configuration-cache
 
       - name: Upload Linux artifact
         uses: actions/upload-artifact@v4
@@ -197,6 +253,17 @@ jobs:
             desktop/app/build/compose/binaries/main/deb/
             desktop/app/build/compose/binaries/main/appimage/
           retention-days: 5
+
+      - name: Cleanup Gradle/Kotlin daemons
+        if: always()
+        shell: bash   # 统一 shell：Windows 默认 pwsh 会把 `> /dev/null` 当成 D:\dev\null 去写，直接失败
+        run: |
+          ./gradlew --stop || true
+          case "$RUNNER_OS" in
+            # Git Bash 里没有 pkill，Windows 用 taskkill；//F 是 MSYS 的转义写法
+            Windows) taskkill //F //IM java.exe //T >/dev/null 2>&1 || true ;;
+            *) pkill -f 'GradleDaemon|KotlinCompileDaemon|GradleWorkerMain' || true ;;
+          esac
 
   # ============================================================
   # 4. 发布：收集产物 + 生成 Notes + 创建 Release
@@ -234,23 +301,40 @@ jobs:
           AAB=$(find artifacts/build-android -name "app-release.aab" 2>/dev/null | head -1)
           [ -n "$AAB" ] && cp "$AAB" "release-assets/HMP-v${VERSION}-release.aab"
 
-          # macOS
+          # macOS（arm64，来自 macos-latest）
           for f in artifacts/build-desktop-macos/*.dmg; do
-            [ -f "$f" ] && cp "$f" "release-assets/HMP-v${VERSION}-macos.dmg"
+            [ -f "$f" ] && cp "$f" "release-assets/HMP-v${VERSION}-macos-arm64.dmg"
           done
 
-          # Windows
+          # Windows（x86_64）
           for f in artifacts/build-desktop-windows/*.msi; do
-            [ -f "$f" ] && cp "$f" "release-assets/HMP-v${VERSION}-windows.msi"
+            [ -f "$f" ] && cp "$f" "release-assets/HMP-v${VERSION}-windows-x86_64.msi"
           done
 
-          # Linux
+          # Linux x86_64（deb + AppImage）
           DEB=$(find artifacts/build-desktop-linux -name "*.deb" 2>/dev/null | head -1)
-          [ -n "$DEB" ] && cp "$DEB" "release-assets/HMP-v${VERSION}-linux.deb"
+          [ -n "$DEB" ] && cp "$DEB" "release-assets/HMP-v${VERSION}-linux-x86_64.deb"
           APPIMAGE=$(find artifacts/build-desktop-linux -name "*.AppImage" 2>/dev/null | head -1)
-          [ -n "$APPIMAGE" ] && cp "$APPIMAGE" "release-assets/HMP-v${VERSION}-linux.AppImage"
+          [ -n "$APPIMAGE" ] && cp "$APPIMAGE" "release-assets/HMP-v${VERSION}-linux-x86_64.AppImage"
 
           ls -lh release-assets/
+
+      # 上面的收集全是 `[ -f ... ] && cp`，某个平台产物缺失时会静默跳过、Release 照样发布成功。
+      # 这里做硬断言：必需产物一个都不能少。
+      - name: Assert all artifacts present
+        run: |
+          VERSION=$(grep '^hmp.versionName=' gradle.properties | cut -d'=' -f2)
+          missing=0
+          for f in "HMP-v${VERSION}-release.apk" "HMP-v${VERSION}-macos-arm64.dmg" \
+                   "HMP-v${VERSION}-windows-x86_64.msi" \
+                   "HMP-v${VERSION}-linux-x86_64.deb" "HMP-v${VERSION}-linux-x86_64.AppImage"; do
+            if [ ! -s "release-assets/$f" ]; then
+              echo "::error::缺产物：$f"
+              missing=1
+            fi
+          done
+          [ "$missing" = "0" ] || { echo "::error::产物不齐全，拒绝发布（宁可不发，也不发一个缺平台/架构的 Release）"; exit 1; }
+          echo "OK 必需产物齐全（Android + macOS arm64 + Windows x86_64 + Linux x86_64，共 5 个文件）"
 
       - name: Generate SHA256 checksums
         run: |
@@ -258,60 +342,87 @@ jobs:
           sha256sum HMP-* > SHA256SUMS.txt
           cat SHA256SUMS.txt
 
-      - name: Generate categorized release notes
+      - name: Build release notes
         id: notes
         run: |
+          VERSION=$(grep '^hmp.versionName=' gradle.properties | cut -d'=' -f2)
+          TAG="v${VERSION}"
+
+          # 正文 = ROADMAP 的本次版本条目（单一事实来源）。原来 Notes 只由 commit 前缀
+          # 分类生成，与 ROADMAP 各说各话，发布说明里的完成度口径没人负责。
+          # 条目里的 `>` 引用块是给内部看的（进度注记、文档指针），不进公开发布说明。
+          {
+            echo "## Hearable Music Player ${TAG}"
+            echo
+            awk -v head="### v${VERSION} (" 'index($0, head)==1 {f=1; next} /^### v[0-9]/ {if (f) exit} f' ROADMAP.md \
+              | grep -v '^> '
+            cat <<TABLE
+
+          ---
+
+          ### 📥 产物
+          | 平台 | 文件 |
+          |------|------|
+          | Android | \`HMP-v${VERSION}-release.apk\`（\`.aab\` 走 Google Play） |
+          | macOS (Apple Silicon / arm64) | \`HMP-v${VERSION}-macos-arm64.dmg\` |
+          | Windows | \`HMP-v${VERSION}-windows-x86_64.msi\` |
+          | Linux (x86_64) | \`HMP-v${VERSION}-linux-x86_64.deb\` / \`.AppImage\` |
+          | 校验和 | \`SHA256SUMS.txt\`（\`sha256sum -c SHA256SUMS.txt\`） |
+
+          > iOS 不随本次发布提供安装包：需 macOS + Xcode 源码自构建，见 README「安装步骤」。
+          TABLE
+          } > body.md
+
+          # commit 分类降级为附录
           PREV_TAG=$(git tag --sort=-v:refname | head -1)
           if [ -n "$PREV_TAG" ]; then
             COMMITS=$(git log "$PREV_TAG..HEAD" --pretty=format:"%s" --no-merges)
           else
             COMMITS="Initial release"
           fi
-
-          # Categorize commits
           FEATURES=$(echo "$COMMITS" | grep -iE "^(feat|feature)" | sed 's/^/- /' || true)
           FIXES=$(echo "$COMMITS" | grep -iE "^fix" | sed 's/^/- /' || true)
           PERF=$(echo "$COMMITS" | grep -iE "^(perf|optimize|refactor)" | sed 's/^/- /' || true)
           OTHERS=$(echo "$COMMITS" | grep -viE "^(feat|feature|fix|perf|optimize|refactor)" | sed 's/^/- /' || true)
-
           {
-            echo "NOTES<<EOF"
-            [ -n "$FEATURES" ] && echo "### ✨ New Features" && echo "$FEATURES" && echo ""
-            [ -n "$FIXES" ] && echo "### 🐛 Bug Fixes" && echo "$FIXES" && echo ""
-            [ -n "$PERF" ] && echo "### ⚡ Performance & Refactoring" && echo "$PERF" && echo ""
-            [ -n "$OTHERS" ] && echo "### 📦 Other Changes" && echo "$OTHERS" && echo ""
-            echo "EOF"
-          } >> $GITHUB_OUTPUT
+            echo
+            echo "---"
+            echo
+            echo "### 工程提交（附录，自动生成）"
+            [ -n "$FEATURES" ] && echo "#### ✨ Features" && echo "$FEATURES" && echo ""
+            [ -n "$FIXES" ] && echo "#### 🐛 Fixes" && echo "$FIXES" && echo ""
+            [ -n "$PERF" ] && echo "#### ⚡ Performance & Refactoring" && echo "$PERF" && echo ""
+            [ -n "$OTHERS" ] && echo "#### 📦 Other" && echo "$OTHERS" && echo ""
+          } > appendix.md
+          wc -l body.md appendix.md
 
       - name: Create tag and GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          VERSION=${{ steps.version.outputs.VERSION }}
+          VERSION=$(grep '^hmp.versionName=' gradle.properties | cut -d'=' -f2)
           TAG="v${VERSION}"
-
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag "$TAG"
-          git push origin "$TAG"
 
-          gh release create "$TAG" \
-            --repo "$GITHUB_REPOSITORY" \
-            --title "$TAG" \
-            --notes "## Hearable Music ${TAG}
+          # 幂等：原来先 git tag 再 gh release create，任一步中途失败后重跑必死于
+          # "tag already exists"，只能人工删 tag。现在存在即复用。
+          if git rev-parse -q --verify "refs/tags/${TAG}" >/dev/null; then
+            echo "tag ${TAG} 已存在 → 复用（通常是上次发布中途失败后重跑）"
+          else
+            git tag "${TAG}"
+            git push origin "${TAG}"
+          fi
 
-          ${{ steps.notes.outputs.NOTES }}
+          cat body.md appendix.md > notes.md
 
-          ---
-          ### 📥 Assets
-          | Platform | File |
-          |----------|------|
-          | Android | \`HMP-v${VERSION}-release.apk\` / \`.aab\` (Google Play) |
-          | macOS | \`HMP-v${VERSION}-macos.dmg\` |
-          | Windows | \`HMP-v${VERSION}-windows.msi\` |
-          | Linux | \`HMP-v${VERSION}-linux.deb\` / \`.AppImage\` |
-          | Checksums | \`SHA256SUMS.txt\` |" \
-            release-assets/*
+          if gh release view "${TAG}" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release edit "${TAG}" --repo "$GITHUB_REPOSITORY" --title "${TAG}" --notes-file notes.md
+            gh release upload "${TAG}" release-assets/* --clobber --repo "$GITHUB_REPOSITORY"
+          else
+            gh release create "${TAG}" --repo "$GITHUB_REPOSITORY" --title "${TAG}" \
+              --notes-file notes.md release-assets/*
+          fi
 
   # ============================================================
   # 5. 站点部署

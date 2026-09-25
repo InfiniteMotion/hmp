@@ -7,7 +7,7 @@
 window.SITE = {
   name: 'Hearable Music Player',
   shortName: 'HMP',
-  version: '7.2.0',
+  version: '7.2.1',
   released: '2026-09-24',
   author: 'WLYB',
   year: 2026,
@@ -27,12 +27,14 @@ window.SITE = {
     { code: 'pt', name: 'Português' }
     /* 待翻译完成后启用：ru vi th id hi ar */
   ],
-  /* Release 资产文件名模板，{v} 替换为版本号 */
+  /* Release 资产文件名模板，{v} 替换为版本号。
+     架构对齐 release.yml：当前只出 macOS arm64 / Linux x86_64 / Windows x86_64，
+     后续扩展（如 macOS x86_64、Linux arm64）在此补键即可 */
   assets: {
     apk: 'HMP-v{v}-release.apk',
-    msi: 'HMP-v{v}-windows.msi',
-    dmg: 'HMP-v{v}-macos.dmg',
-    deb: 'HMP-v{v}-linux.deb',
-    appimage: 'HMP-v{v}-linux.AppImage'
+    msi: 'HMP-v{v}-windows-x86_64.msi',
+    dmgArm: 'HMP-v{v}-macos-arm64.dmg',
+    debAmd: 'HMP-v{v}-linux-x86_64.deb',
+    appimage: 'HMP-v{v}-linux-x86_64.AppImage'
   }
 };

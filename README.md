@@ -215,7 +215,7 @@ Hearable Music Player是我个人开发的一款专注于本地音乐播放的�
 
 ## 📝 开发日志
 
-完整版本历史与变更日志见 **[ROADMAP](ROADMAP.md)**。已发布至 master 的最新版本：**v7.1.0**；**v7.2.0 发布中**（`release/7.2.0` → master，含方向 B Agent 化 F1–F14 与官网改版）；**后续待做：方向 C 播放增强、F10 语音会话（挂起）**。
+完整版本历史与变更日志见 **[ROADMAP](ROADMAP.md)**。已发布至 master 的最新版本：**v7.1.0**；**v7.2.1 发布中**（`release/7.2.1` → master；桌面端发版产物覆盖 macOS arm64 / Windows x86_64 / Linux x86_64，FFmpeg 二进制托管于本仓库 `ffmpeg-binaries` Release）；**后续待做：方向 C 播放增强、F10 语音会话（挂起）；后续按需扩展 macOS x86_64 / Linux arm64 产物**。**后续待做：方向 C 播放增强、F10 语音会话（挂起）**。
 
 ## 🤝 贡献指南
 

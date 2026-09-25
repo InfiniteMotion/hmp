@@ -1,0 +1,10 @@
+# CI 工作流与辅助脚本必须 LF 入库。
+# CR LF 的 shebang 在 Linux runner 上会解析成 "/usr/bin/env: python3\r"，
+# 导致脚本无法执行；YAML 虽多能容忍，但不值得赌。
+.github/**/*.yml text eol=lf
+.github/**/*.yaml text eol=lf
+.github/**/*.py text eol=lf
+.github/**/*.sh text eol=lf
+
+# 文档同样统一 LF，避免跨平台 diff 整屏飘红
+*.md text eol=lf
