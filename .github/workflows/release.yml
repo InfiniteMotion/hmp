@@ -261,13 +261,20 @@ jobs:
           # deb 里必须有 ffmpeg。FFmpeg 的注入点是 jlink runtime image，而它是否真被
           # jpackage 带进 deb，此前没人验过 —— 这正是三端缺 ffmpeg 长期没人发现的原因。
           # dpkg-deb -c 输的是 deb 内清单，最后一段是路径。
+          #
+          # 关键：必须先把清单落盘再 grep，不能 `dpkg-deb -c | grep -q`。
+          # grep -q 匹配到就立即退出并关闭管道，tar 随之收到 SIGPIPE 写失败、
+          # dpkg-deb 以 2 退出；叠加 pipefail 后整条管道判红，于是「找到了」被误判成
+          # 「没找到」，本来正常的 deb 反而让 job 失败（2026-09-25 实测）。
           echo "=== deb 内 ffmpeg 核查 ==="
-          if ! dpkg-deb -c "$DEB" | grep -Eq '/bin/ffmpeg$'; then
+          CONTENTS=$(mktemp)
+          dpkg-deb -c "$DEB" > "$CONTENTS"
+          if ! grep -Eq '/bin/ffmpeg$' "$CONTENTS"; then
             echo "::error::DEB 内未包含 ffmpeg：$DEB"
-            dpkg-deb -c "$DEB" | grep -iE 'bin|runtime' | head -20
+            grep -iE 'bin|runtime' "$CONTENTS" || true
             exit 1
           fi
-          dpkg-deb -c "$DEB" | grep -E '/bin/ffmpeg$'
+          grep -E '/bin/ffmpeg$' "$CONTENTS"
 
           mkdir -p linux-out
           cp "$DEB" linux-out/
