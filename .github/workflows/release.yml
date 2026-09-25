@@ -245,13 +245,39 @@ jobs:
       - name: Build Linux DEB + AppImage
         run: ./gradlew :desktop:app:packageDistributionForCurrentOS '-Phmp.release-build=true' --no-daemon --no-configuration-cache
 
+      # 不假设 Compose 的子目录名。v7.2.1 那次事故里 packageAppImage 把产物写进了
+      # main/app/（和 createDistributable 的应用目录同一处），并非 main/appimage/，
+      # 而上传路径硬编码了 appimage/ —— 结果 artifact 里只有 deb，AppImage 静默丢失，
+      # 一路绿灯到 release job 的断言才炸。现在改为全目录搜索 + 就地断言。
+      - name: Collect Linux packages
+        run: |
+          set -euo pipefail
+          MAIN=desktop/app/build/compose/binaries/main
+
+          echo "=== main/ 实际布局（诊断）==="
+          find "$MAIN" -maxdepth 2 \( -type d -o -type f \) | sort
+          echo
+
+          # -quit 而非 | head -1：后者会让 find 收到 SIGPIPE，在 pipefail 下直接判失败
+          DEB=$(find "$MAIN" -type f -name '*.deb' -print -quit 2>/dev/null || true)
+          APPIMAGE=$(find "$MAIN" -type f -name '*.AppImage' -print -quit 2>/dev/null || true)
+
+          missing=0
+          [ -n "$DEB" ] || { echo "::error::未找到 .deb"; missing=1; }
+          [ -n "$APPIMAGE" ] || { echo "::error::未找到 .AppImage：$MAIN 下没有 AppImage 产物"; missing=1; }
+          [ "$missing" = "0" ] || { echo "::error::Linux 产物不全，立刻失败——不让问题漂流到 release job"; exit 1; }
+
+          mkdir -p linux-out
+          cp "$DEB" linux-out/
+          cp "$APPIMAGE" linux-out/
+          echo "=== 将上传 ==="
+          ls -lh linux-out/
+
       - name: Upload Linux artifact
         uses: actions/upload-artifact@v4
         with:
           name: build-desktop-linux
-          path: |
-            desktop/app/build/compose/binaries/main/deb/
-            desktop/app/build/compose/binaries/main/appimage/
+          path: linux-out/
           retention-days: 5
 
       - name: Cleanup Gradle/Kotlin daemons
@@ -270,7 +296,10 @@ jobs:
   # ============================================================
   release:
     needs: [build-android, build-desktop-macos, build-desktop-windows, build-desktop-linux]
-    if: ${{ github.event.inputs.dry_run != 'true' }}
+    # 刻意不再让 dry_run 整个跳过本 job。
+    # v7.2.1 事故的一半原因在这里：dry run 跳过 release job，于是「收集产物 + 齐全断言」
+    # 这段逻辑从来没被演练过 —— dry run 全绿，正式发布才第一次跑到断言才发现 AppImage 丢了。
+    # 现在 dry run 会一路跑到断言与 Notes 生成为止，只在落地 tag / Release 那一步停下。
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -397,6 +426,7 @@ jobs:
           wc -l body.md appendix.md
 
       - name: Create tag and GitHub Release
+        if: ${{ github.event.inputs.dry_run != 'true' }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -424,10 +454,23 @@ jobs:
               --notes-file notes.md release-assets/*
           fi
 
+      # dry run 的终点：收集、断言、Notes 都已真实跑过，到此收手。
+      # 这里贴出产物清单，让人一眼确认「只差发布」。
+      - name: Dry run — stop before publishing
+        if: ${{ github.event.inputs.dry_run == 'true' }}
+        run: |
+          echo "dry_run=true：产物齐全断言已通过、发布说明已生成。"
+          echo "未创建 tag / Release，也未部署站点。"
+          echo
+          echo "=== 本次演练收集到的产物 ==="
+          ls -lh release-assets/
+
   # ============================================================
   # 5. 站点部署
   # ============================================================
   deploy-site:
+    # dry run 不得触碰线上：站点部署同样要跳过
+    if: ${{ github.event.inputs.dry_run != 'true' }}
     needs: [release]
     runs-on: ubuntu-latest
     environment:
