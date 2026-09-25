@@ -235,60 +235,58 @@ val downloadFFmpeg by tasks.registering {
     }
 }
 
-// ── Inject FFmpeg into native distribution ──────────────────────────────
+// ── Inject FFmpeg into the jlink runtime image ───────────────────────────
+//
+// 注入对象必须是 jlink runtime image，而不是 app image（compose/binaries/main）。
+// 运行时 FFmpegAudioEngine 的第一个可用候选是 `java.home/bin/ffmpeg`，而 java.home
+// 指向的正是被打进产物的那份 runtime image —— 所以往它根下补一个 bin/ 就能命中。
+//
+// 旧实现注入 compose/binaries/main 是错的（详见文末 Wiring 注释）：
+// Linux 的 DEB、Windows 的 MSI **根本不经过** compose/binaries/main —— 它们是
+// jpackage 直接拿 runtime image + libs 打的。于是 ffmpeg 从未进入这两个产物。
 
 val injectFFmpeg by tasks.registering {
     group = "desktop"
-    description = "把 FFmpeg 注入 app image（必须早于 DMG/MSI/DEB 打包）"
+    description = "把 FFmpeg 注入 jlink runtime image（必须早于所有格式打包）"
     notCompatibleWithConfigurationCache("uses project object references")
     dependsOn(downloadFFmpeg)
 
     doLast {
-        val binDir = layout.buildDirectory.dir("compose/binaries/main").get().asFile
-        if (!binDir.exists()) {
-            println("!! 未发现分发包目录，跳过 FFmpeg 注入（未执行打包任务？）")
-            return@doLast
-        }
+        val runtimeImageTask = tasks.matching { it.name == "createRuntimeImage" }.firstOrNull()
+            ?: throw GradleException("未找到 createRuntimeImage 任务")
+
+        // 取 Compose 内部任务的产出目录：公开 API 只有 TaskOutputs，取不到 destinationDir。
+        // 优先按目录名挑，次选唯一产出 —— 避免插件日后多声明一个输出就崩。
+        val dirs = runtimeImageTask.outputs.files.files.filter { it.isDirectory }
+        val runtimeRoot = dirs.firstOrNull { it.name == "runtime" } ?: dirs.singleOrNull()
+            ?: throw GradleException(
+                "无法确定 createRuntimeImage 的产出目录（jlink runtime image）。\n" +
+                    "  候选: $dirs\n" +
+                    "  若 Compose 改了输出声明，这里要跟着改。"
+            )
 
         val ffmpegSrc = File(ffmpegDir, ffmpegFileName)
         if (!ffmpegSrc.exists()) {
             throw GradleException("FFmpeg 尚未就绪，无法注入: $ffmpegSrc")
         }
-
-        // 三端一条规则：jlink 出的 runtime 根 = 装着 JVM 的那一层。
-        // 位置各端不同：Windows 是 bin/server/jvm.dll，macOS 是 lib/server/libjvm.dylib，
-        // Linux 是 lib/server/libjvm.so —— 两种判据都认，别按平台写死路径形状。
-        // 运行时按 java.home/bin/ffmpeg 找（FFmpegAudioEngine.resolveFfmpegPath），而 macOS 的
-        // runtime 里**没有 bin 目录**（启动器是 Contents/MacOS/HMP，不依赖 bin/java）—— 这才是
-        // DMG 一直缺 FFmpeg 的根因；故由这里补建 bin 再投放，运行时零改动即可命中。
-        val roots = binDir.walk().filter { it.isDirectory }.mapNotNull { d ->
-            when {
-                // macOS / Linux：java.home 这一层直接带 lib/server
-                File(d, "lib/server").isDirectory -> d
-                // Windows：server 在 bin/ 下，往上两级才是 java.home
-                d.name == "server" && d.parentFile?.name == "bin" -> d.parentFile?.parentFile
-                else -> null
-            }
-        }.distinctBy { it.absolutePath }.toList()
-
-        // 旧实现在找不到目标时静默通过，正是「DMG 里没有 ffmpeg」被长期掩盖的原因
-        if (roots.isEmpty()) {
+        // 旧实现在这里写的是「找不到就 return」，静默跳过 —— FFmpeg 缺席正是这样
+        // 连续几个版本没被发现。目标不存在必须炸，不能退化成打包机上的愿望清单。
+        if (!runtimeRoot.isDirectory) {
             throw GradleException(
-                "app image 已生成但未找到 jlink runtime（判据：lib/server 或 bin/server），FFmpeg 未注入。\n" +
-                    "  binDir=$binDir\n" +
-                    "  实际目录树（前 80 项，据此核对布局）：\n" +
-                    binDir.walk().filter { it.isDirectory }.take(80)
-                        .joinToString("\n") { "    " + it.relativeTo(binDir).path }
+                "runtime image 不存在，FFmpeg 无法注入: $runtimeRoot\n" +
+                    "  这几乎总是意味着 injectFFmpeg 跑早了 —— 检查 createRuntimeImage 的 finalizedBy。"
             )
         }
-        val targets = roots.map { File(it, "bin").also { b -> b.mkdirs() } }
 
-        for (target in targets) {
-            val dest = File(target, ffmpegFileName)
-            ffmpegSrc.copyTo(dest, overwrite = true)
-            dest.setExecutable(true)
-            println("OK Injected FFmpeg -> ${dest.absolutePath}")
+        val dest = File(File(runtimeRoot, "bin").also { it.mkdirs() }, ffmpegFileName)
+        ffmpegSrc.copyTo(dest, overwrite = true)
+        dest.setExecutable(true, false)
+
+        // 写完就地验一遍：不做「复制了就当成功」的假设。
+        if (!dest.isFile || !dest.canExecute()) {
+            throw GradleException("FFmpeg 注入后校验失败: ${dest.absolutePath}")
         }
+        println("OK Injected FFmpeg -> ${dest.absolutePath}")
     }
 }
 
@@ -341,7 +339,16 @@ compose.desktop {
             } else if (isWindows) {
                 targetFormats(TargetFormat.Msi)
             } else {
-                targetFormats(TargetFormat.Deb, TargetFormat.AppImage)
+                // Linux 只发 DEB。这里曾经是 Deb + AppImage，但那是错的期待：
+                // Compose 的 TargetFormat.AppImage **不是** Linux AppImage 便携格式，
+                // 它是 jpackage 的 `--type app-image` —— 产出的是解包目录
+                // main/app/<包名>/（bin/ + lib/），与 createDistributable 完全同源，
+                // 连输出目录都是同一个。源码里 AppImage.fileExt 直接抛
+                // "cannot have a file extension"，全插件也从不调用 appimagetool。
+                // 于是这条格式配了等于把 app image 又生成一遍（多花几分钟），
+                // 而 `.AppImage` 文件永远不会存在。
+                // 真正的 AppImage 要我们自己用 appimagetool 组装 AppDir，见 v7.2.2 待办。
+                targetFormats(TargetFormat.Deb)
             }
 
             macOS {
@@ -370,16 +377,28 @@ compose.desktop {
     }
 }
 
-// FFmpeg 注入必须发生在「app image 生成之后、格式打包之前」。
-// 旧实现挂在 packageDistributionForCurrentOS 的 finalizedBy 上 —— finalizer 在整个
-// 打包管线跑完之后才执行，此时 DMG 早已由 app image 打好，于是 ffmpeg 从未进入产物。
-tasks.matching { it.name == "createDistributable" }.configureEach {
-    finalizedBy(injectFFmpeg)
-}
+// ── FFmpeg 注入的时机：锚点是 jlink runtime image，不是 createDistributable ──
+//
+// 旧实现锚错了两处，导致 Linux DEB / Windows MSI **从未带上 FFmpeg**（2026-09 修复）：
+//
+//   1. 锚点不存在。非 macOS 的 deb/msi 根本不经过 createDistributable，Compose 只在
+//      macOS 把 createDistributable 接到打包任务上（configureJvmApplication 仅 macOS
+//      传 createAppImage），Linux/Windows 是 jpackage 拿 jlink runtime image + libs
+//      直接打的。而 packageDistributionForCurrentOS 的图里压根没有 createDistributable，
+//      finalizedBy 挂不上。
+//   2. 于是 injectFFmpeg 只剩一条「在 package* 之前」的边，Gradle 就在 downloadFFmpeg
+//      之后立刻把它跑了 —— 那时什么产物都还没有，它打印「未发现分发包目录，跳过注入」
+//      后静默 return。整条链路 BUILD SUCCESSFUL，直到有人去翻 deb 的内容才发现。
+//
+// runtime image 是三端唯一的公共中间产物（macOS 的 app image 也是拿它 --runtime-image
+// 打出来的），finalizedBy 它 = 在所有格式打包之前、且在 runtime 产出之后。
 tasks.matching {
-    it.name in setOf("packageDmg", "packageMsi", "packageDeb", "packageAppImage")
+    it.name in setOf("packageDmg", "packageMsi", "packageDeb", "packageExe")
 }.configureEach {
     dependsOn(injectFFmpeg)
+}
+tasks.matching { it.name == "createRuntimeImage" }.configureEach {
+    finalizedBy(injectFFmpeg)
 }
 
 // 开发运行只需二进制就位：run 已通过 -Dhmp.ffmpeg.path 指向 build/ffmpeg/。

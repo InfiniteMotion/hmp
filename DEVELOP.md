@@ -334,7 +334,7 @@ open HMP.xcworkspace
 # 构建 Windows MSI（需 Windows）
 ./gradlew :desktop:app:packageDistributionForCurrentOS
 
-# 构建 Linux DEB + AppImage（需 Linux）
+# 构建 Linux DEB（需 Linux）
 ./gradlew :desktop:app:packageDistributionForCurrentOS
 ```
 
@@ -378,7 +378,7 @@ open HMP.xcworkspace
 - ✅ CI/CD 自动发布（GitHub Actions Release 工作流）
 - ✅ 桌面端平台支持（Compose Multiplatform + FFmpeg 音频引擎）
 - ✅ 桌面端响应式布局（Compact/Expanded 模式、多面板导航）
-- ✅ 桌面端三平台打包（macOS DMG / Windows MSI / Linux DEB+AppImage）
+- ✅ 桌面端三平台打包（macOS DMG / Windows MSI / Linux DEB）
 
 #### 进行中
 
