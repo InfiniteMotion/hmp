@@ -1,0 +1,166 @@
+name: Pre-release Check
+
+# 合入 master 之前的事先检验。真正的发布仍由 release.yml 在 PR 合入后触发，
+# 本工作流不产发布物、不写仓库，只回答一个问题：合入之后会不会炸。
+#
+# 只对 release/* 分支做发版向检查。不对 feature PR 做的原因见 version job 注释。
+# 手动运行时（Actions → Pre-release Check → Run workflow）可在 UI 选择分支。
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-check-${{ github.event.pull_request.number || github.ref }}
+  # 同一 PR 内新 push 直接取代旧的 run，避免排队空烧分钟数
+  cancel-in-progress: true
+
+jobs:
+  # ============================================================
+  # ① 版本号自洽性 + 多端版本声明一致性
+  #
+  # 只对 release/* 跑。feature PR 绝不能跑：checkVersion 要求 versionCode
+  # 相对上一个 tag 严格递增，而 feature PR 不会 bump 版本号，跑必红。
+  # 这两项挪到合入前，是因为它们是「要么全错要么全对」的整批问题——
+  # 等到 release.yml 的 validate 才发现，四个构建 job 会连带白跑。
+  # ============================================================
+  version:
+    name: Version & declarations
+    if: >-
+      github.event_name == 'workflow_dispatch'
+      || (github.event.pull_request.draft == false
+          && startsWith(github.head_ref, 'release/'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # checkVersion 要 git tag 比对上一版本的 versionCode，浅克隆会让
+          # 这一步「静默通过」——因为它读不到任何 tag 就跳过递增校验。
+          fetch-depth: 0
+
+      - name: Setup JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      # 与 release.yml 的 validate 调同一对 Gradle 任务，规则不重实现一份，避免两边漂移
+      - name: Version self-consistency & release declarations
+        run: ./gradlew checkVersion checkReleaseConsistency --no-daemon --no-configuration-cache
+
+      - name: Branch name matches version
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          set -euo pipefail
+          if [[ "$HEAD_REF" == release/* ]]; then
+            want="${HEAD_REF#release/}"
+            got=$(grep '^hmp.versionName=' gradle.properties | cut -d'=' -f2 | tr -d '[:space:]')
+            if [[ "$want" != "$got" ]]; then
+              echo "::error::分支名 $HEAD_REF 与 gradle.properties 的版本 $got 不一致"
+              exit 1
+            fi
+            echo "OK 分支名与版本号一致：$got"
+          else
+            echo "非 release/* 分支（当前 $HEAD_REF），跳过分支名校验"
+          fi
+
+      - name: Cleanup Gradle/Kotlin daemons
+        if: always()
+        run: |
+          ./gradlew --stop || true
+          pkill -f 'GradleDaemon|KotlinCompileDaemon|GradleWorkerMain' || true
+
+  # ============================================================
+  # ② FFmpeg 二进制资产朝阴性检查
+  #
+  # 桌面三端打包时各自下载一个 zip，SHA256 不符即构建中断。这一步把失败
+  # 提前到 PR 阶段，并额外验证二进制的真实 CPU 架构——SHA256 只能证明
+  # 「和配的对得上」，证明不了「装的是对的架构」。
+  # ============================================================
+  ffmpeg-assets:
+    name: FFmpeg binaries
+    if: >-
+      github.event_name == 'workflow_dispatch'
+      || (github.event.pull_request.draft == false
+          && startsWith(github.head_ref, 'release/'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      # 这些包动辄上百 MB，且内容由 sha256 保证不变，缓存即可复用
+      - name: Cache FFmpeg archives
+        uses: actions/cache@v4
+        with:
+          path: .ffmpeg-cache
+          key: ffmpeg-${{ hashFiles('desktop/app/build.gradle.kts') }}
+
+      - name: Verify assets exist, match SHA256 and target arch
+        env:
+          FFMPEG_CACHE_DIR: .ffmpeg-cache
+          # 公开 Release 用不到；私有仓库下下载发布资产需要它
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 .github/scripts/check-ffmpeg-assets.py
+
+  # ============================================================
+  # ③ 结论汇总 —— 让 PR 页面一眼能读到「能不能合」
+  # ============================================================
+  preflight:
+    name: Verdict
+    needs: [version, ffmpeg-assets]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Summarize
+        env:
+          VERSION: ${{ needs.version.result }}
+          FFMPEG: ${{ needs.ffmpeg-assets.result }}
+        run: |
+          set -euo pipefail
+          mark() { case "$1" in success) echo "✅ 通过";; failure) echo "❌ 失败";; cancelled) echo "⏹ 取消";; *) echo "⏭ 跳过（非 release 分支）";; esac; }
+
+          {
+            echo "## 发版预检结论"
+            echo ""
+            echo "| 检查项 | 结果 |"
+            echo "|---|---|"
+            echo "| 版本号自洽与多端声明一致 | $(mark "$VERSION") |"
+            echo "| FFmpeg 资产可用性与架构 | $(mark "$FFMPEG") |"
+            echo ""
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "$VERSION" = failure ] || [ "$FFMPEG" = failure ]; then
+            {
+              echo "**不允许合入**：上述检查有失败项，合入后会卡在 \`release.yml\` 的 validate 或打包阶段。"
+              echo ""
+              echo "本地可复现："
+              echo '```bash'
+              echo './gradlew checkVersion checkReleaseConsistency'
+              echo 'python3 .github/scripts/check-ffmpeg-assets.py'
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+
+          if [ "$VERSION" = skipped ] && [ "$FFMPEG" = skipped ]; then
+            echo "普通功能 PR：未跑发版向检查。若要验证发布链路，请在分支名上加 \`release/\` 前缀，或手动运行 \`Release\` 工作流并勾选 dry_run。" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "**可以合入** —— 合入后 \`release.yml\` 将自动构建并发布。" >> "$GITHUB_STEP_SUMMARY"
+          fi

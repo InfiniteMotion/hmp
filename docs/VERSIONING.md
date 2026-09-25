@@ -86,9 +86,16 @@ git merge feature/agent-build
 # 3. 更新版本号
 #    gradle.properties: hmp.versionCode + hmp.versionName
 #    ROADMAP.md: 新增版本条目 + 更新「当前版本」
-#    site/: 更新版本号链接
+#    ⚠️ bump 不止改 gradle.properties —— 下述声明漏任一都会被 checkReleaseConsistency
+#       判为 drift，导致 validate 失败、四个构建 job 全部跳过。完整清单见 §6。
+#       站点 site/：js/config.js 的 version + index.html 的 JSON-LD softwareVersion
+#                  + changelog.html 新增 <!-- vX.Y.Z --> 条目
+#       iOS：ios/HMP/project.yml（CFBundleShortVersionString / MARKETING_VERSION）
+#            ios/HMP/HMP/Info.plist、ios/HMP/HMP.xcodeproj/project.pbxproj
+#       shared-ios：Anchor.kt 的 SHARED_IOS_FRAMEWORK_VERSION
 
-# 4. 本地构建验证
+# 4. 本地构建验证（CI 已不跑单元测试 —— 这一步是唯一守门人，别跳）
+./gradlew preflight
 ./gradlew :android:app:assembleRelease
 
 # 5. 提交版本 bump
@@ -100,11 +107,15 @@ git push origin release/X.Y.0
 ```
 
 PR 合入 master 后，CI 自动执行：
-- 单元测试 + 版本号校验
+- 版本号不变量 + 发布一致性校验（`checkVersion` / `checkReleaseConsistency`）
 - Android + 桌面端并行构建
-- 生成分类 Release Notes + SHA256 校验
-- 创建 `vX.Y.0` tag + GitHub Release
+- 产物齐全断言 + SHA256 + 分类 Release Notes（正文取 ROADMAP 条目）
+- 创建 `vX.Y.0` tag + GitHub Release（可原地重跑：tag 存在即复用）
 - 部署产品展示站点到 GitHub Pages
+
+> ⚠️ **单元测试不在 CI 跑**（自 2026-09-24）：`testAll` 在 runner 上会静默挂死、拖住整条发版通道，
+> 成因未查清（TODO R31），故从 validate 移除。代价是**master 上的测试回归没有无人值守的把关**，
+> 单元测试改由本机 `./gradlew preflight` 在 bump 前负责 —— 这一步现在是唯一的守门人，别跳。
 
 ### 5.2 PATCH 发版
 
@@ -122,9 +133,16 @@ git merge feature/agent-build
 # 3. 更新版本号
 #    gradle.properties: hmp.versionCode++ , hmp.versionName → X.Y.Z
 #    ROADMAP.md: 新增版本条目 + 更新「当前版本」
-#    site/: 更新版本号链接
+#    ⚠️ bump 不止改 gradle.properties —— 下述声明漏任一都会被 checkReleaseConsistency
+#       判为 drift，导致 validate 失败、四个构建 job 全部跳过。完整清单见 §6。
+#       站点 site/：js/config.js 的 version + index.html 的 JSON-LD softwareVersion
+#                  + changelog.html 新增 <!-- vX.Y.Z --> 条目
+#       iOS：ios/HMP/project.yml（CFBundleShortVersionString / MARKETING_VERSION）
+#            ios/HMP/HMP/Info.plist、ios/HMP/HMP.xcodeproj/project.pbxproj
+#       shared-ios：Anchor.kt 的 SHARED_IOS_FRAMEWORK_VERSION
 
-# 4. 本地构建验证
+# 4. 本地构建验证（CI 已不跑单元测试 —— 这一步是唯一守门人，别跳）
+./gradlew preflight
 ./gradlew :android:app:assembleRelease
 
 # 5. 提交版本 bump
@@ -151,17 +169,27 @@ PATCH 发版流程与 MINOR/MAJOR 相同，统一走 `release/* → master` PR �
 
 ### 版本号
 - [ ] `gradle.properties` 中 `hmp.versionName` 已更新
-- [ ] `gradle.properties` 中 `hmp.versionCode` 已递增
-- [ ] 版本号与 ROADMAP.md 中的版本一致
+- [ ] `gradle.properties` 中 `hmp.versionCode` 已递增，且与 `versionName` 自洽（`MAJOR*10000+MINOR*1000+PATCH`）
 
-### 文档
-- [ ] `ROADMAP.md` 已新增版本条目（日期 + 变更说明）
-- [ ] `ROADMAP.md` 「当前版本」已更新
-- [ ] 站点 `site/index.html` 版本号已更新
-- [ ] 站点 `site/download.html` 下载链接已更新
-- [ ] 站点 `site/changelog.html` 已新增版本条目
+### 版本声明一致性（会被 `checkReleaseConsistency` 自动校验，漏一项即判失败）
+- [ ] `site/js/config.js` — `version:`
+- [ ] `site/index.html` — JSON-LD `softwareVersion`
+- [ ] `site/changelog.html` — 含本次版本的 `<!-- vX.Y.Z -->` 标记
+- [ ] `ROADMAP.md` — 含 `### vX.Y.Z (` 条目
+- [ ] `ios/HMP/project.yml` — `CFBundleShortVersionString` + `MARKETING_VERSION`
+- [ ] `ios/HMP/HMP/Info.plist` — `CFBundleShortVersionString`
+- [ ] `ios/HMP/HMP.xcodeproj/project.pbxproj` — `MARKETING_VERSION`
+- [ ] `shared-ios/.../Anchor.kt` — `SHARED_IOS_FRAMEWORK_VERSION`（可带 `-aN` 后缀）
+- [ ] 自查：`./gradlew checkReleaseConsistency`
+
+### 文档与站点
+- [ ] `ROADMAP.md` 已新增版本条目（日期 + 变更说明），「当前版本」已更新
+- [ ] `site/changelog.html` 已新增版本条目（最新一条用动态版本号 `data-site="version"`，历史条目写死版本号）
+- [ ] `site/download.html` 下载项与 `site/js/config.js` 的 `assets` 文件名模板对应
 
 ### 构建验证
+- [ ] **本地 `./gradlew preflight` 通过**（版本号不变量 + 发布一致性 + 全量单元测试；**CI 不跑单元测试，这里是唯一把关**）
+- [ ] 发版分支推到远端后，PR 上的 **`Pre-release Check` 已通过**（自动校验版本声明一致性与 FFmpeg 资产可用性）
 - [ ] 本地 Release 构建通过
 - [ ] 真机测试通过（如涉及功能改动）
   - [ ] **平台能力路径必测**（历次 UI 层统一曾在此漏检，见 `7_x/A shared-ui/UI层统一-能力搬迁点检.md`）：
@@ -171,50 +199,107 @@ PATCH 发版流程与 MINOR/MAJOR 相同，统一走 `release/* → master` PR �
 
 ## 7. CI/CD 自动发布
 
-工作流定义在 `.github/workflows/release.yml`。
+发版保障由**两个工作流分担**：`.github/workflows/pr-check.yml` 在合入前拦截，`.github/workflows/release.yml` 在合入后构建发布。
 
-### 触发条件
+### 合入前预检（pr-check.yml）
+
+`release/*` 分支的 PR 打开/更新时自动触发（draft PR 跳过）。不产发布物、不写仓库，只回答「合入之后会不会炸」：
+
+| 检查项 | 拦的问题 |
+|--------|----------|
+| 版本号自洽与多端声明一致 | `versionCode` 未递增、`versionName` 与 code 不自洽、站点 / iOS / 文档版本声明未同步 |
+| 分支名与版本号一致 | `release/X.Y.Z` 分支里 `gradle.properties` 写的却是别的版本 |
+| FFmpeg 资产可用性与架构 | Release 上的包缺失或被替换，以及**装了错的 CPU 架构** |
+
+前两项直接调用 `release.yml` 的 validate 那一对 Gradle 任务，**不在 CI 里另写一套规则**，避免两处逻辑随时间漂移。
+
+第三项容易被轻视但代价最大：SHA256 只能证明「下载的和配的对得上」，证明不了「装的是对的架构」。上游曾出现 `macos/amd64` 链接实际返回 arm64 单架构二进制 —— SHA256 对得上、CI 全绿，产出的 Intel 版 DMG 却无法运行，只能靠人工解包才暴露。所以预检会解包解析 Mach-O / ELF / PE 头部，与 `build.gradle.kts` 的 map key 对照。
+
+本地复现：
+
+```bash
+./gradlew checkVersion checkReleaseConsistency
+python3 .github/scripts/check-ffmpeg-assets.py
+```
+
+> **feature PR 不跑版本号检查，这是刻意的**：`checkVersion` 要求 `versionCode` 相对上一个 tag 严格递增，而功能 PR 不会 bump 版本号，跑了必红。
+
+**若要连同三端打包一起验证**：手动 `workflow_dispatch` 运行 `Release` 工作流并勾选 `dry_run` —— 它在不合入的前提下跑完四个构建 job，只跳过最后的发布。验证打包工具链改动（如这次的 appimagetool / WiX）时用这个。
+
+### release.yml 触发条件
 
 - `release/*` 分支的 PR 合并到 `master` 时自动触发
-- 支持 `workflow_dispatch` 手动触发
+- 支持 `workflow_dispatch` 手动触发（可勾 `dry_run`）
 
 ### 流程图
 
 ```
-                    ┌─ validate（单元测试 + 版本号校验）
+                    ┌─ validate（版本号不变量 + 发布一致性；不跑单元测试）
                     │
-PR 合入 master ────┼─ build-android ──────┐
-                    │                       │
-                    ├─ build-desktop-macos ─┤
-                    ├─ build-desktop-win  ──┼─ release（收集产物 + Notes + tag）
-                    └─ build-desktop-linux ─┘     │
-                                                    └─ deploy-site
+PR 合入 master ────┼─ build-android ─────────────┐
+                    │                               │
+                    ├─ build-desktop-macos ─────────┤
+                    ├─ build-desktop-windows ───────┼─ release（收集产物 + Notes + tag）
+                    └─ build-desktop-linux ─────────┘     │
+                                                          └─ deploy-site
 ```
 
 ### 构建产物
 
-| 平台 | 产物 | 格式 |
-|------|------|------|
-| Android | APK + AAB | `HMP-vX.Y.Z-release.apk` / `.aab` |
-| macOS | DMG | `HMP-vX.Y.Z-macos.dmg` |
-| Windows | MSI | `HMP-vX.Y.Z-windows.msi` |
-| Linux | DEB + AppImage | `HMP-vX.Y.Z-linux.deb` / `.AppImage` |
-| 校验 | SHA256 | `SHA256SUMS.txt` |
+| 平台 | 架构 | 产物 | 格式 |
+|------|------|------|------|
+| Android | — | APK + AAB | `HMP-vX.Y.Z-release.apk` / `.aab` |
+| macOS | Apple Silicon (arm64) | DMG | `HMP-vX.Y.Z-macos-arm64.dmg` |
+| Windows | x86_64 | MSI | `HMP-vX.Y.Z-windows-x86_64.msi` |
+| Linux | x86_64 | DEB + AppImage | `HMP-vX.Y.Z-linux-x86_64.deb` / `.AppImage` |
+| 校验 | — | SHA256 | `SHA256SUMS.txt` |
 
 ### Release Notes
 
-基于 commit message 自动生成，按前缀分类：
+**正文取自 `ROADMAP.md` 的本次版本条目**（单一事实来源）：自动抽取 `### vX.Y.Z (` 那一节，
+并剔除 `>` 引用块（内部进度注记，不对外发布）。这样完成度口径由 ROADMAP 负责，
+不会出现发布说明与 ROADMAP 各说各话。
+
+commit message 分类降级为「工程提交」附录：
 
 | commit 前缀 | 归类 |
 |-------------|------|
-| `feat:` / `feature:` | ✨ New Features |
-| `fix:` | 🐛 Bug Fixes |
+| `feat:` / `feature:` | ✨ Features |
+| `fix:` | 🐛 Fixes |
 | `perf:` / `optimize:` / `refactor:` | ⚡ Performance & Refactoring |
-| 其他 | 📦 Other Changes |
+| 其他 | 📦 Other |
 
-### 版本号校验
+### 版本校验
 
-CI 会自动检查 `gradle.properties` 中的版本号是否与已有 tag 重复，重复则构建失败。
+`validate` job 跑两个 Gradle 任务，任一失败则四个构建 job 全部不启动：
+
+- **`checkVersion`**：`versionName` 必须是三段式；`versionCode` 与 `versionName` 自洽；
+  不得与已有 tag 重名；`versionCode` 须比上一 tag **严格递增**（回退的包 Android 直接装不上）。
+- **`checkReleaseConsistency`**：以 `gradle.properties` 为真源核对多端版本声明，
+  受检清单见 §6「版本声明一致性」，任一项不一致即报 drift 并失败。
+
+两者都能在本机跑，bump 提交前建议自查：
+
+```bash
+./gradlew checkVersion checkReleaseConsistency
+```
+
+### 桌面端的 FFmpeg 二进制
+
+桌面端播放引擎依赖原生 FFmpeg，不随源码提交，供给方式：
+
+- 托管在本仓库 GitHub Release **`ffmpeg-binaries`**（固定 tag，不随版本发布变动）
+- 由**发版人手动上传**当前支持的三项：`macos/arm64`、`linux/amd64`、`windows/amd64`
+- 构建时 `desktop/app/build.gradle.kts` 的 `downloadFFmpeg` 按「构建机 OS + 架构」精确下载，
+  **SHA256 不符立即失败**，再由 `injectFFmpeg` 注入安装包
+- 升级某项：同步改 `ffmpegArtifacts` 里该条的 `version` / `url` / `sha256` 三者
+
+> 为何不再用第三方源：原第三方源在 CI 出网受限时会中断 macOS / Linux / Windows 三端打包。
+> 改到 GitHub Release 后与 CI 同网，可用性由平台保证。
+>
+> macOS 目前只有 Apple Silicon 产物：上游 FFmpeg 9.0 **未提供真正的 x86_64 macOS 构建**，
+> 其 `macos/amd64` 链接返回的实为 arm64 二进制（与 arm64 包的 SHA256 完全相同）。
+> 待上游提供或另寻可用 x86_64 源后，再补齐 `macos-x86_64` 产物，见本节构建产物表。
 
 ---
 

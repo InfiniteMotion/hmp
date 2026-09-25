@@ -284,7 +284,7 @@ Hearable Music Player/
 #### Desktop
 - JDK 21 或更高版本
 - Gradle 9.0
-- FFmpeg（构建时自动下载）
+- FFmpeg（桌面端构建时按「OS + 架构」从本仓库 Release `ffmpeg-binaries` 下载，SHA256 校验不符即失败；详见 docs/VERSIONING.md §7）
 
 ### 构建项目
 
@@ -508,14 +508,29 @@ hmp.versionName=7.2.0
 
 其余数百个任务（`assemble*` / `bundle*` / `link*` / `compile*` / `package*` 等）均由 Gradle 与各插件自动生成，非本项目编写。
 
-#### CI/CD 自动发布
+#### CI/CD 工作流
 
-项目配置了 GitHub Actions 自动发布工作流 (`.github/workflows/release.yml`)：
+项目有两个 GitHub Actions 工作流，职责分工：**pr-check 答「能不能合」，release 答「合了之后怎么发」**。
 
-- **触发条件**：`release/*` 分支的 PR 合并到 `master` 时自动触发
-- **test job**：跑 `./gradlew testAll`（封装任务，见上「自定义 Gradle 任务」）并校验版本号未重复
-- **desktop-macos / desktop-windows / desktop-linux job**：并行构建桌面三平台安装包
-- **release job**：构建 Android APK + AAB，汇总桌面产物，基于上一个 tag 自动生成 changelog，创建 GitHub Release 并上传所有产物
+**① `.github/workflows/pr-check.yml` —— 合入前预检**
+
+`release/*` 分支的 PR 打开/更新时自动跑（draft 跳过），不产发布物、不写仓库：
+
+- **Version & declarations**：调 `checkVersion` + `checkReleaseConsistency`，即发版时那一对 Gradle 任务的**同一个实现**，不在 CI 里重写一套规则；另校验分支名后缀（`release/X.Y.Z`）与 `gradle.properties` 版本号一致
+- **FFmpeg binaries**：逐个下载 `ffmpeg-binaries` Release 的二进制，校验 SHA256，并解析 Mach-O / ELF / PE 头部确认真实 CPU 架构与 map key 匹配（脚本见 `.github/scripts/check-ffmpeg-assets.py`）
+- **Verdict**：把两项结论汇成表格写进 job summary，任一失败则 PR 检查不通过
+
+> feature PR **不会**触发版本号检查：`checkVersion` 要求 `versionCode` 相对上一 tag 严格递增，而普通功能 PR 不 bump 版本号，跑必红。这是刻意的分区。
+>
+> 本地复现：`./gradlew checkVersion checkReleaseConsistency` + `python3 .github/scripts/check-ffmpeg-assets.py`
+
+**② `.github/workflows/release.yml` —— 正式发布**
+
+- **触发条件**：`release/*` 分支的 PR 合并到 `master` 时自动触发；也可手动 `workflow_dispatch`
+- **dry_run**：手动运行时勾选可在**不合入**的前提下跑完四个构建 job、跳过最后的发布 —— 用于验证三端打包工具链是否真的可用
+- **validate job**：跑 `checkVersion` + `checkReleaseConsistency`（单元测试不在 CI 跑，见 TODO R31）
+- **build-android / build-desktop-macos / build-desktop-windows / build-desktop-linux job**：并行构建桌面三平台安装包与 Android 产物
+- **release job**：汇总各 job 产物并按版本重命名，硬断言必需文件齐全后生成 SHA256SUMS；Release Notes 正文取 ROADMAP 本次版本条目（commit 分类降级为附录），最后打 tag 并创建 GitHub Release
 - **deploy-site job**：将手工维护的产品站点 `site/` 部署到 GitHub Pages（非 Storybook）
 
 ## 🎯 关键实现细节
