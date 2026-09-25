@@ -276,7 +276,8 @@ tasks.register("releaseDesktop") {
 
     doLast {
         val distDir = projectDirFile.resolve("desktop/app/build/compose/binaries/main")
-        val extensions = setOf("msi", "dmg", "deb", "AppImage")
+        // 只有真正是单文件分发格式的才 copy；AppImage 不是文件产物（见 desktop/app 注释）
+        val extensions = setOf("msi", "dmg", "deb")
         distDir.walk().filter { it.isFile && it.extension in extensions }.forEach { f ->
             copyToReleases(f, f.name, "desktop")
         }

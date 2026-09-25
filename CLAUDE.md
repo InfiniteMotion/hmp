@@ -61,7 +61,9 @@ xcodebuild -workspace ios/HMP.xcworkspace -scheme HMP -configuration Debug \
 # 运行 Desktop 应用（开发调试）
 ./gradlew :desktop:app:run
 
-# 构建当前 OS 安装包 (macOS DMG / Windows MSI / Linux DEB+AppImage)
+# 构建当前 OS 安装包 (macOS DMG / Windows MSI / Linux DEB)
+# 注：不要指望 TargetFormat.AppImage —— 它是 jpackage 的 app-image（解包目录），
+#     产出不了 .AppImage 文件。真正的 AppImage 得自己调 appimagetool。
 ./gradlew :desktop:app:packageDistributionForCurrentOS
 ```
 
@@ -94,7 +96,7 @@ xcodebuild -workspace ios/HMP.xcworkspace -scheme HMP -configuration Debug \
 # 仅构建 Android Release (APK + AAB)
 ./gradlew releaseAndroid
 
-# 仅构建 Desktop Release 分发包 (DMG/MSI/DEB/AppImage)
+# 仅构建 Desktop Release 分发包 (DMG/MSI/DEB)
 ./gradlew releaseDesktop
 
 # 仅构建 iOS Release Archive (需 macOS)
@@ -315,7 +317,7 @@ HMP/
 版本号集中维护在 `gradle.properties` 中 (`hmp.versionCode` / `hmp.versionName`)，各模块通过 `project.findProperty()` 引用。
 
 ### 发布与 CI/CD
-- 本地构建：`./gradlew release`（输出到 `releases/`，含 Android APK+AAB / Desktop DMG+MSI+DEB+AppImage；iOS Archive 仅 macOS）
+- 本地构建：`./gradlew release`（输出到 `releases/`，含 Android APK+AAB / Desktop DMG+MSI+DEB；iOS Archive 仅 macOS）
 - 自动发布：`release/*` 分支 PR 合并到 `master` 时，`.github/workflows/release.yml` 自动构建并发布 GitHub Release（Android + Desktop 产物 + SHA256 校验），并部署 `site/` 到 GitHub Pages
 - 发版流程：feature/* 合入 `release/X.Y` → **本机** `./gradlew preflight`（版本号不变量 + 发布一致性 + 全量单测）→ PR 到 master 触发发布
 - ⚠️ **CI 不跑单元测试**（2026-09-24 起，`testAll` 在 runner 上静默挂死、成因未结案，见 TODO R31）：validate 只跑 `checkVersion`（versionName↔versionCode 自洽 / 不与 tag 重复 / versionCode 递增）与 `checkReleaseConsistency`（以 `gradle.properties` 为真源核对站点 + iOS 工程 + 发版记录共 9 处声明）。**bump 时必须本机跑 preflight**

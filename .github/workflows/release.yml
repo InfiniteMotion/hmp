@@ -233,23 +233,19 @@ jobs:
 
       - name: Install dependencies
         run: |
+          # dpkg/fakeroot：jpackage 打 deb 的硬依赖（需要 dpkg-deb 做归档）
+          # 这里不用装 appimagetool / libfuse2 —— Compose 从不调用它，
+          # TargetFormat.AppImage 也不是 Linux AppImage，见 desktop/app/build.gradle.kts。
           sudo apt-get update
-          sudo apt-get install -y dpkg fakeroot libfuse2
-          # AppImageKit 的 appimagetool 是 Compose packageAppImage 的硬依赖，CI 干净镜像里没有；
-          # 不装则 Linux 打包（Deb + AppImage）必失败。它自身是个 AppImage，运行需 libfuse2。
-          wget -q "https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage" -O /tmp/appimagetool
-          chmod +x /tmp/appimagetool
-          sudo mv /tmp/appimagetool /usr/local/bin/appimagetool
-          appimagetool --version
+          sudo apt-get install -y dpkg fakeroot
 
-      - name: Build Linux DEB + AppImage
+      - name: Build Linux DEB
         run: ./gradlew :desktop:app:packageDistributionForCurrentOS '-Phmp.release-build=true' --no-daemon --no-configuration-cache
 
-      # 不假设 Compose 的子目录名。v7.2.1 那次事故里 packageAppImage 把产物写进了
-      # main/app/（和 createDistributable 的应用目录同一处），并非 main/appimage/，
-      # 而上传路径硬编码了 appimage/ —— 结果 artifact 里只有 deb，AppImage 静默丢失，
-      # 一路绿灯到 release job 的断言才炸。现在改为全目录搜索 + 就地断言。
-      - name: Collect Linux packages
+      # v7.2.1 首发时这一步找不到 AppImage 而失败。根因不在路径：Compose 的
+      # TargetFormat.AppImage 产出的是解包目录，永远不会有 .AppImage 文件（详见
+      # build.gradle.kts）。本次已把该格式从 Linux 移除，这里只收 deb。
+      - name: Collect and verify Linux package
         run: |
           set -euo pipefail
           MAIN=desktop/app/build/compose/binaries/main
@@ -260,16 +256,21 @@ jobs:
 
           # -quit 而非 | head -1：后者会让 find 收到 SIGPIPE，在 pipefail 下直接判失败
           DEB=$(find "$MAIN" -type f -name '*.deb' -print -quit 2>/dev/null || true)
-          APPIMAGE=$(find "$MAIN" -type f -name '*.AppImage' -print -quit 2>/dev/null || true)
+          [ -n "$DEB" ] || { echo "::error::未找到 .deb"; exit 1; }
 
-          missing=0
-          [ -n "$DEB" ] || { echo "::error::未找到 .deb"; missing=1; }
-          [ -n "$APPIMAGE" ] || { echo "::error::未找到 .AppImage：$MAIN 下没有 AppImage 产物"; missing=1; }
-          [ "$missing" = "0" ] || { echo "::error::Linux 产物不全，立刻失败——不让问题漂流到 release job"; exit 1; }
+          # deb 里必须有 ffmpeg。FFmpeg 的注入点是 jlink runtime image，而它是否真被
+          # jpackage 带进 deb，此前没人验过 —— 这正是三端缺 ffmpeg 长期没人发现的原因。
+          # dpkg-deb -c 输的是 deb 内清单，最后一段是路径。
+          echo "=== deb 内 ffmpeg 核查 ==="
+          if ! dpkg-deb -c "$DEB" | grep -Eq '/bin/ffmpeg$'; then
+            echo "::error::DEB 内未包含 ffmpeg：$DEB"
+            dpkg-deb -c "$DEB" | grep -iE 'bin|runtime' | head -20
+            exit 1
+          fi
+          dpkg-deb -c "$DEB" | grep -E '/bin/ffmpeg$'
 
           mkdir -p linux-out
           cp "$DEB" linux-out/
-          cp "$APPIMAGE" linux-out/
           echo "=== 将上传 ==="
           ls -lh linux-out/
 
@@ -340,11 +341,9 @@ jobs:
             [ -f "$f" ] && cp "$f" "release-assets/HMP-v${VERSION}-windows-x86_64.msi"
           done
 
-          # Linux x86_64（deb + AppImage）
+          # Linux x86_64（deb）
           DEB=$(find artifacts/build-desktop-linux -name "*.deb" 2>/dev/null | head -1)
           [ -n "$DEB" ] && cp "$DEB" "release-assets/HMP-v${VERSION}-linux-x86_64.deb"
-          APPIMAGE=$(find artifacts/build-desktop-linux -name "*.AppImage" 2>/dev/null | head -1)
-          [ -n "$APPIMAGE" ] && cp "$APPIMAGE" "release-assets/HMP-v${VERSION}-linux-x86_64.AppImage"
 
           ls -lh release-assets/
 
@@ -356,7 +355,7 @@ jobs:
           missing=0
           for f in "HMP-v${VERSION}-release.apk" "HMP-v${VERSION}-macos-arm64.dmg" \
                    "HMP-v${VERSION}-windows-x86_64.msi" \
-                   "HMP-v${VERSION}-linux-x86_64.deb" "HMP-v${VERSION}-linux-x86_64.AppImage"; do
+                   "HMP-v${VERSION}-linux-x86_64.deb"; do
             if [ ! -s "release-assets/$f" ]; then
               echo "::error::缺产物：$f"
               missing=1
@@ -395,7 +394,7 @@ jobs:
           | Android | \`HMP-v${VERSION}-release.apk\`（\`.aab\` 走 Google Play） |
           | macOS (Apple Silicon / arm64) | \`HMP-v${VERSION}-macos-arm64.dmg\` |
           | Windows | \`HMP-v${VERSION}-windows-x86_64.msi\` |
-          | Linux (x86_64) | \`HMP-v${VERSION}-linux-x86_64.deb\` / \`.AppImage\` |
+          | Linux (x86_64) | \`HMP-v${VERSION}-linux-x86_64.deb\` |
           | 校验和 | \`SHA256SUMS.txt\`（\`sha256sum -c SHA256SUMS.txt\`） |
 
           > iOS 不随本次发布提供安装包：需 macOS + Xcode 源码自构建，见 README「安装步骤」。
