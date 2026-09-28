@@ -18,7 +18,7 @@
 #   5. notes 是**用户视角**的话：不要写 commit hash、R 编号、内部待办 —— 那些进 ROADMAP。
 
 version = "7.2.2"
-date = ""
+date = "2026-09-28"
 
 # 产物矩阵。三样东西由它驱动，工作流里不再出现任何文件名：
 #   · Release Notes 的产物表（in_table = false 的只上传不列表）

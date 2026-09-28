@@ -278,7 +278,7 @@
 - `gradle.properties` 移除 `org.gradle.configureondemand`（与 parallel 有配置期锁竞态，会导致 `testAll` 无输出静默挂死，即 TODO R31 的绕行项）
 
 <!-- BEGIN SYNCED RELEASE ENTRY v7.2.2（scripts/sync-release.py 追加，勿手改本块） -->
-### v7.2.2
+### v7.2.2 (2026-09-28)
 - **发版与构建工具链**
   - **应用功能与界面在本版本没有变化**：本次是工程与发版链路的调整
   - 版本号声明从 9 处手工抄写收敛为仓库根 release.toml 一处，其余位置改由脚本同步并校验

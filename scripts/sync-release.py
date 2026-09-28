@@ -304,26 +304,45 @@ CL_END_TXT = "    <!-- END GENERATED -->"
 CL_CONTAINER = '<div class="changelog-timeline">'
 
 
-def _insert_entry(m, t):
+def _sync_entry(m, t):
+    """当前版条目：没有就插入；已有则把 release.toml 的 date 对进去。
+
+    日期是派生值而不是人抄点 —— 只插新条目会让"发布后回填 date"落不到站点上，
+    时间线永远缺日期而 --check 照样绿（v7.2.2 就差点这么漏掉）。
+    """
     v = m["version"]
     nl = eol_of(t)
-    if f"    <!-- v{v} -->" in t:
-        return t, f"v{v} 站点条目已存在 → 跳过插入"
-    entry = changelog_entry(m, nl)
-    if CL_BEGIN_TXT in t:
-        mark = CL_BEGIN_TXT + nl
-        return t.replace(mark, mark + entry + nl + nl, 1), f"v{v} 插入站点生成区顶部"
-    i = t.find(CL_CONTAINER)
-    if i < 0:
-        raise Fail(f"changelog.html：找不到 {CL_CONTAINER} 容器")
-    j = i + len(CL_CONTAINER)
-    if t[j:j + len(nl)] != nl:
-        raise Fail("changelog.html：changelog-timeline 容器后面不是行尾，结构变了先确认")
-    block = nl.join([CL_BEGIN_TXT, entry, CL_END_TXT, ""]) + nl
-    new = t[:j + len(nl)] + block + t[j + len(nl):]
-    if CL_CONTAINER not in new or len(new) <= len(t):
-        raise Fail("内部错误：changelog 插入后丢失了时间线容器，已中止写入")
-    return new, f"v{v} 建立生成区并插入条目"
+    marker = f"    <!-- v{v} -->"
+    if marker not in t:
+        entry = changelog_entry(m, nl)
+        if CL_BEGIN_TXT in t:
+            mark = CL_BEGIN_TXT + nl
+            return t.replace(mark, mark + entry + nl + nl, 1), f"v{v} 插入站点生成区顶部"
+        i = t.find(CL_CONTAINER)
+        if i < 0:
+            raise Fail(f"changelog.html：找不到 {CL_CONTAINER} 容器")
+        j = i + len(CL_CONTAINER)
+        if t[j:j + len(nl)] != nl:
+            raise Fail("changelog.html：changelog-timeline 容器后面不是行尾，结构变了先确认")
+        block = nl.join([CL_BEGIN_TXT, entry, CL_END_TXT, ""]) + nl
+        new = t[:j + len(nl)] + block + t[j + len(nl):]
+        if CL_CONTAINER not in new or len(new) <= len(t):
+            raise Fail("内部错误：changelog 插入后丢失了时间线容器，已中止写入")
+        return new, f"v{v} 建立生成区并插入条目"
+
+    if not m["date"]:
+        return t, f"v{v} 条目已存在；release.toml 的 date 未填，不写日期"
+    i = t.index(marker)
+    following = [mm.start() for mm in re.finditer(r"(?m)^    <!-- v\d+\.\d+\.\d+ -->", t) if mm.start() > i]
+    blk = t[i:following[0]] if following else t[i:]
+    if '<span class="cl-date">' in blk:
+        new_blk = re.sub(r'(<span class="cl-date">)[^<]*(</span>)', rf'\g<1>{m["date"]}\g<2>', blk, count=1)
+    else:
+        new_blk = blk.replace(f'<span class="cl-version">v{v}</span>',
+                              f'<span class="cl-version">v{v}</span>{nl}        <span class="cl-date">{m["date"]}</span>', 1)
+    if new_blk == blk:
+        return t, f"v{v} 条目日期已是 {m['date']}"
+    return t[:i] + new_blk + t[i + len(blk):], f"v{v} 校准站点条目日期 → {m['date']}"
 
 
 def _demote_older(m, t):
@@ -365,7 +384,7 @@ def changelog_step(m):
     # 插入与降级必须合成一步：两步各自从同一份原文算 diff，后写的会把先写的覆盖掉，
     # 结果 --check 永远红、而且每跑一次就在两种状态之间来回跳。
     t0 = read(CHANGELOG)
-    t1, n1 = _insert_entry(m, t0)
+    t1, n1 = _sync_entry(m, t0)
     t2, n2 = _demote_older(m, t1)
     return (CHANGELOG, t0, t2, f"{n1}；{n2}")
 
