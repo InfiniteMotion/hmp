@@ -5,4 +5,4 @@ package com.hmp.ios
  * 触发 linkPod*Framework 把 :shared 与 :shared-ui 两个 klib 链接进统一框架。
  * Swift 侧统一 import sharedIos。
  */
-const val SHARED_IOS_FRAMEWORK_VERSION: String = "7.2.1-a1"
+const val SHARED_IOS_FRAMEWORK_VERSION: String = "7.2.2-a1"

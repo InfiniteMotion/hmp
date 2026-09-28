@@ -277,6 +277,19 @@
 - **发版护栏**：`build.gradle.kts` 新增 **`checkReleaseConsistency`**（以 `gradle.properties` 为真源，核对站点 `site/js/config.js` 与 JSON-LD、iOS `project.yml`×2 / `Info.plist` / `pbxproj` / `Anchor.kt`、站点与 ROADMAP 的发版记录，共 **9 处**声明；只读校验不改文件）；`release.yml` 收口「单测移出 CI」「ROADMAP 作正文唯一来源」「产物齐全硬断言」「dry run 真正验产物收齐」
 - `gradle.properties` 移除 `org.gradle.configureondemand`（与 parallel 有配置期锁竞态，会导致 `testAll` 无输出静默挂死，即 TODO R31 的绕行项）
 
+<!-- BEGIN SYNCED RELEASE ENTRY v7.2.2（scripts/sync-release.py 追加，勿手改本块） -->
+### v7.2.2
+- **发版与构建工具链**
+  - **应用功能与界面在本版本没有变化**：本次是工程与发版链路的调整
+  - 版本号声明从 9 处手工抄写收敛为仓库根 release.toml 一处，其余位置改由脚本同步并校验
+  - 发布说明改由配置渲染，此前会把内部路线图章节一并公开（上一版实测泄漏 172 行，发布后靠人工删）
+  - 桌面各端产物的收集、改名与齐全断言由同一份配置驱动，缺任一平台直接拒绝发布，不再静默出缺平台的包
+  - 合入前新增预检：版本声明不一致或发布说明渲染异常会在 PR 上就报错，而不是等发布失败才发现
+- **站点与文档修正**
+  - 移除下载页指向不存在资产的 Linux AppImage 按钮（点开必然 404），Linux 只提供 DEB
+  - 修正 README / CLAUDE / DEVELOP 里过期的版本口径、iOS 部署目标（26.3）与 Kotlin 版本要求（2.3.21）
+<!-- END SYNCED RELEASE ENTRY v7.2.2 -->
+
 ## 🛠️ 关键技术演进
 
 ### 架构演进

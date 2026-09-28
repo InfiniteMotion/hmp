@@ -96,13 +96,41 @@
   </div>
 
   <div class="changelog-timeline">
+    <!-- BEGIN GENERATED (scripts/sync-release.py) -->
+    <!-- v7.2.2 -->
+    <div class="cl-entry">
+      <div class="cl-head">
+        <span class="cl-version">v7.2.2</span>
+        <span class="cl-latest">Latest</span>
+      </div>
+      <div class="cl-card">
+        <div class="cl-section">
+          <div class="cl-section-title">发版与构建工具链</div>
+          <ul>
+            <li><strong>应用功能与界面在本版本没有变化</strong>：本次是工程与发版链路的调整</li>
+            <li>版本号声明从 9 处手工抄写收敛为仓库根 release.toml 一处，其余位置改由脚本同步并校验</li>
+            <li>发布说明改由配置渲染，此前会把内部路线图章节一并公开（上一版实测泄漏 172 行，发布后靠人工删）</li>
+            <li>桌面各端产物的收集、改名与齐全断言由同一份配置驱动，缺任一平台直接拒绝发布，不再静默出缺平台的包</li>
+            <li>合入前新增预检：版本声明不一致或发布说明渲染异常会在 PR 上就报错，而不是等发布失败才发现</li>
+          </ul>
+        </div>
+        <div class="cl-section">
+          <div class="cl-section-title">站点与文档修正</div>
+          <ul>
+            <li>移除下载页指向不存在资产的 Linux AppImage 按钮（点开必然 404），Linux 只提供 DEB</li>
+            <li>修正 README / CLAUDE / DEVELOP 里过期的版本口径、iOS 部署目标（26.3）与 Kotlin 版本要求（2.3.21）</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <!-- END GENERATED -->
+
 
     <!-- v7.2.1 -->
     <div class="cl-entry">
       <div class="cl-head">
-        <span class="cl-version" data-site="version"></span>
+        <span class="cl-version">v7.2.1</span>
         <span class="cl-date">2026-09-25</span>
-        <span class="cl-latest">Latest</span>
       </div>
       <div class="cl-card">
         <div class="cl-section">
