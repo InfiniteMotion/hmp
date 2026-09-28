@@ -553,7 +553,7 @@ private fun ScanOptionCard(
 // ── 目录管理（R3 恢复）──────────────────────────────────────────────────────
 // 此前该能力随旧桌面 UI 层（desktop/feature-ui）一并被删：数据层（ScanDirectoryConfig +
 // SettingsRepository）完好，但 UI 与写入入口缺失，配置恒为空、扫描永远回退默认目录。
-// 见 docs/7_x/A shared-ui/UI层统一-能力搬迁点检.md R3。
+// 见 docs/archive/7_x/7_1/UI层统一-能力搬迁点检.md R3。
 
 /**
  * 扫描目录 / 屏蔽目录两个区块。

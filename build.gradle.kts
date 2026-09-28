@@ -366,7 +366,7 @@ tasks.register("checkVersion") {
         println("当前版本: $versionName (code $currentCode)")
         println("最新 tag: ${latestTag ?: "(无)"}")
 
-        // ① versionName ↔ versionCode 必须自洽（VERSIONING.md §3：MAJOR*10000 + MINOR*1000 + PATCH）
+        // ① versionName ↔ versionCode 必须自洽（hmp-release.md §3：MAJOR*10000 + MINOR*1000 + PATCH）
         val parts = versionName.split(".")
         if (parts.size != 3 || parts.any { it.toIntOrNull() == null }) {
             throw GradleException("hmp.versionName 必须是 MAJOR.MINOR.PATCH，当前: $versionName")
@@ -375,7 +375,7 @@ tasks.register("checkVersion") {
         if (derivedCode != currentCode) {
             throw GradleException(
                 "versionCode 与 versionName 不自洽：$versionName 应推得 $derivedCode，" +
-                    "实际 $currentCode（见 docs/VERSIONING.md §3）。"
+                    "实际 $currentCode（见 docs/spec/hmp-release.md §3）。"
             )
         }
 

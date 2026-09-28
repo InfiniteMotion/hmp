@@ -3,7 +3,7 @@ package com.hmp.domain.agent.profile
 /**
  * 侧写 → 自然语言（注入上下文的那个块）。
  *
- * 契约：`docs/7_x/B agent-build/design/agent-profile.md` v3.1 §7
+ * 契约：`docs/archive/7_x/7_2/design/agent-profile.md` v3.1 §7
  *
  * 四条纪律落在这里：
  *

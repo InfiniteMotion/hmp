@@ -15,7 +15,7 @@ Hearable Music Player是我个人开发的一款专注于本地音乐播放的�
 - 已集成 DeepSeek API 实现 AI 推荐
 - 已实现 UI 与交互，**三端共用一套 Compose UI**（`shared-ui`，v7.1 起 iOS 亦切换至共享层）
 - 已支持 Android、Desktop 和 iOS 三平台
-- 已完成：AI 功能 Agent 化（方向 B；**F1–F14 的代码随 v7.2.0 合入，首个可下载的安装包是 v7.2.1**，F10 语音会话挂起；设计资料见 [docs/7_x/B agent-build](docs/7_x/B%20agent-build/)）
+- 已完成：AI 功能 Agent 化（方向 B；**F1–F14 的代码随 v7.2.0 合入，首个可下载的安装包是 v7.2.1**，F10 语音会话挂起；设计资料见 [docs/archive/7_x/7_2/](docs/archive/7_x/7_2/)）
 
 ## ✨ 核心功能
 
@@ -210,9 +210,9 @@ Hearable Music Player是我个人开发的一款专注于本地音乐播放的�
 - **[TODO](TODO.md)** — 可执行任务列表与优先级
 - **[CLAUDE](CLAUDE.md)** — AI 协作者速查：常用命令、目录结构、技术栈版本、包名与分支策略
 - **[docs/README](docs/README.md)** — **文档索引**与各文档职责说明（含历史版本方案与当前 Agent 设计资料）
-- **[docs/DESIGN_SYSTEM](docs/DESIGN_SYSTEM.md)** — 设计系统：色彩 / 字体 / 间距 / 组件规范
-- **[docs/VERSIONING](docs/VERSIONING.md)** — 版本号格式、bump 时要同步的 9 处声明、两个 CI 工作流与产物清单
-- **[Room KMP 配置](docs/ROOM_KMP_SETUP.md)** — Room 跨平台数据库配置经验总结
+- **[docs/spec/hmp-design.md](docs/spec/hmp-design.md)** — 设计系统：色彩 / 字体 / 间距 / 组件规范
+- **[docs/release](docs/spec/hmp-release.md)** — 版本号格式、bump 时要同步的 9 处声明、两个 CI 工作流与产物清单
+- **[Room KMP 配置](docs/room-kmp-setup.md)** — Room 跨平台数据库配置经验总结
 
 ## 📝 开发日志
 

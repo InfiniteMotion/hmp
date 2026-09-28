@@ -123,7 +123,7 @@
 - Repository 层通过 `expect/actual` 实现平台特定的数据访问
 
 **配置要点**：
-- 参考 [Room KMP 配置文档](docs/ROOM_KMP_SETUP.md)
+- 参考 [Room KMP 配置文档](docs/room-kmp-setup.md)
 - 关键：不要在 `commonMainMetadata` 上运行 KSP
 - 使用 `BundledSQLiteDriver` 作为跨平台驱动
 - iOS 使用 `NSDocumentDirectory` 存储数据库文件
@@ -248,12 +248,12 @@ Hearable Music Player/
 │   ├── Podfile                       # CocoaPods配置
 │   └── HMP.xcworkspace              # Xcode工作空间
 ├── docs/                             # 项目文档
-│   ├── 7_x/                          # 当前进行中的工作（按项目线分区）
-│   │   ├── A shared-ui/              # 共享 UI 提取线（v7.0 → v7.1，已完成）
-│   │   └── B agent-build/            # AI Agent 线（方向 B，已随 v7.2.0 交付）
-│   │       ├── design/               # 设计资料（要建成什么样）
-│   │       └── taskbook/             # 推进计划（做到哪了）
-│   └── 5_9, 5_10, 6_1, 6_12/         # 历史版本开发方案（存档）
+│   ├── 7_3/                          # 当前版本线（v7.3.0）的工作目录
+│   ├── spec/                         # 长期规范：hmp-release / hmp-log / hmp-design
+│   ├── archive/                      # 已收口版本线，两层：<家族>/<版本>
+│   │   ├── 5_x/{5_9,5_10}/  6_x/{6_1,6_12}/
+│   │   └── 7_x/{7_1,7_2}/            # 7_1 共享 UI 提取线；7_2 Agent 线（design/ + taskbook/）
+│   └── README.md                     # 文档索引（含目录与命名约定、搬家清单）
 ├── gradle/
 │   └── wrapper/
 ├── .gitignore
@@ -284,7 +284,7 @@ Hearable Music Player/
 #### Desktop
 - JDK 21 或更高版本
 - Gradle 9.0
-- FFmpeg（桌面端构建时按「OS + 架构」从本仓库 Release `ffmpeg-binaries` 下载，SHA256 校验不符即失败；详见 docs/VERSIONING.md §7）
+- FFmpeg（桌面端构建时按「OS + 架构」从本仓库 Release `ffmpeg-binaries` 下载，SHA256 校验不符即失败；详见 docs/spec/hmp-release.md §7）
 
 ### 构建项目
 
@@ -419,7 +419,7 @@ open HMP.xcworkspace
 
 项目使用Git进行版本控制，采用Git Flow工作流。
 
-**分支策略**（与版本规范一致，详见 [docs/VERSIONING.md](docs/VERSIONING.md) 分支与发版）：
+**分支策略**（与版本规范一致，详见 [docs/spec/hmp-release.md](docs/spec/hmp-release.md) 分支与发版）：
 - `master`: 已发布版本；MINOR/MAJOR 通过从 release/X.Y 合并更新，PATCH 可在 master 上直接改并打 tag
 - `develop-android` / `develop-ios` / `develop-desktop` / `develop-shared`: 各平台独立开发分支
 - `release/X.Y`: 发版集成分支，各 develop 合入后 PR 到 master
@@ -446,7 +446,7 @@ hmp.versionName=7.2.1
 
 #### 发布流程
 
-版本号与发布步骤详见 **[docs/VERSIONING.md](docs/VERSIONING.md)**，摘要如下：
+版本号与发布步骤详见 **[docs/spec/hmp-release.md](docs/spec/hmp-release.md)**，摘要如下：
 
 1. **确定版本类型**：按变更内容决定升级 MAJOR / MINOR / PATCH，得到新版本号（如 7.2.0）
 2. **创建 release 分支**：从 master 拉出 `release/X.Y`，将各 develop 分支合入

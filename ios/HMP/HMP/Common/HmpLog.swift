@@ -2,7 +2,7 @@ import Foundation
 
 /// 统一日志 tag 常量（Swift 侧）—— 与 Kotlin `com.hmp.log.LogTag` 枚举对应。
 ///
-/// 规范见 `docs/LOGGING.md`：一个模块一个 tag，禁止在调用点硬编码字符串。
+/// 规范见 `docs/spec/hmp-log.md`：一个模块一个 tag，禁止在调用点硬编码字符串。
 /// 新增域时先在该文件与 Kotlin `LogTag` 同步登记，再使用。
 ///
 /// **范围说明**：只登记 Swift 侧**可达**的 tag。Kotlin 侧另有 10 个 Agent 内部
@@ -64,7 +64,7 @@ enum HmpLevel {
 
 /// 统一日志入口（Swift 侧）—— 唯一出口，禁止直接 `print` 或 `NSLog`。
 ///
-/// `tag` 一律取自 `HmpTag`；消息格式遵循 `docs/LOGGING.md` §4：
+/// `tag` 一律取自 `HmpTag`；消息格式遵循 `docs/spec/hmp-log.md` §4：
 /// `[域Token] 事件名 | key=value | key=value`
 enum HmpLog {
     static func d(_ tag: String, _ message: @autoclosure () -> String) {

@@ -28,7 +28,7 @@ git log --oneline <上个tag>..HEAD                # 本次要对外说的内容
 判据：`inspect` 的 `drift` 必须为空，否则先说明来龙去脉再继续。
 
 ### ② 定版本号
-按 `docs/VERSIONING.md`：MAJOR.MINOR.PATCH，`versionCode = MAJOR*10000+MINOR*1000+PATCH`（脚本派生，别写）。
+按 `docs/spec/hmp-release.md`：MAJOR.MINOR.PATCH，`versionCode = MAJOR*10000+MINOR*1000+PATCH`（脚本派生，别写）。
 **规则**：进过 master 的版本号不复用。档位（是 patch 还是 minor）**要用户拍**，给出你的理由与备选。
 
 ### ③ 起草并写 `release.toml`

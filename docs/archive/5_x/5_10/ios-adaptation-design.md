@@ -142,7 +142,7 @@ HMP/
 ├── .gitignore
 ├── docs/
 │   ├── README.md
-│   ├── VERSIONING.md
+│   ├── release.md
 │   └── 7_x/                             # 项目线设计资料与推进计划
 ├── README.md
 ├── ROADMAP.md
@@ -427,7 +427,7 @@ class MusicRepositoryImpl(
 
 ### 6.1 Git 分支策略
 
-> **注意**：v5.10 期间使用 `develop-5.10` 单分支开发。v6.0 起调整为按平台拆分的 develop 分支模式，详见 [docs/VERSIONING.md](../VERSIONING.md)。
+> **注意**：v5.10 期间使用 `develop-5.10` 单分支开发。v6.0 起调整为按平台拆分的 develop 分支模式，详见 [docs/spec/hmp-release.md](../../../spec/hmp-release.md)。
 
 v5.10 期间实际使用：
 

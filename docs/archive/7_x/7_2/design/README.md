@@ -1,6 +1,6 @@
 # HMP Agent 设计资料 · 索引
 
-> **本目录**：`docs/7_x/B agent-build/design/` —— 设计资料（要建成什么样）
+> **本目录**：`docs/archive/7_x/7_2/design/` —— 设计资料（要建成什么样）
 > **姊妹目录**：`../taskbook/` —— 推进计划与验收档案（做到哪了）
 
 ## 两个目录的分工
@@ -77,8 +77,8 @@
 |------|------|
 | [`build-tasks-plan.md`](build-tasks-plan.md) | **构建任务体系补齐方案（已实施 2026-09-15）**。诊断原 10 个自定义 Gradle 任务的错位问题（测试链路断裂 / 内存参数未固化 / 无发版预检），落地 16 个新任务（总 26 个）+ CI 修复 + 低内存包装脚本；含实施验收实况与实测内存参数结论 |
 
-> **ktlint 方案已移出本目录** → [`docs/ktlint-integration.md`](../../../ktlint-integration.md)（暂缓 —— 等 agent 分支线合并后再启动）。
-> 它与 `build-tasks-plan.md` 是配套项，但性质是**全仓工程规范**而非 Agent 线设计，故归入 `docs/` 顶层，与 `VERSIONING.md` / `ci-pipeline-diagnosis.md` 并列。**本目录只收 Agent 体系的设计资料。**
+> **ktlint 方案已移出本目录** → [`docs/ktlint-integration.md`](../../../../ktlint-integration.md)（暂缓 —— 等 agent 分支线合并后再启动）。
+> 它与 `build-tasks-plan.md` 是配套项，但性质是**全仓工程规范**而非 Agent 线设计，故归入 `docs/` 顶层，与 `docs/spec/hmp-release.md`（版本号与 CI 现状）并列。**本目录只收 Agent 体系的设计资料。**
 
 ***
 
@@ -95,5 +95,5 @@
 
 - **一个主题一份文档**：同一子系统的方案收敛到单个文件，用 `##` 分节；**不保留过程稿**。被推翻的结论若要留痕，写进该文件的「附录」节，并明确标注「已被正文取代」
 - **索引里列出的文件才是有效文档**：本目录平铺，不建二级子目录；新增或合并后必须同步本索引
-- **移动 / 合并 / 删除**：必须同步更新本索引、`../taskbook/` 的引用，以及源码 KDoc 里 `docs/7_x/B agent-build/design/...` 形式的路径引用
+- **移动 / 合并 / 删除**：必须同步更新本索引、`../taskbook/` 的引用，以及源码 KDoc 里 `docs/archive/7_x/7_2/design/...` 形式的路径引用
 - **合并历史**：2026-09-15 W 四份 → `agent-w.md`；电台四份 → `agent-radio.md`

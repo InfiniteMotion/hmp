@@ -5,7 +5,7 @@ import kotlin.math.roundToLong
 /**
  * 曲库**形态建模**（阶段一）—— 纯函数，输入曲库行，输出证据草稿。
  *
- * 契约：`docs/7_x/B agent-build/design/agent-profile.md` v3.1 §4.1
+ * 契约：`docs/archive/7_x/7_2/design/agent-profile.md` v3.1 §4.1
  *
  * 阶段一在**扫描完成**时即可用（导入瞬间），完全不依赖标签富化：
  * 只看 `artist / album / duration / path` 四个字段。

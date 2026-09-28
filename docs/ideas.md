@@ -47,7 +47,7 @@
 
 **待决 / 风险**：iOS 不常驻（定位「前台可服务 + Desktop 全功能」）；端口发现（固定 / 随机写文件 / mDNS）；A2A 生态仍新，可后置或仅做最小 agent card。
 
-**备注**：本次仅为脑暴记录，未创建任何设计文档或任务条目。若未来立项，按 `docs/7_x/D agent-interop/` 模式建 design + taskbook，并在 TODO 加「方向 D（候选）」桩。
+**备注**：本次仅为脑暴记录，未创建任何设计文档或任务条目。若未来立项，按 `docs/archive/7_x/D agent-interop/` 模式建 design + taskbook，并在 TODO 加「方向 D（候选）」桩。
 
 ---
 

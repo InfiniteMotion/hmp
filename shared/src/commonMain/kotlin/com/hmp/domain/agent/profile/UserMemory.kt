@@ -21,7 +21,7 @@ import com.hmp.log.LogTag
  * 无自主循环、不调 LLM、不进 Scheduler，是 `MasterAgent` 的**记忆子系统**
  * （LLM 编排全部在 Master：叙事重生成、对话抽取）。命名就叫记忆，别再挂 Agent。
  *
- * 契约：`docs/7_x/B agent-build/design/agent-profile.md` v3.7 §4 / §7
+ * 契约：`docs/archive/7_x/7_2/design/agent-profile.md` v3.7 §4 / §7
  *
  * 分工（这是本模块最重要的结构约束）：
  * - **建模器**（[LibraryModeler] / [BehaviorModeler]）只产**证据**，不写侧写

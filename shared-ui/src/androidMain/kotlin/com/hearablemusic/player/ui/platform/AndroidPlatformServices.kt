@@ -226,7 +226,7 @@ class PermissionServiceImpl(private val context: Context) : PermissionService {
      *
      * ⚠️ 本方法曾长期是 `onResult(true)` 空壳。v7.1 把 `IntroScreen` 从 `androidMain` 迁到 `commonMain` 后
      * 调用点出现而实现未补，导致首启权限框不弹、曲库为空（静默失败）。
-     * 回归记录见 `docs/7_x/A shared-ui/UI层统一-能力搬迁点检.md` R1。
+     * 回归记录见 `docs/archive/7_x/7_1/UI层统一-能力搬迁点检.md` R1。
      */
     override fun requestIntroPermissions(onResult: (allGranted: Boolean) -> Unit) {
         val launcher = introPermissionsLauncher

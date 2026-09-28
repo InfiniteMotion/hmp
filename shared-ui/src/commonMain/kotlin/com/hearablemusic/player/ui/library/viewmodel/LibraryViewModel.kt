@@ -137,7 +137,7 @@ class LibraryViewModel(
     // 扫描目录 / 屏蔽目录配置。语义按平台落地：Desktop 为文件系统扫描根；
     // Android 为 MediaStore 查询的 include/exclude 过滤；iOS 不渲染对应区块。
     // 此前该配置在 UI 层无任何读写入口（桌面旧 UI 层删除时丢失），见
-    // docs/7_x/A shared-ui/UI层统一-能力搬迁点检.md R3。
+    // docs/archive/7_x/7_1/UI层统一-能力搬迁点检.md R3。
     val scanDirectoryConfig: StateFlow<ScanDirectoryConfig> = userSettingsUseCase.scanDirectoryConfig
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), ScanDirectoryConfig())
 

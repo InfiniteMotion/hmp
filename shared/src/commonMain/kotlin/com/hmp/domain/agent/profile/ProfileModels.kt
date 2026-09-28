@@ -3,7 +3,7 @@ package com.hmp.domain.agent.profile
 /**
  * 用户认识模块的领域模型（纯 Kotlin，**不依赖 Room**）。
  *
- * 契约：`docs/7_x/B agent-build/design/agent-profile.md` v3.1 §2 / §3 / §7
+ * 契约：`docs/archive/7_x/7_2/design/agent-profile.md` v3.1 §2 / §3 / §7
  *
  * 实体 ↔ 领域对象的换算在 `data/mapper/UserProfileMapper.kt`，
  * 与 `PlaybackHistory` / `MusicLabel` 的既有做法一致。

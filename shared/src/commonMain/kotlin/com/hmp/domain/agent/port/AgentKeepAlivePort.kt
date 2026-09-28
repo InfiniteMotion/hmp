@@ -4,7 +4,7 @@ package com.hmp.domain.agent.port
  * Agent 保活端口（F11-L1）—— agent 运行时"我需要留在后台"的诉求出口。
  *
  * 背景：agent 运行时是进程级单例，但**没人对"进程该不该活着"负责**。退到后台后
- * 进程被系统回收，纯内存的电台会话随之消失（见 `docs/7_x/B agent-build/design/agent-lifecycle.md`）。
+ * 进程被系统回收，纯内存的电台会话随之消失（见 `docs/archive/7_x/7_2/design/agent-lifecycle.md`）。
  * 本端口把"保活诉求"从 domain 层表达出来，由各平台实现到底层机制。
  *
  * 平台实现（由 DI 注入）：

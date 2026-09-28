@@ -90,7 +90,7 @@ private const val UPCOMING_PREVIEW = 5
 
 /**
  * 电台控制台 —— 长按伙伴胶囊唤起的**全屏弹窗**
- * （设计依据 `docs/7_x/B agent-build/design/agent-radio-console.md`）。
+ * （设计依据 `docs/archive/7_x/7_2/design/agent-radio-console.md`）。
  *
  * **为什么存在**：关闭电台是终态动作，不该由一个长按直接完成 —— 用户需要先看清"我要关掉的是什么"。
  * 于是长按改为打开本面板，关闭动作移入面板并更名**「结束这一档」**。

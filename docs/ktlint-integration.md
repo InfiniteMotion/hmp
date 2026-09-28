@@ -2,7 +2,7 @@
 
 > **状态**：**暂缓 —— 等 agent 分支线合并后再启动**（2026-09-15 定稿，同日经决定延后）
 > **启动条件**：`feature/agent-build` 线并入 `master`、工作区无未提交改动。方案内容与分支无关，只是 §5.1 的「先收口分支」被提升为启动门槛，见 §7 的 T0。
-> **前置**：本方案是 [`build-tasks-plan.md`](7_x/B%20agent-build/design/build-tasks-plan.md) 的配套项 —— 那份解决「构建任务」，这份解决「代码风格门禁」。
+> **前置**：本方案是 [`build-tasks-plan.md`](archive/7_x/7_2/design/build-tasks-plan.md) 的配套项 —— 那份解决「构建任务」，这份解决「代码风格门禁」。
 > **实测依据**：ktlint CLI 1.8.0 + JDK 21，全部数据来自本仓库真实运行（见 §8 与 §2–§5 各表的实测标注）。
 
 **为什么延后**：格式化会产生 446 文件 / 16,819 行的机械 churn，而当前 `MasterAgent.kt` / `RadioSubAgent.kt` / `build.gradle.kts` 既在 ktlint 的改动清单上、又在未提交的工作区里 —— 此时格式化会让机械 diff 与功能 diff 混在一起，两边都没法 review。等分支线落定，格式化是「新基线成立前的最后一步」，一次跑完即可。**方案本身不需要修订，恢复时从 §7 的 T0 直接开始。**
@@ -184,7 +184,7 @@ ubuntu + JDK 21
 | `feature/agent-build` | `a9514ed` | +21 |
 | `backup/agent-build-pre-squash` | `f3a4f6a` | +20 |
 | `refactor/agent-8`（当前分支） | `1dba707` | +8 |
-| **工作区** | — | **42 项未提交**（21 个改动文件 + 重命名 + 删除 + 4 项未跟踪，含整个 `docs/7_x/B agent-build/`） |
+| **工作区** | — | **42 项未提交**（21 个改动文件 + 重命名 + 删除 + 4 项未跟踪，含整个 `docs/archive/7_x/7_2/`） |
 
 三条分支装着**同一批工作**，且工作区还有 42 项挂在那里 —— 其中包括 `MasterAgent.kt`、`RadioSubAgent.kt`、`build.gradle.kts`，**这些文件恰好都在 ktlint 的改动清单里**。
 

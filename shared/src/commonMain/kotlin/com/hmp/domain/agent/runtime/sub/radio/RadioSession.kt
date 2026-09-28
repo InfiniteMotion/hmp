@@ -59,7 +59,7 @@ internal data class RadioContextSnapshot(
 )
 
 /**
- * 电台决策内核（`docs/7_x/B agent-build/design/agent-radio.md` §7）。
+ * 电台决策内核（`docs/archive/7_x/7_2/design/agent-radio.md` §7）。
  *
  * **一次电台 = 一段对话**：点开即开一段 `messages`，关闭即丢弃（C2 只做会话内）。
  * 模型在对话中记得住自己说过什么、做过什么。

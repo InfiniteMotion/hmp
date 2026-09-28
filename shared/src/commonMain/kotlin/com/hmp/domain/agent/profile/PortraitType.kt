@@ -3,7 +3,7 @@ package com.hmp.domain.agent.profile
 /**
  * 侧写类型与槽位**闭集**。
  *
- * 契约：`docs/7_x/B agent-build/design/agent-profile.md` v3.1 §5
+ * 契约：`docs/archive/7_x/7_2/design/agent-profile.md` v3.1 §5
  *
  * 两条不能破的纪律：
  *

@@ -334,14 +334,14 @@ HMP/
 - 发版流程：feature/* 合入 `release/X.Y` → 改 `release.toml` → `./gradlew syncVersion` → **本机** `./gradlew preflight`（不变量 + 派生点一致 + 全量单测）→ 开 PR 跑 Pre-release Check → 合并触发发布
 - ⚠️ **CI 不跑单元测试**（2026-09-24 起，`testAll` 在 runner 上静默挂死、成因未结案，见 TODO R31）→ **`./gradlew preflight` 是唯一守门人，bump 时别跳**
 - ⚠️ **`sync --check` 只证明"抄对了"，不证明"写得对"**：派生点与 `release.toml` 一致，不代表 `release.toml` 里的口径符合实物。发版前读一遍 `python scripts/sync-release.py notes` 的输出，对每条平台/产物断言去仓库里找反证（今天 ROADMAP 就写着"AppImage 已修好"而实际早改 DEB 了）
-- 详见 [docs/VERSIONING.md](docs/VERSIONING.md)
+- 详见 [docs/spec/hmp-release.md](docs/spec/hmp-release.md)
 
 > 历史说明：早期文档称 CI「部署 Storybook 到 GitHub Pages」，实际 deploy-site job 上传的是 `site/` 目录（手工维护的产品站点），且 Storybook 相关 workflow 已在 v6.10 移除。
 > 另：Release Notes 正文曾经由 awk 从 ROADMAP 抽散文 —— 最新版本后面没有 `### v` 边界，v7.2.1 把 172 行内部章节灌进了公开说明（发布后人工删）。现已改为 `release.toml` 渲染，ROADMAP 不再被程序解析。
 
 ### 已知待完成任务 (TODO.md)
 - v7.x 三大方向：A) KMP 重写 iOS UI（v7.1.0 已完成）/ B) AI 功能 Agent 化（F1–F14 代码随 v7.2.0 合入、安装包随 v7.2.1 分发；**F10 挂起**）/ C) 播放功能增强补齐（**C1–C9 未排期**）
-- **v7.2.2 范围（未开工）**：v7.2.0 合入前 review 的遗留 —— TODO §一 **R1–R17、R23–R26** 与 §四 清理线 **R20–R22、R27–R30**（分级出处见 `docs/7_x/B agent-build/review-7.2.md`）。v7.2.1 只发了发版通道修复，这批一条没动
+- **v7.3.0 范围**：两批并列 —— ① v7.2.0 合入前 review 的遗留，TODO §一 **R1–R17、R23–R26**（分级出处 `docs/archive/7_x/7_2/review-7.2.md`）；② 架构实现审查的新增项，TODO §六 **R39–R56**（出处 [docs/review-7.3-architecture.md](docs/7_3/review-7.3-architecture.md)）。**顺序硬约束：先闸门批（R44/R43/R41/R47/R56），再 S1 批（R39/R40/R42/R45/R46），结构批最后**；R1/R2/R26 与 R39 必须同批（都要开 v10 迁移）
 - 发版通道：**R31**（CI 单测挂死，未结案）；**R34/R35 已结案**（`release.toml` + `syncVersion` 落地，版本声明由「9 处人抄」变「1 处手改 + 脚本同步」）；**R36 部分结案**（README / CLAUDE 的「最新版本」叙述仍不在门禁内）
 - iOS 原生层残留 **I1/I2**（标签技术元数据与歌词、`MusicPlayService.swift` 死文件）
 
@@ -351,15 +351,16 @@ HMP/
 - [DEVELOP.md](DEVELOP.md) — 技术架构与开发流程
 - [ROADMAP.md](ROADMAP.md) — 版本历史与功能状态 (单一事实来源)
 - [TODO.md](TODO.md) — 可执行任务列表
-- [docs/VERSIONING.md](docs/VERSIONING.md) — 版本号规范、真源分层、发版检查清单
+- [docs/spec/hmp-release.md](docs/spec/hmp-release.md) — 版本号规范、真源分层、发版检查清单
 - **发版链（改版本相关代码前先看）**
   - [release.toml](release.toml) — 当前版本唯一真源（号 / 日期 / 对外文案 / 产物清单）
   - [scripts/sync-release.py](scripts/sync-release.py) — 派生点同步与核对：`inspect` / `sync --write|--check` / `notes` / `mark-void`
   - [skills/release-prep/SKILL.md](skills/release-prep/SKILL.md) — 发版前半程的工序、判据与停机点（agent 执行发版就照它走）
-- [docs/DESIGN_SYSTEM.md](docs/DESIGN_SYSTEM.md) — 设计系统规范
-- [docs/ROOM_KMP_SETUP.md](docs/ROOM_KMP_SETUP.md) — Room KMP 跨平台数据库配置指南
+- [docs/spec/hmp-design.md](docs/spec/hmp-design.md) — 设计系统规范
+- [docs/room-kmp-setup.md](docs/room-kmp-setup.md) — Room KMP 跨平台数据库配置指南
 - **AI Agent 体系（方向 B，已随 v7.2.0 交付）**
-  - [docs/7_x/B agent-build/design/agent.md](docs/7_x/B%20agent-build/design/agent.md) — 设计总纲（单一事实来源）
-  - [docs/7_x/B agent-build/taskbook/README.md](docs/7_x/B%20agent-build/taskbook/README.md) — 推进计划（f1–f14 阶段族；**完成度口径以代码为准，见 review 报告**）
-  - [docs/7_x/B agent-build/review-7.2.md](docs/7_x/B%20agent-build/review-7.2.md) — v7.2.0 合入前审查报告 + 处置记录
-- **历史版本方案（已完成，备查）**：`docs/5_9/`、`docs/5_10/`、`docs/6_1/`、`docs/6_12/`
+  - [docs/archive/7_x/7_2/design/agent.md](docs/archive/7_x/7_2/design/agent.md) — 设计总纲（单一事实来源）
+  - [docs/archive/7_x/7_2/taskbook/README.md](docs/archive/7_x/7_2/taskbook/README.md) — 推进计划（f1–f14 阶段族；**完成度口径以代码为准，见 review 报告**）
+  - [docs/archive/7_x/7_2/review-7.2.md](docs/archive/7_x/7_2/review-7.2.md) — v7.2.0 合入前审查报告 + 处置记录
+- [docs/review-7.3-architecture.md](docs/7_3/review-7.3-architecture.md) — **架构实现审查（2026-09-28）**：S1/S2 分级 + 闸门缺口清单 + 误报否决记录，v7.3.0 的 R39–R56 出处
+- **历史版本方案（已完成，备查）**：`docs/archive/5_x/5_9/`、`docs/archive/5_x/5_10/`、`docs/archive/6_x/6_1/`、`docs/archive/6_x/6_12/`

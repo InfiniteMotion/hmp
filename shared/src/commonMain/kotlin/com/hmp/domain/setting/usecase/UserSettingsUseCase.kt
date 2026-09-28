@@ -118,7 +118,7 @@ class UserSettingsUseCase(
      *
      * 语义按平台落地：Desktop 为文件系统扫描根；Android 为 MediaStore 查询的 include/exclude 过滤。
      * 此前该配置在 UI 层长期无任何读写入口（v7.1 桌面 UI 层删除时丢失），见
-     * `docs/7_x/A shared-ui/UI层统一-能力搬迁点检.md` R3。
+     * `docs/archive/7_x/7_1/UI层统一-能力搬迁点检.md` R3。
      */
     val scanDirectoryConfig: Flow<ScanDirectoryConfig> = settingsRepository.scanDirectoryConfig
 

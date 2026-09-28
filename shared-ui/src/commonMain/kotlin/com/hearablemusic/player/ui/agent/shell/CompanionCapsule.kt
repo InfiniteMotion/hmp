@@ -47,7 +47,7 @@ import org.jetbrains.compose.resources.stringResource
  * 长按语义随之让位给电台（**当前实现**：直接停止电台）。
  * ⚠️ 该语义正在改：关闭是终态动作，不该由一个长按直接完成 ——
  * 已设计为**长按唤起「电台控制台」全屏面板**，关闭动作移入面板内确认。
- * 见 `docs/7_x/B agent-build/design/agent-radio-console.md`（待实施）。
+ * 见 `docs/archive/7_x/7_2/design/agent-radio-console.md`（待实施）。
  * 点按语义不变（仍是回门面）：它是导航锚点，不能因电台而被夺走。
  *
  * @param selected 是否位于门面（首页）：图标高亮

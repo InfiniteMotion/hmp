@@ -1,6 +1,6 @@
 # Hearable Music Player 项目演进路线
 
-**文档说明**：本文件为**功能状态与版本历史的单一事实来源**。README 中的功能列表与本文件保持一致；完整变更日志仅在此维护。版本号格式与发版流程遵循 [docs/VERSIONING.md](docs/VERSIONING.md)。其他文档见 [docs/README.md](docs/README.md)。
+**文档说明**：本文件为**功能状态与版本历史的单一事实来源**。README 中的功能列表与本文件保持一致；完整变更日志仅在此维护。版本号格式与发版流程遵循 [docs/spec/hmp-release.md](docs/spec/hmp-release.md)。其他文档见 [docs/README.md](docs/README.md)。
 
 ## 📜 项目历史与版本演进
 
@@ -245,7 +245,7 @@
 
 ### v7.2.0 (2026-09-24)【未发布：无安装包】
 > **发布状态**：代码已合入 master（PR #34），但**没有产出任何发布物** —— 该次 Release 运行在桌面三端打包阶段失败（`gh run 35956812895`），无 `v7.2.0` tag、无 GitHub Release。本版功能全部随 **v7.2.1** 分发，需要安装包的读者直接取 v7.2.1。
-> 合入前 review 结论见 [docs/7_x/B agent-build/review-7.2.md](docs/7_x/B%20agent-build/review-7.2.md)：4 项 A 级（生命周期锁自锁、alwaysAllow 覆盖 STRONG_CONFIRM、Agent 启用开关不落盘、降级静默清库）+ B3 取消被吞，**已在本分支修完并补回归用例**；余项按 B/C 级归档为 TODO 的 **R1–R17 / R20–R29**（**v7.2.2 作业** —— v7.2.1 实际只发了发版通道修复，这批一条没动）。本条描述按该报告校准，不按 taskbook 的完成口吻照抄。
+> 合入前 review 结论见 [docs/archive/7_x/7_2/review-7.2.md](docs/archive/7_x/7_2/review-7.2.md)：4 项 A 级（生命周期锁自锁、alwaysAllow 覆盖 STRONG_CONFIRM、Agent 启用开关不落盘、降级静默清库）+ B3 取消被吞，**已在本分支修完并补回归用例**；余项按 B/C 级归档为 TODO 的 **R1–R17 / R20–R29**（**v7.2.2 作业** —— v7.2.1 实际只发了发版通道修复，这批一条没动）。本条描述按该报告校准，不按 taskbook 的完成口吻照抄。
 
 - **AI 功能 Agent 化落地（方向 B，F1–F14，自 `feature/agent-build` 合入）**：
   - 引擎与工具层：Master + SubAgent 编排；四层组件解耦（`LlmCallExecutor` / `ToolCallExecutor` / `ReActLoop` / `StopSignal`）；工具面 29 基础 + `capability_status`；权限体系 9→6 概念收敛（`TrustTier` → `trustLevel`、`AgentPolicyConfig` 2 字段）+ `PolicyGuard` 与 ConfirmGate 全链路
@@ -448,7 +448,7 @@
 - 收益：v6.x 遗留的「iOS 双实现对齐」债务永久消失，新功能默认三端交付
 
 ### 阶段10：智能化与站点同步 (v7.2，2026-09)
-- v7.2.0（**未发布安装包**，功能全部随 v7.2.1 分发）：方向 B Agent 化自 `feature/agent-build` 并入发版 —— Master + SubAgent 编排、29 工具面、权限护栏、UserMemory 用户认识、Token 计量、界面自适应与 14 语言（残留项见 `docs/7_x/B agent-build/review-7.2.md`）
+- v7.2.0（**未发布安装包**，功能全部随 v7.2.1 分发）：方向 B Agent 化自 `feature/agent-build` 并入发版 —— Master + SubAgent 编排、29 工具面、权限护栏、UserMemory 用户认识、Token 计量、界面自适应与 14 语言（残留项见 `docs/archive/7_x/7_2/review-7.2.md`）
 - v7.2.0（同上，未单独出包）：官网改版与站点元信息单源化 —— 版本号写在 `site/js/config.js`，当时由 Pages 部署现场改写；发版链改造后改为 `release.toml` → `syncVersion` 写入并核对（见下）
 - v7.2.1（**已发布，桌面三端 + Android 产物齐**）：发版通道与桌面打包工具链修复 —— FFmpeg 进包规则、Linux 改发 DEB、Windows MSI 工具链、`checkReleaseConsistency` 与 Pre-release Check 预检
 - **发版链改造（v7.2.1 之后落地，未随任何已发布版本）**：版本真源从「9 处人抄」收敛为仓库根 `release.toml` 一处；`scripts/sync-release.py` 负责派生点写与核（`gradle.properties` / iOS 三处 / 站点 / `Anchor.kt` / 归档条目），`./gradlew syncVersion` 是入口；Release Notes 正文改由 `release.toml` 渲染，**ROADMAP 不再被程序解析**（此前的 awk 抽散文没有终止边界，v7.2.1 曾把 172 行内部章节灌进公开说明）；`pr-check.yml` 新增 `release-info` job 在合入前跑 `sync --check` 并预渲染正文；发版工序与判据沉淀进 `skills/release-prep/SKILL.md`
@@ -475,8 +475,8 @@
 - 残留项：Liquid Glass 观感取舍（Compose Haze 近似 vs 关键页保留 SwiftUI）；无真机环境的交互级核验（播放/歌词/歌单操作、P10.1 锁屏/Live Activity）记录待办
 
 **方向 B — AI 功能 Agent 化**
-> **进度（2026-09-18）**：**F1–F9 全部完成并收口**（B0-B6 + R/S/T/U/V/W/A0 各横切阶段）。F9 三笔交付：**T0 用户认识模块（画像，2026-09-16，契约 v3.8）** —— 归属 Master 定名 `UserMemory`，认领 `agent-architecture.md` 长期悬空的两处承诺（`偏好画像` / `AgentMemory`）与 `f5` 未闭环的「Feedback → Recall → 推荐闭环」，定稿为**两层画像**（侧写层 + 证据层，Room v6 两张表）+ **分级记忆 L1/L2/L3** + **认知准入标准**，据此**明确拒绝 MBTI 等类型学**；**A0 Capability 统一化**（2026-09-16）—— `Capability` 接口统一三个 SubAgent 能力面 + `CapabilityStatusTool` + 删除 8 个 DJ 遗留工具；**T1 听歌报告双轴筛选重构（2026-09-17）** —— `UserUsageDataScreen` 5 维度 × 5 时段窗口查询（方案 B：维度拆分 SQL、零内存聚合、零 Room 版本升级）+ `ForgottenDelivery` 遗忘唤醒；**T2 伙伴设置页（2026-09-18）** —— AI 页收拢为参数化 `AgentConfig(agentRole)` 单路由六分区。**语音会话（原 F9-T3/T4）已拆出为后续独立阶段 F10**：B6 里唯一真正新增的传输层，需真实端点验证，与报告/设置页无耦合，**独立 gate**（端点不可用即整体延期，v1 完整性不依赖语音）。契约见 [docs/7_x/B agent-build/design/agent-profile.md](docs/7_x/B%20agent-build/design/agent-profile.md)，推进记录见 [taskbook/README.md](docs/7_x/B%20agent-build/taskbook/README.md)。
-> **进度（2026-09-23 更新）**：方向 B 已推进至 **F14**（承载于 `feature/agent-build` 分支，相对 master 领先 40 个提交）。**F11 后台生命周期**（L1–L3/L5 主体完成，真机核验待手动）、**F12 Token 计量与窗口治理**（T1–T4 落地；T2b 配额候补 / T5 成本可见后置）、**F13 Agent 工作收尾**（可见性收敛 + DI 核对 + 测试补齐，`desktopTest` 961 例全绿）全部完成。**F14 界面自适应与多语言 ✅ 全部完成**（执行序 T1→T3→T2）：**T1 UI 自适应**（2026-09-22）、**T3 组件基建对齐**、**T2 字符串收拢 + 14 语言**（2026-09-23 收口 —— 累计 **305 新键**、14 语言各 **779 键**、键集合一致 + 占位符逐条校验、**agent 子树 UI 面向中文清零**，新增 `UiText` 设施）。**F10 语音会话（RealtimeVoiceTransport）整体挂起**：独立阶段、与主线解耦，未开工，可整体延期。设计总纲见 [docs/7_x/B agent-build/design/agent.md](docs/7_x/B%20agent-build/design/agent.md)，推进计划见 [taskbook/README.md](docs/7_x/B%20agent-build/taskbook/README.md)。
+> **进度（2026-09-18）**：**F1–F9 全部完成并收口**（B0-B6 + R/S/T/U/V/W/A0 各横切阶段）。F9 三笔交付：**T0 用户认识模块（画像，2026-09-16，契约 v3.8）** —— 归属 Master 定名 `UserMemory`，认领 `agent-architecture.md` 长期悬空的两处承诺（`偏好画像` / `AgentMemory`）与 `f5` 未闭环的「Feedback → Recall → 推荐闭环」，定稿为**两层画像**（侧写层 + 证据层，Room v6 两张表）+ **分级记忆 L1/L2/L3** + **认知准入标准**，据此**明确拒绝 MBTI 等类型学**；**A0 Capability 统一化**（2026-09-16）—— `Capability` 接口统一三个 SubAgent 能力面 + `CapabilityStatusTool` + 删除 8 个 DJ 遗留工具；**T1 听歌报告双轴筛选重构（2026-09-17）** —— `UserUsageDataScreen` 5 维度 × 5 时段窗口查询（方案 B：维度拆分 SQL、零内存聚合、零 Room 版本升级）+ `ForgottenDelivery` 遗忘唤醒；**T2 伙伴设置页（2026-09-18）** —— AI 页收拢为参数化 `AgentConfig(agentRole)` 单路由六分区。**语音会话（原 F9-T3/T4）已拆出为后续独立阶段 F10**：B6 里唯一真正新增的传输层，需真实端点验证，与报告/设置页无耦合，**独立 gate**（端点不可用即整体延期，v1 完整性不依赖语音）。契约见 [docs/archive/7_x/7_2/design/agent-profile.md](docs/archive/7_x/7_2/design/agent-profile.md)，推进记录见 [taskbook/README.md](docs/archive/7_x/7_2/taskbook/README.md)。
+> **进度（2026-09-23 更新）**：方向 B 已推进至 **F14**（承载于 `feature/agent-build` 分支，相对 master 领先 40 个提交）。**F11 后台生命周期**（L1–L3/L5 主体完成，真机核验待手动）、**F12 Token 计量与窗口治理**（T1–T4 落地；T2b 配额候补 / T5 成本可见后置）、**F13 Agent 工作收尾**（可见性收敛 + DI 核对 + 测试补齐，`desktopTest` 961 例全绿）全部完成。**F14 界面自适应与多语言 ✅ 全部完成**（执行序 T1→T3→T2）：**T1 UI 自适应**（2026-09-22）、**T3 组件基建对齐**、**T2 字符串收拢 + 14 语言**（2026-09-23 收口 —— 累计 **305 新键**、14 语言各 **779 键**、键集合一致 + 占位符逐条校验、**agent 子树 UI 面向中文清零**，新增 `UiText` 设施）。**F10 语音会话（RealtimeVoiceTransport）整体挂起**：独立阶段、与主线解耦，未开工，可整体延期。设计总纲见 [docs/archive/7_x/7_2/design/agent.md](docs/archive/7_x/7_2/design/agent.md)，推进计划见 [taskbook/README.md](docs/archive/7_x/7_2/taskbook/README.md)。
 > **进度（2026-09-01）**：B0-B4 + R + S + **T** 代码层全完成（M0-M4 + R 债务清零 + S 工具层终局 27 原子工具 + T 阶段 Master 内核/Enrich SubAgent/权限体系/四层组件解耦）。**T 阶段代码层 8/8 退出条件达成**（E1/E2 待手动冒烟，E4 开发阶段放开额度）——四层组件 LlmCallExecutor/ToolCallExecutor/ReActLoop/StopSignal 彻底解耦，权限体系简化 9→6 概念（TrustTier→trustLevel Int、AgentPolicyConfig 2 字段、TrustLedger 复活），AgentPolicyConfig DataStore 三端持久化闭环，EnrichSubAgent 接入 ToolCallExecutor + PolicyGuard（不再 DirectToolExecutor 裸跑），ConfirmGate "总是允许" UI 全链路。审计页/撤销、本地化横切待跟进。
 - OpenAiCompatibleAdapter 扩展 tools（function-calling）与 SSE 流式；现有 5 家服务商均走 OpenAI 兼容协议，协议层只改一处
 - shared domain 层新增 AgentOrchestrator：本地工具注册表（曲库检索/听歌统计/歌单管理/播放控制）+ agent loop + 护栏（破坏性操作 UI 确认、工具白名单、步数上限）

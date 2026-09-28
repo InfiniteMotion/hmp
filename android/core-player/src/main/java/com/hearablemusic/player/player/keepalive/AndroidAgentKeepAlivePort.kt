@@ -16,7 +16,7 @@ import com.hearablemusic.player.player.service.MusicPlayService
  * 「音频在播 **或** agent 保活」时保持前台，令进程在电台活跃期间
  * （**含"等模型出队列"的无音频窗口**）不被系统回收。
  *
- * 背景与根因见 `docs/7_x/B agent-build/design/agent-lifecycle.md`。
+ * 背景与根因见 `docs/archive/7_x/7_2/design/agent-lifecycle.md`。
  *
  * 说明：保活/撤销通常由用户手势在**前台**触发（开/关电台），满足 Android 12+
  * 的前台服务启动限制；后台触发失败时静默降级（保持现状，偏向"多保护"一侧）。

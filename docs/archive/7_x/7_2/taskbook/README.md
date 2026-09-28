@@ -2,7 +2,7 @@
 
 > **上游**：`../design/agent.md`（设计总纲，单一事实来源）｜`../design/agent-architecture.md`（架构详解：铁则 F1-F6、两层结构、源码索引）
 > **状态**：v11（2026-09-21：新增 **F14 Agent 界面自适应与多语言** [T1 UI 适配 → T3 组件基建对齐 → T2 字符串收拢 + 14 语言，用户裁定顺序与范围扩展]。F13 收尾章同日完成 —— desktopTest 961 全绿；方向 B 余 F10 语音会话与 F14）
-> **本目录**：`docs/7_x/B agent-build/taskbook/` —— 阶段推进计划与验收档案
+> **本目录**：`docs/archive/7_x/7_2/taskbook/` —— 阶段推进计划与验收档案
 
 ***
 
@@ -133,7 +133,7 @@ F1 规划与地基 ──▶ F2 锚点与协议 ──▶ F3 工具与引擎 ─
 | [F3](f3-工具与引擎.md) | `ToolSpec` DSL + 十项工具；引擎循环四件套 + 双层预算 | 工具校验防漂移；`Orchestrator`/`PolicyGuard`/`TrustLedger`/`ContextBudget`/`PresenceBus` |
 | [F4](f4-对话与清债.md) | 对话页 + 五类气泡 + 确认流；首轮注入 / 漏斗 / 真实播放端口 / 多确认门 / 会话持久 | 纯文字体验闭环（T3/T5/T6/T7 由 R 补齐） |
 | [F6](f6-电台与富化.md) | Radio SubAgent + 三轮协作 + DJ 衔接 + 审计页；Enrich v2 批次策略重写 | 电台子系统；Enrich 两轮 review 13 修复 |
-| [F9](f9-报告与设置.md) | **T0 用户认识模块**（两层画像 / 两个平级建模器 / 分级记忆 L1-L3 / 对话侧写门槛放开 / 认知准入三档 / **明确拒绝 MBTI**）+ **T1 听歌报告与遗忘唤醒**（累计画像置顶 + 双轴筛选 5×5 + `ForgottenDelivery` 卡）+ **T2 伙伴设置页**（六分区 + Agent 配置收拢 + Prompt 多语言 + P4 看板 v2） | 用户认识模块（`user_profile_evidence` + `user_profile_portrait`，Room v6）、窗口统计六条 SQL（零迁移）、`AgentConfigScreen(agentRole)` 通用配置页、`docs/LOGGING.md` |
+| [F9](f9-报告与设置.md) | **T0 用户认识模块**（两层画像 / 两个平级建模器 / 分级记忆 L1-L3 / 对话侧写门槛放开 / 认知准入三档 / **明确拒绝 MBTI**）+ **T1 听歌报告与遗忘唤醒**（累计画像置顶 + 双轴筛选 5×5 + `ForgottenDelivery` 卡）+ **T2 伙伴设置页**（六分区 + Agent 配置收拢 + Prompt 多语言 + P4 看板 v2） | 用户认识模块（`user_profile_evidence` + `user_profile_portrait`，Room v6）、窗口统计六条 SQL（零迁移）、`AgentConfigScreen(agentRole)` 通用配置页、`docs/spec/hmp-log.md` |
 
 ### 插叙章节
 
@@ -163,7 +163,7 @@ F1 规划与地基 ──▶ F2 锚点与协议 ──▶ F3 工具与引擎 ─
 | [`../design/agent-w.md`](../design/agent-w.md) | W 阶段全景：W0 引擎侧 + W1 页面级（P1-P5）+ W2 组件级（C1-C11）+ W 缺口登记 G1-G16 |
 | [`../design/agent-radio.md`](../design/agent-radio.md) | 电台 agent 唯一依据（契约 + 验收剧本 + 设计演进附录） |
 | `../design/agent-g6-recommend-design.md` | G6 首页双推荐页设计规格 |
-| [`../../LOGGING.md`](../../LOGGING.md) | 日志规范（`LogTag` / `HmpLog` 门面 / `MemLogWriter`），F9-T2 落地 |
+| [`../../LOGGING.md`](../../../../spec/hmp-log.md) | 日志规范（`LogTag` / `HmpLog` 门面 / `MemLogWriter`），F9-T2 落地 |
 
 ***
 
@@ -248,7 +248,7 @@ F1 规划与地基 ──▶ F2 锚点与协议 ──▶ F3 工具与引擎 ─
 | 2026-09-15 | **F9-T0 契约 v3** | **重新整理**：按最终决定重写全文，剥离 v2.1-v2.5 的过程性修订痕迹（收入变更记录）。同步本轮四项决定：① **行为建模改为定时读播放记录 + 状态快照 diff**（不细到单个操作，零新埋点）② 砍掉门面卡片反馈 ③ 搜索关键词登记为**未来流入** ④ **对话侧写门槛放开**（配三条约束 + 底线「推断音乐选择可以，推断人不行」）；C2 再修订为「判断回路只用会话内」。新增状态快照节 + **实施分档 T0a/T0b**（F9-T1/T2 依赖只挂 T0a），PF 收敛为 12 项 |
 | 2026-09-16 | **F9-T0 + A0 落地** | 契约升至 v3.8；用户认识模块（`UserMemory` 归属 Master）全量落地；`Capability` 接口统一三个 SubAgent 能力面、8 个 DJ 绕路工具清零；`desktopTest` 821 全绿 |
 | 2026-09-17 | **F9-T1 落地** | 听歌报告（累计画像置顶 + 5×5 双轴筛选 + 六条窗口 SQL，**零 Room 迁移**）+ 遗忘唤醒（`forgotten_delivery` 表，Room v7→v8）。报告页验收通过 |
-| 2026-09-18 | **F9-T2 落地** | 伙伴设置页（`AgentConfigScreen(agentRole)` 一页覆盖四 Agent + Agent 监控看板 v2）+ Agent 配置收拢（`AgentPolicyConfig` 扩展 + `resolvedFor` 出厂回落）+ 统一日志规范（`docs/LOGGING.md` + `com.hmp.log`）+ Prompt 多语言（`Lang` / `L10N_PROMPTS`）。**F9 收口** |
+| 2026-09-18 | **F9-T2 落地** | 伙伴设置页（`AgentConfigScreen(agentRole)` 一页覆盖四 Agent + Agent 监控看板 v2）+ Agent 配置收拢（`AgentPolicyConfig` 扩展 + `resolvedFor` 出厂回落）+ 统一日志规范（`docs/spec/hmp-log.md` + `com.hmp.log`）+ Prompt 多语言（`Lang` / `L10N_PROMPTS`）。**F9 收口** |
 | 2026-09-18 | **文档 v6：F9 收口 + 语音移出** | ① **语音档（原 F9-T3/T4）移出 F9，另立 F10 语音会话**（后续独立阶段）—— 理由：B6 里唯一真正新增的传输层，需真实端点验证，与报告/设置页无耦合，留在 F9 会让已完成的族长期挂着无法验收的项。② F9 章更名「报告与伙伴设置」（文件 `f9-报告与设置.md`）③ **`docs/superpowers/`（spec + plan 两份过程稿）整合进 `f9` 章 §2.3「报告页双轴筛选重构」，目录移除** —— 过程稿的逐 Task 施工步骤不保留，只留「解决的问题 / 交付内容 / 与方案稿的偏差 / 验收结果」 |
 | 2026-09-19 | **文档 v7：新增 F11 后台生命周期** | ① 用户报"RadioAgent 退后台不存活"，核查得**三条根因**：RC1 运行时无独立生命周期所有者（`MasterAgent` 懒初始化）、**RC2 Android 播放服务仅 `BIND_AUTO_CREATE` 绑定、正常路径从不 `startService`（非自持前台服务）**、RC3 电台会话零持久化（`agent-radio.md:338`「从不落盘」）。② 新增设计文档 **`../design/agent-lifecycle.md`**（根因 / 目标架构 / 三端实现 / 迁移 L1-L5 / 待决策 D1-D5）+ 另立 **F11 后台生命周期** 章节。③ 收口口径：**本地化真实工作量被高估**——不是"缺 4 个 key"，而是 agent UI 约 20 文件硬编码字符串，全量本地化属重构级工程，后置为独立阶段。④ `WindowedBundle.narrative` 死字段已删。**【同日实施 L1+L2】**：L1 落 `AgentKeepAlivePort` 端口 + `MasterAgent` 生命周期面（`updateRadioKeepAlive`）+ `MusicApplication` 启动即初始化；L2 把 `MusicPlayService` 从 bind-only 改**自持前台服务**（`ensurePlaybackServiceStarted` + `ensureForeground` 无条件前台化 + `refreshForeground` 保活条件扩为「音频在播 或 agent 活跃」）+ Android 侧 `AndroidAgentKeepAlivePort` + Koin 接线。编译验证：`:shared:compileKotlinDesktop` / `:shared-ui:compileAndroidMain` / `:android:core-player:compileDebugKotlin` / `:android:app:compileDebugKotlin` / `:shared-ui:compileKotlinDesktop` 全绿 |
 | 2026-09-19 | **修复：AI 配置热监听日志刷屏** | 后台每约 5s 刷一轮 `updateAiConfig` 日志。**根因**：热监听 `combine(aiAccessMode, customAiConfig)` 两上游均派生自**全局单例 `dataStore.data`**，而播放进度持久化（`MusicController.persistCurrentPosition → saveCurrentPosition`，节流约 5s）写入**同一个** DataStore —— 任意无关写入都会让监听重发 → 无谓的 per-Agent 配置重载 + 刷屏。**修复**：上游各自与末端各加 `distinctUntilChanged()`，仅"生效 AI 配置真变"时才重载（`ChatKoinModule`）。属既有潜伏 bug（F11 的启动即初始化只是让它从 app 启动就跑、更早暴露） |

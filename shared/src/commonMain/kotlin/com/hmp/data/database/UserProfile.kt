@@ -12,7 +12,7 @@ import androidx.room.Query
 /**
  * 用户认识模块（画像）的持久化层 —— Room v5 → v6 新增的两张表。
  *
- * 契约（单一事实来源）：`docs/7_x/B agent-build/design/agent-profile.md` v3.1 §2.3 / §2.4
+ * 契约（单一事实来源）：`docs/archive/7_x/7_2/design/agent-profile.md` v3.1 §2.3 / §2.4
  *
  * 两层结构：
  * - **证据层** `user_profile_evidence` —— 可审计的事实行，吃审计四问（§2.6）
