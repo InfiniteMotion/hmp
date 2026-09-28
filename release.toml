@@ -1,0 +1,93 @@
+# ============================================================
+# release.toml —— 当前这一次发布的唯一真源
+# ============================================================
+# 谁读它：
+#   scripts/sync-release.py            派生点同步与校验（唯一解析方）
+#     sync --write   覆盖式写出 gradle.properties / site/js/config.js / Anchor.kt
+#                    / iOS 三处；追加式写出 ROADMAP 版本条目与站点 changelog 条目
+#     sync --check   重渲染并与工作树比对，不一致即失败（本地与 CI 同一把尺）
+#     notes          渲染 GitHub Release Notes 正文（release.yml 调用，不落盘）
+#
+# 规矩：
+#   1. 本文件只描述**当前版本**，不承载历史。历史结论（哪版作废、哪版没出包）属于
+#      ROADMAP 与站点 changelog 这些归档，由 mark-void 或人来写。
+#   2. 每次发版只改这一个文件：换 version / date / notes，然后跑 `./gradlew syncVersion`。
+#      派生文件一律不许手改（今天那 9 处漂移就是这么来的）。
+#   3. versionCode 不写：由 MAJOR*10000 + MINOR*1000 + PATCH 派生。
+#   4. date 是发布日期。bump 当天可以留空，发布当天补上——它是站点时间线唯一需要的日期。
+#   5. notes 是**用户视角**的话：不要写 commit hash、R 编号、内部待办 —— 那些进 ROADMAP。
+
+version = "7.2.1"
+date = "2026-09-25"
+
+# 产物矩阵。三样东西由它驱动，工作流里不再出现任何文件名：
+#   · Release Notes 的产物表（in_table = false 的只上传不列表）
+#   · release.yml 的收集与改名（from_dir + from_glob → file）
+#   · 齐全断言与站点下载键核对（site_key 对上 config.js 的 assets 键）
+# versioned = false 给"名字不随版本走"的文件（校验和），它由 CI 现算，不参与收集。
+
+[[artifact]]
+label = "Android"
+file = "HMP-v{version}-release.apk"
+site_key = "apk"
+hint = "`.aab` 走 Google Play"
+from_dir = "build-android"
+from_glob = "app-release.apk"
+
+[[artifact]]
+label = "Android (AAB)"
+file = "HMP-v{version}-release.aab"
+in_table = false
+from_dir = "build-android"
+from_glob = "app-release.aab"
+
+[[artifact]]
+label = "macOS (Apple Silicon / arm64)"
+file = "HMP-v{version}-macos-arm64.dmg"
+site_key = "dmgArm"
+from_dir = "build-desktop-macos"
+from_glob = "*.dmg"
+
+[[artifact]]
+label = "Windows"
+file = "HMP-v{version}-windows-x86_64.msi"
+site_key = "msi"
+from_dir = "build-desktop-windows"
+from_glob = "*.msi"
+
+[[artifact]]
+label = "Linux (x86_64)"
+file = "HMP-v{version}-linux-x86_64.deb"
+site_key = "debAmd"
+from_dir = "build-desktop-linux"
+from_glob = "*.deb"
+
+[[artifact]]
+label = "校验和"
+file = "SHA256SUMS.txt"
+versioned = false
+hint = "`sha256sum -c SHA256SUMS.txt`"
+
+# 不进产物表的说明行（iOS 无安装包这类"缺什么"的交代，写在这里而不是写死在工作流里）
+notes_footer = "iOS 不随本次发布提供安装包：需 macOS + Xcode 源码自构建，见 README「安装步骤」。"
+
+# ---------- 对外文案（agent 起草，格式靠提示词调） ----------
+# Notes 渲染成 "### 小节 + - 条目"；站点时间线渲染成 cl-section + <li>。
+# 行内只认 markdown-lite：**粗体** 与 `代码`，两种渲染器各自转 MD / HTML。
+
+[[section]]
+title = "发版通道修复"
+items = [
+  "修复桌面端 macOS / Windows / Linux 三平台打包失败，v7.2.1 起发版通道恢复正常：DMG / MSI / DEB 三端安装包齐备",
+  "**桌面安装包首次确认真正带上解码库（FFmpeg）**：此前 macOS / Linux 的包里其实一直缺它，部分格式播不了而无人察觉",
+  "Linux 只发布 DEB，不再提供 AppImage（打包工具产不出真正的 `.AppImage` 文件，旧产物是解包目录）",
+  "Windows：改用 bash 并显式注入 WiX candle / light，MSI 打包恢复正常",
+  "解码库下载源统一到本仓库 Release，并按 SHA256 与真实 CPU 架构校验，不符立即失败",
+]
+
+[[section]]
+title = "稳定性"
+items = [
+  "发版前自动校验版本号自洽与递增，并核对站点 / iOS 多端版本声明是否同步",
+  "产物缺失时拒绝发布：Release 必需文件不全即中断，不再发布缺平台的版本",
+]

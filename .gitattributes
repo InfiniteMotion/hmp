@@ -6,5 +6,11 @@
 .github/**/*.py text eol=lf
 .github/**/*.sh text eol=lf
 
+# 发版工具链同理：release.toml 是脚本解析的真源，同步脚本会被 CI 调用，
+# 行尾统一 LF，免得 Windows 检出成 CRLF 后与仓库侧 diff 满屏飘红。
+scripts/**/*.py text eol=lf
+release.toml text eol=lf
+skills/**/*.md text eol=lf
+
 # 文档同样统一 LF，避免跨平台 diff 整屏飘红
 *.md text eol=lf

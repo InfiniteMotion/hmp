@@ -33,6 +33,9 @@
   .cl-version { font-size:1.15rem; font-weight:700; }
   .cl-date { font-size:0.8rem; color:var(--text-secondary); }
   .cl-latest { font-size:0.7rem; font-weight:600; padding:2px 10px; border-radius:100px; background:rgba(201,44,44,0.15); color:var(--red); }
+  .cl-void { font-size:0.7rem; font-weight:600; padding:2px 10px; border-radius:100px; background:rgba(128,128,128,0.16); color:var(--text-secondary); border:1px solid var(--divider); }
+  .cl-entry--void .cl-version { text-decoration:line-through; opacity:0.65; }
+  .cl-entry--void:first-child::before { background:var(--surface); border-color:var(--divider); box-shadow:none; }
 
   .cl-card { background:var(--glass-bg); backdrop-filter:blur(var(--glass-blur)); -webkit-backdrop-filter:blur(var(--glass-blur)); border:1px solid var(--glass-border); border-radius:var(--radius); padding:20px 24px; }
   .cl-section { margin-bottom:14px; }
@@ -105,10 +108,11 @@
         <div class="cl-section">
           <div class="cl-section-title">发版通道修复</div>
           <ul>
-            <li>修复桌面端 macOS / Windows / Linux 三平台打包失败，v7.2.1 起发版通道恢复正常</li>
-            <li>Linux：补齐 appimagetool 与 libfuse2，AppImage 打包不再必挂</li>
+            <li>修复桌面端 macOS / Windows / Linux 三平台打包失败，v7.2.1 起发版通道恢复正常：DMG / MSI / DEB 三端安装包齐备</li>
+            <li><strong>桌面安装包首次确认真正带上解码库（FFmpeg）</strong>：此前 macOS / Linux 的包里其实一直缺它，部分格式播不了而无人察觉</li>
+            <li>Linux 只发布 DEB，不再提供 AppImage（打包工具产不出真正的 <code>.AppImage</code> 文件，旧产物是解包目录）</li>
             <li>Windows：改用 bash 并显式注入 WiX candle / light，MSI 打包恢复正常</li>
-            <li>macOS：解码库下载源统一到本仓库 Release，避免第三方源受限中断打包</li>
+            <li>解码库下载源统一到本仓库 Release，并按 SHA256 与真实 CPU 架构校验，不符立即失败</li>
           </ul>
         </div>
         <div class="cl-section">
@@ -122,15 +126,17 @@
     </div>
 
     <!-- v7.2.0 -->
-    <div class="cl-entry">
+    <div class="cl-entry cl-entry--void">
       <div class="cl-head">
         <span class="cl-version">v7.2.0</span>
         <span class="cl-date">2026-09-24</span>
+        <span class="cl-void">未发布</span>
       </div>
       <div class="cl-card">
         <div class="cl-section">
           <div class="cl-section-title">AI 音乐伙伴</div>
           <ul>
+            <li><strong>本版没有安装包</strong>：当时发版通道卡在桌面端打包，下列功能全部随 <strong>v7.2.1</strong> 分发，下载请取 v7.2.1</li>
             <li>对话式曲库操作：用自然语言找歌、问答、生成与整理播放列表，并可直接控制播放</li>
             <li>AI 电台：播完一首后基于当前上下文自动续接队列</li>
             <li>听歌报告与用户认识：偏好画像、分级记忆与「遗忘唤醒」，伙伴设置页统一收拢各角色参数</li>
@@ -366,7 +372,7 @@
           <div class="cl-section-title">构建与 CI</div>
           <ul>
             <li>settings.gradle.kts 条件化模块包含（HMP_BUILD_TARGET 环境变量）</li>
-            <li>CI 自动构建桌面三平台安装包（macOS DMG / Windows MSI / Linux DEB+AppImage）</li>
+            <li>CI 自动构建桌面三平台安装包（macOS DMG / Windows MSI / Linux DEB）</li>
             <li>GitHub Release 同发 Android + Desktop 六种产物</li>
           </ul>
         </div>

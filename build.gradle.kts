@@ -382,7 +382,7 @@ tasks.register("checkVersion") {
         if (latestTag != null && versionName == latestTag) {
             throw GradleException(
                 "版本号 $versionName 与已有 tag v$latestTag 重复！" +
-                    "请先更新 gradle.properties 的 hmp.versionName / hmp.versionCode。"
+                    "请先改 release.toml 的 version，再跑 ./gradlew syncVersion（gradle.properties 是派生物，别手改）。"
             )
         }
 
@@ -404,71 +404,50 @@ tasks.register("checkVersion") {
     }
 }
 
-tasks.register("checkReleaseConsistency") {
+// 版本真源已收拢到 release.toml；派生点（gradle.properties / 站点 / iOS / Anchor / ROADMAP /
+// changelog）一律由 scripts/sync-release.py 写与核。这里只留进程调用，不再复刻一套规则 ——
+// 两套规则各自演化就是这轮改造要拆的东西。
+fun runReleaseScript(args: List<String>): Int {
+    val script = rootDir.resolve("scripts/sync-release.py")
+    if (!script.isFile) throw GradleException("找不到 $script")
+    val py = listOf("python3", "python").firstOrNull { cand ->
+        runCatching {
+            val p = ProcessBuilder(cand, "--version").redirectErrorStream(true).start()
+            p.waitFor() == 0 && p.inputStream.bufferedReader().readText().isNotBlank()
+        }.getOrDefault(false)
+    } ?: throw GradleException(
+        "找不到可用的 python3 / python。sync-release.py 需要 Python 3.9+" +
+            "（3.9 / 3.10 还得 pip install tomli；3.11+ 用内置 tomllib）"
+    )
+    val pb = ProcessBuilder(listOf(py, script.absolutePath) + args)
+    pb.directory(rootDir)
+    pb.redirectErrorStream(true)
+    val proc = pb.start()
+    proc.inputStream.bufferedReader().forEachLine { println(it) }
+    return proc.waitFor()
+}
+
+tasks.register("syncVersion") {
     group = "release"
-    description = "以 gradle.properties 为唯一真源，核对站点 / iOS 工程 / 文档里的版本声明是否同步（只读校验，不改文件）"
-    notCompatibleWithConfigurationCache("执行期读取多个仓库文件")
+    description = "把 release.toml（版本真源）同步到各派生点，并打印改了哪些文件"
+    notCompatibleWithConfigurationCache("进程调用外部脚本并写工作树")
 
     doLast {
-        val expect = versionName
-        val drift = mutableListOf<String>()
+        val rc = runReleaseScript(listOf("sync", "--write"))
+        if (rc != 0) throw GradleException("sync-release.py sync --write 失败（exit $rc）—— 看上面的 ::error:: 行")
+    }
+}
 
-        fun read(rel: String): String {
-            val f = rootDir.resolve(rel)
-            if (!f.isFile) throw GradleException("文件不存在：$rel")
-            return f.readText()
-        }
+tasks.register("checkReleaseConsistency") {
+    group = "release"
+    description = "以 release.toml 为真源核对全部派生点（委托 sync-release.py sync --check，只读）"
+    notCompatibleWithConfigurationCache("进程调用外部脚本")
 
-        fun check(label: String, rel: String, pattern: Regex, allowSuffix: Boolean = false) {
-            val actual = try {
-                pattern.find(read(rel))?.groupValues?.get(1)?.trim()
-            } catch (e: Exception) {
-                drift += "$label —— 读取失败：${e.message}"
-                return
-            }
-            if (actual == null) {
-                drift += "$label —— $rel 里找不到声明（模式：${pattern.pattern}）"
-                return
-            }
-            val ok = if (allowSuffix) actual.startsWith(expect) else actual == expect
-            if (!ok) drift += "$label —— $rel 里是 \"$actual\"，应为 $expect"
-            else println("  [OK] $label = $actual")
-        }
-
-        println("以 gradle.properties 的 hmp.versionName=$expect 为真源核对：")
-
-        check("站点版本源", "site/js/config.js", Regex("(?m)^\\s*version:\\s*'([^']+)'"))
-        check("站点 JSON-LD", "site/index.html", Regex("\"softwareVersion\"\\s*:\\s*\"([^\"]+)\""))
-        check("iOS 工程 CFBundleShortVersionString", "ios/HMP/project.yml", Regex("(?m)^\\s*CFBundleShortVersionString:\\s*\"([^\"]+)\""))
-        check("iOS 工程 MARKETING_VERSION", "ios/HMP/project.yml", Regex("(?m)^\\s*MARKETING_VERSION:\\s*\"([^\"]+)\""))
-        check("iOS Info.plist", "ios/HMP/HMP/Info.plist", Regex("CFBundleShortVersionString</key>\\s*<string>\\s*([^<]+?)\\s*</string>"))
-        check("Xcode 工程配置", "ios/HMP/HMP.xcodeproj/project.pbxproj", Regex("(?m)^\\s*MARKETING_VERSION\\s*=\\s*([^;]+);"))
-        check("shared-ios 框架版本", "shared-ios/src/iosMain/kotlin/com/hmp/ios/Anchor.kt",
-            Regex("SHARED_IOS_FRAMEWORK_VERSION[^=]*=\\s*\"([^\"]+)\""), allowSuffix = true)
-
-        // 发版记录类：存在性检查（不是抓值）
-        listOf(
-            "site/changelog.html" to "<!-- v$expect -->",
-            "ROADMAP.md" to "### v$expect (",
-        ).forEach { (rel, needle) ->
-            val text = try {
-                read(rel)
-            } catch (e: Exception) {
-                drift += "$rel —— 读取失败：${e.message}"
-                return@forEach
-            }
-            if (!text.contains(needle)) drift += "$rel —— 没有本次版本的条目（找不到 \"$needle\"）"
-            else println("  [OK] $rel 已有 v$expect 条目")
-        }
-
-        if (drift.isNotEmpty()) {
-            throw GradleException(
-                "版本声明不一致（真源 gradle.properties = $expect）：\n" +
-                    drift.joinToString("\n") { "  - $it" } +
-                    "\n\n发版前请同步这些文件，或把它们接上自动生成（见 TODO R34）。"
-            )
-        }
-        println("OK 版本声明全部与真源一致")
+    doLast {
+        val rc = runReleaseScript(listOf("sync", "--check"))
+        if (rc != 0) throw GradleException(
+            "派生点与 release.toml 不一致（exit $rc）→ 跑 ./gradlew syncVersion 并把产物与 release.toml 一起提交"
+        )
     }
 }
 

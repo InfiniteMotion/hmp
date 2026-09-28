@@ -1,13 +1,14 @@
 # Hearable Music Player 待办事项
 
-本文档**只保留未完成的可执行任务**，每条写成「现状 → 动作 → 完成判据」。已完成条目不入此档，历史见 [ROADMAP](ROADMAP.md)。
+本文档**只保留未完成的可执行任务**，每条写成「现状 → 动作 → 完成判据」。已完成条目不入此档，历史见 [ROADMAP](ROADMAP.md)。例外：§五 的 R32/R33 以 `[x]` 结案记录留在原位，当发版通道的处置台账（结论带证据与 commit，下次改动直接用，不必重新考古）。
 
 > **2026-09-24**：删去 120 条已完成条目（v5.10 全章、v6 已闭合项、方向 A A1–A10、方向 B F1–F9/F11–F14）。藏在已完成章节里的未闭合项按映射捞回：`P6.10`→R10、`P6.12`/`P6.15`→实为已完成（旧未勾是漂移）、`P7.46–49`→并入 R29、`P6.11`→I1、`P10.2`→I2、`T3`→R30。
 > R 系列的证据出处：[docs/7_x/B agent-build/review-7.2.md](docs/7_x/B%20agent-build/review-7.2.md)。**行号是当天工作树的坐标，动手前先 grep 符号名。**
 
-## 一、v7.2.1：v7.2.0 review 的 B 级遗留（R1–R17）
+## 一、v7.2.2：v7.2.0 review 的遗留（R1–R17、R23–R26）
 
 > 4 项 A 级 + B3 已在 `release/7.2.0` 修完（含回归用例），以下是当时判定「不该拖住发版」的余项。
+> **2026-09-28 改列 v7.2.2**：这批原本标着 v7.2.1，但 v7.2.1 实际只发了发版通道与桌面打包修复（PR #41/#42，已发布 2026-09-25），本节一条没动；版本号不复用，故整体顺延。**编号不连续**：本节是 R1–R17 + R23–R26，R20–R22、R27–R30 归 §四 清理线。
 
 ### 数据与备份安全（优先级最高）
 
@@ -71,12 +72,16 @@
 - [ ] **R29** 发版前必做的实机核验：① **A4 之后降级库的表现完全没测过** —— 三端都去掉了 destructive 兜底且没注册 `RoomDatabase.Callback`，拿一个 `user_version=10` 的库在三端各跑一次，按结果决定要不要加「库版本较新，请升回新版本或恢复备份」的提示；② `iosMain` 本机（Windows）无法编译，本次 A3/A4 的 iOS 分支只做了源码级核对；③ F11 后台存活真机核验、iOS 锁屏 / Live Activity 交互核验（原 P7.46–P7.49）、三端首启引导实操
 - [ ] **R30** 工程一致性：`android/app/build.gradle.kts` 的 `51000`/`"5.10.0"` 兜底改为读不到就失败（现在会静默产出一个版本号错误的包）；`SettingsRepositoryImpl` 三平台各 ~500 行高度重复（原 T3）→ 通用逻辑提取到 commonMain 基类，**A3 加的 `enabled` 键正是第四处需要三端手工同步的例子**。~~`checkVersion` 缺 `notCompatibleWithConfigurationCache`~~ 已修（本轮，同时把它扩成 versionName↔versionCode 自洽 + 递增 + 跨文件一致性三件事）
 
-## 五、CI / 发版通道（2026-09-24 排障追加）
+## 五、CI / 发版通道（2026-09-24 排障追加；2026-09-28 结案 R32/R33 与 R34/R35、新增 R35b/R36）
 
 - [ ] **R31** 单元测试已移出 CI（2026-09-24）：`testAll` 在 runner 上会**静默挂死**（最后一行停在某个 `> Task`，之后无输出；plain console 的标题行只代表任务开始，所以看到的不是卡住的那个任务）。头号嫌疑是 `:android:core-player` 的三个 Robolectric 用例在执行期从 Maven Central 现拉 `android-all` 大 jar（默认无超时、不输出，`setup-gradle` 只缓存 Gradle home 不缓存 `~/.m2`）；本机 `~/.m2` 是热的，所以本地永远复现不出来。**未结案**，代价是 master 的测试回归从此无人值守 → 本机 `preflight` 成为唯一守门人（已写进 `docs/VERSIONING.md` §5/§6）。恢复 CI 跑测的路径，二选一：① 缓存 `~/.m2/repository/org/robolectric` + 给 `Test` 任务加挂钟超时；② 上一版加过的「输出静默 240s 就 dump `jstack` + `ss -tnp`」看门狗（代码在 `af51437`，取回来用一次就能定案）。另外 `configure-on-demand` 已从 `gradle.properties` 删除（与 parallel 的配置期锁竞态；实测配置耗时无差别），validate 保留 `timeout-minutes: 10`
-- [ ] **R32** `injectFFmpeg` 根因已定、待 CI 复验：CI 打出的目录树证明 **macOS 的 app image 里没有 `bin` 目录**（jlink 只出 `Contents/Home/{lib,legal,conf}`，启动器是 `Contents/MacOS/HMP`），而运行时按 `java.home/bin/ffmpeg` 找 —— 所以 DMG 从来没带上 FFmpeg，旧规则 `endsWith("Home/bin")` 从一开始就不可能命中。现规则改为「归一化到 java.home」：Windows 走 `bin/server`（jvm.dll 在 bin 下）、macOS/Linux 走 `lib/server`，找到后**缺 bin 就补建**。本机已双路验证：Windows 真产物注入 `runtime/bin/ffmpeg.exe`；伪造 macOS 形态（只有 `Home/lib/server`）也被认出并补出 `Home/bin`。**未验证**：Linux 布局（旧规则曾通过，形态应与 macOS 同支）与 macOS 真机 —— 若仍失配，报错会把整棵目录树打出来
-- [ ] **R33** 发布口径核对：`-Phmp.release-build=true` 是 `8ba051cc`(2026-09-01) 一次加进三个 job 的，而 Windows 的 `run:` 默认 pwsh 会在点号处断词 → **推断自那以后每个 Windows job 都该失败**，需在 Actions 历史确认最后一次成功的 MSI 是哪一版；macOS 侧 `injectFFmpeg` 的断言是 `d977e41` 新加的，它一响就说明此前 DMG 一直没带上 FFmpeg（长期静默失败）。结论：v7.2.0 的 Release Notes 里"桌面端三平台可安装"必须等三平台产物真出来后按实物写
-- [ ] **R34** 版本声明由「校验」升级为「生成」：`checkReleaseConsistency` 已能挡住漂移（改错 `site/js/config.js` 就红，已负测），但同步仍靠人手。下一步加 `syncVersion` 任务，从 `gradle.properties` 渲染 `site/js/config.js` / `site/index.html` 的 JSON-LD / iOS `project.yml`，并把 iOS 版本从 `pbxproj` + `Info.plist` 迁到一份 `.xcconfig`（**pbxproj 改动需在 macOS 上用 xcodegen 验一次**，Windows 本机改不了也验不了）
+- [x] ~~**R32** `injectFFmpeg` 根因已定、待 CI 复验~~ **已结案（随 v7.2.1 发布，2026-09-28 核）**：根因是 CI 目录树证明 **macOS 的 app image 里没有 `bin` 目录**（jlink 只出 `Contents/Home/{lib,legal,conf}`，启动器是 `Contents/MacOS/HMP`），而运行时按 `java.home/bin/ffmpeg` 找 —— 所以 DMG 从来没带上 FFmpeg，旧规则 `endsWith("Home/bin")` 从一开始就不可能命中。规则已改为「归一化到 java.home」：Windows 走 `bin/server`（jvm.dll 在 bin 下）、macOS/Linux 走 `lib/server`，找到后**缺 bin 就补建**（`1b7cca4`）。**结案依据**：v7.2.1 成功 run（`36170367906`）带三端 FFmpeg 进包断言全绿，deb 内清单核查在 `e8525f6` 修掉 SIGPIPE+pipefail 误判后通过，DMG/MSI 产物已上 Release。**残留尾巴**：macOS 真机启动播放仍未验（本机是 Windows，验不了），所以「FFmpeg 在包里」≠「macOS 上真能解码」
+- [x] ~~**R33** 发布口径核对~~ **已结案（2026-09-28 按 Actions/Release 实况核对）**：`-Phmp.release-build=true` 是 `8ba051cc`(2026-09-01) 一次加进三个 job 的，而 Windows 的 `run:` 默认 pwsh 在点号处断词 → 推论成立，**最后一次成功的 MSI 是 v7.1.0**（2026-08-26，产物表可查），此后 v7.2.0 的 Release run（`35956812895`）失败、无 tag 无产物，直到 v7.2.1 把该步骤改 `shell: bash` 才重新出 MSI。macOS 侧 `injectFFmpeg` 断言（`d977e41`）一响即证实此前 DMG 一直没带上 FFmpeg（长期静默失败）。**已按实物落地的口径**：v7.2.1 的 Release Notes 与站点条目按五件产物写；v7.2.0 在 ROADMAP 标题与 `site/changelog.html` 标为**未发布**（不再装作发过）。产物文件名自 v7.2.1 起带平台/架构后缀（`-macos-arm64.dmg` / `-windows-x86_64.msi` / `-linux-x86_64.deb`），旧版是 `-macos.dmg` 那类无后缀形态 —— 改链接时要按新命名核对
+- [x] ~~**R34** 版本声明由「校验」升级为「生成」~~ **已结案（2026-09-28 落地，未随已发布版本）**：真源换成仓库根 `release.toml`（只描述当前版本），`scripts/sync-release.py` 负责写出 `gradle.properties` / 站点 `config.js` + JSON-LD / iOS `project.yml`+`Info.plist`+`pbxproj` / `Anchor.kt`（`-aN` 后缀原样保留）/ ROADMAP 与站点时间线条目；Gradle 侧新增 `syncVersion`，`checkReleaseConsistency` 改为委托 `sync --check`。iOS 未迁 `.xcconfig`（pbxproj 直接由脚本改文本），**首次切换需你在 macOS 上 xcodegen + 构建验一次**
+- [x] ~~**R35** Release Notes 正文抽取没有终止边界~~ **已结案（同上，根治而非加防护）**：正文改由 `release.toml` 渲染，ROADMAP 从此不被程序解析，awk 那段连边界带临时防护一起删掉；`release.yml` 与 dry run 都把最终正文打进日志（v7.2.1 那次是发布后人工删到 58 行的）。判据 `MAX_ITEMS=80` 移进脚本
+- [ ] **R36** 门禁仍管不到 Markdown 叙述：`release.toml` → `syncVersion` 已接管**可机器判定**的派生点（`gradle.properties` / 站点 `config.js` + JSON-LD / iOS 三处 / `Anchor.kt` / 归档条目存在性），但 **README / CLAUDE 里「最新发布版本」这类自然语言没人核** —— 本轮就抓到三处漂移（DEVELOP 版本片段停在 7.2.0、CLAUDE 概述停在 7.1.0、README 写着"v7.2.1 发布中"而它早已发布）。**动作**：给 `sync-release.py` 加一个"版本号出现处"检查（只在明确标记的段落里断言等值，别去解析整篇散文），或约定这两处由 release-prep Skill 的第 ⑧ 步交给人改。**判据**：故意把 README 的版本改错，`sync --check` 或 pr-check 能红
+- [ ] **R37** 发布**之后**的公开面核对还没自动化：本期做到"发布前预览 + CI 把最终正文打进日志"，但合并之后没人比对"线上 Notes 是否等于 `sync-release.py notes` 的输出""三端产物是否真的齐""站点是否已随本次发布部署"。**动作**：加 `verify-published` 子命令（拉 `gh release view` 的 body 与 assets 与 `release.toml` 比对），挂进 `release.yml` 发布后一步或 deploy-site 之后；也可做成 `release-ship` Skill，但那是"给 agent 的工序"，判据仍应落在脚本里。**判据**：手动把线上 Notes 改一个字，检查会红
+- [ ] **R38** iOS 三处首次由脚本改写的验证缺口：`scripts/sync-release.py` 现在直接文本替换 `project.yml` / `Info.plist` / `project.pbxproj`（本机 Windows 只能做源码级核对）。**动作**：下次 bump 时在 macOS 上跑一次 `xcodegen generate` + 模拟器构建，确认 pbxproj 的 `MARKETING_VERSION` 改动没有被工程重载写回；通过后再决定是否按原 R34 的想法收敛成一份 `.xcconfig`（那能同时消掉 `Info.plist` 与 `pbxproj` 两处重复）。**判据**：`git diff` 里这三处与 `release.toml` 一致，且 Xcode 构建产物 `defaults read .../Info CFBundleShortVersionString` 等于版本号
 
 ## 六、挂起（不排期，可整体延后）
 

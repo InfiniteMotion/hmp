@@ -54,7 +54,13 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      # 与 release.yml 的 validate 调同一对 Gradle 任务，规则不重实现一份，避免两边漂移
+      # 与 release.yml 的 validate 调同一对 Gradle 任务，规则不重实现一份，避免两边漂移。
+      # checkReleaseConsistency 已委托 scripts/sync-release.py（真源 release.toml）→ 要有 Python。
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
       - name: Version self-consistency & release declarations
         run: ./gradlew checkVersion checkReleaseConsistency --no-daemon --no-configuration-cache
 
@@ -65,9 +71,9 @@ jobs:
           set -euo pipefail
           if [[ "$HEAD_REF" == release/* ]]; then
             want="${HEAD_REF#release/}"
-            got=$(grep '^hmp.versionName=' gradle.properties | cut -d'=' -f2 | tr -d '[:space:]')
+            got=$(python scripts/sync-release.py version)   # 真源是 release.toml，不是派生的 gradle.properties
             if [[ "$want" != "$got" ]]; then
-              echo "::error::分支名 $HEAD_REF 与 gradle.properties 的版本 $got 不一致"
+              echo "::error::分支名 $HEAD_REF 与 release.toml 的版本 $got 不一致"
               exit 1
             fi
             echo "OK 分支名与版本号一致：$got"
@@ -120,17 +126,51 @@ jobs:
         run: python3 .github/scripts/check-ffmpeg-assets.py
 
   # ============================================================
+  # ②' 版本真源 → 派生点一致性 + 发布说明预渲染
+  #
+  # 所有非 draft PR 都跑（不像 version job 那样只挑 release/*）：它不比 tag、不比递增，
+  # 只回答"release.toml 和仓库里那几处派生值还一致吗、将要公开的说明长什么样"。
+  # 功能 PR 不 bump 版本号也照样绿 —— 但它要是顺手改了 config.js / 归档条目，这里就红。
+  # ============================================================
+  release-info:
+    name: release.toml → derived files & notes
+    if: >-
+      github.event_name == 'workflow_dispatch'
+      || github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Derived files match release.toml
+        run: python scripts/sync-release.py sync --check
+
+      - name: Preview the release notes
+        run: |
+          python scripts/sync-release.py notes --out /tmp/body.md
+          echo "=== 若现在发布，GitHub Release 的正文将是 ==="
+          cat /tmp/body.md
+          echo "=== 正文结束 ==="
+
+  # ============================================================
   # ③ 结论汇总 —— 让 PR 页面一眼能读到「能不能合」
   # ============================================================
   preflight:
     name: Verdict
-    needs: [version, ffmpeg-assets]
+    needs: [version, ffmpeg-assets, release-info]
     if: always()
     runs-on: ubuntu-latest
     steps:
       - name: Summarize
         env:
           VERSION: ${{ needs.version.result }}
+          RELEASE_INFO: ${{ needs.release-info.result }}
           FFMPEG: ${{ needs.ffmpeg-assets.result }}
         run: |
           set -euo pipefail
@@ -142,17 +182,19 @@ jobs:
             echo "| 检查项 | 结果 |"
             echo "|---|---|"
             echo "| 版本号自洽与多端声明一致 | $(mark "$VERSION") |"
+            echo "| release.toml → 派生点一致 + 说明预渲染 | $(mark "$RELEASE_INFO") |"
             echo "| FFmpeg 资产可用性与架构 | $(mark "$FFMPEG") |"
             echo ""
           } >> "$GITHUB_STEP_SUMMARY"
 
-          if [ "$VERSION" = failure ] || [ "$FFMPEG" = failure ]; then
+          if [ "$VERSION" = failure ] || [ "$RELEASE_INFO" = failure ] || [ "$FFMPEG" = failure ]; then
             {
               echo "**不允许合入**：上述检查有失败项，合入后会卡在 \`release.yml\` 的 validate 或打包阶段。"
               echo ""
               echo "本地可复现："
               echo '```bash'
               echo './gradlew checkVersion checkReleaseConsistency'
+              echo 'python scripts/sync-release.py sync --check'
               echo 'python3 .github/scripts/check-ffmpeg-assets.py'
               echo '```'
             } >> "$GITHUB_STEP_SUMMARY"

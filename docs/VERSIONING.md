@@ -9,7 +9,7 @@
 采用 **三位版本号**：`MAJOR.MINOR.PATCH`（如 `6.0.0`、`6.11.1`）。
 
 - 文档与对外表述可带前缀 `v`，如 **v6.11.1**。
-- 构建产物使用纯数字：`versionName = "6.11.1"`，与 ROADMAP 中的版本一致。
+- 构建产物使用纯数字：`versionName = "6.11.1"`，真源是 `release.toml`（ROADMAP 只是它的归档镜像）。
 
 ## 2. 何时升级哪一位
 
@@ -23,19 +23,27 @@
 
 - 每次正式发布**只递增一位**：能 PATCH 就 PATCH，否则 MINOR，再否则 MAJOR。
 - 避免跳号：从 `6.11.1` 下次应为 `6.11.2` 或 `6.12.0`，不直接出现未发布过的版本号。
-- 发布后立即在 **ROADMAP.md** 中写入该版本、日期及变更，并更新「当前版本」。
+- 版本条目由 `syncVersion` 追加到 ROADMAP / 站点时间线；「当前版本」页脚仍人写（脚本不碰散文）。
 
 ## 3. 版本号与构建系统
 
-版本号集中维护在 `gradle.properties`：
+真源是仓库根的 **`release.toml`**，只写 `version`；`versionCode` 由脚本派生并写进 `gradle.properties`：
 
-```properties
-hmp.versionCode=71000
-hmp.versionName=7.1.0
+```toml
+# release.toml —— 手改点
+version = "7.2.1"
+date = "2026-09-25"
 ```
 
-- **versionName**：与三位版本号一致。各模块通过 `project.findProperty("hmp.versionName")` 引用。
-- **versionCode**：每次发布**严格递增**的整数，按 `MAJOR*10000 + MINOR*1000 + PATCH` 换算（如 `7.1.0` → `71000`）。
+```properties
+# gradle.properties —— syncVersion 的产物，别手改
+hmp.versionCode=72001
+hmp.versionName=7.2.1
+```
+
+- **versionName**：与三位版本号一致。各模块仍用 `project.findProperty("hmp.versionName")` 引用（取值来源变了，用法没变）。
+- **versionCode**：`MAJOR*10000 + MINOR*1000 + PATCH`（`7.2.1` → `72001`）。手写会立刻被 `checkVersion`
+  的自洽断言拦下，所以脚本才负责算。
 
 ## 4. 分支策略
 
@@ -83,16 +91,16 @@ git checkout -b release/X.Y.0
 # 2. 合入开发线（改动在 feature/<line> 上，尚未进 master）
 git merge feature/agent-build
 
-# 3. 更新版本号
-#    gradle.properties: hmp.versionCode + hmp.versionName
-#    ROADMAP.md: 新增版本条目 + 更新「当前版本」
-#    ⚠️ bump 不止改 gradle.properties —— 下述声明漏任一都会被 checkReleaseConsistency
-#       判为 drift，导致 validate 失败、四个构建 job 全部跳过。完整清单见 §6。
-#       站点 site/：js/config.js 的 version + index.html 的 JSON-LD softwareVersion
-#                  + changelog.html 新增 <!-- vX.Y.Z --> 条目
-#       iOS：ios/HMP/project.yml（CFBundleShortVersionString / MARKETING_VERSION）
-#            ios/HMP/HMP/Info.plist、ios/HMP/HMP.xcodeproj/project.pbxproj
-#       shared-ios：Anchor.kt 的 SHARED_IOS_FRAMEWORK_VERSION
+# 3. 更新版本号 —— 只改 release.toml 这一个文件
+#    version = "X.Y.0"     （versionCode 由 MAJOR*10000+MINOR*1000+PATCH 派生，别手写）
+#    date    = 发布当天再补（可先留空）
+#    [[section]] 写这一版对用户说的话；commit hash 与 R 编号不要进这里，那些属于 ROADMAP
+./gradlew syncVersion      # 把 release.toml 同步到各派生点
+#    覆盖式写出：gradle.properties、site/js/config.js、site/index.html 的 JSON-LD、
+#               shared-ios/Anchor.kt、iOS project.yml / Info.plist / project.pbxproj
+#    追加式写出：ROADMAP 版本条目、site/changelog.html 时间线（该版已有手写条目则跳过）
+#    ⚠️ 上面这些一律不要手改 —— 从前它们靠人抄 9 处，漏一处就是一次发版事故。
+#    核对：python scripts/sync-release.py sync --check   （CI 的 validate 也跑它）
 
 # 4. 本地构建验证（CI 已不跑单元测试 —— 这一步是唯一守门人，别跳）
 ./gradlew preflight
@@ -107,11 +115,11 @@ git push origin release/X.Y.0
 ```
 
 PR 合入 master 后，CI 自动执行：
-- 版本号不变量 + 发布一致性校验（`checkVersion` / `checkReleaseConsistency`）
+- 版本号不变量 + 派生点一致性（`checkVersion` / `checkReleaseConsistency` → 委托 `sync --check`）
 - Android + 桌面端并行构建
-- 产物齐全断言 + SHA256 + 分类 Release Notes（正文取 ROADMAP 条目）
+- 产物齐全断言（名单取自 `release.toml`）+ SHA256 + Release Notes（正文由 `release.toml` 渲染）
 - 创建 `vX.Y.0` tag + GitHub Release（可原地重跑：tag 存在即复用）
-- 部署产品展示站点到 GitHub Pages
+- 部署产品展示站点到 GitHub Pages（只核对与 `release.toml` 一致，不再现场改写内容）
 
 > ⚠️ **单元测试不在 CI 跑**（自 2026-09-24）：`testAll` 在 runner 上会静默挂死、拖住整条发版通道，
 > 成因未查清（TODO R31），故从 validate 移除。代价是**master 上的测试回归没有无人值守的把关**，
@@ -130,16 +138,10 @@ git checkout -b release/X.Y.Z
 # 2. 合入开发线（如有需要）
 git merge feature/agent-build
 
-# 3. 更新版本号
-#    gradle.properties: hmp.versionCode++ , hmp.versionName → X.Y.Z
-#    ROADMAP.md: 新增版本条目 + 更新「当前版本」
-#    ⚠️ bump 不止改 gradle.properties —— 下述声明漏任一都会被 checkReleaseConsistency
-#       判为 drift，导致 validate 失败、四个构建 job 全部跳过。完整清单见 §6。
-#       站点 site/：js/config.js 的 version + index.html 的 JSON-LD softwareVersion
-#                  + changelog.html 新增 <!-- vX.Y.Z --> 条目
-#       iOS：ios/HMP/project.yml（CFBundleShortVersionString / MARKETING_VERSION）
-#            ios/HMP/HMP/Info.plist、ios/HMP/HMP.xcodeproj/project.pbxproj
-#       shared-ios：Anchor.kt 的 SHARED_IOS_FRAMEWORK_VERSION
+# 3. 更新版本号 —— 只改 release.toml（version / notes 小节），然后：
+./gradlew syncVersion                    # 派生点全部跟上（含 ROADMAP 与站点时间线条目）
+python scripts/sync-release.py sync --check   # 必须绿
+#    完整清单与原因见 §5.1 第 3 步与 §6
 
 # 4. 本地构建验证（CI 已不跑单元测试 —— 这一步是唯一守门人，别跳）
 ./gradlew preflight
@@ -167,25 +169,27 @@ PATCH 发版流程与 MINOR/MAJOR 相同，统一走 `release/* → master` PR �
 
 每次发版前，确认以下事项：
 
-### 版本号
-- [ ] `gradle.properties` 中 `hmp.versionName` 已更新
-- [ ] `gradle.properties` 中 `hmp.versionCode` 已递增，且与 `versionName` 自洽（`MAJOR*10000+MINOR*1000+PATCH`）
+### 版本真源（唯一手改点）
+- [ ] `release.toml` 的 `version` 已更新 —— **`versionCode` 由脚本派生，不要手写**
+- [ ] `[[section]]` 是用户视角的话；commit hash、R 编号、内部待办一律放 ROADMAP
+- [ ] `[[artifact]]` 只在平台增减时改（改了要同步 `site/js/config.js` 的 `assets`，脚本会核对孤儿键）
+- [ ] 跑过 `./gradlew syncVersion`
 
-### 版本声明一致性（会被 `checkReleaseConsistency` 自动校验，漏一项即判失败）
-- [ ] `site/js/config.js` — `version:`
-- [ ] `site/index.html` — JSON-LD `softwareVersion`
-- [ ] `site/changelog.html` — 含本次版本的 `<!-- vX.Y.Z -->` 标记
-- [ ] `ROADMAP.md` — 含 `### vX.Y.Z (` 条目
-- [ ] `ios/HMP/project.yml` — `CFBundleShortVersionString` + `MARKETING_VERSION`
-- [ ] `ios/HMP/HMP/Info.plist` — `CFBundleShortVersionString`
-- [ ] `ios/HMP/HMP.xcodeproj/project.pbxproj` — `MARKETING_VERSION`
-- [ ] `shared-ios/.../Anchor.kt` — `SHARED_IOS_FRAMEWORK_VERSION`（可带 `-aN` 后缀）
-- [ ] 自查：`./gradlew checkReleaseConsistency`
+### 派生点（由 syncVersion 写，**禁止手改**）
+- [ ] `gradle.properties`（`hmp.versionName` / `hmp.versionCode`）
+- [ ] `site/js/config.js`（`version` / `released`）、`site/index.html`（JSON-LD `softwareVersion`）
+- [ ] `site/changelog.html` 时间线条目、`ROADMAP.md` 版本条目（该版已有手写条目时脚本跳过）
+- [ ] `ios/HMP/project.yml`（`CFBundleShortVersionString` + `MARKETING_VERSION`）
+- [ ] `ios/HMP/HMP/Info.plist`、`ios/HMP/HMP.xcodeproj/project.pbxproj`
+- [ ] `shared-ios/.../Anchor.kt`（`-aN` 后缀由脚本原样保留）
+- [ ] 自查：`python scripts/sync-release.py sync --check` 或 `./gradlew checkReleaseConsistency`（同一实现）
 
-### 文档与站点
-- [ ] `ROADMAP.md` 已新增版本条目（日期 + 变更说明），「当前版本」已更新
-- [ ] `site/changelog.html` 已新增版本条目（最新一条用动态版本号 `data-site="version"`，历史条目写死版本号）
-- [ ] `site/download.html` 下载项与 `site/js/config.js` 的 `assets` 文件名模板对应
+### 脚本管不到、必须人看的
+- [ ] `release.toml` 的 `date` 在发布当天回填（部署时只核对、不擅自改写；不符会告警）
+- [ ] **`--check` 只证明"抄对了"，不证明"写得对"**：读一遍 `python scripts/sync-release.py notes`
+      的输出，对里面每条平台/产物断言去实物找反证（v7.2.1 之前就出现过"文档说 AppImage 已修好、
+      实际早改发 DEB"这种一手写错的口径）
+- [ ] README / CLAUDE 里的「最新版本」叙述不在门禁内（TODO R36），发版后手改
 
 ### 构建验证
 - [ ] **本地 `./gradlew preflight` 通过**（版本号不变量 + 发布一致性 + 全量单元测试；**CI 不跑单元测试，这里是唯一把关**）
@@ -251,14 +255,23 @@ PR 合入 master ────┼─ build-android ──────────
 | Android | — | APK + AAB | `HMP-vX.Y.Z-release.apk` / `.aab` |
 | macOS | Apple Silicon (arm64) | DMG | `HMP-vX.Y.Z-macos-arm64.dmg` |
 | Windows | x86_64 | MSI | `HMP-vX.Y.Z-windows-x86_64.msi` |
-| Linux | x86_64 | DEB + AppImage | `HMP-vX.Y.Z-linux-x86_64.deb` / `.AppImage` |
+| Linux | x86_64 | **仅 DEB** | `HMP-vX.Y.Z-linux-x86_64.deb`（不提供 AppImage：`TargetFormat.AppImage` 是 jpackage 的解包目录，产不出 `.AppImage` 文件，该格式已于 v7.2.1 移除） |
 | 校验 | — | SHA256 | `SHA256SUMS.txt` |
+
+> 站点侧的下载链接模板在 `site/js/config.js` 的 `assets` 里，键必须与上表**一一对应** —— 多出来的键会指向不存在的资产、点开就是 404（曾出现过 `appimage` 键残留）。
 
 ### Release Notes
 
-**正文取自 `ROADMAP.md` 的本次版本条目**（单一事实来源）：自动抽取 `### vX.Y.Z (` 那一节，
-并剔除 `>` 引用块（内部进度注记，不对外发布）。这样完成度口径由 ROADMAP 负责，
-不会出现发布说明与 ROADMAP 各说各话。
+**正文由 `release.toml` 渲染**（`python scripts/sync-release.py notes`）：`[[section]]` 出小节与条目，
+`[[artifact]]` 出产物表，`notes_footer` 出"iOS 不提供安装包"这类缺项说明。工作流里不再嵌任何文案或文件名。
+
+> 历史：这里曾经是"从 ROADMAP 抽 `### vX.Y.Z (` 那一节"。散文当数据解析害处实测过两次 ——
+> ① 最新版本后面再没有 `### v` 标题，awk 冲到 EOF，把「关键技术演进 / 未来发展方向」灌进公开 Notes
+> （v7.2.1 的 `body.md` 172 行抽取段，线上正文是发布后人工删到 58 行的）；② ROADMAP 标题的形状
+> （半角左括号紧跟日期）成了隐式解析契约，改一下就会静默漏整节而 CI 全绿。现在 ROADMAP 只给人读，
+> 程序不再解析它。
+
+发布时 `release.yml` 会把渲染结果整段打进日志（dry run 也会），**看一眼再放出去**。
 
 commit message 分类降级为「工程提交」附录：
 
@@ -303,11 +316,22 @@ commit message 分类降级为「工程提交」附录：
 
 ---
 
-## 8. 与 ROADMAP 的同步
+## 8. 真源分层（谁是什么的权威）
 
-- **ROADMAP.md** 是版本历史与变更日志的**单一事实来源**。
-- 版本号、发布日期、变更说明以 ROADMAP 为准。
-- `versionName` 与 ROADMAP 中的版本号保持一致。
+| 层 | 载体 | 权威范围 | 谁写 |
+|---|---|---|---|
+| 配置 | **`release.toml`** | **当前版本**的号、日期、对外文案、产物清单 | 人（每版一次） |
+| 流程 | `.github/workflows/*.yml` | 构建与发布步骤 | 人；**不放任何版本字面量或文案** |
+| 工具 | `scripts/sync-release.py` | 派生点的写与核 | 人 |
+| 派生 | `gradle.properties`、iOS 三处、`site/js/config.js`、`Anchor.kt` | 无自主权 | 脚本 |
+| 归档 | **`ROADMAP.md`**、`site/changelog.html` 时间线 | 工程史与历史版本口径（含"某版未出包"） | 脚本追加 + 人补结论 |
+| 工序 | `skills/release-prep/SKILL.md` | 发版步骤、判据、停机点 | 人 |
+
+- **ROADMAP 不再是程序解析对象**，只作内部工程史：commit hash、R 编号、审查结论这类写给未来的自己。
+- 它与 `release.toml` 会有内容重叠 —— 靠规矩划开（对外 vs 对内），**不靠脚本对齐两份散文**。
+- 历史版本的说明看 ROADMAP 与站点归档；`release.toml` 只有当前版，`notes --version <旧版>` 会被拒。
+- 版本作废（合进 master 却没出包）用 `scripts/sync-release.py mark-void <版> --reason "…"` 打两处标记，
+  那句结论由人补写。
 
 ---
 

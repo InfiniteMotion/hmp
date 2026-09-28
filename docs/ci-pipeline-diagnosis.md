@@ -1,5 +1,10 @@
 # CI/CD 现状诊断与处置建议
 
+> **⚠️ 本文是 2026-09-15 的快照，不是当前流水线** —— 现状以 [VERSIONING.md](VERSIONING.md) §CI/CD 与 [TODO](../TODO.md) §五 为准。此后已发生的：
+> ① 单测整体移出 CI（`testAll` 在 runner 上静默挂死，TODO R31 未结案）；② 新增 `pr-check.yml`（Pre-release Check，合入前跑 `checkVersion` + `checkReleaseConsistency` + FFmpeg 资产核查）；
+> ③ 新增 `checkReleaseConsistency`（9 处版本声明一致性）；④ Linux 改**只发 DEB**，AppImage 格式移除；⑤ FFmpeg 注入规则按 jlink 布局重写（R32 结案）。
+> 本文的 P0-1 / P0-2 结论对应的是 v7.1.0 那套流水线，读时按该基准理解。
+
 > 核查日期：2026-09-15 ｜ 事实基准：`master` = `3abd5ab`（= tag `v7.1.0`）
 > 唯一 workflow：`.github/workflows/release.yml`（337 行，7 个 job）
 

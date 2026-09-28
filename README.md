@@ -15,7 +15,7 @@ Hearable Music Player是我个人开发的一款专注于本地音乐播放的�
 - 已集成 DeepSeek API 实现 AI 推荐
 - 已实现 UI 与交互，**三端共用一套 Compose UI**（`shared-ui`，v7.1 起 iOS 亦切换至共享层）
 - 已支持 Android、Desktop 和 iOS 三平台
-- 已完成：AI 功能 Agent 化（方向 B；**F1–F14 已随 v7.2.0 交付**，F10 语音会话挂起；设计资料见 [docs/7_x/B agent-build](docs/7_x/B%20agent-build/)）
+- 已完成：AI 功能 Agent 化（方向 B；**F1–F14 的代码随 v7.2.0 合入，首个可下载的安装包是 v7.2.1**，F10 语音会话挂起；设计资料见 [docs/7_x/B agent-build](docs/7_x/B%20agent-build/)）
 
 ## ✨ 核心功能
 
@@ -96,7 +96,7 @@ Hearable Music Player是我个人开发的一款专注于本地音乐播放的�
 - 网络权限 (用于推荐功能)
 
 ### iOS
-- iOS 26.0 及以上
+- iOS 26.3 及以上（`ios/HMP/project.yml` 的 deploymentTarget；shared 模块本身最低 16.0）
 - 存储空间权限
 - 网络权限 (用于推荐功能)
 
@@ -106,7 +106,7 @@ Hearable Music Player是我个人开发的一款专注于本地音乐播放的�
 
 #### Android
 - Android Studio Ladybug | 2024.2.1 或更高版本
-- Kotlin 2.2.21 或更高版本
+- Kotlin 2.3.21 或更高版本（必须走 2.3 线：navigation3 全系 iOS klib 是 2.3 ABI，降回 2.2 会断 iOS）
 - Gradle 9.0 或更高版本
 - Android SDK 36
 
@@ -143,9 +143,9 @@ Hearable Music Player是我个人开发的一款专注于本地音乐播放的�
    git clone https://github.com/InfiniteMotion/HMP.git
    ```
 
-2. 生成共享Kotlin框架
+2. 生成聚合框架与 podspec（`:shared-ios` 把 `shared` + `shared-ui` 链成单一 `sharedIos` framework）
    ```bash
-   cd HMP && ./gradlew :shared:generateDummyFramework
+   cd HMP && ./gradlew :shared-ios:generateDummyFramework && ./gradlew :shared-ios:podspec
    ```
 
 3. 安装CocoaPods依赖
@@ -211,11 +211,12 @@ Hearable Music Player是我个人开发的一款专注于本地音乐播放的�
 - **[CLAUDE](CLAUDE.md)** — AI 协作者速查：常用命令、目录结构、技术栈版本、包名与分支策略
 - **[docs/README](docs/README.md)** — **文档索引**与各文档职责说明（含历史版本方案与当前 Agent 设计资料）
 - **[docs/DESIGN_SYSTEM](docs/DESIGN_SYSTEM.md)** — 设计系统：色彩 / 字体 / 间距 / 组件规范
+- **[docs/VERSIONING](docs/VERSIONING.md)** — 版本号格式、bump 时要同步的 9 处声明、两个 CI 工作流与产物清单
 - **[Room KMP 配置](docs/ROOM_KMP_SETUP.md)** — Room 跨平台数据库配置经验总结
 
 ## 📝 开发日志
 
-完整版本历史与变更日志见 **[ROADMAP](ROADMAP.md)**。已发布至 master 的最新版本：**v7.1.0**；**v7.2.1 发布中**（`release/7.2.1` → master；桌面端发版产物覆盖 macOS arm64 / Windows x86_64 / Linux x86_64，FFmpeg 二进制托管于本仓库 `ffmpeg-binaries` Release）；**后续待做：方向 C 播放增强、F10 语音会话（挂起）；后续按需扩展 macOS x86_64 / Linux arm64 产物**。**后续待做：方向 C 播放增强、F10 语音会话（挂起）**。
+完整版本历史与变更日志见 **[ROADMAP](ROADMAP.md)**。最新发布版本：**v7.2.1**（2026-09-25 发布，GitHub Release 标 Latest）—— 桌面端产物覆盖 macOS arm64（DMG）/ Windows x86_64（MSI）/ Linux x86_64（DEB），另有 Android APK + AAB 与 `SHA256SUMS.txt`；FFmpeg 二进制托管于本仓库 `ffmpeg-binaries` Release，打包时按 SHA256 与真实 CPU 架构校验后注入。**v7.2.0 的代码已在 master，但未产出安装包**（发版通道当时的桌面打包故障），其功能随 v7.2.1 分发。**下一版 v7.2.2（未开工）**范围是 [TODO](TODO.md) §一 的 review 遗留项；**后续待做：方向 C 播放增强（C1–C9 未排期）、F10 语音会话（挂起）；后续按需扩展 macOS x86_64 / Linux arm64 产物**。
 
 ## 🤝 贡献指南
 
