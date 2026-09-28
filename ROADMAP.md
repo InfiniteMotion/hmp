@@ -243,8 +243,9 @@
 - **工程与真机**：iOS bundle id `com.hmp.HMP` → `com.hearablemusic.HMP`（免费团队唯一标识注册要求）；Podfile 适配 Kotlin 2.3（`linkPodFramework` 任务 + composeResources 打包布局）；真机（iPhone 13）构建 / 安装 / 启动验证通过
 - **修复**：底部融合栏 Tab 常驻（移除显示条件对 `isMiniPlayerVisible` 的依赖，无歌曲时导航可见）；shared 模块绝对路径任务（`schemaDirectory` / `copyIconsToIos`）导致的 iOS 任务图校验失败
 
-### v7.2.0 (2026-09-24)
-> 合入前 review 结论见 [docs/7_x/B agent-build/review-7.2.md](docs/7_x/B%20agent-build/review-7.2.md)：4 项 A 级（生命周期锁自锁、alwaysAllow 覆盖 STRONG_CONFIRM、Agent 启用开关不落盘、降级静默清库）+ B3 取消被吞，**已在本分支修完并补回归用例**；余项按 B/C 级归档为 TODO 的 **R1–R29**（v7.2.1 作业）。本条描述按该报告校准，不按 taskbook 的完成口吻照抄。
+### v7.2.0 (2026-09-24)【未发布：无安装包】
+> **发布状态**：代码已合入 master（PR #34），但**没有产出任何发布物** —— 该次 Release 运行在桌面三端打包阶段失败（`gh run 35956812895`），无 `v7.2.0` tag、无 GitHub Release。本版功能全部随 **v7.2.1** 分发，需要安装包的读者直接取 v7.2.1。
+> 合入前 review 结论见 [docs/7_x/B agent-build/review-7.2.md](docs/7_x/B%20agent-build/review-7.2.md)：4 项 A 级（生命周期锁自锁、alwaysAllow 覆盖 STRONG_CONFIRM、Agent 启用开关不落盘、降级静默清库）+ B3 取消被吞，**已在本分支修完并补回归用例**；余项按 B/C 级归档为 TODO 的 **R1–R17 / R20–R29**（**v7.2.2 作业** —— v7.2.1 实际只发了发版通道修复，这批一条没动）。本条描述按该报告校准，不按 taskbook 的完成口吻照抄。
 
 - **AI 功能 Agent 化落地（方向 B，F1–F14，自 `feature/agent-build` 合入）**：
   - 引擎与工具层：Master + SubAgent 编排；四层组件解耦（`LlmCallExecutor` / `ToolCallExecutor` / `ReActLoop` / `StopSignal`）；工具面 29 基础 + `capability_status`；权限体系 9→6 概念收敛（`TrustTier` → `trustLevel`、`AgentPolicyConfig` 2 字段）+ `PolicyGuard` 与 ConfirmGate 全链路
@@ -262,11 +263,32 @@
 - **测试**：`desktopTest` 961 例实跑通过（F13 可见性收敛 + DI 核对 + 测试补齐）
 
 ### v7.2.1 (2026-09-25)
-- **发版通道与桌面三端打包修复（CI 工具链加固）**：
-  - 桌面端打包工具链：Linux 装 `appimagetool` + `libfuse2`（修 AppImage 打包必挂）、Windows 改用 `bash` 并显式将 WiX `candle`/`light` 注入 `PATH`（修 MSI 打包失败）
-  - FFmpeg 二进制源统一为本仓库 Release `ffmpeg-binaries`（与 CI 出网同源，避免第三方源受限导致 macOS/Linux/Windows 三端打包失败）；二进制由发版人手动上传，打包时按 SHA256 校验，不符立即失败
-  - 发版护栏：`build.gradle.kts` 新增 `syncVersion` / `checkReleaseConsistency`；`release.yml` 收口单测移出 CI、ROADMAP 发布说明、版本一致性校验、三端产物断言 FFmpeg 已进包
-  - `gradle.properties` 禁用 `org.gradle.configureondemand`（与 parallel 有配置期锁竞态，会导致 `testAll` 无输出静默挂死）
+> **发布状态**：已发布 —— GitHub Release `v7.2.1`（2026-09-25 18:06Z，标 Latest），产物五件齐全：`macos-arm64.dmg` / `windows-x86_64.msi` / `linux-x86_64.deb` / `release.apk` + `release.aab` / `SHA256SUMS.txt`。触发链 PR #42（`release/7.2.1` → master），合并前在 release 分支用 dry run + `workflow_dispatch` 重试至三端全绿。
+> **范围口径**：本版**只含发版通道与桌面打包工具链修复**，不含 v7.2.0 review 的 R 系列遗留（那批改列 v7.2.2，见 TODO §一）。
+> **发布说明当时的人工干预（已根治，见「发版链改造」）**：本次 `body.md` 实测 187 行（其中 ROADMAP 抽取段占 **172 行**）—— `release.yml` 抽 ROADMAP 正文的 awk 在「当前版本恰是最后一个 `### v` 条目」时**没有终止边界**，会把「关键技术演进 / 三大方向」等内部章节一并灌进公开 Notes。线上 Notes 是发布后人工删到 58 行的结果。现已改为从 `release.toml` 渲染，ROADMAP 不再被程序解析。
+
+- **桌面三端打包修复**：
+  - Windows：`run:` 默认 shell 是 pwsh，`-Phmp.release-build=true` 在点号处断词被拆成 `-Phmp` + `.release-build=true` → 相关步骤改显式 `shell: bash`，并把 WiX `candle`/`light` 注入 `PATH`，MSI 恢复产出（上一个带 MSI 的发布是 v7.1.0，2026-08-26；断点在 2026-09-01 的 `8ba051cc`）
+  - macOS / Linux：FFmpeg 注入点原本按 `java.home/bin/ffmpeg` 查找，而 jlink 出的 runtime image 里**没有 `bin` 目录**（只有 `Contents/Home/{lib,legal,conf}`），旧规则 `endsWith("Home/bin")` 从一开始就不可能命中 → **DMG/DEB 从未带上 FFmpeg**，属长期静默失败（`d977e41` 新加的断言把它炸出来）。规则改为归一化到 java.home（Windows 走 `bin/server`，macOS/Linux 走 `lib/server`）并**缺 `bin` 就补建**（`1b7cca4`）
+  - deb 内 FFmpeg 核查：`dpkg-deb -c | grep -q` 因 SIGPIPE + `pipefail` 把「找到了」误判成「没找到」，本来正常的包反而让 job 失败 → 先把清单落盘再 grep（`e8525f6`，2026-09-25 实测）
+  - **Linux 放弃 AppImage**：Compose 的 `TargetFormat.AppImage` 是 jpackage 的 app-image（解包目录），永远产不出 `.AppImage` 文件 → 该格式已从 Linux 移除、只发 DEB，`appimagetool`/`libfuse2` 不再安装（本条目原先写的「补齐 appimagetool 修 AppImage 必挂」按实际产出更正）
+- **FFmpeg 二进制源**统一为本仓库 Release `ffmpeg-binaries`（与 CI 出网同源，避免第三方源受限拖垮三端打包）；二进制由发版人手动上传，打包时按 SHA256 校验，不符立即失败；新增 `.github/scripts/check-ffmpeg-assets.py`，逐个下载校验 SHA256 并解析 Mach-O / ELF / PE 头，确认真实 CPU 架构与 map key 匹配
+- **合入前预检**：新增 `.github/workflows/pr-check.yml`（Pre-release Check）—— 把 `checkVersion` + `checkReleaseConsistency` + FFmpeg 资产核查从「发布才暴露」挪到 PR 阶段，只对 `release/*` 的 PR 跑（feature PR 不 bump 版本号，跑必红），结论汇总进 job summary
+- **发版护栏**：`build.gradle.kts` 新增 **`checkReleaseConsistency`**（以 `gradle.properties` 为真源，核对站点 `site/js/config.js` 与 JSON-LD、iOS `project.yml`×2 / `Info.plist` / `pbxproj` / `Anchor.kt`、站点与 ROADMAP 的发版记录，共 **9 处**声明；只读校验不改文件）；`release.yml` 收口「单测移出 CI」「ROADMAP 作正文唯一来源」「产物齐全硬断言」「dry run 真正验产物收齐」
+- `gradle.properties` 移除 `org.gradle.configureondemand`（与 parallel 有配置期锁竞态，会导致 `testAll` 无输出静默挂死，即 TODO R31 的绕行项）
+
+<!-- BEGIN SYNCED RELEASE ENTRY v7.2.2（scripts/sync-release.py 追加，勿手改本块） -->
+### v7.2.2
+- **发版与构建工具链**
+  - **应用功能与界面在本版本没有变化**：本次是工程与发版链路的调整
+  - 版本号声明从 9 处手工抄写收敛为仓库根 release.toml 一处，其余位置改由脚本同步并校验
+  - 发布说明改由配置渲染，此前会把内部路线图章节一并公开（上一版实测泄漏 172 行，发布后靠人工删）
+  - 桌面各端产物的收集、改名与齐全断言由同一份配置驱动，缺任一平台直接拒绝发布，不再静默出缺平台的包
+  - 合入前新增预检：版本声明不一致或发布说明渲染异常会在 PR 上就报错，而不是等发布失败才发现
+- **站点与文档修正**
+  - 移除下载页指向不存在资产的 Linux AppImage 按钮（点开必然 404），Linux 只提供 DEB
+  - 修正 README / CLAUDE / DEVELOP 里过期的版本口径、iOS 部署目标（26.3）与 Kotlin 版本要求（2.3.21）
+<!-- END SYNCED RELEASE ENTRY v7.2.2 -->
 
 ## 🛠️ 关键技术演进
 
@@ -426,8 +448,10 @@
 - 收益：v6.x 遗留的「iOS 双实现对齐」债务永久消失，新功能默认三端交付
 
 ### 阶段10：智能化与站点同步 (v7.2，2026-09)
-- v7.2.0：方向 B Agent 化自 `feature/agent-build` 并入发版 —— Master + SubAgent 编排、29 工具面、权限护栏、UserMemory 用户认识、Token 计量、界面自适应与 14 语言（残留项见 `docs/7_x/B agent-build/review-7.2.md`）
-- v7.2.0：官网改版与站点元信息单源化，版本号由 Release 流水线自动同步
+- v7.2.0（**未发布安装包**，功能全部随 v7.2.1 分发）：方向 B Agent 化自 `feature/agent-build` 并入发版 —— Master + SubAgent 编排、29 工具面、权限护栏、UserMemory 用户认识、Token 计量、界面自适应与 14 语言（残留项见 `docs/7_x/B agent-build/review-7.2.md`）
+- v7.2.0（同上，未单独出包）：官网改版与站点元信息单源化 —— 版本号写在 `site/js/config.js`，当时由 Pages 部署现场改写；发版链改造后改为 `release.toml` → `syncVersion` 写入并核对（见下）
+- v7.2.1（**已发布，桌面三端 + Android 产物齐**）：发版通道与桌面打包工具链修复 —— FFmpeg 进包规则、Linux 改发 DEB、Windows MSI 工具链、`checkReleaseConsistency` 与 Pre-release Check 预检
+- **发版链改造（v7.2.1 之后落地，未随任何已发布版本）**：版本真源从「9 处人抄」收敛为仓库根 `release.toml` 一处；`scripts/sync-release.py` 负责派生点写与核（`gradle.properties` / iOS 三处 / 站点 / `Anchor.kt` / 归档条目），`./gradlew syncVersion` 是入口；Release Notes 正文改由 `release.toml` 渲染，**ROADMAP 不再被程序解析**（此前的 awk 抽散文没有终止边界，v7.2.1 曾把 172 行内部章节灌进公开说明）；`pr-check.yml` 新增 `release-info` job 在合入前跑 `sync --check` 并预渲染正文；发版工序与判据沉淀进 `skills/release-prep/SKILL.md`
 - 遗留：F10 语音会话挂起；F11 后台生命周期真机核验；方向 C 播放增强（C1–C9）未启动
 
 ## 🚀 未来发展方向
@@ -478,8 +502,10 @@
 
 ---
 
-**最后更新时间**: 2026-09-25
-**当前版本**: v7.2.1（本版；修复发版通道与桌面三端打包，master 已就绪待发布）
+**最后更新时间**: 2026-09-28
+**最新发布版本**: **v7.2.1**（2026-09-25 发布，GitHub Release 标 Latest）—— 产物：macOS arm64 DMG / Windows x86_64 MSI / Linux x86_64 DEB / Android APK+AAB / SHA256SUMS
+**未出包的版本**: v7.2.0（代码已在 master，PR #34；Release 运行失败，无 tag 无安装包，功能随 v7.2.1 分发）
+**下一版（v7.2.2，未开工）**: TODO §一 的 R1–R17、R23–R26（v7.2.0 review 的 B/C 级遗留）+ §四 清理线 R20–R22、R27–R30
 **开发中（未发布）**: 方向 C 播放增强（C1–C9 未启动）；方向 B 残留 —— F10 语音会话挂起、F11 真机核验、F12 T2b 配额候补 / T5 成本可见后置
 
 ---

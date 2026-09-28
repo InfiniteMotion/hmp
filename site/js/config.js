@@ -7,8 +7,8 @@
 window.SITE = {
   name: 'Hearable Music Player',
   shortName: 'HMP',
-  version: '7.2.1',
-  released: '2026-09-24',
+  version: '7.2.2',
+  released: '2026-09-25',
   author: 'WLYB',
   year: 2026,
   repo: 'https://github.com/InfiniteMotion/HMP',
@@ -34,7 +34,6 @@ window.SITE = {
     apk: 'HMP-v{v}-release.apk',
     msi: 'HMP-v{v}-windows-x86_64.msi',
     dmgArm: 'HMP-v{v}-macos-arm64.dmg',
-    debAmd: 'HMP-v{v}-linux-x86_64.deb',
-    appimage: 'HMP-v{v}-linux-x86_64.AppImage'
+    debAmd: 'HMP-v{v}-linux-x86_64.deb'
   }
 };

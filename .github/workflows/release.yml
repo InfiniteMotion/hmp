@@ -46,11 +46,19 @@ jobs:
           distribution: temurin
           java-version: 21
 
+      # checkReleaseConsistency 现在委托 scripts/sync-release.py（版本真源 release.toml），
+      # 所以这个 job 也需要确定版本的 Python，而不是赌镜像里预装了什么。
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      # 版本校验只留 Gradle 一处实现。原先这里是第二套内联实现：规则与 checkVersion
-      # 不一致（只比最新 tag、不比 versionCode 自洽与递增），且完全不管 iOS/站点声明是否跟上。
+      # 版本校验只留一处实现：Gradle 任务 → 脚本 → release.toml。
+      # 原先这里是第二套内联实现：规则与 checkVersion 不一致（只比最新 tag、不比 versionCode
+      # 自洽与递增），且完全不管 iOS/站点声明是否跟上。
       - name: Check version & release consistency
         run: ./gradlew checkVersion checkReleaseConsistency --no-daemon --no-configuration-cache
 
@@ -315,11 +323,16 @@ jobs:
         with:
           fetch-depth: 0
 
+      # 版本与发布文案的真源是 release.toml，解释它的是 scripts/sync-release.py。
+      # 这里固定 Python 版本：脚本用内置 tomllib（3.11+），不赌 runner 镜像里装了什么。
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
       - name: Read version
         id: version
-        run: |
-          VERSION=$(grep '^hmp.versionName=' gradle.properties | cut -d'=' -f2)
-          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+        run: echo "VERSION=$(python scripts/sync-release.py version)" >> $GITHUB_OUTPUT
 
       - name: Download all artifacts
         uses: actions/download-artifact@v4
@@ -327,49 +340,9 @@ jobs:
           path: artifacts/
 
       - name: Collect and rename artifacts
-        id: assets
-        run: |
-          VERSION=${{ steps.version.outputs.VERSION }}
-          mkdir -p release-assets
-
-          # Android
-          APK=$(find artifacts/build-android -name "app-release.apk" 2>/dev/null | head -1)
-          [ -n "$APK" ] && cp "$APK" "release-assets/HMP-v${VERSION}-release.apk"
-          AAB=$(find artifacts/build-android -name "app-release.aab" 2>/dev/null | head -1)
-          [ -n "$AAB" ] && cp "$AAB" "release-assets/HMP-v${VERSION}-release.aab"
-
-          # macOS（arm64，来自 macos-latest）
-          for f in artifacts/build-desktop-macos/*.dmg; do
-            [ -f "$f" ] && cp "$f" "release-assets/HMP-v${VERSION}-macos-arm64.dmg"
-          done
-
-          # Windows（x86_64）
-          for f in artifacts/build-desktop-windows/*.msi; do
-            [ -f "$f" ] && cp "$f" "release-assets/HMP-v${VERSION}-windows-x86_64.msi"
-          done
-
-          # Linux x86_64（deb）
-          DEB=$(find artifacts/build-desktop-linux -name "*.deb" 2>/dev/null | head -1)
-          [ -n "$DEB" ] && cp "$DEB" "release-assets/HMP-v${VERSION}-linux-x86_64.deb"
-
-          ls -lh release-assets/
-
-      # 上面的收集全是 `[ -f ... ] && cp`，某个平台产物缺失时会静默跳过、Release 照样发布成功。
-      # 这里做硬断言：必需产物一个都不能少。
-      - name: Assert all artifacts present
-        run: |
-          VERSION=$(grep '^hmp.versionName=' gradle.properties | cut -d'=' -f2)
-          missing=0
-          for f in "HMP-v${VERSION}-release.apk" "HMP-v${VERSION}-macos-arm64.dmg" \
-                   "HMP-v${VERSION}-windows-x86_64.msi" \
-                   "HMP-v${VERSION}-linux-x86_64.deb"; do
-            if [ ! -s "release-assets/$f" ]; then
-              echo "::error::缺产物：$f"
-              missing=1
-            fi
-          done
-          [ "$missing" = "0" ] || { echo "::error::产物不齐全，拒绝发布（宁可不发，也不发一个缺平台/架构的 Release）"; exit 1; }
-          echo "OK 必需产物齐全（Android + macOS arm64 + Windows x86_64 + Linux x86_64，共 5 个文件）"
+        # 目标文件名与来源 glob 都在 release.toml 的 [[artifact]] 里 —— 工作流不再抄一份，
+        # 平台增减只改配置一处（历史上这两份不一致，留下了指向不存在资产的下载键）。
+        run: python scripts/sync-release.py collect --src artifacts --dst release-assets
 
       - name: Generate SHA256 checksums
         run: |
@@ -377,36 +350,36 @@ jobs:
           sha256sum HMP-* > SHA256SUMS.txt
           cat SHA256SUMS.txt
 
+      # 上面的收集全是 `[ -f ... ] && cp`，某个平台产物缺失时会静默跳过、Release 照样发布成功。
+      # 硬断言的名单逐个取自 release.toml（含校验和文件），不在工作流里抄第二份文件名 ——
+      # 之前站点下载键就是这么和实际产物脱钩的（appimage 死链）。
+      - name: Assert all artifacts present
+        run: |
+          missing=0
+          while IFS= read -r f; do
+            [ -n "$f" ] || continue
+            if [ ! -s "release-assets/$f" ]; then
+              echo "::error::缺产物：$f"
+              missing=1
+            fi
+          done < <(python scripts/sync-release.py assets)
+          [ "$missing" = "0" ] || { echo "::error::产物不齐全，拒绝发布（宁可不发，也不发一个缺平台的 Release）"; exit 1; }
+          echo "OK 必需产物齐全：$(python scripts/sync-release.py assets | tr '\n' ' ')"
+
       - name: Build release notes
         id: notes
         run: |
-          VERSION=$(grep '^hmp.versionName=' gradle.properties | cut -d'=' -f2)
-          TAG="v${VERSION}"
-
-          # 正文 = ROADMAP 的本次版本条目（单一事实来源）。原来 Notes 只由 commit 前缀
-          # 分类生成，与 ROADMAP 各说各话，发布说明里的完成度口径没人负责。
-          # 条目里的 `>` 引用块是给内部看的（进度注记、文档指针），不进公开发布说明。
-          {
-            echo "## Hearable Music Player ${TAG}"
-            echo
-            awk -v head="### v${VERSION} (" 'index($0, head)==1 {f=1; next} /^### v[0-9]/ {if (f) exit} f' ROADMAP.md \
-              | grep -v '^> '
-            cat <<TABLE
-
-          ---
-
-          ### 📥 产物
-          | 平台 | 文件 |
-          |------|------|
-          | Android | \`HMP-v${VERSION}-release.apk\`（\`.aab\` 走 Google Play） |
-          | macOS (Apple Silicon / arm64) | \`HMP-v${VERSION}-macos-arm64.dmg\` |
-          | Windows | \`HMP-v${VERSION}-windows-x86_64.msi\` |
-          | Linux (x86_64) | \`HMP-v${VERSION}-linux-x86_64.deb\` |
-          | 校验和 | \`SHA256SUMS.txt\`（\`sha256sum -c SHA256SUMS.txt\`） |
-
-          > iOS 不随本次发布提供安装包：需 macOS + Xcode 源码自构建，见 README「安装步骤」。
-          TABLE
-          } > body.md
+          # 正文由 scripts/sync-release.py 从 release.toml 渲染（对外文案 + 产物表都在那份配置里）。
+          # 这里曾经是用 awk 从 ROADMAP 抽散文：ROADMAP 的版本条目升序写，最新那条后面没有
+          # `### v` 边界，抽取一路冲到 EOF，v7.2.1 把 172 行内部章节灌进了公开 Notes（发布后靠人删）。
+          # 散文从此不再被解析；空文案 / 超 80 条由脚本判据拦住，判据要改得在人这边改。
+          python scripts/sync-release.py notes --out body.md
+          wc -l body.md
+          # 正式发布也把正文打进日志：v7.2.1 那次 172 行内部章节泄到公开 Notes，
+          # 就是因为发布时没有任何地方让人看到最终正文。
+          echo "=== 将要公开的发布说明正文 ==="
+          cat body.md
+          echo "=== 正文结束 ==="
 
           # commit 分类降级为附录
           PREV_TAG=$(git tag --sort=-v:refname | head -1)
@@ -436,7 +409,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          VERSION=$(grep '^hmp.versionName=' gradle.properties | cut -d'=' -f2)
+          VERSION=${{ steps.version.outputs.VERSION }}
           TAG="v${VERSION}"
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -468,6 +441,10 @@ jobs:
           echo "dry_run=true：产物齐全断言已通过、发布说明已生成。"
           echo "未创建 tag / Release，也未部署站点。"
           echo
+          echo "=== 将要公开的发布说明正文（与正式发布同源同一段渲染）==="
+          cat body.md
+          echo "=== 正文结束 ==="
+          echo
           echo "=== 本次演练收集到的产物 ==="
           ls -lh release-assets/
 
@@ -488,21 +465,27 @@ jobs:
 
       # 站点元信息单源在 site/js/config.js；部署时以本次 Release 为准
       # 现场改写版本号与发布日期，不回写仓库——部署产物永远与 Release 严格一致
-      - name: Sync site config with released version
-        run: |
-          VERSION=$(grep '^hmp.versionName=' gradle.properties | cut -d'=' -f2 | tr -d '[:space:]')
-          RELEASED=$(gh release view "v${VERSION}" --repo "${{ github.repository }}" \
-            --json publishedAt --jq '.publishedAt' | cut -d'T' -f1)
-          if [ -z "$RELEASED" ] || [ "$RELEASED" = "null" ]; then
-            RELEASED=$(date -u +%F)
-            echo "::warning::Release v${VERSION} not found, falling back to today's date"
-          fi
-          sed -i "s/^  version: '.*',/  version: '${VERSION}',/" site/js/config.js
-          sed -i "s/^  released: '.*',/  released: '${RELEASED}',/" site/js/config.js
-          echo "Site config synced: v${VERSION} (${RELEASED})"
-          grep -E "version:|released:" site/js/config.js
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # 站点版本与发布日期的真源是 release.toml，提交时已由 syncVersion 写进 config.js。
+      # 这里不再 sed 改写部署副本 —— 那会让"线上站点"与"仓库内容"静默不一致；
+      # 改成核对：漂移就让这一步红，日期填错只警告不擅自改。
+      - name: Verify site config matches release.toml
         env:
           GH_TOKEN: ${{ github.token }}
+        run: |
+          python scripts/sync-release.py sync --check
+          VERSION=$(python scripts/sync-release.py version)
+          echo "站点声明：$(grep -E '^  (version|released):' site/js/config.js | tr -d '\n')"
+          ACTUAL=$(gh release view "v${VERSION}" --repo "${{ github.repository }}" \
+            --json publishedAt --jq '.publishedAt' | cut -d'T' -f1)
+          DECL=$(sed -n "s/^  released: '\([^']*\)'.*/\1/p" site/js/config.js)
+          if [ -n "$ACTUAL" ] && [ "$ACTUAL" != "null" ] && [ "$ACTUAL" != "$DECL" ]; then
+            echo "::warning::release.toml 的 date=$DECL 与实际发布日 $ACTUAL 不符，请回填后重跑 syncVersion"
+          fi
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3

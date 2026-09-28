@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 项目概述
 
-Hearable Music Player (HMP) — 一款跨平台本地音乐播放器，Android / Desktop / iOS 三端共用一套 Compose Multiplatform UI（`shared-ui`），业务层基于 Kotlin Multiplatform。iOS 仅保留原生壳与平台桥接（播放引擎、权限、Live Activity）。master 最新发布版本 v7.1.0；**v7.2.0 发布中（`release/7.2.0` → master，含方向 B Agent 化 F1–F14 与官网改版）**。
+Hearable Music Player (HMP) — 一款跨平台本地音乐播放器，Android / Desktop / iOS 三端共用一套 Compose Multiplatform UI（`shared-ui`），业务层基于 Kotlin Multiplatform。iOS 仅保留原生壳与平台桥接（播放引擎、权限、Live Activity）。**最新发布版本 v7.2.1**（2026-09-25 发布，产物：macOS arm64 DMG / Windows x86_64 MSI / Linux x86_64 DEB / Android APK+AAB）。上一版 **v7.2.0 的代码在 master、但未产出安装包**（发版通道桌面打包故障），其功能随 v7.2.1 分发；方向 B Agent 化 F1–F14 与官网改版即在那一版合入。
 
 **产品边界**：纯本地，不做在线/云同步、不引入账号、不做社交；仅保留用户自填 API 的 AI 推荐。
 
@@ -90,6 +90,9 @@ xcodebuild -workspace ios/HMP.xcworkspace -scheme HMP -configuration Debug \
 
 ### 发布构建
 ```bash
+# 改版本号：只改 release.toml，然后同步所有派生点（禁止手改 gradle.properties / iOS / 站点）
+./gradlew syncVersion
+
 # 构建 Android + Desktop Release 产物（输出到 releases/）；在 macOS 上额外含 iOS
 ./gradlew release
 
@@ -112,7 +115,7 @@ xcodebuild -workspace ios/HMP.xcworkspace -scheme HMP -configuration Debug \
 
 ### 自定义 Gradle 任务全清单
 
-项目自行注册的任务共 **25 个**，分布在 3 个构建脚本中（`./gradlew tasks --group release` 只显示 `group = "release"` 的 8 个）：
+项目自行注册的任务共 **27 个**，分布在 3 个构建脚本中（`./gradlew tasks --group release` 只显示 `group = "release"` 的 10 个）：
 
 **验证类：测试（7 个，group = `verification`）**
 
@@ -153,7 +156,7 @@ xcodebuild -workspace ios/HMP.xcworkspace -scheme HMP -configuration Debug \
 > 编译任务用于检测「改公共 API 导致下游编译失败」——比全量测试快得多。
 > Android 侧（`android:app` / `android:core-player`）**不暴露 `compile*` 任务**（用 AGP 内置 Kotlin），故用 `assembleDebug` 作编译校验。
 
-**发布类（8 个，group = `release`）**
+**发布类（10 个，group = `release`）**
 
 | 任务 | 脚本 | 作用 |
 |---|---|---|
@@ -161,8 +164,10 @@ xcodebuild -workspace ios/HMP.xcworkspace -scheme HMP -configuration Debug \
 | `releaseAndroid` / `copyAndroidDebug` | 根 | Android Release APK+AAB / Debug APK |
 | `releaseIos` | 根 | iOS Archive（仅 macOS） |
 | `releaseDesktop` / `copyDesktopJar` | 根 | Desktop 分发包 / Uber JAR |
+| `syncVersion` | 根 | 把 `release.toml` 同步到各派生点（写 `gradle.properties` / iOS / 站点 / 归档条目） |
 | `checkVersion` | 根 | 校验版本号未与已有 git tag 重复 |
-| `preflight` | 根 | 发布前预检：版本 + 测试 + 平台可产出告知 |
+| `checkReleaseConsistency` | 根 | 委托 `scripts/sync-release.py sync --check`：以 `release.toml` 为真源核对全部派生点（只读） |
+| `preflight` | 根 | 发布前预检 = `checkVersion` + `checkReleaseConsistency` + `testAll` + 平台可产出告知 |
 
 **清理类（2 个，group = `build`）**
 
@@ -288,7 +293,7 @@ HMP/
 ## 开发注意事项
 
 ### 版本信息
-- 应用版本: 7.2.0 (versionCode 72000)
+- 应用版本: 7.2.1 (versionCode 72001)
 - JDK 工具链: 21（Desktop jpackage 要求 Gradle Daemon 运行于 JDK 21，配置说明见 `gradle.properties` 注释）
 - Kotlin: 2.3.21
 - AGP: 9.1.1
@@ -314,20 +319,30 @@ HMP/
 > 无长期存活的 develop-* 分支；历史文档中提到的 develop 系列分支已不再使用。
 
 ### 版本号管理
-版本号集中维护在 `gradle.properties` 中 (`hmp.versionCode` / `hmp.versionName`)，各模块通过 `project.findProperty()` 引用。
+**真源是仓库根的 `release.toml`**（只描述当前版本：`version` / `date` / `[[section]]` 对外文案 / `[[artifact]]` 产物清单）。
+`gradle.properties` 的 `hmp.versionName`、iOS 三处、`site/js/config.js`、`Anchor.kt`、ROADMAP 与站点时间线条目
+**全部是 `scripts/sync-release.py` 的产物，禁止手改** —— 改完版本跑 `./gradlew syncVersion`。
+各模块仍用 `project.findProperty()` 取版本，取值来源变了而已。发版工序与判据见 `skills/release-prep/SKILL.md`。
 
 ### 发布与 CI/CD
+- **真源**：仓库根 `release.toml`（当前版本的号 / 日期 / 对外文案 / 产物清单）。派生点由 `scripts/sync-release.py` 写，**不许手改**；发版工序见 `skills/release-prep/SKILL.md`
 - 本地构建：`./gradlew release`（输出到 `releases/`，含 Android APK+AAB / Desktop DMG+MSI+DEB；iOS Archive 仅 macOS）
-- 自动发布：`release/*` 分支 PR 合并到 `master` 时，`.github/workflows/release.yml` 自动构建并发布 GitHub Release（Android + Desktop 产物 + SHA256 校验），并部署 `site/` 到 GitHub Pages
-- 发版流程：feature/* 合入 `release/X.Y` → **本机** `./gradlew preflight`（版本号不变量 + 发布一致性 + 全量单测）→ PR 到 master 触发发布
-- ⚠️ **CI 不跑单元测试**（2026-09-24 起，`testAll` 在 runner 上静默挂死、成因未结案，见 TODO R31）：validate 只跑 `checkVersion`（versionName↔versionCode 自洽 / 不与 tag 重复 / versionCode 递增）与 `checkReleaseConsistency`（以 `gradle.properties` 为真源核对站点 + iOS 工程 + 发版记录共 9 处声明）。**bump 时必须本机跑 preflight**
+- **两个 workflow**：`.github/workflows/pr-check.yml`（Pre-release Check，合入前答「能不能合」）+ `.github/workflows/release.yml`（合入后答「怎么发」）。**两者都不含版本字面量与文案**，一律调脚本
+  - `pr-check.yml`：`version` job（`release/*` 才跑：`checkVersion` + `checkReleaseConsistency` + 分支名与 `release.toml` 一致）；`release-info` job（**所有非 draft PR**：`sync --check` + 预渲染将要公开的 Notes）；`ffmpeg-assets` job（校验 `ffmpeg-binaries` 的 SHA256 与 Mach-O/ELF/PE 真实架构）；`preflight` job 汇总成 PR 页面的结论表
+  - `release.yml`：`release/*` PR 合并进 `master` 触发（也可 `workflow_dispatch`，勾 `dry_run` 会在**不发布**的前提下跑完四端构建、产物断言与 Notes 渲染，并把正文打进日志）；validate → 四端并行 → 齐全断言（名单取自 `release.toml`）+ SHA256SUMS → tag + Release（正文 = `sync-release.py notes`）→ 部署 `site/`（只核对一致性，不再现场改写内容）
+- **Linux 只发 DEB**：`TargetFormat.AppImage` 是 jpackage 的 app-image 解包目录，产不出 `.AppImage`，该格式已移除（见 `desktop/app/build.gradle.kts`）
+- 发版流程：feature/* 合入 `release/X.Y` → 改 `release.toml` → `./gradlew syncVersion` → **本机** `./gradlew preflight`（不变量 + 派生点一致 + 全量单测）→ 开 PR 跑 Pre-release Check → 合并触发发布
+- ⚠️ **CI 不跑单元测试**（2026-09-24 起，`testAll` 在 runner 上静默挂死、成因未结案，见 TODO R31）→ **`./gradlew preflight` 是唯一守门人，bump 时别跳**
+- ⚠️ **`sync --check` 只证明"抄对了"，不证明"写得对"**：派生点与 `release.toml` 一致，不代表 `release.toml` 里的口径符合实物。发版前读一遍 `python scripts/sync-release.py notes` 的输出，对每条平台/产物断言去仓库里找反证（今天 ROADMAP 就写着"AppImage 已修好"而实际早改 DEB 了）
 - 详见 [docs/VERSIONING.md](docs/VERSIONING.md)
 
 > 历史说明：早期文档称 CI「部署 Storybook 到 GitHub Pages」，实际 deploy-site job 上传的是 `site/` 目录（手工维护的产品站点），且 Storybook 相关 workflow 已在 v6.10 移除。
+> 另：Release Notes 正文曾经由 awk 从 ROADMAP 抽散文 —— 最新版本后面没有 `### v` 边界，v7.2.1 把 172 行内部章节灌进了公开说明（发布后人工删）。现已改为 `release.toml` 渲染，ROADMAP 不再被程序解析。
 
 ### 已知待完成任务 (TODO.md)
-- v7.x 三大方向：A) KMP 重写 iOS UI（v7.1 已完成）/ B) AI 功能 Agent 化（F1–F14 已随 v7.2.0 交付、**F10 挂起**）/ C) 播放功能增强补齐（**C1–C9 未排期**）
-- v7.2.0 合入前 review 的遗留：B 级 **R1–R17**、C 级 **R20–R30**（证据与分级出处见 `docs/7_x/B agent-build/review-7.2.md`）
+- v7.x 三大方向：A) KMP 重写 iOS UI（v7.1.0 已完成）/ B) AI 功能 Agent 化（F1–F14 代码随 v7.2.0 合入、安装包随 v7.2.1 分发；**F10 挂起**）/ C) 播放功能增强补齐（**C1–C9 未排期**）
+- **v7.2.2 范围（未开工）**：v7.2.0 合入前 review 的遗留 —— TODO §一 **R1–R17、R23–R26** 与 §四 清理线 **R20–R22、R27–R30**（分级出处见 `docs/7_x/B agent-build/review-7.2.md`）。v7.2.1 只发了发版通道修复，这批一条没动
+- 发版通道：**R31**（CI 单测挂死，未结案）；**R34/R35 已结案**（`release.toml` + `syncVersion` 落地，版本声明由「9 处人抄」变「1 处手改 + 脚本同步」）；**R36 部分结案**（README / CLAUDE 的「最新版本」叙述仍不在门禁内）
 - iOS 原生层残留 **I1/I2**（标签技术元数据与歌词、`MusicPlayService.swift` 死文件）
 
 ### 文档索引
@@ -336,7 +351,11 @@ HMP/
 - [DEVELOP.md](DEVELOP.md) — 技术架构与开发流程
 - [ROADMAP.md](ROADMAP.md) — 版本历史与功能状态 (单一事实来源)
 - [TODO.md](TODO.md) — 可执行任务列表
-- [docs/VERSIONING.md](docs/VERSIONING.md) — 版本号规范
+- [docs/VERSIONING.md](docs/VERSIONING.md) — 版本号规范、真源分层、发版检查清单
+- **发版链（改版本相关代码前先看）**
+  - [release.toml](release.toml) — 当前版本唯一真源（号 / 日期 / 对外文案 / 产物清单）
+  - [scripts/sync-release.py](scripts/sync-release.py) — 派生点同步与核对：`inspect` / `sync --write|--check` / `notes` / `mark-void`
+  - [skills/release-prep/SKILL.md](skills/release-prep/SKILL.md) — 发版前半程的工序、判据与停机点（agent 执行发版就照它走）
 - [docs/DESIGN_SYSTEM.md](docs/DESIGN_SYSTEM.md) — 设计系统规范
 - [docs/ROOM_KMP_SETUP.md](docs/ROOM_KMP_SETUP.md) — Room KMP 跨平台数据库配置指南
 - **AI Agent 体系（方向 B，已随 v7.2.0 交付）**
