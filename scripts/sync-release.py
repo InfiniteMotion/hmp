@@ -288,8 +288,12 @@ def roadmap_step(m):
         return (ROADMAP, t, t, f"v{v} 已有手写条目 → 跳过")
     if RM_TAIL not in t:
         raise Fail(f"ROADMAP.md：找不到插入锚点「{RM_TAIL}」")
-    head, _, tail = t.partition(RM_TAIL)
-    new = head + roadmap_block_text(m, nl) + nl + tail
+    idx = t.index(RM_TAIL)
+    new = t[:idx] + roadmap_block_text(m, nl) + nl + t[idx:]
+    # partition() 会把分隔符本身丢掉 —— 曾因此把「## 🛠️ 关键技术演进」整行删掉。
+    # 追加式写入的不变量就是"只增不减"，所以每次插入后都自证锚点还在。
+    if RM_TAIL not in new or len(new) <= len(t):
+        raise Fail("内部错误：ROADMAP 插入后丢失了章节标题，已中止写入")
     return (ROADMAP, t, new, f"v{v} 条目追加到版本历史末尾")
 
 
@@ -300,16 +304,15 @@ CL_END_TXT = "    <!-- END GENERATED -->"
 CL_CONTAINER = '<div class="changelog-timeline">'
 
 
-def changelog_step(m):
+def _insert_entry(m, t):
     v = m["version"]
-    t = read(CHANGELOG)
     nl = eol_of(t)
     if f"    <!-- v{v} -->" in t:
-        return (CHANGELOG, t, t, f"v{v} 站点条目已存在 → 跳过")
+        return t, f"v{v} 站点条目已存在 → 跳过插入"
     entry = changelog_entry(m, nl)
     if CL_BEGIN_TXT in t:
         mark = CL_BEGIN_TXT + nl
-        return (CHANGELOG, t, t.replace(mark, mark + entry + nl + nl, 1), f"v{v} 插入站点生成区顶部")
+        return t.replace(mark, mark + entry + nl + nl, 1), f"v{v} 插入站点生成区顶部"
     i = t.find(CL_CONTAINER)
     if i < 0:
         raise Fail(f"changelog.html：找不到 {CL_CONTAINER} 容器")
@@ -318,7 +321,53 @@ def changelog_step(m):
         raise Fail("changelog.html：changelog-timeline 容器后面不是行尾，结构变了先确认")
     block = nl.join([CL_BEGIN_TXT, entry, CL_END_TXT, ""]) + nl
     new = t[:j + len(nl)] + block + t[j + len(nl):]
-    return (CHANGELOG, t, new, f"v{v} 建立生成区并插入条目")
+    if CL_CONTAINER not in new or len(new) <= len(t):
+        raise Fail("内部错误：changelog 插入后丢失了时间线容器，已中止写入")
+    return new, f"v{v} 建立生成区并插入条目"
+
+
+def _demote_older(m, t):
+    """除当前版以外的条目降级：时间线只该有一个 Latest，旧条目不许再挂动态版本号钩子。
+
+    追加新条目时，上一版的 `Latest` 徽章与 `data-site="version"`（由 config.js 填值）不会自己消失，
+    实测会同时出现两个 Latest，且上一版标题被填成新版本号却挂着旧内容 —— 站点是公开面，
+    这种错用户一眼看得到。幂等：重复跑无变化。
+    """
+    v = m["version"]
+    nl = eol_of(t)
+    i = t.find(CL_CONTAINER)
+    if i < 0:
+        return t, "无时间线容器，跳过降级"
+    marks = [(i + mm.start(), mm.group(1))
+             for mm in re.finditer(r"(?m)^    <!-- v(\d+\.\d+\.\d+) -->", t[i:])]
+    if not marks:
+        return t, "时间线里没有版本条目"
+    out = [t[:marks[0][0]]]
+    touched = []
+    for k, (pos, ver) in enumerate(marks):
+        end = marks[k + 1][0] if k + 1 < len(marks) else len(t)
+        blk = t[pos:end]
+        if ver == v:
+            out.append(blk)
+            continue
+        new_blk = blk.replace('<span class="cl-version" data-site="version"></span>',
+                              f'<span class="cl-version">v{ver}</span>')
+        new_blk = re.sub(r'[ \t]*<span class="cl-latest">[^<]*</span>' + re.escape(nl),
+                         "", new_blk)
+        if new_blk != blk:
+            touched.append(f"v{ver}")
+        out.append(new_blk)
+    note = f"降级旧条目（Latest / 动态版本号）：{', '.join(touched)}" if touched else "旧条目已是降级态"
+    return "".join(out), note
+
+
+def changelog_step(m):
+    # 插入与降级必须合成一步：两步各自从同一份原文算 diff，后写的会把先写的覆盖掉，
+    # 结果 --check 永远红、而且每跑一次就在两种状态之间来回跳。
+    t0 = read(CHANGELOG)
+    t1, n1 = _insert_entry(m, t0)
+    t2, n2 = _demote_older(m, t1)
+    return (CHANGELOG, t0, t2, f"{n1}；{n2}")
 
 
 def all_steps(m):
@@ -353,8 +402,12 @@ def crosscheck(m):
             tips.append(f"config.js 有孤儿下载键 {k} —— 清单里没有对应产物，点开必 404")
     if not re.search(rf"(?m)^### v{re.escape(v)}\b", read(ROADMAP)):
         raise Fail(f"ROADMAP.md 没有 v{v} 条目（跑 sync --write）")
-    if f"    <!-- v{v} -->" not in read(CHANGELOG):
+    cl_text = read(CHANGELOG)
+    if f"    <!-- v{v} -->" not in cl_text:
         raise Fail(f"site/changelog.html 没有 v{v} 条目（跑 sync --write）")
+    n_latest = len(re.findall(r'<span class="cl-latest">', cl_text))
+    if n_latest != 1:
+        raise Fail(f"站点时间线应有且只有一个 Latest，当前 {n_latest} 个 —— 跑 sync --write 会降级旧条目")
     return tips
 
 
@@ -371,16 +424,22 @@ def cmd_sync(a):
     skipped = [d for p, cur, new, d in steps if cur == new]
 
     if a.check:
+        cc_err = None
         tips = []
         try:
             tips = crosscheck(m)
         except Fail as e:
-            print(f"核对未过  {e}")
-        if changed:
-            for p, _, d in changed:
-                print(f"不一致  {rel(p):<44} {d}")
-            raise Fail(f"sync --check：{len(changed)} 处与 release.toml 不一致 → "
-                       f"跑 ./gradlew syncVersion（或 python scripts/sync-release.py sync --write）后把产物一起提交")
+            cc_err = str(e)
+        for p, _, d in changed:
+            print(f"不一致  {rel(p):<44} {d}")
+        if cc_err:
+            print(f"核对未过  {cc_err}")
+        # 核对失败必须反映到退出码：曾把它只当打印，CI 拿着 0 退出码就放行了"两个 Latest"这类
+        # 公开面错误 —— 静默通过正是这轮改造要消灭的东西。
+        if changed or cc_err:
+            raise Fail(f"sync --check 未过：{len(changed)} 处与 release.toml 不一致"
+                       + (f"；{cc_err}" if cc_err else "")
+                       + " → 跑 ./gradlew syncVersion 后把产物与 release.toml 一起提交")
         print(f"OK release.toml v{m['version']} → 派生点全一致（{len(skipped)} 项）")
         for s in skipped + tips:
             print(f"  · {s}")
