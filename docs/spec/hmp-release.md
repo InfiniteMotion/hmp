@@ -118,7 +118,7 @@ Actions → Release → Run workflow，选分支，可勾 `Dry run`（仅构建�
 **③ 脚本管不到、必须人看的**
 - [ ] `date` 与发布日不符时 CI 只 warning 不失败，必须人工确认已按发布日回填（见 **D-6**）
 - [ ] 读一遍 `python scripts/sync-release.py notes` 的输出，对每条平台/产物断言去实物找反证 —— `--check` 只证明「抄对了」，不证明「写得对」（条目数 > 80 脚本直接 Fail）
-- [ ] README / CLAUDE 的「最新版本」叙述不在门禁内（见 **D-7**），发版后手改
+- [ ] README / AGENTS 的「最新发布版本」叙述不在门禁内（见 **D-7**），发版后手改
 
 **④ 构建验证**
 - [ ] 本机 `preflight` 通过（版本号不变量 + 派生点一致 + 全量单测；**CI 不跑单元测试，这里是唯一把关**；低内存形态见 §5.1）
@@ -204,13 +204,13 @@ macOS 目前只有 Apple Silicon 产物：上游 FFmpeg 9.0 **未提供真正的
 
 | 编号 | 与代码不符处 | 证据（file:line） | 归属 |
 |---|---|---|---|
-| **D-1** | CI 不跑单测、`preflight` 是唯一守门人，但其低内存形态没被写进别处：`CLAUDE.md` 与 release-prep Skill 仍教 `./gradlew preflight` | `CLAUDE.md:334-335`；`skills/release-prep/SKILL.md:65`；对照 `gradle.properties:9,13`、`build.gradle.kts:459` | **R31** |
+| **D-1** | CI 不跑单测、`preflight` 是唯一守门人，但其低内存形态此前只活在 `CLAUDE.md` 的注释里。2026-09-29 已统一：`AGENTS.md` §二 与本 Skill 的 ⑦ 步都改教 `./gradlew-lowmem(.bat) preflight`。**残留**：`preflight` 自身仍依赖那个在 runner 上挂死的 `testAll`，且低内存参数是为特定本机固化的，换机器不保证 | `AGENTS.md` §二；`skills/release-prep/SKILL.md` ⑦；对照 `gradle.properties:9,13`、`build.gradle.kts:459` | **R31** |
 | **D-2** | 写与核共用同一套正则，属自比、**无独立 oracle**：锚点位移类错误能同时骗过 `--check`；`config.js` 取首个 `version:`、`pbxproj` 全量替换 `MARKETING_VERSION` | `scripts/sync-release.py:219`（`sub1`）、`:240`、`:269-274`、`:441-442`（`--check` 复用 `all_steps`） | **R53** |
 | **D-3** | 桌面端版本兜底与静默缺件：`packageVersion` / `msiPackageVersion` 缺属性回落 `"1.0.0"`、`dmgPackageVersion = "1"` 硬编码；`copyToReleases` 找不到产物只 `println` 不失败；桌面 job 自身不跑 `checkVersion` | `desktop/app/build.gradle.kts:332,357,369`；`build.gradle.kts:41-50`；`release.yml:79,133,172,224` | **R45** |
 | **D-4** | iOS 三处由脚本改写，但**从未在 macOS 上验证**（本机只能做源码级核对），改动可能被 Xcode 工程重载写回 | `scripts/sync-release.py:260-274`；`TODO.md:85` | **R38** |
 | **D-5** | 发布**之后**的公开面（线上 Notes / 产物齐备 / 站点是否已随本次部署）无任何自动核对 | `TODO.md:84` | **R37** |
 | **D-6** | `date` 与发布日不符只输出 `::warning::`、不失败，deploy-site 照常发布 | `.github/workflows/release.yml:483-488` | **待用户决定**（是否改硬断言） |
-| **D-7** | 根文档「最新发布版本」散文不在门禁内，已实测失真：停在 v7.2.1，而 tag 已是 v7.2.2 | `CLAUDE.md:7,296`；`README.md:219`；`release.toml:20-21` | **R54 / R36** |
+| **D-7** | 根文档「最新发布版本」散文不在门禁内。曾实测失真（停在 v7.2.1 而 tag 已是 v7.2.2），2026-09-29 已按实物订正 `AGENTS.md` 与 `README.md`；`CLAUDE.md` 掏空为指针后不再承载版本叙述。**残留**：仍无机器核对，下次 bump 还会漂 | `AGENTS.md` 头部；`README.md` 开发日志段；`release.toml:20-21` | **R54 / R36** |
 
 ## 修订记录
 

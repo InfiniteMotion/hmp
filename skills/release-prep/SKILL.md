@@ -62,8 +62,11 @@ python scripts/sync-release.py notes | tee /tmp/notes.md       # 正确性：读
 
 ### ⑦ 本机全量测试（CI 不跑单测，这是唯一守门人）
 ```bash
-./gradlew preflight     # checkVersion + checkReleaseConsistency + testAll
+./gradlew-lowmem.bat preflight    # Windows；macOS/Linux/Git Bash 用 ./gradlew-lowmem
+# = checkVersion + checkReleaseConsistency + testAll
 ```
+不要用裸 `./gradlew preflight`：默认 `-Xmx4096m + parallel` 会让 daemon 被 OS 静默杀死，
+**"跑不动"会被当成"跳过"且不留痕迹**（口径见 `AGENTS.md` §二）。
 
 ### ⑧ 交给用户
 列出：分支名、将要发布的版本号、diff 涉及的文件、Notes 全文、仍需 macOS 验证的项（iOS 三处）。

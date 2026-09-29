@@ -208,7 +208,8 @@ Hearable Music Player是我个人开发的一款专注于本地音乐播放的�
 - **[ROADMAP](ROADMAP.md)** — 版本历史、功能状态（已完成/计划中）、技术演进与变更日志（**以 ROADMAP 为准**）
 - **[DEVELOP](DEVELOP.md)** — 技术架构、模块划分、开发流程与关键实现
 - **[TODO](TODO.md)** — 可执行任务列表与优先级
-- **[CLAUDE](CLAUDE.md)** — AI 协作者速查：常用命令、目录结构、技术栈版本、包名与分支策略
+- **[AGENTS](AGENTS.md)** — AI 协作者须知（**唯一真源**）：硬约束、常用命令、模块拓扑、跨平台机制、已知地雷、版本与分支策略
+- **[CLAUDE](CLAUDE.md)** — Claude Code 入口指针，内容已并入 `AGENTS.md`；**改动请只改 AGENTS.md**
 - **[docs/README](docs/README.md)** — **文档索引**与各文档职责说明（含历史版本方案与当前 Agent 设计资料）
 - **[docs/spec/hmp-design.md](docs/spec/hmp-design.md)** — 设计系统：色彩 / 字体 / 间距 / 组件规范
 - **[docs/release](docs/spec/hmp-release.md)** — 版本号格式、bump 时要同步的 9 处声明、两个 CI 工作流与产物清单
@@ -216,7 +217,7 @@ Hearable Music Player是我个人开发的一款专注于本地音乐播放的�
 
 ## 📝 开发日志
 
-完整版本历史与变更日志见 **[ROADMAP](ROADMAP.md)**。最新发布版本：**v7.2.1**（2026-09-25 发布，GitHub Release 标 Latest）—— 桌面端产物覆盖 macOS arm64（DMG）/ Windows x86_64（MSI）/ Linux x86_64（DEB），另有 Android APK + AAB 与 `SHA256SUMS.txt`；FFmpeg 二进制托管于本仓库 `ffmpeg-binaries` Release，打包时按 SHA256 与真实 CPU 架构校验后注入。**v7.2.0 的代码已在 master，但未产出安装包**（发版通道当时的桌面打包故障），其功能随 v7.2.1 分发。**下一版 v7.2.2（未开工）**范围是 [TODO](TODO.md) §一 的 review 遗留项；**后续待做：方向 C 播放增强（C1–C9 未排期）、F10 语音会话（挂起）；后续按需扩展 macOS x86_64 / Linux arm64 产物**。
+完整版本历史与变更日志见 **[ROADMAP](ROADMAP.md)**。最新发布版本：**v7.2.2**（2026-09-28 发布，GitHub Release 标 Latest）—— **应用功能与界面在本版本没有变化**，这是工程与发版链路的一版：版本号声明从 9 处手工抄写收敛为根目录 `release.toml` 一处 + 脚本同步，产物收集与齐全断言由同一份配置驱动，缺任一平台直接拒绝发布。上一版 **v7.2.1**（2026-09-25 发布）桌面端产物覆盖 macOS arm64（DMG）/ Windows x86_64（MSI）/ Linux x86_64（DEB），另有 Android APK + AAB 与 `SHA256SUMS.txt`；FFmpeg 二进制托管于本仓库 `ffmpeg-binaries` Release，打包时按 SHA256 与真实 CPU 架构校验后注入。**v7.2.0 的代码已在 master，但未产出安装包**（发版通道当时的桌面打包故障），其功能随 v7.2.1 分发。**下一版 v7.3.0** 范围是 [TODO](TODO.md) §一（review 遗留 R1–R17、R23–R26）与 §六（架构实现审查 R39–R56）；**后续待做：方向 C 播放增强（C1–C9 未排期）、F10 语音会话（挂起）；后续按需扩展 macOS x86_64 / Linux arm64 产物**。
 
 ## 🤝 贡献指南
 

@@ -12,7 +12,7 @@
 | **版本历史与功能状态（单一事实来源）** | 根目录 [ROADMAP.md](../ROADMAP.md) |
 | 现在要做什么、优先级 | 根目录 [TODO.md](../TODO.md) |
 | 技术架构、模块划分、开发流程 | 根目录 [DEVELOP.md](../DEVELOP.md) |
-| 给 AI 协作者的项目速查 | 根目录 [CLAUDE.md](../CLAUDE.md) |
+| 给 AI 协作者的项目速查（**唯一真源**） | 根目录 [AGENTS.md](../AGENTS.md) |
 | 版本号规范 / 发版流程 / 分支策略 / CI 与产物现状 | [spec/hmp-release.md](spec/hmp-release.md) |
 | **架构实现审查（v7.3.0 待办 R39–R56 的出处）** | [review-7.3-architecture.md](7_3/review-7.3-architecture.md) |
 | 代码风格门禁（ktlint）落地方案 | [ktlint-integration.md](ktlint-integration.md) |
@@ -33,7 +33,8 @@
 | **ROADMAP** | [../ROADMAP.md](../ROADMAP.md) | **单一事实来源**：版本历史、功能状态（已完成 / 计划中）、技术演进、未来方向 |
 | **TODO** | [../TODO.md](../TODO.md) | 可执行任务列表与优先级，按版本阶段组织 |
 | **DEVELOP** | [../DEVELOP.md](../DEVELOP.md) | 技术架构、模块划分、开发流程、测试与构建、关键实现说明 |
-| **CLAUDE** | [../CLAUDE.md](../CLAUDE.md) | AI 协作者速查：常用命令、目录结构、技术栈版本、包名与分支策略 |
+| **AGENTS** | [../AGENTS.md](../AGENTS.md) | **AI 协作者须知的唯一真源**：硬约束 / 常用命令 / 模块拓扑 / 跨平台机制 / 三端引擎差异 / Agent 子系统 / 已知地雷 / 版本与分支策略。跨工具（Claude Code、Codex、Cursor、Qoder）都读它 |
+| **CLAUDE** | [../CLAUDE.md](../CLAUDE.md) | Claude Code 入口指针：`@AGENTS.md` 导入 + Claude 专属差异（Skill 清单、`.claude/settings.local.json`）。**不承载正文**，改动一律落到 `AGENTS.md` |
 | **spec/hmp-release** | [spec/hmp-release.md](spec/hmp-release.md) | 版本号格式（MAJOR.MINOR.PATCH）、何时升级哪一位、真源分层与发版检查清单、CI/CD 流水线现状与已知问题（原独立的 `ci-pipeline-diagnosis.md` 已并入本文件） |
 | **架构实现审查（2026-09-28）** | [review-7.3-architecture.md](7_3/review-7.3-architecture.md) | 全仓 5 路分片审查 + 主审逐条复跑：S1/S2 分级发现、闸门缺口清单、14 条文档失真、误报否决记录与「刻意不做」。v7.3.0 待办（TODO §六 R39–R56）的证据出处 |
 | **ktlint 融入开发流程** | [ktlint-integration.md](ktlint-integration.md) | 代码风格门禁方案（**暂缓，等 agent 分支线合并后启动**）：`.editorconfig` 成品、包装脚本、三道闸门、存量收敛顺序；含全仓实测数据 |
@@ -113,8 +114,8 @@ docs/
 ### 搬家清单（新增 / 移动 / 删除文档时逐条过，缺一条就是埋雷）
 
 1. 本索引（三层都要：一句话分工、活跃文档表、版本线目录树）；
-2. 根目录 `README.md` / `CLAUDE.md` / `DEVELOP.md` / `ROADMAP.md` 的文档索引段；
-3. **源码与 Swift 注释里的 `docs/...` 路径串** —— 这一项历史上漏过两轮，且**不在任何 md 链接检查的覆盖范围内**，只能靠按 `docs/` 前缀全仓 grep；
+2. 根目录 `README.md` / `AGENTS.md` / `CLAUDE.md` / `DEVELOP.md` / `ROADMAP.md` 的文档索引段；
+3. **源码与 Swift 注释里的 `docs/...` 路径串** —— 这一项历史上漏过两轮，且**不在任何 md 链接检查的覆盖范围内**，只能靠按 `docs/` 前缀全仓 grep；`CLAUDE.md` / `AGENTS.md` 的字面引用同理（现在是指针关系而非两份正文，漏扫就会指回已被掏空的 `CLAUDE.md`）；
 4. `skills/**` 与 `docs/spec/hmp-release.md` 里指向规范的路径（含 `build.gradle.kts` 错误消息里的路径 —— 它会直接显示给用户）；
 5. 复跑一遍 md 链接解析 + `docs/` 路径串扫描，确认 0 断链、0 指向不存在文件。
 
@@ -126,7 +127,7 @@ docs/
 - **查功能是否已做 / 版本历史**：ROADMAP
 - **排期与任务**：TODO
 - **查架构与实现细节**：DEVELOP
-- **AI 协作者**：CLAUDE
+- **AI 协作者 / 新成员速查**：AGENTS（`CLAUDE.md` 只是它的入口指针）
 - **了解 Agent 体系设计**：`archive/7_x/7_2/design/README.md`
 - **动 v7.3.0 的架构待办（R39–R56）**：`7_3/review-7.3-architecture.md` → 根目录 `TODO.md` §一 与 §六
 
