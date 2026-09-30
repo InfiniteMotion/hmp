@@ -16,6 +16,7 @@
 3. **行号坐标会过期。** 审查报告里的 `file.kt:123` 是当日工作树坐标，动手前先按符号名 grep。
 4. **不要自己 `push` / 建 PR / 合并。** 发版前半程见 `skills/release-prep/SKILL.md`，其 ⑧ 步明确把这几件事交回用户。
 5. **CI 既不跑单元测试、也不编译 iOS。** 唯一守门人是本机 `preflight`。这条决定了：你改完代码没有任何机器反馈，必须自己跑对任务（见下节）。
+   > **2026-09-30 决议改向**：编译与测试是必要的，方针改为「**当前环境能跑就都跑**」——Linux runner 跑得到的编译/测试一律纳入 CI，iOS 编译只在 macOS runner 可用时跑、缺环境不阻塞合入。落地清单见 `TODO.md` §六 决议 ①（**该决议已暂缓，用户 2026-09-30：「CI 先放着」**）。**在本条落地之前，现状仍然成立**——别等 CI，自己跑。
 6. **归档 `docs/archive/**` 只进不改**；`docs/7_3/review-7.3-architecture.md` 是带日期的审查证据，不要重写它的结论与行号。
 
 ---
@@ -105,7 +106,7 @@ HMP/
 ├── desktop/core-player/  FFmpeg + JNA 自研引擎
 ├── ios/             iOS 原生壳（XcodeGen + CocoaPods，22 个 Swift 文件）
 ├── shared-ios/      iOS 聚合框架（shared + shared-ui → sharedIos）
-└── storybook/       孤儿模块：有 build 脚本但未被 settings.gradle.kts include
+└── storybook/       设计沙盒（2026-09-30 决议保留）：有 build 脚本但未被 settings.gradle.kts include，不在构建图内、不保证可编译
 ```
 
 依赖关系：
@@ -204,7 +205,7 @@ HMP/
 11. **iOS 密钥不是加密**：`SecureStorageHelper.ios.kt` 的 `simpleEncrypt` 实为 XOR，密钥文件却叫 `.aes_key`，且落在 `Documents/.keys`（与密文同目录），而 `project.yml` 开着 `UIFileSharingEnabled: true` → 沙箱可经"文件"App 直接拷出（R10）。Desktop 用硬编码 keystore 口令。三端密文互不可解。
 12. **`androidMain` / `iosMain` 的实现测试覆盖为 0。** 107 个平台源集文件里 12 个 `*Impl*`，只有 2 个有同名测试（都在 `shared/src/desktopTest`）。`shared/src` 下只有 `commonTest` 与 `desktopTest` 两个测试源集，**没有 androidHostTest、没有 iosTest**。
 13. **`shared_ios.podspec` 是被 track 的生成物**，Windows 会把 `spec.resources` 写成反斜杠路径，`.gitattributes` 没有 `*.podspec` 规则（R46）。
-14. **没有任何静态闸门**：无 ktlint、无 detekt、无 `.editorconfig`、无 `core.hooksPath`。`DEVELOP.md:396-400` 声称"使用 ktlint 检查"是**失真的**。新代码靠自觉保持一致性。
+14. **没有任何静态闸门**：无 ktlint、无 detekt、无 `.editorconfig`、无 `core.hooksPath`。`DEVELOP.md:406` 现已如实写明这一点（方案仍在 `docs/ktlint-integration.md`，暂缓）。**2026-09-30 订正**：本条原称"`DEVELOP.md:396-400` 声称使用 ktlint 属失真"，该指控已随 DEVELOP 改写而失效——现在失真的是旧说法本身（独立复核见 `docs/7_3/domain/X.md` X-07 附加 doc-truth）。新代码靠自觉保持一致性。
 15. **设计 token 是自愿制**：`.dp` 字面量 1444 处 vs `dimens.*` 仅 209 处；硬编码 hex 色 53 处；卡片两套并存（`HMPCard` vs 裸 `Card(`/`Surface(`）；336 个 `@Composable` 只有 81 个带 `modifier: Modifier`（R49）。
 
 ---
@@ -257,7 +258,9 @@ HMP/
 | **AI 协作者须知（本文件）** | [AGENTS.md](AGENTS.md) |
 | 版本号规范 / 真源分层 / 发版清单 / CI 与产物现状 | [docs/spec/hmp-release.md](docs/spec/hmp-release.md) |
 | **发版工序与判据（agent 执行发版照它走）** | [skills/release-prep/SKILL.md](skills/release-prep/SKILL.md) |
-| **架构实现审查（v7.3.0 待办 R39–R56 的证据出处）** | [docs/7_3/review-7.3-architecture.md](docs/7_3/review-7.3-architecture.md) |
+| **v7.3.0 施工基线（九域 + 横切线，唯一工作分解入口）** | [docs/7_3/domain-baseline.md](docs/7_3/domain-baseline.md) → `docs/7_3/domain/D{1..9}.md` / [X.md](docs/7_3/domain/X.md)、[docs/7_3/v10-migration.md](docs/7_3/v10-migration.md)、施工条目 `docs/7_3/taskbook/` |
+| **v7.3.0 施工计划（顺序真源，已评审）** | [docs/7_3/plan.md](docs/7_3/plan.md)（34 个工作包 / 判据落点 / 验收定义 / **8 条决策记录** / 里程碑） |
+| 架构实现审查（2026-09-28，**历史证据，非施工入口**） | [docs/7_3/review-7.3-architecture.md](docs/7_3/review-7.3-architecture.md)（TODO §六 R39–R56 出处）、[review-7.3-code.md](docs/7_3/review-7.3-code.md) |
 | 设计系统（色彩/字体/间距/组件） | [docs/spec/hmp-design.md](docs/spec/hmp-design.md) |
 | 日志门面 `HmpLog` / `LogTag` 规范 | [docs/spec/hmp-log.md](docs/spec/hmp-log.md) |
 | Room KMP 跨平台配置 | [docs/room-kmp-setup.md](docs/room-kmp-setup.md) |

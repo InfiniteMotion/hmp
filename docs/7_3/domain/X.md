@@ -38,8 +38,8 @@
 ### X-01 · CI 不跑单测、不编 iOS（亲验）
 - **现状**：`pr-check.yml` jobs：`version`（L65 `./gradlew checkVersion checkReleaseConsistency`）、`ffmpeg-assets`（L126 跑 `check-ffmpeg-assets.py`）、`release-info`（L152 `sync --check` + notes）、`preflight`（L164 仅汇总）。`release.yml` jobs：`validate`（L63 同两任务）、`build-android`（L104 `assembleRelease`）、`build-desktop-{macos,windows,linux}`（L152/204/251 `packageDistributionForCurrentOS`）、`release`、`deploy-site`。**全仓无任何 `test` 任务、无 iOS 编译 job**。
 - **影响**：代码改动无机器反馈；CI 只守版本/资产/派生点/打包。
-- **动作**：维持「唯一守门人本机 `preflight`」硬约束；在 AGENTS/CI 注释里显式写明「CI 不跑单测、不编 iOS」。
-- **判据**：落在 `pr-check.yml` 与 `release.yml` 的 job 定义；无单测任务（设计如此，非缺陷）。
+- **动作**：~~维持「唯一守门人本机 `preflight`」硬约束；在 AGENTS/CI 注释里显式写明「CI 不跑单测、不编 iOS」。~~ **2026-09-30 用户决议改向**：编译与测试是必要的，按**「当前环境能跑就都跑」**实现——Linux runner 上跑得到的编译与测试一律纳入（`HMP_BUILD_TARGET=desktop ./gradlew compileAll`、`:android:app:assembleDebug`、以及不依赖 Robolectric 的测试任务）；**iOS 编译只在 macOS runner 可用时跑，缺环境不阻塞合入**。落地前本节现状（CI 无编译无测试）仍然成立。
+- **判据**：故意提交一个语法错的 PR 在 `verify` 类 job 上变红；iOS 相关 job 在无 macOS runner 时**跳过而非失败**。落地清单见 `TODO.md` §六 决议 ①。
 
 ### X-02 · 版本真源 release.toml + 9 派生点由脚本唯一写（亲验）
 - **现状**：`release.toml` 是唯一真源。`scripts/sync-release.py` 的 `overwrite_steps`（L229–275）写 7 个文件：`gradle.properties`（`hmp.versionCode`/`hmp.versionName`，L234–237）、`site/js/config.js`（`version`+`released`，L239–245）、`site/index.html`（JSON-LD `softwareVersion`，L247–249）、`shared-ios/.../Anchor.kt`（`SHARED_IOS_FRAMEWORK_VERSION`，L251–255）、`ios/HMP/project.yml`（2 处，L257–261）、`Info.plist`（L263–266）、`project.pbxproj`（`MARKETING_VERSION`×N，L268–274）；追加式 2 处：`ROADMAP.md` + `site/changelog.html`（L278–297、L383–389）= **9 派生点**。`pr-check.yml:152` 跑 `sync --check` 核对一致。
@@ -83,6 +83,7 @@
 - **现状判定**：空壳（有代码/构建脚本，不在任何构建图/CI）。
 - **影响**：死代码占用维护注意力；无人验证其能否编。
 - **动作**：要么删除 `storybook/`，要么按 `build.gradle.kts:308-313` 三步恢复 `include` + `releaseStorybook`。
+- **2026-09-30 决策 6（见 `../plan.md` §九）：原地保留，声明为设计沙盒** —— 不恢复 `include`、不改代码、不保证可编译；声明已落 `AGENTS.md` §三 与 `DEVELOP.md` 模块结构。原"删除"建议作废。
 - **判据**：`grep ":storybook"` 在 `settings.gradle.kts` 与根 `build.gradle.kts` 均无 include（亲验）。改判条件：恢复 include 后 `./gradlew :storybook:wasmJsBrowserProductionWebpack` 绿。
 
 ### X-09 · testAll 静默空过（shared-ui:desktopTest 为 NO-SOURCE）（亲验）
@@ -137,7 +138,7 @@
 
 ## 6. 刻意不做（带改判条件）
 
-- **CI 跑单测 / 编 iOS**：维持 `AGENTS.md` §一.5 硬约束——CI 不跑单测、不编 iOS，守门人留本机 `preflight`。改判条件：仓库引入稳定 macOS  runner 且低内存测试链路打通后，再评估加 iOS 编译 + 单测 job。
+- ~~**CI 跑单测 / 编 iOS**：维持 `AGENTS.md` §一.5 硬约束——CI 不跑单测、不编 iOS~~ **已改判（2026-09-30 用户决议）**：方向改为「**当前环境能跑就都跑**」——Linux runner 跑得到的编译与测试纳入 CI；iOS 编译只在 macOS runner 可用时跑，缺环境不阻塞合入。故本条不再是"刻意不做"，转为 **X-01** 的落地项（清单见 `TODO.md` §六 决议 ①）。保留一条护栏备查：若 CI 测试在 runner 上出现挂死（**R31** 的未结案线索），按 `docs/7_3/taskbook/README.md` §四 的口径隔离 `:android:core-player`（全仓唯一带 Robolectric 的模块）或给它加挂钟超时，**不因此回退整条决议**。
 - **把 ktlint/detekt 接进 Gradle 构建图**：`docs/ktlint-integration.md` 已定「不进 Gradle、走独立 CLI」。改判条件：若需要 CI 单命令闸门且 CLI 分发成本过高时重议。
 - **storybook 模块立即删除或恢复**：当前留作「暂缓」空壳。改判条件：下一轮若决定做组件预览站则按 `build.gradle.kts:308-313` 恢复；若确认无用则删除 `storybook/`。
 - **版本默认值改 fail-fast（X-03）**：当前保留默认串以求「打包不中断」。改判条件：确认 `syncVersion` 已作为发版硬步骤、且 `pr-check` 的 `sync --check` 能 100% 拦下未同步情形后，再将默认改为抛错。
