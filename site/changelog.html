@@ -97,12 +97,36 @@
 
   <div class="changelog-timeline">
     <!-- BEGIN GENERATED (scripts/sync-release.py) -->
+    <!-- v7.2.3 -->
+    <div class="cl-entry">
+      <div class="cl-head">
+        <span class="cl-version">v7.2.3</span>
+        <span class="cl-date">2026-10-07</span>
+        <span class="cl-latest">Latest</span>
+      </div>
+      <div class="cl-card">
+        <div class="cl-section">
+          <div class="cl-section-title">Android 播放修复</div>
+          <ul>
+            <li><strong>修复退到后台后当前歌曲播完不再自动播放下一首</strong>：上一版在后台自然播完时会中断播放，并导致播放进程退出</li>
+            <li>修复播放控制与播放服务的生命周期耦合 —— 应用退到后台或切换界面后不再丢失对播放器的控制</li>
+            <li>修复后台状态下重建播放通知时被系统判定为非法调用的问题 —— 该问题会直接终止播放进程</li>
+          </ul>
+        </div>
+        <div class="cl-section">
+          <div class="cl-section-title">已知限制</div>
+          <ul>
+            <li>本次仅修复 Android 端；桌面端与 iOS 端不受此问题影响</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
     <!-- v7.2.2 -->
     <div class="cl-entry">
       <div class="cl-head">
         <span class="cl-version">v7.2.2</span>
         <span class="cl-date">2026-09-28</span>
-        <span class="cl-latest">Latest</span>
       </div>
       <div class="cl-card">
         <div class="cl-section">

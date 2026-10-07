@@ -108,14 +108,18 @@ class MusicController(
     }
 
     /**
-     * F11-L2：把播放服务以「已启动 + 前台」态拉起，使其**自持**（不再仅靠 Activity 绑定）。
+     * 把播放服务以「已启动 + 前台」态拉起，使其自持（不再仅靠 Activity 绑定）。
      *
-     * 原实现只有 `bindService(BIND_AUTO_CREATE)`，服务生命周期绑在 Activity 上 ——
-     * 退后台被回收时服务与同进程的 agent 一起消失（见 `design/agent-lifecycle.md` RC2）。
+     * 原实现只有 `bindService(BIND_AUTO_CREATE)`，服务生命周期绑在 Activity 上——
+     * 退后台被回收时服务与同进程的agent 一起消失（见 `design/agent-lifecycle.md` RC2）。
      * 改为 `startForegroundService` 后服务 `START_STICKY` 自持；前台化由服务内部按
      * 「音频在播 或 agent 保活」决定。
      *
      * 需在前台调用（播放由用户手势发起，满足 Android 12+ 的前台服务启动限制）。
+     *
+     * #45：后台续播时这里**必然**抛 `ForegroundServiceStartNotAllowedException`
+     * —— 服务早已在运行，本就不需要再启动一次。属预期内失败，记 debug；
+     * 其他异常仍按 warn 记录，避免真实故障被这条例行噪声淹没。
      */
     fun ensurePlaybackServiceStarted() {
         runCatching {
@@ -125,16 +129,32 @@ class MusicController(
             } else {
                 context.startService(intent)
             }
-        }.onFailure { e -> HmpLog.w(LogTag.PlayerService, e) { "📡 ensurePlaybackServiceStarted failed (non-fatal)" } }
+        }.onFailure { e ->
+            if (e is android.app.ForegroundServiceStartNotAllowedException) {
+                HmpLog.d(LogTag.PlayerService) { "📡 service already running (background start skipped)" }
+            } else {
+                HmpLog.w(LogTag.PlayerService, e) { "📡 ensurePlaybackServiceStarted failed (non-fatal)" }
+            }
+        }
     }
 
     fun unbindService() {
         try {
             context.unbindService(connection)
+        } catch (e: IllegalArgumentException) {
+            // 已解绑（MainActivity.onDestroy 与 release() 可能都走到这里）
+            HmpLog.d(LogTag.PlayerService) { "📡 Service already unbound" }
         } catch (e: Exception) {
             HmpLog.e(LogTag.PlayerService, e) { "📡 Error unbinding service" }
         }
-        bindPlayControl(null)
+        // #45：这里**不能**再 bindPlayControl(null)。
+        // 解绑只释放「与 Service 的连接」，不等于「失去控制播放器的能力」。
+        // 旧实现在此置空 playControl，而 playControl 是Koin single（进程级）持有的，
+        // 于是 Activity 一旦销毁（划掉最近任务 / 配置变更 / 系统回收），
+        // playCurrentTrack 的首行空检查就直接 return，
+        // 表现为「退到后台后当前歌曲播完不自动播下一首」。
+        // playControl 只应由 ServiceConnection.onServiceDisconnected 置空——
+        // 那才是「服务真的没了」的唯一信号。
     }
 
     fun bindPlayControl(service: PlayControl?) {
@@ -1031,6 +1051,14 @@ class MusicController(
         return playControl?.getCurrentEqualizerBandLevels() ?: floatArrayOf()
     }
     
+    /**
+     * 释放「与 Activity 生命周期绑定」的资源：定时器与进度轮询。
+     *
+     * #45：**不**在这里解绑 Service。播放是应用级职责，不是 Activity 级职责——
+     * 退到后台 / 旋转屏幕 / 划掉最近任务都会销毁 Activity，此时播放应当继续。
+     * 解绑由 Activity 自身的 onStart/onDestroy 成对管理（[bindService] / [unbindService]），
+     * 且 [unbindService] 已不再清空 playControl，因此 Activity 销毁不会中断续播。
+     */
     fun release() {
         timerJob?.cancel()
         timerJob = null
@@ -1039,7 +1067,6 @@ class MusicController(
             endCurrentPlaybackSession(isCompleted = false, switchSource = RELEASE_SOURCE)
         }
         stopProgressTracking()
-        unbindService()
         scope.launch {
             persistCurrentPlaylistToDatabase(_currentPlaylist.value)
         }

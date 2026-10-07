@@ -7,8 +7,8 @@
 window.SITE = {
   name: 'Hearable Music Player',
   shortName: 'HMP',
-  version: '7.2.2',
-  released: '2026-09-28',
+  version: '7.2.3',
+  released: '2026-10-07',
   author: 'WLYB',
   year: 2026,
   repo: 'https://github.com/InfiniteMotion/HMP',
