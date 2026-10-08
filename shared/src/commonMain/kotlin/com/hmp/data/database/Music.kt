@@ -3,6 +3,7 @@ package com.hmp.data.database
 import androidx.room.Dao
 import androidx.room.Embedded
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.PrimaryKey
@@ -11,7 +12,18 @@ import androidx.room.Relation
 import androidx.room.Transaction
 import kotlinx.coroutines.flow.Flow
 
-@Entity(tableName = "music")
+@Entity(
+    tableName = "music",
+    // v10（D2-07）：这四列此前零索引，曲库增长时等值查询/排序全表扫。
+    // ⚠️ title/artist/album 的 B-tree 索引救不了 `LIKE '%q%'` 中缀通配搜索（那属 D2-05 / FTS），
+    // 它们治的是等值与排序 —— 别把"搜索变快"记在本批账上。
+    indices = [
+        Index("isDeleted"),
+        Index("title"),
+        Index("artist"),
+        Index("album"),
+    ],
+)
 data class Music(
     @PrimaryKey val id: Long,
     val title: String,
@@ -23,7 +35,11 @@ data class Music(
     val isDeleted: Boolean = false,
 )
 
-@Entity(tableName = "musicExtra")
+@Entity(
+    tableName = "musicExtra",
+    // v10（D2-07）：富化管道按 (isGetExtraInfo, isDeleted) 找待处理曲目，此前全表扫。
+    indices = [Index("isGetExtraInfo", "isDeleted")],
+)
 data class MusicExtra(
     @PrimaryKey val id: Long,
     val lyrics: String? = null,
@@ -44,7 +60,11 @@ data class MusicExtra(
     val isDeleted: Boolean = false,
 )
 
-@Entity(tableName = "userInfo")
+@Entity(
+    tableName = "userInfo",
+    // v10（D2-07）：收藏/播放统计的可见性过滤按 isDeleted，此前全表扫。
+    indices = [Index("isDeleted")],
+)
 data class UserInfo(
     @PrimaryKey val id: Long,
     val liked: Boolean = false,

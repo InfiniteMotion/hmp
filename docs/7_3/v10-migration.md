@@ -1,6 +1,6 @@
 # v10 迁移设计（批一收敛产物）
 
-> **状态**：需求与依赖已收敛，待施工。本文是 `domain-baseline.md` §三 批一的落地入口：批一四域（D2 / D3 / D5 / D7）的审查共同指向**同一次** Room 迁移，散做等于把迁移拆三次。
+> **状态**：**已施工完成（2026-10-08，工作包 一-1）** —— 见文末 §八 的施工结果；本文仍是 v10 schema 增量的唯一真源。本文是 `domain-baseline.md` §三 批一的落地入口：批一四域（D2 / D3 / D5 / D7）的审查共同指向**同一次** Room 迁移，散做等于把迁移拆三次。
 > **来源**：本文全部条目溯源到 `docs/7_3/domain/{D2,D3,D5,D7}.md`，不重复论证，只做归并与定序。
 > **当前库**：`version = 9`（`AppDatabase.kt:40`，`shared/schemas/.../9.json`）。目标 `version = 10`，迁移 `MIGRATION_9_10`。
 
@@ -109,3 +109,26 @@
 - 批二开工前，本文件 §2.1 / §2.2 应是 v10 迁移实现的唯一 schema 真源；具体 `file:line` 改动在动手前按符号名复验（`AGENTS.md` 行号纪律）。
 
 **© 2026 Hearable Music Player · v10 迁移设计 · 批一收敛**
+
+---
+
+## 八、施工结果（2026-10-08，一-1）
+
+**落地范围**：7 个实体的 13 条索引 + `playlist_item` 重建去 `songUrl`；`@Database.version` 9→10；`MIGRATION_9_10` 追加进 `ALL_MIGRATIONS`（三端引用同一份）；`10.json` 由 KSP 导出并入库，与手写 DDL 的索引名/列序/唯一性逐字核对一致。
+
+**三处与本文原设计不同，都是实测逼出来的（改本文，不是偷偷改实现）**：
+1. **§2.3 的"先去重再建索引"不是纯 SQL**。`itemOrder` 重编与同名后缀在 Kotlin 侧读全量再逐行写：
+   写成一条 `UPDATE ... (SELECT ROW_NUMBER() ...)` 会在同一趟扫描里边写边读同一张表，`ROW_NUMBER` 的序随已改写的行漂移，结果不可复现。
+   重名组按 `id` 升序保留最早那条，其余加 `_2`/`_3`（含撇号的名字走 SQL 字面量转义，测试里种了 `Rock'n`）。
+2. **§四"随迁移一起修的逻辑"里的重排写入必须同批做，否则迁移上线即崩**：
+   `UNIQUE(playlistId,itemOrder)` 一建，`reorderPlaylistItems` 的逐条 `updateItemOrder` 就 `SQLITE_CONSTRAINT`（置顶是活的 UI 路径）。
+   已新增 `PlaylistItemDao.replaceOrder`（`@Transaction` 两阶段：先整体 `-(itemOrder+1)` 取负、再落终值，未列出的按原相对顺序接续），三端 Impl 统一改调它。
+   **添加侧仍无事务**：`addToPlaylist` 的 `getMaxOrder → insert` 并发下从"静默同序号"变成**撞索引抛错** —— 一-2 的优先级因此从"防半空库"升为"防崩溃"。
+3. **§六的判据落成 4 条断言并走过红→绿**：`PRAGMA index_list` 逐表比对 13+1 条索引、`table_info(playlist_item)` 只剩三列、迁移前后行数相等、`EXPLAIN QUERY PLAN` 出现 `index_PlaybackHistory_playedAt` 且无 `SCAN TABLE`。
+   另有一条"链末端必须等于声明版本"的断言在 bump 版本没同步时先红了（那就是批 0 装门禁的目的）。
+
+**真实库演练（一次性，脚本不入库）**：把 `~/.hmp/music_database.db` 连同 `-wal`/`-shm` 拷进 `build/`，让同一份 Kotlin 迁移在副本上跑完并过 Room 校验 ——
+7 张表行数一字不变、`songUrl` 消失、索引名与 `10.json` 一致；原库 size/mtime/md5 三个指纹前后一致，确认演练没碰它。
+本机这份库**没有**重名/重复序号/孤儿行，所以清洗分支的覆盖完全靠合成脏数据（那条测试才是清洗逻辑的判据）。
+
+**留给后续包的**：`addToPlaylist(..., musicPath)` 这个死参数（一-4）、批量写的事务与导入前安全副本（一-2）、`strftime` 改 Kotlin 侧区间（一-3）、快照 `version` 闸门（一-6）。

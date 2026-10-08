@@ -179,8 +179,8 @@ HMP/
 
 ## 七、数据层
 
-- **Room 2.8.3 KMP**：`AppDatabase` **version = 9**，`exportSchema = true`，18 实体 / 19 DAO。schema json 在 `shared/schemas/com.hmp.data.database.AppDatabase/1..9.json`。迁移是手写的 `MIGRATION_1_2 … MIGRATION_8_9`，统一收在 `AppDatabase.ALL_MIGRATIONS` 一个常量里，三端 `DatabaseBuilder.{android,desktop,ios}.kt` 都 `addMigrations(*AppDatabase.ALL_MIGRATIONS)` —— **不再有逐端手抄的名单**（2026-10-08 批 0 收口，漏一端曾是单端升级崩溃的来源）。
-- **迁移链的门禁**：`AppDatabaseMigrationTest` 跑逐环 + `1→9` 全链 + 链连续性；故意写坏一条 DDL 会红。新增版本必须**同时**追加 `MIGRATION_{n-1}_{n}` 与 `ALL_MIGRATIONS`，否则这两道关红。
+- **Room 2.8.3 KMP**：`AppDatabase` **version = 10**，`exportSchema = true`，18 实体 / 19 DAO。schema json 在 `shared/schemas/com.hmp.data.database.AppDatabase/1..10.json`。迁移是手写的 `MIGRATION_1_2 … MIGRATION_9_10`，统一收在 `AppDatabase.ALL_MIGRATIONS` 一个常量里，三端 `DatabaseBuilder.{android,desktop,ios}.kt` 都 `addMigrations(*AppDatabase.ALL_MIGRATIONS)` —— **不再有逐端手抄的名单**（2026-10-08 批 0 收口，漏一端曾是单端升级崩溃的来源）。v10 = 批一收口的一次迁移（13 条索引 + 删 `playlist_item.songUrl`），需求与判据的唯一真源是 `docs/7_3/v10-migration.md`。
+- **迁移链的门禁**：`AppDatabaseMigrationTest` 跑逐环 + `1→10` 全链 + 链连续性；故意写坏一条 DDL 会红。新增版本必须**同时**改 `@Database.version` + 追加 `MIGRATION_{n-1}_{n}` 与 `ALL_MIGRATIONS` + 重导 schema json + 同步测试里的 `latestSchemaVersion`，少一处都有断言红（v10 施工时实测过这条红法）。
 - **三端都去掉了 destructive 兜底**（A4）：新增实体/字段忘了写迁移 = 线上硬失败，不是静默重建。
 - **改 schema 必须同时补迁移（并追加进 `ALL_MIGRATIONS`）+ 重导 schema json。** 三端注册现在由常量结构性保证，不必手工三处同步。
 - 仓库接口 4 个：`MusicRepository`、`PlaylistRepository`、`SettingsRepository`、`BackupFileRepository`。实现**按平台三份镜像**（`*Impl.{android,desktop,ios}.kt`，基于 `MusicRepositoryBase.kt` 1245 行），`SettingsRepositoryImpl.{desktop,ios}` 各约 500 行。
@@ -199,6 +199,7 @@ HMP/
 3. **新增 NavKey 要同时动三处**：`Routes.kt` 声明、`HmpNavBackStack.kt` 的 `subclass` 注册、`NavigationGraph.kt` 的 `entry<>`。漏 serializer 过去**无编译期报错**，只在该 key 参与保存/恢复时运行期崩（"进页面转一圈就崩"），而 `RoutesTest` 那条手写 22 条 `is NavKey` 断言是恒真的、不把关。2026-10-08（三-1）起这道关由 `shared-ui/src/androidHostTest/.../NavRegistrationGateTest.kt` 守着：反射遍历每个 NavKey 做多态往返 + `entry` 覆盖比对，漏一处即红，新增路由自动进闸门。4 个 Tab key（`Main.Home/Gallery/List/User`）没有 `entry<>`，由 `MainShell` 的 HorizontalPager 承载 —— 它们在那个测试里是显式豁免名单，别当漏注册去补。
 4. **DI 图校验：3 条，且只覆盖"必传依赖"。** `shared/src/desktopTest/.../KoinGraphVerificationTest.kt`（领域/数据层）+ `shared-ui/src/desktopTest/.../DesktopKoinGraphVerificationTest.kt`（桌面完整装配）+ `shared-ui/src/androidHostTest/.../AndroidAppKoinGraphVerificationTest.kt`（Android 完整装配）。都用 koin-test `verify()` 静态校验，**不实例化定义**（`checkModules` 会实例化 → 等于打开你本机 `~/.hmp` 的真库与 DataStore）。两个必须知道的限制：① **带默认值的构造参数被当成可缺省** —— 实测删掉 `single { PresenceBus() }` 三条全绿，而 `MasterAgent` 装配处写的是 `chatPresenceBus = get()`（形参 `PresenceBus? = null`），运行期照样抛；② iOS 装配任何本机源集都拼不出，`MainActivity` 里 `loadModules` 动态注册的 `PlatformServices` 也看不见。所以新加 `single` 除了跑校验还要本机跑一次启动（R43）。
 5. **`withTransaction` / `inTransaction` 全仓 0 命中。** 备份恢复是 `deleteAll()` 后逐条 insert，`ImportUserDataBackupUseCase` 串行 4 个仓库 restore 后 `catch → Result.failure`，无回滚无安全副本（R39）。**新写批量落库请自己包事务。**
+    - ⚠️ **v10 起了新的后果**：`playlist_item UNIQUE(playlistId,itemOrder)` 建起来后，`addToPlaylist` 的 `getMaxOrder → insert` 三步无事务，并发添加从"静默同序号"变成**当场撞唯一索引**。重排侧已改走 `PlaylistItemDao.replaceOrder`（两阶段：先整体取负再落终值，逐条 UPDATE 中途必撞）；添加侧的收口在 一-2（批量写进单事务）。
 6. **版本号读不到时静默回落到错误值。** `android/app` 兜底 `51000`/`"5.10.0"`，`desktop/app` 兜底 `"1.0.0"` 且 `dmgPackageVersion = "1"` 硬编码（R45、R30）。
 7. **`copyToReleases` 找不到产物只 `println("!! Not found")` 不失败** → `./gradlew release` 可以"成功"地产出零个文件（本机侧；CI 的 `sync-release.py collect` 会失败）。
 8. **`DeviceMusicScanner.android.kt:50` 是已知 bug**：`val context = android.app.Application()`（新建 Application 无 base context，`contentResolver.query` 必失败），且未注入 Context。**这条不在任何待办里**，动 Android 扫描前先确认它是否已被某处绕过。

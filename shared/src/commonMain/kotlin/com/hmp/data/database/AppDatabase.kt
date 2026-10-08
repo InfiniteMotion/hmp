@@ -37,7 +37,7 @@ expect object AppDatabaseConstructor : RoomDatabaseConstructor<AppDatabase> {
         ForgottenDeliveryEntity::class,
         TokenLedgerEntry::class,
     ],
-    version = 9,
+    version = 10,
     exportSchema = true
 )
 @TypeConverters(LabelConverters::class, HelloCardConverters::class)
@@ -280,6 +280,144 @@ abstract class AppDatabase : RoomDatabase() {
         }
 
         /**
+         * v9 → v10（批一收口，`docs/7_3/v10-migration.md`）：13 条索引 + 删 `playlist_item.songUrl` 列。
+         *
+         * 步骤顺序是**功能性的**，不是风格：唯一索引必须在存量去重之后才建得起来（决策 1 / 决策 2，
+         * 见 `plan.md` §九）。删列没有原生语法，走「建新表(带外键) → 搬数据 → 删旧 → 改名」，
+         * 而 `DROP TABLE` 会连带删掉该表的索引，所以 `playlist_item` 的两条索引必须在改名之后重建。
+         *
+         * 三处实现取舍，都是复核后定下的：
+         * - **序号重编在 Kotlin 侧读全量再逐行写**，不写成一条 `UPDATE ... (SELECT ROW_NUMBER() ...)`：
+         *   那样同一趟扫描里边写边读同一张表，`ROW_NUMBER` 的序会随已改写的行漂移，结果不可复现。
+         *   现在的写法与决策 1 的"每歌单内按 `(itemOrder, songId)` 排后重编 `0..n-1`"逐字对应。
+         * - **重名保留 `id` 最小的一条**（最早创建的那条），其余加 `_2`/`_3`，撞名继续往后找空位。
+         *   系统歌单首启即建、通常是它们保住名字；但迁移读不到 DataStore 里的 id 与各语言歌单名，
+         *   **无法在 SQL 里显式保护保留名** —— 保留名规则落在创建/重命名路径（一-4 的 D3-16）。
+         * - **新表仍声明外键**：若历史库存在指向已删歌单的条目行，搬迁会因外键失败而不是静默丢行
+         *   （判据要求迁移前后行数相等）。这类只能靠发布前的影子库演练发现，见 `plan.md` §六。
+         */
+        val MIGRATION_9_10 = object : Migration(9, 10) {
+            override fun migrate(connection: SQLiteConnection) {
+                renumberPlaylistItemOrders(connection)
+                suffixDuplicatePlaylistNames(connection)
+
+                // ③ 唯一索引：歌单名（此时存量已无重名）
+                connection.execSQL(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS `index_playlist_name` ON `playlist` (`name`)"
+                )
+
+                // ④ 删列：列序、主键与外键子句逐字对齐 Room 期望的 createSql（`10.json` 里那份）
+                connection.execSQL(
+                    """
+                    CREATE TABLE `playlist_item_new` (
+                        `songId` INTEGER NOT NULL,
+                        `playlistId` INTEGER NOT NULL,
+                        `itemOrder` INTEGER NOT NULL,
+                        PRIMARY KEY(`songId`, `playlistId`),
+                        FOREIGN KEY(`playlistId`) REFERENCES `playlist`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE
+                    )
+                    """.trimIndent()
+                )
+                connection.execSQL(
+                    "INSERT INTO `playlist_item_new` (`songId`, `playlistId`, `itemOrder`) " +
+                        "SELECT `songId`, `playlistId`, `itemOrder` FROM `playlist_item`"
+                )
+                connection.execSQL("DROP TABLE `playlist_item`")
+                connection.execSQL("ALTER TABLE `playlist_item_new` RENAME TO `playlist_item`")
+                connection.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_playlist_item_playlistId` " +
+                        "ON `playlist_item` (`playlistId`)"
+                )
+                // ① 已保证同一歌单内序号不重复，这条唯一索引此刻才建得起来
+                connection.execSQL(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS `index_playlist_item_playlistId_itemOrder` " +
+                        "ON `playlist_item` (`playlistId`, `itemOrder`)"
+                )
+
+                // ⑤ 其余 11 条：D2-07 的九条 + D5-11 的两条
+                listOf(
+                    "CREATE INDEX IF NOT EXISTS `index_music_isDeleted` ON `music` (`isDeleted`)",
+                    "CREATE INDEX IF NOT EXISTS `index_music_title` ON `music` (`title`)",
+                    "CREATE INDEX IF NOT EXISTS `index_music_artist` ON `music` (`artist`)",
+                    "CREATE INDEX IF NOT EXISTS `index_music_album` ON `music` (`album`)",
+                    "CREATE INDEX IF NOT EXISTS `index_musicLabel_label` ON `musicLabel` (`label`)",
+                    "CREATE INDEX IF NOT EXISTS `index_musicLabel_type` ON `musicLabel` (`type`)",
+                    "CREATE INDEX IF NOT EXISTS `index_musicLabel_source` ON `musicLabel` (`source`)",
+                    "CREATE INDEX IF NOT EXISTS `index_userInfo_isDeleted` ON `userInfo` (`isDeleted`)",
+                    "CREATE INDEX IF NOT EXISTS `index_musicExtra_isGetExtraInfo_isDeleted` " +
+                        "ON `musicExtra` (`isGetExtraInfo`, `isDeleted`)",
+                    "CREATE INDEX IF NOT EXISTS `index_PlaybackHistory_playedAt` ON `PlaybackHistory` (`playedAt`)",
+                    "CREATE INDEX IF NOT EXISTS `index_PlaybackHistory_musicId_playedAt` " +
+                        "ON `PlaybackHistory` (`musicId`, `playedAt`)",
+                ).forEach { statement -> connection.execSQL(statement) }
+            }
+
+            /** 决策 1：每个歌单内按 `(itemOrder, songId)` 排序后重编 `0..n-1`；本来就正确的行不动。 */
+            private fun renumberPlaylistItemOrders(connection: SQLiteConnection) {
+                val rows = mutableListOf<Triple<Long, Long, Long>>()
+                connection.prepare(
+                    "SELECT playlistId, songId, itemOrder FROM playlist_item " +
+                        "ORDER BY playlistId ASC, itemOrder ASC, songId ASC"
+                ).use { statement ->
+                    while (statement.step()) {
+                        rows += Triple(statement.getLong(0), statement.getLong(1), statement.getLong(2))
+                    }
+                }
+                rows.groupBy { row -> row.first }.forEach { (_, orderedRows) ->
+                    orderedRows.forEachIndexed { index, row ->
+                        if (row.third != index.toLong()) {
+                            connection.execSQL(
+                                "UPDATE playlist_item SET itemOrder = $index " +
+                                    "WHERE playlistId = ${row.first} AND songId = ${row.second}"
+                            )
+                        }
+                    }
+                }
+            }
+
+            /** 决策 2：重名歌单保留 id 最小的一条，其余加后缀直到不撞。 */
+            private fun suffixDuplicatePlaylistNames(connection: SQLiteConnection) {
+                val duplicates = mutableListOf<String>()
+                connection.prepare(
+                    "SELECT name FROM playlist GROUP BY name HAVING COUNT(*) > 1"
+                ).use { statement ->
+                    while (statement.step()) duplicates += statement.getText(0)
+                }
+                duplicates.forEach { name ->
+                    val ids = mutableListOf<Long>()
+                    connection.prepare(
+                        "SELECT id FROM playlist WHERE name = ${sqlLiteral(name)} ORDER BY id ASC"
+                    ).use { statement ->
+                        while (statement.step()) ids += statement.getLong(0)
+                    }
+                    ids.drop(1).forEach { id ->
+                        val renamed = nextFreeName(connection, name)
+                        connection.execSQL(
+                            "UPDATE playlist SET name = ${sqlLiteral(renamed)} WHERE id = $id"
+                        )
+                    }
+                }
+            }
+
+            private fun nextFreeName(connection: SQLiteConnection, name: String): String {
+                var suffix = 2
+                while (true) {
+                    val candidate = name + "_" + suffix
+                    var taken = false
+                    connection.prepare(
+                        "SELECT COUNT(*) FROM playlist WHERE name = ${sqlLiteral(candidate)}"
+                    ).use { statement ->
+                        if (statement.step()) taken = statement.getLong(0) > 0L
+                    }
+                    if (!taken) return candidate
+                    suffix++
+                }
+            }
+
+            /** 迁移里只能拼字面量（`Migration` 拿不到绑参）；单引号按 SQL 规则翻倍转义。 */
+            private fun sqlLiteral(value: String): String = "'" + value.replace("'", "''") + "'"
+        }
+        /**
          * 迁移链的唯一真源：三端 `addMigrations(*ALL_MIGRATIONS)` 与迁移测试引用同一份，
          * 结构上消灭「漏注册某一端」（漏一端 = 该端升级硬失败，因三端均已去掉 destructive 兜底）。
          * 顺序敏感，逐环相邻衔接。新增版本必须在此追加，否则链连续性断言即红。
@@ -293,6 +431,7 @@ abstract class AppDatabase : RoomDatabase() {
             MIGRATION_6_7,
             MIGRATION_7_8,
             MIGRATION_8_9,
+            MIGRATION_9_10,
         )
     }
 }

@@ -2,6 +2,7 @@ package com.hmp.data.database
 
 import androidx.room.Dao
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.PrimaryKey
@@ -9,7 +10,14 @@ import androidx.room.Query
 import kotlinx.coroutines.flow.Flow
 
 
-@Entity(tableName = "playlist")
+@Entity(
+    tableName = "playlist",
+    // v10（D3-05，决策 2）：歌单名唯一性改由数据库保证 —— 此前只在创建弹窗里查一次，
+    // Agent 的 playlist_create / playlist_rename 与跨端恢复都能造出同名行，
+    // 而 DefaultPlaylistGuard 的按名删除会把同名行一起删掉。
+    // ⚠️ 行为变化：`@Insert`（ABORT）撞唯一索引会抛，配套改动在 一-4（按 id 删除 + 校验下沉）。
+    indices = [Index(value = ["name"], unique = true)],
+)
 data class Playlist(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val name: String,
