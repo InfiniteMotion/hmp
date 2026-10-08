@@ -56,6 +56,9 @@ class MainActivity : ComponentActivity() {
     @OptIn(UnstableApi::class)
     override fun onDestroy() {
         super.onDestroy()
+        // #45：release() 只释放 Activity 级资源（定时器、进度轮询），不再解绑 Service。
+        // 解绑在这里成对管理；MusicController 是进程级 single，playControl 不会被清空，
+        // 因此退到后台后当前歌曲播完仍能自动续播。
         musicController.release()
         musicController.unbindService()
     }

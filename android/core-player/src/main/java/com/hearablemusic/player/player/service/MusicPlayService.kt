@@ -308,22 +308,62 @@ class MusicPlayService : Service(), PlayControl {
         return builder.build()
     }
 
+    /**
+     * 安全的 `startForeground` 包装。
+     *
+     * #45：Android 12+（本项目 minSdk 33）**禁止后台调用 `startForeground()`**，
+     * 会抛 [android.app.ForegroundServiceStartNotAllowedException]。这不是可恢复的
+     * 软失败，而是直接杀进程的异常：
+     *
+     * ```
+     * ForegroundServiceStartNotAllowedException: Service.startForeground() not allowed
+     *   at MusicPlayService.updateNotificationWithCover(MusicPlayService.kt:673)
+     *   at MusicPlayService$onCreate$1$1.onPlaybackStateChanged(MusicPlayService.kt:355)
+     * ```
+     *
+     * 触发路径正是「后台自然播完」：下一首 prepare 完成 → STATE_READY →
+     * `updateNotificationWithCover` 拉回前台 → 此时已无豁免条件 → 抛异常 → 进程死亡。
+     *
+     * 前台身份在 Android 上是**一次性授予且不可回退**的：
+     * `refreshForeground()` 在停播时 `stopForeground(STOP_FOREGROUND_REMOVE)` 把它丢掉，
+     * 而「正在后台」这一状态不会因为新一首歌开始播放而改变 —— 于是永远补不回来。
+     *
+     * 因此这里**吞掉异常并记日志**，绝不让它逃逸到主线程：宁可通知暂时缺失，
+     * 也不能让整个播放链路崩掉。播放本身不依赖前台身份（ExoPlayer 已持有
+     * AudioFocus 与 wake lock），前台只决定进程优先级。
+     */
+    private fun startForegroundSafely(notification: Notification) {
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
+            } else {
+                startForeground(NOTIFICATION_ID, notification)
+            }
+        } catch (e: Exception) {
+            // 典型即 ForegroundServiceStartNotAllowedException；日志按 warn 便于定位。
+            HmpLog.w(LogTag.PlayerService, e) { "📡 startForeground rejected (app in background; playback continues without foreground priority)" }
+        }
+    }
+
     /** 进入前台（幂等）。有曲目用曲目通知，无曲目用占位通知。 */
     private fun ensureForeground() {
         val music = getCurrentPlayingMusic()
         val cls = mainActivityClass
         // 有曲目且宿主 Activity 类已就绪 → 曲目通知；否则用占位通知
         // （不拿 Service 类冒充 Activity 类 —— 那会生成无效的 content intent）
-        val notification = if (music != null && cls != null) {
-            buildNotification(music, currentAlbumArtBitmap, cls, currentLyricLine)
-        } else {
+        val notification = try {
+            if (music != null && cls != null) {
+                buildNotification(music, currentAlbumArtBitmap, cls, currentLyricLine)
+            } else {
+                buildIdleNotification()
+            }
+        } catch (e: Exception) {
+            // 通知构建本身也可能抛（#45：lateinit mediaSession 曾在此炸）。
+            // 无论如何都要给出一个可用的通知，保证前台契约不被违反。
+            HmpLog.w(LogTag.PlayerService, e) { "📡 build notification failed; falling back to idle notification" }
             buildIdleNotification()
         }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
-        } else {
-            startForeground(NOTIFICATION_ID, notification)
-        }
+        startForegroundSafely(notification)
     }
 
     /**
@@ -669,15 +709,9 @@ class MusicPlayService : Service(), PlayControl {
     private fun updateNotificationWithCover(music: Music) {
         // 先显示默认封面
         val notification = buildNotification(music, null, mainActivityClass ?: return, currentLyricLine)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            startForeground(
-                1,
-                notification,
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
-            )
-        } else {
-            startForeground(1, notification)
-        }
+        // #45：原为裸 startForeground，后台调用抛
+        // ForegroundServiceStartNotAllowedException 直接杀进程（崩溃点）。
+        startForegroundSafely(notification)
 
         // 异步加载封面
         CoroutineScope(Dispatchers.IO).launch {
