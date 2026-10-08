@@ -32,13 +32,13 @@ class BackupFileRepositoryImpl(
         dir
     }
 
-    override suspend fun saveBackup(snapshot: UserBackupSnapshot): Result<String> =
+    override suspend fun saveBackup(snapshot: UserBackupSnapshot, filePrefix: String): Result<String> =
         withContext(Dispatchers.Default) {
             try {
                 val formatter = NSDateFormatter()
                 formatter.dateFormat = "yyyyMMdd-HHmmss"
                 val timestamp = formatter.stringFromDate(NSDate())
-                val filename = "hearable-backup-v${snapshot.version}-$timestamp.json"
+                val filename = "$filePrefix-v${snapshot.version}-$timestamp.json"
                 val filePath = "$backupDir/$filename"
 
                 val jsonString = json.encodeToString(UserBackupSnapshot.serializer(), snapshot)
@@ -73,7 +73,7 @@ class BackupFileRepositoryImpl(
             try {
                 val files = NSFileManager.defaultManager.contentsOfDirectoryAtPath(backupDir, null)
                     ?.filterIsInstance<String>()
-                    ?.filter { it.startsWith("hearable-backup-") && it.endsWith(".json") }
+                    ?.filter { BackupFileRepository.isBackupFileName(it) }
                     ?.map { "$backupDir/$it" }
                     ?.sortedByDescending {
                         val attrs = NSFileManager.defaultManager.attributesOfItemAtPath("$backupDir/$it", null)

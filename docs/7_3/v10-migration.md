@@ -124,6 +124,8 @@
    `UNIQUE(playlistId,itemOrder)` 一建，`reorderPlaylistItems` 的逐条 `updateItemOrder` 就 `SQLITE_CONSTRAINT`（置顶是活的 UI 路径）。
    已新增 `PlaylistItemDao.replaceOrder`（`@Transaction` 两阶段：先整体 `-(itemOrder+1)` 取负、再落终值，未列出的按原相对顺序接续），三端 Impl 统一改调它。
    **添加侧仍无事务**：`addToPlaylist` 的 `getMaxOrder → insert` 并发下从"静默同序号"变成**撞索引抛错** —— 一-2 的优先级因此从"防半空库"升为"防崩溃"。
+   > 后续（2026-10-08，一-2 A 批）：重排方法已随派生列同事务重算改名为 `reorderAndRefresh`（另有 `addSongAndRefresh` / `removeSongAndRefresh` / `replaceItemsAndRefresh`），
+   > `getMaxOrder` 从 DAO 删除、取号并进 `insertWithNextOrder` 一条语句，撞索引那条路已断 —— 判据见 `domain/D3.md` D3-03 施工结果。
 3. **§六的判据落成 4 条断言并走过红→绿**：`PRAGMA index_list` 逐表比对 13+1 条索引、`table_info(playlist_item)` 只剩三列、迁移前后行数相等、`EXPLAIN QUERY PLAN` 出现 `index_PlaybackHistory_playedAt` 且无 `SCAN TABLE`。
    另有一条"链末端必须等于声明版本"的断言在 bump 版本没同步时先红了（那就是批 0 装门禁的目的）。
 

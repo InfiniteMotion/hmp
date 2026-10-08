@@ -7,6 +7,7 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.PrimaryKey
 import androidx.room.Query
+import androidx.room.Transaction
 import kotlinx.coroutines.flow.Flow
 
 @Entity(
@@ -44,6 +45,16 @@ interface PlaybackHistoryDao {
 
     @Query("DELETE FROM PlaybackHistory")
     suspend fun deleteAll()
+
+    /**
+     * 整表替换（备份恢复用）。一-2 / D5-13：恢复曾是"追加"，
+     * 因为 `insertAll` 的实体 id 恒为 0（自增），在已有历史的设备上会把历史翻倍。
+     */
+    @Transaction
+    suspend fun replaceAll(items: List<PlaybackHistory>) {
+        deleteAll()
+        insertAll(items)
+    }
 
     @Query("SELECT * FROM PlaybackHistory")
     suspend fun getAllHistory(): List<PlaybackHistory>

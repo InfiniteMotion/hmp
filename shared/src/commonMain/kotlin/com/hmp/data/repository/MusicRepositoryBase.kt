@@ -764,7 +764,10 @@ abstract class MusicRepositoryBase(
                 updatedAt = currentTimeMillis()
             )
         }
-        listeningDurationDao.insertAll(durations)
+        // 一-2 / D5-13：恢复必须是"先清后写"。原先只 insertAll —— listeningDuration 按日期主键
+        // 侥幸覆盖得住，PlaybackHistory 的主键是自增 id，快照里的行 id 全是 0 → 每次恢复都另起一批新行，
+        // 历史条数翻倍，总时长 / 完播率 / Top 歌曲跟着一起失真。
+        listeningDurationDao.replaceAll(durations)
 
         val history = snapshot.playbackHistories.map {
             com.hmp.data.database.PlaybackHistory(
@@ -775,7 +778,7 @@ abstract class MusicRepositoryBase(
                 source = it.source
             )
         }
-        playbackHistoryDao.insertAll(history)
+        playbackHistoryDao.replaceAll(history)
     }
 
     // endregion

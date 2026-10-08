@@ -36,6 +36,8 @@ import com.hmp.domain.setting.usecase.PlaybackHistoryUseCase
 import com.hmp.domain.setting.usecase.TimerUseCase
 import com.hmp.domain.setting.usecase.UserSettingsUseCase
 import com.hmp.domain.backup.usecase.DeleteBackupUseCase
+import com.hmp.data.database.RoomTransactionRunner
+import com.hmp.domain.backup.TransactionRunner
 import com.hmp.domain.backup.usecase.ExportUserDataBackupUseCase
 import com.hmp.domain.backup.usecase.GetBackupsUseCase
 import com.hmp.domain.backup.usecase.ImportUserDataBackupUseCase
@@ -188,6 +190,9 @@ val sharedModule = module {
     }
 
     // Use Cases
+    // 一-2 / D7-02：跨仓库写的事务入口（AppDatabase 三端都注册为 single，实现只在数据层一份）
+    single<TransactionRunner> { RoomTransactionRunner(get()) }
+
     single { GetAllMusicUseCase(get()) }
     single { SearchMusicUseCase(get()) }
     single { LoadMusicFromDeviceUseCase(get()) }
@@ -207,7 +212,7 @@ val sharedModule = module {
     single { GetUserUsageDataUseCase(get()) }
     single { TimerUseCase(get()) }
     single { ExportUserDataBackupUseCase(get(), get(), get(), get()) }
-    single { ImportUserDataBackupUseCase(get(), get(), get(), get()) }
+    single { ImportUserDataBackupUseCase(get(), get(), get(), get(), get(), get()) }
     single { GetBackupsUseCase(get()) }
     single { DeleteBackupUseCase(get()) }
 }

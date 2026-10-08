@@ -178,4 +178,28 @@ class MusicRepositoryBaseTest {
         assertNull(restored.confidence)
         assertTrue(restored.createdAt != null && restored.createdAt!! > 0, "时间戳缺失时以还原时刻兜底")
     }
+
+    /**
+     * 一-2 / D5-13：在**已有播放历史**的设备上恢复备份，条数不能翻倍。
+     *
+     * 旧实现只 `insertAll`，而快照里每行的 id 都是 0（自增主键）→ 每次恢复都另起一批新行，
+     * 总时长 / 完播率 / Top 歌曲跟着一起失真；`listeningDuration` 因主键是 date 侥幸盖得住，
+     * 但快照里没有的旧日期会留在库里 —— 所以两张表都改成"先清后写"。
+     */
+    @Test
+    fun restoreListeningStats_replacesInsteadOfAppending() = runTest {
+        val history = db.playbackHistoryDao()
+        val durations = db.listeningDurationDao()
+        history.insert(com.hmp.data.database.PlaybackHistory(musicId = 1, playedAt = 1000L, playDuration = 50L))
+        history.insert(com.hmp.data.database.PlaybackHistory(musicId = 2, playedAt = 2000L, playDuration = 60L))
+        durations.insert(com.hmp.data.database.ListeningDuration(date = "2026-01-01", duration = 100L, updatedAt = 1L))
+
+        val snapshot = repo.exportListeningStatsSnapshot()
+        assertEquals(2, history.getAllHistory().size, "前置条件：库里已有 2 条历史")
+
+        repo.restoreListeningStats(snapshot)
+
+        assertEquals(2, history.getAllHistory().size, "恢复同一份快照不应把播放历史翻倍")
+        assertEquals(1, durations.getAllDurations().size, "日累计同样应是替换结果")
+    }
 }

@@ -155,7 +155,11 @@ class FakePlaylistRepository : PlaylistRepository {
     override suspend fun exportPlaylistsSnapshot(): PlaylistsSnapshot =
         PlaylistsSnapshot(playlists = playlists.toList(), playlistItems = emptyList())
 
+    /** 供 D7-02 / R39 的判据断言：让恢复的最后一步按指定异常失败。 */
+    var failRestoreWith: Throwable? = null
+
     override suspend fun restoreFromSnapshot(snapshot: PlaylistsSnapshot) {
+        failRestoreWith?.let { throw it }
         playlists.clear()
         playlists.addAll(snapshot.playlists)
         playlistItems.clear()

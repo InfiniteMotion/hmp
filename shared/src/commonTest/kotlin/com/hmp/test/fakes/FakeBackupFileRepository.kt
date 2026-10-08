@@ -8,8 +8,20 @@ class FakeBackupFileRepository : BackupFileRepository {
     private val backups = mutableMapOf<String, UserBackupSnapshot>()
     private var nextId = 1
 
-    override suspend fun saveBackup(snapshot: UserBackupSnapshot): Result<String> {
-        val path = "/backup_${nextId++}.json"
+    /** 供 D7-02 的判据断言：每次导入只多一份 pre-restore 副本。 */
+    val savedFileNames = mutableListOf<String>()
+
+    /** 供 D7-02 的判据断言：写不出安全副本时本次恢复必须整段放弃。 */
+    var failNextSave = false
+
+    override suspend fun saveBackup(snapshot: UserBackupSnapshot, filePrefix: String): Result<String> {
+        if (failNextSave) {
+            failNextSave = false
+            return Result.failure(IllegalStateException("磁盘写满"))
+        }
+        val name = "$filePrefix-${nextId++}.json"
+        savedFileNames += name
+        val path = "/$name"
         backups[path] = snapshot
         return Result.success(path)
     }

@@ -69,40 +69,22 @@ class PlaylistRepositoryImpl(
         playlistDao.setLastPlayedAt(id, timestamp)
     }
 
-    private suspend fun refreshPlaylistStats(playlistId: Long) {
-        val list = playlistItemDao.getPlaylistById(playlistId)
-        val songCount = list.size
-        val totalDurationMs = list.sumOf { it.music.duration }
-        playlistDao.updateStats(playlistId, songCount, totalDurationMs, System.currentTimeMillis())
-
-        val firstSongCover = list.firstOrNull()?.music?.albumArtUri
-        playlistDao.updateCover(playlistId, firstSongCover, System.currentTimeMillis())
-    }
 
     override suspend fun addToPlaylist(playlistId: Long, musicId: Long, musicPath: String) {
-        val maxOrder = playlistItemDao.getMaxOrder(playlistId) ?: -1
-        val item = PlaylistItem(
-            songId = musicId,
-            playlistId = playlistId
-        )
-        playlistItemDao.insert(item.toEntity(itemOrder = maxOrder + 1))
-        refreshPlaylistStats(playlistId)
+        // v10 删了 songUrl，musicPath 已是死参数；签名清理与入参完整性校验（改返回类型）归 一-4
+        playlistItemDao.addSongAndRefresh(playlistId, musicId, System.currentTimeMillis())
     }
 
     override suspend fun removeItemFromPlaylist(musicId: Long, playlistId: Long) {
-        playlistItemDao.deleteItemByIds(musicId, playlistId)
-        refreshPlaylistStats(playlistId)
+        playlistItemDao.removeSongAndRefresh(playlistId, musicId, System.currentTimeMillis())
     }
 
     override suspend fun resetPlaylistItems(playlistId: Long, musicList: List<MusicInfo>) {
-        playlistItemDao.resetPlaylistItems(playlistId, musicList.map { it.toEntity() })
-        refreshPlaylistStats(playlistId)
+        playlistItemDao.replaceItemsAndRefresh(playlistId, musicList.map { it.toEntity() }, System.currentTimeMillis())
     }
 
     override suspend fun reorderPlaylistItems(playlistId: Long, orderedMusicIds: List<Long>) {
-        // v10 起 itemOrder 唯一，逐条 UPDATE 会中途撞号 —— 交给 DAO 的两阶段重排（D3-03 的事务在 一-2/一-4）
-        playlistItemDao.replaceOrder(playlistId, orderedMusicIds)
-        refreshPlaylistStats(playlistId)
+        playlistItemDao.reorderAndRefresh(playlistId, orderedMusicIds, System.currentTimeMillis())
     }
 
     override fun getMusicInfoInPlaylist(playlistId: Long): Flow<List<MusicInfo>> {
