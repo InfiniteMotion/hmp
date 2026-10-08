@@ -59,6 +59,17 @@
 - **动作**：在 `:shared:desktopTest` 接 `koin-test` 的 `checkModules`，至少一个聚合 module 图。
 - **判据**：删掉任意一条 `single` → 测试红；落在 `:shared:desktopTest`。
 
+- **施工结果（2026-10-08，X-闸 / 另一半）**：图校验从 1 条变 **3 条**，`koin-test` 只进测试源集（`:shared` desktopTest、`shared-ui` desktopTest 与 androidHostTest），照 `room-testing` 先例不进 commonTest：
+  - `shared/src/desktopTest/.../di/KoinGraphVerificationTest.kt` —— `sharedModule + desktopPlatformModule`，钉住领域/数据层自身的图（不依赖 UI 是否存在）。
+  - `shared-ui/src/desktopTest/.../di/DesktopKoinGraphVerificationTest.kt` —— 桌面**完整装配**（`sharedModule + desktopPlatformModule + desktopPlayerModule + desktopUiModule`，对齐 `initKoinDesktop(...)`）。
+  - `shared-ui/src/androidHostTest/.../di/AndroidAppKoinGraphVerificationTest.kt` —— Android **完整装配**（`sharedModule + androidPlatformModule + playerModule + uiModule`，对齐 `MusicApplication.onCreate`）。
+  - 三条都用 `verify()`（纯静态，"runs no definition and needs no mock"）而不是 `checkModules()`（4.0 起废弃，且**会实例化每条定义** —— 装配图里有 Room / DataStore / `androidContext()`，跑起来就是碰开发者真实的 `~/.hmp`）。
+  - 三点实测才找到的坑：① `listOf(a,b).verifyAll()` 只按**主类型**建索引，看不见 `singleOf(::X) bind I::class` 的次类型（实测把 `MusicRepository` 报成缺失），必须 `module { includes(...) }.verify()` 展平；② `ToolRegistry` 由 `createBaseToolRegistry(get())` 返回，校验会读它的构造器把就地组装的 `tools: List<Tool>` 当待注入 —— 这类要走 `injectedParameters(definition<ToolRegistry>(List::class))`，放 `extraTypes` 不生效；③ `GlobalTokenCounter` / `TokenMeter` 是 `:shared` 的 `internal` 类，跨模块点不到名，所以在 shared-ui 那两条只能整体放行 `Function0`（`:shared` 那条按定义逐条钉住）。
+  - **实测信号（红→绿都做过）**：注释掉 `single<MusicAllDao>` → `:shared` 那条红；注释掉桌面侧 `single<PlaybackController>` → 桌面那条红并报 `Missing definition for '[field:'playbackController' - type:PlaybackController]' in definition '[Factory: …ViewModel]'`，而 Android 那条不受影响（两条独立）；恢复后 `testAll` 全绿。
+  - ⚠️ **已知假阴性，别把绿当保证**：**带默认值的构造参数被静态校验视为可缺省**。实测注释掉 `single { PresenceBus() }` 后三条**全绿**，而 `MasterAgent` 装配处写的是 `chatPresenceBus = get()`（形参 `PresenceBus? = null`）—— 运行期照样抛。所以本闸门覆盖的是"必传依赖"（ViewModel 构造、`singleOf` 的仓库/DAO 链），可选参数那条路径仍只能靠运行期与真机。
+  - **剩余盲区（如实记账）**：① iOS 装配（`IosModules` + `IosUiKoinModule` + `KoinHelper`）在任何本机可编译的源集里都拼不出来；② `MainActivity.onCreate` 里用 `loadModules` 动态注册的 `single<PlatformServices> { AndroidPlatformServices(...) }` —— 静态组合看不见，Android 那条只能把它登记进 `extraTypes`，注册被删不会红（这是"进页面才崩"的真实残留）。
+  - 全量结果（2026-10-08）：`testAll` 六个源集 1181 例 / 0 失败 —— `:shared:desktopTest` 969、`:shared-ui:desktopTest` 42、`:shared-ui:testAndroidHostTest` 94、`:android:core-player` 51、`:desktop:core-player` 24、`:android:app` 1（模板桩）。
+
 ### X-05 · 导航 serializer 漏注册 2 个 NavKey，无编译期报错（亲验）
 - **现状**：`Routes.kt` 定义 **30** 个 NavKey（L24–L182，grep `: NavKey` 共 30 行）。`HmpNavBackStack.kt` 的 `SerializersModule` 注册 **28** 个 `subclass`（L26–L60）。缺 `Routes.AI.AgentConfig`（`Routes.kt:143`）与 `Routes.Settings.AgentMonitor`（`Routes.kt:132`）。`NavigationGraph.kt` 两者都有 `entry<>`（L113、L173），但 serializer 注册缺。`Routes.kt:15` 注释自陈「漏注册无编译期报错，仅在该 key 参与保存/恢复时运行时报错」。
 - **影响**：`AgentConfig`/`AgentMonitor` 是真实可达路由（`AgentMonitorScreen.kt:164-167`、`FeatureEntryRow.kt:86` 导航至此）；进程重建/配置变更触发回栈反序列化时抛 `SerializationException`，无编译保护。
@@ -96,6 +107,12 @@
 - **影响**：本机 `preflight` 与（若 CI 改跑）`testAll` 都对 shared-ui 的 desktop 源集「假绿」。
 - **动作**：从 `testAll` 移除不存在的 `:shared-ui:desktopTest`（shared-ui 测试已挂 `testAndroidHostTest`），或用 `maybeDepends` 包裹 + 源集存在性断言。
 - **判据**：`./gradlew :shared-ui:desktopTest` 报 NO-SOURCE；落在 `testAll` / `preflight`。
+
+- **施工结果（2026-10-08，X-testAll）**：先按"目录不存在"摘掉 `testAll` / `testUi` 的 `:shared-ui:desktopTest` 依赖，随后补另一半时发现 **`shared-ui/build.gradle.kts:121` 早就声明了 `desktopTest` 源集并配好依赖，只是 `src/desktopTest/` 目录一直没建** —— 这才是 NO-SOURCE 的真因。补出目录（放桌面装配图校验）后：
+  - `testAll` / `testUi` **重新挂回** `:shared-ui:desktopTest`（前提变了：现在它是 4 套件 42 例的真实任务，且 commonTest 那批用例从此在 desktop / androidHost 两个目标上都跑）。
+  - `testUiDesktop` 因此**不删**了 —— 它原本是"无 Android SDK 环境的唯一入口"，但挂在空源集上必然 NO-SOURCE 绿；现在源集有内容，它重新变成有用而不骗人的任务。（本轮已按此决定在脚本注释里写明理由。）
+  - 顺手删掉 `build.gradle.kts` 里"desktopTest 源集目前为空（只有 androidHostTest，8 个文件）"那句过期硬计数。
+  - 同类残留**已一并处理**（同日续做）：`desktop/app` 同样只有 `desktopMain`，`testAll` 挂的 `:desktop:app:desktopTest` 也是 NO-SOURCE 绿。现已建出 `desktop/app/src/desktopTest/`（`build.gradle.kts` 加 `kotlin("test")` 依赖），放 `SingleInstanceGuardTest` 4 例 —— 单实例锁的取锁/拒锁/释放后可重启/崩溃残留不阻塞启动。实测信号：把 `release()` 里的 `fileLock?.release()` 与 `lockFile?.close()` 注释掉 → 只有 `releaseAllowsNextStart` 红，其余三条不受影响。桌面 app 从此在 `testAll` 里有真实内容。
 
 ### X-10 · maybeDepends 在错目标下静默零工作（亲验）
 - **现状**：`build.gradle.kts:34-37` `maybeDepends` 用 `rootProject.findProject(projectPath)` 判存在再 `dependsOn`。设 `HMP_BUILD_TARGET=desktop` 时 `:android:app` 不在构建，`testAndroid`（L143–148）仅 `maybeDepends(...testDebugUnitTest)` → 无依赖 → 必绿零工作。

@@ -72,6 +72,9 @@ kotlin {
                 // 不能进 commonTest——room-migration 未发布 iosArm64 目标，会破坏 iOS 测试编译元数据解析
                 // （androidx.room:room-migration-iosarm64:2.8.3 不存在，IDE 同步 transform*ForIde 会失败）
                 implementation(libs.androidx.room.testing)
+                // koin-test 也只进 desktopTest：DI 图校验（KoinGraphVerificationTest）读的是
+                // 桌面 JVM 的模块定义，同 room-testing 的理由——不冒 iOS 元数据解析的风险
+                implementation(libs.koin.test)
             }
         }
         commonTest.dependencies {

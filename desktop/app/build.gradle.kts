@@ -33,6 +33,14 @@ kotlin {
                 implementation(libs.jna.platform)
             }
         }
+        // desktopTest（JVM-only）：桌面 app 壳里能在本机闭环的部分（单实例锁）。
+        // 补这个目录还有另一层原因：`testAll` 一直 `maybeDepends(":desktop:app:desktopTest")`，
+        // 而源集没有目录 → 任务 NO-SOURCE 静默绿（X-09 同类陷阱）。现在它有用例了。
+        val desktopTest by getting {
+            dependencies {
+                implementation(kotlin("test"))
+            }
+        }
     }
 }
 

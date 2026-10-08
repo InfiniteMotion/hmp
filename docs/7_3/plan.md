@@ -128,7 +128,17 @@
 > `shared-ui/src/androidHostTest/.../NavRegistrationGateTest.kt`（多态往返 + `entry` 覆盖，30 = 26 entry + 4 Tab 豁免）。
 > 实测：无人注册的新路由会被精确点名；`:shared-ui:testAndroidHostTest` 93 例 / 0 失败。
 > X-05 的**运行期那半**（真机"不保留活动"后回栈恢复）仍留在 §六 实机清单。施工记录与两个反射陷阱见 `domain/D8.md` D8-01 / D8-02。
-
+>
+> **闸门段进度（2026-10-08）**：**X-闸 已完成，且从 1 条扩成 3 条**，覆盖两端真实装配组合 ——
+> `shared/src/desktopTest/.../KoinGraphVerificationTest.kt`（领域/数据层）、
+> `shared-ui/src/desktopTest/.../DesktopKoinGraphVerificationTest.kt`（桌面完整装配）、
+> `shared-ui/src/androidHostTest/.../AndroidAppKoinGraphVerificationTest.kt`（Android 完整装配）。
+> 全用 koin-test `verify()` 静态校验（`checkModules` 会实例化定义 → 会打开本机 `~/.hmp` 真库，故弃用）。
+> 实测信号：删 `single<MusicAllDao>` → `:shared` 那条红；删桌面侧 `single<PlaybackController>` → 桌面那条红且 Android 那条不受影响。
+> **两个如实记录的覆盖边界**（详见 `domain/X.md` X-04 施工结果）：① 带默认值的构造参数被静态校验当成可缺省（删 `single { PresenceBus() }` 三条全绿，而运行期 `chatPresenceBus = get()` 照样抛）；② iOS 装配拼不出、`MainActivity` 里 `loadModules` 动态注册的 `PlatformServices` 看不见。
+> **X-testAll 已完成，并按新事实修正**：先摘 `:shared-ui:desktopTest`（当时目录不存在），补另一半时发现 `shared-ui/build.gradle.kts` 早已声明该源集、只缺目录 —— 于是建出目录并把 `testAll`/`testUi` **重新挂回**，`testUiDesktop` 因此保留（不再是空绿陷阱）。
+> 同类残留**已同日处理**：`desktop/app` 建出 `src/desktopTest/` 并放 `SingleInstanceGuardTest`（单实例锁 4 例，实测 `release()` 不释放会精确红一条），`testAll` 挂的 `:desktop:app:desktopTest` 从此有真实内容。
+>
 > **三-1 / X-闸 / X-testAll 建议先做**：三者的成本都在"改几行 + 加一条断言"，但它们把后续所有包的回归风险降一档。这也是上一轮审查"先闸门再 S1"的意图 —— 本轮按 baseline §三 的批次走，但闸门段可以并行提前。
 
 ---

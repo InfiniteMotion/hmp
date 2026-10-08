@@ -499,7 +499,7 @@ date = "2026-09-28"
 > 注：`android:app` / `android:core-player` **不暴露 `compile*` 任务**（AGP 内置 Kotlin），故 `compileAndroid` 用 `assembleDebug`。
 > `cleanOrphans` **只打印清单、不自动删除** —— 删除属破坏性操作，需人工确认。
 > `run` 不再依赖 `injectFFmpeg`：它通过 **`-Dhmp.ffmpeg.path` 直接指向 `build/ffmpeg/`**（`desktop/app/build.gradle.kts:312`），开发时二进制就位即可。
-> **`shared-ui` 的测试在 `androidHostTest`（6 文件）与 `commonTest`（3 文件）两个源集**：`desktopTest` 的**目录根本不存在**，`build.gradle.kts` 却仍硬 `dependsOn(":shared-ui:desktopTest")` → 那一档 `NO-SOURCE` 空过。故 `testUi` 同时挂两个源集；无 Android SDK 时用 `testUiDesktop`（但它只覆盖 desktop 侧）。详见 `AGENTS.md` §八 第 1 条与 TODO **R52**。
+> **`shared-ui` 的测试在两个源集**：`androidHostTest`（历史主力，需 Android SDK）与 `desktopTest`（`src/desktopTest/` 目录 2026-10-08 才建出来 —— 在此之前 `build.gradle.kts` 声明了该源集却没有目录，`:shared-ui:desktopTest` 一直 `NO-SOURCE` 空过）。`commonTest` 的用例会同时进这两个目标，所以 `testUi` / `testAll` 现在**两个都挂**；无 Android SDK 的环境用 `testUiDesktop`（它有真用例了）。详见 `AGENTS.md` §八 第 1 条与 `docs/7_3/domain/X.md` X-09。
 > ⚠️ `maybeDepends` 在错误的 `HMP_BUILD_TARGET` 下会**静默丢依赖**：`export HMP_BUILD_TARGET=desktop` 后跑 `./gradlew testAndroid` 必绿且零工作（TODO **R52**）。
 
 #### 低内存构建

@@ -106,6 +106,8 @@ kotlin {
             implementation(libs.junit)
             implementation(libs.mockk)
             implementation(libs.kotlinx.coroutines.test)
+            // DI 图静态校验（AndroidAppKoinGraphVerificationTest）；只进测试源集，不进 commonTest
+            implementation(libs.koin.test)
         }
 
         // commonTest：平台无关单元测试源集（收尾第④步第3项·扫障）。
@@ -122,6 +124,11 @@ kotlin {
             dependencies {
                 implementation(libs.junit)
                 implementation(libs.mockk)
+                // DI 图静态校验（DesktopKoinGraphVerificationTest）
+                implementation(libs.koin.test)
+                // 校验要把 Ktor 的引擎类型登记为框架类型，故测试源集需要它可见
+                // （:shared 侧的 ktor 是 implementation，不传递到本模块测试类路径）
+                implementation(libs.ktor.core)
             }
         }
 
