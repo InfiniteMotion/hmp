@@ -65,6 +65,11 @@
 - **动作**：在 `HmpNavBackStack.kt` 补两条 `subclass`；并加遍历断言（`RoutesTest` 现有断言是 `is NavKey` 恒真，不把关）。
 - **判据**：需运行期 save/restore，CI 无法自动化。谁验：Android「不保留活动」+ 进 `AgentConfig`/`AgentMonitor` 后回退；或 macOS 上 Xcode 运行 iOS 触发进程重建。
 
+- **施工结果（2026-10-08，三-1）**：两条 `subclass` 已补，且"漏注册无编译期报错"这一半已被机器接管 ——
+  `shared-ui/src/androidHostTest/.../NavRegistrationGateTest.kt` 遍历反射出的每个 NavKey 做真实多态往返 + `entry<>` 覆盖比对，
+  实测无人注册的新路由会被精确点名。**仍待验的是运行期那半**（真机"不保留活动"后回栈恢复），本机不可达，登记在 `../plan.md` §六。
+  细节与两个反射陷阱（`@Serializable` data class 的嵌套 `$$serializer`、合成构造器）记在 `D8.md` D8-01 的施工结果段。
+
 ### X-06 · 测试覆盖工程面：androidMain / iosMain 为 0（亲验）
 - **现状**：测试源集（`find */src/*Test*` 非 build）仅 `shared/{commonTest,desktopTest}`、`shared-ui/{commonTest,androidHostTest}`、`android/app/src/androidTest`、`desktop/core-player/src/desktopTest`。**无 `shared/src/androidHostTest`、无 `shared/src/iosTest`、无 androidMain/iosMain 专用测试源集**。即 `shared/src/androidMain`、`shared/src/iosMain` 的平台实现（`*Impl.android/ios.kt`、`DeviceMusicScanner.*.kt` 等）无对应测试源集覆盖。
 - **影响**：平台特定逻辑回归无闸门；iOS 改动只能本机 Xcode 验。

@@ -124,6 +124,11 @@
 | **X-目标** | `maybeDepends` 在错目标下静默零工作 → fail-fast | X-10 | `HMP_BUILD_TARGET=desktop ./gradlew testAndroid` 不再静默绿 | — |
 | **X-其余** | 静态闸门 / storybook 去留 / 依赖矩阵 / 平台源集覆盖 | X-06、X-07、X-08、X-11 | 见域章节；**§九 决策 6** | 决策 6 |
 
+> **三-1 已完成（2026-10-08）**：两条 serializer 补齐，恒真断言删除，遍历式闸门落在
+> `shared-ui/src/androidHostTest/.../NavRegistrationGateTest.kt`（多态往返 + `entry` 覆盖，30 = 26 entry + 4 Tab 豁免）。
+> 实测：无人注册的新路由会被精确点名；`:shared-ui:testAndroidHostTest` 93 例 / 0 失败。
+> X-05 的**运行期那半**（真机"不保留活动"后回栈恢复）仍留在 §六 实机清单。施工记录与两个反射陷阱见 `domain/D8.md` D8-01 / D8-02。
+
 > **三-1 / X-闸 / X-testAll 建议先做**：三者的成本都在"改几行 + 加一条断言"，但它们把后续所有包的回归风险降一档。这也是上一轮审查"先闸门再 S1"的意图 —— 本轮按 baseline §三 的批次走，但闸门段可以并行提前。
 
 ---

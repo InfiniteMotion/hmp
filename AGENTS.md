@@ -196,7 +196,7 @@ HMP/
 
 1. **`testAll` 会静默空过。** `build.gradle.kts:93` 硬 `dependsOn(":shared-ui:desktopTest")`，而该源集**目录不存在** → `NO-SOURCE` 绿。真正的用例在 `androidHostTest`（6 文件）和 `commonTest`（3 文件）。`build.gradle.kts:121-122` 那句"desktopTest 源集目前为空（只有 androidHostTest，8 个文件）"本身也是过期口径。
 2. **`maybeDepends` 在错目标下静默丢依赖。** `export HMP_BUILD_TARGET=desktop` 后跑 `./gradlew testAndroid` **必绿且零工作**（R52）。
-3. **`Routes.kt` 有 30 个 NavKey，`HmpNavBackStack.kt` 只注册了 28 个 serializer**，漏的正是 `Routes.AI.AgentConfig` 与 `Routes.Settings.AgentMonitor`。该文件的注释自己写明"漏注册无编译期报错，仅在该 key 参与保存/恢复时运行时报错"。**新增 NavKey 必须同时补 serializer 和 `NavigationGraph` 的 `entry<>`**（R41）。`RoutesTest` 里手写 22 条 `is NavKey` 断言是恒真闸门，不会替你把关。
+3. **新增 NavKey 要同时动三处**：`Routes.kt` 声明、`HmpNavBackStack.kt` 的 `subclass` 注册、`NavigationGraph.kt` 的 `entry<>`。漏 serializer 过去**无编译期报错**，只在该 key 参与保存/恢复时运行期崩（"进页面转一圈就崩"），而 `RoutesTest` 那条手写 22 条 `is NavKey` 断言是恒真的、不把关。2026-10-08（三-1）起这道关由 `shared-ui/src/androidHostTest/.../NavRegistrationGateTest.kt` 守着：反射遍历每个 NavKey 做多态往返 + `entry` 覆盖比对，漏一处即红，新增路由自动进闸门。4 个 Tab key（`Main.Home/Gallery/List/User`）没有 `entry<>`，由 `MainShell` 的 HorizontalPager 承载 —— 它们在那个测试里是显式豁免名单，别当漏注册去补。
 4. **DI 无图校验**（`checkModules`/`verify()` 全仓 0 命中）。Android 只 eager 解 `MasterAgent`、Desktop 只解控制器、iOS 纯懒 → **"进页面才崩"在 iOS 成立**。新加 `single` 后本机至少跑一次启动（R43）。
 5. **`withTransaction` / `inTransaction` 全仓 0 命中。** 备份恢复是 `deleteAll()` 后逐条 insert，`ImportUserDataBackupUseCase` 串行 4 个仓库 restore 后 `catch → Result.failure`，无回滚无安全副本（R39）。**新写批量落库请自己包事务。**
 6. **版本号读不到时静默回落到错误值。** `android/app` 兜底 `51000`/`"5.10.0"`，`desktop/app` 兜底 `"1.0.0"` 且 `dmgPackageVersion = "1"` 硬编码（R45、R30）。
