@@ -278,6 +278,22 @@ abstract class AppDatabase : RoomDatabase() {
                 )
             }
         }
+
+        /**
+         * 迁移链的唯一真源：三端 `addMigrations(*ALL_MIGRATIONS)` 与迁移测试引用同一份，
+         * 结构上消灭「漏注册某一端」（漏一端 = 该端升级硬失败，因三端均已去掉 destructive 兜底）。
+         * 顺序敏感，逐环相邻衔接。新增版本必须在此追加，否则链连续性断言即红。
+         */
+        val ALL_MIGRATIONS: Array<Migration> = arrayOf(
+            MIGRATION_1_2,
+            MIGRATION_2_3,
+            MIGRATION_3_4,
+            MIGRATION_4_5,
+            MIGRATION_5_6,
+            MIGRATION_6_7,
+            MIGRATION_7_8,
+            MIGRATION_8_9,
+        )
     }
 }
 

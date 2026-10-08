@@ -62,7 +62,10 @@
 | **P0-1** | 迁移测试补环：补 `7→8`、`8→9`，再加一条 `createDatabase(1)` 跑全链到 9 | D7-09 | `:shared:desktopTest` 出现这四段用例；故意写坏一条 DDL 必红 | — |
 | **P0-2** | 修假用例 `migratedDatabase_canBeOpenedByRoom`：改为先跑一次真实 DAO 查询再断言 | D7-09 | 同上（它是"DDL 写错也绿"的那一条） | P0-1 |
 | **P0-3** | `AppDatabase` 暴露 `ALL_MIGRATIONS`，三端 `addMigrations(...)` 引用它 | v10 §三.1 | 抽掉任一端引用后，回归用例能发现（而不是靠人记） | P0-1 |
-| **P0-4** | 本机基线（**已完成 2026-09-30**） | — | 964 用例 / 119 套件 / 全绿 / 约 61 秒；命令见 §七 | — |
+| **P0-4** | 本机基线（2026-09-30 首测；批 0 后于 2026-10-08 复测） | — | 复测 **968 用例** / 119 套件 / 全绿；命令见 §七 | — |
+
+> **批 0 状态（2026-10-08）：P0-1 / P0-2 / P0-3 已完成**，M0 判据达成。施工结果与两处判据收窄记在 `domain/D7.md` D7-09 的「施工结果」段（条目未拆进 `taskbook/` —— 该包三步在同一天内做完并回填，按 `taskbook/README.md` §一「做完就删文件」的口径，建一个即删的文件只留漂移面）。
+> 顺带修掉一处测试基建缺陷：`AppDatabaseMigrationTest` 原先 8 个用例共用一个 `build/migration_test.db`，Windows 上一个用例失败就会让后续用例继承旧库、报出与自身无关的错。现每实例唯一文件名。
 
 > **P0-1 的顺序硬约束（本次实测得出，`v10-migration.md` 未写）**：`10.json` 是 `runMigrationsAndValidate(10, …)` 的比对基准，必须**先**由 KSP 导出并入库，**再**写迁移用例。正确顺序为：改 `@Entity` + 写 `MIGRATION_9_10` → 构建导出 `10.json` → 写用例。反过来会先红在"找不到 `10.json`"。该条应写进批一-1 的 taskbook 条目。
 
@@ -156,7 +159,7 @@
   ```
 
   理由：`gradlew-lowmem.bat testCore` 首次执行时报 `:shared:desktopTest FROM-CACHE` + `testCore UP-TO-DATE`，**BUILD SUCCESSFUL 但零用例执行**（`org.gradle.caching=true`），连测试报告都是缓存里那份。`.md` 里的"任务 UP-TO-DATE 时加 `--rerun`"不足以覆盖 `FROM-CACHE` 这种情况。
-- **本机基线（2026-09-30）**：119 套件 / **964 用例** / 0 失败 0 错误 0 跳过 / 约 61 秒；其中 `commonTest` 764 例、`desktopTest` 200 例（逐条相加吻合）。最慢套件 `RadioSubAgentTest` 12.55s。
+- **本机基线（2026-10-08 复测）**：119 套件 / **968 用例** / 0 失败 0 错误 0 跳过；由 2026-09-30 的 964 例 +4 得来，+4 全部来自批 0 给 `AppDatabaseMigrationTest` 补的四条（`migrate_7_8` / `migrate_8_9` / `1→9` 全链 / 链连续性）。最慢套件 `RadioSubAgentTest` 12.55s（旧测）。
 - **测试源集实况**（8 个）：`shared/{commonTest,desktopTest}`、`shared-ui/{commonTest,androidHostTest}`、`desktop/core-player/desktopTest`、`android/core-player/test`（Robolectric，51 例）、`android/app/{test,androidTest}`（模板桩）。**`:shared` 无 `androidHostTest`**：AGP 9 KMP 库插件默认关闭 host test，需 `withHostTest{}` 显式 opt-in（`shared-ui/build.gradle.kts:19-21` 有先例）。
 - **iOS 侧有任务、无源集**：`:shared` 有 `iosSimulatorArm64Test` / `iosX64Test`，会带上 `commonTest` 的 764 例，但**只能在 macOS 上跑**（本机验证不可达，属待验）。
 
@@ -216,7 +219,7 @@
 
 | 里程碑 | 内容 | 完成判据 |
 |---|---|---|
-| **M0** | 批 0（迁移骨架 + 常量） | 故意写坏一条 DDL 必红；`1→9` 全链用例在跑 |
+| **M0** | 批 0（迁移骨架 + 常量） | **已达成（2026-10-08）**：故意写坏 `MIGRATION_8_9` 的一个 NOT NULL → 精确 3 红；改回 8/8 绿。`1→9` 全链用例在跑，三端引用同一份 `ALL_MIGRATIONS` |
 | **M1** | 批一（含 v10 迁移与四域逻辑） | 一-1..一-7 全绿；`10.json` 入库；三端注册；降级守卫可用 |
 | **M2** | 批二（运行时） | 可测部分全绿；iOS 项进实机清单 |
 | **M3** | 批三 + 横切线安全网 | 三-1..三-7 + X-闸/X-testAll/X-版本/X-目标 全绿 |

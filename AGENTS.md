@@ -179,8 +179,10 @@ HMP/
 
 ## 七、数据层
 
-- **Room 2.8.3 KMP**：`AppDatabase` **version = 9**，`exportSchema = true`，18 实体 / 19 DAO。schema json 在 `shared/schemas/com.hmp.data.database.AppDatabase/1..9.json`。迁移是手写的 `MIGRATION_1_2 … MIGRATION_8_9`，在三端各自的 `DatabaseBuilder.{android,desktop,ios}.kt` **分别注册**（漏一端就是单端升级崩溃）。
-- **三端都去掉了 destructive 兜底**（A4）：新增实体/字段忘了写迁移 = 线上硬失败，不是静默重建。**改 schema 必须同时补迁移 + 三端注册 + 重导 schema json。**
+- **Room 2.8.3 KMP**：`AppDatabase` **version = 9**，`exportSchema = true`，18 实体 / 19 DAO。schema json 在 `shared/schemas/com.hmp.data.database.AppDatabase/1..9.json`。迁移是手写的 `MIGRATION_1_2 … MIGRATION_8_9`，统一收在 `AppDatabase.ALL_MIGRATIONS` 一个常量里，三端 `DatabaseBuilder.{android,desktop,ios}.kt` 都 `addMigrations(*AppDatabase.ALL_MIGRATIONS)` —— **不再有逐端手抄的名单**（2026-10-08 批 0 收口，漏一端曾是单端升级崩溃的来源）。
+- **迁移链的门禁**：`AppDatabaseMigrationTest` 跑逐环 + `1→9` 全链 + 链连续性；故意写坏一条 DDL 会红。新增版本必须**同时**追加 `MIGRATION_{n-1}_{n}` 与 `ALL_MIGRATIONS`，否则这两道关红。
+- **三端都去掉了 destructive 兜底**（A4）：新增实体/字段忘了写迁移 = 线上硬失败，不是静默重建。
+- **改 schema 必须同时补迁移（并追加进 `ALL_MIGRATIONS`）+ 重导 schema json。** 三端注册现在由常量结构性保证，不必手工三处同步。
 - 仓库接口 4 个：`MusicRepository`、`PlaylistRepository`、`SettingsRepository`、`BackupFileRepository`。实现**按平台三份镜像**（`*Impl.{android,desktop,ios}.kt`，基于 `MusicRepositoryBase.kt` 1245 行），`SettingsRepositoryImpl.{desktop,ios}` 各约 500 行。
 - UseCase 共 22 个（music 10 / setting 6 / backup 4 / playlist 2）。
 - **Ktor 只用于用户自填的 AI API**，无网络取曲。Android 走 OkHttp engine、iOS 走 Darwin engine。
