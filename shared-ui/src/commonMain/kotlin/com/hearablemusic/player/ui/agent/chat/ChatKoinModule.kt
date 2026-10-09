@@ -23,7 +23,7 @@ import com.hmp.domain.setting.SettingsRepository
 import com.hmp.domain.setting.usecase.UserSettingsUseCase
 import com.hearablemusic.player.ui.agent.port.ControllerNowPlayingProvider
 import com.hearablemusic.player.ui.agent.port.ControllerPlaybackCommandPort
-import com.hearablemusic.player.ui.platform.currentTimeMillis
+import com.hmp.data.database.currentTimeMillis
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.distinctUntilChanged

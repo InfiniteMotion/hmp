@@ -189,6 +189,8 @@ HMP/
 - **改 schema 必须同时补迁移（并追加进 `ALL_MIGRATIONS`）+ 重导 schema json。** 三端注册现在由常量结构性保证，不必手工三处同步。
 - 仓库接口 4 个：`MusicRepository`、`PlaylistRepository`、`SettingsRepository`、`BackupFileRepository`。实现**按平台三份镜像**（`*Impl.{android,desktop,ios}.kt`，基于 `MusicRepositoryBase.kt` 1245 行），`SettingsRepositoryImpl.{desktop,ios}` 各约 500 行。
 - UseCase 共 22 个（music 10 / setting 6 / backup 4 / playlist 2）。
+- **播放时长的单一口径**（一-3 C3）：`PlaybackHistory.playDuration` = **本次会话累计实听毫秒**（不含 seek 空档，与 `listeningDuration` 的日累计同语义）—— 不是引擎当前位置，也不是曲目元数据时长。三端各自的结算点算的就是这一个数，新增播放入口时别顺手改回另外两种。
+- **播放来源是闭集**：取值真源 `shared/.../domain/music/PlaybackSources.kt`（以 Android 已发布的拼写为准，库里已有历史数据，改名会让同一来源在饼图里裂成两条）。⚠️ iOS 侧是 **Swift 里复制的一份**（`MusicPlayerController.swift` 的 `enum PlaybackSource`）—— Kotlin `object` 的导出名在本仓库没有已验证先例，而 CI 不编译 iOS，猜错就是一次真机构建失败；**改取值要两头对**。
 - **Ktor 只用于用户自填的 AI API**，无网络取曲。Android 走 OkHttp engine、iOS 走 Darwin engine。
 - **DataStore** 存偏好；`SecureStorageHelper` 存 API Key。
 

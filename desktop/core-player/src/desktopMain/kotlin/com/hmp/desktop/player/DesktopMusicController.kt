@@ -3,6 +3,7 @@ package com.hmp.desktop.player
 import com.hmp.data.database.currentTimeMillis
 import com.hmp.domain.enum.PlaybackMode
 import com.hmp.domain.music.MusicInfo
+import com.hmp.domain.music.PlaybackSources
 import com.hmp.domain.music.MusicLabel
 import com.hmp.domain.playlist.usecase.ManagePlaylistUseCase
 import com.hmp.domain.setting.SettingsRepository
@@ -31,6 +32,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 
@@ -131,6 +133,14 @@ class DesktopMusicController(
 
     private var playStartTime: Long = 0L
     private var lastDurationRecordTime: Long = 0L
+    /**
+     * 本次会话累计实听毫秒（D5-04 的单一口径）。
+     *
+     * 锚点 [sessionAnchorAt] 与日累计的节流计时（`lastDurationRecordTime`）**刻意分开**：
+     * 前者每 30 秒才结一次，后者必须"随时可结算"。结算点（暂停 / seek / 切歌 / 退出）都先调
+     * [bankListeningSegment]，所以 `totalPlayedDurationInSession` 始终是"到此刻为止的真实值"。
+     */
+    private var sessionAnchorAt: Long = 0L
     private val durationRecordThreshold = 30000L
 
     // Playback tracking
@@ -212,6 +222,8 @@ class DesktopMusicController(
             audioEngine.resume()
             playStartTime = currentTimeMillis()
             lastDurationRecordTime = playStartTime
+            // 恢复后要重新起算，否则暂停期间的墙钟时间会被算成实听（D5-04 的"不含空档"）
+            sessionAnchorAt = playStartTime
             startProgressTracking()
             _isPlaying.value = true
             return
@@ -230,6 +242,7 @@ class DesktopMusicController(
                 }
             }
         }
+        closeListeningSegment()
         audioEngine.pause()
         _isPlaying.value = false
         stopProgressTracking()
@@ -265,9 +278,11 @@ class DesktopMusicController(
             playStartTime = currentTimeMillis()
             lastDurationRecordTime = playStartTime
             totalPlayedDurationInSession = 0L
+            sessionAnchorAt = playStartTime
 
             startProgressTracking()
-            startNewPlaybackSession(musicInfo.music.id, "direct")
+            // D5-06：取值走三端共用的闭集（原先这里是个游离的 "direct" 字面量，与 Android 的拼法不成体系）
+            startNewPlaybackSession(musicInfo.music.id, PlaybackSources.MANUAL)
             addToRecent(musicInfo)
         }
     }
@@ -309,6 +324,8 @@ class DesktopMusicController(
     }
 
     fun seekTo(positionMs: Long) {
+        // seek 跳过的部分是"没听"，不能计入实听：先结到跳转之前，再从这里重新起算
+        bankListeningSegment()
         audioEngine.seekTo(positionMs)
         _currentPosition.value = positionMs
     }
@@ -352,6 +369,7 @@ class DesktopMusicController(
                     lastPersistMs = now
                     persistCurrentPosition(pos)
                 }
+                bankListeningSegment()
                 recordListeningDurationPeriodically()
                 delay(PROGRESS_TRACKING_INTERVAL_MS)
             }
@@ -363,12 +381,11 @@ class DesktopMusicController(
         progressJob = null
     }
 
-    private fun persistCurrentPosition(position: Long) {
-        scope.launch {
+    /** 返回写入句柄：退出路径要等它（D5-07）。其他调用点不关心，忽略返回值即可。 */
+    private fun persistCurrentPosition(position: Long): Job = scope.launch {
             try {
                 settingsRepository.saveCurrentPosition(position)
-            } catch (_: Exception) {}
-        }
+        } catch (_: Exception) {}
     }
 
     private fun recordListeningDurationPeriodically() {
@@ -402,29 +419,66 @@ class DesktopMusicController(
         }
     }
 
-    private fun endCurrentPlaybackSession(isCompleted: Boolean) {
-        val historyId = currentPlaybackHistoryId ?: return
-        val music = currentPlayingMusic.value ?: return
+    /**
+     * 把"上一个锚点到此刻"折进会话累计。
+     *
+     * 只在真正在播时累计 —— 暂停期间、seek 之后的空档都不算实听（D5-04 定的口径，
+     * 与 `listeningDuration` 的日累计同语义）。
+     */
+    private fun bankListeningSegment() {
+        val anchor = sessionAnchorAt
+        if (anchor > 0 && _isPlaying.value) {
+            val elapsed = currentTimeMillis() - anchor
+            if (elapsed > 0) totalPlayedDurationInSession += elapsed
+            sessionAnchorAt = currentTimeMillis()
+        } else if (anchor == 0L && _isPlaying.value) {
+            sessionAnchorAt = currentTimeMillis()
+        }
+    }
 
-        scope.launch {
+    /** 暂停 / 停止时结束计时段：把残值入账并撤掉锚点。 */
+    private fun closeListeningSegment() {
+        val anchor = sessionAnchorAt
+        if (anchor > 0) {
+            val elapsed = currentTimeMillis() - anchor
+            if (elapsed > 0) totalPlayedDurationInSession += elapsed
+        }
+        sessionAnchorAt = 0L
+    }
+
+    /**
+     * 结算当前会话，**返回挂起句柄**给退出路径等待（D5-07）。
+     *
+     * 旧实现是 `scope.launch { … }` 发完就走，`release()` 之后紧跟 `exitApplication()` ——
+     * 最后一条播放会话的结算与日累计大概率来不及落库，库里留下 `playDuration = 0` 的僵尸行。
+     */
+    private fun endCurrentPlaybackSession(isCompleted: Boolean): Job? {
+        val historyId = currentPlaybackHistoryId ?: return null
+        val music = currentPlayingMusic.value ?: return null
+        currentPlaybackHistoryId = null
+
+        // 先入账再读，否则"结算时刻"之前的那段就凭空消失了（iOS 当初正是这个形状：只写 30 秒残值）
+        closeListeningSegment()
+        val playedMs = totalPlayedDurationInSession
+        totalPlayedDurationInSession = 0L
+        val trackDuration = music.music.duration
+
+        val isSkip = !isCompleted && (
+            playedMs < skipThresholdMs ||
+                (trackDuration > 0 && playedMs < trackDuration * skipThresholdPercent)
+            )
+
+        return scope.launch {
             try {
-                val currentPos = _currentPosition.value
-                val duration = music.music.duration
-
-                val isSkip = !isCompleted && (
-                    currentPos < skipThresholdMs ||
-                    (duration > 0 && currentPos < duration * skipThresholdPercent)
-                )
-
+                // D5-04：三端同一口径 —— 本次会话累计实听毫秒，不是引擎位置、也不是元数据时长
                 if (isCompleted) {
-                    playbackHistoryUseCase.completePlaybackSession(historyId, music.music.id, currentPos)
+                    playbackHistoryUseCase.completePlaybackSession(historyId, music.music.id, playedMs)
                 } else {
-                    playbackHistoryUseCase.skipPlaybackSession(historyId, music.music.id, currentPos, isSkip)
+                    playbackHistoryUseCase.skipPlaybackSession(historyId, music.music.id, playedMs, isSkip)
                 }
-
-                currentPlaybackHistoryId = null
-                totalPlayedDurationInSession = 0L
-            } catch (_: Exception) {}
+            } catch (e: Exception) {
+                HmpLog.w(LogTag.PlayerCore, e) { "播放会话结算失败（不影响播放）" }
+            }
         }
     }
 
@@ -497,8 +551,7 @@ class DesktopMusicController(
      * 写失败不上抛（播放不因 DB 故障中断），但必须可见——外键失败多半意味着
      * 系统歌单行缺失，DefaultPlaylistGuard 的自愈事件应与此日志对照排查。
      */
-    private fun persistCurrentPlaylistToDatabase(snapshot: List<MusicInfo>) {
-        scope.launch {
+    private fun persistCurrentPlaylistToDatabase(snapshot: List<MusicInfo>): Job = scope.launch {
             try {
                 val playlistId = currentPlayListId.filterNotNull().first()
                 managePlaylistUseCase.resetPlaylistItems(playlistId, snapshot)
@@ -508,7 +561,6 @@ class DesktopMusicController(
                 }
             }
         }
-    }
 
     private fun addToRecent(musicInfo: MusicInfo) {
         scope.launch {
@@ -695,12 +747,54 @@ class DesktopMusicController(
 
     // endregion
 
-    fun release() {
+    /**
+     * 退出前释放，**挂起等到落库完成**（D5-07）。
+     *
+     * 旧版 `release()` 里三个写都是 `scope.launch` 发完就走，调用方紧接着 `exitApplication()` ——
+     * 进程说没就没，最后一次会话结算与进度持久化大概率丢失，库里留下 `playDuration = 0` 的僵尸行。
+     *
+     * 可重入：`DisposableEffect.onDispose` 与窗口关闭回调会各调一次，第二次因为
+     * `currentPlaybackHistoryId` 已清空而不重复结算（这条由判据钉住）。
+     */
+    suspend fun releaseAndSettle(timeoutMs: Long = 3_000L) {
         stopProgressTracking()
-        endCurrentPlaybackSession(isCompleted = false)
-        persistCurrentPosition(_currentPosition.value)
-        persistCurrentPlaylistToDatabase(_currentPlaylist.value)
+        closeListeningSegment()
+        // 退出前把不足一个上报周期的残值也结掉（旧版直接丢掉最后 0~30 秒）
+        val flushJob = flushListeningDuration()
+        val sessionJob = endCurrentPlaybackSession(isCompleted = false)
+        val positionJob = persistCurrentPosition(_currentPosition.value)
+        val playlistJob = persistCurrentPlaylistToDatabase(_currentPlaylist.value)
+        // 有界等待：退出不能因为一次卡住的写盘就挂死；超时后照常释放引擎
+        withTimeoutOrNull(timeoutMs) {
+            listOfNotNull(flushJob, sessionJob, positionJob, playlistJob).joinAll()
+        } ?: HmpLog.w(LogTag.PlayerCore) { "退出时落库未在 ${timeoutMs}ms 内完成，最后一段播放记录可能未写入" }
         audioEngine.release()
+    }
+
+    /**
+     * 退出前补上"不足一个上报周期"的那段日累计（旧版直接丢掉最后 0~30 秒）。
+     *
+     * 口径必须是 `now - lastDurationRecordTime` 而不是整段会话累计 ——
+     * 周期上报已经把之前的部分记进过 `listeningDuration`，拿会话总量再记一次就是双倍计数。
+     */
+    private fun flushListeningDuration(): Job? {
+        if (playStartTime == 0L) return null
+        val now = currentTimeMillis()
+        val pending = now - lastDurationRecordTime
+        val job = if (pending > 0) scope.launch {
+            runCatching { playbackHistoryUseCase.recordListeningDuration(pending) }
+        } else null
+        lastDurationRecordTime = now
+        return job
+    }
+
+    /**
+     * 兼容旧调用点的即发即弃版本。
+     *
+     * 新代码请用 [releaseAndSettle]：这个重载没法等待，退出路径上用它就等于保留 D5-07 描述的老行为。
+     */
+    fun release() {
+        scope.launch { releaseAndSettle() }
     }
 
     // region Desktop-specific aliases

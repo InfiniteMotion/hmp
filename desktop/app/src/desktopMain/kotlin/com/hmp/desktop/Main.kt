@@ -56,6 +56,18 @@ import co.touchlab.kermit.Severity
 import com.hmp.log.HmpLog
 import com.hmp.log.LogTag
 
+/**
+ * 退出前先把播放会话与进度落完（一-3 / D5-07）。
+ *
+ * 三个退出入口（关窗、托盘退出、自绘标题栏关闭）都先调它再走原有的清理与退出。旧写法是
+ * `release()`（内部 `scope.launch` 发完就走）后立刻 `exitApplication()` —— 进程说没就没，
+ * 最后一段收听与最后一次结算大概率没写进库。`runBlocking` 在这里是可以的：
+ * 进程正在退出，没有 UI 还要响应；等待本身由 `releaseAndSettle` 限时兜住。
+ */
+private fun settlePlaybackBeforeExit(musicController: DesktopMusicController) {
+    kotlinx.coroutines.runBlocking { musicController.releaseAndSettle() }
+}
+
 fun main() {
     val releaseBuild = System.getProperty("hmp.release-build")?.toBooleanStrictOrNull() ?: false
     initKermit(if (releaseBuild) Severity.Warn else Severity.Debug)
@@ -187,7 +199,7 @@ fun main() {
 
         Window(
             onCloseRequest = {
-                musicController.release()
+                settlePlaybackBeforeExit(musicController)
                 SystemTrayManager.dispose()
                 SingleInstanceGuard.release()
                 exitApplication()
@@ -268,7 +280,7 @@ fun main() {
                                 }
                             },
                             onExit = {
-                                musicController.release()
+                                settlePlaybackBeforeExit(musicController)
                                 SystemTrayManager.dispose()
                                 SingleInstanceGuard.release()
                                 exitApplication()
@@ -330,7 +342,7 @@ fun main() {
                             awtWindow?.let { WindowHelper.minimizeAwt(it) }
                         },
                         onClose = {
-                            musicController.release()
+                            settlePlaybackBeforeExit(musicController)
                             SystemTrayManager.dispose()
                             SingleInstanceGuard.release()
                             exitApplication()

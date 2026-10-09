@@ -12,6 +12,7 @@ import com.hmp.domain.lyrics.LrcParser
 import com.hmp.domain.lyrics.LyricLineData
 import com.hmp.domain.lyrics.findCurrentLyricIndex
 import com.hmp.domain.music.MusicInfo
+import com.hmp.domain.music.PlaybackSources
 import com.hmp.domain.music.MusicLabel
 import com.hmp.domain.playlist.usecase.ManagePlaylistUseCase
 import com.hmp.domain.setting.SettingsRepository
@@ -65,7 +66,7 @@ class MusicController(
         const val PROGRESS_PERSIST_INTERVAL_MS = 5_000L
 
         /** [release] 结束会话时用于观测面的 switchSource 标记（对应 TrackOutcome.STOPPED）。 */
-        const val RELEASE_SOURCE = "Release"
+        const val RELEASE_SOURCE = PlaybackSources.RELEASE
     }
 
     private var playControl: PlayControl? = null
@@ -450,9 +451,9 @@ class MusicController(
                 // 如果是初始状态（未加载），则尝试恢复上次进度播放
                 val lastPos = _currentPosition.value
                 if (lastPos > 0) {
-                    playCurrentTrack("Resume", startPosition = lastPos)
+                    playCurrentTrack(PlaybackSources.RESUME, startPosition = lastPos)
                 } else {
-                    playCurrentTrack("Resume")
+                    playCurrentTrack(PlaybackSources.RESUME)
                 }
             }
         }
@@ -482,7 +483,7 @@ class MusicController(
     fun seekTo(position: Long) {
         scope.launch {
             if (!_isPlaying.value) {
-                playCurrentTrack("Resume")
+                playCurrentTrack(PlaybackSources.RESUME)
             }
             playControl?.seekTo(position)
         }
@@ -511,7 +512,7 @@ class MusicController(
             togglePlaybackMode(PlaybackMode.SEQUENTIAL)
             _currentIndex.value = 0
             persistCurrentPlaylistToDatabase(_currentPlaylist.value)
-            playCurrentTrack("Order")
+            playCurrentTrack(PlaybackSources.ORDER)
         }
     }
 
@@ -521,7 +522,7 @@ class MusicController(
             togglePlaybackMode(PlaybackMode.SHUFFLE)
             _currentIndex.value = 0
             persistCurrentPlaylistToDatabase(_currentPlaylist.value)
-            playCurrentTrack("Shuffle")
+            playCurrentTrack(PlaybackSources.SHUFFLE)
         }
     }
 
@@ -548,7 +549,7 @@ class MusicController(
             }
         }
         showToast("下一曲")
-        playCurrentTrack("Next")
+        playCurrentTrack(PlaybackSources.NEXT)
     }
 
     fun playPrevious() = scope.launch {
@@ -565,7 +566,7 @@ class MusicController(
             }
         }
         showToast("上一曲")
-        playCurrentTrack("Previous")
+        playCurrentTrack(PlaybackSources.PREVIOUS)
     }
 
     override fun onPlaybackEnded() {
@@ -681,9 +682,9 @@ class MusicController(
             title = currentMusic.music.title,
             outcome = when {
                 isCompleted -> com.hmp.domain.agent.port.TrackOutcome.COMPLETED
-                switchSource == "Next" -> com.hmp.domain.agent.port.TrackOutcome.SKIPPED_NEXT
-                switchSource == "Previous" -> com.hmp.domain.agent.port.TrackOutcome.SKIPPED_PREV
-                switchSource == RELEASE_SOURCE -> com.hmp.domain.agent.port.TrackOutcome.STOPPED
+                switchSource == PlaybackSources.NEXT -> com.hmp.domain.agent.port.TrackOutcome.SKIPPED_NEXT
+                switchSource == PlaybackSources.PREVIOUS -> com.hmp.domain.agent.port.TrackOutcome.SKIPPED_PREV
+                switchSource == PlaybackSources.RELEASE -> com.hmp.domain.agent.port.TrackOutcome.STOPPED
                 else -> com.hmp.domain.agent.port.TrackOutcome.SWITCHED_AWAY
             },
             playedMs = duration,
@@ -697,7 +698,10 @@ class MusicController(
         }
         scope.launch {
             if (isCompleted) {
-                playbackHistoryUseCase.completePlaybackSession(historyId, musicId, totalDuration)
+                // D5-04：完播也写**本次会话累计实听**，不是元数据时长。
+                // 写 totalDuration 等于"跳过整段再听到结尾"也按全曲计入，总收听时长与完播率都会虚高，
+                // 而且与另两端口径不一致（Desktop 写引擎位置、iOS 写 30 秒残值）—— 三端三个量就没法一起统计了。
+                playbackHistoryUseCase.completePlaybackSession(historyId, musicId, duration)
             } else {
                 // 只要没有播放完成（手动切换或停止），就视作跳过
                 playbackHistoryUseCase.skipPlaybackSession(historyId, musicId, duration, true)
@@ -779,7 +783,7 @@ class MusicController(
 
     fun playAt(musicInfo: MusicInfo) {
         switchToMusicInPlaylist(musicInfo)
-        playCurrentTrack("Manual")
+        playCurrentTrack(PlaybackSources.MANUAL)
     }
 
     suspend fun playWith(musicInfo: MusicInfo) {
@@ -826,7 +830,7 @@ class MusicController(
                 val newList = listOf(currentMusic) + similarSongs
                 _currentPlaylist.value = newList
                 _currentIndex.value = 0
-                playCurrentTrack("HeartMode")
+                playCurrentTrack(PlaybackSources.HEART_MODE)
                 showToast("为你推荐${similarSongs.size}首心动歌曲")
             } else {
                 showToast("未找到相似歌曲")
