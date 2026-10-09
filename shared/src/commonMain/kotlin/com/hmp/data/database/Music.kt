@@ -10,6 +10,7 @@ import androidx.room.PrimaryKey
 import androidx.room.Query
 import androidx.room.Relation
 import androidx.room.Transaction
+import androidx.room.Upsert
 import kotlinx.coroutines.flow.Flow
 
 @Entity(
@@ -75,6 +76,16 @@ data class UserInfo(
     val userRating: Int? = null,
     val inCustomPlaylistCount: Int? = null,
     val isDeleted: Boolean = false,
+    /**
+     * 用户主动"从曲库移除"（v10 / D2-02）。
+     *
+     * 为什么单开一列：`isDeleted` 有两个成因 —— 用户移除、以及"这次扫描没见到这个文件"。
+     * 二者必须能被分辨，否则扫描落库时无法判断该不该把行恢复成可见：
+     * 一律恢复会让"用户隐藏的歌"下次重扫全部复活（D2-02 的原件），一律不恢复则
+     * 用户把文件夹挪回来也永远找不回这首歌。**扫描只读这一列，永不写它**；
+     * 写在 `userInfo`（用户态表）而不是 `music`（扫描整行覆盖的表），就是为了让扫描抹不掉它。
+     */
+    val removedByUser: Boolean = false,
 )
 
 data class MusicIdPath(val id: Long, val path: String)
@@ -118,6 +129,10 @@ interface MusicDao {
     @Query("SELECT id FROM music WHERE isDeleted = 0")
     suspend fun getAllActiveIds(): List<Long>
 
+    /** 扫描落库用（D2-01）：判断"这条曲目库里有没有"必须含软删行，只取 active 会把隐藏的歌当新歌重写。 */
+    @Query("SELECT id FROM music")
+    suspend fun getAllIds(): List<Long>
+
     @Query("UPDATE music SET isDeleted = 1 WHERE id IN (:ids)")
     suspend fun markDeletedByIds(ids: List<Long>)
 
@@ -132,6 +147,19 @@ interface MusicDao {
 
     @Query("SELECT id, path FROM music WHERE isDeleted = 1")
     suspend fun getDeletedMusicIdAndPath(): List<MusicIdPath>
+
+    /**
+     * 「用户主动隐藏」的曲目（D2-02）。与 [getDeletedMusicIdAndPath] 的区别就是本条的意义：
+     * 后者混着"文件不在了"，前者只含用户意图，所以"已隐藏"管理页要按这一条列。
+     */
+    @Query(
+        """
+        SELECT music.id, music.path FROM music
+        INNER JOIN userInfo ON music.id = userInfo.id
+        WHERE music.isDeleted = 1 AND userInfo.removedByUser = 1
+    """
+    )
+    suspend fun getRemovedMusicIdAndPath(): List<MusicIdPath>
 
     @Query("UPDATE music SET title = :title, artist = :artist, album = :album WHERE id = :id")
     suspend fun updateMusicTags(id: Long, title: String, artist: String, album: String)
@@ -163,6 +191,13 @@ interface MusicExtraDao {
 
     @Query("SELECT * FROM musicExtra WHERE id=:id")
     suspend fun getExtraFieldsById(id: Long): MusicExtra?
+
+    /** 扫描落库按批读回既有行（D2-01）：合并只补扫描拥有的列，富化结果与用户改过的歌词要留在原行上。 */
+    @Query("SELECT * FROM musicExtra WHERE id IN (:ids)")
+    suspend fun getByIds(ids: List<Long>): List<MusicExtra>
+
+    @Upsert
+    suspend fun upsertAll(items: List<MusicExtra>)
 
     @Query("SELECT COUNT(*) FROM musicExtra WHERE isGetExtraInfo = true")
     fun getExtraInfoNum(): Flow<Int>
@@ -281,6 +316,46 @@ interface UserInfoDao {
 
     @Query("SELECT id FROM userInfo WHERE isDeleted = 0")
     suspend fun getAllActiveIds(): List<Long>
+
+    /** 扫描落库用（D2-01）：库里有没有这一行要看全部行，active 集合会把隐藏曲误判成新歌并覆盖用户数据。 */
+    @Query("SELECT id FROM userInfo")
+    suspend fun getAllIds(): List<Long>
+
+    @Query("SELECT id FROM userInfo WHERE removedByUser = 1")
+    suspend fun getRemovedByUserIds(): List<Long>
+
+    @Query("SELECT * FROM userInfo WHERE id IN (:ids)")
+    suspend fun getByIds(ids: List<Long>): List<UserInfo>
+
+    @Upsert
+    suspend fun upsertAll(items: List<UserInfo>)
+
+    /**
+     * 记用户移除意图（D2-02）。整行读出再改两列写回，因为 `userInfo` 的其它列都是用户资产
+     * （`liked` / `playCount` / `lastPlayed`），部分列的 `@Insert(REPLACE)` 会把它们清零。
+     */
+    @Transaction
+    suspend fun markRemovedByIds(ids: List<Long>) {
+        if (ids.isEmpty()) return
+        val existing = getByIds(ids).associateBy { it.id }
+        upsertAll(
+            ids.map {
+                (existing[it] ?: UserInfo(id = it)).copy(removedByUser = true, isDeleted = true)
+            }
+        )
+    }
+
+    /** 用户恢复：意图位与可见位一起清（两成因里"用户移除"这一支被显式撤销）。 */
+    @Transaction
+    suspend fun clearRemovedByIds(ids: List<Long>) {
+        if (ids.isEmpty()) return
+        val existing = getByIds(ids).associateBy { it.id }
+        upsertAll(
+            ids.map {
+                (existing[it] ?: UserInfo(id = it)).copy(removedByUser = false, isDeleted = false)
+            }
+        )
+    }
 
     @Query("UPDATE userInfo SET isDeleted = 1 WHERE id IN (:ids)")
     suspend fun markDeletedByIds(ids: List<Long>)

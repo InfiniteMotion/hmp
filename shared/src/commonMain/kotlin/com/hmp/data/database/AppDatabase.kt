@@ -335,6 +335,10 @@ abstract class AppDatabase : RoomDatabase() {
                 )
 
                 // ⑤ 其余 11 条：D2-07 的九条 + D5-11 的两条
+                //    先加 D2-02 的成因列（Room 期望它在 `userInfo` 最后一列，ALTER ADD COLUMN 正是追加到末尾）
+                connection.execSQL(
+                    "ALTER TABLE `userInfo` ADD COLUMN `removedByUser` INTEGER NOT NULL DEFAULT 0"
+                )
                 listOf(
                     "CREATE INDEX IF NOT EXISTS `index_music_isDeleted` ON `music` (`isDeleted`)",
                     "CREATE INDEX IF NOT EXISTS `index_music_title` ON `music` (`title`)",

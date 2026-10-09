@@ -21,10 +21,9 @@ import com.hmp.data.network.OpenAiCompatibleAdapter
 import com.hmp.data.util.DeviceMusicScanner
 import com.hmp.data.util.stringToPinyinSortKey
 import com.hmp.domain.music.MusicInfo
+import com.hmp.domain.backup.TransactionRunner
 import com.hmp.domain.music.MusicRepository
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import com.hmp.log.HmpLog
@@ -47,7 +46,8 @@ class MusicRepositoryImpl(
     openAiCompatibleAdapter: OpenAiCompatibleAdapter,
     json: Json,
     agentAuditLogDao: AgentAuditLogDao,
-    forgottenDeliveryDao: ForgottenDeliveryDao
+    forgottenDeliveryDao: ForgottenDeliveryDao,
+    transactionRunner: TransactionRunner
 ) : MusicRepositoryBase(
     musicDao = musicDao,
     musicExtraDao = musicExtraDao,
@@ -61,117 +61,14 @@ class MusicRepositoryImpl(
     openAiCompatibleAdapter = openAiCompatibleAdapter,
     agentAuditLogDao = agentAuditLogDao,
     forgottenDeliveryDao = forgottenDeliveryDao,
-    json = json
+    json = json,
+    transactionRunner = transactionRunner
 ) {
 
-    private val _isScanning = MutableStateFlow(false)
-    override val isScanning: Flow<Boolean> = _isScanning
 
     // region Scan & Persist
 
-    override suspend fun loadMusicFromDevice(): Result<Unit> = withContext(Dispatchers.Default) {
-        _isScanning.value = true
-        try {
-            val (musicList, extraList, userInfoList) = performMusicScan()
-            HmpLog.i(LogTag.DataMusicRepo) { "🎵 scanned ${musicList.size} music files" }
-
-            musicDao.deleteAll()
-            musicExtraDao.deleteAll()
-            userInfoDao.deleteAll()
-
-            musicList.chunked(BATCH_SIZE).forEach { batch ->
-                musicDao.insertAll(batch)
-            }
-            extraList.chunked(BATCH_SIZE).forEach { batch ->
-                musicExtraDao.insertAll(batch)
-            }
-            userInfoList.chunked(BATCH_SIZE).forEach { batch ->
-                userInfoDao.insertAll(batch)
-            }
-
-            HmpLog.i(LogTag.DataMusicRepo) { "🎵 persisted ${musicList.size} tracks to database" }
-            Result.success(Unit)
-        } catch (e: Exception) {
-            HmpLog.e(LogTag.DataMusicRepo, e) { "🎵 MusicRepository: Music scan failed: ${e.message}" }
-            Result.failure(e)
-        } finally {
-            _isScanning.value = false
-        }
-    }
-
-    override suspend fun syncMusicFromDeviceIncremental(): Result<Unit> = withContext(Dispatchers.Default) {
-        _isScanning.value = true
-        try {
-            val (scannedMusic, scannedExtra, scannedUserInfo) = performMusicScan()
-
-            val existingIds = musicDao.getAllActiveIds().toSet()
-            val scannedIds = scannedMusic.map { it.id }.toSet()
-
-            val newIds = scannedIds - existingIds
-            val commonIds = scannedIds.intersect(existingIds)
-            val missingIds = existingIds - scannedIds
-
-            if (newIds.isNotEmpty()) {
-                val newMusic = scannedMusic.filter { it.id in newIds }
-                val newExtra = scannedExtra.filter { it.id in newIds }
-                val newUserInfo = scannedUserInfo.filter { it.id in newIds }
-
-                newMusic.chunked(BATCH_SIZE).forEach { batch -> musicDao.insertAll(batch) }
-                newExtra.chunked(BATCH_SIZE).forEach { batch -> musicExtraDao.insertAll(batch) }
-                newUserInfo.chunked(BATCH_SIZE).forEach { batch -> userInfoDao.insertAll(batch) }
-            }
-
-            if (commonIds.isNotEmpty()) {
-                val commonMusicById = scannedMusic.filter { it.id in commonIds }.associateBy { it.id }
-                val commonExtraById = scannedExtra.filter { it.id in commonIds }.associateBy { it.id }
-
-                commonIds.chunked(BATCH_SIZE).forEach { idBatch ->
-                    idBatch.forEach { id ->
-                        val scannedMusicItem = commonMusicById[id]
-                        if (scannedMusicItem != null) {
-                            musicDao.insert(scannedMusicItem.copy(isDeleted = false))
-                        }
-
-                        val scannedExtraItem = commonExtraById[id]
-                        if (scannedExtraItem != null) {
-                            val existingExtra = musicExtraDao.getExtraFieldsById(id)
-                            val mergedExtra = existingExtra?.copy(
-                                lyrics = scannedExtraItem.lyrics ?: existingExtra.lyrics,
-                                bitRate = scannedExtraItem.bitRate ?: existingExtra.bitRate,
-                                sampleRate = scannedExtraItem.sampleRate ?: existingExtra.sampleRate,
-                                fileSize = scannedExtraItem.fileSize ?: existingExtra.fileSize,
-                                format = scannedExtraItem.format ?: existingExtra.format,
-                                isDeleted = false
-                            ) ?: scannedExtraItem.copy(isDeleted = false)
-                            musicExtraDao.insert(mergedExtra)
-                        }
-
-                        val existingUserInfo = userInfoDao.getUserInfoById(id)
-                        if (existingUserInfo == null) {
-                            userInfoDao.insert(UserInfo(id = id))
-                        } else if (existingUserInfo.isDeleted) {
-                            userInfoDao.insert(existingUserInfo.copy(isDeleted = false))
-                        }
-                    }
-                }
-            }
-
-            if (missingIds.isNotEmpty()) {
-                musicDao.markDeletedByIds(missingIds.toList())
-                musicExtraDao.markDeletedByIds(missingIds.toList())
-                userInfoDao.markDeletedByIds(missingIds.toList())
-            }
-
-            Result.success(Unit)
-        } catch (e: Exception) {
-            HmpLog.e(LogTag.DataMusicRepo, e) { "🎵 MusicRepository: Incremental music scan failed: ${e.message}" }
-            Result.failure(e)
-        } finally {
-            _isScanning.value = false
-        }
-    }
-
-    private suspend fun performMusicScan(): Triple<List<Music>, List<MusicExtra>, List<UserInfo>> =
+    override suspend fun performMusicScan(): Triple<List<Music>, List<MusicExtra>, List<UserInfo>> =
         withContext(Dispatchers.Default) {
             val scannedFiles = DeviceMusicScanner.scanMusic()
 
@@ -253,7 +150,7 @@ class MusicRepositoryImpl(
     }
 
     override suspend fun getDeletedMusicIdsGroupedByFolder(): List<Pair<String, List<Long>>> {
-        val list = musicDao.getDeletedMusicIdAndPath()
+        val list = musicDao.getRemovedMusicIdAndPath()
         return list
             .groupBy { (_, path) ->
                 try {
@@ -268,8 +165,4 @@ class MusicRepositoryImpl(
 
     // endregion
 
-
-    companion object {
-        private const val BATCH_SIZE = 50
-    }
 }

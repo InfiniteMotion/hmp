@@ -4,6 +4,7 @@ import com.hmp.data.database.AgentAuditLog
 import com.hmp.data.database.AgentAuditLogDao
 import com.hmp.data.database.ListeningDuration
 import com.hmp.data.database.ListeningDurationDao
+import com.hmp.data.database.Music
 import com.hmp.data.database.MusicAllDao
 import com.hmp.data.database.MusicDao
 import com.hmp.data.database.MusicExtra
@@ -38,6 +39,7 @@ import com.hmp.domain.backup.ListeningStatsSnapshot
 import com.hmp.domain.backup.MusicExtraUserSnapshot
 import com.hmp.domain.backup.MusicLabelSnapshot
 import com.hmp.domain.backup.MusicUserStateSnapshot
+import com.hmp.domain.backup.TransactionRunner
 import com.hmp.domain.backup.UserInfoSnapshot
 import com.hmp.domain.enum.LabelCategory
 import com.hmp.domain.enum.LabelName
@@ -60,7 +62,10 @@ import com.hmp.domain.setting.model.UserUsageAnalytics
 import com.hmp.domain.setting.model.WindowedUsageAnalytics
 import com.hmp.domain.agent.card.daysToCutoffMs
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
@@ -74,7 +79,8 @@ import com.hmp.log.LogTag
  *
  * 上提 commonMain 的全部方法在 android/desktop/ios 三份实现中逐字一致（2026-08-27 复核）；
  * 平台层仅保留真正分叉的能力：
- * - 设备扫描（loadMusicFromDevice / syncMusicFromDeviceIncremental）——MediaStore vs 文件系统 vs NSFileManager；
+ * - 设备扫描本身（`performMusicScan`）——MediaStore vs 文件系统 vs NSFileManager；
+ *   落库（含事务与 upsert 语义）只有一份，见上面的「设备扫描与落库」区（D2-01 / D2-02）；
  * - `getAllMusicInfoAsList`——三端排序语义刻意不同（android 含 raw 分键与 SQL 前缀路径）；
  * - `getDeletedMusicIdsGroupedByFolder`——File.parent vs substringBeforeLast。
  *
@@ -95,7 +101,116 @@ abstract class MusicRepositoryBase(
     protected val json: Json,
     protected val agentAuditLogDao: AgentAuditLogDao,
     protected val forgottenDeliveryDao: com.hmp.data.database.ForgottenDeliveryDao,
+    protected val transactionRunner: TransactionRunner,
 ) : MusicRepository {
+
+    // region 设备扫描与落库（D2-01 / D2-02）
+    //
+    // 三端各自只剩「设备上有哪些歌」这一件事（performMusicScan），落库只有一份。
+    // 原先三份逐字镜像的实现是 `deleteAll()` ×3 再分批重灌：跨语句无事务，进程被杀就把库
+    // 停在半成品上且对外表现为空曲库；即便跑完，`userInfo` 的收藏/播放数与 `musicExtra`
+    // 的歌词/富化结果也一起被抹掉。语义因此从"清空重灌"改成"按 id upsert"。
+
+    private val _isScanning = MutableStateFlow(false)
+    override val isScanning: Flow<Boolean> = _isScanning.asStateFlow()
+
+    /** 平台分叉点：MediaStore vs 文件系统 vs NSFileManager。返回的三张表只是"扫描认为应当存在"的行。 */
+    protected abstract suspend fun performMusicScan(): Triple<List<Music>, List<MusicExtra>, List<UserInfo>>
+
+    /**
+     * 全量与增量共用同一条落库路径 —— 改成 upsert 之后两者本就等价：
+     * "全量重建"不再意味着先清空，它只是"不带条件地重扫一遍并同步可见性"。
+     */
+    override suspend fun loadMusicFromDevice(): Result<Unit> = scanAndPersist()
+
+    override suspend fun syncMusicFromDeviceIncremental(): Result<Unit> = scanAndPersist()
+
+    private suspend fun scanAndPersist(): Result<Unit> {
+        _isScanning.value = true
+        return try {
+            val (scannedMusic, scannedExtras, scannedUserInfo) = performMusicScan()
+            HmpLog.i(LogTag.DataMusicRepo) { "🎵 scanned ${scannedMusic.size} music files" }
+            persistScannedLibrary(scannedMusic, scannedExtras, scannedUserInfo)
+            Result.success(Unit)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            HmpLog.e(LogTag.DataMusicRepo, e) { "🎵 MusicRepository: Music scan failed: ${e.message}" }
+            Result.failure(e)
+        } finally {
+            _isScanning.value = false
+        }
+    }
+
+    /**
+     * 一次扫描的落库，全程单事务（D2-01 判据：中途抛异常后曲库条数与扫描前一致，不出现半空库）。
+     *
+     * 三张表各有归属：`music` 由扫描整行覆盖（它是文件元数据），`musicExtra` / `userInfo`
+     * 里既有扫描列也有用户资产，所以只补不覆盖。可见位 `isDeleted` 不由扫描直接决定，
+     * 而是「文件在不在」与「用户有没有主动移除」（`userInfo.removedByUser`，D2-02）的与。
+     */
+    private suspend fun persistScannedLibrary(
+        scannedMusic: List<Music>,
+        scannedExtras: List<MusicExtra>,
+        scannedUserInfo: List<UserInfo>,
+    ) = transactionRunner.run {
+        val existingMusicIds = musicDao.getAllIds().toSet()
+        val existingUserIds = userInfoDao.getAllIds().toSet()
+        val removedIds = userInfoDao.getRemovedByUserIds().toSet()
+
+        val scannedIds = scannedMusic.map { it.id }.toSet()
+        val missingIds = (existingMusicIds - scannedIds).toList()
+        val extrasByScannedId = scannedExtras.associateBy { it.id }
+
+        scannedMusic.chunked(SCAN_BATCH_SIZE).forEach { batch ->
+            // 文件在 → 只有"用户移除"能让它保持不可见
+            musicDao.insertAll(batch.map { it.copy(isDeleted = it.id in removedIds) })
+
+            val batchIds = batch.map { it.id }
+            val existingExtras = musicExtraDao.getByIds(batchIds).associateBy { it.id }
+            val mergedExtras = batchIds.mapNotNull { scannedExtrasId ->
+                val scannedExtra = extrasByScannedId[scannedExtrasId] ?: return@mapNotNull null
+                val existing = existingExtras[scannedExtrasId]
+                val visible = scannedExtrasId !in removedIds
+                if (existing == null) {
+                    scannedExtra.copy(isDeleted = visible)
+                } else {
+                    // 扫描只补自己读的列；isGetExtraInfo 与富化文案、用户改过的歌词留在原行上
+                    existing.copy(
+                        lyrics = scannedExtra.lyrics ?: existing.lyrics,
+                        bitRate = scannedExtra.bitRate ?: existing.bitRate,
+                        sampleRate = scannedExtra.sampleRate ?: existing.sampleRate,
+                        fileSize = scannedExtra.fileSize ?: existing.fileSize,
+                        format = scannedExtra.format ?: existing.format,
+                        isDeleted = visible,
+                    )
+                }
+            }
+            if (mergedExtras.isNotEmpty()) musicExtraDao.upsertAll(mergedExtras)
+        }
+
+        // 用户态：只为"库里还没有的曲目"建默认行，已有行一律不碰（收藏 / 播放数 / 上次播放是用户资产）
+        val newUserInfos = scannedUserInfo
+            .filter { it.id !in existingUserIds && it.id in scannedIds }
+            .map { UserInfo(id = it.id) }
+        if (newUserInfos.isNotEmpty()) {
+            newUserInfos.chunked(SCAN_BATCH_SIZE).forEach { userInfoDao.insertAll(it) }
+        }
+
+        // 本次没扫到的：文件不在了 → 三表一起标不可见（用户移除意图仍留着）
+        if (missingIds.isNotEmpty()) {
+            missingIds.chunked(SCAN_BATCH_SIZE).forEach { chunk ->
+                musicDao.markDeletedByIds(chunk)
+                musicExtraDao.markDeletedByIds(chunk)
+                userInfoDao.markDeletedByIds(chunk)
+            }
+        }
+
+        HmpLog.i(LogTag.DataMusicRepo) { "🎵 persisted ${scannedMusic.size} tracks, ${missingIds.size} marked missing" }
+        Unit
+    }
+
+    // endregion
 
     // region Query
 
@@ -160,16 +275,18 @@ abstract class MusicRepositoryBase(
 
     override suspend fun removeFromLibrary(ids: List<Long>) {
         if (ids.isEmpty()) return
+        // D2-02：`removedByUser` 是"用户主动移除"的记录，扫描看得见它才不会在下次重扫时把歌放回来。
+        // 三张表的软删标记仍要一起打（可见性过滤按 music/musicExtra 的 isDeleted）。
         musicDao.markDeletedByIds(ids)
         musicExtraDao.markDeletedByIds(ids)
-        userInfoDao.markDeletedByIds(ids)
+        userInfoDao.markRemovedByIds(ids)
     }
 
     override suspend fun restoreToLibrary(ids: List<Long>) {
         if (ids.isEmpty()) return
         musicDao.markActiveByIds(ids)
         musicExtraDao.markActiveByIds(ids)
-        userInfoDao.markActiveByIds(ids)
+        userInfoDao.clearRemovedByIds(ids)
     }
 
     // endregion
@@ -1230,6 +1347,12 @@ abstract class MusicRepositoryBase(
     // endregion
 
     companion object {
+        /**
+         * 扫描落库的批大小。50 是原三端各抄一份时用的同一个数（Android 注释给了理由：
+         * 批太小来回往返、太大一次性占住写连接），改收在一处后不再有第三份口径。
+         */
+        private const val SCAN_BATCH_SIZE = 50
+
         /** 认识来源（musicLabel.source 取值，设计总纲 7.3）：模型富化。 */
         const val SOURCE_LLM = "LLM"
 

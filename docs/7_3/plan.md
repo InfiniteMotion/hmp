@@ -78,7 +78,7 @@
 | 包 | 内容 | 含条目 | 判据落点 | 依赖 |
 |---|---|---|---|---|
 | **一-1** | **v10 schema 增量**：13 条索引（9 条 D2 + 2 条唯一 D3 + 2 条 D5）+ 删 `playlist_item.songUrl`；迁移内先去重再建唯一索引 | D2-07、D3-03(索引段)、D3-05(索引段)、D3-15、D5-11(索引段) | `:shared:desktopTest`（`AppDatabaseMigrationTest`）：`PRAGMA index_list` 含预期索引、`table_info(playlist_item)` 不含 `songUrl`、行数前后相等、`EXPLAIN QUERY PLAN` 走索引而非 `SCAN TABLE`；`10.json` diff 含 `music.indices` 五项 | P0-1..3；**§九 决策 1、2** |
-| **一-2** | **事务与写入安全**：批量写收口 `withTransaction`、导入前安全副本、`catch` 复抛 CE、重扫不抹软删、改扫描目录不再静默破坏性重扫 | D2-01、D2-02、D2-03、D3-03(事务段)、D3-04、D5-12、D5-13、D7-02 | `:shared:desktopTest`：中途 CE 后不出现半空库；第 3 步失败则前 2 步回滚；重扫后已隐藏曲仍在；恢复后历史条数不翻倍 | 一-1 |
+| **一-2**（**已完成，分 A/B 两批**） | **事务与写入安全**：批量写收口 `withTransaction`、导入前安全副本、`catch` 复抛 CE、重扫不抹软删、改扫描目录不再静默破坏性重扫 | D2-01、D2-02、D2-03、D3-03(事务段)、~~D3-04~~(归 一-4)、D5-12(动作①，②待决策)、D5-13、D7-02 | `:shared:desktopTest`：中途 CE 后不出现半空库；第 3 步失败则前 2 步回滚；重扫后已隐藏曲仍在；恢复后历史条数不翻倍 | 一-1 |
 | **一-3** | **时间与时区口径**：小时桶统一本地时区、「全部」时段不再被夹成 1 天、`days` 作窗口、`playDuration` 三端口径、热力图名实、文案带范围、窗口查询失败可见 | D5-01、D5-02、D5-03、D5-04、D5-05、D5-06、D5-07、D5-08、D5-09、D5-10、D5-11(窗口段)、D5-14、D3-01 | `:shared:desktopTest`（新增 `HourBucketParityTest` 等）+ `:shared-ui:testAndroidHostTest`（VM 级窗口断言、`formatHourRange`）；其中 D5-04、D5-05、D5-06、D5-07 的 iOS/Desktop 段为实机 | 一-1（索引） |
 | **一-4** | **歌单一致性与派生字段**：按 id 而非按名删除、`itemOrder` 入 domain 模型、派生字段同事务重算、系统歌单自愈按 id、智能歌单配置生效、Agent 入参校验对齐 UI、上移下移接线 | D3-02、D3-04、D3-05(删改段)、D3-06、D3-07、D3-08、D3-09、D3-10、D3-11、D3-12、D3-13、D3-16、D3-17 | `:shared:desktopTest`（`PlaylistRepositoryImplTest` / `PlaylistDaoTest`）+ `:shared:commonTest`（`AgentToolsTest`）+ `:shared-ui:testAndroidHostTest`（`PlaylistViewModel`）；其中 D3-09、D3-10、D3-13 的 iOS/三端段为实机 | 一-1、一-2 |
 | **一-5** | **曲库扫描与元数据**：搜索转义与 album 匹配、排序键枚举化、格式白名单统一常量、死码处置、iOS 元数据与标签写入、Windows 路径分组、封面命名与缓存 | D2-05、D2-06、D2-08、D2-09、D2-10、D2-11、D2-12、D2-13、D2-14、D2-15、D2-16、D2-17、D2-18 | `:shared:desktopTest`（`MusicDaoTest` / `MusicRepositoryBaseTest` / 新增 `MusicScanPersistTest`）+ `:shared-ui:testAndroidHostTest`（`SearchViewModel` 防抖、`LibraryViewModel`）；其中 D2-10、D2-11、D2-12、D2-14、D2-16 为实机 | 一-1（索引）、**§九 决策 7** |
@@ -94,7 +94,13 @@
 > 歌单写路径收进 DAO 事务（D3-03 事务段，含一-1 遗留的"并发添加撞索引"崩溃）、统计恢复改整表替换不翻倍（D5-13）、
 > 导入前先落 `pre-restore-` 副本 + Room 侧三条 restore 收进一个事务（设置那条走 DataStore 排在最后）+ 取消复抛（D7-02 / R39）。
 > 结果与两处判据口径收窄记在 `domain/D3.md` D3-03、`domain/D5.md` D5-13、`domain/D7.md` D7-02 的「施工结果」段。
-> **B 批未动**：扫描流水线（D2-01、D2-02、D2-03，需要真机大库验证）与画像证据表的批量写无事务（D5-12），单独一笔。
+> **B 批已完成（2026-10-09）**：扫描流水线（D2-01、D2-02、D2-03）与画像批量写（D5-12 动作①）全部本机验完 ——
+> 落点 `:shared:desktopTest`（`MusicScanPersistTest` 7 例、`UserMemoryIntegrationTest` 新增 2 例）+ `:shared-ui:testAndroidHostTest`（`LibraryScanPolicyTest` 4 例）。
+> 三条探针都过：清空重灌→4 红、旁路事务→事务那条红、批量退逐条+旁路事务→两条新判据同时红。
+> 一处 schema 后补：`userInfo.removedByUser` 随 §2.2b 并进未发布的 v10（`10.json` 已重导）。
+> **仍留的口子**：D5-12 动作②（证据保留窗口）要先定"哪些证据可以删"，属产品口径，不在判据里；
+> 设置页「已移除」列表的口径变更（只列用户移除的）见 `domain/D2.md` D2-02 施工结果。
+> 一-1/一-2 的**真实大库验证**仍在 §六 阻塞发布清单里（那是签收动作，不是本包的编码前提）。
 > D3-04（重排入参完整性）与 `musicPath` 死参数要改返回类型/签名，仍归 一-4。
 
 > **一-1 的两个前置决策**（不做完不能动迁移）：存量 `itemOrder` 去重策略、`playlist.name` 同名链与系统歌单豁免。见 §九 决策 1/2。
@@ -157,6 +163,11 @@
 ## 六、实机验证清单（不可自动化的部分）
 
 口径：判据行文本里出现"待验 / 落不进测试源集"的条目，人工分类，**只作量级**。本机是 Windows ⇒ **全部 iOS 项不可达**，Android 项需设备，Desktop 项本机可跑。
+
+> **一条常被漏掉的边界（2026-10-09，一-2 B 批）**：本机不可达不只是"实机行为验不了"，还包括 **`iosMain` 的源码连编译器都没过一遍** ——
+> KMP 的 Apple 目标只能在 macOS 主机上编，`testAll` 与 `compileAll` 都不含 iOS。B 批改了 `MusicRepositoryImpl.ios.kt`
+> （删掉两份落库镜像、加 `transactionRunner` 构造参数、换 `getRemovedMusicIdAndPath()`），这些改动只经过人工比对 diff。
+> 凡改到 `iosMain`/`ios/**`，合入前后都要在 macOS 上补跑一次 `./gradlew :shared:compileKotlinIosSimulatorArm64`（壳层改动再加 `xcodebuild`）。
 
 | 域 | 判据含"待验/落不进"的条目（量级） | 主要去向 |
 |---|---|---|
@@ -246,7 +257,7 @@
 | 里程碑 | 内容 | 完成判据 |
 |---|---|---|
 | **M0** | 批 0（迁移骨架 + 常量） | **已达成（2026-10-08）**：故意写坏 `MIGRATION_8_9` 的一个 NOT NULL → 精确 3 红；改回 8/8 绿。`1→9` 全链用例在跑，三端引用同一份 `ALL_MIGRATIONS` |
-| **M1** | 批一（含 v10 迁移与四域逻辑） | **进行中：一-1 已完成（2026-10-08）、一-2 A 批已完成（同日，B 批即扫描流水线未动）**；一-3..一-7 待做。`10.json` 入库；三端注册；降级守卫可用 |
+| **M1** | 批一（含 v10 迁移与四域逻辑） | **进行中：一-1 已完成（2026-10-08）、一-2 已完成（A 批同日、B 批 2026-10-09）**;一-3..一-7 待做。`10.json` 入库；三端注册；降级守卫可用 |
 | **M2** | 批二（运行时） | 可测部分全绿；iOS 项进实机清单 |
 | **M3** | 批三 + 横切线安全网 | 三-1..三-7 + X-闸/X-testAll/X-版本/X-目标 全绿 |
 | **M4** | 发版准备 | `preflight` 绿；实机签收；走 `skills/release-prep` |

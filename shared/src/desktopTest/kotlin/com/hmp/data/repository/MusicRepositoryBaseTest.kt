@@ -1,6 +1,9 @@
 package com.hmp.data.repository
 
 import com.hmp.data.database.AppDatabase
+import com.hmp.data.database.MusicExtra
+import com.hmp.data.database.RoomTransactionRunner
+import com.hmp.data.database.UserInfo
 import com.hmp.data.network.OpenAiCompatibleAdapter
 import com.hmp.domain.backup.MusicLabelSnapshot
 import com.hmp.domain.backup.MusicUserStateSnapshot
@@ -36,10 +39,11 @@ private class InMemoryMusicRepository(db: AppDatabase) : MusicRepositoryBase(
     json = Json,
     agentAuditLogDao = db.agentAuditLogDao(),
     forgottenDeliveryDao = db.forgottenDeliveryDao(),
+    transactionRunner = RoomTransactionRunner(db),
 ) {
-    override val isScanning: Flow<Boolean> = flowOf(false)
-    override suspend fun loadMusicFromDevice(): Result<Unit> = Result.success(Unit)
-    override suspend fun syncMusicFromDeviceIncremental(): Result<Unit> = Result.success(Unit)
+    // 扫描落库已在基类（D2-01），本类不用它：给一个空扫描结果即可
+    override suspend fun performMusicScan() =
+        Triple(emptyList<com.hmp.data.database.Music>(), emptyList<MusicExtra>(), emptyList<UserInfo>())
     override suspend fun getAllMusicInfoAsList(orderBy: String, orderType: String): List<MusicInfo> = emptyList()
     override suspend fun getDeletedMusicIdsGroupedByFolder(): List<Pair<String, List<Long>>> = emptyList()
 

@@ -25,14 +25,12 @@ import com.hmp.data.network.OpenAiCompatibleAdapter
 import com.hmp.data.util.stringToPinyinSortKey
 import com.hmp.domain.music.MusicInfo
 import com.hmp.domain.music.MusicRepository
+import com.hmp.domain.backup.TransactionRunner
 import com.hmp.domain.setting.SettingsRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
@@ -62,6 +60,7 @@ class MusicRepositoryImpl(
     json: Json,
     agentAuditLogDao: AgentAuditLogDao,
     forgottenDeliveryDao: ForgottenDeliveryDao,
+    transactionRunner: TransactionRunner,
     private val settingsRepository: SettingsRepository,
     private val context: Context
 ) : MusicRepositoryBase(
@@ -77,7 +76,8 @@ class MusicRepositoryImpl(
     openAiCompatibleAdapter = openAiCompatibleAdapter,
     agentAuditLogDao = agentAuditLogDao,
     forgottenDeliveryDao = forgottenDeliveryDao,
-    json = json
+    json = json,
+    transactionRunner = transactionRunner
 ) {
 
     override suspend fun getAllMusicInfoAsList(orderBy: String, orderType: String): List<MusicInfo> {
@@ -115,7 +115,7 @@ class MusicRepositoryImpl(
     }
 
     override suspend fun getDeletedMusicIdsGroupedByFolder(): List<Pair<String, List<Long>>> {
-        val list = musicDao.getDeletedMusicIdAndPath()
+        val list = musicDao.getRemovedMusicIdAndPath()
         return list
             .groupBy { (_, path) ->
                 try {
@@ -128,11 +128,8 @@ class MusicRepositoryImpl(
             .sortedByDescending { it.second.size }
     }
 
-    private val _isScanning = MutableStateFlow(false)
-    override val isScanning: Flow<Boolean> = _isScanning.asStateFlow()
 
     companion object {
-        private const val BATCH_SIZE = 50
         private const val MIN_DURATION_MS = 60000L
 
         /**
@@ -140,111 +137,6 @@ class MusicRepositoryImpl(
          * 4 路已能把大库扫描提速约一个数量级；更高并发对机械存储/低端机反而增加争抢。
          */
         private const val TAG_PARSE_PARALLELISM = 4
-    }
-
-    override suspend fun loadMusicFromDevice(): kotlin.Result<Unit> = withContext(Dispatchers.IO) {
-        _isScanning.value = true
-        try {
-            val (musicList, extraList, userInfoList) = performMusicScan()
-
-            musicDao.deleteAll()
-            musicExtraDao.deleteAll()
-            userInfoDao.deleteAll()
-
-            musicList.chunked(BATCH_SIZE).forEach { batch ->
-                musicDao.insertAll(batch)
-            }
-
-            extraList.chunked(BATCH_SIZE).forEach { batch ->
-                musicExtraDao.insertAll(batch)
-            }
-
-            userInfoList.chunked(BATCH_SIZE).forEach { batch ->
-                userInfoDao.insertAll(batch)
-            }
-
-            kotlin.Result.success(Unit)
-        } catch (e: Exception) {
-            HmpLog.e(LogTag.DataMusicRepo, e) { "🎵 MusicRepository: Music scan failed: ${e.message}" }
-            kotlin.Result.failure(e)
-        } finally {
-            _isScanning.value = false
-        }
-    }
-
-    override suspend fun syncMusicFromDeviceIncremental(): kotlin.Result<Unit> = withContext(Dispatchers.IO) {
-        _isScanning.value = true
-        try {
-            val (scannedMusic, scannedExtra, scannedUserInfo) = performMusicScan()
-
-            val existingIds = musicDao.getAllActiveIds().toSet()
-            val scannedIds = scannedMusic.map { it.id }.toSet()
-
-            val newIds = scannedIds - existingIds
-            val commonIds = scannedIds.intersect(existingIds)
-            val missingIds = existingIds - scannedIds
-
-            if (newIds.isNotEmpty()) {
-                val newMusic = scannedMusic.filter { it.id in newIds }
-                val newExtra = scannedExtra.filter { it.id in newIds }
-                val newUserInfo = scannedUserInfo.filter { it.id in newIds }
-
-                newMusic.chunked(BATCH_SIZE).forEach { batch -> musicDao.insertAll(batch) }
-                newExtra.chunked(BATCH_SIZE).forEach { batch -> musicExtraDao.insertAll(batch) }
-                newUserInfo.chunked(BATCH_SIZE).forEach { batch -> userInfoDao.insertAll(batch) }
-            }
-
-            if (commonIds.isNotEmpty()) {
-                val commonMusicById = scannedMusic.filter { it.id in commonIds }.associateBy { it.id }
-                val commonExtraById = scannedExtra.filter { it.id in commonIds }.associateBy { it.id }
-
-                commonIds.chunked(BATCH_SIZE).forEach { idBatch ->
-                    idBatch.forEach { id ->
-                        val scannedMusicItem = commonMusicById[id]
-                        if (scannedMusicItem != null) {
-                            musicDao.insert(
-                                scannedMusicItem.copy(isDeleted = false)
-                            )
-                        }
-
-                        val scannedExtraItem = commonExtraById[id]
-                        if (scannedExtraItem != null) {
-                            val existingExtra = musicExtraDao.getExtraFieldsById(id)
-                            val mergedExtra = existingExtra?.copy(
-                                lyrics = scannedExtraItem.lyrics ?: existingExtra.lyrics,
-                                bitRate = scannedExtraItem.bitRate ?: existingExtra.bitRate,
-                                sampleRate = scannedExtraItem.sampleRate ?: existingExtra.sampleRate,
-                                fileSize = scannedExtraItem.fileSize ?: existingExtra.fileSize,
-                                format = scannedExtraItem.format ?: existingExtra.format,
-                                isDeleted = false
-                            )
-                                ?: scannedExtraItem.copy(isDeleted = false)
-                            musicExtraDao.insert(mergedExtra)
-                        }
-
-                        val existingUserInfo = userInfoDao.getUserInfoById(id)
-                        if (existingUserInfo == null) {
-                            userInfoDao.insert(UserInfo(id = id))
-                        } else if (existingUserInfo.isDeleted) {
-                            userInfoDao.insert(existingUserInfo.copy(isDeleted = false))
-                        }
-                    }
-                }
-            }
-
-            if (missingIds.isNotEmpty()) {
-                musicDao.markDeletedByIds(missingIds.toList())
-                musicExtraDao.markDeletedByIds(missingIds.toList())
-                userInfoDao.markDeletedByIds(missingIds.toList())
-            }
-
-            kotlin.Result.success(Unit)
-        } catch (e: Exception) {
-            HmpLog.e(LogTag.DataMusicRepo, e) { "🎵 MusicRepository: Incremental music scan failed: ${e.message}" }
-            kotlin.Result.failure(e)
-        } finally {
-            _isScanning.value = false
-        }
     }
 
     /** 逐文件解析产物：[MusicExtra] 的三个需要读文件才能拿到的字段。 */
@@ -328,7 +220,7 @@ class MusicRepositoryImpl(
         return "$escaped/%"
     }
 
-    private suspend fun performMusicScan(): Triple<List<Music>, List<MusicExtra>, List<UserInfo>> = withContext(Dispatchers.IO) {
+    override suspend fun performMusicScan(): Triple<List<Music>, List<MusicExtra>, List<UserInfo>> = withContext(Dispatchers.IO) {
         val projection = arrayOf(
             MediaStore.Audio.Media._ID,
             MediaStore.Audio.Media.TITLE,

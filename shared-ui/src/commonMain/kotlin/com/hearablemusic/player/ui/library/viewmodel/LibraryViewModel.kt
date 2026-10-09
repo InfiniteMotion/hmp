@@ -5,7 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.hmp.domain.music.MusicInfo
 import com.hmp.domain.music.usecase.GetAllMusicUseCase
 import com.hmp.domain.music.usecase.GetDeletedMusicIdsGroupedByFolderUseCase
-import com.hmp.domain.agent.runtime.MasterAgent
+import com.hmp.domain.agent.port.LibraryMutatedNotifier
 import com.hmp.domain.music.usecase.LoadMusicFromDeviceUseCase
 import com.hmp.domain.music.usecase.RemoveFromLibraryUseCase
 import com.hmp.domain.music.usecase.RestoreToLibraryUseCase
@@ -56,13 +56,15 @@ class LibraryViewModel(
     private val getDeletedMusicIdsGroupedByFolderUseCase: GetDeletedMusicIdsGroupedByFolderUseCase,
     private val userSettingsUseCase: UserSettingsUseCase,
     /**
-     * 用户认识模块（画像，契约 agent-profile.md v3.6）。
+     * 「库变了」的通知端口（契约 agent-profile.md v3.6）。
      *
-     * v3.6 起画像**归属 MasterAgent**（`masterAgent.userMemory`），UI 层只经 Master 触达。
+     * v3.6 起画像**归属 MasterAgent**（`masterAgent.userMemory`），UI 层只经 Master 触达；
+     * 这里依赖的是单方法端口而不是 `MasterAgent` 本身 —— 挂住具体类会让本 ViewModel
+     * 在测试里构造不出来，D2-03 的判据（目录变更走增量）就没有可执行的验法。
      * 挂在 ViewModel 上而不是让库层反向调 agent：**"库变了"这件事只有库层知道**，
      * 而画像的重建是它的下游反应。调用点见 [refreshUserProfile]。
      */
-    private val masterAgent: MasterAgent,
+    private val libraryMutated: LibraryMutatedNotifier,
 ) : ViewModel() {
 
     private val _orderBy = MutableStateFlow("title")
@@ -167,8 +169,11 @@ class LibraryViewModel(
             val updated = transform(current)
             if (updated == current) return@launch
             userSettingsUseCase.saveScanDirectoryConfig(updated)
-            // 目录变更后立即重扫，避免「改了设置却没反应」（旧行为：等用户手动重扫）
-            fullRescan()
+            // 目录变更后立即重扫，避免「改了设置却没反应」（旧行为：等用户手动重扫）。
+            // 但走的是增量那条：D2-03 —— 用户只是屏蔽一个铃声文件夹，
+            // 原先这里调 fullRescan() 会把收藏、播放数、歌词、已富化文案一起清掉（ destructive 路径）。
+            // 被新规则排除的曲目由增量落库那侧统一标为不可见（见 MusicRepositoryBase.persistScannedLibrary）。
+            refreshMusicList()
         }
     }
 
@@ -247,7 +252,7 @@ class LibraryViewModel(
     private fun refreshUserProfile() {
         // v3.6 收口：UI 只发「库变了」命令，画像重建的协调在 Master 内部
         //（MasterAgent.onLibraryMutated 内 launch，失败不影响库操作本身）
-        masterAgent.onLibraryMutated()
+        libraryMutated.onLibraryMutated()
     }
 
     init {

@@ -47,6 +47,18 @@
 |---|---|---|---|
 | `playlist_item` | 删除 `songUrl` 冗余列 | D3-15 | Room 无原生删列，需建新表 + 搬数据 + 删旧表 + 改名；存量 `songUrl = ` 构造点（grep 口径：单文件 `songUrl = `，约 12 处）需同步改写 |
 
+### 2.2b 后补的列（一-2 B 批，2026-10-09）
+
+| 表 | 动作 | 来源 | 说明 |
+|---|---|---|---|
+| `userInfo` | 新增 `removedByUser`（`INTEGER NOT NULL DEFAULT 0`） | D2-02 | 把"用户主动移除"与"这次没扫到（文件不在）"两种 `isDeleted` 成因分开。放 `userInfo` 不放 `music`：后者是扫描整行覆盖的表 |
+
+**为什么并进 v10 而不是开 v11**：v10 尚未发布（`MIGRATION_9_10` 与 `10.json` 都只在这个开发分支上），
+D2-02 的判据又明确要求"可分辨的记录"，而它必须在同一次扫描落库改造里生效 —— 开 v11 等于把一条未发布的迁移拆成两次验证。
+落地方式：`MIGRATION_9_10` 在建索引之前 `ALTER TABLE userInfo ADD COLUMN ... DEFAULT 0`（Room 期望的 `createSql` 不带 `DEFAULT`，
+但 SQLite 的 `ADD COLUMN ... NOT NULL` 必须带默认值；`runMigrationsAndValidate(10)` 对此不报差异，实测 `AppDatabaseMigrationTest` 9/9 绿）。
+列在实体声明顺序里排最后，与 `ALTER ADD COLUMN` 的追加位置一致。
+
 ### 2.3 建索引前的去重（迁移内顺序敏感）
 
 - `playlist_item(playlistId, itemOrder)` 唯一索引：**先跑一次去重**（同歌单内 `itemOrder` 重复的行合并/重排），再 `CREATE UNIQUE INDEX`，否则存量库迁移直接失败（D3-03）。
@@ -128,6 +140,9 @@
    > `getMaxOrder` 从 DAO 删除、取号并进 `insertWithNextOrder` 一条语句，撞索引那条路已断 —— 判据见 `domain/D3.md` D3-03 施工结果。
 3. **§六的判据落成 4 条断言并走过红→绿**：`PRAGMA index_list` 逐表比对 13+1 条索引、`table_info(playlist_item)` 只剩三列、迁移前后行数相等、`EXPLAIN QUERY PLAN` 出现 `index_PlaybackHistory_playedAt` 且无 `SCAN TABLE`。
    另有一条"链末端必须等于声明版本"的断言在 bump 版本没同步时先红了（那就是批 0 装门禁的目的）。
+
+**B 批追加（2026-10-09）**：`userInfo.removedByUser` 一列随 §2.2b 并进 v10；重导后的 `10.json` 里 `userInfo` 有 10 列，
+`AppDatabaseMigrationTest` 的 `1→10` 全链与链连续性断言都已跟到这一版。
 
 **真实库演练（一次性，脚本不入库）**：把 `~/.hmp/music_database.db` 连同 `-wal`/`-shm` 拷进 `build/`，让同一份 Kotlin 迁移在副本上跑完并过 Room 校验 ——
 7 张表行数一字不变、`songUrl` 消失、索引名与 `10.json` 一致；原库 size/mtime/md5 三个指纹前后一致，确认演练没碰它。
