@@ -430,7 +430,9 @@
     <string name="played_at">于 %1$s 播放</string>
     <string name="no_data_available">暂无数据</string>
     <string name="no_data_loaded">数据未加载</string>
-    <string name="usage_data_empty">暂无使用数据</string>
+        <string name="db_too_new_title">数据库版本过高</string>
+    <string name="db_too_new_body">本应用支持的数据版本是 %1$d，而检测到的库版本是 %2$d（更新）。你的数据没有被修改：请升级到更新版本的应用，或从更早的备份恢复。</string>
+<string name="usage_data_empty">暂无使用数据</string>
     <string name="usage_data_load_failed">这段时间的数据读取失败，请稍后重试</string>
     <string name="completed">已完成</string>
     <string name="incomplete">未完成</string>

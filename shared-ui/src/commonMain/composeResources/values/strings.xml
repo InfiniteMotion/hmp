@@ -430,7 +430,9 @@
     <string name="played_at">Played at %1$s</string>
     <string name="no_data_available">No data available</string>
     <string name="no_data_loaded">No data loaded</string>
-    <string name="usage_data_empty">No usage data yet</string>
+        <string name="db_too_new_title">Database version is too new</string>
+    <string name="db_too_new_body">This app supports database version %1$d, but the stored database is version %2$d, which is newer. Your data has not been modified. Update to a newer version of the app, or restore from an older backup.</string>
+<string name="usage_data_empty">No usage data yet</string>
     <string name="usage_data_load_failed">Failed to load this period. Try again later.</string>
     <string name="completed">Completed</string>
     <string name="incomplete">Incomplete</string>

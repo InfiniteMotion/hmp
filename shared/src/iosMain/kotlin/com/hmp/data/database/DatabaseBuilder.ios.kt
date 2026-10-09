@@ -9,8 +9,14 @@ import platform.Foundation.NSFileManager
 import platform.Foundation.NSUserDomainMask
 
 @OptIn(ExperimentalForeignApi::class)
+@OptIn(ExperimentalForeignApi::class)
+fun hmpDatabasePath(): String = documentDirectory() + "/music_database.db"
+
+@OptIn(ExperimentalForeignApi::class)
 fun getDatabaseBuilder(): androidx.room.RoomDatabase.Builder<AppDatabase> {
-    val dbFilePath = documentDirectory() + "/music_database.db"
+    val dbFilePath = hmpDatabasePath()
+    // 降级守卫（D7-10）：见 desktop 端同处注释
+    AppDatabaseGuard.enforce(dbFilePath)
     return Room.databaseBuilder<AppDatabase>(
         name = dbFilePath
     )

@@ -185,6 +185,7 @@ HMP/
 - **Room 2.8.3 KMP**：`AppDatabase` **version = 10**，`exportSchema = true`，18 实体 / 19 DAO。schema json 在 `shared/schemas/com.hmp.data.database.AppDatabase/1..10.json`。迁移是手写的 `MIGRATION_1_2 … MIGRATION_9_10`，统一收在 `AppDatabase.ALL_MIGRATIONS` 一个常量里，三端 `DatabaseBuilder.{android,desktop,ios}.kt` 都 `addMigrations(*AppDatabase.ALL_MIGRATIONS)` —— **不再有逐端手抄的名单**（2026-10-08 批 0 收口，漏一端曾是单端升级崩溃的来源）。v10 = 批一收口的一次迁移（13 条索引 + 删 `playlist_item.songUrl` + 后补的 `userInfo.removedByUser`；未发布期间并批，不再另开 v11），需求与判据的唯一真源是 `docs/7_3/v10-migration.md`。
 - **迁移链的门禁**：`AppDatabaseMigrationTest` 跑逐环 + `1→10` 全链 + 链连续性；故意写坏一条 DDL 会红。新增版本必须**同时**改 `@Database.version` + 追加 `MIGRATION_{n-1}_{n}` 与 `ALL_MIGRATIONS` + 重导 schema json + 同步测试里的 `latestSchemaVersion`，少一处都有断言红（v10 施工时实测过这条红法）。
 - **三端都去掉了 destructive 兜底**（A4）：新增实体/字段忘了写迁移 = 线上硬失败，不是静默重建。
+- **降级有守卫，但没有 Room 回调**（一-7）：`AppDatabaseGuard` 在 build 之前探 `PRAGMA user_version`，库比代码新时记 error 日志 + 抛 `DatabaseTooNewException`，三端启动路径先 `probe` 挂状态、`AppRoot` 在解析任何 DAO 之前分流到提示页。别改回 `RoomDatabase.Callback`：Room 的版本校验发生在建连接过程中，`onOpen` 到不了，挂了等于没挂。代码版本读的是 `AppDatabase.CODE_SCHEMA_VERSION`（Room 不把注解版本暴露成常量），**bump 版本要同时改 `@Database.version` 与它**，迁移测试断言三者一致。
 - **改 schema 必须同时补迁移（并追加进 `ALL_MIGRATIONS`）+ 重导 schema json。** 三端注册现在由常量结构性保证，不必手工三处同步。
 - 仓库接口 4 个：`MusicRepository`、`PlaylistRepository`、`SettingsRepository`、`BackupFileRepository`。实现**按平台三份镜像**（`*Impl.{android,desktop,ios}.kt`，基于 `MusicRepositoryBase.kt` 1245 行），`SettingsRepositoryImpl.{desktop,ios}` 各约 500 行。
 - UseCase 共 22 个（music 10 / setting 6 / backup 4 / playlist 2）。

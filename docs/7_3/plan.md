@@ -83,7 +83,7 @@
 | **一-4** | **歌单一致性与派生字段**：按 id 而非按名删除、`itemOrder` 入 domain 模型、派生字段同事务重算、系统歌单自愈按 id、智能歌单配置生效、Agent 入参校验对齐 UI、上移下移接线 | D3-02、D3-04、D3-05(删改段)、D3-06、D3-07、D3-08、D3-09、D3-10、D3-11、D3-12、D3-13、D3-16、D3-17 | `:shared:desktopTest`（`PlaylistRepositoryImplTest` / `PlaylistDaoTest`）+ `:shared:commonTest`（`AgentToolsTest`）+ `:shared-ui:testAndroidHostTest`（`PlaylistViewModel`）；其中 D3-09、D3-10、D3-13 的 iOS/三端段为实机 | 一-1、一-2 |
 | **一-5** | **曲库扫描与元数据**：搜索转义与 album 匹配、排序键枚举化、格式白名单统一常量、死码处置、iOS 元数据与标签写入、Windows 路径分组、封面命名与缓存 | D2-05、D2-06、D2-08、D2-09、D2-10、D2-11、D2-12、D2-13、D2-14、D2-15、D2-16、D2-17、D2-18 | `:shared:desktopTest`（`MusicDaoTest` / `MusicRepositoryBaseTest` / 新增 `MusicScanPersistTest`）+ `:shared-ui:testAndroidHostTest`（`SearchViewModel` 防抖、`LibraryViewModel`）；其中 D2-10、D2-11、D2-12、D2-14、D2-16 为实机 | 一-1（索引）、**§九 决策 7** |
 | **一-6** | **设置、备份与密钥**：Android 恢复后密钥解不开要降级不崩、`rememberSaveable` 不落明文、备份路径约束、旧设置链的可靠性、Android 备份读写切 IO、快照覆盖面与 `version` | D7-01、D7-03、D7-04、D7-05、D7-06、D7-07、D7-08、D7-11、D7-12 | `:shared:desktopTest` + `:shared:commonTest`（`BackupSnapshotRoundTripTest`）；其中 D7-01、D7-03、D7-05、D7-06 的 iOS/Android 段为实机 | 一-2 |
-| **一-7** | **降级守卫**：`user_version > 9` 时不崩、记日志、给可见提示 | D7-10 | 构造 `user_version = 11` 的库打开：不崩 + 日志含 `dbVersion` + UI 出现版本过高提示；三端各一次（实机） | 一-1；**§九 决策 4** |
+| **一-7**（**已完成编码 2026-10-09，实机签收未做**） | **降级守卫**：`user_version > 9` 时不崩、记日志、给可见提示 | D7-10 | 构造 `user_version = 11` 的库打开：不崩 + 日志含 `dbVersion` + UI 出现版本过高提示；三端各一次（实机） | 一-1；**§九 决策 4** |
 | **一-8** | **结构（可选，建议延后）**：三端 `PlaylistRepositoryImpl` / `SettingsRepositoryImpl` 抽公共基类 | D3-14 | 现有 `PlaylistRepositoryImplTest`(17 例) / `SettingsRepositoryImplTest`(57 例) / `PlaylistDaoTest`(17 例) 全绿 | 一-1..一-4 全绿后 |
 
 > **一-1 已完成（2026-10-08）**：13 条索引 + 删 `songUrl` + `MIGRATION_9_10` + `10.json` 入库全落，判据走过红→绿，并在真实库副本上演练过（`v10-migration.md` §八 记了结果与三处偏离）。
@@ -195,7 +195,7 @@
 | D9 | 7 / 7 | macOS + Xcode、Android 实机、Windows |
 | X | 5 / 11 | 运行期 save/restore（X-05）、CI（X-01，已暂缓）、静态闸门（X-07） |
 
-**阻塞发布的项**（建议在 v7.3.0 发布前签收）：D7-10（三端降级守卫）、D3-01（iOS 纪元）、D5-05（iOS 时长停摆）、一-1 与一-2 的真实大库验证（D2-01、D2-02）。其余可带缺口发布，缺口写进 ROADMAP。
+**阻塞发布的项**（建议在 v7.3.0 发布前签收）：D7-10（三端降级守卫 —— 守卫逻辑与三端接点已落，缺的是三端各一次的启动实测）、D3-01（iOS 纪元）、D5-05（iOS 时长停摆）、一-1 与一-2 的真实大库验证（D2-01、D2-02）。其余可带缺口发布，缺口写进 ROADMAP。
 
 ---
 

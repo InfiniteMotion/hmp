@@ -27,6 +27,8 @@ import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.WindowPosition
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
+import com.hmp.data.database.AppDatabaseGuard
+import com.hmp.data.database.hmpDatabasePath
 import com.hmp.desktop.player.DesktopMusicController
 import com.hearablemusic.player.ui.AppRoot
 import com.hearablemusic.player.ui.common.design.theme.ThemeExtensionManager
@@ -57,6 +59,9 @@ import com.hmp.log.LogTag
 fun main() {
     val releaseBuild = System.getProperty("hmp.release-build")?.toBooleanStrictOrNull() ?: false
     initKermit(if (releaseBuild) Severity.Warn else Severity.Debug)
+    // 降级守卫（D7-10）：在任何 DAO 被解析之前先探一次库版本。只探测不抛 ——
+    // 抛是给 getDatabaseBuilder 那一刻用的，这里只把状态挂给 AppRoot 分流。
+    AppDatabaseGuard.probe(hmpDatabasePath())
     val t0 = System.currentTimeMillis()
 
     // File-based startup log for diagnosing installed/packaged builds

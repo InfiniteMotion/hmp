@@ -61,6 +61,8 @@ import com.hearablemusic.player.ui.agent.shell.AgentNotice
 import com.hearablemusic.player.ui.agent.shell.RadioConsole
 import com.hearablemusic.player.ui.common.components.TabPageIndicator
 import com.hearablemusic.player.ui.common.design.animation.AnimationTokens
+import com.hmp.data.database.AppDatabaseGuard
+import com.hearablemusic.player.ui.common.pages.DatabaseTooNewScreen
 import com.hearablemusic.player.ui.common.design.dimens.LocalHMPDimens
 import com.hearablemusic.player.ui.common.design.dimens.rememberHMPDimens
 import com.hearablemusic.player.ui.common.design.theme.ThemeExtensionManager
@@ -126,6 +128,14 @@ import org.koin.compose.koinInject
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun AppRoot(darkTheme: Boolean) {
+    // 降级守卫（D7-10）：库比代码新时必须在这里就分流 —— 下面任何一次 koinInject / activityViewModel
+    // 都会首次解析 AppDatabase，而那会撞上 DatabaseTooNewException（三端都没挂 destructive 兜底，这是刻意的）。
+    // 状态由各端启动路径上的 AppDatabaseGuard.probe 挂上来，本页不碰数据库。
+    AppDatabaseGuard.tooNew?.let { blocked ->
+        DatabaseTooNewScreen(blocked)
+        return
+    }
+
     val settingsViewModel: SettingsViewModel = activityViewModel()
     val playbackViewModel: PlaybackViewModel = activityViewModel()
     val playlistQueueViewModel: PlaylistQueueViewModel = activityViewModel()

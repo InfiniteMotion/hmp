@@ -64,6 +64,15 @@ abstract class AppDatabase : RoomDatabase() {
 
     companion object {
         /**
+         * 代码支持的 schema 版本。**必须**与上面 `@Database(version = …)` 同值 ——
+         * 降级守卫（D7-10）拿它判断"库比代码新"，Room 又不会把注解里的版本暴露成可读常量，
+         * 所以在这里声明一份，并由 `AppDatabaseMigrationTest` 断言三者一致
+         *（注解 == 本常量 == 迁移链末端），少一处同步就红。
+         * bump 版本时改 `@Database.version` 与本行两处。
+         */
+        const val CODE_SCHEMA_VERSION = 10
+
+        /**
          * v1 → v2（设计总纲 7.3）：
          * - musicLabel 加 4 列（source/confidence/created_at/updated_at）——认识可演化的存储基础；
          * - 新增 agent_task / agent_audit_log / agent_message 三表。

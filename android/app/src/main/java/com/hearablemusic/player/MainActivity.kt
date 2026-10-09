@@ -1,5 +1,7 @@
 package com.hearablemusic.player
 
+import com.hmp.data.database.AppDatabaseGuard
+import com.hmp.data.database.hmpDatabasePath
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Bundle
@@ -65,6 +67,9 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // 降级守卫（D7-10）：库版本高于本应用时，AppRoot 会分流到提示页而不是崩在第一次 DAO 解析上
+        AppDatabaseGuard.probe(hmpDatabasePath(this))
 
         // 平台服务注册（分享/文件选择/悬浮窗权限/标签编辑桥/触觉/悬浮歌词）。
         // 构造需宿主 Activity（launcher 挂其 registry），故在 Activity 侧注册而非 UiKoinModule。
