@@ -45,3 +45,9 @@ actual fun localDayRange(date: String): Pair<Long, Long>? {
     }
     return start to cal.timeInMillis
 }
+
+actual fun localDayOfWeekIso(epochMs: Long): Int {
+    // Calendar.DAY_OF_WEEK: 1=周日 … 7=周六 → 折成 ISO 的 1=周一 … 7=周日
+    val sundayFirst = Calendar.getInstance().apply { timeInMillis = epochMs }.get(Calendar.DAY_OF_WEEK)
+    return if (sundayFirst == Calendar.SUNDAY) 7 else sundayFirst - 1
+}

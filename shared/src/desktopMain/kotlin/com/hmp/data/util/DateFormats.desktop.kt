@@ -49,3 +49,6 @@ actual fun localDayRange(date: String): Pair<Long, Long>? = try {
 } catch (_: Exception) {
     null
 }
+
+actual fun localDayOfWeekIso(epochMs: Long): Int =
+    java.time.Instant.ofEpochMilli(epochMs).atZone(localZone).dayOfWeek.value

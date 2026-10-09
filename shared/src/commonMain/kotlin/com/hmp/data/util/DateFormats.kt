@@ -47,3 +47,11 @@ expect fun localDateString(epochMs: Long): String
  * ⚠️ 返回 null 时调用方**不要**退回 `strftime` —— 那会把两套口径又并存一次；按"查不到"处理。
  */
 expect fun localDayRange(date: String): Pair<Long, Long>?
+
+/**
+ * epoch 毫秒 → **本地时区**的星期序号（ISO：1=周一 … 7=周日）。
+ *
+ * 热力图按真实星期对齐列时要用（D5-08）：此前 `ListeningChart` 的表头是硬编码的
+ * `M T W T F S S`，与格子里那一天真正的星期毫无关系。
+ */
+expect fun localDayOfWeekIso(epochMs: Long): Int

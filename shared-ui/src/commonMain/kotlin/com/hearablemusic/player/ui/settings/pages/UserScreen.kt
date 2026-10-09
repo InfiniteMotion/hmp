@@ -28,6 +28,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -73,12 +74,14 @@ import com.hearablemusic.player.ui.generated.resources.this_week_minutes
 import com.hearablemusic.player.ui.generated.resources.theme_customization
 import com.hearablemusic.player.ui.generated.resources.title_user_usage_data
 import com.hearablemusic.player.ui.generated.resources.total_listening_minutes
+import com.hearablemusic.player.ui.settings.components.buildListeningHeatmap
 import com.hearablemusic.player.ui.settings.components.ListeningChart
 import com.hearablemusic.player.ui.settings.viewmodel.RecommendationViewModel
 import com.hearablemusic.player.ui.settings.viewmodel.SettingsViewModel
 import com.hearablemusic.player.ui.settings.viewmodel.UserUsageDataViewModel
 import com.hearablemusic.player.ui.settings.viewmodel.WindowedBundle
 import com.hmp.domain.setting.model.ListeningDuration
+import com.hmp.domain.agent.card.zhName
 import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
@@ -164,6 +167,7 @@ fun UserScreen(
     val avatarUri by settingsViewModel.avatarUri.collectAsState("")
     val listeningData by recommendationViewModel.recentListeningDurations.collectAsState()
     val windowed by usageDataViewModel.windowed.collectAsState()
+    val timeRange by usageDataViewModel.timeRange.collectAsState()
 
     LaunchedEffect(Unit) {
         settingsViewModel.getAvatarUri()
@@ -174,6 +178,7 @@ fun UserScreen(
         avatarUri = avatarUri,
         listeningData = listeningData,
         windowed = windowed,
+        rangeLabel = timeRange.zhName(),
         navController = navController
     )
 }
@@ -184,6 +189,13 @@ fun UserScreenContent(
     avatarUri: String,
     listeningData: List<ListeningDuration>,
     windowed: WindowedBundle,
+    /**
+     * 这三个统计数字所属的时间窗口（D5-09）。
+     *
+     * 数据来自 `UserUsageDataViewModel`，其时间轴初值是 `MONTH` —— 于是卡片把最近 30 天的量
+     * 标成「总听歌时长」，语义相反。现在范围跟着一起显示，读者知道这是窗口值。
+     */
+    rangeLabel: String,
     navController: NavBackStack<NavKey>
 ) {
     TabScreen{
@@ -195,8 +207,14 @@ fun UserScreenContent(
             WindowWidthSizeClass.Medium -> 32.dp
             WindowWidthSizeClass.Compact -> 16.dp
         }
-        val sortedData = listeningData.sortedBy { it.date }.takeLast(35)
-        val chartData = sortedData.map { ((it.duration / (1000 * 60)).toInt()) }
+        // D5-08：窗口是连续日历日、缺听歌的日子补零、列按真实星期对齐 —— 全在纯函数里做
+        val heatmapGrid = remember(listeningData) {
+            // 窗口天数用函数默认值（365）：与 GetDailyMusicRecommendationUseCase 取数的 365 是同一个口径，
+            // 这里再写一遍数字就成了新的漂移面
+            buildListeningHeatmap(
+                minutesByDate = listeningData.associate { it.date to ((it.duration / 60_000L).toInt()) },
+            )
+        }
         val haptic = rememberHapticFeedback()
 
         val profileCard: @Composable () -> Unit = {
@@ -267,13 +285,25 @@ fun UserScreenContent(
                             Column(
                                 verticalArrangement = Arrangement.SpaceEvenly,
                             ) {
-                                Text(
-                                    text = stringResource(Res.string.listening_insights),
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontSize = dimens.type.md,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Text(
+                                        text = stringResource(Res.string.listening_insights),
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontSize = dimens.type.md,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    // D5-09：这三个数字是窗口值，标签必须说清是哪个窗口
+                                    Text(
+                                        text = rangeLabel,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.primary,
+                                    )
+                                }
 
                                 windowed.analytics?.let { a ->
                                     Column(verticalArrangement = Arrangement.spacedBy(dimens.spacing.sm)) {
@@ -309,7 +339,7 @@ fun UserScreenContent(
                                     }
                                 }
 
-                                ListeningChart(data = chartData)
+                                ListeningChart(grid = heatmapGrid)
                             }
                         }
                     }
@@ -355,7 +385,7 @@ fun UserScreenContent(
                             )
                         }
                         Spacer(modifier = Modifier.height(dimens.spacing.sm))
-                        ListeningChart(data = chartData)
+                        ListeningChart(grid = heatmapGrid)
                     }
 
                 SettingsListCard(navController = navController)
@@ -400,4 +430,5 @@ private fun InsightPill(modifier: Modifier, label: String, value: String) {
             )
         }
     }
+
 }

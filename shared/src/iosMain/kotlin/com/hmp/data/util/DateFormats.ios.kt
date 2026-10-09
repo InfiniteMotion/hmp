@@ -8,6 +8,7 @@ import platform.Foundation.NSCalendarUnitHour
 import platform.Foundation.NSCalendarUnitMinute
 import platform.Foundation.NSCalendarUnitSecond
 import platform.Foundation.NSCalendarUnitDay
+import platform.Foundation.NSCalendarUnitWeekday
 import platform.Foundation.NSDate
 import platform.Foundation.NSTimeZone
 import platform.Foundation.timeIntervalSince1970
@@ -97,4 +98,15 @@ actual fun localDayRange(date: String): Pair<Long, Long>? = try {
     (start.timeIntervalSince1970 * 1000.0).toLong() to (nextDay.timeIntervalSince1970 * 1000.0).toLong()
 } catch (_: Exception) {
     null
+}
+
+@OptIn(ExperimentalForeignApi::class)
+actual fun localDayOfWeekIso(epochMs: Long): Int {
+    // NSCalendar.weekday: 1=周日 … 7=周六 → 折成 ISO 的 1=周一 … 7=周日
+    val components = NSCalendar.currentCalendar.components(
+        NSCalendarUnitWeekday,
+        fromDate = NSDate(timeIntervalSince1970 = epochMs / 1000.0)
+    )
+    val sundayFirst = components.weekday.toInt()
+    return if (sundayFirst == 1) 7 else sundayFirst - 1
 }

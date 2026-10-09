@@ -55,7 +55,19 @@ class GetDailyMusicRecommendationUseCase(
         return musicRepository.fetchAvailableModels(config)
     }
 
+    /**
+     * 热力图数据源：**一整年**（D5-08）。
+     *
+     * 原先取 35 条 —— 而 `listeningDuration` 只在有听歌的日子才插行，
+     * "35 条"既不是 35 天也不是全年，页面却写着"全年/年度热力图"。
+     * 现在一次取满 365 个日历日的量，缺的日子由纯函数侧补零（网格对齐在那边做）。
+     */
     fun getRecentListeningDurations(): Flow<List<ListeningDuration>> {
-        return musicRepository.getRecentListeningDurations(35)
+        return musicRepository.getRecentListeningDurations(HEATMAP_WINDOW_DAYS)
+    }
+
+    private companion object {
+        /** 热力图窗口 = 一年（与站点对外承诺的「全年听歌密度」同口径） */
+        const val HEATMAP_WINDOW_DAYS = 365
     }
 }

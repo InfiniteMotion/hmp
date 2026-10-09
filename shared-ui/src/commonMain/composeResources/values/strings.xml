@@ -431,6 +431,7 @@
     <string name="no_data_available">No data available</string>
     <string name="no_data_loaded">No data loaded</string>
     <string name="usage_data_empty">No usage data yet</string>
+    <string name="usage_data_load_failed">Failed to load this period. Try again later.</string>
     <string name="completed">Completed</string>
     <string name="incomplete">Incomplete</string>
     <string name="counts">Counts</string>
