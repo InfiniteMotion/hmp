@@ -31,6 +31,9 @@ import com.hmp.data.util.MusicTagEditor
 import com.hmp.data.util.parseDateToMillis
 import com.hmp.data.util.formatMmddFromMillis
 import com.hmp.data.util.stringToPinyinSortKey
+import com.hmp.data.util.localDayRange
+import com.hmp.data.util.localDateString
+import com.hmp.data.util.localHourOfDay
 import com.hmp.data.util.todayDateString
 import com.hmp.domain.agent.enrich.EnrichBatchResult
 import com.hmp.domain.agent.enrich.EnrichHealth
@@ -1085,8 +1088,12 @@ abstract class MusicRepositoryBase(
 
     /** 今日有新播放的 musicId（DAO strftime SQL，单次查询）。 */
     override suspend fun getMusicIdsPlayedOn(date: String): List<Long> {
-        val mmdd = date.substring(5) // "MM-dd"
-        return runCatching { playbackHistoryDao.getMusicIdsPlayedOn(mmdd) }.getOrDefault(emptyList())
+        // 由 Kotlin 侧算出本地日的 [dayStart, dayEnd) 再走 playedAt 范围扫描（D5-11 未做的改写段）：
+        // `strftime('%m-%d', playedAt/1000, 'unixepoch', 'localtime') = :mmdd` 每行求值，v10 建的
+        // `index_PlaybackHistory_playedAt` 对它完全使不上力。
+        val (dayStart, dayEnd) = localDayRange(date) ?: return emptyList()
+        return runCatching { playbackHistoryDao.getMusicIdsPlayedBetween(dayStart, dayEnd) }
+            .getOrDefault(emptyList())
     }
 
     /** 某歌单累计被播放次数。 */
@@ -1108,12 +1115,30 @@ abstract class MusicRepositoryBase(
         return musicAllDao.getPlaylistByIdList(ids).map { it.toDomain() }
     }
 
-    /** 最近 days 天的日均听歌时长（分钟），报告叙事段自适应频率判断用。 */
+    /**
+     * 日均听歌时长（分钟）—— 「每个**听歌日**的平均」，不是把没听的天摊进来的日均（D5-03）。
+     *
+     * 旧实现里 `days` 只出现在除数位置：全表求和 ÷ N，也就是"有史以来总量 ÷ N"。
+     * 后果是切到「今日」拿到的是全年量（恒 > 120 分钟 → 报告频率恒判日更），
+     * 切到「全部」除以 3650 → 恒 ≤ 30 → 判周更，与真实活跃度脱钩。
+     *
+     * 口径定两条并写在这里：
+     * - `days > 0`：只看最近 `days` 个日历日（含今天），按 `date` 列做窗口过滤；
+     * - `days <= 0`（`NarrativeTimeRange.ALL.toDays() == -1`）：看全部历史；
+     * - 两种情况的分母都是**窗口内有记录的天数** —— 这就是"每个听歌日的平均"，
+     *   除以日历天数会让"这周只听了一天"的人显示成极低的日均，语义相反。
+     */
     override suspend fun getAvgDailyListeningMinutes(days: Int): Float {
-        val all = listeningDurationDao.getAllDurations()
-        if (all.isEmpty()) return 0f
-        val totalMs = all.sumOf { it.duration }
-        return (totalMs / 60_000f) / days.coerceAtLeast(1)
+        val windowed = if (days > 0) {
+            val fromDate = localDateString(currentTimeMillis() - (days - 1).toLong() * 86_400_000L)
+            listeningDurationDao.getDurationsSince(fromDate)
+        } else {
+            listeningDurationDao.getAllDurations()
+        }
+        if (windowed.isEmpty()) return 0f
+        val activeDays = windowed.map { it.date }.distinct().size
+        val totalMs = windowed.sumOf { it.duration }
+        return (totalMs / 60_000f) / activeDays.coerceAtLeast(1)
     }
 
     // region F9-T1：时段分布 + 遗忘唤醒送达标记
@@ -1123,7 +1148,10 @@ abstract class MusicRepositoryBase(
      * 只返回实际有数据的桶，UI 层补零位。
      */
     override suspend fun getHourlyDistribution(windowDays: Int): List<HourlyDistributionRow> {
-        val sinceMs = currentTimeMillis() - windowDays.coerceAtLeast(1) * 86_400_000L
+        // daysToCutoffMs 认 -1 = 「全部」（≈10 年前）。此处原先是 `windowDays.coerceAtLeast(1)`，
+        // 于是「全部」被夹成 1 天：其余四个维度给 10 年口径、只有时段柱图画最近 24 小时，
+        // 而页面标签仍写「全部」（D5-02）。
+        val sinceMs = daysToCutoffMs(windowDays)
         return playbackHistoryDao.getHourlyDistribution(sinceMs).map { row ->
             HourlyDistributionRow(hour = row.hour, playCount = row.playCount, totalMs = row.totalMs)
         }
@@ -1203,9 +1231,8 @@ abstract class MusicRepositoryBase(
      * - `getFirstPlayedAtPerTrack` 取每首首播时间（判断窗口内新歌）
      */
     override suspend fun getBehaviorSnapshot(windowDays: Int): BehaviorSnapshot {
-        val days = windowDays.coerceAtLeast(1)
-        val now = currentTimeMillis()
-        val sinceMs = now - days.toLong() * 24 * 3600 * 1000
+        val days = windowDays
+        val sinceMs = daysToCutoffMs(days)
         val rows = playbackHistoryDao.getPlayRowsSince(sinceMs)
         if (rows.isEmpty()) return BehaviorSnapshot(windowDays = days, totalPlays = 0, activeDays = 0)
 
@@ -1338,9 +1365,11 @@ abstract class MusicRepositoryBase(
         }
     }
 
-    private fun hourOf(epochMs: Long): Int = ((epochMs / 3_600_000L) % 24).toInt().let { if (it < 0) it + 24 else it }
+    /** 本地时区小时桶（D5-01）：与 DAO 的 `strftime('%H', …, 'localtime')` 同口径，判据见 HourBucketParityTest。 */
+    private fun hourOf(epochMs: Long): Int = localHourOfDay(epochMs)
 
-    private fun dayKey(epochMs: Long): Long = epochMs / (24L * 3600 * 1000)
+    /** 本地日历日（D5-01）：原先按 UTC 日界切，跨零点的一小时会被算进相邻两天。 */
+    private fun dayKey(epochMs: Long): String = localDateString(epochMs)
 
     // endregion
 

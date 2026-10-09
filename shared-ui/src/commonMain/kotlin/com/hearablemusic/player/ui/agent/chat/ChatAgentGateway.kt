@@ -5,6 +5,7 @@ import com.hearablemusic.player.ui.generated.resources.agent_chat_error_failed
 import com.hearablemusic.player.ui.generated.resources.agent_chat_radio_night_summary
 import com.hearablemusic.player.ui.generated.resources.agent_chat_radio_seed_summary
 import com.hmp.domain.agent.port.ConfirmGate
+import com.hmp.data.util.currentHour
 import com.hmp.domain.agent.port.ConfirmOutcome
 import com.hmp.domain.agent.port.ConfirmRequest
 import com.hmp.domain.agent.runtime.BuiltinIntentId
@@ -253,7 +254,7 @@ class MasterChatGateway(
         val total = musicRepository.getMusicCount().first()
         val known = musicRepository.getMusicWithExtraCount().first()
         val recognitionText = ContextAssembler.buildRecognitionProgress(known, total)
-        val hour = ((currentTimeMillis() / 3_600_000L) % 24).toInt()
+        val hour = currentHour()   // 与统计侧同一个本地时区口径（D5-01：原先这里是 UTC 自算）
         val overviewText = ContextAssembler.buildLibraryOverview(buildLibraryOverview())
         // 对话开始时顺手推进行为画像 —— 契约 §4.2 说"定时聚合"，本项目没有常驻调度器，
         // 改成"低频闸门 + 事件触发"（间隔 20h，见 ProfileConfig）；这里是最自然的事件点。

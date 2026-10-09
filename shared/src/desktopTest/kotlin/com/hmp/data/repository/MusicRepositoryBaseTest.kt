@@ -12,6 +12,7 @@ import com.hmp.domain.enum.LabelName
 import com.hmp.domain.music.MusicInfo
 import com.hmp.domain.music.MusicLabel
 import com.hmp.test.db.createTestDatabase
+import com.hmp.test.repo.InMemoryMusicRepository
 import io.ktor.client.HttpClient
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
@@ -24,44 +25,6 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
-/** 用真实 in-memory Room DAO 装配的 [MusicRepositoryBase] 测试替身（平台分叉方法置为桩）。 */
-private class InMemoryMusicRepository(db: AppDatabase) : MusicRepositoryBase(
-    musicDao = db.musicDao(),
-    musicExtraDao = db.musicExtraDao(),
-    userInfoDao = db.userInfoDao(),
-    musicAllDao = db.musicAllDao(),
-    musicLabelDao = db.musicLabelDao(),
-    playbackHistoryDao = db.playbackHistoryDao(),
-    listeningDurationDao = db.listeningDurationDao(),
-    playlistDao = db.playlistDao(),
-    playlistItemDao = db.playlistItemDao(),
-    openAiCompatibleAdapter = OpenAiCompatibleAdapter(HttpClient(), Json),
-    json = Json,
-    agentAuditLogDao = db.agentAuditLogDao(),
-    forgottenDeliveryDao = db.forgottenDeliveryDao(),
-    transactionRunner = RoomTransactionRunner(db),
-) {
-    // 扫描落库已在基类（D2-01），本类不用它：给一个空扫描结果即可
-    override suspend fun performMusicScan() =
-        Triple(emptyList<com.hmp.data.database.Music>(), emptyList<MusicExtra>(), emptyList<UserInfo>())
-    override suspend fun getAllMusicInfoAsList(orderBy: String, orderType: String): List<MusicInfo> = emptyList()
-    override suspend fun getDeletedMusicIdsGroupedByFolder(): List<Pair<String, List<Long>>> = emptyList()
-
-    // ═══ W0 HelloSubAgent stub ═══
-    override suspend fun getRecentSkipRate(limit: Int, days: Int): List<Long> = emptyList()
-    override suspend fun getRecentPlayRate(limit: Int, days: Int): List<Long> = emptyList()
-    override suspend fun getForgottenTracks(days: Int, limit: Int): List<Pair<Long, Long?>> = emptyList()
-    override suspend fun getAnniversaryTracks(date: String): List<Triple<Long, Long, Int>> = emptyList()
-    override suspend fun getGlobalTopLabels(limit: Int): List<com.hmp.domain.enum.LabelName> = emptyList()
-    override suspend fun getMusicInfoByIds(ids: List<Long>): List<MusicInfo> = emptyList()
-    override suspend fun getAvgDailyListeningMinutes(days: Int): Float = 0f
-}
-
-/**
- * M0-T3 溯源语义接线验证（设计总纲 3.2 裁判规则）：
- * - 模型认识（addMusicLabel）写 source=LLM + 初始 confidence + createdAt/updatedAt；
- * - 用户修正（addUserMusicLabel）写 source=USER，且 LLM 永不能覆盖（规则 ①）。
- */
 class MusicRepositoryBaseTest {
 
     private lateinit var db: AppDatabase

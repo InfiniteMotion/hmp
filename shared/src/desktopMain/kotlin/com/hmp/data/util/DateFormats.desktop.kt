@@ -33,3 +33,19 @@ actual fun formatMmddFromMillis(epochMs: Long): String =
         .atZone(ZoneId.systemDefault())
         .toLocalDate()
         .format(mmddFormatter)
+private val localZone: java.time.ZoneId get() = java.time.ZoneId.systemDefault()
+
+actual fun localHourOfDay(epochMs: Long): Int =
+    java.time.Instant.ofEpochMilli(epochMs).atZone(localZone).hour
+
+actual fun localDateString(epochMs: Long): String =
+    java.time.Instant.ofEpochMilli(epochMs).atZone(localZone).toLocalDate().format(dateFormatter)
+
+actual fun localDayRange(date: String): Pair<Long, Long>? = try {
+    val day = java.time.LocalDate.parse(date, dateFormatter)
+    val start = day.atStartOfDay(localZone).toInstant().toEpochMilli()
+    val end = day.plusDays(1).atStartOfDay(localZone).toInstant().toEpochMilli()
+    start to end
+} catch (_: Exception) {
+    null
+}
