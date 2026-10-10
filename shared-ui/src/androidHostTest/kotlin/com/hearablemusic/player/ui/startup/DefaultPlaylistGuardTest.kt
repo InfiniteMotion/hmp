@@ -76,9 +76,9 @@ class DefaultPlaylistGuardTest {
         override suspend fun setPlaylistPinned(id: Long, isPinned: Boolean) = Unit
         override suspend fun incrementPlaylistPlayCount(id: Long) = Unit
         override suspend fun setPlaylistLastPlayedAt(id: Long, timestamp: Long) = Unit
-        override suspend fun addToPlaylist(playlistId: Long, musicId: Long, musicPath: String) = Unit
+        override suspend fun addToPlaylist(playlistId: Long, musicId: Long) = Unit
         override suspend fun removeItemFromPlaylist(musicId: Long, playlistId: Long) = Unit
-        override suspend fun reorderPlaylistItems(playlistId: Long, orderedMusicIds: List<Long>) = Unit
+        override suspend fun reorderPlaylistItems(playlistId: Long, orderedMusicIds: List<Long>) = true
         override suspend fun getPlaylistByIdList(playlistIdList: List<Long>): List<MusicInfo> = emptyList()
         override fun getAllPlaylistsFlow(): Flow<List<Playlist>> = emptyFlow()
         override suspend fun exportPlaylistsSnapshot(): PlaylistsSnapshot = PlaylistsSnapshot()

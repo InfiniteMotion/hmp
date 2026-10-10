@@ -569,7 +569,7 @@ class DesktopMusicController(
                     recentPlayListId.firstOrNull()
                 }
                 if (recentId != null) {
-                    managePlaylistUseCase.addToPlaylist(recentId, musicInfo.music.id, musicInfo.music.path)
+                    managePlaylistUseCase.addToPlaylist(recentId, musicInfo.music.id)
                 }
             } catch (_: Exception) {}
         }
@@ -702,7 +702,7 @@ class DesktopMusicController(
                 currentPlaybackUseCase.updateLikedStatus(musicInfo.music.id, isLiked)
                 val likedId = likedPlayListId.filterNotNull().first()
                 if (isLiked) {
-                    managePlaylistUseCase.addToPlaylist(likedId, musicInfo.music.id, musicInfo.music.path)
+                    managePlaylistUseCase.addToPlaylist(likedId, musicInfo.music.id)
                 } else {
                     managePlaylistUseCase.removeItemFromPlaylist(musicInfo.music.id, likedId)
                 }
@@ -719,7 +719,7 @@ class DesktopMusicController(
                 if (musicInfo != null) {
                     val likedId = likedPlayListId.filterNotNull().first()
                     if (isLiked) {
-                        managePlaylistUseCase.addToPlaylist(likedId, musicId, musicInfo.music.path)
+                        managePlaylistUseCase.addToPlaylist(likedId, musicId)
                     } else {
                         managePlaylistUseCase.removeItemFromPlaylist(musicId, likedId)
                     }

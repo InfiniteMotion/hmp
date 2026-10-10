@@ -11,6 +11,8 @@ import com.hmp.domain.music.usecase.MusicLabelUseCase
 import com.hmp.domain.playlist.Playlist
 import com.hmp.domain.playlist.usecase.ManagePlaylistUseCase
 import com.hmp.domain.setting.SettingsRepository
+import com.hmp.log.HmpLog
+import com.hmp.log.LogTag
 import com.hearablemusic.player.ui.common.util.UiState
 import com.hearablemusic.player.ui.common.util.nowEpochMillis
 import com.hearablemusic.player.ui.startup.DefaultPlaylistGuard
@@ -218,22 +220,18 @@ class PlaylistViewModel(
         }
     }
 
-    fun addItemToPlaylist(playlistId: Long, musicId: Long, musicPath: String) {
-        viewModelScope.launch {
-            managePlaylistUseCase.addToPlaylist(playlistId, musicId, musicPath)
-            if (playlistId == _selectedPlaylistId.value) refreshSelectedPlaylistMeta()
-            loadUserCustomPlaylists()
-        }
-    }
-
+    /**
+     * 批量追加。入参只有 id（一-4 / D3-15 收尾）：`musicPath` 随 v10 删掉的 `songUrl` 一起
+     * 成了死参数，而调用方为了喂它每人多查一次曲目 —— 现在条目只认 id，路径永远从 `music` 表读。
+     */
     fun addItemsToPlaylist(
         playlistId: Long,
-        items: List<Pair<Long, String>>,
+        musicIds: List<Long>,
         onComplete: (() -> Unit)? = null
     ) {
         viewModelScope.launch {
-            items.forEach { (musicId, musicPath) ->
-                managePlaylistUseCase.addToPlaylist(playlistId, musicId, musicPath)
+            musicIds.forEach { musicId ->
+                managePlaylistUseCase.addToPlaylist(playlistId, musicId)
             }
             if (playlistId == _selectedPlaylistId.value) {
                 refreshSelectedPlaylistMeta()
@@ -260,9 +258,20 @@ class PlaylistViewModel(
         }
     }
 
+    /**
+     * 重排。返回值不能被丢掉（D3-04）：仓库只在"入参正好覆盖当前可见曲目"时才动手。
+     *
+     * UI 传的本来就是完整列表，所以正常路径不会失败；会失败的是列表在两次读取之间被并发改过
+     * ——那种情况下静默返回就是"用户排完发现顺序没动"，所以至少要留下一条日志。
+     * （提示文案要 13 语种的资源键，不是一包里顺手该加的。）
+     */
     fun reorderPlaylistItems(playlistId: Long, orderedMusicIds: List<Long>) {
         viewModelScope.launch {
-            managePlaylistUseCase.reorderPlaylistItems(playlistId, orderedMusicIds)
+            val applied = managePlaylistUseCase.reorderPlaylistItems(playlistId, orderedMusicIds)
+            if (!applied) {
+                HmpLog.w(LogTag.UiCommon) { "重排被拒：入参与歌单 $playlistId 当前可见曲目不一致，未做任何改动" }
+                return@launch
+            }
             if (playlistId == _selectedPlaylistId.value) refreshSelectedPlaylistMeta()
             loadUserCustomPlaylists()
         }

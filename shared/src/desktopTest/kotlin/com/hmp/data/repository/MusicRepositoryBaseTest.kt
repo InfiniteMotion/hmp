@@ -41,6 +41,39 @@ class MusicRepositoryBaseTest {
         db.close()
     }
 
+    /**
+     * D3-08：把曲目从曲库"移除"（软删）之后，含它的歌单不能继续显示旧的 `songCount`。
+     *
+     * 详情页头部的"10 首 / 45 分钟"读的是 `playlist` 上的缓存列，而这个列原先只在
+     * **条目**增删时重算；软删 `music.isDeleted` 根本不碰 `playlist_item`，
+     * 于是标题与实际列表长期不一致（列表查询是带 `isDeleted = 0` 过滤的）。
+     * 取消移除时反向也错，所以两条路径都要断言。
+     */
+    @Test
+    fun softDeleteAndRestore_keepPlaylistDerivedColumnsInSync() = runTest {
+        val pid = db.playlistDao().insert(com.hmp.data.database.Playlist(name = "P"))
+        listOf(1L, 2L, 3L).forEach { id ->
+            db.musicDao().insert(
+                com.hmp.data.database.Music(
+                    id = id, title = "S$id", artist = "A", album = "B",
+                    duration = 60_000L, path = "/$id.mp3", albumArtUri = ""
+                )
+            )
+            db.musicExtraDao().insert(MusicExtra(id = id, isGetExtraInfo = true))
+            db.userInfoDao().insert(UserInfo(id = id))
+            db.playlistItemDao().addSongAndRefresh(pid, id, 0L)
+        }
+        assertEquals(3, db.playlistDao().getPlaylistById(pid)!!.songCount, "基线：三首")
+
+        repo.removeFromLibrary(listOf(2L))
+        val afterRemove = db.playlistDao().getPlaylistById(pid)!!
+        assertEquals(2, afterRemove.songCount, "软删一首后计数应跟降（标题与列表要一致）")
+        assertEquals(120_000L, afterRemove.totalDurationMs)
+
+        repo.restoreToLibrary(listOf(2L))
+        assertEquals(3, db.playlistDao().getPlaylistById(pid)!!.songCount, "取消移除应把计数升回来")
+    }
+
     @Test
     fun modelLabel_writeSetsSourceAndTimestamps() = runTest {
         repo.addMusicLabel(MusicLabel(1L, LabelCategory.GENRE, LabelName.ROCK))

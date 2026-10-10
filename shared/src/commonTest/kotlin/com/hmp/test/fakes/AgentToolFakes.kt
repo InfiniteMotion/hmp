@@ -176,10 +176,17 @@ class FakeAgentPlaylistRepository : PlaylistRepository {
     override suspend fun setPlaylistPinned(id: Long, isPinned: Boolean) { playlists[id]?.let { playlists[id] = it.copy(isPinned = isPinned) } }
     override suspend fun incrementPlaylistPlayCount(id: Long) { playlists[id]?.let { playlists[id] = it.copy(playCount = it.playCount + 1) } }
     override suspend fun setPlaylistLastPlayedAt(id: Long, timestamp: Long) { playlists[id]?.let { playlists[id] = it.copy(lastPlayedAt = timestamp) } }
-    override suspend fun addToPlaylist(playlistId: Long, musicId: Long, musicPath: String) { playlistItems.getOrPut(playlistId) { mutableListOf() } += musicId }
+    override suspend fun addToPlaylist(playlistId: Long, musicId: Long) { playlistItems.getOrPut(playlistId) { mutableListOf() } += musicId }
     override suspend fun removeItemFromPlaylist(musicId: Long, playlistId: Long) { playlistItems[playlistId]?.remove(musicId) }
     override suspend fun resetPlaylistItems(playlistId: Long, musicList: List<com.hmp.domain.music.MusicInfo>) { }
-    override suspend fun reorderPlaylistItems(playlistId: Long, orderedMusicIds: List<Long>) { playlistItems[playlistId] = orderedMusicIds.toMutableList() }
+    /** 与真仓库同契约（D3-04）：入参不是当前内容的完整排列就返回 false，且不改动任何东西。 */
+    override suspend fun reorderPlaylistItems(playlistId: Long, orderedMusicIds: List<Long>): Boolean {
+        val current = playlistItems.getOrPut(playlistId) { mutableListOf() }
+        if (orderedMusicIds.distinct().size != orderedMusicIds.size) return false
+        if (orderedMusicIds.toSet() != current.toSet()) return false
+        playlistItems[playlistId] = orderedMusicIds.toMutableList()
+        return true
+    }
     override fun getMusicInfoInPlaylist(playlistId: Long): Flow<List<MusicInfo>> = flowOf(emptyList())
     override suspend fun getPlaylistById(playlistId: Long): List<MusicInfo> = emptyList()
     override suspend fun getPlaylistByIdList(playlistIdList: List<Long>): List<MusicInfo> = emptyList()

@@ -136,7 +136,7 @@ class PlaylistAddSongTool(
     private val deps: ToolDependencies,
 ) : AgentTool {
     override val name = ToolNames.PLAYLIST_ADD_SONG
-    override val description = "把指定歌曲加入播放列表\n写操作，修改歌单内容\n仅在用户明确要求加曲时使用；musicPath 由系统自动解析"
+    override val description = "把指定歌曲加入播放列表\n写操作，修改歌单内容\n仅在用户明确要求加曲时使用；条目只按 music_id 记录，路径由 music 表解析"
     override val permissionLevel = ToolPermissionLevel.CONFIRM
     override val params = listOf(
         LongParam(name = "playlist_id", description = "目标播放列表ID", min = 1),
@@ -150,7 +150,7 @@ class PlaylistAddSongTool(
             ?: return ToolResult.failure("播放列表 $playlistId 不存在")
         val info = deps.musicRepository.getMusicInfoById(musicId).first()
             ?: return ToolResult.failure("歌曲 $musicId 不存在")
-        deps.playlistRepository.addToPlaylist(playlistId, musicId, info.music.path)
+        deps.playlistRepository.addToPlaylist(playlistId, musicId)
         return ToolResult.success("已把「${info.music.title}」加入「${meta.name}」")
     }
 }
@@ -196,7 +196,13 @@ class PlaylistReorderTool(
     override suspend fun run(args: ToolArgs): ToolResult {
         val playlistId = args.requireLong("playlist_id")
         val ordered = args.requireLongList("ordered_music_ids")
-        deps.playlistRepository.reorderPlaylistItems(playlistId, ordered)
+        // D3-04：入参必须是"当前可见曲目的完整排列"。仓库拒绝了就是拒绝了 ——
+        // 这条以前会照样报成功，Agent 于是对用户说"已按目标顺序重排"，而库里只改了传进来的那几首。
+        if (!deps.playlistRepository.reorderPlaylistItems(playlistId, ordered)) {
+            return ToolResult.failure(
+                "重排被拒绝：ordered_music_ids 必须正好覆盖歌单 $playlistId 当前的全部曲目（不缺、不多、不重复），一个字都没有改动"
+            )
+        }
         return ToolResult.success("播放列表 $playlistId 已按 ${ordered.size} 首目标顺序重排")
     }
 }

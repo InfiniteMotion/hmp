@@ -614,7 +614,7 @@ class MusicController(
                     recentPlayListId.firstOrNull()
                 }
                 if (recentId != null) {
-                    managePlaylistUseCase.addToPlaylist(recentId, track.music.id, track.music.path)
+                    managePlaylistUseCase.addToPlaylist(recentId, track.music.id)
                 }
             } catch (e: Exception) {
                 // Ignore
@@ -801,7 +801,7 @@ class MusicController(
             try {
                 val likedId = likedPlayListId.filterNotNull().first()
                 if (liked) {
-                    managePlaylistUseCase.addToPlaylist(likedId, musicInfo.music.id, musicInfo.music.path)
+                    managePlaylistUseCase.addToPlaylist(likedId, musicInfo.music.id)
                 } else {
                     managePlaylistUseCase.removeItemFromPlaylist(musicInfo.music.id, likedId)
                 }

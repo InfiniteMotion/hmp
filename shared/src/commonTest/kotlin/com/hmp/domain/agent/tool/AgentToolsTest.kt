@@ -199,17 +199,55 @@ class AgentToolsTest {
     }
 
     // ---------- reorderPlaylist / controlPlayback ----------
+    /**
+     * D3-04：`playlist_reorder` 的入参必须是完整排列。
+     *
+     * 这条以前是"直接 `reorderPlaylistItems(pid, listOf(3,1,2))` 把替身的列表整个换掉" ——
+     * 那是替身在替仓库做事，工具本身的校验一点没测到。现在改成先真加三首，再走工具。
+     */
     @Test
     fun reorderPlaylist_success() = runTest {
         val fx = Fixture()
         val pid = fx.playlistRepo.createPlaylist("List")
-        fx.playlistRepo.reorderPlaylistItems(pid, listOf(3L, 1L, 2L))
+        listOf(1L, 2L, 3L).forEach { fx.playlistRepo.addToPlaylist(pid, it) }
+
         val r = fx.registry.executeTool(
             ToolNames.PLAYLIST_REORDER,
             jsonArgs("playlist_id" to pid, "ordered_music_ids" to listOf(2L, 1L, 3L)),
         )
         assertTrue(r.success)
         assertEquals(listOf(2L, 1L, 3L), fx.playlistRepo.playlistItems[pid]!!.toList())
+    }
+
+    /** D3-04 的另一半，也是修前真正会发生的事：传个子集过来，以前报成功、只改了三首里的两首。 */
+    @Test
+    fun reorderPlaylist_partialOrInvalid_isRejectedAndChangesNothing() = runTest {
+        val fx = Fixture()
+        val pid = fx.playlistRepo.createPlaylist("List")
+        listOf(1L, 2L, 3L).forEach { fx.playlistRepo.addToPlaylist(pid, it) }
+
+        // 少一首
+        val tooFew = fx.registry.executeTool(
+            ToolNames.PLAYLIST_REORDER,
+            jsonArgs("playlist_id" to pid, "ordered_music_ids" to listOf(3L, 1L)),
+        )
+        assertFalse(tooFew.success)
+        assertEquals(listOf(1L, 2L, 3L), fx.playlistRepo.playlistItems[pid]!!.toList())
+
+        // 重复 id
+        val duplicated = fx.registry.executeTool(
+            ToolNames.PLAYLIST_REORDER,
+            jsonArgs("playlist_id" to pid, "ordered_music_ids" to listOf(2L, 2L, 3L)),
+        )
+        assertFalse(duplicated.success)
+        assertEquals(listOf(1L, 2L, 3L), fx.playlistRepo.playlistItems[pid]!!.toList())
+
+        // 歌单不存在：以前不校验存在性（D3-12 里同一形状），现在"可见集合为空 + 入参非空"必然对不上
+        val noList = fx.registry.executeTool(
+            ToolNames.PLAYLIST_REORDER,
+            jsonArgs("playlist_id" to 999L, "ordered_music_ids" to listOf(1L)),
+        )
+        assertFalse(noList.success)
     }
 
     @Test

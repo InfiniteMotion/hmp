@@ -96,14 +96,14 @@ class FakePlaylistRepository : PlaylistRepository {
         }
     }
 
-    override suspend fun addToPlaylist(playlistId: Long, musicId: Long, musicPath: String) {
+    override suspend fun addToPlaylist(playlistId: Long, musicId: Long) {
         val items = playlistItems.getOrPut(playlistId) { mutableListOf() }
         // Create a minimal MusicInfo for storage
         items.add(
             MusicInfo(
                 music = com.hmp.domain.music.Music(
                     id = musicId, title = "", artist = "", album = "",
-                    duration = 0L, path = musicPath, albumArtUri = ""
+                    duration = 0L, path = "/$musicId.mp3", albumArtUri = ""
                 ),
                 extra = null, userInfo = null
             )
@@ -134,10 +134,17 @@ class FakePlaylistRepository : PlaylistRepository {
         }
     }
 
-    override suspend fun reorderPlaylistItems(playlistId: Long, orderedMusicIds: List<Long>) {
-        val items = playlistItems[playlistId] ?: return
-        val reordered = orderedMusicIds.mapNotNull { id -> items.find { it.music.id == id } }
-        playlistItems[playlistId] = reordered.toMutableList()
+    /**
+     * 与真仓库同一条契约（D3-04）：入参必须是当前内容的完整排列，
+     * 缺 / 多 / 重复都返回 false 且**一个都不改**。以前这里是"照单全收 + 静默丢掉对不上的 id"，
+     * 于是仓库层的校验在替身里根本不存在，相关用例等于没测。
+     */
+    override suspend fun reorderPlaylistItems(playlistId: Long, orderedMusicIds: List<Long>): Boolean {
+        val items = playlistItems[playlistId] ?: return orderedMusicIds.isEmpty()
+        if (orderedMusicIds.distinct().size != orderedMusicIds.size) return false
+        if (orderedMusicIds.toSet() != items.map { it.music.id }.toSet()) return false
+        playlistItems[playlistId] = orderedMusicIds.mapNotNull { id -> items.find { it.music.id == id } }.toMutableList()
+        return true
     }
 
     override fun getMusicInfoInPlaylist(playlistId: Long): Flow<List<MusicInfo>> {

@@ -190,6 +190,8 @@ HMP/
 - 仓库接口 4 个：`MusicRepository`、`PlaylistRepository`、`SettingsRepository`、`BackupFileRepository`。实现**按平台三份镜像**（`*Impl.{android,desktop,ios}.kt`，基于 `MusicRepositoryBase.kt` 1245 行），`SettingsRepositoryImpl.{desktop,ios}` 各约 500 行。
 - UseCase 共 22 个（music 10 / setting 6 / backup 4 / playlist 2）。
 - **播放时长的单一口径**（一-3 C3）：`PlaybackHistory.playDuration` = **本次会话累计实听毫秒**（不含 seek 空档，与 `listeningDuration` 的日累计同语义）—— 不是引擎当前位置，也不是曲目元数据时长。三端各自的结算点算的就是这一个数，新增播放入口时别顺手改回另外两种。
+- **歌单的两个"看不见"契约**（一-4 A2 / A3）：① `PlaylistRepository.reorderPlaylistItems` 返回 `Boolean`，校验在 `PlaylistItemDao.reorderAndRefresh` 里（不在仓库、也不在 UseCase —— Agent 工具绕开 UseCase 直连仓库），`false` = 入参不是**当前可见曲目**（`music.isDeleted = 0`）的完整排列，此时一个字都没写；新增重排入口别绕过它。② `playlist.songCount` / `totalDurationMs` 是缓存列，**曲目可见性变了也要重算** —— `removeFromLibrary` / `restoreToLibrary` / 扫描的"没扫到"分支都调 `refreshStatsForPlaylistsContaining`，新增软删入口时忘了它就会"标题 10 首、列表 9 首"。封面则相反：`fillCoverFromFirstItemIfAbsent` 只在歌单没有封面时回填，手动设过的不再被首曲覆写。
+- **`playlist_item.itemOrder` 是用户资产**：领域 `PlaylistItem` 现在带 `itemOrder`，导出查询带 `ORDER BY playlistId, itemOrder`，恢复时按它排序后重编号（旧快照全 0 会撞 `UNIQUE(playlistId,itemOrder)`，所以不"原样写回"）。别再往三端 Impls 里各写一份落库逻辑。
 - **播放来源是闭集**：取值真源 `shared/.../domain/music/PlaybackSources.kt`（以 Android 已发布的拼写为准，库里已有历史数据，改名会让同一来源在饼图里裂成两条）。⚠️ iOS 侧是 **Swift 里复制的一份**（`MusicPlayerController.swift` 的 `enum PlaybackSource`）—— Kotlin `object` 的导出名在本仓库没有已验证先例，而 CI 不编译 iOS，猜错就是一次真机构建失败；**改取值要两头对**。
 - **Ktor 只用于用户自填的 AI API**，无网络取曲。Android 走 OkHttp engine、iOS 走 Darwin engine。
 - **DataStore** 存偏好；`SecureStorageHelper` 存 API Key。

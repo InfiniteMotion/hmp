@@ -262,7 +262,8 @@ class PlaylistDaoTest {
         with(playlistDao.getPlaylistById(playlistId)!!) {
             assertEquals(1, songCount, "移曲后计数要跟降")
             assertEquals(100L, totalDurationMs)
-            assertEquals("cover-2", coverUri, "首曲变了，封面跟着取新的首曲")
+            // D3-07 起的语义：封面只在"还没有封面"时回填，此后不再跟着首曲漂
+            assertEquals("cover-1", coverUri, "已有封面的歌单不被首曲覆写")
         }
 
         // 软删的曲目不计入（与旧实现的 getPlaylistById 过滤同语义）

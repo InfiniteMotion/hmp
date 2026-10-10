@@ -58,7 +58,7 @@ class ManagePlaylistUseCaseTest {
     @Test
     fun addToPlaylist_addsMusic() = runTest {
         val playlistId = useCase.createPlaylist("Test")
-        useCase.addToPlaylist(playlistId, 1L, "/1.mp3")
+        useCase.addToPlaylist(playlistId, 1L)
         val items = useCase.getPlaylistById(playlistId)
         assertEquals(1, items.size)
     }
@@ -66,8 +66,8 @@ class ManagePlaylistUseCaseTest {
     @Test
     fun removeItemFromPlaylist_removesMusic() = runTest {
         val playlistId = useCase.createPlaylist("Test")
-        useCase.addToPlaylist(playlistId, 1L, "/1.mp3")
-        useCase.addToPlaylist(playlistId, 2L, "/2.mp3")
+        useCase.addToPlaylist(playlistId, 1L)
+        useCase.addToPlaylist(playlistId, 2L)
         useCase.removeItemFromPlaylist(1L, playlistId)
         val items = useCase.getPlaylistById(playlistId)
         assertEquals(1, items.size)

@@ -106,8 +106,8 @@ class ManagePlaylistUseCase(
     /**
      * 添加音乐到播放列表
      */
-    suspend fun addToPlaylist(playlistId: Long, musicId: Long, musicPath: String) {
-        playlistRepository.addToPlaylist(playlistId, musicId, musicPath)
+    suspend fun addToPlaylist(playlistId: Long, musicId: Long) {
+        playlistRepository.addToPlaylist(playlistId, musicId)
     }
 
     /**
@@ -127,7 +127,7 @@ class ManagePlaylistUseCase(
     /**
      * 调整播放列表内歌曲顺序
      */
-    suspend fun reorderPlaylistItems(playlistId: Long, orderedMusicIds: List<Long>) {
+    /** `false` = 入参不是当前可见曲目的完整排列，什么都没改（D3-04）。 */
+    suspend fun reorderPlaylistItems(playlistId: Long, orderedMusicIds: List<Long>): Boolean =
         playlistRepository.reorderPlaylistItems(playlistId, orderedMusicIds)
-    }
 }

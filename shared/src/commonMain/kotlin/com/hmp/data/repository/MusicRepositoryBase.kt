@@ -207,6 +207,9 @@ abstract class MusicRepositoryBase(
                 musicExtraDao.markDeletedByIds(chunk)
                 userInfoDao.markDeletedByIds(chunk)
             }
+            // 同 D3-08：文件消失让曲目不可见，歌单的缓存计数得跟着改，
+            // 否则"10 首"的标题底下只有 7 首。这里已在同一事务内，失败应当一起回滚，不吞。
+            playlistItemDao.refreshStatsForPlaylistsContaining(missingIds, currentTimeMillis())
         }
 
         HmpLog.i(LogTag.DataMusicRepo) { "🎵 persisted ${scannedMusic.size} tracks, ${missingIds.size} marked missing" }
@@ -283,6 +286,7 @@ abstract class MusicRepositoryBase(
         musicDao.markDeletedByIds(ids)
         musicExtraDao.markDeletedByIds(ids)
         userInfoDao.markRemovedByIds(ids)
+        refreshAffectedPlaylistStats(ids)
     }
 
     override suspend fun restoreToLibrary(ids: List<Long>) {
@@ -290,6 +294,20 @@ abstract class MusicRepositoryBase(
         musicDao.markActiveByIds(ids)
         musicExtraDao.markActiveByIds(ids)
         userInfoDao.clearRemovedByIds(ids)
+        refreshAffectedPlaylistStats(ids)
+    }
+
+    /**
+     * 曲目**可见性**变了之后，重算受影响歌单的 `songCount` / `totalDurationMs`（D3-08）。
+     *
+     * 为什么在这儿：歌单派生列原先只被"条目增删"触发，而"从曲库移除"是软删 `music.isDeleted`、
+     * 根本不碰 `playlist_item` —— 于是详情页头部继续显示"10 首 / 45 分钟"，列表实际只有 9 首；
+     * 取消移除时反向也错。歌单列表那层的 `songCount > 0` 过滤（D3-06）也读这个缓存列。
+     *
+     * 失败不阻断主操作：可见性已经改成功了，统计旧了是显示问题，不该让用户"移除失败"。
+     */
+    private suspend fun refreshAffectedPlaylistStats(ids: List<Long>) {
+        runCatching { playlistItemDao.refreshStatsForPlaylistsContaining(ids, currentTimeMillis()) }
     }
 
     // endregion
