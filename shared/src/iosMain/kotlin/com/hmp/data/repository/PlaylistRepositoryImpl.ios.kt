@@ -28,9 +28,8 @@ class PlaylistRepositoryImpl(
         return playlistDao.insert(entity)
     }
 
-    override suspend fun removePlaylist(name: String) {
-        playlistDao.deletePlaylist(name = name)
-    }
+    override suspend fun getPlaylistByName(name: String): Playlist? =
+        playlistDao.getPlaylistByName(name)?.toDomain()
 
     override suspend fun removePlaylistById(id: Long) {
         playlistDao.deletePlaylistById(id)

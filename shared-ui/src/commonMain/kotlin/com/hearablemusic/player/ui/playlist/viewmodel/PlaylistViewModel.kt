@@ -10,6 +10,7 @@ import com.hmp.domain.music.usecase.GetAllMusicUseCase
 import com.hmp.domain.music.usecase.MusicLabelUseCase
 import com.hmp.domain.playlist.Playlist
 import com.hmp.domain.playlist.usecase.ManagePlaylistUseCase
+import com.hearablemusic.player.ui.playlist.userVisiblePlaylists
 import com.hmp.domain.setting.SettingsRepository
 import com.hmp.log.HmpLog
 import com.hmp.log.LogTag
@@ -130,7 +131,8 @@ class PlaylistViewModel(
                     _userCustomPlaylistsState.value = UiState.Error(it.message ?: "Failed to load playlists")
                 }
                 .collect { all ->
-                    val playlists = all.filter { it.songCount > 0 }
+                    // 口径只有一份：见 `UserPlaylistVisibility.kt`（D3-06）
+                    val playlists = userVisiblePlaylists(all)
                     _userCustomPlaylistsState.value = if (playlists.isEmpty()) {
                         UiState.Empty
                     } else {
@@ -200,15 +202,30 @@ class PlaylistViewModel(
         }
     }
 
+    /**
+     * 删除歌单。
+     *
+     * 两条都不许冒出去（D3-17②）：系统歌单由 UseCase 返回 `false`（原先是抛
+     * `IllegalArgumentException`，而 `viewModelScope` 没有异常兜底 —— 管理页删"心动"就是一次崩溃）；
+     * DB 侧异常转成 `UiState.Error`。失败时**不动**当前选中态，否则界面会假装它被删掉了。
+     */
     fun deletePlaylist(id: Long) {
         viewModelScope.launch {
-            managePlaylistUseCase.removePlaylistById(id)
-            _selectedPlaylistId.value = null
-            _selectedPlaylistMeta.value = null
-            _selectedPlaylistName.value = ""
-            _selectedPlaylistState.value = UiState.Idle
-            _isCustomPlaylist.value = false
-            loadUserCustomPlaylists()
+            val result = runCatching { managePlaylistUseCase.removePlaylistById(id) }
+            when {
+                result.isFailure -> _userCustomPlaylistsState.value =
+                    UiState.Error(result.exceptionOrNull()?.message ?: "删除失败")
+                result.getOrNull() == false -> _userCustomPlaylistsState.value =
+                    UiState.Error("系统歌单不可删除")
+                else -> {
+                    _selectedPlaylistId.value = null
+                    _selectedPlaylistMeta.value = null
+                    _selectedPlaylistName.value = ""
+                    _selectedPlaylistState.value = UiState.Idle
+                    _isCustomPlaylist.value = false
+                    loadUserCustomPlaylists()
+                }
+            }
         }
     }
 

@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -39,12 +40,40 @@ class ManagePlaylistUseCaseTest {
         assertEquals("Favorites", all[0].name)
     }
 
+    /** D3-05②：按名删除这条路整个不存在了；能做的只有"按名找到它，再按 id 走带保护的删除"。 */
     @Test
-    fun removePlaylist_removesByName() = runTest {
-        useCase.createPlaylist("ToDelete")
-        useCase.removePlaylist("ToDelete")
-        val all = useCase.getAllPlaylists()
-        assertTrue(all.isEmpty())
+    fun findPlaylistByName_locatesTheRow_andThereIsNoByNameDelete() = runTest {
+        val id = useCase.createPlaylist("Only")
+        assertEquals(id, useCase.findPlaylistByName("Only")?.id)
+        assertNull(useCase.findPlaylistByName("不存在"))
+
+        useCase.removePlaylistById(id)
+        assertTrue(useCase.getAllPlaylists().isEmpty())
+    }
+
+    /**
+     * D3-17③：删除保护从"抛 IllegalArgumentException"改成返回 false。
+     *
+     * 原先那个异常会一路穿出 `viewModelScope.launch`，而全仓没有协程异常兜底 ——
+     * 管理页恰好列出了系统歌单，于是"点删除心动"在 Android 上就是一次崩溃。
+     */
+    @Test
+    fun removePlaylistById_systemPlaylist_returnsFalseAndKeepsRow() = runTest {
+        val likedId = useCase.createPlaylist("红心")
+        val recentId = useCase.createPlaylist("最近播放")
+        val userId = useCase.createPlaylist("我的")
+        settingsRepository.saveLikedPlaylistId(likedId)
+        settingsRepository.saveRecentPlaylistId(recentId)
+
+        assertTrue(useCase.isSystemPlaylist(likedId))
+        assertTrue(useCase.isSystemPlaylist(recentId))
+        assertFalse(useCase.isSystemPlaylist(userId))
+
+        assertFalse(useCase.removePlaylistById(likedId), "系统歌单不可删，应当返回 false 而不是抛")
+        assertNotNull(useCase.getPlaylistMeta(likedId), "被拒时一行都不该删")
+
+        assertTrue(useCase.removePlaylistById(userId))
+        assertNull(useCase.getPlaylistMeta(userId))
     }
 
     @Test

@@ -28,14 +28,7 @@ class FakePlaylistRepository : PlaylistRepository {
         return id
     }
 
-    override suspend fun removePlaylist(name: String) {
-        val playlist = playlists.find { it.name == name }
-        if (playlist != null) {
-            playlists.remove(playlist)
-            playlistItems.remove(playlist.id)
-            updateFlow()
-        }
-    }
+    override suspend fun getPlaylistByName(name: String): Playlist? = playlists.find { it.name == name }
 
     override suspend fun removePlaylistById(id: Long) {
         playlists.removeAll { it.id == id }

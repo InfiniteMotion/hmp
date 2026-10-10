@@ -36,8 +36,16 @@ interface PlaylistDao {
     @Insert
     suspend fun insert(playlist: Playlist): Long
 
-    @Query("DELETE FROM playlist WHERE name = :name")
-    suspend fun deletePlaylist(name: String)
+    /**
+     * 按名查一行（系统歌单自愈要"接管同名行"，见 `DefaultPlaylistGuard`）。
+     *
+     * 取代原先的 `deletePlaylist(name)`：**按名删除这条路径整条删掉**（D3-05②③）——
+     * 它绕过 `removePlaylistById` 的系统歌单保护，而自愈恰恰在用它的地方
+     * "把同名行删了再建一条空的"，等于用户的心动/最近播放在一次悬空 id 之后被清空。
+     * `name` 自 v10 起有唯一索引，所以这一行是确定的。
+     */
+    @Query("SELECT * FROM playlist WHERE name = :name LIMIT 1")
+    suspend fun getPlaylistByName(name: String): Playlist?
 
     @Query("DELETE FROM playlist")
     suspend fun deleteAll()

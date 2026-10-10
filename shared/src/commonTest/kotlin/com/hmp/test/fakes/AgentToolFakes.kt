@@ -166,7 +166,7 @@ class FakeAgentPlaylistRepository : PlaylistRepository {
         playlistItems[id] = mutableListOf()
         return id
     }
-    override suspend fun removePlaylist(name: String) { playlists.values.removeIf { it.name == name } }
+    override suspend fun getPlaylistByName(name: String): Playlist? = playlists.values.firstOrNull { it.name == name }
     override suspend fun removePlaylistById(id: Long) { playlists.remove(id); playlistItems.remove(id) }
     override suspend fun getAllPlaylists(): List<Playlist> = playlists.values.toList()
     override suspend fun getPlaylistMeta(id: Long): Playlist? = playlists[id]
@@ -188,7 +188,18 @@ class FakeAgentPlaylistRepository : PlaylistRepository {
         return true
     }
     override fun getMusicInfoInPlaylist(playlistId: Long): Flow<List<MusicInfo>> = flowOf(emptyList())
-    override suspend fun getPlaylistById(playlistId: Long): List<MusicInfo> = emptyList()
+    /** 要反映真实成员：`playlist_remove_song` 现在先查成员再删（D3-12），空实现会让那条判据恒绿。 */
+    override suspend fun getPlaylistById(playlistId: Long): List<MusicInfo> =
+        (playlistItems[playlistId] ?: listOf()).map { id ->
+            MusicInfo(
+                music = com.hmp.domain.music.Music(
+                    id = id, title = "song-$id", artist = "a", album = "b",
+                    duration = 0L, path = "/$id.mp3", albumArtUri = ""
+                ),
+                extra = null,
+                userInfo = null,
+            )
+        }
     override suspend fun getPlaylistByIdList(playlistIdList: List<Long>): List<MusicInfo> = emptyList()
     override fun getAllPlaylistsFlow(): Flow<List<Playlist>> = flowOf(playlists.values.toList())
     override suspend fun exportPlaylistsSnapshot(): com.hmp.domain.backup.PlaylistsSnapshot = com.hmp.domain.backup.PlaylistsSnapshot()

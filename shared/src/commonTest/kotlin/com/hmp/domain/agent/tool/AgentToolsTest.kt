@@ -198,6 +198,31 @@ class AgentToolsTest {
         assertFalse(noSong.success)
     }
 
+    /**
+     * D3-12：`playlist_remove_song` 以前不查成员就报"已移除" —— Agent 向用户宣称了一件没发生的事，
+     * 而对话状态与真实数据就此不一致。现在非成员必须是 failure，且什么都不删。
+     */
+    @Test
+    fun removeSong_notAMember_failsAndDeletesNothing() = runTest {
+        val fx = Fixture()
+        val pid = fx.playlistRepo.createPlaylist("List")
+        fx.playlistRepo.addToPlaylist(pid, 1L)
+
+        val missing = fx.registry.executeTool(
+            ToolNames.PLAYLIST_REMOVE_SONG,
+            jsonArgs("playlist_id" to pid, "music_id" to 999L),
+        )
+        assertFalse(missing.success, "不在歌单里的曲目应当被拒")
+        assertEquals(listOf(1L), fx.playlistRepo.playlistItems[pid]!!.toList(), "被拒时不该删掉任何东西")
+
+        val ok = fx.registry.executeTool(
+            ToolNames.PLAYLIST_REMOVE_SONG,
+            jsonArgs("playlist_id" to pid, "music_id" to 1L),
+        )
+        assertTrue(ok.success)
+        assertEquals(emptyList<Long>(), fx.playlistRepo.playlistItems[pid]!!.toList())
+    }
+
     // ---------- reorderPlaylist / controlPlayback ----------
     /**
      * D3-04：`playlist_reorder` 的入参必须是完整排列。

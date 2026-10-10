@@ -3,6 +3,7 @@ package com.hmp.domain.playlist.usecase
 import com.hmp.domain.music.MusicInfo
 import com.hmp.domain.playlist.Playlist
 import com.hmp.domain.playlist.PlaylistRepository
+import com.hmp.domain.playlist.SystemPlaylists
 import com.hmp.domain.setting.SettingsRepository
 import kotlinx.coroutines.flow.Flow
 
@@ -22,24 +23,34 @@ class ManagePlaylistUseCase(
     }
 
     /**
-     * 删除播放列表（按名称）
+     * 按名查歌单（没有则 null）。
+     *
+     * 这里**没有** `removePlaylist(name)`：按名删除绕过下面的系统歌单保护，
+     * 而 v10 之后名字有唯一索引，"按名"与"按 id"已是等价的寻址方式，只留安全的那一条（D3-05②）。
      */
-    suspend fun removePlaylist(name: String) {
-        playlistRepository.removePlaylist(name)
-    }
+    suspend fun findPlaylistByName(name: String): Playlist? =
+        playlistRepository.getPlaylistByName(name)
 
     /**
-     * 按 ID 删除播放列表，仅允许删除用户自定义列表；系统列表（默认/红心/最近）不可删
+     * 按 ID 删除播放列表；系统列表（默认 / 红心 / 最近）不可删。
+     *
+     * 被拒时返回 `false` 而**不再抛异常**（D3-17③）：原先的 `IllegalArgumentException`
+     * 一路穿到 `viewModelScope.launch` 外面，而全仓没有协程异常兜底 ——
+     * 用户在管理页点一下"删除心动"就是一次崩溃。保护本身是对的，表达方式错了。
      */
-    suspend fun removePlaylistById(id: Long) {
-        val currentId = settingsRepository.getCurrentPlaylistId()
-        val likedId = settingsRepository.getLikedPlaylistId()
-        val recentId = settingsRepository.getRecentPlaylistId()
-        if (id == currentId || id == likedId || id == recentId) {
-            throw IllegalArgumentException("Cannot delete system playlist")
-        }
+    suspend fun removePlaylistById(id: Long): Boolean {
+        if (isSystemPlaylist(id)) return false
         playlistRepository.removePlaylistById(id)
+        return true
     }
+
+    /** 是不是系统歌单。UI 用它隐藏删除 / 重命名入口，Agent 用它回 failure。 */
+    suspend fun isSystemPlaylist(id: Long): Boolean = SystemPlaylists.isSystem(
+        playlistId = id,
+        currentId = settingsRepository.getCurrentPlaylistId(),
+        likedId = settingsRepository.getLikedPlaylistId(),
+        recentId = settingsRepository.getRecentPlaylistId(),
+    )
 
     /**
      * 获取所有播放列表

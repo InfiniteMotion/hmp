@@ -9,6 +9,7 @@ import com.hmp.domain.agent.tool.spec.LongParam
 import com.hmp.domain.agent.tool.spec.LongListParam
 
 import com.hmp.domain.agent.port.ToolPermissionLevel
+import com.hmp.domain.playlist.SystemPlaylists
 
 import kotlinx.coroutines.flow.first
 
@@ -38,7 +39,11 @@ class PlaylistDetailTool(
     private val deps: ToolDependencies,
 ) : AgentTool {
     override val name = ToolNames.PLAYLIST_DETAIL
-    override val description = "获取某个播放列表的完整曲目列表（每首带 title/artist/id）\n只读，极低成本"
+    override val description =
+        "获取某个播放列表的曲目列表（每首带 title/artist/id）\n" +
+            "只读，极低成本\n" +
+            "注意：最多只回前 $MAX_LISTED_SONGS 首，超过时结果末尾会标注；" +
+            "playlist_reorder 要求完整顺序，被截断过的列表不要拿去重排"
     override val permissionLevel = ToolPermissionLevel.SILENT
     override val params = listOf(
         LongParam(name = "playlist_id", description = "播放列表ID", min = 1),
@@ -49,12 +54,12 @@ class PlaylistDetailTool(
         val meta = deps.playlistRepository.getPlaylistMeta(playlistId)
             ?: return ToolResult.failure("播放列表 $playlistId 不存在")
         val songs = deps.playlistRepository.getPlaylistById(playlistId)
-        val lines = songs.take(50).joinToString("\n") { s ->
+        val lines = songs.take(MAX_LISTED_SONGS).joinToString("\n") { s ->
             "  ${s.music.title} - ${s.music.artist} (id=${s.music.id})"
         }
         return ToolResult.success(
             "「${meta.name}」 共 ${songs.size} 首：\n$lines" +
-                if (songs.size > 50) "\n... (仅显示前 50 首)" else ""
+                if (songs.size > MAX_LISTED_SONGS) "\n... (仅显示前 $MAX_LISTED_SONGS 首，共 ${songs.size} 首)" else ""
         )
     }
 }
@@ -118,11 +123,14 @@ class PlaylistDeleteTool(
         val playlistId = args.requireLong("playlist_id")
         val meta = deps.playlistRepository.getPlaylistMeta(playlistId)
             ?: return ToolResult.failure("播放列表 $playlistId 不存在")
-        // 系统歌单保护
-        val currentId = deps.settingsRepository.getCurrentPlaylistId()
-        val likedId = deps.settingsRepository.getLikedPlaylistId()
-        val recentId = deps.settingsRepository.getRecentPlaylistId()
-        if (playlistId == currentId || playlistId == likedId || playlistId == recentId) {
+        // 系统歌单保护：与 ManagePlaylistUseCase 同一份谓词（D3-17③），不再各抄一遍比较式
+        if (SystemPlaylists.isSystem(
+                playlistId = playlistId,
+                currentId = deps.settingsRepository.getCurrentPlaylistId(),
+                likedId = deps.settingsRepository.getLikedPlaylistId(),
+                recentId = deps.settingsRepository.getRecentPlaylistId(),
+            )
+        ) {
             return ToolResult.failure("系统歌单不可删除（红心/最近/当前播放歌单受保护）")
         }
         deps.playlistRepository.removePlaylistById(playlistId)
@@ -173,6 +181,10 @@ class PlaylistRemoveSongTool(
         val musicId = args.requireLong("music_id")
         val meta = deps.playlistRepository.getPlaylistMeta(playlistId)
             ?: return ToolResult.failure("播放列表 $playlistId 不存在")
+        // D3-12：以前不查成员就直接报"已移除" —— 模型于是向用户宣称了一件没发生的事。
+        if (deps.playlistRepository.getPlaylistById(playlistId).none { it.music.id == musicId }) {
+            return ToolResult.failure("歌曲 $musicId 不在「${meta.name}」里，未做任何改动")
+        }
         deps.playlistRepository.removeItemFromPlaylist(musicId, playlistId)
         val info = deps.musicRepository.getMusicInfoById(musicId).first()
         val label = info?.music?.title ?: "歌曲 $musicId"
@@ -206,3 +218,5 @@ class PlaylistReorderTool(
         return ToolResult.success("播放列表 $playlistId 已按 ${ordered.size} 首目标顺序重排")
     }
 }
+
+private const val MAX_LISTED_SONGS = 50

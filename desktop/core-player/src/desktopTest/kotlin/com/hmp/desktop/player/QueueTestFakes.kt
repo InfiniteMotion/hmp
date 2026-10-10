@@ -125,7 +125,7 @@ internal class FakePlaylistRepository(
     override suspend fun getPlaylistById(playlistId: Long): List<MusicInfo> = dbPlaylist.value
 
     override suspend fun createPlaylist(name: String): Long = 0L
-    override suspend fun removePlaylist(name: String) = Unit
+    override suspend fun getPlaylistByName(name: String): Playlist? = null
     override suspend fun removePlaylistById(id: Long) = Unit
     override suspend fun getAllPlaylists(): List<Playlist> = emptyList()
     override suspend fun getPlaylistMeta(id: Long): Playlist? = null

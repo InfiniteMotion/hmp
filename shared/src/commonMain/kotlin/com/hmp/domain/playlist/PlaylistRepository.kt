@@ -7,7 +7,8 @@ import kotlinx.coroutines.flow.Flow
 interface PlaylistRepository {
     // Create/Delete Playlist
     suspend fun createPlaylist(name: String): Long
-    suspend fun removePlaylist(name: String)
+    /** 按名查一行；没有则 null。系统歌单自愈用它**接管**已有行，不再按名删除（D3-05②③）。 */
+    suspend fun getPlaylistByName(name: String): Playlist?
     suspend fun removePlaylistById(id: Long)
 
     // Playlist metadata and rename

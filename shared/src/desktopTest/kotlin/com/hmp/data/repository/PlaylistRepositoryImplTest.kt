@@ -13,6 +13,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class PlaylistRepositoryImplTest {
@@ -53,11 +54,10 @@ class PlaylistRepositoryImplTest {
         assertEquals(2, repo.getAllPlaylists().size)
     }
 
-    @Test fun removeByName() = runTest {
-        repo.createPlaylist("Del"); repo.createPlaylist("Keep")
-        repo.removePlaylist("Del")
-        assertEquals(1, repo.getAllPlaylists().size)
-        assertEquals("Keep", repo.getAllPlaylists()[0].name)
+    @Test fun getPlaylistByName() = runTest {
+        val id = repo.createPlaylist("Del"); repo.createPlaylist("Keep")
+        assertEquals(id, repo.getPlaylistByName("Del")?.id)
+        assertNull(repo.getPlaylistByName("Nope"))
     }
 
     @Test fun removeById() = runTest {

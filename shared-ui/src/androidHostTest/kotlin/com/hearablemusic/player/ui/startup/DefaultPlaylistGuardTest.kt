@@ -35,7 +35,11 @@ class DefaultPlaylistGuardTest {
     private class GuardPlaylistRepository : PlaylistRepository {
         val metas = mutableMapOf<Long, Playlist>()
         val createdNames = mutableListOf<String>()
-        val removedNames = mutableListOf<String>()
+        /**
+         * 按名删除这条路在 D3-05②③ 之后**整个不存在**（仓库接口里没有这个方法了），
+         * 所以这里记的是"有没有发生过任何删除动作"——自愈只该接管或新建，不该删。
+         */
+        val deleteCalls = mutableListOf<Long>()
         var nextId = 1L
 
         /** 置 true 时 [getPlaylistMeta] 抛异常，模拟迁移期锁库等 DB 故障 */
@@ -61,14 +65,13 @@ class DefaultPlaylistGuardTest {
             return id
         }
 
-        override suspend fun removePlaylist(name: String) {
-            removedNames += name
-        }
+        override suspend fun getPlaylistByName(name: String): Playlist? =
+            metas.values.firstOrNull { it.name == name }
 
         override fun getMusicInfoInPlaylist(playlistId: Long): Flow<List<MusicInfo>> = emptyFlow()
         override suspend fun resetPlaylistItems(playlistId: Long, musicList: List<MusicInfo>) = Unit
         override suspend fun getPlaylistById(playlistId: Long): List<MusicInfo> = emptyList()
-        override suspend fun removePlaylistById(id: Long) = Unit
+        override suspend fun removePlaylistById(id: Long) { deleteCalls += id }
         override suspend fun getAllPlaylists(): List<Playlist> = emptyList()
         override suspend fun renamePlaylist(id: Long, newName: String) = Unit
         override suspend fun updatePlaylistCover(id: Long, coverUri: String?) = Unit
@@ -155,7 +158,7 @@ class DefaultPlaylistGuardTest {
         newGuard(repo, saves = saves).ensureAll(CURRENT, LIKED, RECENT)
 
         assertEquals(listOf(CURRENT, LIKED, RECENT), repo.createdNames)
-        assertEquals(listOf(CURRENT, LIKED, RECENT), repo.removedNames)
+        assertEquals("自愈不删任何行（旧写法会按名删掉同名行）", emptyList<Long>(), repo.deleteCalls)
         assertEquals(listOf(1L), saves["saveCurrentPlaylistId"])
         assertEquals(listOf(2L), saves["saveLikedPlaylistId"])
         assertEquals(listOf(3L), saves["saveRecentPlaylistId"])
@@ -178,10 +181,37 @@ class DefaultPlaylistGuardTest {
         newGuard(repo, ids, saves).ensureAll(CURRENT, LIKED, RECENT)
 
         assertEquals(listOf(CURRENT), repo.createdNames)
-        assertEquals(listOf(CURRENT), repo.removedNames)
+        assertEquals(emptyList<Long>(), repo.deleteCalls)
         assertEquals(listOf(10L), saves["saveCurrentPlaylistId"])
         assertEquals(emptyList<Long>(), saves["saveLikedPlaylistId"])
         assertEquals(emptyList<Long>(), saves["saveRecentPlaylistId"])
+    }
+
+    /**
+     * D3-05③：id 悬空、但库里有一条同名行时，**接管那一行**而不是"删掉重建一条空的"。
+     *
+     * 旧写法（`removePlaylist(displayName)` → `createPlaylist`）在这里会连带外键级联
+     * 把用户的心动 / 最近播放条目全删掉 —— 而触发它的只是 DataStore 里一个失效的 id。
+     */
+    @Test
+    fun danglingIdWithSameNameRow_adoptsItAndDeletesNothing() = runTest {
+        val repo = GuardPlaylistRepository().apply {
+            metas[7L] = Playlist(id = 7, name = CURRENT)   // 同名行还在，只是没人指它
+            metas[2L] = Playlist(id = 2, name = LIKED)
+            metas[3L] = Playlist(id = 3, name = RECENT)
+            nextId = 20L
+        }
+        val ids = mapOf(
+            "getCurrentPlaylistId" to 999L,   // 悬空
+            "getLikedPlaylistId" to 2L,
+            "getRecentPlaylistId" to 3L,
+        )
+        val saves = defaultSaves()
+        newGuard(repo, ids, saves).ensureAll(CURRENT, LIKED, RECENT)
+
+        assertEquals("有同名行可接管时不该再建一条", emptyList<String>(), repo.createdNames)
+        assertEquals("把 DataStore 的 id 指到已有那一行", listOf(7L), saves["saveCurrentPlaylistId"])
+        assertEquals("自愈不删任何行", emptyList<Long>(), repo.deleteCalls)
     }
 
     @Test
@@ -200,7 +230,7 @@ class DefaultPlaylistGuardTest {
         newGuard(repo, ids, saves).ensureAll(CURRENT, LIKED, RECENT)
 
         assertEquals(emptyList<String>(), repo.createdNames)
-        assertEquals(emptyList<String>(), repo.removedNames)
+        assertEquals(emptyList<Long>(), repo.deleteCalls)
         assertEquals(emptyList<Long>(), saves["saveCurrentPlaylistId"])
         assertEquals(emptyList<Long>(), saves["saveLikedPlaylistId"])
         assertEquals(emptyList<Long>(), saves["saveRecentPlaylistId"])

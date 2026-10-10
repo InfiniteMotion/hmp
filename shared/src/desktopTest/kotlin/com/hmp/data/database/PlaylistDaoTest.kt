@@ -60,14 +60,16 @@ class PlaylistDaoTest {
         assertEquals(2, all.size)
     }
 
+    /** D3-05③：DAO 里不再有"按名删除"，只有"按名查一行"（自愈靠它接管同名行，而不是删掉重建）。 */
     @Test
-    fun deletePlaylist_byName() = runTest {
-        playlistDao.insert(Playlist(name = "ToDelete"))
+    fun getPlaylistByName_returnsTheRowAndThereIsNoDeleteByName() = runTest {
+        val id = playlistDao.insert(Playlist(name = "ToDelete"))
         playlistDao.insert(Playlist(name = "ToKeep"))
-        playlistDao.deletePlaylist("ToDelete")
-        val all = playlistDao.getAllPlaylists()
-        assertEquals(1, all.size)
-        assertEquals("ToKeep", all[0].name)
+
+        assertEquals(id, playlistDao.getPlaylistByName("ToDelete")?.id)
+        assertNull(playlistDao.getPlaylistByName("不存在"))
+        // 名字唯一索引下同名不可能有两行（v10，决策 2）
+        assertEquals(1, playlistDao.getAllPlaylists().count { it.name == "ToDelete" })
     }
 
     @Test
