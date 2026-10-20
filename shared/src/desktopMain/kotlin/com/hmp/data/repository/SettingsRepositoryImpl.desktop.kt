@@ -11,7 +11,6 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import com.hmp.data.database.currentTimeMillis
 import com.hmp.data.network.BuiltInApiKeyProvider
-import com.hmp.data.util.SecureStorageHelper
 import com.hmp.domain.backup.AppSettingsSnapshot
 import com.hmp.domain.config.DisplayMode
 import com.hmp.domain.config.LyricsAlignment
@@ -31,7 +30,13 @@ import java.io.File
 class SettingsRepositoryImpl(
     private val dataStore: DataStore<Preferences>,
     private val json: Json,
-    private val builtInApiKeyProvider: BuiltInApiKeyProvider = BuiltInApiKeyProvider()
+    private val builtInApiKeyProvider: BuiltInApiKeyProvider = BuiltInApiKeyProvider(),
+    /**
+     * 密钥读写门面（D7-01）。默认走各端真实的 `SecureStorageHelper`；
+     * **测试必须注入替身** —— Desktop 的密钥文件路径写死在 `user.home/.hmp/keystore.p12`，
+     * 不打桩就是拿开发者机器上的真密钥跑单测。
+     */
+    private val secrets: com.hmp.data.util.SecureSecrets = com.hmp.data.util.PlatformSecureSecrets
 ) : SettingsRepository {
     private companion object {
         const val HAZE_MODE_CUSTOM = "custom"
@@ -209,24 +214,27 @@ class SettingsRepositoryImpl(
         return try { AiAccessMode.valueOf(dataStore.data.first()[PreferencesKeys.AI_ACCESS_MODE] ?: "FREE") } catch (e: Exception) { AiAccessMode.FREE }
     }
     override suspend fun saveAiAccessMode(mode: AiAccessMode) { dataStore.edit { prefs -> prefs[PreferencesKeys.AI_ACCESS_MODE] = mode.name } }
+    /** 三端同一份读取规则见 `readEndpointConfig`（D7-01）：解不开不抛，回空串 + `keyNeedsRefill`。 */
     override val customAiConfig: kotlinx.coroutines.flow.Flow<AiEndpointConfig>
         get() = dataStore.data.map { prefs ->
-            val endpoint = prefs[PreferencesKeys.CUSTOM_AI_ENDPOINT] ?: ""
-            val encryptedKey = prefs[PreferencesKeys.CUSTOM_AI_API_KEY]
-            val apiKey = encryptedKey?.let { SecureStorageHelper.decrypt(it) } ?: ""
-            val model = prefs[PreferencesKeys.CUSTOM_AI_MODEL] ?: ""
-            AiEndpointConfig(endpoint = endpoint, apiKey = apiKey, selectedModel = model, isConfigured = endpoint.isNotBlank() && apiKey.isNotBlank())
+            readEndpointConfig(
+                endpoint = prefs[PreferencesKeys.CUSTOM_AI_ENDPOINT] ?: "",
+                encryptedKey = prefs[PreferencesKeys.CUSTOM_AI_API_KEY],
+                model = prefs[PreferencesKeys.CUSTOM_AI_MODEL] ?: "",
+                secrets = secrets,
+            )
         }
     override suspend fun getCustomAiConfig(): AiEndpointConfig {
         val prefs = dataStore.data.first()
-        val endpoint = prefs[PreferencesKeys.CUSTOM_AI_ENDPOINT] ?: ""
-        val encryptedKey = prefs[PreferencesKeys.CUSTOM_AI_API_KEY]
-        val apiKey = encryptedKey?.let { SecureStorageHelper.decrypt(it) } ?: ""
-        val model = prefs[PreferencesKeys.CUSTOM_AI_MODEL] ?: ""
-        return AiEndpointConfig(endpoint = endpoint, apiKey = apiKey, selectedModel = model, isConfigured = endpoint.isNotBlank() && apiKey.isNotBlank())
+        return readEndpointConfig(
+            endpoint = prefs[PreferencesKeys.CUSTOM_AI_ENDPOINT] ?: "",
+            encryptedKey = prefs[PreferencesKeys.CUSTOM_AI_API_KEY],
+            model = prefs[PreferencesKeys.CUSTOM_AI_MODEL] ?: "",
+            secrets = secrets,
+        )
     }
     override suspend fun saveCustomAiConfig(config: AiEndpointConfig) {
-        dataStore.edit { prefs -> prefs[PreferencesKeys.CUSTOM_AI_ENDPOINT] = config.endpoint; prefs[PreferencesKeys.CUSTOM_AI_API_KEY] = SecureStorageHelper.encrypt(config.apiKey); prefs[PreferencesKeys.CUSTOM_AI_MODEL] = config.selectedModel }
+        dataStore.edit { prefs -> prefs[PreferencesKeys.CUSTOM_AI_ENDPOINT] = config.endpoint; prefs[PreferencesKeys.CUSTOM_AI_API_KEY] = secrets.encrypt(config.apiKey); prefs[PreferencesKeys.CUSTOM_AI_MODEL] = config.selectedModel }
     }
     override suspend fun getActiveAiConfig(): AiEndpointConfig {
         return when (getAiAccessMode()) { AiAccessMode.FREE, AiAccessMode.PAID -> builtInApiKeyProvider.getConfig(); AiAccessMode.CUSTOM -> getCustomAiConfig() }
@@ -235,10 +243,12 @@ class SettingsRepositoryImpl(
         val prefs = dataStore.data.first()
         val endpoint = prefs[PreferencesKeys.agentEndpointKey(agentRole)] ?: ""
         if (endpoint.isBlank()) return null
-        val encryptedKey = prefs[PreferencesKeys.agentApiKeyKey(agentRole)]
-        val apiKey = encryptedKey?.let { runCatching { SecureStorageHelper.decrypt(it) }.getOrDefault("") } ?: ""
-        val model = prefs[PreferencesKeys.agentModelKey(agentRole)] ?: ""
-        return AiEndpointConfig(endpoint = endpoint, apiKey = apiKey, selectedModel = model, isConfigured = endpoint.isNotBlank() && apiKey.isNotBlank())
+        return readEndpointConfig(
+            endpoint = endpoint,
+            encryptedKey = prefs[PreferencesKeys.agentApiKeyKey(agentRole)],
+            model = prefs[PreferencesKeys.agentModelKey(agentRole)] ?: "",
+            secrets = secrets,
+        )
     }
     override suspend fun saveAgentEndpointConfig(agentRole: String, config: AiEndpointConfig?) {
         dataStore.edit { prefs ->
@@ -248,7 +258,7 @@ class SettingsRepositoryImpl(
                 prefs.remove(PreferencesKeys.agentModelKey(agentRole))
             } else {
                 prefs[PreferencesKeys.agentEndpointKey(agentRole)] = config.endpoint
-                prefs[PreferencesKeys.agentApiKeyKey(agentRole)] = SecureStorageHelper.encrypt(config.apiKey)
+                prefs[PreferencesKeys.agentApiKeyKey(agentRole)] = secrets.encrypt(config.apiKey)
                 prefs[PreferencesKeys.agentModelKey(agentRole)] = config.selectedModel
             }
         }

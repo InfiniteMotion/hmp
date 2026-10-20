@@ -82,7 +82,7 @@
 | **一-3**（**已完成：C1 + C2 + C3，2026-10-09**） | **时间与时区口径**：小时桶统一本地时区、「全部」时段不再被夹成 1 天、`days` 作窗口、`playDuration` 三端口径、热力图名实、文案带范围、窗口查询失败可见 | D5-01、D5-02、D5-03、D5-04、D5-05、D5-06、D5-07、D5-08、D5-09、D5-10、D5-11(窗口段)、D5-14、D3-01 | `:shared:desktopTest`（新增 `HourBucketParityTest` 等）+ `:shared-ui:testAndroidHostTest`（VM 级窗口断言、`formatHourRange`）；D5-04 / D5-06 / D5-07 的 Desktop 与 Android 段已有自动化判据（`:desktop:core-player:desktopTest` + `:android:core-player:testDebugUnitTest` + `commonTest`）；**iOS 段（含 D5-05 全部）仍是实机签收** | 一-1（索引） |
 | **一-4**（**进行中：A 批 + B 批的不需口径项已完成 2026-10-10**） | **歌单一致性与派生字段**：按 id 而非按名删除、`itemOrder` 入 domain 模型、派生字段同事务重算、系统歌单自愈按 id、智能歌单配置生效、Agent 入参校验对齐 UI、上移下移接线 | D3-02、D3-04、D3-05(删改段)、D3-06、D3-07、D3-08、D3-09、D3-10、D3-11、D3-12、D3-13、D3-16、D3-17 | `:shared:desktopTest`（`PlaylistRepositoryImplTest` / `PlaylistDaoTest`）+ `:shared:commonTest`（`AgentToolsTest`）+ `:shared-ui:testAndroidHostTest`（`PlaylistViewModel`）；其中 D3-09、D3-10、D3-13 的 iOS/三端段为实机 | 一-1、一-2 |
 | **一-5**（**A 批完成 2026-10-12；B 批完成可本机验的六件（5B-1..5B-6），剩 D2-11 / D2-16 Swift 半边 / D2-12 长期版 + 实机签收**） | **曲库扫描与元数据**：搜索转义与 album 匹配、排序键枚举化、格式白名单统一常量、死码处置、iOS 元数据与标签写入、Windows 路径分组、封面命名与缓存 | D2-05、D2-06、D2-08、D2-09、D2-10、D2-11、D2-12、D2-13、D2-14、D2-15、D2-16、D2-17、D2-18 | `:shared:desktopTest`（`MusicDaoTest` / `MusicRepositoryBaseTest` / 新增 `MusicScanPersistTest`）+ `:shared-ui:testAndroidHostTest`（`SearchViewModel` 防抖、`LibraryViewModel`）；其中 D2-10、D2-11、D2-12、D2-14、D2-16 为实机 | 一-1（索引）、**§九 决策 7** |
-| **一-6** | **设置、备份与密钥**：Android 恢复后密钥解不开要降级不崩、`rememberSaveable` 不落明文、备份路径约束、旧设置链的可靠性、Android 备份读写切 IO、快照覆盖面与 `version` | D7-01、D7-03、D7-04、D7-05、D7-06、D7-07、D7-08、D7-11、D7-12 | `:shared:desktopTest` + `:shared:commonTest`（`BackupSnapshotRoundTripTest`）；其中 D7-01、D7-03、D7-05、D7-06 的 iOS/Android 段为实机 | 一-2 |
+| **一-6**（**进行中：D7-01 已落（施工 2026-10-15，2026-10-20 拆成规范提交并补账）；D7-03..D7-12 未动**） | **设置、备份与密钥**：Android 恢复后密钥解不开要降级不崩、`rememberSaveable` 不落明文、备份路径约束、旧设置链的可靠性、Android 备份读写切 IO、快照覆盖面与 `version` | D7-01、D7-03、D7-04、D7-05、D7-06、D7-07、D7-08、D7-11、D7-12 | `:shared:desktopTest` + `:shared:commonTest`（`BackupSnapshotRoundTripTest`）；其中 D7-01、D7-03、D7-05、D7-06 的 iOS/Android 段为实机 | 一-2 |
 | **一-7**（**已完成编码 2026-10-09，实机签收未做**） | **降级守卫**：`user_version > 9` 时不崩、记日志、给可见提示 | D7-10 | 构造 `user_version = 11` 的库打开：不崩 + 日志含 `dbVersion` + UI 出现版本过高提示；三端各一次（实机） | 一-1；**§九 决策 4** |
 | **一-8** | **结构（可选，建议延后）**：三端 `PlaylistRepositoryImpl` / `SettingsRepositoryImpl` 抽公共基类 | D3-14 | 现有 `PlaylistRepositoryImplTest`(17 例) / `SettingsRepositoryImplTest`(57 例) / `PlaylistDaoTest`(17 例) 全绿 | 一-1..一-4 全绿后 |
 
@@ -217,6 +217,15 @@
 > D2-14 / 5B-1 / 5B-7(Android 收窄后的实机数量核对) 的实机签收。用户有 Mac，但要求先把 一-6 做完再回来动 iOS。
 
 
+> **一-6 已开工（施工 2026-10-15，账面 2026-10-20 补齐）**：落的是 **D7-01**（Android 换机 / 云备份恢复后 API Key 必然解不开 → 打开 AI 页即崩）。
+> 三端 `SettingsRepositoryImpl` 的 9 处"读 endpoint / 解密 / 拼 config"收成 `data/repository/EndpointConfigReader.kt` 一份，
+> 密钥读写抽成可注入门面 `data/util/SecureSecrets.kt`，三态里的"存过但解不开"落成 `AiEndpointConfig.keyNeedsRefill` 并由 `AIScreen` 提示。
+> 判据 6 例落 `:shared:desktopTest`（`AiKeyUnreadableTest`）；顺带修掉一处测试基建缺陷 —— `SettingsRepositoryImplTest` 此前**一直在读写开发者机器上真实的 `~/.hmp/keystore.p12`**。
+> 细节、残余与探针结果记在 `domain/D7.md` D7-01 施工结果段（探针 2026-10-20 补做：恒置 `keyNeedsRefill = false` → 精确红 4 例、两条负例照旧绿）。**一-6 其余条目（D7-03..D7-12）未动。**
+> ⚠️ **账面为什么会有这段"补记"**：这批代码当初被一个工具自动生成的 `[Checkout-checkpoint]` 提交带走（提交信息不是本仓库的语义化格式、且顺带让 Windows 把 `shared_ios.podspec` 的 `spec.resources` 改回反斜杠、把两条 `strings.xml` 的缩进挤坏），
+> 2026-10-20 拆成规范提交并复原那两处机械损伤。**教训是：改完就按仓库格式提交，别让 checkpoint 替你记账。**
+> 另记一条与用户约定的顺序：**先把 一-6 做完再回来动 iOS**（D2-11 / D2-16 Swift 半边 / D2-12 长期版都在等 Mac）。
+
 > **本轮记下一条会咬人的既有脆弱点（不在任何待办里）**：
 > `commonTest` 的 `PlaybackObservationBusTest.静默会取更晚的那个截止时间` 用真实墙钟（`muteFor(100/400)` + `delay(150)`），
 > 全量跑时机器一忙、GC 一停，累计耗时就翻过 400ms 窗口 → 事件漏出 → 该条红；单独跑必绿。
@@ -288,6 +297,12 @@
 > KMP 的 Apple 目标只能在 macOS 主机上编，`testAll` 与 `compileAll` 都不含 iOS。B 批改了 `MusicRepositoryImpl.ios.kt`
 > （删掉两份落库镜像、加 `transactionRunner` 构造参数、换 `getRemovedMusicIdAndPath()`），这些改动只经过人工比对 diff。
 > 凡改到 `iosMain`/`ios/**`，合入前后都要在 macOS 上补跑一次 `./gradlew :shared:compileKotlinIosSimulatorArm64`（壳层改动再加 `xcodebuild`）。
+
+> **✅ 2026-10-20 订正本节上一段的前提**："**Apple 目标只能在 macOS 主机上编**"这句按实物不成立 —— 本机（Windows / MINGW64）跑 `:shared:compileKotlinIosSimulatorArm64`
+> 与 `:shared-ui:compileKotlinIosSimulatorArm64` 都真出了 klib（一-5 那轮修 `DateFormats.ios.kt` 就是这么查出来的，见 `AGENTS.md` §八.16）。
+> 所以**"编译器看过 `iosMain`"这件事本机就能做、也没有借口不做**；本机仍然做不到的只有链接与运行（`xcodebuild`、模拟器、真机签收）。
+> 另记一条咬人的细节：**`:shared` 那个 iOS 编译任务对 `--rerun` + `--no-build-cache` 免疫**（klib 时间戳原地不动），要删掉
+> `shared/build/classes/kotlin/iosSimulatorArm64/main` 才真重编 —— 别拿 BUILD SUCCESSFUL 当"编译器看过"的证据，要看产物时间戳。
 
 | 域 | 判据含"待验/落不进"的条目（量级） | 主要去向 |
 |---|---|---|

@@ -10,7 +10,6 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.hmp.data.network.BuiltInApiKeyProvider
-import com.hmp.data.util.SecureStorageHelper
 import com.hmp.domain.backup.AppSettingsSnapshot
 import com.hmp.domain.config.DisplayMode
 import com.hmp.domain.config.LyricsAlignment
@@ -30,7 +29,12 @@ private val Context.dataStore by preferencesDataStore(name = "player_preferences
 
 class SettingsRepositoryImpl(
     private val context: Context,
-    private val builtInApiKeyProvider: BuiltInApiKeyProvider = BuiltInApiKeyProvider()
+    private val builtInApiKeyProvider: BuiltInApiKeyProvider = BuiltInApiKeyProvider(),
+    /**
+     * 密钥读写门面（D7-01）。**Android 是这条缺陷的主发现地**：`allowBackup` 把 DataStore 里的
+     * 密文随云备份 / 设备迁移带走，而 AndroidKeyStore 的密钥不可导出、不迁移 → 恢复后必解不开。
+     */
+    private val secrets: com.hmp.data.util.SecureSecrets = com.hmp.data.util.PlatformSecureSecrets
 ) : SettingsRepository {
     private companion object {
         const val HAZE_MODE_CUSTOM = "custom"
@@ -271,36 +275,29 @@ class SettingsRepositoryImpl(
 
     override val customAiConfig: kotlinx.coroutines.flow.Flow<AiEndpointConfig>
         get() = dataStore.data.map { prefs ->
-            val endpoint = prefs[PreferencesKeys.CUSTOM_AI_ENDPOINT] ?: ""
-            val encryptedKey = prefs[PreferencesKeys.CUSTOM_AI_API_KEY]
-            val apiKey = encryptedKey?.let { SecureStorageHelper.decrypt(it) } ?: ""
-            val model = prefs[PreferencesKeys.CUSTOM_AI_MODEL] ?: ""
-            AiEndpointConfig(
-                endpoint = endpoint,
-                apiKey = apiKey,
-                selectedModel = model,
-                isConfigured = endpoint.isNotBlank() && apiKey.isNotBlank()
+            // 三端同一份读取规则见 `readEndpointConfig`（D7-01）：解不开不抛，回空串 + keyNeedsRefill
+            readEndpointConfig(
+                endpoint = prefs[PreferencesKeys.CUSTOM_AI_ENDPOINT] ?: "",
+                encryptedKey = prefs[PreferencesKeys.CUSTOM_AI_API_KEY],
+                model = prefs[PreferencesKeys.CUSTOM_AI_MODEL] ?: "",
+                secrets = secrets,
             )
         }
 
     override suspend fun getCustomAiConfig(): AiEndpointConfig {
         val prefs = context.dataStore.data.first()
-        val endpoint = prefs[PreferencesKeys.CUSTOM_AI_ENDPOINT] ?: ""
-        val encryptedKey = prefs[PreferencesKeys.CUSTOM_AI_API_KEY]
-        val apiKey = encryptedKey?.let { SecureStorageHelper.decrypt(it) } ?: ""
-        val model = prefs[PreferencesKeys.CUSTOM_AI_MODEL] ?: ""
-        return AiEndpointConfig(
-            endpoint = endpoint,
-            apiKey = apiKey,
-            selectedModel = model,
-            isConfigured = endpoint.isNotBlank() && apiKey.isNotBlank()
+        return readEndpointConfig(
+            endpoint = prefs[PreferencesKeys.CUSTOM_AI_ENDPOINT] ?: "",
+            encryptedKey = prefs[PreferencesKeys.CUSTOM_AI_API_KEY],
+            model = prefs[PreferencesKeys.CUSTOM_AI_MODEL] ?: "",
+            secrets = secrets,
         )
     }
 
     override suspend fun saveCustomAiConfig(config: AiEndpointConfig) {
         dataStore.edit { prefs ->
             prefs[PreferencesKeys.CUSTOM_AI_ENDPOINT] = config.endpoint
-            prefs[PreferencesKeys.CUSTOM_AI_API_KEY] = SecureStorageHelper.encrypt(config.apiKey)
+            prefs[PreferencesKeys.CUSTOM_AI_API_KEY] = secrets.encrypt(config.apiKey)
             prefs[PreferencesKeys.CUSTOM_AI_MODEL] = config.selectedModel
         }
     }
@@ -318,13 +315,11 @@ class SettingsRepositoryImpl(
         // endpoint 为空 → 没配过，返回 null 表示跟随全局
         if (endpoint.isBlank()) return null
         val encryptedKey = prefs[PreferencesKeys.agentApiKeyKey(agentRole)]
-        val apiKey = encryptedKey?.let { runCatching { SecureStorageHelper.decrypt(it) }.getOrDefault("") } ?: ""
-        val model = prefs[PreferencesKeys.agentModelKey(agentRole)] ?: ""
-        return AiEndpointConfig(
+        return readEndpointConfig(
             endpoint = endpoint,
-            apiKey = apiKey,
-            selectedModel = model,
-            isConfigured = endpoint.isNotBlank() && apiKey.isNotBlank()
+            encryptedKey = prefs[PreferencesKeys.agentApiKeyKey(agentRole)],
+            model = prefs[PreferencesKeys.agentModelKey(agentRole)] ?: "",
+            secrets = secrets,
         )
     }
 
@@ -337,7 +332,7 @@ class SettingsRepositoryImpl(
                 prefs.remove(PreferencesKeys.agentModelKey(agentRole))
             } else {
                 prefs[PreferencesKeys.agentEndpointKey(agentRole)] = config.endpoint
-                prefs[PreferencesKeys.agentApiKeyKey(agentRole)] = SecureStorageHelper.encrypt(config.apiKey)
+                prefs[PreferencesKeys.agentApiKeyKey(agentRole)] = secrets.encrypt(config.apiKey)
                 prefs[PreferencesKeys.agentModelKey(agentRole)] = config.selectedModel
             }
         }

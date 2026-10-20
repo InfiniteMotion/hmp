@@ -129,6 +129,7 @@ import com.hearablemusic.player.ui.generated.resources.ai_free_used
 import com.hearablemusic.player.ui.generated.resources.ai_paid_coming_soon
 import com.hearablemusic.player.ui.generated.resources.ai_paid_description
 import com.hearablemusic.player.ui.generated.resources.ai_preset_quick_fill
+import com.hearablemusic.player.ui.generated.resources.ai_key_needs_refill
 import com.hearablemusic.player.ui.generated.resources.ai_tab_custom
 import com.hearablemusic.player.ui.generated.resources.ai_tab_free
 import com.hearablemusic.player.ui.generated.resources.ai_tab_paid
@@ -590,6 +591,16 @@ private fun CustomConfigContent(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+            // D7-01：Android 换机 / 云备份恢复后，DataStore 里的密文回来了、KeyStore 密钥没回来，
+            // 解密必然失败。以前这条路会直接抛到 viewModelScope 上（打开 AI 页即崩溃），
+            // 现在降级为空值 + 一句明确提示 —— 不然用户只看到"我明明填过，怎么又空了"。
+            if (customConfig.keyNeedsRefill) {
+                Text(
+                    text = stringResource(Res.string.ai_key_needs_refill),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
             // 预设快捷按钮
             Text(
                 text = stringResource(Res.string.ai_preset_quick_fill),

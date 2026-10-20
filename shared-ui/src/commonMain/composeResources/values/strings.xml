@@ -329,6 +329,7 @@
     <string name="relaunch_or_config_ai">Please relaunch or configure AI provider</string>
     <!-- AI 模式 -->
     <string name="ai_tab_free">Free Trial</string>
+    <string name="ai_key_needs_refill">The saved API key could not be decrypted (this happens after a device transfer or cloud restore). Please re-enter it and save.</string>
     <string name="ai_tab_custom">Custom</string>
     <string name="ai_tab_paid">Paid</string>
     <string name="ai_free_remaining">Remaining: %1$d times</string>
