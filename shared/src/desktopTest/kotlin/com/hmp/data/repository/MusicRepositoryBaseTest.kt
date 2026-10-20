@@ -1,6 +1,9 @@
 package com.hmp.data.repository
 
 import com.hmp.data.database.AppDatabase
+import com.hmp.data.database.MusicExtra
+import com.hmp.data.database.RoomTransactionRunner
+import com.hmp.data.database.UserInfo
 import com.hmp.data.network.OpenAiCompatibleAdapter
 import com.hmp.domain.backup.MusicLabelSnapshot
 import com.hmp.domain.backup.MusicUserStateSnapshot
@@ -9,6 +12,7 @@ import com.hmp.domain.enum.LabelName
 import com.hmp.domain.music.MusicInfo
 import com.hmp.domain.music.MusicLabel
 import com.hmp.test.db.createTestDatabase
+import com.hmp.test.repo.InMemoryMusicRepository
 import io.ktor.client.HttpClient
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
@@ -21,43 +25,6 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
-/** 用真实 in-memory Room DAO 装配的 [MusicRepositoryBase] 测试替身（平台分叉方法置为桩）。 */
-private class InMemoryMusicRepository(db: AppDatabase) : MusicRepositoryBase(
-    musicDao = db.musicDao(),
-    musicExtraDao = db.musicExtraDao(),
-    userInfoDao = db.userInfoDao(),
-    musicAllDao = db.musicAllDao(),
-    musicLabelDao = db.musicLabelDao(),
-    playbackHistoryDao = db.playbackHistoryDao(),
-    listeningDurationDao = db.listeningDurationDao(),
-    playlistDao = db.playlistDao(),
-    playlistItemDao = db.playlistItemDao(),
-    openAiCompatibleAdapter = OpenAiCompatibleAdapter(HttpClient(), Json),
-    json = Json,
-    agentAuditLogDao = db.agentAuditLogDao(),
-    forgottenDeliveryDao = db.forgottenDeliveryDao(),
-) {
-    override val isScanning: Flow<Boolean> = flowOf(false)
-    override suspend fun loadMusicFromDevice(): Result<Unit> = Result.success(Unit)
-    override suspend fun syncMusicFromDeviceIncremental(): Result<Unit> = Result.success(Unit)
-    override suspend fun getAllMusicInfoAsList(orderBy: String, orderType: String): List<MusicInfo> = emptyList()
-    override suspend fun getDeletedMusicIdsGroupedByFolder(): List<Pair<String, List<Long>>> = emptyList()
-
-    // ═══ W0 HelloSubAgent stub ═══
-    override suspend fun getRecentSkipRate(limit: Int, days: Int): List<Long> = emptyList()
-    override suspend fun getRecentPlayRate(limit: Int, days: Int): List<Long> = emptyList()
-    override suspend fun getForgottenTracks(days: Int, limit: Int): List<Pair<Long, Long?>> = emptyList()
-    override suspend fun getAnniversaryTracks(date: String): List<Triple<Long, Long, Int>> = emptyList()
-    override suspend fun getGlobalTopLabels(limit: Int): List<com.hmp.domain.enum.LabelName> = emptyList()
-    override suspend fun getMusicInfoByIds(ids: List<Long>): List<MusicInfo> = emptyList()
-    override suspend fun getAvgDailyListeningMinutes(days: Int): Float = 0f
-}
-
-/**
- * M0-T3 溯源语义接线验证（设计总纲 3.2 裁判规则）：
- * - 模型认识（addMusicLabel）写 source=LLM + 初始 confidence + createdAt/updatedAt；
- * - 用户修正（addUserMusicLabel）写 source=USER，且 LLM 永不能覆盖（规则 ①）。
- */
 class MusicRepositoryBaseTest {
 
     private lateinit var db: AppDatabase
@@ -72,6 +39,39 @@ class MusicRepositoryBaseTest {
     @AfterTest
     fun teardown() {
         db.close()
+    }
+
+    /**
+     * D3-08：把曲目从曲库"移除"（软删）之后，含它的歌单不能继续显示旧的 `songCount`。
+     *
+     * 详情页头部的"10 首 / 45 分钟"读的是 `playlist` 上的缓存列，而这个列原先只在
+     * **条目**增删时重算；软删 `music.isDeleted` 根本不碰 `playlist_item`，
+     * 于是标题与实际列表长期不一致（列表查询是带 `isDeleted = 0` 过滤的）。
+     * 取消移除时反向也错，所以两条路径都要断言。
+     */
+    @Test
+    fun softDeleteAndRestore_keepPlaylistDerivedColumnsInSync() = runTest {
+        val pid = db.playlistDao().insert(com.hmp.data.database.Playlist(name = "P"))
+        listOf(1L, 2L, 3L).forEach { id ->
+            db.musicDao().insert(
+                com.hmp.data.database.Music(
+                    id = id, title = "S$id", artist = "A", album = "B",
+                    duration = 60_000L, path = "/$id.mp3", albumArtUri = ""
+                )
+            )
+            db.musicExtraDao().insert(MusicExtra(id = id, isGetExtraInfo = true))
+            db.userInfoDao().insert(UserInfo(id = id))
+            db.playlistItemDao().addSongAndRefresh(pid, id, 0L)
+        }
+        assertEquals(3, db.playlistDao().getPlaylistById(pid)!!.songCount, "基线：三首")
+
+        repo.removeFromLibrary(listOf(2L))
+        val afterRemove = db.playlistDao().getPlaylistById(pid)!!
+        assertEquals(2, afterRemove.songCount, "软删一首后计数应跟降（标题与列表要一致）")
+        assertEquals(120_000L, afterRemove.totalDurationMs)
+
+        repo.restoreToLibrary(listOf(2L))
+        assertEquals(3, db.playlistDao().getPlaylistById(pid)!!.songCount, "取消移除应把计数升回来")
     }
 
     @Test
@@ -177,5 +177,29 @@ class MusicRepositoryBaseTest {
         assertNull(restored.source)
         assertNull(restored.confidence)
         assertTrue(restored.createdAt != null && restored.createdAt!! > 0, "时间戳缺失时以还原时刻兜底")
+    }
+
+    /**
+     * 一-2 / D5-13：在**已有播放历史**的设备上恢复备份，条数不能翻倍。
+     *
+     * 旧实现只 `insertAll`，而快照里每行的 id 都是 0（自增主键）→ 每次恢复都另起一批新行，
+     * 总时长 / 完播率 / Top 歌曲跟着一起失真；`listeningDuration` 因主键是 date 侥幸盖得住，
+     * 但快照里没有的旧日期会留在库里 —— 所以两张表都改成"先清后写"。
+     */
+    @Test
+    fun restoreListeningStats_replacesInsteadOfAppending() = runTest {
+        val history = db.playbackHistoryDao()
+        val durations = db.listeningDurationDao()
+        history.insert(com.hmp.data.database.PlaybackHistory(musicId = 1, playedAt = 1000L, playDuration = 50L))
+        history.insert(com.hmp.data.database.PlaybackHistory(musicId = 2, playedAt = 2000L, playDuration = 60L))
+        durations.insert(com.hmp.data.database.ListeningDuration(date = "2026-01-01", duration = 100L, updatedAt = 1L))
+
+        val snapshot = repo.exportListeningStatsSnapshot()
+        assertEquals(2, history.getAllHistory().size, "前置条件：库里已有 2 条历史")
+
+        repo.restoreListeningStats(snapshot)
+
+        assertEquals(2, history.getAllHistory().size, "恢复同一份快照不应把播放历史翻倍")
+        assertEquals(1, durations.getAllDurations().size, "日累计同样应是替换结果")
     }
 }

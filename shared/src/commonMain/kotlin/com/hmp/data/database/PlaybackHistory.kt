@@ -7,6 +7,7 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.PrimaryKey
 import androidx.room.Query
+import androidx.room.Transaction
 import kotlinx.coroutines.flow.Flow
 
 @Entity(
@@ -44,6 +45,16 @@ interface PlaybackHistoryDao {
 
     @Query("DELETE FROM PlaybackHistory")
     suspend fun deleteAll()
+
+    /**
+     * 整表替换（备份恢复用）。一-2 / D5-13：恢复曾是"追加"，
+     * 因为 `insertAll` 的实体 id 恒为 0（自增），在已有历史的设备上会把历史翻倍。
+     */
+    @Transaction
+    suspend fun replaceAll(items: List<PlaybackHistory>) {
+        deleteAll()
+        insertAll(items)
+    }
 
     @Query("SELECT * FROM PlaybackHistory")
     suspend fun getAllHistory(): List<PlaybackHistory>
@@ -104,12 +115,20 @@ interface PlaybackHistoryDao {
     @Query("SELECT musicId, MIN(playedAt) AS firstPlayedAt FROM PlaybackHistory GROUP BY musicId")
     suspend fun getFirstPlayedAtPerTrack(): List<AnniversaryCandidateRow>
 
-    /** 今日播放过的 musicId（SQL strftime，避免 getAllHistory 全表拉取）。 */
+    /**
+     * 本地日 [dayStart, dayEnd) 内播放过的 musicId（D5-11 改写段）。
+     *
+     * 取代原先的 `strftime('%m-%d', …, 'localtime') = :mmdd`：那种写法每行求值，
+     * `index_PlaybackHistory_playedAt` 用不上；区间谓词能走索引，也顺带把"本地日"的定义
+     * 收回 Kotlin 一侧（与 D5-01 的口径统一）。
+     */
     @Query("""
         SELECT DISTINCT musicId FROM PlaybackHistory
-        WHERE strftime('%m-%d', playedAt / 1000, 'unixepoch', 'localtime') = :mmdd
+        WHERE playedAt >= :dayStart AND playedAt < :dayEnd
     """)
-    suspend fun getMusicIdsPlayedOn(mmdd: String): List<Long>
+    suspend fun getMusicIdsPlayedBetween(dayStart: Long, dayEnd: Long): List<Long>
+
+    /** 窗口起点到现在的时段分桶（hour 由 SQL 的 `strftime('%H', …, 'localtime')` 给出，与 Kotlin 侧同口径由 HourBucketParityTest 钉住）。 */
 
     /**
      * F9-T1：时段分布——窗口内按小时分桶的播放次数 + 累计时长。

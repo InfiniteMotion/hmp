@@ -1,6 +1,8 @@
 package com.hmp.domain.agent.profile
 
+import com.hmp.data.database.RoomTransactionRunner
 import com.hmp.data.database.UserProfileEvidenceEntity
+import com.hmp.data.database.UserProfilePortraitEntity
 import com.hmp.domain.music.Music
 import com.hmp.domain.music.MusicInfo
 import com.hmp.test.db.createTestDatabase
@@ -525,5 +527,121 @@ class UserMemoryIntegrationTest {
         agent.clear()
         assertNull(agent.radioBriefing())
         assertNull(agent.helloBriefing())
+    }
+
+    // ── D5-12：一次刷写的语句数与往返次数、以及原子性 ────────────────────
+
+    /** 换一个证据/侧写 DAO 替身重装一份 UserMemory（其余依赖沿用本类的真库与假仓库）。 */
+    private fun agentWith(
+        evidenceDao: com.hmp.data.database.UserProfileEvidenceDao = db.userProfileEvidenceDao(),
+        portraitDao: com.hmp.data.database.UserProfilePortraitDao = db.userProfilePortraitDao(),
+        withTransaction: Boolean = false,
+    ) = UserMemory(
+        musicRepository = musicRepository,
+        evidenceDao = evidenceDao,
+        portraitDao = portraitDao,
+        narrativeDao = db.userProfileNarrativeDao(),
+        auditLog = audit,
+        timeProvider = { now },
+        transactionRunner = if (withTransaction) RoomTransactionRunner(db) else null,
+    )
+
+    /**
+     * 判据①：写语句数不该随草稿条数或历史行数增长。
+     *
+     * 旧写法是"每条草稿 `find()` + `insert()`/`confirmObservation()`"，一次刷新 = 2×草稿数 次往返；
+     * 现在是一次批量读 + 最多两次批量写（`insertAll` 与 `upsertAll` 各一次）。
+     * 这里同时 seed 100 条历史证据，把"与历史长度无关"这一维也钉住。
+     */
+    @Test
+    fun D5_12_refreshWritesUseConstantStatementCount() = runTest {
+        repeat(15) { i -> addTrack(id = i.toLong() + 1, artist = "A$i", album = "B$i") }
+        // 历史里先压 100 条证据（谓词越出闭集也没关系 —— 本条只数写语句，不比侧写内容）
+        val real = db.userProfileEvidenceDao()
+        real.insertAll(
+            (1L..100L).map { i ->
+                UserProfileEvidenceEntity(
+                    subject = "USER",
+                    predicate = "library.slot_$i",
+                    value = "v$i",
+                    source = ProfileSources.T0_BEHAVIOR,
+                    confidence = 0.3,
+                    createdAt = now,
+                    updatedAt = now,
+                )
+            }
+        )
+
+        val counting = CountingEvidenceDao(real)
+        agentWith(evidenceDao = counting).refreshFromLibrary()
+
+        assertTrue(
+            counting.writes in 1..2,
+            "批量后写语句应为常数（新增一批 + 合并一批），实际 ${counting.writes} 次"
+        )
+    }
+
+    /**
+     * 判据②：第 3 步（侧写批量写）失败，前 2 步（证据写）必须回滚 —— 全或无。
+     *
+     * `refreshFromLibrary` 外层是 `runCatching`（画像失败永不拖垮库操作），所以这里断言的不是抛异常，
+     * **而是库里查不到半截状态**。没有事务时证据行会留在库里 → 本条必红。
+     */
+    @Test
+    fun D5_12_portraitWriteFailure_leavesNoHalfWrittenProfile() = runTest {
+        repeat(15) { i -> addTrack(id = i.toLong() + 1, artist = "A$i", album = "B$i") }
+        assertEquals(0, evidenceCount(), "前置条件：库里还没有证据")
+
+        val agent = agentWith(
+            portraitDao = FailOnWritePortraitDao(db.userProfilePortraitDao()),
+            withTransaction = true,
+        )
+        val written = agent.refreshFromLibrary()
+
+        assertEquals(0, written, "侧写写失败 → 本次刷新整体不算成功")
+        assertEquals(0, evidenceCount(), "证据写必须跟着回滚，不能留下「有证据没侧写」的半截画像")
+        assertEquals(0, portraitCount())
+    }
+
+    /** 只数写语句，其余方法原样转发给真 DAO（Kotlin 接口委托，不引 mock 库）。 */
+    private class CountingEvidenceDao(private val real: com.hmp.data.database.UserProfileEvidenceDao) :
+        com.hmp.data.database.UserProfileEvidenceDao by real {
+        var writes = 0
+
+        override suspend fun insert(evidence: UserProfileEvidenceEntity): Long {
+            writes++
+            return real.insert(evidence)
+        }
+
+        override suspend fun insertAll(evidence: List<UserProfileEvidenceEntity>): List<Long> {
+            writes++
+            return real.insertAll(evidence)
+        }
+
+        override suspend fun upsertAll(evidence: List<UserProfileEvidenceEntity>) {
+            writes++
+            real.upsertAll(evidence)
+        }
+
+        override suspend fun confirmObservation(
+            id: Long,
+            source: String,
+            confidence: Double,
+            updatedAt: Long,
+            sessionDelta: Int,
+            sessionId: String?,
+        ): Int {
+            writes++
+            return real.confirmObservation(id, source, confidence, updatedAt, sessionDelta, sessionId)
+        }
+    }
+
+    /** 侧写落库那一步必定失败 —— 用来制造"第 3 步失败"的场景。 */
+    private class FailOnWritePortraitDao(
+        private val real: com.hmp.data.database.UserProfilePortraitDao,
+    ) : com.hmp.data.database.UserProfilePortraitDao by real {
+        override suspend fun upsertAll(portraits: List<UserProfilePortraitEntity>) {
+            throw IllegalStateException("侧写落库失败（测试注入）")
+        }
     }
 }

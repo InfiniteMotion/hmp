@@ -5,12 +5,17 @@ import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import kotlinx.coroutines.Dispatchers
 import java.io.File
 
+/** 桌面端库文件的固定位置（守卫与启动探测都读这一个来源，别再各拼一遍路径）。 */
+fun hmpDatabasePath(): String =
+    File(File(System.getProperty("user.home"), ".hmp"), "music_database.db").absolutePath
+
 fun getDatabaseBuilder(): androidx.room.RoomDatabase.Builder<AppDatabase> {
-    val appDir = File(System.getProperty("user.home"), ".hmp")
-    if (!appDir.exists()) appDir.mkdirs()
-    val dbFile = File(appDir, "music_database.db")
+    val path = hmpDatabasePath()
+    File(path).parentFile?.mkdirs()
+    // 降级守卫（D7-10）：库比代码新就在这里以类型化异常拦下，不交给 Room 抛 "Migration not found"
+    AppDatabaseGuard.enforce(path)
     return Room.databaseBuilder<AppDatabase>(
-        name = dbFile.absolutePath
+        name = path
     )
 }
 

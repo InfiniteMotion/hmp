@@ -78,17 +78,79 @@
 | 包 | 内容 | 含条目 | 判据落点 | 依赖 |
 |---|---|---|---|---|
 | **一-1** | **v10 schema 增量**：13 条索引（9 条 D2 + 2 条唯一 D3 + 2 条 D5）+ 删 `playlist_item.songUrl`；迁移内先去重再建唯一索引 | D2-07、D3-03(索引段)、D3-05(索引段)、D3-15、D5-11(索引段) | `:shared:desktopTest`（`AppDatabaseMigrationTest`）：`PRAGMA index_list` 含预期索引、`table_info(playlist_item)` 不含 `songUrl`、行数前后相等、`EXPLAIN QUERY PLAN` 走索引而非 `SCAN TABLE`；`10.json` diff 含 `music.indices` 五项 | P0-1..3；**§九 决策 1、2** |
-| **一-2** | **事务与写入安全**：批量写收口 `withTransaction`、导入前安全副本、`catch` 复抛 CE、重扫不抹软删、改扫描目录不再静默破坏性重扫 | D2-01、D2-02、D2-03、D3-03(事务段)、D3-04、D5-12、D5-13、D7-02 | `:shared:desktopTest`：中途 CE 后不出现半空库；第 3 步失败则前 2 步回滚；重扫后已隐藏曲仍在；恢复后历史条数不翻倍 | 一-1 |
-| **一-3** | **时间与时区口径**：小时桶统一本地时区、「全部」时段不再被夹成 1 天、`days` 作窗口、`playDuration` 三端口径、热力图名实、文案带范围、窗口查询失败可见 | D5-01、D5-02、D5-03、D5-04、D5-05、D5-06、D5-07、D5-08、D5-09、D5-10、D5-11(窗口段)、D5-14、D3-01 | `:shared:desktopTest`（新增 `HourBucketParityTest` 等）+ `:shared-ui:testAndroidHostTest`（VM 级窗口断言、`formatHourRange`）；其中 D5-04、D5-05、D5-06、D5-07 的 iOS/Desktop 段为实机 | 一-1（索引） |
-| **一-4** | **歌单一致性与派生字段**：按 id 而非按名删除、`itemOrder` 入 domain 模型、派生字段同事务重算、系统歌单自愈按 id、智能歌单配置生效、Agent 入参校验对齐 UI、上移下移接线 | D3-02、D3-04、D3-05(删改段)、D3-06、D3-07、D3-08、D3-09、D3-10、D3-11、D3-12、D3-13、D3-16、D3-17 | `:shared:desktopTest`（`PlaylistRepositoryImplTest` / `PlaylistDaoTest`）+ `:shared:commonTest`（`AgentToolsTest`）+ `:shared-ui:testAndroidHostTest`（`PlaylistViewModel`）；其中 D3-09、D3-10、D3-13 的 iOS/三端段为实机 | 一-1、一-2 |
+| **一-2**（**已完成，分 A/B 两批**） | **事务与写入安全**：批量写收口 `withTransaction`、导入前安全副本、`catch` 复抛 CE、重扫不抹软删、改扫描目录不再静默破坏性重扫 | D2-01、D2-02、D2-03、D3-03(事务段)、~~D3-04~~(归 一-4)、D5-12(动作①，②待决策)、D5-13、D7-02 | `:shared:desktopTest`：中途 CE 后不出现半空库；第 3 步失败则前 2 步回滚；重扫后已隐藏曲仍在；恢复后历史条数不翻倍 | 一-1 |
+| **一-3**（**已完成：C1 + C2 + C3，2026-10-09**） | **时间与时区口径**：小时桶统一本地时区、「全部」时段不再被夹成 1 天、`days` 作窗口、`playDuration` 三端口径、热力图名实、文案带范围、窗口查询失败可见 | D5-01、D5-02、D5-03、D5-04、D5-05、D5-06、D5-07、D5-08、D5-09、D5-10、D5-11(窗口段)、D5-14、D3-01 | `:shared:desktopTest`（新增 `HourBucketParityTest` 等）+ `:shared-ui:testAndroidHostTest`（VM 级窗口断言、`formatHourRange`）；D5-04 / D5-06 / D5-07 的 Desktop 与 Android 段已有自动化判据（`:desktop:core-player:desktopTest` + `:android:core-player:testDebugUnitTest` + `commonTest`）；**iOS 段（含 D5-05 全部）仍是实机签收** | 一-1（索引） |
+| **一-4**（**进行中：A 批 + B 批的不需口径项已完成 2026-10-10**） | **歌单一致性与派生字段**：按 id 而非按名删除、`itemOrder` 入 domain 模型、派生字段同事务重算、系统歌单自愈按 id、智能歌单配置生效、Agent 入参校验对齐 UI、上移下移接线 | D3-02、D3-04、D3-05(删改段)、D3-06、D3-07、D3-08、D3-09、D3-10、D3-11、D3-12、D3-13、D3-16、D3-17 | `:shared:desktopTest`（`PlaylistRepositoryImplTest` / `PlaylistDaoTest`）+ `:shared:commonTest`（`AgentToolsTest`）+ `:shared-ui:testAndroidHostTest`（`PlaylistViewModel`）；其中 D3-09、D3-10、D3-13 的 iOS/三端段为实机 | 一-1、一-2 |
 | **一-5** | **曲库扫描与元数据**：搜索转义与 album 匹配、排序键枚举化、格式白名单统一常量、死码处置、iOS 元数据与标签写入、Windows 路径分组、封面命名与缓存 | D2-05、D2-06、D2-08、D2-09、D2-10、D2-11、D2-12、D2-13、D2-14、D2-15、D2-16、D2-17、D2-18 | `:shared:desktopTest`（`MusicDaoTest` / `MusicRepositoryBaseTest` / 新增 `MusicScanPersistTest`）+ `:shared-ui:testAndroidHostTest`（`SearchViewModel` 防抖、`LibraryViewModel`）；其中 D2-10、D2-11、D2-12、D2-14、D2-16 为实机 | 一-1（索引）、**§九 决策 7** |
 | **一-6** | **设置、备份与密钥**：Android 恢复后密钥解不开要降级不崩、`rememberSaveable` 不落明文、备份路径约束、旧设置链的可靠性、Android 备份读写切 IO、快照覆盖面与 `version` | D7-01、D7-03、D7-04、D7-05、D7-06、D7-07、D7-08、D7-11、D7-12 | `:shared:desktopTest` + `:shared:commonTest`（`BackupSnapshotRoundTripTest`）；其中 D7-01、D7-03、D7-05、D7-06 的 iOS/Android 段为实机 | 一-2 |
-| **一-7** | **降级守卫**：`user_version > 9` 时不崩、记日志、给可见提示 | D7-10 | 构造 `user_version = 11` 的库打开：不崩 + 日志含 `dbVersion` + UI 出现版本过高提示；三端各一次（实机） | 一-1；**§九 决策 4** |
+| **一-7**（**已完成编码 2026-10-09，实机签收未做**） | **降级守卫**：`user_version > 9` 时不崩、记日志、给可见提示 | D7-10 | 构造 `user_version = 11` 的库打开：不崩 + 日志含 `dbVersion` + UI 出现版本过高提示；三端各一次（实机） | 一-1；**§九 决策 4** |
 | **一-8** | **结构（可选，建议延后）**：三端 `PlaylistRepositoryImpl` / `SettingsRepositoryImpl` 抽公共基类 | D3-14 | 现有 `PlaylistRepositoryImplTest`(17 例) / `SettingsRepositoryImplTest`(57 例) / `PlaylistDaoTest`(17 例) 全绿 | 一-1..一-4 全绿后 |
 
 > **一-1 已完成（2026-10-08）**：13 条索引 + 删 `songUrl` + `MIGRATION_9_10` + `10.json` 入库全落，判据走过红→绿，并在真实库副本上演练过（`v10-migration.md` §八 记了结果与三处偏离）。
-> 两处需要后续包接手的：**`addToPlaylist` 并发现在会撞索引**（一-2 的优先级由"防半空库"升为"防崩溃"）；**`musicPath` 死参数**与按名删除（一-4）。
+> 两处需要后续包接手的：~~**`addToPlaylist` 并发现在会撞索引**（一-2 的优先级由"防半空库"升为"防崩溃"）~~ —— 已由一-2 A 批收口；**`musicPath` 死参数**与按名删除（一-4）。
 > 顺带：`music(title/artist/album)` 三条 B-tree 索引对现有 `LIKE '%q%'` 搜索无效，别把 D2-05/搜索性能记成"已随索引解决"（详见 `domain/D2.md` D2-07 施工结果）。
+
+> **一-2 拆成两批做（2026-10-08）**：**A 批已完成** —— 止血的部分全部可本机验，落在 `:shared:desktopTest` + `:shared:commonTest`：
+> 歌单写路径收进 DAO 事务（D3-03 事务段，含一-1 遗留的"并发添加撞索引"崩溃）、统计恢复改整表替换不翻倍（D5-13）、
+> 导入前先落 `pre-restore-` 副本 + Room 侧三条 restore 收进一个事务（设置那条走 DataStore 排在最后）+ 取消复抛（D7-02 / R39）。
+> 结果与两处判据口径收窄记在 `domain/D3.md` D3-03、`domain/D5.md` D5-13、`domain/D7.md` D7-02 的「施工结果」段。
+> **B 批已完成（2026-10-09）**：扫描流水线（D2-01、D2-02、D2-03）与画像批量写（D5-12 动作①）全部本机验完 ——
+> 落点 `:shared:desktopTest`（`MusicScanPersistTest` 7 例、`UserMemoryIntegrationTest` 新增 2 例）+ `:shared-ui:testAndroidHostTest`（`LibraryScanPolicyTest` 4 例）。
+> 三条探针都过：清空重灌→4 红、旁路事务→事务那条红、批量退逐条+旁路事务→两条新判据同时红。
+> 一处 schema 后补：`userInfo.removedByUser` 随 §2.2b 并进未发布的 v10（`10.json` 已重导）。
+> **仍留的口子**：D5-12 动作②（证据保留窗口）要先定"哪些证据可以删"，属产品口径，不在判据里；
+> 设置页「已移除」列表的口径变更（只列用户移除的）见 `domain/D2.md` D2-02 施工结果。
+> 一-1/一-2 的**真实大库验证**仍在 §六 阻塞发布清单里（那是签收动作，不是本包的编码前提）。
+> D3-04（重排入参完整性）与 `musicPath` 死参数要改返回类型/签名，仍归 一-4。
+
+> **一-3 分三组做（2026-10-09 起）**：**C1 已完成** —— 时间与窗口口径（D5-01、D5-02、D5-03、D5-11 的查询改写段），
+> 落点 `:shared:desktopTest`（新增 `HourBucketParityTest` 9 例）+ `commonTest`（`WindowMappingTest` 3 例）；
+> 探针：同时退回 UTC 自算 / `coerceAtLeast(1)` / 全表÷N 三处 → 精确 5 红、其余 4 绿（信号按发现分离）。
+> 三处判据口径的收窄与一条限制（UTC 主机上时区断言自然相等）记在 `domain/D5.md` D5-01..03 的施工结果段。
+> **C2 已完成（同日）**：热力图名实（D5-08，按推荐 (a) 真做日历热力图）、`UserScreen` 范围标签（D5-09）、
+> 峰值时段文案（D5-10）、窗口查询失败与加载态可见（D5-14）。落点 `shared-ui` 的 commonTest（纯函数 8 例）+ androidHostTest（VM 4 例，mockk）。
+> 两处如实记的收窄：D5-09 判据后半要"断言渲染出范围文案"，本模块没配 Compose UI 测试基建，改为"范围来自 30 天窗口"+ 签名约束，
+> **所以 UserScreen 的渲染那半仍未被机器看住**；D5-14 判据的另一种写法（可注入 log sink）也没做，`HmpLog` 是全局 object。
+> 探针：抹掉星期对齐 + 还原小时文案 + 让失败标记不落地 → 精确 4 红，其余 8 绿。
+> **C3 已完成（同日）**：`playDuration` 三端同口径（本次会话累计实听）、来源闭集、iOS 恢复后计时停摆、
+> Desktop 退出结构化等待（D5-04 / D5-05 / D5-06 / D5-07），并落了 D3-01。
+> 落点：`:desktop:core-player:desktopTest` 新增 `DesktopPlaybackSettlementTest`（4 例）+
+> `:android:core-player:testDebugUnitTest` 新增 `MusicControllerPlaybackSettlementTest`（1 例）+
+> `commonTest` 的 `PlaybackSourcesTest`（4 例）。
+> 探针：Desktop 结算改回写元数据时长 → 2 红；去掉退出 `joinAll` → 2 红；Android 改回写 `totalDuration` → 1 红；闭集删一项 → 1 红。
+> 两条如实记的缺口：① **iOS 那三处改动没有任何判据** —— Swift 无测试源集、`iosMain` 的 actual 在本机连编译器都覆盖不到，只能实机签收；
+> ② D5-06 判据里的「三端常量名一致（编译期约束）」**没做到**，Swift 侧是复制的拼写表，理由与漂移风险记在 `domain/D5.md` D5-06 施工结果段。
+> **D3-01 的决策已下**（用户 2026-10-09：「iOS 侧可以破坏性改动，并未上线」）：改 Unix epoch、**不写存量修正**；
+> 顺带删掉 `shared-ui` 那份重复的 `PlatformTime` —— 「同一处错误的第二份拷贝」是结构性没了，不是抄对了。
+
+> **一-4 分两批做（2026-10-10）**：**A 批已完成** —— 歌单派生字段与写入语义（D3-02 顺序进出快照、D3-04 重排入参完整性 + `musicPath` 死参数、D3-07 封面不被覆写、D3-08 软删后统计同步）。
+> 落点 `:shared:desktopTest`（`PlaylistRepositoryImplTest` +4 例、`MusicRepositoryBaseTest` +1 例、`PlaylistDaoTest` 断言按新语义改写）
+> + `commonTest`（`AgentToolsTest` +1 例、`PlaylistMapperTest` 往返带 `itemOrder`）。
+> 探针 5 处各红：去掉导出 `ORDER BY` / `toDomain` 不带 `itemOrder` / 删两行重排校验 / 校验基准换成全量集合 / 删软删后的统计重算。
+> 三处如实记的偏离与边界，都写在 `domain/D3.md` 对应条目的施工结果段：
+> D3-02 的"原样写回 `itemOrder`"改成了"排序后重编号"（旧快照全 0 会撞 v10 唯一索引，而分辨新旧的 `version` 闸门在 一-6）；
+> D3-07 选"仅空值回填"、没加 `coverSource` 列（代价：自动回填的封面不再跟首曲漂），`updatePlaylistCover` 接 UI 还是删掉**仍是产品口径问题**；
+> D3-04 的 Agent 判据跑在替身上，验的是"工具会不会把 `false` 变成 failure"，不是生产 DAO 的校验本身。
+> **B 批已做（同日）的是不依赖产品口径的四块**：B1=D3-05②③（自愈改**接管同名行**，"按名删除"这条路径
+> 从 DAO 到 UseCase 整个删掉，类型上不再存在）；B2=D3-17②③（系统歌单保护从"抛异常"改返回 `Boolean` +
+> 单一口径 `domain/playlist/SystemPlaylists.kt`，Agent 与 UseCase 不再各抄一遍比较式）；
+> B3=D3-06（去掉 `songCount > 0`，口径落成 `userVisiblePlaylists` 纯函数）；
+> B4=D3-12 的两项（`playlist_remove_song` 先查成员再删、`playlist_detail` 把上限写进 description）。
+> 判据：`:shared:commonTest` 2 例 + `:shared:desktopTest` 2 例改写 + `:shared-ui:testAndroidHostTest` 3 例；
+> 变异探针 4 处各红（接管那一步短路、还原计数过滤、把 `return false` 换回 `throw`、成员检查短路成 `if (false)`）。
+> **一处判据降级要如实记**：D3-17② 原文要"断言 VM 的 `deletePlaylist(systemId)` 不抛出且 state 落到 Error"，
+> 但 `PlaylistViewModel` 在 `androidHostTest` 里**构造不出来** —— `init` 会解析 compose 资源名，而本测试源集没接
+> Robolectric（实跑报 `Resources.getSystem not mocked`）。这正是 D3-06 判据预先写好的退路，所以 VM 层的
+> "不抛 + Error"这个 wiring 目前没有被机器看住，机器钉住的是根因（UseCase 不再抛）。补它要先给该源集配资源解析，属 X 线。
+> **B 批剩下的全部要先定口径**（用户 2026-10-10：这几条先保留）：D3-11 智能歌单三选一、D3-13 上移下移 vs 真拖拽、
+> D3-16 心动/最近播放要不要 UI 入口、D3-05④+D3-12 重名/长度校验的回话形态、D3-17① 管理页列不列系统歌单（与 D3-06 后半同一条口径）、
+> D3-07 尾巴 `updatePlaylistCover` 接 UI 还是删。iOS 侧 D3-09 / D3-10 需 macOS 机器，尚未确认有没有。
+
+> **本轮记下一条会咬人的既有脆弱点（不在任何待办里）**：
+> `commonTest` 的 `PlaybackObservationBusTest.静默会取更晚的那个截止时间` 用真实墙钟（`muteFor(100/400)` + `delay(150)`），
+> 全量跑时机器一忙、GC 一停，累计耗时就翻过 400ms 窗口 → 事件漏出 → 该条红；单独跑必绿。
+> 2026-10-10 实测：`:shared:desktopTest` 全量红一次、单跑绿、再全量绿。不是本轮改动引入的（总线代码最后由 一-2 B 批改）。
+> 修法是把窗口拉开或给总线注入时钟 —— 属测试基建，等 X 线收口时一起做，本包只记账。
 
 > **一-1 的两个前置决策**（不做完不能动迁移）：存量 `itemOrder` 去重策略、`playlist.name` 同名链与系统歌单豁免。见 §九 决策 1/2。
 
@@ -151,6 +213,11 @@
 
 口径：判据行文本里出现"待验 / 落不进测试源集"的条目，人工分类，**只作量级**。本机是 Windows ⇒ **全部 iOS 项不可达**，Android 项需设备，Desktop 项本机可跑。
 
+> **一条常被漏掉的边界（2026-10-09，一-2 B 批）**：本机不可达不只是"实机行为验不了"，还包括 **`iosMain` 的源码连编译器都没过一遍** ——
+> KMP 的 Apple 目标只能在 macOS 主机上编，`testAll` 与 `compileAll` 都不含 iOS。B 批改了 `MusicRepositoryImpl.ios.kt`
+> （删掉两份落库镜像、加 `transactionRunner` 构造参数、换 `getRemovedMusicIdAndPath()`），这些改动只经过人工比对 diff。
+> 凡改到 `iosMain`/`ios/**`，合入前后都要在 macOS 上补跑一次 `./gradlew :shared:compileKotlinIosSimulatorArm64`（壳层改动再加 `xcodebuild`）。
+
 | 域 | 判据含"待验/落不进"的条目（量级） | 主要去向 |
 |---|---|---|
 | D1 | 8 / 10 | macOS + Xcode（D1-09）、iOS 真机（D1-01、D1-02、D1-06、D1-07）、Windows/macOS 听感（D1-03）、Desktop 本机可跑（D1-04） |
@@ -164,7 +231,7 @@
 | D9 | 7 / 7 | macOS + Xcode、Android 实机、Windows |
 | X | 5 / 11 | 运行期 save/restore（X-05）、CI（X-01，已暂缓）、静态闸门（X-07） |
 
-**阻塞发布的项**（建议在 v7.3.0 发布前签收）：D7-10（三端降级守卫）、D3-01（iOS 纪元）、D5-05（iOS 时长停摆）、一-1 与一-2 的真实大库验证（D2-01、D2-02）。其余可带缺口发布，缺口写进 ROADMAP。
+**阻塞发布的项**（建议在 v7.3.0 发布前签收）：D7-10（三端降级守卫 —— 守卫逻辑与三端接点已落，缺的是三端各一次的启动实测）、D3-01（iOS 纪元）、D5-05（iOS 时长停摆）、一-1 与一-2 的真实大库验证（D2-01、D2-02）。其余可带缺口发布，缺口写进 ROADMAP。
 
 ---
 
@@ -239,7 +306,7 @@
 | 里程碑 | 内容 | 完成判据 |
 |---|---|---|
 | **M0** | 批 0（迁移骨架 + 常量） | **已达成（2026-10-08）**：故意写坏 `MIGRATION_8_9` 的一个 NOT NULL → 精确 3 红；改回 8/8 绿。`1→9` 全链用例在跑，三端引用同一份 `ALL_MIGRATIONS` |
-| **M1** | 批一（含 v10 迁移与四域逻辑） | **进行中：一-1 已完成（2026-10-08）**；一-2..一-7 待做。`10.json` 入库；三端注册；降级守卫可用 |
+| **M1** | 批一（含 v10 迁移与四域逻辑） | **进行中：一-1 已完成（2026-10-08）、一-2 已完成（A 批同日、B 批 2026-10-09）**;一-3 已完成（2026-10-09，C1/C2/C3）、一-7 已完成（2026-10-09）；一-4..一-6 待做。`10.json` 入库；三端注册；降级守卫可用 |
 | **M2** | 批二（运行时） | 可测部分全绿；iOS 项进实机清单 |
 | **M3** | 批三 + 横切线安全网 | 三-1..三-7 + X-闸/X-testAll/X-版本/X-目标 全绿 |
 | **M4** | 发版准备 | `preflight` 绿；实机签收；走 `skills/release-prep` |

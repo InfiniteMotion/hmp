@@ -7,7 +7,9 @@ import com.hmp.data.database.UserProfilePortraitDao
 import com.hmp.data.database.currentTimeMillis
 import com.hmp.data.mapper.UserProfileMapper
 import com.hmp.data.mapper.UserProfileMapper.toDomain
+import com.hmp.data.database.UserProfileEvidenceEntity
 import com.hmp.data.mapper.UserProfileMapper.toEntity
+import com.hmp.domain.backup.TransactionRunner
 import com.hmp.domain.agent.port.AuditEntry
 import com.hmp.domain.agent.port.AuditLogPort
 import com.hmp.domain.music.MusicRepository
@@ -43,6 +45,14 @@ class UserMemory(
     private val narrativeDao: UserProfileNarrativeDao? = null,
     private val auditLog: AuditLogPort? = null,
     private val timeProvider: () -> Long = { currentTimeMillis() },
+    /**
+     * 一次刷写的事务入口（一-2 / D5-12）。
+     *
+     * 证据写与侧写重算必须同成同败：中途异常会留下"证据加了一半、侧写按旧证据算完"的画像，
+     * 而画像是要渲染进对话上下文的 —— 那种不一致用户看不见，只会觉得伙伴说胡话。
+     * 缺省为空是给"依赖不齐则整体不装配"的老路径留的；带上它就获得原子性。
+     */
+    private val transactionRunner: TransactionRunner? = null,
 ) {
 
     private val logTag = LogTag.AgentProfile
@@ -111,9 +121,10 @@ class UserMemory(
         val state = runCatching { musicRepository.getLibraryStateSnapshot() }.getOrNull()
         val stateDrafts = state?.let { LibraryModeler.toStateEvidenceDrafts(it, sessionId) }.orEmpty()
 
-        (shapeDrafts + contentDrafts + stateDrafts).forEach { upsertEvidence(it, now) }
-
-        val portraitCount = recomputePortraits(now, coverageAtModeling = content?.coverageRate?.toDouble())
+        val portraitCount = writePhase {
+            upsertEvidenceBatch(shapeDrafts + contentDrafts + stateDrafts, now)
+            recomputePortraits(now, coverageAtModeling = content?.coverageRate?.toDouble())
+        }
         HmpLog.i(logTag) {
             "🫀 library refresh: tracks=${tracks.size} shape=${shapeDrafts.size} " +
                 "content=${contentDrafts.size} state=${stateDrafts.size} portraits=$portraitCount"
@@ -157,8 +168,10 @@ class UserMemory(
             return@runCatching 0
         }
 
-        drafts.forEach { upsertEvidence(it, now) }
-        val portraitCount = recomputePortraits(now, coverageAtModeling = null)
+        val portraitCount = writePhase {
+            upsertEvidenceBatch(drafts, now)
+            recomputePortraits(now, coverageAtModeling = null)
+        }
         HmpLog.i(logTag) {
             "🫀 behavior refresh: plays=${snapshot.totalPlays} evidence=${drafts.size} portraits=$portraitCount"
         }
@@ -181,17 +194,19 @@ class UserMemory(
             return false
         }
         val now = timeProvider()
-        upsertEvidence(
-            EvidenceDraft(
-                predicate = predicate,
-                value = value.trim(),
-                source = ProfileSources.T1_USER,
-                confidence = ProfileSources.baseConfidence(ProfileSources.T1_USER),
-                sessionId = sessionId,
-            ),
-            now,
-        )
-        recomputePortraits(now, coverageAtModeling = null)
+        writePhase {
+            upsertEvidence(
+                EvidenceDraft(
+                    predicate = predicate,
+                    value = value.trim(),
+                    source = ProfileSources.T1_USER,
+                    confidence = ProfileSources.baseConfidence(ProfileSources.T1_USER),
+                    sessionId = sessionId,
+                ),
+                now,
+            )
+            recomputePortraits(now, coverageAtModeling = null)
+        }
         audit("profile.note", "predicate=$predicate")
         return true
     }
@@ -231,27 +246,24 @@ class UserMemory(
         if (!memoryEnabled) return 0
         if (drafts.isEmpty()) return 0
         val now = timeProvider()
-        var written = 0
-        drafts.forEach { extraction ->
-            // 第二道闭集闸门：菜单给了，调用方仍可能出错；拒收的不计数（宁可不记，不可错记）
-            if (PortraitType.isKnown(extraction.predicate)) {
-                upsertEvidence(
+        // 第二道闭集闸门在 upsertEvidenceBatch 里（拒收的不计数）
+        val written = writePhase {
+            val accepted = upsertEvidenceBatch(
+                drafts.map { extraction ->
                     EvidenceDraft(
                         predicate = extraction.predicate,
                         value = extraction.value,
                         source = ProfileSources.T2_DIALOGUE,
                         confidence = ProfileSources.baseConfidence(ProfileSources.T2_DIALOGUE),
                         sessionId = sessionId,
-                    ),
-                    now,
-                )
-                written++
-            } else {
-                HmpLog.w(logTag) { "🫀 dialogue extraction rejected unknown predicate: ${extraction.predicate}" }
-            }
+                    )
+                },
+                now,
+            )
+            if (accepted > 0) recomputePortraits(now, coverageAtModeling = null)
+            accepted
         }
         if (written > 0) {
-            recomputePortraits(now, coverageAtModeling = null)
             // 审计只记条数 —— 谓词名与 value 都不进审计（§9.2 工程卫生）
             audit("profile.dialogue", "items=$written")
         }
@@ -447,28 +459,59 @@ class UserMemory(
         return if (matches.size == 1) matches.single() else null
     }
 
-    private suspend fun upsertEvidence(draft: EvidenceDraft, now: Long) {
-        if (!PortraitType.isKnown(draft.predicate)) {
-            HmpLog.w(logTag) { "🫀 rejected predicate outside closed set: ${draft.predicate}" }
-            return
+    /**
+     * 一次刷写的原子段（D5-12）：有事务入口就包起来，没有就原样跑
+     *（"依赖不齐则整体不装配"的老路径保留可运行，但那条路上没有原子性）。
+     */
+    private suspend fun <R> writePhase(block: suspend () -> R): R =
+        transactionRunner?.run(block) ?: block()
+
+    private suspend fun upsertEvidence(draft: EvidenceDraft, now: Long): Int =
+        upsertEvidenceBatch(listOf(draft), now)
+
+    /**
+     * 一批草稿的落库（D5-12）：**一次批量读 + 最多两次批量写**，往返数与草稿条数无关。
+     *
+     * 旧写法每条草稿都要 `find()` 再一次 `insert()` 或 `confirmObservation()`，
+     * 一次刷新 = 2×草稿数 次往返，而且这些写彼此不在一个事务里。
+     */
+    private suspend fun upsertEvidenceBatch(drafts: List<EvidenceDraft>, now: Long): Int {
+        if (drafts.isEmpty()) return 0
+        // 闭集闸门（契约 §5）：越出闭集的一律拒收，宁可不记不可错记
+        val rejected = drafts.filterNot { PortraitType.isKnown(it.predicate) }
+        rejected.forEach { draft ->
+            HmpLog.w(logTag) { "画像谓词越出闭集，已拒收：${draft.predicate}" }
         }
-        val existing = evidenceDao.find(UserProfileMapper.SUBJECT_USER, draft.predicate, draft.value)
-        if (existing == null) {
-            evidenceDao.insert(draft.toEntity(now))
-        } else {
-            // 同一会话内重复观察到同一事实不算新的"会话"（契约 §3.1：单次会话内高频不计）
-            val sessionDelta = if (existing.lastSessionId != draft.sessionId) 1 else 0
-            val mergedSource = if (existing.source == ProfileSources.T1_USER) existing.source else draft.source
-            val mergedConfidence = maxOf(existing.confidence, draft.confidence)
-            evidenceDao.confirmObservation(
-                id = existing.id,
-                source = mergedSource,
-                confidence = mergedConfidence,
-                updatedAt = now,
-                sessionDelta = sessionDelta,
-                sessionId = draft.sessionId,
-            )
+        val accepted = drafts.filter { PortraitType.isKnown(it.predicate) }
+        if (accepted.isEmpty()) return 0
+
+        val existing = evidenceDao
+            .findByPredicates(UserProfileMapper.SUBJECT_USER, accepted.map { it.predicate }.distinct())
+            .associateBy { it.predicate to it.value }
+
+        val fresh = mutableListOf<UserProfileEvidenceEntity>()
+        val merged = mutableListOf<UserProfileEvidenceEntity>()
+        accepted.forEach { draft ->
+            val current = existing[draft.predicate to draft.value]
+            if (current == null) {
+                fresh += draft.toEntity(now)
+            } else {
+                // 同一会话内重复观察到同一事实不算新的"会话"（契约 §3.1：单次会话内高频不计）
+                val sessionDelta = if (current.lastSessionId != draft.sessionId) 1 else 0
+                val mergedSource = if (current.source == ProfileSources.T1_USER) current.source else draft.source
+                merged += current.copy(
+                    source = mergedSource,
+                    confidence = maxOf(current.confidence, draft.confidence),
+                    updatedAt = now,
+                    evidenceCount = current.evidenceCount + 1,
+                    distinctSessions = current.distinctSessions + sessionDelta,
+                    lastSessionId = draft.sessionId,
+                )
+            }
         }
+        if (fresh.isNotEmpty()) evidenceDao.insertAll(fresh)
+        if (merged.isNotEmpty()) evidenceDao.upsertAll(merged)
+        return accepted.size
     }
 
     /** 证据 → 侧写 → 落库。侧写的 `created_at` 不因覆盖而重置（审计四问之一）。 */
@@ -478,19 +521,20 @@ class UserMemory(
         if (portraits.isEmpty()) return 0
 
         val existingCreatedAt = portraitDao.getAll().associate { it.type to it.createdAt }
-        portraits.forEach { portrait ->
-            val withCoverage = if (portrait.type == PortraitType.LIBRARY && coverageAtModeling != null) {
-                portrait.copy(coverageAtModeling = coverageAtModeling)
-            } else {
-                portrait
-            }
-            portraitDao.upsert(
+        // 一次批量写（D5-12）：原来是 portraits.forEach { portraitDao.upsert(it) }
+        portraitDao.upsertAll(
+            portraits.map { portrait ->
+                val withCoverage = if (portrait.type == PortraitType.LIBRARY && coverageAtModeling != null) {
+                    portrait.copy(coverageAtModeling = coverageAtModeling)
+                } else {
+                    portrait
+                }
                 withCoverage.toEntity(
                     nowMs = now,
                     createdAt = existingCreatedAt[portrait.type.id] ?: now,
                 )
-            )
-        }
+            }
+        )
         return portraits.size
     }
 

@@ -22,10 +22,10 @@ class BackupFileRepositoryImpl(
         }
     }
 
-    override suspend fun saveBackup(snapshot: UserBackupSnapshot): Result<String> {
+    override suspend fun saveBackup(snapshot: UserBackupSnapshot, filePrefix: String): Result<String> {
         return try {
             val timestamp = SimpleDateFormat("yyyyMMdd-HHmmss", Locale.getDefault()).format(Date())
-            val filename = "hearable-backup-v${snapshot.version}-$timestamp.json"
+            val filename = "$filePrefix-v${snapshot.version}-$timestamp.json"
             val file = File(backupDir, filename)
 
             file.writeText(json.encodeToString(UserBackupSnapshot.serializer(), snapshot))
@@ -58,7 +58,7 @@ class BackupFileRepositoryImpl(
     override suspend fun getBackups(): Result<List<String>> {
         return try {
             val files = backupDir.listFiles { file ->
-                file.name.startsWith("hearable-backup-") && file.name.endsWith(".json")
+                BackupFileRepository.isBackupFileName(file.name)
             }?.sortedByDescending { it.lastModified() }?.map { it.absolutePath } ?: emptyList()
             Result.success(files)
         } catch (e: Exception) {

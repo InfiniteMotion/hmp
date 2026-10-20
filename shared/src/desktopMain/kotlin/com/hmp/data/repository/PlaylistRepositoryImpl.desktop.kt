@@ -21,15 +21,6 @@ class PlaylistRepositoryImpl(
     private val musicAllDao: MusicAllDao,
 ) : PlaylistRepository {
 
-    private suspend fun refreshPlaylistStats(playlistId: Long) {
-        val list = playlistItemDao.getPlaylistById(playlistId)
-        val songCount = list.size
-        val totalDurationMs = list.sumOf { it.music.duration }
-        playlistDao.updateStats(playlistId, songCount, totalDurationMs, currentTimeMillis())
-
-        val firstSongCover = list.firstOrNull()?.music?.albumArtUri
-        playlistDao.updateCover(playlistId, firstSongCover, currentTimeMillis())
-    }
 
     override suspend fun createPlaylist(name: String): Long {
         val now = currentTimeMillis()
@@ -37,9 +28,8 @@ class PlaylistRepositoryImpl(
         return playlistDao.insert(entity)
     }
 
-    override suspend fun removePlaylist(name: String) {
-        playlistDao.deletePlaylist(name = name)
-    }
+    override suspend fun getPlaylistByName(name: String): Playlist? =
+        playlistDao.getPlaylistByName(name)?.toDomain()
 
     override suspend fun removePlaylistById(id: Long) {
         playlistDao.deletePlaylistById(id)
@@ -77,28 +67,20 @@ class PlaylistRepositoryImpl(
         playlistDao.setLastPlayedAt(id, timestamp)
     }
 
-    override suspend fun addToPlaylist(playlistId: Long, musicId: Long, musicPath: String) {
-        val maxOrder = playlistItemDao.getMaxOrder(playlistId) ?: -1
-        val item = PlaylistItemDomain(songId = musicId, playlistId = playlistId)
-        playlistItemDao.insert(item.toEntity(itemOrder = maxOrder + 1))
-        refreshPlaylistStats(playlistId)
+    override suspend fun addToPlaylist(playlistId: Long, musicId: Long) {
+        playlistItemDao.addSongAndRefresh(playlistId, musicId, currentTimeMillis())
     }
 
     override suspend fun removeItemFromPlaylist(musicId: Long, playlistId: Long) {
-        playlistItemDao.deleteItemByIds(musicId, playlistId)
-        refreshPlaylistStats(playlistId)
+        playlistItemDao.removeSongAndRefresh(playlistId, musicId, currentTimeMillis())
     }
 
     override suspend fun resetPlaylistItems(playlistId: Long, musicList: List<MusicInfo>) {
-        playlistItemDao.resetPlaylistItems(playlistId, musicList.map { it.toEntity() })
-        refreshPlaylistStats(playlistId)
+        playlistItemDao.replaceItemsAndRefresh(playlistId, musicList.map { it.toEntity() }, currentTimeMillis())
     }
 
-    override suspend fun reorderPlaylistItems(playlistId: Long, orderedMusicIds: List<Long>) {
-        // v10 起 itemOrder 唯一，逐条 UPDATE 会中途撞号 —— 交给 DAO 的两阶段重排（D3-03 的事务在 一-2/一-4）
-        playlistItemDao.replaceOrder(playlistId, orderedMusicIds)
-        refreshPlaylistStats(playlistId)
-    }
+    override suspend fun reorderPlaylistItems(playlistId: Long, orderedMusicIds: List<Long>): Boolean =
+        playlistItemDao.reorderAndRefresh(playlistId, orderedMusicIds, currentTimeMillis())
 
     override fun getMusicInfoInPlaylist(playlistId: Long): Flow<List<MusicInfo>> {
         return playlistItemDao.getMusicInfoInPlaylist(playlistId).map { list -> list.map { it.toDomain() } }
@@ -118,9 +100,8 @@ class PlaylistRepositoryImpl(
 
     override suspend fun exportPlaylistsSnapshot(): PlaylistsSnapshot {
         val playlists = playlistDao.getAllPlaylists().map { it.toDomain() }
-        val items = playlistItemDao.getAllPlaylistItems().map {
-            PlaylistItemDomain(songId = it.songId, playlistId = it.playlistId)
-        }
+        // toDomain 现在带上 itemOrder（D3-02）—— 顺序是这次快照要保的东西
+        val items = playlistItemDao.getAllPlaylistItems().map { it.toDomain() }
         return PlaylistsSnapshot(playlists = playlists, playlistItems = items)
     }
 
@@ -129,12 +110,17 @@ class PlaylistRepositoryImpl(
         playlistItemDao.deleteAll()
         playlistDao.insertAll(snapshot.playlists.map { it.toEntity() })
 
-        val groupedItems = snapshot.playlistItems.groupBy { it.playlistId }
-        val finalItems = groupedItems.flatMap { (_, list) ->
-            list.mapIndexed { index, it ->
-                PlaylistItem(songId = it.songId, playlistId = it.playlistId, itemOrder = index)
+        // D3-02：按 itemOrder 排好后逐歌单重编为连续序号。
+        // 刻意不"原样写回快照里的 itemOrder"：旧快照没有这个字段（全是默认 0），
+        // 原样写回会让第二首起就撞 v10 的 UNIQUE(playlistId,itemOrder)（D3-03 建的）。
+        // 重编号保持相对顺序，所以对"用户排出来的顺序"是无损的。
+        val finalItems = snapshot.playlistItems
+            .groupBy { it.playlistId }
+            .flatMap { (playlistId, list) ->
+                list.sortedBy { it.itemOrder }.mapIndexed { index, item ->
+                    PlaylistItem(songId = item.songId, playlistId = playlistId, itemOrder = index)
+                }
             }
-        }
         playlistItemDao.insertPlaylist(finalItems)
     }
 }

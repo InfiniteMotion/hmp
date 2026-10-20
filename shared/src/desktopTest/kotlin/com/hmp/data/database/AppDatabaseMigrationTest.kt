@@ -536,6 +536,16 @@ class AppDatabaseMigrationTest {
     fun migrationChain_isContinuous_andCoversEveryVersion() {
         val chain = AppDatabase.ALL_MIGRATIONS.sortedBy { it.startVersion }
 
+        // 降级守卫（D7-10）读 `AppDatabase.CODE_SCHEMA_VERSION`，而 Room 不把注解里的版本暴露成可读常量
+        // （`@Database` 是 CLASS 保留度，运行时反射拿不到 —— 实测返回 null）。所以这条断言把常量钉到
+        // 本文件里的 latestSchemaVersion 上；而"注解 == latestSchemaVersion"由全链用例钉住
+        // （runMigrationsAndValidate 比对的是 KSP 从注解导出的 `10.json`）。三段接起来才闭环。
+        assertEquals(
+            latestSchemaVersion,
+            AppDatabase.CODE_SCHEMA_VERSION,
+            "CODE_SCHEMA_VERSION 与 latestSchemaVersion 不同值：守卫会拿旧版本判定（bump 版本要改的地方比想象的多）"
+        )
+
         assertEquals(1, chain.first().startVersion, "迁移链必须从 v1 起")
         assertEquals(latestSchemaVersion, chain.last().endVersion, "链末端应等于 @Database 声明版本")
         assertEquals(

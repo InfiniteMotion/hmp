@@ -176,12 +176,10 @@ fun GalleryScreenContent(
                     title = selectPlaylistTitle,
                     onConfirm = { selectedPlaylist ->
                         // 批量添加歌曲到选择的播放列表
-                        val itemsToAdd = selectedMusicList.map {
-                            it.music.id to it.music.path
-                        }
+                        val idsToAdd = selectedMusicList.map { it.music.id }
                         playlistViewModel.addItemsToPlaylist(
                             playlistId = selectedPlaylist.id,
-                            items = itemsToAdd,
+                            musicIds = idsToAdd,
                             onComplete = {
                                 dialogManager.showMessage(commonFormat(addedNSongsMessageFormat, selectedMusicList.size))
                             }

@@ -5,6 +5,8 @@ import com.hearablemusic.player.ui.common.dialogs.viewmodel.DialogManagerViewMod
 import com.hearablemusic.player.ui.common.dialogs.viewmodel.DialogViewModel
 import com.hearablemusic.player.ui.common.viewmodel.ThemeViewModel
 import com.hearablemusic.player.ui.library.viewmodel.EditMusicTagsViewModel
+import com.hmp.data.database.AppDatabaseGuard
+import com.hmp.data.database.hmpDatabasePath
 import com.hearablemusic.player.ui.library.viewmodel.LibraryViewModel
 import com.hearablemusic.player.ui.library.viewmodel.SearchViewModel
 import com.hearablemusic.player.ui.library.viewmodel.SongDetailViewModel
@@ -67,5 +69,7 @@ val iosUiModule = module {
 
 /** iOS 壳一次性装配入口：shared（业�?平台�?+ shared-ui 全部 Koin 模块�?*/
 fun installKoinIosWithSharedUi() {
+    // 降级守卫（D7-10）：Swift 侧不必知道这件事 —— AppRoot 的分流读的是同一个状态
+    AppDatabaseGuard.probe(hmpDatabasePath())
     com.hmp.di.initKoinIos(iosUiModule)
 }

@@ -30,3 +30,24 @@ actual fun millisUntilNextLocalMidnight(): Long {
 
 actual fun formatMmddFromMillis(epochMs: Long): String =
     SimpleDateFormat("MM-dd", Locale.getDefault()).format(Date(epochMs))
+actual fun localHourOfDay(epochMs: Long): Int =
+    Calendar.getInstance().apply { timeInMillis = epochMs }.get(Calendar.HOUR_OF_DAY)
+
+actual fun localDateString(epochMs: Long): String =
+    SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date(epochMs))
+
+actual fun localDayRange(date: String): Pair<Long, Long>? {
+    val start = parseDateToMillis(date) ?: return null
+    // 次日 00:00 由 Calendar 求，不写死 +24h —— 夏令时切换那天既不是 23h 也不是 25h 的整数倍关系
+    val cal = Calendar.getInstance().apply {
+        timeInMillis = start
+        add(Calendar.DAY_OF_YEAR, 1)
+    }
+    return start to cal.timeInMillis
+}
+
+actual fun localDayOfWeekIso(epochMs: Long): Int {
+    // Calendar.DAY_OF_WEEK: 1=周日 … 7=周六 → 折成 ISO 的 1=周一 … 7=周日
+    val sundayFirst = Calendar.getInstance().apply { timeInMillis = epochMs }.get(Calendar.DAY_OF_WEEK)
+    return if (sundayFirst == Calendar.SUNDAY) 7 else sundayFirst - 1
+}

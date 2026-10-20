@@ -93,15 +93,18 @@ class PlaylistMapperTest {
         val domain = entity.toDomain()
         assertEquals(42L, domain.songId)
         assertEquals(1L, domain.playlistId)
+        // D3-02：顺序是用户资产，领域模型必须承载它 —— 丢在这里就等于备份/恢复时无法还原
+        assertEquals(3, domain.itemOrder)
     }
 
     @Test
     fun playlistItem_toEntity_mapsWithItemOrder() {
         val domain = PlaylistItem(
             songId = 50,
-            playlistId = 2
+            playlistId = 2,
+            itemOrder = 7
         )
-        val entity = domain.toEntity(itemOrder = 7)
+        val entity = domain.toEntity()
         assertEquals(50L, entity.songId)
         assertEquals(2L, entity.playlistId)
         assertEquals(7, entity.itemOrder)
@@ -118,14 +121,14 @@ class PlaylistMapperTest {
     }
 
     @Test
-    fun playlistItem_roundTrip() {
+    /** D3-02 的往返判据：`itemOrder` 必须在 mapper 双向都不被丢。 */
+    fun playlistItem_roundTrip_keepsItemOrder() {
         val original = PlaylistItem(
             songId = 99,
-            playlistId = 5
+            playlistId = 5,
+            itemOrder = 3
         )
-        val entity = original.toEntity(3)
-        val restored = entity.toDomain()
-        assertEquals(original.songId, restored.songId)
-        assertEquals(original.playlistId, restored.playlistId)
+        val restored = original.toEntity().toDomain()
+        assertEquals(original, restored)
     }
 }

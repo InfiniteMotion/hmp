@@ -10,6 +10,7 @@ import com.hmp.domain.agent.runtime.JsonText
 import com.hmp.domain.agent.runtime.sub.shared.SubAgent
 
 import com.hmp.domain.agent.card.AnchorContent
+import com.hmp.domain.agent.card.toDays
 import com.hmp.domain.agent.card.AnniversaryContent
 import com.hmp.domain.agent.card.AnniversarySubtype
 import com.hmp.domain.agent.card.CardPool
@@ -1107,8 +1108,9 @@ class HelloSubAgent internal constructor(
         val repo = musicRepository ?: return null
         val dao = narrativeDao ?: return null
 
-        // ① 按时间维度取对应的天数窗口
-        val windowDays = rangeToDays(timeRange)
+        // ① 按时间维度取对应的天数窗口（与其余维度同一份映射，D5-03：此前这里私有抄了一份
+        // `ALL -> 3650`，而 NarrativeTimeRange.toDays() 是 `-1`，两条路径的"全部"不是同一个窗口）
+        val windowDays = timeRange.toDays()
         val avgMinutes = runCatching { repo.getAvgDailyListeningMinutes(windowDays) }.getOrDefault(0f)
         val frequency = adaptiveFrequency(avgMinutes)
         val range = timeRange.name
@@ -1137,15 +1139,6 @@ class HelloSubAgent internal constructor(
         }
         HmpLog.i(LogTag.AgentHello) { "👋 report[$range] regenerated (avgDaily=${avgMinutes}min, freq=$frequency)" }
         return entity
-    }
-
-    /** NarrativeTimeRange → days 窗口（给 getAvgDailyListeningMinutes / 后续时段分布查询用） */
-    private fun rangeToDays(range: NarrativeTimeRange): Int = when (range) {
-        NarrativeTimeRange.DAY -> 1
-        NarrativeTimeRange.WEEK -> 7
-        NarrativeTimeRange.MONTH -> 30
-        NarrativeTimeRange.YEAR -> 365
-        NarrativeTimeRange.ALL -> 3650  // 10 年兜底（"全部"近似长期平均）
     }
 
     /** 确保所有时间维度的报告叙事段都是最新的（dailyRefreshLoop 末尾调） */

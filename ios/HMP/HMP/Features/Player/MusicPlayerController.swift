@@ -2,6 +2,23 @@ import Foundation
 import sharedIos
 import UIKit
 
+/// `PlaybackHistory.source` 在 Swift 侧的取值表。
+///
+/// **真源是 Kotlin 的 `shared/src/commonMain/kotlin/com/hmp/domain/music/PlaybackSources.kt`**，
+/// 这里只能复制拼写：Kotlin `object` 的导出名（`PlaybackSources.shared.MANUAL` 之类）在本仓库
+/// 没有任何已验证的引用先例，而 CI 不编译 iOS（`AGENTS.md` 硬约束 5），猜错等于把一次静默改动
+/// 变成一次真机构建失败。拼写由 `:shared:desktopTest` 的 `PlaybackSourcesTest` 钉住，
+/// 改动 Kotlin 侧那张表时这里要跟着对一遍（D5-06 的判据明确要求"三端常量名一致"）。
+enum PlaybackSource {
+    static let manual = "Manual"
+    static let next = "Next"
+    static let previous = "Previous"
+    static let order = "Order"
+    static let shuffle = "Shuffle"
+    static let heartMode = "HeartMode"
+    static let auto = "Auto"
+}
+
 /// 播放编排器单例 — 等价于 Android MusicController
 /// 管理：播放状态、队列、播放模式、进度、历史记录、定时器
 @Observable
@@ -36,7 +53,12 @@ class MusicPlayerController {
 
     private var currentPlaybackHistoryId: Int64? = nil
     private var playbackStartTime: Date? = nil
+    /// 距**上一次日累计上报**的残值；每 30 秒 tick 会被清零（`recordListeningDurationTick`）
     private var listeningDurationAccumulator: Int64 = 0
+    /// 本次会话的**累计实听**（tick 不清它）。`playDuration` 用它，不能用上面那个残值 ——
+    /// 后者只到"上次 tick 为止的几秒"，D5-04 记录的正是这个错。真源见
+    /// `shared/src/commonMain/kotlin/com/hmp/domain/music/PlaybackSources.kt` 同一批口径。
+    private var sessionPlayedMs: Int64 = 0
     private var listeningDurationTimer: Timer? = nil
     private var sleepTimer: Timer? = nil
     
@@ -130,14 +152,14 @@ class MusicPlayerController {
     func playWith(_ musicInfo: MusicInfo) {
         currentPlaylist = [musicInfo]
         currentIndex = 0
-        startPlaying(musicInfo)
+        startPlaying(musicInfo, source: PlaybackSource.manual)
     }
 
     func addAllToPlaylistInOrder(_ list: [MusicInfo]) {
         currentPlaylist = list
         if !list.isEmpty {
             currentIndex = 0
-            startPlaying(list[0])
+            startPlaying(list[0], source: PlaybackSource.order)
         }
         Task {
             await persistCurrentPlaylistToDatabaseWithCurrentId()
@@ -148,7 +170,7 @@ class MusicPlayerController {
         currentPlaylist = list.shuffled()
         if !currentPlaylist.isEmpty {
             currentIndex = 0
-            startPlaying(currentPlaylist[0])
+            startPlaying(currentPlaylist[0], source: PlaybackSource.shuffle)
         }
         Task {
             await persistCurrentPlaylistToDatabaseWithCurrentId()
@@ -161,6 +183,11 @@ class MusicPlayerController {
         }
         if currentPlayingMusic != nil {
             engine.resume()
+            // D5-05：暂停把 playbackStartTime 置了 nil，恢复时必须重新起锚并重启 tick，
+            // 否则 `recordListeningDurationTick` 里的 `if let start` 恒假 —— 当天剩余收听时长
+            // 永久不再入账，热力图上表现为"听了但格子是空的"。
+            playbackStartTime = Date()
+            startListeningDurationTracking()
         }
     }
 
@@ -193,7 +220,7 @@ class MusicPlayerController {
 
         guard nextIndex < currentPlaylist.count else { return }
         currentIndex = nextIndex
-        startPlaying(currentPlaylist[nextIndex])
+        startPlaying(currentPlaylist[nextIndex], source: PlaybackSource.next)
     }
 
     func playPrevious() {
@@ -206,7 +233,7 @@ class MusicPlayerController {
 
         let prevIndex = max(0, currentIndex - 1)
         currentIndex = prevIndex
-        startPlaying(currentPlaylist[prevIndex])
+        startPlaying(currentPlaylist[prevIndex], source: PlaybackSource.previous)
     }
 
     func togglePlaybackModeByOrder() {
@@ -255,7 +282,7 @@ class MusicPlayerController {
                 clearPlaylist()
             } else {
                 currentIndex = min(idx, currentPlaylist.count - 1)
-                startPlaying(currentPlaylist[currentIndex])
+                startPlaying(currentPlaylist[currentIndex], source: PlaybackSource.next)
             }
         } else if currentIndex > idx {
             currentIndex -= 1
@@ -288,7 +315,7 @@ class MusicPlayerController {
         list.shuffle()
         currentPlaylist = [seed] + list
         currentIndex = 0
-        startPlaying(seed)
+        startPlaying(seed, source: PlaybackSource.heartMode)
         Task {
             await persistCurrentPlaylistToDatabaseWithCurrentId()
         }
@@ -297,10 +324,13 @@ class MusicPlayerController {
     func playAt(_ index: Int) {
         guard index >= 0 && index < currentPlaylist.count else { return }
         currentIndex = index
-        startPlaying(currentPlaylist[index])
+        startPlaying(currentPlaylist[index], source: PlaybackSource.manual)
     }
 
     func clearPlaylist() {
+        // 先结算再清当前曲：`endCurrentPlaybackSession` 要读 `currentPlayingMusic`，
+        // 顺序反了就会留下一条 `playDuration = 0` 的僵尸历史行（D5-07 的同一家族）
+        endCurrentPlaybackSession(isCompleted: false)
         currentPlaylist = []
         currentIndex = -1
         currentPlayingMusic = nil
@@ -314,7 +344,7 @@ class MusicPlayerController {
 
     // MARK: - Private Helpers
 
-    private func startPlaying(_ musicInfo: MusicInfo) {
+    private func startPlaying(_ musicInfo: MusicInfo, source: String) {
         if currentPlaybackHistoryId != nil {
             endCurrentPlaybackSession(isCompleted: false)
         }
@@ -339,7 +369,7 @@ class MusicPlayerController {
         engine.play(url: url)
 
         loadMetadata(for: musicInfo)
-        startNewPlaybackSession(musicInfo: musicInfo)
+        startNewPlaybackSession(musicInfo: musicInfo, source: source)
         persistPlaybackState()
 
         HMPMediaSession.shared.onTrackChanged(musicInfo: musicInfo)
@@ -374,7 +404,7 @@ class MusicPlayerController {
         case .repeatOne:
             seekTo(position: 0)
             engine.resume()
-            startNewPlaybackSession(musicInfo: currentPlayingMusic!)
+            startNewPlaybackSession(musicInfo: currentPlayingMusic!, source: PlaybackSource.auto)
         case .shuffle:
             playNext()
         default:
@@ -386,14 +416,18 @@ class MusicPlayerController {
 
     // MARK: - Playback Session Tracking
 
-    private func startNewPlaybackSession(musicInfo: MusicInfo) {
+    private func startNewPlaybackSession(musicInfo: MusicInfo, source: String) {
         let musicId = musicInfo.music.id
         playbackStartTime = Date()
         listeningDurationAccumulator = 0
+        sessionPlayedMs = 0
 
         Task {
             do {
-                let historyId = try await playbackHistoryUseCase.startPlaybackSession(musicId: musicId, source: nil)
+                // D5-06：这里曾恒传 nil，而来源分布的 SQL 是 `WHERE source IS NOT NULL`
+                // —— iOS 上「播放来源」那块图因此永不渲染。取值闭集见 Kotlin 侧
+                // `domain/music/PlaybackSources.kt`（Swift 端只能复制拼写，改动要两头对）。
+                let historyId = try await playbackHistoryUseCase.startPlaybackSession(musicId: musicId, source: source)
                 await MainActor.run { self.currentPlaybackHistoryId = historyId.int64Value }
             } catch {
                 HmpLog.e(HmpTag.playerIos, "▶️ startPlaybackSession failed: \(error)")
@@ -407,8 +441,23 @@ class MusicPlayerController {
         guard let historyId = currentPlaybackHistoryId,
               let musicInfo = currentPlayingMusic else { return }
 
-        let duration = listeningDurationAccumulator
+        // 先结算"上次 tick 之后"这段，再取会话总量（原先直接读残值 = 只写最后几秒）
+        pauseListeningDurationTracking()
+        let duration = sessionPlayedMs
+        // 日累计也一起结掉：不足一个 tick 的残值原先随会话结束被丢弃（热力图上的洞）
+        let pendingDaily = listeningDurationAccumulator
+        listeningDurationAccumulator = 0
         stopListeningDurationTracking()
+
+        if pendingDaily > 0 {
+            Task {
+                do {
+                    try await playbackHistoryUseCase.recordListeningDuration(duration: pendingDaily)
+                } catch {
+                    HmpLog.e(HmpTag.playerIos, "▶️ flush listening duration failed: \(error)")
+                }
+            }
+        }
 
         Task {
             do {
@@ -448,14 +497,18 @@ class MusicPlayerController {
 
     private func pauseListeningDurationTracking() {
         if let start = playbackStartTime {
-            listeningDurationAccumulator += Int64(Date().timeIntervalSince(start) * 1000)
+            let elapsed = Int64(Date().timeIntervalSince(start) * 1000)
+            listeningDurationAccumulator += elapsed
+            sessionPlayedMs += elapsed
             playbackStartTime = nil
         }
     }
 
     private func recordListeningDurationTick() {
         if let start = playbackStartTime {
-            listeningDurationAccumulator += Int64(Date().timeIntervalSince(start) * 1000)
+            let elapsed = Int64(Date().timeIntervalSince(start) * 1000)
+            listeningDurationAccumulator += elapsed
+            sessionPlayedMs += elapsed
             playbackStartTime = Date()
         }
 

@@ -179,12 +179,21 @@ HMP/
 
 ## 七、数据层
 
-- **Room 2.8.3 KMP**：`AppDatabase` **version = 10**，`exportSchema = true`，18 实体 / 19 DAO。schema json 在 `shared/schemas/com.hmp.data.database.AppDatabase/1..10.json`。迁移是手写的 `MIGRATION_1_2 … MIGRATION_9_10`，统一收在 `AppDatabase.ALL_MIGRATIONS` 一个常量里，三端 `DatabaseBuilder.{android,desktop,ios}.kt` 都 `addMigrations(*AppDatabase.ALL_MIGRATIONS)` —— **不再有逐端手抄的名单**（2026-10-08 批 0 收口，漏一端曾是单端升级崩溃的来源）。v10 = 批一收口的一次迁移（13 条索引 + 删 `playlist_item.songUrl`），需求与判据的唯一真源是 `docs/7_3/v10-migration.md`。
+- **`music.isDeleted` 有两个成因**（一-2 B 批起）：用户主动移除、以及"这次扫描没见到这个文件"。可见性过滤仍只看 `isDeleted`，
+  但**用户意图记在 `userInfo.removedByUser`**，扫描只读它、永不写它 —— 因此设置页的「已移除」列表（`getDeletedMusicIdsGroupedByFolder` → `MusicDao.getRemovedMusicIdAndPath`）只列用户移除的那些，
+  缺文件的曲目不在里面。想恢复可见性走 `RestoreToLibraryUseCase`（同时清两位置）。
+- **Room 2.8.3 KMP**：`AppDatabase` **version = 10**，`exportSchema = true`，18 实体 / 19 DAO。schema json 在 `shared/schemas/com.hmp.data.database.AppDatabase/1..10.json`。迁移是手写的 `MIGRATION_1_2 … MIGRATION_9_10`，统一收在 `AppDatabase.ALL_MIGRATIONS` 一个常量里，三端 `DatabaseBuilder.{android,desktop,ios}.kt` 都 `addMigrations(*AppDatabase.ALL_MIGRATIONS)` —— **不再有逐端手抄的名单**（2026-10-08 批 0 收口，漏一端曾是单端升级崩溃的来源）。v10 = 批一收口的一次迁移（13 条索引 + 删 `playlist_item.songUrl` + 后补的 `userInfo.removedByUser`；未发布期间并批，不再另开 v11），需求与判据的唯一真源是 `docs/7_3/v10-migration.md`。
 - **迁移链的门禁**：`AppDatabaseMigrationTest` 跑逐环 + `1→10` 全链 + 链连续性；故意写坏一条 DDL 会红。新增版本必须**同时**改 `@Database.version` + 追加 `MIGRATION_{n-1}_{n}` 与 `ALL_MIGRATIONS` + 重导 schema json + 同步测试里的 `latestSchemaVersion`，少一处都有断言红（v10 施工时实测过这条红法）。
 - **三端都去掉了 destructive 兜底**（A4）：新增实体/字段忘了写迁移 = 线上硬失败，不是静默重建。
+- **降级有守卫，但没有 Room 回调**（一-7）：`AppDatabaseGuard` 在 build 之前探 `PRAGMA user_version`，库比代码新时记 error 日志 + 抛 `DatabaseTooNewException`，三端启动路径先 `probe` 挂状态、`AppRoot` 在解析任何 DAO 之前分流到提示页。别改回 `RoomDatabase.Callback`：Room 的版本校验发生在建连接过程中，`onOpen` 到不了，挂了等于没挂。代码版本读的是 `AppDatabase.CODE_SCHEMA_VERSION`（Room 不把注解版本暴露成常量），**bump 版本要同时改 `@Database.version` 与它**，迁移测试断言三者一致。
 - **改 schema 必须同时补迁移（并追加进 `ALL_MIGRATIONS`）+ 重导 schema json。** 三端注册现在由常量结构性保证，不必手工三处同步。
 - 仓库接口 4 个：`MusicRepository`、`PlaylistRepository`、`SettingsRepository`、`BackupFileRepository`。实现**按平台三份镜像**（`*Impl.{android,desktop,ios}.kt`，基于 `MusicRepositoryBase.kt` 1245 行），`SettingsRepositoryImpl.{desktop,ios}` 各约 500 行。
 - UseCase 共 22 个（music 10 / setting 6 / backup 4 / playlist 2）。
+- **播放时长的单一口径**（一-3 C3）：`PlaybackHistory.playDuration` = **本次会话累计实听毫秒**（不含 seek 空档，与 `listeningDuration` 的日累计同语义）—— 不是引擎当前位置，也不是曲目元数据时长。三端各自的结算点算的就是这一个数，新增播放入口时别顺手改回另外两种。
+- **歌单的两个"看不见"契约**（一-4 A2 / A3）：① `PlaylistRepository.reorderPlaylistItems` 返回 `Boolean`，校验在 `PlaylistItemDao.reorderAndRefresh` 里（不在仓库、也不在 UseCase —— Agent 工具绕开 UseCase 直连仓库），`false` = 入参不是**当前可见曲目**（`music.isDeleted = 0`）的完整排列，此时一个字都没写；新增重排入口别绕过它。② `playlist.songCount` / `totalDurationMs` 是缓存列，**曲目可见性变了也要重算** —— `removeFromLibrary` / `restoreToLibrary` / 扫描的"没扫到"分支都调 `refreshStatsForPlaylistsContaining`，新增软删入口时忘了它就会"标题 10 首、列表 9 首"。封面则相反：`fillCoverFromFirstItemIfAbsent` 只在歌单没有封面时回填，手动设过的不再被首曲覆写。
+- **系统歌单只剩"按 id"这一条路**（一-4 B1 / B2）：`removePlaylist(name)` 已从 DAO / 仓库 / UseCase 整条删掉（它绕过保护，还会级联清空用户的心动 / 最近播放），只有 `getPlaylistByName` 留着；启动自愈遇到悬空 id 时**接管同名行**，不删不建。删除保护是 `ManagePlaylistUseCase.removePlaylistById` 返回 `false`，**不是抛异常**（抛过一次，Android 上删"心动"即崩溃），谓词只在 `domain/playlist/SystemPlaylists.kt` 一份，Agent 的 `playlist_delete` 也调它。
+- **`playlist_item.itemOrder` 是用户资产**：领域 `PlaylistItem` 现在带 `itemOrder`，导出查询带 `ORDER BY playlistId, itemOrder`，恢复时按它排序后重编号（旧快照全 0 会撞 `UNIQUE(playlistId,itemOrder)`，所以不"原样写回"）。别再往三端 Impls 里各写一份落库逻辑。
+- **播放来源是闭集**：取值真源 `shared/.../domain/music/PlaybackSources.kt`（以 Android 已发布的拼写为准，库里已有历史数据，改名会让同一来源在饼图里裂成两条）。⚠️ iOS 侧是 **Swift 里复制的一份**（`MusicPlayerController.swift` 的 `enum PlaybackSource`）—— Kotlin `object` 的导出名在本仓库没有已验证先例，而 CI 不编译 iOS，猜错就是一次真机构建失败；**改取值要两头对**。
 - **Ktor 只用于用户自填的 AI API**，无网络取曲。Android 走 OkHttp engine、iOS 走 Darwin engine。
 - **DataStore** 存偏好；`SecureStorageHelper` 存 API Key。
 
@@ -195,11 +204,15 @@ HMP/
 以下都在 [TODO](TODO.md) §六 R39–R56 / §一 挂了账，但**不知道就会踩**：
 
 1. **`shared-ui` 的测试在两个源集，都要挂。** `androidHostTest`（94 例）+ `desktopTest`（42 例，2026-10-08 才把 `src/desktopTest/` 目录建出来；`build.gradle.kts` 早先就声明了该源集、一直缺目录 → `:shared-ui:desktopTest` 长期 NO-SOURCE 静默绿）。`commonTest` 的用例会同时进这两个目标。`testAll`/`testUi` 现已同时挂两者；无 Android SDK 时可用 `testUiDesktop`（现在有真内容）。同类坑已一并处理：`desktop/app` 的 `desktopTest` 源集也是只声明没有目录，现已建出并放 `SingleInstanceGuardTest`（单实例锁 4 例）。**教训**：`maybeDepends`/`dependsOn` 挂了某个 test 任务不等于它有内容 —— 判据是 `<模块>/build/test-results/<任务>/TEST-*.xml` 里有没有用例。
+   - **`PlaylistViewModel` 在 `shared-ui` 的测试源集里构造不出来**：它的 `init` 会调 `initializeDefaultPlaylists()`，那里解析 compose 资源名 `getString(Res.string.heart)`，而该源集没接 Robolectric —— 实跑报 `Method getSystem in android.content.res.Resources not mocked`。要写 VM 级判据，先按 `docs/7_3/domain/D3.md` D3-06 的退路把规则抽成纯函数（`userVisiblePlaylists`），或给该源集配资源解析。
 2. **`maybeDepends` 在错目标下静默丢依赖。** `export HMP_BUILD_TARGET=desktop` 后跑 `./gradlew testAndroid` **必绿且零工作**（R52）。
+
 3. **新增 NavKey 要同时动三处**：`Routes.kt` 声明、`HmpNavBackStack.kt` 的 `subclass` 注册、`NavigationGraph.kt` 的 `entry<>`。漏 serializer 过去**无编译期报错**，只在该 key 参与保存/恢复时运行期崩（"进页面转一圈就崩"），而 `RoutesTest` 那条手写 22 条 `is NavKey` 断言是恒真的、不把关。2026-10-08（三-1）起这道关由 `shared-ui/src/androidHostTest/.../NavRegistrationGateTest.kt` 守着：反射遍历每个 NavKey 做多态往返 + `entry` 覆盖比对，漏一处即红，新增路由自动进闸门。4 个 Tab key（`Main.Home/Gallery/List/User`）没有 `entry<>`，由 `MainShell` 的 HorizontalPager 承载 —— 它们在那个测试里是显式豁免名单，别当漏注册去补。
 4. **DI 图校验：3 条，且只覆盖"必传依赖"。** `shared/src/desktopTest/.../KoinGraphVerificationTest.kt`（领域/数据层）+ `shared-ui/src/desktopTest/.../DesktopKoinGraphVerificationTest.kt`（桌面完整装配）+ `shared-ui/src/androidHostTest/.../AndroidAppKoinGraphVerificationTest.kt`（Android 完整装配）。都用 koin-test `verify()` 静态校验，**不实例化定义**（`checkModules` 会实例化 → 等于打开你本机 `~/.hmp` 的真库与 DataStore）。两个必须知道的限制：① **带默认值的构造参数被当成可缺省** —— 实测删掉 `single { PresenceBus() }` 三条全绿，而 `MasterAgent` 装配处写的是 `chatPresenceBus = get()`（形参 `PresenceBus? = null`），运行期照样抛；② iOS 装配任何本机源集都拼不出，`MainActivity` 里 `loadModules` 动态注册的 `PlatformServices` 也看不见。所以新加 `single` 除了跑校验还要本机跑一次启动（R43）。
-5. **`withTransaction` / `inTransaction` 全仓 0 命中。** 备份恢复是 `deleteAll()` 后逐条 insert，`ImportUserDataBackupUseCase` 串行 4 个仓库 restore 后 `catch → Result.failure`，无回滚无安全副本（R39）。**新写批量落库请自己包事务。**
-    - ⚠️ **v10 起了新的后果**：`playlist_item UNIQUE(playlistId,itemOrder)` 建起来后，`addToPlaylist` 的 `getMaxOrder → insert` 三步无事务，并发添加从"静默同序号"变成**当场撞唯一索引**。重排侧已改走 `PlaylistItemDao.replaceOrder`（两阶段：先整体取负再落终值，逐条 UPDATE 中途必撞）；添加侧的收口在 一-2（批量写进单事务）。
+5. **批量写的事务要靠你自己包，没有闸门替你查。** 2026-10-08（一-2 A 批）之后这条不再是"全仓 0 事务"：`domain/backup/TransactionRunner.kt`（实现在 `data/database/RoomTransactionRunner.kt`）把导入的四条 restore 收进单个 Room 事务，导入前必先落一份 `pre-restore-*.json` 安全副本；歌单的增删改排序收在 `PlaylistItemDao` 的 `@Transaction` 写族里。**仍然没有静态检查**——新写跨表批量落库要么走这些现成入口，要么自己包 `useWriterConnection { deferredTransaction }`；而且**设置那条走 DataStore，进不了 Room 事务**（它被排在事务块的最后，就是为了把不对称窗口缩到"DataStore 自己写失败"）。
+    - v10 那条唯一索引的崩溃后果已在 一-2 收口：重排走 `PlaylistItemDao.reorderAndRefresh`（两阶段：先整体取负再落终值），添加侧 `getMaxOrder` 已删、取号并进 `insertWithNextOrder` 一条语句。
+    - **设备扫描落库**（2026-10-09，一-2 B 批）同样收了口：三端各一份的「`deleteAll()` ×3 再分批重灌」合成 `MusicRepositoryBase.persistScannedLibrary` 一份，跑在单个事务里，语义是按 id 的 upsert。
+      平台侧现在只剩 `performMusicScan()`（"设备上有哪些歌"）—— **别再往三端各抄一遍落库**；新增的可注入点就是那个 `protected abstract`。
 6. **版本号读不到时静默回落到错误值。** `android/app` 兜底 `51000`/`"5.10.0"`，`desktop/app` 兜底 `"1.0.0"` 且 `dmgPackageVersion = "1"` 硬编码（R45、R30）。
 7. **`copyToReleases` 找不到产物只 `println("!! Not found")` 不失败** → `./gradlew release` 可以"成功"地产出零个文件（本机侧；CI 的 `sync-release.py collect` 会失败）。
 8. **`DeviceMusicScanner.android.kt:50` 是已知 bug**：`val context = android.app.Application()`（新建 Application 无 base context，`contentResolver.query` 必失败），且未注入 Context。**这条不在任何待办里**，动 Android 扫描前先确认它是否已被某处绕过。

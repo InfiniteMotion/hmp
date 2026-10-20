@@ -1,5 +1,6 @@
 package com.hmp.domain.agent.runtime
 
+import com.hmp.domain.agent.port.LibraryMutatedNotifier
 import com.hmp.domain.agent.config.EngineDefaults
 import com.hmp.domain.agent.infra.PresenceBus
 import com.hmp.log.HmpLog
@@ -154,7 +155,9 @@ class MasterAgent internal constructor(
     private val userProfileEvidenceDao: com.hmp.data.database.UserProfileEvidenceDao? = null,
     private val userProfilePortraitDao: com.hmp.data.database.UserProfilePortraitDao? = null,
     private val userProfileNarrativeDao: com.hmp.data.database.UserProfileNarrativeDao? = null,
-) {
+    /** 画像一次刷写的事务入口（D5-12）；缺省为空 = 画像仍可跑，只是没有原子性。 */
+    private val profileTransactionRunner: com.hmp.domain.backup.TransactionRunner? = null,
+) : LibraryMutatedNotifier {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     /**
@@ -176,6 +179,7 @@ class MasterAgent internal constructor(
                 narrativeDao = userProfileNarrativeDao,
                 auditLog = chatAuditLog,
                 timeProvider = timeProvider,
+                transactionRunner = profileTransactionRunner,
             )
         } else {
             null
@@ -417,7 +421,7 @@ class MasterAgent internal constructor(
      * 内部方法 —— 统一走 [ensureProfileReady] 让 Master 协调完整的画像重建链路
      * （曲库侧写 → 行为侧写 → 叙事过期检查）。fire-and-forget：画像失败不影响库操作本身。
      */
-    fun onLibraryMutated() {
+    override fun onLibraryMutated() {
         scope.launch { ensureProfileReady(forceBehavior = true, source = "library_mutated") }
     }
 

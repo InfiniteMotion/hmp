@@ -161,17 +161,10 @@ fun PlaylistScreen(
                         selectedIds = emptySet(),
                         title = addSongsDialogTitle,
                         onConfirm = { selectedIds ->
-                            val itemsToAdd = selectedIds.mapNotNull { songId ->
-                                val musicPath = candidates.firstOrNull { it.music.id == songId }?.music?.path
-                                if (musicPath.isNullOrBlank()) {
-                                    null
-                                } else {
-                                    songId to musicPath
-                                }
-                            }
+                            // 不再按"path 是否为空"静默丢弃曲目（D3-15 收尾）：条目只存 id
                             playlistViewModel.addItemsToPlaylist(
                                 playlistId = selectedPlaylistId,
-                                items = itemsToAdd,
+                                musicIds = selectedIds.toList(),
                                 onComplete = {
                                     if (selectedIds.isNotEmpty()) {
                                         dialogManager.showMessage(addedMessage)
@@ -407,12 +400,9 @@ fun PlaylistScreenContent(
                             title = selectPlaylistTitle,
                             onConfirm = { selectedPlaylist ->
                                 // 批量添加歌曲到选择的播放列表
-                                val itemsToAdd = selectedMusicList.map {
-                                    it.music.id to it.music.path
-                                }
                                 playlistViewModel.addItemsToPlaylist(
                                     playlistId = selectedPlaylist.id,
-                                    items = itemsToAdd,
+                                    musicIds = selectedMusicList.map { it.music.id },
                                     onComplete = {
                                         dialogManager.showMessage(commonFormat(addedNSongsMessageFormat, selectedMusicList.size))
                                     }

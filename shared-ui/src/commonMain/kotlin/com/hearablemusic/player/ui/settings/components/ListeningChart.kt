@@ -1,110 +1,94 @@
 package com.hearablemusic.player.ui.settings.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
 import com.hearablemusic.player.ui.common.design.dimens.LocalHMPDimens
 
-@OptIn(ExperimentalLayoutApi::class)
+/**
+ * 听歌密度热力图（D5-08 重做）。
+ *
+ * 输入是 [HeatmapGrid] —— 日期到格子的对齐、缺日补零都由 `buildListeningHeatmap` 那个纯函数负责，这里只画。
+ * 旧版把两件事都做在组件里且都做错了：格子来自「有听歌的最后 35 行」（没听歌的日子整段被压缩掉），
+ * 表头硬编码 `M T W T F S S` 而填充是行主序 —— 列与那一天真正的星期毫无关系。
+ *
+ * 现在的布局：**7 行（周一至周日）× N 列（周）**，左侧一列星期标签，整块横向滚动。
+ * 标签与格子对齐不再是约定，而是布局本身保证的（行序 = ISO 星期）。全年视图就是 53 列；
+ * 竖着排 53 行会把这张卡撑成一屏多，横向滚动是这类密度图的既有读法。
+ */
 @Composable
 fun ListeningChart(
-    data: List<Int>,
+    grid: HeatmapGrid,
 ) {
     val dimens = LocalHMPDimens.current
-    val (gridData, weekLabels) = remember(data) {
-        val totalDays = 35 // 5周 x 7天
+    val weeks = grid.rows
+    if (weeks.isEmpty()) return
 
-        val paddedData = if (data.size < totalDays) {
-            List(totalDays - data.size) { 0 } + data
-        } else {
-            data.takeLast(totalDays)
-        }
+    val weekCount = weeks.maxOf { it.size }.coerceAtLeast(1)
+    val maxValue = weeks.flatten().filter { it.date != null }.maxOfOrNull { it.minutes }?.coerceAtLeast(1) ?: 1
+    val scrollState = rememberScrollState()
+    val cell = CELL_DP.dp
+    val gap = dimens.spacing.xs
 
-        // 生成星期标签 (Mon, Wed, Fri, Sun) 或 (S M T W T F S)
-        val labels = listOf("M", "T", "W", "T", "F", "S", "S")
-
-        paddedData to labels
-    }
-
-    val maxValue = (data.maxOrNull() ?: 1).toFloat().coerceAtLeast(1f)
-
-    @Composable
-    fun getThemeColorForValue(value: Int, max: Float): Color {
-        if (value == 0) return MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-        val ratio = (value / max).coerceIn(0.2f, 1f)
-        return MaterialTheme.colorScheme.primary.copy(alpha = ratio)
-    }
-
-    Column(
+    Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = dimens.spacing.md),
-        verticalArrangement = Arrangement.spacedBy(dimens.spacing.xs)
+        horizontalArrangement = Arrangement.spacedBy(gap)
     ) {
-        // 星期表头
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            weekLabels.forEach { label ->
-                Box(
-                    modifier = Modifier.weight(1f),
-                    contentAlignment = Alignment.Center
-                ) {
+        // 左侧星期标签（行序 = ISO 1..7 = 周一至周日）
+        Column(verticalArrangement = Arrangement.spacedBy(gap)) {
+            WEEKDAY_LABELS.forEach { label ->
+                Box(modifier = Modifier.size(width = cell, height = cell), contentAlignment = Alignment.Center) {
                     Text(
                         text = label,
                         fontSize = dimens.type.xs,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center
                     )
                 }
             }
         }
 
-        Spacer(modifier = Modifier.height(dimens.spacing.xs))
-
-        // 数据网格: 5行 x 7列
-        val rows = 5
-        val cols = 7
-
-        for (row in 0 until rows) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(dimens.spacing.xs)
-            ) {
-                for (col in 0 until cols) {
-                    val index = row * cols + col
-                    val weightModifier = Modifier.weight(1f).aspectRatio(1.5f)
-
-                    if (index < gridData.size) {
-                        val value = gridData[index]
-                        val color = getThemeColorForValue(value, maxValue)
-
+        Column(
+            modifier = Modifier.horizontalScroll(scrollState),
+            verticalArrangement = Arrangement.spacedBy(gap)
+        ) {
+            for (weekdayIndex in 0 until 7) {
+                Row(horizontalArrangement = Arrangement.spacedBy(gap)) {
+                    for (weekIndex in 0 until weekCount) {
+                        val item = weeks.getOrNull(weekIndex)?.getOrNull(weekdayIndex)
                         Box(
-                            modifier = weightModifier
+                            modifier = Modifier
+                                .size(cell)
                                 .clip(RoundedCornerShape(dimens.corner.xs))
-                                .background(color)
+                                .background(
+                                    when {
+                                        // 窗口外的补齐格不上色：它不是"那天没听歌"
+                                        item?.date == null -> Color.Transparent
+                                        item.minutes == 0 -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                                        else -> MaterialTheme.colorScheme.primary.copy(
+                                            alpha = (item.minutes.toFloat() / maxValue).coerceIn(0.2f, 1f)
+                                        )
+                                    }
+                                )
                         )
-                    } else {
-                        Spacer(modifier = weightModifier)
                     }
                 }
             }
@@ -112,4 +96,10 @@ fun ListeningChart(
     }
 }
 
+/**
+ * 行序对应 ISO 星期（1=周一 … 7=周日）。
+ * 星期缩写的本地化属 D8-06 的 i18n 面；本条只负责"标签与格子真的是同一个星期"。
+ */
+private val WEEKDAY_LABELS = listOf("M", "T", "W", "T", "F", "S", "S")
 
+private const val CELL_DP = 12

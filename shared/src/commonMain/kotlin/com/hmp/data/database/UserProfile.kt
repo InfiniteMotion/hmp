@@ -5,6 +5,7 @@ import androidx.room.Dao
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.Insert
+import androidx.room.Upsert
 import androidx.room.OnConflictStrategy
 import androidx.room.PrimaryKey
 import androidx.room.Query
@@ -147,6 +148,22 @@ interface UserProfileEvidenceDao {
         """
     )
     suspend fun find(subject: String, predicate: String, value: String): UserProfileEvidenceEntity?
+
+    /**
+     * 一批草稿对应的已有行（D5-12）。
+     *
+     * 原来每条草稿一次 `find()`：一次刷新 = 草稿数 × 2 次往返，且与历史长度无关地线性增长。
+     * 值（value）留在 Kotlin 侧比对，因为 `(predicate, value)` 的两列 IN 查询在 SQLite 里没有好写法。
+     */
+    @Query("SELECT * FROM user_profile_evidence WHERE subject = :subject AND predicate IN (:predicates)")
+    suspend fun findByPredicates(subject: String, predicates: List<String>): List<UserProfileEvidenceEntity>
+
+    /**
+     * 已存在行的合并写回（D5-12）。用 upsert 而不是 `@Insert(REPLACE)`：
+     * REPLACE 是"删旧行 + 插新行"，自增 id 会变，而侧写的 `evidence_refs` 指的就是旧 id（反链会整片断）。
+     */
+    @Upsert
+    suspend fun upsertAll(evidence: List<UserProfileEvidenceEntity>)
 
     /**
      * 某个来源最近一次被写的时间 —— 行为建模的**日内去重**靠它，
