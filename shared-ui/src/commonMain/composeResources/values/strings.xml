@@ -93,7 +93,8 @@
     <string name="hidden_folders">Hidden folders</string>
     <string name="confirm_hide_folder">Are you sure you want to hide this folder?</string>
     <string name="unhide_folder">Unhide folder</string>
-    <string name="gallery_batch_delete_unsupported">Batch delete not supported on this device</string>
+    <string name="edit_tags_unsupported">Editing tags is not supported on this device</string>
+<string name="gallery_batch_delete_unsupported">Batch delete not supported on this device</string>
     <!-- ==================== 播放器 ==================== -->
     <string name="play">Play</string>
     <string name="pause">Pause</string>

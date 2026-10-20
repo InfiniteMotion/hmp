@@ -84,10 +84,11 @@ fun SearchScreen(
     var searchQuery by rememberSaveable { mutableStateOf("") }
     val searchState by searchViewModel.searchState.collectAsState()
 
+    // 搜索的唯一调用点（D2-18）：原先 onSearchQueryChange 里也直接打了一次，
+    // 于是一次按键并发跑两条全表 LIKE、且旧结果可能覆盖新结果。
+    // 这里不再加 isNotEmpty 判断 —— 清空输入要能把状态收回 Idle，由 SearchViewModel 分派。
     LaunchedEffect(searchQuery) {
-        if (searchQuery.isNotEmpty()) {
-            searchViewModel.searchMusic(searchQuery)
-        }
+        searchViewModel.searchMusic(searchQuery)
     }
 
     val currentPlayingMusic by playlistQueueViewModel.currentPlayingMusic.collectAsState(null)
@@ -98,9 +99,6 @@ fun SearchScreen(
         currentPlayingMusic = currentPlayingMusic,
         onSearchQueryChange = {
             searchQuery = it
-            if (it.isNotEmpty()) {
-                searchViewModel.searchMusic(it)
-            }
         },
         onBackClick = { navController.removeLastOrNull() },
         playWith = playlistQueueViewModel::playWith,

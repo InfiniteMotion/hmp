@@ -81,7 +81,7 @@
 | **一-2**（**已完成，分 A/B 两批**） | **事务与写入安全**：批量写收口 `withTransaction`、导入前安全副本、`catch` 复抛 CE、重扫不抹软删、改扫描目录不再静默破坏性重扫 | D2-01、D2-02、D2-03、D3-03(事务段)、~~D3-04~~(归 一-4)、D5-12(动作①，②待决策)、D5-13、D7-02 | `:shared:desktopTest`：中途 CE 后不出现半空库；第 3 步失败则前 2 步回滚；重扫后已隐藏曲仍在；恢复后历史条数不翻倍 | 一-1 |
 | **一-3**（**已完成：C1 + C2 + C3，2026-10-09**） | **时间与时区口径**：小时桶统一本地时区、「全部」时段不再被夹成 1 天、`days` 作窗口、`playDuration` 三端口径、热力图名实、文案带范围、窗口查询失败可见 | D5-01、D5-02、D5-03、D5-04、D5-05、D5-06、D5-07、D5-08、D5-09、D5-10、D5-11(窗口段)、D5-14、D3-01 | `:shared:desktopTest`（新增 `HourBucketParityTest` 等）+ `:shared-ui:testAndroidHostTest`（VM 级窗口断言、`formatHourRange`）；D5-04 / D5-06 / D5-07 的 Desktop 与 Android 段已有自动化判据（`:desktop:core-player:desktopTest` + `:android:core-player:testDebugUnitTest` + `commonTest`）；**iOS 段（含 D5-05 全部）仍是实机签收** | 一-1（索引） |
 | **一-4**（**进行中：A 批 + B 批的不需口径项已完成 2026-10-10**） | **歌单一致性与派生字段**：按 id 而非按名删除、`itemOrder` 入 domain 模型、派生字段同事务重算、系统歌单自愈按 id、智能歌单配置生效、Agent 入参校验对齐 UI、上移下移接线 | D3-02、D3-04、D3-05(删改段)、D3-06、D3-07、D3-08、D3-09、D3-10、D3-11、D3-12、D3-13、D3-16、D3-17 | `:shared:desktopTest`（`PlaylistRepositoryImplTest` / `PlaylistDaoTest`）+ `:shared:commonTest`（`AgentToolsTest`）+ `:shared-ui:testAndroidHostTest`（`PlaylistViewModel`）；其中 D3-09、D3-10、D3-13 的 iOS/三端段为实机 | 一-1、一-2 |
-| **一-5** | **曲库扫描与元数据**：搜索转义与 album 匹配、排序键枚举化、格式白名单统一常量、死码处置、iOS 元数据与标签写入、Windows 路径分组、封面命名与缓存 | D2-05、D2-06、D2-08、D2-09、D2-10、D2-11、D2-12、D2-13、D2-14、D2-15、D2-16、D2-17、D2-18 | `:shared:desktopTest`（`MusicDaoTest` / `MusicRepositoryBaseTest` / 新增 `MusicScanPersistTest`）+ `:shared-ui:testAndroidHostTest`（`SearchViewModel` 防抖、`LibraryViewModel`）；其中 D2-10、D2-11、D2-12、D2-14、D2-16 为实机 | 一-1（索引）、**§九 决策 7** |
+| **一-5**（**A 批完成 2026-10-12；B 批完成可本机验的六件（5B-1..5B-6），剩 D2-11 / D2-16 Swift 半边 / D2-12 长期版 + 实机签收**） | **曲库扫描与元数据**：搜索转义与 album 匹配、排序键枚举化、格式白名单统一常量、死码处置、iOS 元数据与标签写入、Windows 路径分组、封面命名与缓存 | D2-05、D2-06、D2-08、D2-09、D2-10、D2-11、D2-12、D2-13、D2-14、D2-15、D2-16、D2-17、D2-18 | `:shared:desktopTest`（`MusicDaoTest` / `MusicRepositoryBaseTest` / 新增 `MusicScanPersistTest`）+ `:shared-ui:testAndroidHostTest`（`SearchViewModel` 防抖、`LibraryViewModel`）；其中 D2-10、D2-11、D2-12、D2-14、D2-16 为实机 | 一-1（索引）、**§九 决策 7** |
 | **一-6** | **设置、备份与密钥**：Android 恢复后密钥解不开要降级不崩、`rememberSaveable` 不落明文、备份路径约束、旧设置链的可靠性、Android 备份读写切 IO、快照覆盖面与 `version` | D7-01、D7-03、D7-04、D7-05、D7-06、D7-07、D7-08、D7-11、D7-12 | `:shared:desktopTest` + `:shared:commonTest`（`BackupSnapshotRoundTripTest`）；其中 D7-01、D7-03、D7-05、D7-06 的 iOS/Android 段为实机 | 一-2 |
 | **一-7**（**已完成编码 2026-10-09，实机签收未做**） | **降级守卫**：`user_version > 9` 时不崩、记日志、给可见提示 | D7-10 | 构造 `user_version = 11` 的库打开：不崩 + 日志含 `dbVersion` + UI 出现版本过高提示；三端各一次（实机） | 一-1；**§九 决策 4** |
 | **一-8** | **结构（可选，建议延后）**：三端 `PlaylistRepositoryImpl` / `SettingsRepositoryImpl` 抽公共基类 | D3-14 | 现有 `PlaylistRepositoryImplTest`(17 例) / `SettingsRepositoryImplTest`(57 例) / `PlaylistDaoTest`(17 例) 全绿 | 一-1..一-4 全绿后 |
@@ -145,6 +145,77 @@
 > **B 批剩下的全部要先定口径**（用户 2026-10-10：这几条先保留）：D3-11 智能歌单三选一、D3-13 上移下移 vs 真拖拽、
 > D3-16 心动/最近播放要不要 UI 入口、D3-05④+D3-12 重名/长度校验的回话形态、D3-17① 管理页列不列系统歌单（与 D3-06 后半同一条口径）、
 > D3-07 尾巴 `updatePlaylistCover` 接 UI 还是删。iOS 侧 D3-09 / D3-10 需 macOS 机器，尚未确认有没有。
+
+> **一-5 分两批做（2026-10-12 起）**：**A 批已完成（同日）** —— 搜索与排序口径，全部可本机验：
+> 5A-1 = D2-05 + D2-06（`LIKE` 三条都配 `ESCAPE`、匹配列补 `album`、转义收在 `toLikeContainsPattern()` 且先转反斜杠；替身与真身的两处"更强"分叉写进 KDoc），
+> 5A-2 = D2-08（`MusicSortKey` / `SortDirection` 枚举 + 三端三份实现删成 `MusicRepositoryBase` 一份 + `RadioSubAgent` 三处 `"play_count"` 改造 + DAO 四条带 SQL `ORDER BY` 的兄弟查询下线），
+> 5A-3 = D2-18（`SearchScreen` 两处调用点收成一处 + `SearchViewModel` 取消与 250ms 防抖 + 清空输入回 `Idle`），
+> 5A-4 = D2-09（`domain/music/AudioFormats.kt` 一份白名单，Desktop / iOS 读它；iOS 因此新增 `opus`）。
+> 判据落点：`:shared:desktopTest`（`MusicRepositoryBaseTest` 搜索 2 例 + 排序 1 例、新增 `DeviceMusicScannerFormatFilterTest` 1 例）、
+> `:shared:commonTest`（`AudioFormatsTest` 3 例、`shared-ui` 侧新增 `IndexJumpModeTest` 3 例）、
+> `:shared-ui:testAndroidHostTest`（新增 `SearchDebounceTest` 4 例）。
+> 变异探针 11 处，每处只把自己那条弄红：排序 4（`FILE_SIZE` 落回按 id / `PLAY_COUNT` 落回按 id / `DATE` 整列反转 / 降序被忽略）、
+> 搜索 2（摘 `album` 列 / 摘 `ESCAPE`）、防抖 3（摘 `delay` / 摘 `cancel()` / 摘 `CancellationException` 重抛）、白名单 2（Desktop 退回自备 7 项 / `substringAfterLast` 丢 missingDelimiterValue）——
+> 其中"摘 `cancel()` 只红覆盖那条、摘 `delay` 只红次数那条"正是本批想要的信号分离：**顺序保证来自取消，防抖只减次数**。
+> 两处如实记的偏离：5A-4 没做判据原文的"扩展名集合由调用方注入"（常量已在 commonMain，真实扫描路径可直接验，不在生产代码留钩子）；
+> 5A-2 的 UI 半边只有 `IndexJumpModeTest` 管"每个键选哪种索引形态"，排序菜单 label→枚举的配对仍没有判据（Compose 资源在测试源集解析不了，`AGENTS.md` §八.1）。
+> **两处口径要用户定，本批没动**：① Android 要不要按 `AudioFormats` 收窄入库（现在由 `MediaStore.is_music` + 时长下限决定，收窄会让已发布平台上看得见的 `.aiff` / `.m4b` 消失）；
+> ② `wma` 进了统一名单后 iOS 会"收进库但 AVPlayer 放不出来"，要不要给 iOS 单减一档。
+> 顺带记下：`SettingsRepository.galleryOrderBy` / `galleryOrderType` 是**写了没人读**的偏好（改动前后都没有读取方，Swift 侧也没消费），属 D7 的"设置项名实"，不在本条收口。
+> **顺带发现并修掉一处既有断裂（不属于 一-5，单独一笔提交）**：本批改了 `iosMain`，于是去查"iOS 怎么验"，发现
+> **`compileAll` 根本不编译 iOS 目标**，而单跑 `:shared:compileKotlinIosSimulatorArm64` 之后暴露 iOS 从 一-3 C1 起就一直编不过
+> （`DateFormats.ios.kt` 重复 import + K/N 里不存在的 `NSDate(timeIntervalSince1970=…)` 与 `NSTimeZone.localTimeZone`；
+> 另有 一-7 带进来的 `DatabaseBuilder.ios.kt` 重复 `@OptIn`）。修完两个 iOS 目标（`:shared` / `:shared-ui`）都编得过了。
+> 这正应了 `AGENTS.md` §八.12 那句"`iosMain` 的实现没有任何机器反馈" —— 现在把这条反馈补进了 §二 的表与 §八.16。
+> **B 批（2026-10-12 起，已完成 5B-1 / 5B-2 / 5B-3）**：
+> **5B-1 = D2-10** 删 `DeviceMusicScanner.android.kt`（116 行零调用 + 一处必崩），
+> 并**把 `expect object DeviceMusicScanner` 一起拆掉** —— 留着 expect 就必须给 Android 配 actual，
+> 那道"三端对称"正是死码存在的唯一理由；Desktop / iOS 的对象降为平台内普通 object，
+> 顺带带走三端零调用的 `isScanning()`。判据是 `compileAll`（含 `:android:app:assembleDebug`）+ `testAll`，没写新用例；
+> "Android 模拟器全量重建曲库不为 0"仍挂实机。
+> **5B-2 = D2-13** 「已隐藏文件夹」的四份切父目录实现（Android `File.parent`、Desktop/iOS 手写 `substringBeforeLast("/")`、
+> UI 侧 `fileParentOf` 三端）收成一个纯函数 `com.hmp.data.util.parentPathOf(path, separators)` + 基类一份分组逻辑，
+> 平台只**声明** `pathSeparators`。**分隔符做成显式参数而不是 `File.separatorChar` 是判据能跑起来的前提**：
+> 走 `File.parent` 的话本机（Linux/macOS runner 同理）对 `C:\…` 的断言会退化成"整串当文件名"，看着绿其实什么都没验。
+> 判据 `ParentPathTest` 3 例 + `MusicRepositoryBaseTest` 2 例，探针 2 处各红；`InMemoryMusicRepository` 的
+> `getDeletedMusicIdsGroupedByFolder` 桩一并删掉（桩着它 = 判据测的是空实现）。
+> **5B-3 = D2-15** 相似歌的 `1 + N` 次查询收成 2 次（用早就存在却没人用的 `musicLabelDao.getAllLabels()`），
+> 两个总览改 SQL `GROUP BY`（并列破序定成 `name ASC` —— 修前并列顺序等于 playCount 遍历顺序，不可断言也不可复现）。
+> **顺带查出一处真 bug**：`labelCategoryWeight` 五项里四项的**键**是 DAO 实体的枚举，而查的时候用 domain 的枚举，
+> map 键被推成 `Any` → 除 `SCENARIO` 外全部查不中、一律按 1 计，"按类别加权"从来没生效过；
+> 编译器不会响（`Map<Any, Int>` 合法），是新判据响的。已修并钉住，陷阱写进 `AGENTS.md` §八.17。
+> 判据 3 例（批量 + 计数装饰器 / 权重生效 / 总览口径），探针 3 处各红。
+> **5B-5 = D2-12 短期版** iOS 标签写入的能力申报 + UI 降级：`MusicTagEditService.canWriteTags`（默认 true，iOS 覆写 false，
+> 依据是那侧从没注册 `TagWriterBridge`、两条保存路径都合流到同一个 `UnsupportedOperationException`），
+> 降级规则抽成纯函数 `tagEditFormPolicy(canWriteTags)`（表单只读 / 隐藏两个保存入口 / 提示改成 `edit_tags_unsupported`），
+> VM **构造时**就带上申报（等 `loadTags` 会先闪一次可用按钮），`save()` 的守卫**不写 `_saveResult`**（否则又变成假反馈）。
+> 判据 3 + 2 例、探针 2 处。偏离如实记：判据后半要"断言 Content 不渲染保存按钮"，本模块没有 Compose 渲染测试基建，
+> 改成"纯函数 + VM 状态"两层，渲染那半仍靠人看（与 D5-09 同一处缺口）；VM 用例不调 `loadTags`，原因同 §八.1（资源解析）。
+> 长期版（Swift `AVAssetExportSession` writer）需 macOS。
+> **5B-4 = D2-17 + D2-16 的 Kotlin 半边**：封面文件名改成**内容指纹**（无符号十六进制，从源头取消 `abs` 那类分叉），
+> `updateMusicTags` / `refreshMusicTags` 成功后把 `music.albumArtUri` 跟到新文件；
+> `fnv1a64` / `stableIdFor` 从两端逐字相同的两份上收为一份，**曲目 id 仍是有符号 Long**（那个数已是真实库的主键，改渲染等于换 id）。
+> 判据 3 + 3 例、探针 3 处 —— 其中一次**探针互相遮蔽**（"摘掉整条调用"会盖住"改动那段"的信号）记进 D2.md，以后有依赖的探针要单独跑。
+> iOS 那侧未做：Swift 的 extractor 自己决定文件名、Kotlin 拿不到字节，要收口必须先改 Swift；
+> 所以 **iOS 上"换封面仍是旧图"目前仍然存在**。另有升级代价：Desktop 旧库的 `cover_<有符号>.jpg` 变成孤儿（没有清理器，要扫全库 uri 才知道谁还在被引用）。
+> **5B-6 = D2-14** iOS 扫描目录空壳：空函数体改成显式 `UnsupportedOperationException`，契约说明写进 `SettingsRepository` 接口 KDoc
+> （后来人先看接口）；调用点核过只有 `UserSettingsUseCase` 一处转调、而它的 UI 入口在 iOS 不渲染，所以不是行为回归。
+> 判据是 `:shared:compileKotlinIosSimulatorArm64` 通过 + `grep` 只剩声明与 throw；运行时真的抛、以及设置页那两个区块不出现，
+> 仍要模拟器签收。**本条立案时写的"iOS 分支本机编不了"已经失效** —— 修好 iOS 目标之后本机就能拿编译器反馈，
+> 但那是"你自己跑"，CI 依旧不编 iOS。
+> **5B-7 = D2-09 的尾巴（用户 2026-10-12 把口径都定了）**：① **Android 按白名单收窄** —— MediaStore 查询之后用
+> `AudioFormats.isIncludedInLibrary(path, duration)` 后置过滤（放在标签解析**之前**，被排除的条目不该再付一次文件读取），
+> `IS_MUSIC` 仍是第一道；代价（已发布平台上 `.aiff` / `.m4b` 消失）被明确接受。
+> ② **`wma` 保留**，不给 iOS 单减 —— 于是"能扫进来"与"能播"在本项目里不是同一个集合，这句话进了 `AudioFormats` KDoc 与 `AGENTS.md` §七。
+> ③ **扫出第三个成因（立案时漏了）**：Android 带 `DURATION > 60000`（一分钟！短前奏/音效在 Android 根本看不见），
+> Desktop / iOS 毫无下限 —— 统一成**三端 5 秒只挡碎片**，并钉住"读不到时长 ≠ 时长为 0"（null 一律收，
+> 因读不出而丢条目 = 扫描阶段静默少歌）。判据 `AudioFormatsTest` +2、新增 `DeviceMusicScannerDurationFloorTest` 3 例
+> （真 WAV 8kHz 造 1s/5s/6s，走真实扫描路径），探针 2 处（第二处一次弄红 3 条，因为格式判据用的假文件全读不出时长 ——
+> 正是 D2-06 那类"桩替真身兜底"的形状）。**Android 的接线没有机器判据**（`:shared` 无 androidHostTest 源集，§八.12），
+> 规则本身在 commonTest 钉住，"循环里真调了它"只能读代码 + 编译。
+> **B 批剩余全部要 Mac 或设备**：D2-11（iOS year/genre/track）、D2-16 的 Swift 半边、D2-12 长期版、
+> D2-14 / 5B-1 / 5B-7(Android 收窄后的实机数量核对) 的实机签收。用户有 Mac，但要求先把 一-6 做完再回来动 iOS。
+
 
 > **本轮记下一条会咬人的既有脆弱点（不在任何待办里）**：
 > `commonTest` 的 `PlaybackObservationBusTest.静默会取更晚的那个截止时间` 用真实墙钟（`muteFor(100/400)` + `delay(150)`），

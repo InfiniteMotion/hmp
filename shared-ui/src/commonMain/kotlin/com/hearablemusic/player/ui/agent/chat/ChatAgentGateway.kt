@@ -23,6 +23,8 @@ import com.hmp.domain.agent.runtime.ContextAssembler
 import com.hmp.domain.agent.config.EngineDefaults
 import com.hmp.domain.agent.runtime.MasterAgent
 import com.hmp.domain.agent.runtime.sub.radio.RadioState
+import com.hmp.domain.music.MusicSortKey
+import com.hmp.domain.music.SortDirection
 import com.hmp.domain.music.MusicRepository
 import com.hmp.domain.setting.model.AiEndpointConfig
 import com.hmp.data.database.currentTimeMillis
@@ -178,7 +180,7 @@ class MasterChatGateway(
                     if (playlist != null && playlist.isNotEmpty()) {
                         val ids = playlist.map { it.musicId }
                         val musicInfos = runCatching {
-                            musicRepository.getAllMusicInfoAsList("id", "asc")
+                            musicRepository.getAllMusicInfoAsList(MusicSortKey.ID, SortDirection.ASC)
                                 .filter { it.music.id in ids }
                         }.getOrDefault(emptyList())
                         val radioEvent = ChatAgentEvent.RadioStarted(
@@ -295,7 +297,7 @@ class MasterChatGateway(
         // 把 RadioTrack.musicId 批量查 MusicInfo
         val ids = tracks.map { it.musicId }
         val musicInfos = runCatching {
-            musicRepository.getAllMusicInfoAsList("id", "asc")
+            musicRepository.getAllMusicInfoAsList(MusicSortKey.ID, SortDirection.ASC)
                 .filter { it.music.id in ids }
         }.getOrDefault(emptyList())
 

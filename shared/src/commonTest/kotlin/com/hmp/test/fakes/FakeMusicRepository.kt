@@ -8,6 +8,8 @@ import com.hmp.domain.backup.MusicUserStateSnapshot
 import com.hmp.domain.enum.LabelCategory
 import com.hmp.domain.enum.LabelName
 import com.hmp.domain.music.EditableMusicTags
+import com.hmp.domain.music.MusicSortKey
+import com.hmp.domain.music.SortDirection
 import com.hmp.domain.music.MusicExtra
 import com.hmp.domain.music.MusicExtraTexts
 import com.hmp.domain.music.MusicInfo
@@ -47,15 +49,24 @@ class FakeMusicRepository : MusicRepository {
         musicList.add(musicInfo)
     }
 
-    override suspend fun getAllMusicInfoAsList(orderBy: String, orderType: String): List<MusicInfo> {
-        val sorted = when (orderBy.lowercase()) {
-            "title" -> musicList.sortedBy { it.music.title.lowercase() }
-            "artist" -> musicList.sortedBy { it.music.artist.lowercase() }
-            "album" -> musicList.sortedBy { it.music.album.lowercase() }
-            "duration" -> musicList.sortedBy { it.music.duration }
-            else -> musicList.sortedBy { it.music.title.lowercase() }
+    /**
+     * ⚠️ 与 `MusicRepositoryBase.getAllMusicInfoAsList` 同一签名、同一批排序键（D2-08 的教训：
+     * 替身比真身"更能干"或"更宽容"，绿灯就成了反向信号）。这里仍用简单的大小写不敏感比较，
+     * 因为替身环境没有拼音表；**排序键的集合与方向语义必须一致**，测试要断言这一点。
+     */
+    override suspend fun getAllMusicInfoAsList(key: MusicSortKey, direction: SortDirection): List<MusicInfo> {
+        val ascending: Comparator<MusicInfo> = when (key) {
+            MusicSortKey.TITLE -> compareBy { it.music.title.lowercase() }
+            MusicSortKey.ARTIST -> compareBy { it.music.artist.lowercase() }
+            MusicSortKey.ALBUM -> compareBy { it.music.album.lowercase() }
+            MusicSortKey.DURATION -> compareBy { it.music.duration }
+            MusicSortKey.FILE_SIZE -> compareBy { it.extra?.fileSize ?: 0L }
+            MusicSortKey.PLAY_COUNT -> compareBy { it.userInfo?.playCount ?: 0 }
+            MusicSortKey.DATE -> compareBy { it.extra?.date ?: 0L }
+            MusicSortKey.ID -> compareBy { it.music.id }
         }
-        return if (orderType.uppercase() == "DESC") sorted.reversed() else sorted
+        val sorted = musicList.sortedWith(if (direction.isDescending) ascending.reversed() else ascending)
+        return sorted
     }
 
     override fun getMusicCount(): Flow<Int> = flowOf(musicList.size)
@@ -93,6 +104,16 @@ class FakeMusicRepository : MusicRepository {
             .sortedByDescending { it.second }
             .take(limit)
 
+    /**
+     * ⚠️ 列集合必须与 `MusicAllDao.searchMusic` 的 SQL **一致**（D2-06 的教训）：
+     * 这条替身曾匹配 title+artist+album，而生产 SQL 只匹配 title+artist ——
+     * 于是 `SearchMusicUseCaseTest.invoke_matchesAlbum` 一直绿，证明的却是"假实现按假预期工作"，
+     * 把真缺陷（搜专辑恒为空）完全掩盖掉。
+     *
+     * 真 SQL 的搜索语义（大小写不敏感的子串匹配 + `_`/`%` 视为字面量）由
+     * `:shared:desktopTest` 的 `MusicRepositoryBaseTest` 在**真 Room**上钉住；
+     * 这里的断言只当冒烟用，别把它当契约验证。
+     */
     override suspend fun searchMusic(query: String): List<MusicInfo> {
         val q = query.lowercase()
         return musicList.filter {

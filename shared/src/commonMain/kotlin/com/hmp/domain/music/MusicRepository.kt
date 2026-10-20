@@ -16,7 +16,13 @@ import kotlinx.coroutines.flow.Flow
 
 interface MusicRepository {
     // Music Query
-    suspend fun getAllMusicInfoAsList(orderBy: String, orderType: String): List<MusicInfo>
+    /**
+     * 全库列表，按 [key] / [direction] 排序（D2-08）。
+     *
+     * 键是枚举不是字符串：三端各自的 `when (orderBy) { … else -> 按 id }` 兜底会把拼错的键
+     * 变成"能用，但换个排法" —— 枚举让这种调用编不过。实现也只有一份（`MusicRepositoryBase`）。
+     */
+    suspend fun getAllMusicInfoAsList(key: MusicSortKey, direction: SortDirection): List<MusicInfo>
     fun getMusicCount(): Flow<Int>
     fun getMusicWithExtraCount(): Flow<Int>
     fun getMusicWithMissingExtraCount(): Flow<Int>

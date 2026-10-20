@@ -7,6 +7,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.hmp.domain.music.MusicSortKey
+import com.hmp.domain.music.SortDirection
 import com.hmp.domain.music.MusicInfo
 import com.hmp.data.util.stringToPinyinSortKey
 import androidx.compose.foundation.layout.PaddingValues
@@ -44,10 +46,10 @@ sealed class HeaderConfig {
         val trailing: (@Composable () -> Unit)? = null,
     ) : HeaderConfig()
     data class Full(
-        val selectedGenre: String,
-        val selectedOrder: String,
-        val onFilterGenreChange: (String) -> Unit,
-        val onFilterOrderChange: (String) -> Unit,
+        val selectedGenre: MusicSortKey,
+        val selectedOrder: SortDirection,
+        val onFilterGenreChange: (MusicSortKey) -> Unit,
+        val onFilterOrderChange: (SortDirection) -> Unit,
         val onOrderPlay: () -> Unit,
         val onShufflePlay: () -> Unit,
         val singleRowFilter: Boolean = false,
@@ -166,7 +168,7 @@ data class IndexJumpConfig(
     val letters: List<Char> = ('A'..'Z').toList() + listOf('#'),
     val letterToIndex: (List<MusicInfo>) -> Map<Char, Int>,
     val smartAnchor: ((List<MusicInfo>) -> Pair<List<String>, Map<Int, Int>>)? = null,
-    val orderType: String = "ASC",
+    val orderType: SortDirection = SortDirection.ASC,
 ) {
     val isAnchorMode: Boolean get() = smartAnchor != null
 }
@@ -216,36 +218,39 @@ private const val SMART_ANCHOR_MIN = 8
 private const val SMART_ANCHOR_MAX = 16
 
 /** 升序时字母条从上到下 A–Z #，降序时 Z–A # */
-private fun lettersForOrderType(orderType: String): List<Char> =
-    if (orderType.uppercase() == "DESC") ('Z' downTo 'A').toList() + listOf('#')
+private fun lettersForOrderType(orderType: SortDirection): List<Char> =
+    if (orderType.isDescending) ('Z' downTo 'A').toList() + listOf('#')
     else ('A'..'Z').toList() + listOf('#')
 
 /**
  * 根据 [orderBy] 与 [orderType] 返回对应的索引配置。
  * title/artist/album 使用字母索引，降序时字母条为 Z–A #；duration/fileSize/playCount/id 使用锚点索引。
  */
-fun indexJumpConfigForOrderBy(orderBy: String, orderType: String = "ASC"): IndexJumpConfig {
+fun indexJumpConfigForOrderBy(
+    orderBy: MusicSortKey,
+    orderType: SortDirection = SortDirection.ASC,
+): IndexJumpConfig {
     val letters = lettersForOrderType(orderType)
     return when (orderBy) {
-        "title" -> IndexJumpConfig(
+        MusicSortKey.TITLE -> IndexJumpConfig(
             enabled = true,
             letters = letters,
             letterToIndex = ::defaultLetterToIndex,
             orderType = orderType,
         )
-        "artist" -> IndexJumpConfig(
+        MusicSortKey.ARTIST -> IndexJumpConfig(
             enabled = true,
             letters = letters,
             letterToIndex = { list -> letterToIndexByString(list) { it.music.artist } },
             orderType = orderType,
         )
-        "album" -> IndexJumpConfig(
+        MusicSortKey.ALBUM -> IndexJumpConfig(
             enabled = true,
             letters = letters,
             letterToIndex = { list -> letterToIndexByString(list) { it.music.album } },
             orderType = orderType,
         )
-        "duration" -> IndexJumpConfig(
+        MusicSortKey.DURATION -> IndexJumpConfig(
             enabled = true,
             letterToIndex = { emptyMap() },
             smartAnchor = { list ->
@@ -253,7 +258,7 @@ fun indexJumpConfigForOrderBy(orderBy: String, orderType: String = "ASC"): Index
             },
             orderType = orderType,
         )
-        "fileSize" -> IndexJumpConfig(
+        MusicSortKey.FILE_SIZE -> IndexJumpConfig(
             enabled = true,
             letterToIndex = { emptyMap() },
             smartAnchor = { list ->
@@ -265,7 +270,7 @@ fun indexJumpConfigForOrderBy(orderBy: String, orderType: String = "ASC"): Index
             },
             orderType = orderType,
         )
-        "playCount" -> IndexJumpConfig(
+        MusicSortKey.PLAY_COUNT -> IndexJumpConfig(
             enabled = true,
             letterToIndex = { emptyMap() },
             smartAnchor = { list ->
@@ -277,7 +282,7 @@ fun indexJumpConfigForOrderBy(orderBy: String, orderType: String = "ASC"): Index
             },
             orderType = orderType,
         )
-        "id" -> IndexJumpConfig(
+        MusicSortKey.ID -> IndexJumpConfig(
             enabled = true,
             letterToIndex = { emptyMap() },
             smartAnchor = { list ->
@@ -288,24 +293,14 @@ fun indexJumpConfigForOrderBy(orderBy: String, orderType: String = "ASC"): Index
             },
             orderType = orderType,
         )
-        "date" -> IndexJumpConfig(
+        MusicSortKey.DATE -> IndexJumpConfig(
             enabled = true,
             letterToIndex = { emptyMap() },
             smartAnchor = { list -> computeDateSmartAnchors(list, orderType) },
             orderType = orderType,
         )
-        "year" -> IndexJumpConfig(
-            enabled = true,
-            letterToIndex = { emptyMap() },
-            smartAnchor = { list -> computeDateSmartAnchors(list, orderType) },
-            orderType = orderType,
-        )
-        else -> IndexJumpConfig(
-            enabled = true,
-            letters = letters,
-            letterToIndex = ::defaultLetterToIndex,
-            orderType = orderType,
-        )
+        // "year" 分支（菜单里从来没这个键）与 else 兜底一并删掉：
+        // `when` 现在对 MusicSortKey 穷尽，加新键时必须在这里表态，不会再静默走字母档
     }
 }
 
@@ -390,7 +385,10 @@ private fun formatFileSize(bytes: Long): String = when {
  * （`labels.getOrNull(0) == "未知"` 比较）。本地化需先拆成「内部稳定哨兵 + 显示层文案」两层，
  * 属结构改造，故延后。
  */
-private fun computeIdSmartAnchors(list: List<MusicInfo>, orderType: String = "ASC"): Pair<List<String>, Map<Int, Int>> {
+private fun computeIdSmartAnchors(
+    list: List<MusicInfo>,
+    orderType: SortDirection = SortDirection.ASC,
+): Pair<List<String>, Map<Int, Int>> {
     if (list.isEmpty()) return Pair(emptyList(), emptyMap())
     val n = list.size
     if (n <= 1) return Pair(listOf("早"), mapOf(0 to 0))
@@ -404,7 +402,7 @@ private fun computeIdSmartAnchors(list: List<MusicInfo>, orderType: String = "AS
     val labels = (0 until anchorCount).map { i ->
         positionLabels.getOrElse(i) { "${i + 1}/${anchorCount}" }
     }
-    val desc = orderType.uppercase() == "DESC"
+    val desc = orderType.isDescending
     val map = (0 until anchorCount).associate { i ->
         val pos = (i.toLong() * (n - 1) / (anchorCount - 1).coerceAtLeast(1)).toInt().coerceIn(0, n - 1)
         val listIndex = if (desc) n - 1 - pos else pos
@@ -419,7 +417,7 @@ private fun computeIdSmartAnchors(list: List<MusicInfo>, orderType: String = "AS
  */
 private fun computeDateSmartAnchors(
     list: List<MusicInfo>,
-    orderType: String,
+    orderType: SortDirection,
 ): Pair<List<String>, Map<Int, Int>> {
     if (list.isEmpty()) return Pair(emptyList(), emptyMap())
     fun getYearMonth(info: MusicInfo): Pair<Int, Int> {
@@ -428,7 +426,7 @@ private fun computeDateSmartAnchors(
     }
     val pairs = list.map(::getYearMonth).distinct()
     if (pairs.isEmpty()) return Pair(emptyList(), emptyMap())
-    val sorted = if (orderType.uppercase() == "DESC") {
+    val sorted = if (orderType.isDescending) {
         pairs.sortedWith(compareBy({ -it.first }, { -it.second }))
     } else {
         pairs.sortedWith(compareBy({ it.first }, { it.second }))
@@ -456,7 +454,7 @@ private fun computeDateSmartAnchors(
  */
 private fun computeAddOrderYearMonthAnchors(
     list: List<MusicInfo>,
-    orderType: String,
+    orderType: SortDirection,
 ): Pair<List<String>, Map<Int, Int>> {
     if (list.isEmpty()) return Pair(emptyList(), emptyMap())
     val n = list.size
@@ -464,7 +462,7 @@ private fun computeAddOrderYearMonthAnchors(
     val endMs = nowEpochMillis()
     val startMs = endMs - 2L * 365 * 24 * 3600 * 1000
     val spanMs = (endMs - startMs).toDouble().coerceAtLeast(1.0)
-    val desc = orderType.uppercase() == "DESC"
+    val desc = orderType.isDescending
     fun virtualYearMonth(listIndex: Int): Pair<Int, Int> {
         val ratio = if (n <= 1) 1.0 else {
             val r = listIndex.toDouble() / (n - 1).coerceAtLeast(1)
@@ -492,7 +490,7 @@ private fun computeAddOrderYearMonthAnchors(
  */
 private fun computeDateStylePositionAnchors(
     list: List<MusicInfo>,
-    orderType: String,
+    orderType: SortDirection,
 ): Pair<List<String>, Map<Int, Int>> {
     if (list.isEmpty()) return Pair(emptyList(), emptyMap())
     val n = list.size
@@ -500,7 +498,7 @@ private fun computeDateStylePositionAnchors(
     val anchorCount = 13
     val currentYear = epochMillisToYearMonth(nowEpochMillis()).first
     val labels = listOf(currentYear.toString()) + (1..12).map { commonFormat("%02d", it) }
-    val desc = orderType.uppercase() == "DESC"
+    val desc = orderType.isDescending
     val map = (0 until anchorCount).associate { i ->
         val pos = (i.toLong() * (n - 1) / (anchorCount - 1).coerceAtLeast(1)).toInt().coerceIn(0, n - 1)
         val listIndex = if (desc) n - 1 - pos else pos
@@ -615,10 +613,10 @@ fun galleryPresetMusicListConfig(callbacks: MusicListCallbacks): MusicListConfig
  * 曲库/列表页预设：Full 头部（排序筛选）、Full 单项、可编辑、可选索引与滚动条。
  */
 fun libraryPresetMusicListConfig(
-    selectedGenre: String,
-    selectedOrder: String,
-    onFilterGenreChange: (String) -> Unit,
-    onFilterOrderChange: (String) -> Unit,
+    selectedGenre: MusicSortKey,
+    selectedOrder: SortDirection,
+    onFilterGenreChange: (MusicSortKey) -> Unit,
+    onFilterOrderChange: (SortDirection) -> Unit,
     onOrderPlay: () -> Unit,
     onShufflePlay: () -> Unit,
     callbacks: MusicListCallbacks,

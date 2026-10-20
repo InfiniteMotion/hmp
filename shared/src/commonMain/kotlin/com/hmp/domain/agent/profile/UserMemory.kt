@@ -13,6 +13,8 @@ import com.hmp.domain.backup.TransactionRunner
 import com.hmp.domain.agent.port.AuditEntry
 import com.hmp.domain.agent.port.AuditLogPort
 import com.hmp.domain.music.MusicRepository
+import com.hmp.domain.music.MusicSortKey
+import com.hmp.domain.music.SortDirection
 import com.hmp.log.HmpLog
 import com.hmp.log.LogTag
 
@@ -420,7 +422,7 @@ class UserMemory(
      * 该查询本身带 `WHERE music.isDeleted = 0`，天然符合"排除软删除"纪律（契约 §4.3）。
      */
     private suspend fun loadLibraryTracks(): List<LibraryTrack> =
-        musicRepository.getAllMusicInfoAsList("id", "ASC").map { info ->
+        musicRepository.getAllMusicInfoAsList(MusicSortKey.ID, SortDirection.ASC).map { info ->
             LibraryTrack(
                 artist = info.music.artist,
                 album = info.music.album,

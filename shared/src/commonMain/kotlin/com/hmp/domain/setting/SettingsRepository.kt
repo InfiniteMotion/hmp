@@ -43,6 +43,16 @@ interface SettingsRepository {
     suspend fun saveIsLoadMusic(isLoadMusic: Boolean)
 
     // Scan Directory Config
+    /**
+     * 自定义扫描目录与屏蔽目录。
+     *
+     * ⚠️ **iOS 没有这个概念**（沙盒里只有 `Documents`，用户不能指定别处），那端的
+     * [scanDirectoryConfig] 恒返回默认值、[saveScanDirectoryConfig] **直接抛**
+     * `UnsupportedOperationException`（D2-14：原先是空函数体，看起来"能存"、其实什么都没写）。
+     * UI 侧的对应申报是 `IosFilePickerService.directorySelectionMode = UNSUPPORTED`，
+     * 所以「扫描目录 / 屏蔽目录」那两个区块在 iOS 上不渲染。
+     * 接新平台时请沿用"申报能力 + 写侧立刻炸"这一对，别再回到静默空实现。
+     */
     val scanDirectoryConfig: Flow<ScanDirectoryConfig>
     suspend fun saveScanDirectoryConfig(config: ScanDirectoryConfig)
 

@@ -56,6 +56,7 @@ import com.hearablemusic.player.ui.generated.resources.chevron_up
 import com.hearablemusic.player.ui.generated.resources.choose_cover
 import com.hearablemusic.player.ui.generated.resources.edit_music_tags
 import com.hearablemusic.player.ui.generated.resources.edit_tags_hint
+import com.hearablemusic.player.ui.generated.resources.edit_tags_unsupported
 import com.hearablemusic.player.ui.generated.resources.music_not_found
 import com.hearablemusic.player.ui.generated.resources.no_lyrics
 import com.hearablemusic.player.ui.generated.resources.remove_cover
@@ -122,6 +123,9 @@ fun EditMusicTagsScreen(
         }
     }
 
+    // 降级规则是一份，不散在七个 enabled 里（D2-12）
+    val formPolicy = tagEditFormPolicy(uiState.canWriteTags)
+
     val onSaveClick: () -> Unit = {
         if (uiState.isFileWritable) {
             viewModel.save()
@@ -143,17 +147,21 @@ fun EditMusicTagsScreen(
         onBackClick = { navController.removeLastOrNull() },
         title = stringResource(Res.string.edit_music_tags),
         trailingContent = {
-            TextButton(
-                enabled = !uiState.isLoading && !isSaving && uiState.hasChanges,
-                onClick = onSaveClick
-            ) {
-                if (isSaving) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(18.dp),
-                        strokeWidth = 2.dp
-                    )
-                } else {
-                    Text(stringResource(Res.string.save))
+            // 本端不能写标签时**不提供保存入口**（D2-12）：原先无论哪一端都把按钮摆出来，
+            // iOS 点下去只会拿到一个失败弹窗，看起来像用户自己填错了。
+            if (formPolicy.showSaveAction) {
+                TextButton(
+                    enabled = !uiState.isLoading && !isSaving && uiState.hasChanges,
+                    onClick = onSaveClick
+                ) {
+                    if (isSaving) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp),
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Text(stringResource(Res.string.save))
+                    }
                 }
             }
         }
@@ -205,7 +213,7 @@ fun EditMusicTagsScreen(
                                 onValueChange = viewModel::onTitleChange,
                                 label = { Text(stringResource(Res.string.tag_title)) },
                                 singleLine = true,
-                                enabled = !isSaving,
+                                enabled = !isSaving && formPolicy.fieldsEditable,
                                 modifier = Modifier.fillMaxWidth()
                             )
                             OutlinedTextField(
@@ -213,7 +221,7 @@ fun EditMusicTagsScreen(
                                 onValueChange = viewModel::onArtistChange,
                                 label = { Text(stringResource(Res.string.tag_artist)) },
                                 singleLine = true,
-                                enabled = !isSaving,
+                                enabled = !isSaving && formPolicy.fieldsEditable,
                                 modifier = Modifier.fillMaxWidth()
                             )
                             OutlinedTextField(
@@ -221,7 +229,7 @@ fun EditMusicTagsScreen(
                                 onValueChange = viewModel::onAlbumChange,
                                 label = { Text(stringResource(Res.string.tag_album)) },
                                 singleLine = true,
-                                enabled = !isSaving,
+                                enabled = !isSaving && formPolicy.fieldsEditable,
                                 modifier = Modifier.fillMaxWidth()
                             )
                         }
@@ -235,7 +243,7 @@ fun EditMusicTagsScreen(
                                     onValueChange = viewModel::onYearChange,
                                     label = { Text(stringResource(Res.string.tag_year)) },
                                     singleLine = true,
-                                    enabled = !isSaving,
+                                    enabled = !isSaving && formPolicy.fieldsEditable,
                                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                     modifier = Modifier.weight(1f)
                                 )
@@ -244,7 +252,7 @@ fun EditMusicTagsScreen(
                                     onValueChange = viewModel::onTrackChange,
                                     label = { Text(stringResource(Res.string.tag_track)) },
                                     singleLine = true,
-                                    enabled = !isSaving,
+                                    enabled = !isSaving && formPolicy.fieldsEditable,
                                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                     modifier = Modifier.weight(1f)
                                 )
@@ -254,7 +262,7 @@ fun EditMusicTagsScreen(
                                 onValueChange = viewModel::onGenreChange,
                                 label = { Text(stringResource(Res.string.tag_genre)) },
                                 singleLine = true,
-                                enabled = !isSaving,
+                                enabled = !isSaving && formPolicy.fieldsEditable,
                                 modifier = Modifier.fillMaxWidth()
                             )
                         }
@@ -263,28 +271,35 @@ fun EditMusicTagsScreen(
                     LyricsSection(
                         lyrics = uiState.lyrics,
                         onLyricsChange = viewModel::onLyricsChange,
-                        enabled = !isSaving
+                        enabled = !isSaving && formPolicy.fieldsEditable
                     )
                     Text(
-                        text = stringResource(Res.string.edit_tags_hint),
+                        text = stringResource(
+                            // 不支持时把那句"留空表示不修改"换成一句明确的申报（D2-12）：
+                            // 否则表单只读、按钮消失，用户只会以为页面坏了
+                            if (!formPolicy.showUnsupportedHint) Res.string.edit_tags_hint
+                            else Res.string.edit_tags_unsupported
+                        ),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
 
                     Spacer(modifier = Modifier.height(4.dp))
-                    Button(
-                        onClick = onSaveClick,
-                        enabled = !isSaving && uiState.hasChanges,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        if (isSaving) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(20.dp),
-                                strokeWidth = 2.dp,
-                                color = MaterialTheme.colorScheme.onPrimary
-                            )
-                        } else {
-                            Text(stringResource(Res.string.save))
+                    if (formPolicy.showSaveAction) {
+                        Button(
+                            onClick = onSaveClick,
+                            enabled = !isSaving && uiState.hasChanges,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            if (isSaving) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(20.dp),
+                                    strokeWidth = 2.dp,
+                                    color = MaterialTheme.colorScheme.onPrimary
+                                )
+                            } else {
+                                Text(stringResource(Res.string.save))
+                            }
                         }
                     }
                     MiniPlayerSafeSpacer(height = 56.dp)

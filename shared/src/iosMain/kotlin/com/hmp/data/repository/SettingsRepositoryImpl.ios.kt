@@ -186,8 +186,22 @@ class SettingsRepositoryImpl(
 
     override suspend fun saveIsFirstLaunch(isFirstLaunch: Boolean) { dataStore.edit { prefs -> prefs[PreferencesKeys.IS_FIRST_LAUNCH] = isFirstLaunch } }
     override suspend fun saveIsLoadMusic(isLoadMusic: Boolean) { dataStore.edit { prefs -> prefs[PreferencesKeys.IS_LOAD_MUSIC] = isLoadMusic } }
+    /** iOS 沙盒没有"自定义扫描目录"这个概念，见 `SettingsRepository` 上那段契约（D2-14）。 */
     override val scanDirectoryConfig: Flow<ScanDirectoryConfig> = flowOf(ScanDirectoryConfig())
-    override suspend fun saveScanDirectoryConfig(config: ScanDirectoryConfig) { }
+
+    /**
+     * 写侧直接抛（D2-14）：原先是**空函数体** —— 返回 Unit、什么都没写，
+     * 对任何新调用者都是"看似可用、实则黑洞"，而且这种空壳常被误认成"待接线"而重复劳动。
+     *
+     * 现在误用立刻炸，而不是静默吞掉。UI 那侧本来就不会走到这里
+     * （`IosFilePickerService.directorySelectionMode = UNSUPPORTED` 让那两个区块不渲染），
+     * 所以这不是行为回归，是把已经存在的"不支持"说出来。
+     */
+    override suspend fun saveScanDirectoryConfig(config: ScanDirectoryConfig): Unit =
+        throw UnsupportedOperationException(
+            "iOS has no user-selectable scan directories (sandbox exposes Documents only); " +
+                "the UI must not offer this on iOS — see SettingsRepository.scanDirectoryConfig"
+        )
     override suspend fun saveThemeMode(themeMode: String) { dataStore.edit { prefs -> prefs[PreferencesKeys.THEME_MODE] = themeMode } }
     override suspend fun saveBackgroundStyle(style: String) { dataStore.edit { prefs -> prefs[PreferencesKeys.BACKGROUND_STYLE] = style } }
     override suspend fun saveHazeMode(mode: String) { dataStore.edit { prefs -> prefs[PreferencesKeys.HAZE_MODE] = normalizeHazeMode(mode) } }

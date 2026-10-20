@@ -52,6 +52,7 @@
 | `shared` 的 Domain / Agent | `./gradlew-lowmem.bat testCore` |
 | `shared-ui` 的 UI | `./gradlew-lowmem.bat testUi` |
 | 改了公共 API | `./gradlew-lowmem.bat compileAll`（查下游破坏，比全量测试快得多） |
+| 改了 `iosMain` / expect-actual 的 iOS 半边 | `./gradlew-lowmem.bat :shared:compileKotlinIosSimulatorArm64 :shared-ui:compileKotlinIosSimulatorArm64` —— **`compileAll` 不编译 iOS 目标**，它只挂 desktop/android |
 | 提交前 | `./gradlew-lowmem.bat testAll` |
 | 发版前 | `./gradlew-lowmem.bat preflight` |
 
@@ -128,7 +129,9 @@ HMP/
 
 ## 四、跨平台机制
 
-`expect`/`actual` 在文件级 **1:1:1 配对，三端无孤儿**。已知的 expect：`DeviceMusicScanner`、`MusicTagParser`、`SecureStorageHelper`、`stringToPinyinSortKey()`、`getRoomDatabase()`、`AppDatabaseConstructor`（无手写 actual，由 Room KSP 生成）、`DataStoreFactory`、`createHttpClient()` / `createJson()`、`currentTimeMillis()`、`rememberStatusBarsController()`、`platform/Synchronized.kt` 与 `Volatile.kt`（Android/Desktop 是 `actual typealias` 到 `kotlin.jvm.*`，iOS 是真正的 `actual annotation class`）。
+`expect`/`actual` 在文件级 **1:1:1 配对，三端无孤儿**。已知的 expect：`MusicTagParser`、`SecureStorageHelper`、`stringToPinyinSortKey()`、`getRoomDatabase()`、`AppDatabaseConstructor`（无手写 actual，由 Room KSP 生成）、`DataStoreFactory`、`createHttpClient()` / `createJson()`、`currentTimeMillis()`、`rememberStatusBarsController()`、`platform/Synchronized.kt` 与 `Volatile.kt`（Android/Desktop 是 `actual typealias` 到 `kotlin.jvm.*`，iOS 是真正的 `actual annotation class`）。
+
+⚠️ **`DeviceMusicScanner` 已经不是 expect/actual**（2026-10-12，一-5 B 批，D2-10）：三端真正的共享抽象是 `MusicRepositoryBase.performMusicScan()`，Desktop / iOS 的 `object DeviceMusicScanner` 只是各自源集里的平台内助手，Android 那份是零调用死码（内含一处必崩 bug）已删。**别再把"三端对称"当成保留理由** —— 那道对称当初正是为了让一个从不被消费的 Android actual 看起来合理。
 
 平台差异在 UI 侧收口到 `shared-ui/src/commonMain/.../ui/platform/` 的接口：`PlaybackController`（137 行，约 17 个 StateFlow + 30 个方法，接口已冻结）、`AlbumArtPixelsLoader`、`PlatformServices`（`Share` / `FilePicker` / `Permission` / `MusicTagEdit` / `Haptic` / `FloatingLyrics` 的门面）。三端实现：`MusicControllerPlaybackAdapter` / `DesktopMusicControllerPlaybackAdapter` / `IosPlaybackController` + `IosPlaybackStateSink`。
 
@@ -190,9 +193,16 @@ HMP/
 - 仓库接口 4 个：`MusicRepository`、`PlaylistRepository`、`SettingsRepository`、`BackupFileRepository`。实现**按平台三份镜像**（`*Impl.{android,desktop,ios}.kt`，基于 `MusicRepositoryBase.kt` 1245 行），`SettingsRepositoryImpl.{desktop,ios}` 各约 500 行。
 - UseCase 共 22 个（music 10 / setting 6 / backup 4 / playlist 2）。
 - **播放时长的单一口径**（一-3 C3）：`PlaybackHistory.playDuration` = **本次会话累计实听毫秒**（不含 seek 空档，与 `listeningDuration` 的日累计同语义）—— 不是引擎当前位置，也不是曲目元数据时长。三端各自的结算点算的就是这一个数，新增播放入口时别顺手改回另外两种。
-- **歌单的两个"看不见"契约**（一-4 A2 / A3）：① `PlaylistRepository.reorderPlaylistItems` 返回 `Boolean`，校验在 `PlaylistItemDao.reorderAndRefresh` 里（不在仓库、也不在 UseCase —— Agent 工具绕开 UseCase 直连仓库），`false` = 入参不是**当前可见曲目**（`music.isDeleted = 0`）的完整排列，此时一个字都没写；新增重排入口别绕过它。② `playlist.songCount` / `totalDurationMs` 是缓存列，**曲目可见性变了也要重算** —— `removeFromLibrary` / `restoreToLibrary` / 扫描的"没扫到"分支都调 `refreshStatsForPlaylistsContaining`，新增软删入口时忘了它就会"标题 10 首、列表 9 首"。封面则相反：`fillCoverFromFirstItemIfAbsent` 只在歌单没有封面时回填，手动设过的不再被首曲覆写。
+- **排序只有一个入口、键是枚举**（一-5 A 批，D2-08）：`MusicRepository.getAllMusicInfoAsList(MusicSortKey, SortDirection)`，枚举在 `domain/music/MusicSort.kt`，**实现只在 `MusicRepositoryBase` 一份**。三端各一份 `when (orderBy) { … else -> 按 id }` 的时代结束：拼错的键现在是编译错误（`RadioSubAgent` 曾传 `"play_count"`，三端全落进 `else`、实际按 id 排也不报错）。新增键必须给 `when` 补分支，UI 侧 `IndexJumpModeTest` 会拦"没表态"的新键。`DATE` 的口径：**没有日期的行两个方向都在末尾**（与索引条「未知」档一致）。⚠️ `SettingsRepository.galleryOrderBy` / `galleryOrderType` 仍是裸字符串，且**全仓没有任何读取方**（存了没人读）。
+- **音频格式白名单与时长下限只有一份**（一-5，D2-09）：`domain/music/AudioFormats.kt`。Desktop / iOS 在文件遍历时判，**Android 也在 MediaStore 查询之后按它后置过滤**（`IS_MUSIC` 是第一道，白名单是第二道；用户 2026-10-12 决定收窄，代价是已发布平台上 `.aiff` / `.m4b` 这类条目会从曲库消失）。时长下限统一为 **5 秒**（`MIN_TRACK_DURATION_MS`），只挡碎片；**"读不到时长"不等于"时长为 0"，null 一律收** —— 因读不出而丢条目等于在扫描阶段静默少歌。三端别再各写 `DURATION > …` 或本地扩展名集合（修前 Android 硬编码 60 秒、Desktop/iOS 无下限，这才是"同一份音乐三台机器不一样"的主因）。放宽 `ape` / `dsf` / `wv` 前要以"随包那份 FFmpeg 真能解"为前件（§五）。⚠️ `wma` 留着而 iOS 的 AVPlayer 解不了它 —— **能扫进来与能播不是同一个集合**（用户已接受这一代价），要分开得另开一层申报，别偷偷改这份名单。
+
+- **搜索一次按键只打一次仓库**（一-5 A 批，D2-18）：`SearchScreen` 的唯一调用点是 `LaunchedEffect`；防抖与**取消**都在 `SearchViewModel`，"旧结果不覆盖新结果"靠 `searchJob?.cancel()`，防抖只减次数。`LIKE` 的转义在 `MusicRepositoryBase.toLikeContainsPattern()`（先转 `\` 自身、再转 `%` / `_`），DAO 侧配 `ESCAPE '\\'` —— Kotlin 里**必须写两个反斜杠**，`"ESCAPE '\'"` 能编过但拼出的 SQL 是 `ESCAPE ''`，SQLite 直接报 "must be a single character"。
+
 - **系统歌单只剩"按 id"这一条路**（一-4 B1 / B2）：`removePlaylist(name)` 已从 DAO / 仓库 / UseCase 整条删掉（它绕过保护，还会级联清空用户的心动 / 最近播放），只有 `getPlaylistByName` 留着；启动自愈遇到悬空 id 时**接管同名行**，不删不建。删除保护是 `ManagePlaylistUseCase.removePlaylistById` 返回 `false`，**不是抛异常**（抛过一次，Android 上删"心动"即崩溃），谓词只在 `domain/playlist/SystemPlaylists.kt` 一份，Agent 的 `playlist_delete` 也调它。
 - **`playlist_item.itemOrder` 是用户资产**：领域 `PlaylistItem` 现在带 `itemOrder`，导出查询带 `ORDER BY playlistId, itemOrder`，恢复时按它排序后重编号（旧快照全 0 会撞 `UNIQUE(playlistId,itemOrder)`，所以不"原样写回"）。别再往三端 Impls 里各写一份落库逻辑。
+- **路径的父目录只有一处切分**（一-5 B 批，D2-13）：`shared/.../data/util/parentPathOf(path, separators)`，平台通过 `MusicRepositoryBase.pathSeparators` **声明**自己认哪些分隔符（Desktop 认 `\` 与 `/`，另两端 `/`）。**别再写 `path.substringBeforeLast("/")`**，也别在跨平台代码里用 `File(path).parent` 来算分组键 —— 分隔符做成显式参数，唯一目的是让这条规则能在任何 OS 上对 `C:\…` 断言。UI 侧 `fileParentOf`（`shared-ui`）三端 actual 都委托它，因为仓库侧的分组标签与 UI 侧"这首歌属于哪个被隐藏的文件夹"**必须是同一个字符串**，否则「取消隐藏」恢复不了任何东西。
+- **封面文件名的规则是「内容指纹」**（一-5 B 批，D2-17 / D2-16）：`shared/.../data/util/CoverArtStore.fileNameFor(bytes)` = FNV-1a over 封面字节，渲染成**无符号十六进制**。别再按音频路径命名 + "存在即跳过"（那正是"换封面永远显示旧图"的成因），也不要给某一端单独 `abs(...)`。落盘走 `CoverArtWriter`（Desktop `FileCoverArtWriter`；Android 传 null 因为它用 MediaStore 的 `content://…/albumart`；iOS 待 Swift 侧改造）。写了新封面入口就要在成功后更新 `music.albumArtUri`。⚠️ `stableIdFor(path)`（曲目 id）**保持有符号 `Long`**，那个数已经是三端真实库的主键，改渲染方式等于换 id。
+- **平台能力要申报，不要靠"点了报错"**（一-5 B 批，D2-12 短期版）：`MusicTagEditService.canWriteTags`（默认 true，iOS false —— 那侧从没注册 `TagWriterBridge`，写入必失败），UI 的降级规则是纯函数 `tagEditFormPolicy(canWriteTags)`。加新平台或新能力时**先申报能力，再让 UI 决定摆不摆入口**；同类接缝已有 `directorySelectionMode = UNSUPPORTED`（iOS 扫描目录）。
 - **播放来源是闭集**：取值真源 `shared/.../domain/music/PlaybackSources.kt`（以 Android 已发布的拼写为准，库里已有历史数据，改名会让同一来源在饼图里裂成两条）。⚠️ iOS 侧是 **Swift 里复制的一份**（`MusicPlayerController.swift` 的 `enum PlaybackSource`）—— Kotlin `object` 的导出名在本仓库没有已验证先例，而 CI 不编译 iOS，猜错就是一次真机构建失败；**改取值要两头对**。
 - **Ktor 只用于用户自填的 AI API**，无网络取曲。Android 走 OkHttp engine、iOS 走 Darwin engine。
 - **DataStore** 存偏好；`SecureStorageHelper` 存 API Key。
@@ -215,7 +225,7 @@ HMP/
       平台侧现在只剩 `performMusicScan()`（"设备上有哪些歌"）—— **别再往三端各抄一遍落库**；新增的可注入点就是那个 `protected abstract`。
 6. **版本号读不到时静默回落到错误值。** `android/app` 兜底 `51000`/`"5.10.0"`，`desktop/app` 兜底 `"1.0.0"` 且 `dmgPackageVersion = "1"` 硬编码（R45、R30）。
 7. **`copyToReleases` 找不到产物只 `println("!! Not found")` 不失败** → `./gradlew release` 可以"成功"地产出零个文件（本机侧；CI 的 `sync-release.py collect` 会失败）。
-8. **`DeviceMusicScanner.android.kt:50` 是已知 bug**：`val context = android.app.Application()`（新建 Application 无 base context，`contentResolver.query` 必失败），且未注入 Context。**这条不在任何待办里**，动 Android 扫描前先确认它是否已被某处绕过。
+8. **~~`DeviceMusicScanner.android.kt:50` 是已知 bug~~（2026-10-12，一-5 B 批已删）**：那条 `val context = android.app.Application()`（新建 Application 无 base context，`contentResolver.query` 必失败）连同整个零调用 actual 一起删了；Android 的真实扫描一直在 `MusicRepositoryImpl.android.kt` 的 MediaStore 查询里。**这条不再是待办，但它的成因要记住**：见 §四 那句"别再把三端对称当保留理由"。
 9. **iOS 的扫描目录设置是空壳**：`SettingsRepositoryImpl.ios.kt` 的 `scanDirectoryConfig = flowOf(ScanDirectoryConfig())` 恒默认值、`saveScanDirectoryConfig` 是空函数体，`DeviceMusicScanner.ios.kt` 写死扫 Documents（R40）。
 10. **歌词设置双存储**：播放页读 `@Deprecated` 的 legacy 扁平键，设置页写新的 per-component JSON，全仓唯一新模型消费者是 Android 悬浮歌词 → 设置页改字号，播放页静默不生效（R42）。真身在 `domain/setting/usecase/LyricsSettingsUseCase.kt`。
 11. **iOS 密钥不是加密**：`SecureStorageHelper.ios.kt` 的 `simpleEncrypt` 实为 XOR，密钥文件却叫 `.aes_key`，且落在 `Documents/.keys`（与密文同目录），而 `project.yml` 开着 `UIFileSharingEnabled: true` → 沙箱可经"文件"App 直接拷出（R10）。Desktop 用硬编码 keystore 口令。三端密文互不可解。
@@ -223,6 +233,8 @@ HMP/
 13. **`shared_ios.podspec` 是被 track 的生成物**，Windows 会把 `spec.resources` 写成反斜杠路径，`.gitattributes` 没有 `*.podspec` 规则（R46）。
 14. **没有任何静态闸门**：无 ktlint、无 detekt、无 `.editorconfig`、无 `core.hooksPath`。`DEVELOP.md:406` 现已如实写明这一点（方案仍在 `docs/ktlint-integration.md`，暂缓）。**2026-09-30 订正**：本条原称"`DEVELOP.md:396-400` 声称使用 ktlint 属失真"，该指控已随 DEVELOP 改写而失效——现在失真的是旧说法本身（独立复核见 `docs/7_3/domain/X.md` X-07 附加 doc-truth）。新代码靠自觉保持一致性。
 15. **设计 token 是自愿制**：`.dp` 字面量 1444 处 vs `dimens.*` 仅 209 处；硬编码 hex 色 53 处；卡片两套并存（`HMPCard` vs 裸 `Card(`/`Surface(`）；336 个 `@Composable` 只有 81 个带 `modifier: Modifier`（R49）。
+16. **`iosMain` 以前根本没有编译器看过**：2026-10-12 第一次把 `:shared:compileKotlinIosSimulatorArm64` 跑起来，发现 iOS 目标**从 一-3 C1 起就一直编不过**（`DateFormats.ios.kt` 里 `import platform.Foundation.NSDate` 抄了两遍、`NSDate(timeIntervalSince1970 = …)` 这个构造参数不存在、`NSTimeZone.localTimeZone` 少了括号，另有 一-7 带进来的 `DatabaseBuilder.ios.kt` 重复 `@OptIn`），已在 2026-10-12 修掉。教训不是"这几处写错了"，而是：**Foundation 的类方法与属性在 K/N 里是分类(category)扩展，必须单独 import**（`dateWithTimeIntervalSince1970` / `localTimeZone` / `timeIntervalSince1970` 都是），写 iosMain 时不能凭 JVM 直觉。改完 iosMain 一定要单跑那两个 iOS 编译任务（见 §二 表最后一行）。
+17. **`LabelCategory` / `LabelName` 各有一套同名枚举**（domain 的 `com.hmp.domain.enum.*` 与 DAO 实体的 `com.hmp.data.database.myenum.*`），互转靠 mapper。把两套混进同一个 `mapOf` 时 **Kotlin 会把键类型推成 `Any`，编译照过、查找永远不命中、`?: 默认值` 静默接管** —— 2026-10-12 就靠新判据查出 `labelCategoryWeight` 五项里四项的键用了 DAO 枚举，导致"按类别加权"从来没生效过。写这类权重/映射表前先确认键到底是哪一套枚举。
 
 ---
 

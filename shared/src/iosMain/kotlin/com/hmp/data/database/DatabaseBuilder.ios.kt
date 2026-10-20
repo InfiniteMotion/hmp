@@ -9,7 +9,6 @@ import platform.Foundation.NSFileManager
 import platform.Foundation.NSUserDomainMask
 
 @OptIn(ExperimentalForeignApi::class)
-@OptIn(ExperimentalForeignApi::class)
 fun hmpDatabasePath(): String = documentDirectory() + "/music_database.db"
 
 @OptIn(ExperimentalForeignApi::class)

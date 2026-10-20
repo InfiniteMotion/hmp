@@ -1,6 +1,8 @@
 package com.hearablemusic.player.ui.playlist.viewmodel
 
 
+import com.hmp.domain.music.MusicSortKey
+import com.hmp.domain.music.SortDirection
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.hmp.domain.music.MusicInfo
@@ -262,7 +264,7 @@ class PlaylistViewModel(
         viewModelScope.launch {
             _allMusicForAddPickerState.value = UiState.Loading
             try {
-                val allMusic = getAllMusicUseCase("title", "ASC")
+                val allMusic = getAllMusicUseCase(MusicSortKey.TITLE, SortDirection.ASC)
                 _allMusicForAddPickerState.value = if (allMusic.isEmpty()) {
                     UiState.Empty
                 } else {

@@ -40,6 +40,11 @@ data class EditMusicTagsUiState(
     val hasChanges: Boolean = false,
     /** 音乐文件是否可直接写入；不可写时需通过 SAF 授权后保存 */
     val isFileWritable: Boolean = false,
+    /**
+     * 本端有没有写标签的能力（D2-12）。false 时表单只读、保存按钮不出现 ——
+     * 由 `MusicTagEditService.canWriteTags` 申报，不是 UI 自己去猜平台。
+     */
+    val canWriteTags: Boolean = true,
     val error: String? = null
 )
 
@@ -54,7 +59,13 @@ class EditMusicTagsViewModel(
     private val platformServices: PlatformServices
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(EditMusicTagsUiState())
+    /**
+     * 首帧就带上本端的写能力（D2-12）—— 若等到 `loadTags` 才知道，
+     * iOS 上会先闪一次可用的保存按钮再收回去。
+     */
+    private val _uiState = MutableStateFlow(
+        EditMusicTagsUiState(canWriteTags = platformServices.musicTagEdit.canWriteTags)
+    )
     val uiState: StateFlow<EditMusicTagsUiState> = _uiState.asStateFlow()
 
     private val _isSaving = MutableStateFlow(false)
@@ -191,6 +202,9 @@ class EditMusicTagsViewModel(
     fun save() {
         val musicId = currentMusicId ?: return
         if (_isSaving.value || _uiState.value.isLoading) return
+        // 本端不支持写标签时这里不该被调到（UI 已收起入口）；这道守卫是防御性的第二层，
+        // 不是把失败改成静默 —— 它不写 _saveResult，因此不会出现"点了保存却弹错误"的那种假反馈（D2-12）
+        if (!_uiState.value.canWriteTags) return
 
         viewModelScope.launch {
             val tags = buildTags(_uiState.value) ?: return@launch
@@ -215,6 +229,7 @@ class EditMusicTagsViewModel(
     fun saveAfterWriteAccessGranted() {
         val musicId = currentMusicId ?: return
         if (_isSaving.value || _uiState.value.isLoading) return
+        if (!_uiState.value.canWriteTags) return
 
         viewModelScope.launch {
             val tags = buildTags(_uiState.value) ?: return@launch

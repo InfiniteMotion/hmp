@@ -1,5 +1,7 @@
 package com.hearablemusic.player.ui.library.pages
 
+import com.hmp.domain.music.MusicSortKey
+import com.hmp.domain.music.SortDirection
 import com.hearablemusic.player.ui.generated.resources.Res
 import org.jetbrains.compose.resources.stringResource
 
@@ -67,8 +69,8 @@ fun GalleryScreen(
     val isPlaying by playbackViewModel.isPlaying.collectAsState()
     val musicInfoList by libraryViewModel.allMusic.collectAsState()
     val currentPlayingMusic by playlistQueueViewModel.currentPlayingMusic.collectAsState()
-    val selectedGenre by libraryViewModel.orderBy.collectAsState("title")
-    val selectedOrder by libraryViewModel.orderType.collectAsState("ASC")
+    val selectedGenre by libraryViewModel.orderBy.collectAsState(MusicSortKey.TITLE)
+    val selectedOrder by libraryViewModel.orderType.collectAsState(SortDirection.ASC)
     val userCustomPlaylistsState by playlistViewModel.userCustomPlaylistsState.collectAsState()
     val userCustomPlaylists = (userCustomPlaylistsState as? UiState.Success)?.data ?: emptyList()
     val currentPlayingIndex = musicInfoList.indexOfFirst { it.music.id == currentPlayingMusic?.music?.id }.takeIf { it >= 0 }
@@ -121,8 +123,8 @@ fun GalleryScreenContent(
     isPlaying: Boolean,
     musicInfoList: List<MusicInfo>,
     currentPlayingIndex: Int?,
-    selectedGenre: String,
-    selectedOrder: String,
+    selectedGenre: MusicSortKey,
+    selectedOrder: SortDirection,
     userCustomPlaylists: List<Playlist>,
     playWith: (MusicInfo) -> Unit,
     addToPlaylist: (MusicInfo) -> Unit,
@@ -132,8 +134,8 @@ fun GalleryScreenContent(
     onRemoveFromLibrary: (List<Long>) -> Unit,
     onShufflePlay: () -> Unit,
     onOrderPlay: () -> Unit,
-    onFilterGenreChange: (String) -> Unit,
-    onFilterOrderChange: (String) -> Unit,
+    onFilterGenreChange: (MusicSortKey) -> Unit,
+    onFilterOrderChange: (SortDirection) -> Unit,
     dialogViewModel: DialogViewModel,
     playlistViewModel: PlaylistViewModel,
     dialogManager: DialogManager,

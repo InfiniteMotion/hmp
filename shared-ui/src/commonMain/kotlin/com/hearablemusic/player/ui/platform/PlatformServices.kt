@@ -125,6 +125,19 @@ interface MusicTagEditService {
      * Uri 由实现内部按 filePath 反查 MediaStore）。
      */
     fun writeTagsViaSaf(filePath: String?, tags: EditableMusicTags, onResult: (Result<Unit>) -> Unit)
+
+    /**
+     * 本端**能不能**把标签写回音频文件 —— 这是能力申报，不是"应该没问题"的猜测（D2-12）。
+     *
+     * 默认 true：Android 与 Desktop 都真有写实现。iOS 覆写 false，因为那侧根本没有注册写桥
+     * （`MusicTagEditor.ios.kt` 在没有 bridge 时回 `UnsupportedOperationException`），
+     * 于是"保存"必定失败 —— 而修前 UI 无条件把表单与主按钮摆出来，
+     * 用户填完点保存只拿到一个失败弹窗，看起来像是自己填错了。
+     *
+     * 消费方：`EditMusicTagsViewModel` 把它放进 uiState，`EditMusicTagsScreen` 据此
+     * 把表单设为只读并隐藏保存按钮。**不支持要成为可见的事实，而不是一个错误码。**
+     */
+    val canWriteTags: Boolean get() = true
 }
 
 /** 触觉反馈效果（对应 Android HapticFeedbackConstants）。 */

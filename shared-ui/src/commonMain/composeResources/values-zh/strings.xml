@@ -93,7 +93,8 @@
     <string name="hidden_folders">已隐藏的文件夹</string>
     <string name="confirm_hide_folder">确定要隐藏此文件夹吗？</string>
     <string name="unhide_folder">取消隐藏</string>
-    <string name="gallery_batch_delete_unsupported">此设备不支持批量删除</string>
+    <string name="edit_tags_unsupported">此设备不支持编辑标签</string>
+<string name="gallery_batch_delete_unsupported">此设备不支持批量删除</string>
     <!-- ==================== 播放器 ==================== -->
     <string name="play">播放</string>
     <string name="pause">暂停</string>

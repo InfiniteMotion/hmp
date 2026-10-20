@@ -1,5 +1,7 @@
 package com.hearablemusic.player.ui.common.dialogs.viewmodel
 
+import com.hmp.domain.music.MusicSortKey
+import com.hmp.domain.music.SortDirection
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.hearablemusic.player.ui.common.text.UiText
@@ -484,7 +486,7 @@ class DialogViewModel(
         pendingCreatePlaylistStateForPicker = current
         viewModelScope.launch {
             try {
-                val allMusic = getAllMusicUseCase("title", "ASC")
+                val allMusic = getAllMusicUseCase(MusicSortKey.TITLE, SortDirection.ASC)
                 createDialogMusicLookup = allMusic.associateBy { it.music.id }
                 showMusicPickerDialog(
                     allMusic = allMusic,

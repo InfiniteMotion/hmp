@@ -35,7 +35,11 @@ open class FakeAgentMusicRepository : MusicRepository {
     /** 标签 → 曲目 id（供 searchLibrary 标签过滤测试）。 */
     val musicIdsByLabel = mutableMapOf<LabelName, List<Long>>()
 
-    override suspend fun getAllMusicInfoAsList(orderBy: String, orderType: String): List<MusicInfo> = songs.values.toList()
+    /** 顺序不模拟（Agent 工具只数条目）；签名与真仓库一致，方向与键在此被忽略。 */
+    override suspend fun getAllMusicInfoAsList(
+        key: com.hmp.domain.music.MusicSortKey,
+        direction: com.hmp.domain.music.SortDirection,
+    ): List<MusicInfo> = songs.values.toList()
     override fun getMusicCount(): Flow<Int> = flowOf(songs.size)
     override fun getMusicWithExtraCount(): Flow<Int> = flowOf(0)
     override fun getMusicWithMissingExtraCount(): Flow<Int> = flowOf(songs.size)

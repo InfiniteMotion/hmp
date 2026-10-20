@@ -3,6 +3,8 @@ package com.hearablemusic.player.ui.library.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.hmp.domain.music.MusicInfo
+import com.hmp.domain.music.MusicSortKey
+import com.hmp.domain.music.SortDirection
 import com.hmp.domain.music.usecase.GetAllMusicUseCase
 import com.hmp.domain.music.usecase.GetDeletedMusicIdsGroupedByFolderUseCase
 import com.hmp.domain.agent.port.LibraryMutatedNotifier
@@ -67,15 +69,21 @@ class LibraryViewModel(
     private val libraryMutated: LibraryMutatedNotifier,
 ) : ViewModel() {
 
-    private val _orderBy = MutableStateFlow("title")
-    val orderBy: MutableStateFlow<String> = _orderBy
-    fun updateOrderBy(orderBy: String) {
+    /**
+     * 排序键与方向（D2-08）：状态本身就是枚举，不是字符串。
+     *
+     * 原先 `orderBy` 还对外暴露成 `MutableStateFlow<String>`，谁都能塞任意串进去，
+     * 而仓库那头对认不出的键静默按 id 排 —— 现在既塞不进错值，也没有兜底档可落。
+     */
+    private val _orderBy = MutableStateFlow(MusicSortKey.TITLE)
+    val orderBy: StateFlow<MusicSortKey> = _orderBy
+    fun updateOrderBy(orderBy: MusicSortKey) {
         _orderBy.value = orderBy
     }
 
-    private val _orderType = MutableStateFlow("ASC")
-    val orderType: StateFlow<String> = _orderType
-    fun updateOrderType(orderType: String) {
+    private val _orderType = MutableStateFlow(SortDirection.ASC)
+    val orderType: StateFlow<SortDirection> = _orderType
+    fun updateOrderType(orderType: SortDirection) {
         _orderType.value = orderType
     }
 

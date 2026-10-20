@@ -1,6 +1,6 @@
 package com.hearablemusic.player.ui.common.util
 
-import java.io.File
+import com.hmp.data.util.parentPathOf
 
-/** Android actual：沿用 java.io.File.parent 语义（'/' 与 '\' 分隔符均处理）。 */
-actual fun fileParentOf(path: String): String? = File(path).parent
+/** Android actual：POSIX 路径，走 `shared` 那一份 [parentPathOf] 的默认分隔符（D2-13）。 */
+actual fun fileParentOf(path: String): String? = parentPathOf(path, "/")

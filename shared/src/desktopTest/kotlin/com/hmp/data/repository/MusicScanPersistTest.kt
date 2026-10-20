@@ -67,7 +67,10 @@ class MusicScanPersistTest {
         transactionRunner = RoomTransactionRunner(db),
     ) {
         override suspend fun performMusicScan() = scanResult
-        override suspend fun getAllMusicInfoAsList(orderBy: String, orderType: String): List<MusicInfo> = emptyList()
+        override suspend fun getAllMusicInfoAsList(
+            key: com.hmp.domain.music.MusicSortKey,
+            direction: com.hmp.domain.music.SortDirection,
+        ): List<MusicInfo> = emptyList()   // 本用例只关心扫描落库
         override suspend fun getDeletedMusicIdsGroupedByFolder(): List<Pair<String, List<Long>>> = emptyList()
     }
 

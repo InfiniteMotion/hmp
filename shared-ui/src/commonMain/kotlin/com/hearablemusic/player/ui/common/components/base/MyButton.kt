@@ -1,5 +1,7 @@
 package com.hearablemusic.player.ui.common.components.base
 
+import com.hmp.domain.music.MusicSortKey
+import com.hmp.domain.music.SortDirection
 import com.hearablemusic.player.ui.generated.resources.Res
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
@@ -85,10 +87,10 @@ import com.hearablemusic.player.ui.common.util.rememberHapticFeedback
 
 @Composable
 fun PlayControlButtonOne(
-    selectedGenre: String,
-    selectedOrder: String,
-    onFilterGenreChange: (String) -> Unit,
-    onFilterOrderChange: (String) -> Unit,
+    selectedGenre: MusicSortKey,
+    selectedOrder: SortDirection,
+    onFilterGenreChange: (MusicSortKey) -> Unit,
+    onFilterOrderChange: (SortDirection) -> Unit,
     onOrderPlay: () -> Unit,
     onShufflePlay: () -> Unit
 ) {
@@ -175,16 +177,18 @@ fun PlayControlButtonOne(
                 color = Transparent,
             ) {
                 val genres = listOf(
-                    stringResource(Res.string.sort_title) to "title",
-                    stringResource(Res.string.sort_artist) to "artist",
-                    stringResource(Res.string.sort_duration) to "duration",
-                    stringResource(Res.string.sort_size) to "fileSize",
-                    stringResource(Res.string.sort_play_count) to "playCount",
-                    stringResource(Res.string.sort_add_time) to "date"
+                    // 键是枚举（D2-08）：这里从前写 "fileSize" / "date"，
+                    // 而三端仓库的 when 不认这两个串 —— 点"按文件大小排序"实际按 id 排。
+                    stringResource(Res.string.sort_title) to MusicSortKey.TITLE,
+                    stringResource(Res.string.sort_artist) to MusicSortKey.ARTIST,
+                    stringResource(Res.string.sort_duration) to MusicSortKey.DURATION,
+                    stringResource(Res.string.sort_size) to MusicSortKey.FILE_SIZE,
+                    stringResource(Res.string.sort_play_count) to MusicSortKey.PLAY_COUNT,
+                    stringResource(Res.string.sort_add_time) to MusicSortKey.DATE
                 )
                 val orders = listOf(
-                    stringResource(Res.string.order_asc) to "ASC",
-                    stringResource(Res.string.order_desc) to "DESC"
+                    stringResource(Res.string.order_asc) to SortDirection.ASC,
+                    stringResource(Res.string.order_desc) to SortDirection.DESC
                 )
                 Column(
                     modifier = Modifier.padding(8.dp),
@@ -211,9 +215,7 @@ fun PlayControlButtonOne(
                                     selected = selectedGenre == eGenre,
                                     onClick = {
                                         haptic.performLightClick()
-                                        (if (selectedGenre == eGenre) null else eGenre)?.let {
-                                            onFilterGenreChange(it)
-                                        }
+                                        onFilterGenreChange(eGenre)
                                     },
                                     label = { Text(text = genre, style = MaterialTheme.typography.titleSmall) },
                                     // 选中状态样式
@@ -242,9 +244,7 @@ fun PlayControlButtonOne(
                                     selected = selectedOrder == eOrder,
                                     onClick = {
                                         haptic.performLightClick()
-                                        (if (selectedOrder == eOrder) null else eOrder)?.let {
-                                            onFilterOrderChange(it)
-                                        }
+                                        onFilterOrderChange(eOrder)
                                     },
                                     label = { Text(text = order, style = MaterialTheme.typography.titleSmall) },
                                     // 选中状态样式

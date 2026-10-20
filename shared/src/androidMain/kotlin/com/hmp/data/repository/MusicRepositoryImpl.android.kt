@@ -23,6 +23,7 @@ import com.hmp.data.database.currentTimeMillis
 import com.hmp.data.mapper.toDomain
 import com.hmp.data.network.OpenAiCompatibleAdapter
 import com.hmp.data.util.stringToPinyinSortKey
+import com.hmp.domain.music.AudioFormats
 import com.hmp.domain.music.MusicInfo
 import com.hmp.domain.music.MusicRepository
 import com.hmp.domain.backup.TransactionRunner
@@ -80,57 +81,15 @@ class MusicRepositoryImpl(
     transactionRunner = transactionRunner
 ) {
 
-    override suspend fun getAllMusicInfoAsList(orderBy: String, orderType: String): List<MusicInfo> {
-        val safeOrderType = if (orderType.uppercase() == "DESC") "DESC" else "ASC"
-        // Text-based sorts (title/artist/album) always use in-memory pinyin-aware sorting
-        if (orderBy == "title" || orderBy == "artist" || orderBy == "album") {
-            val list = musicAllDao.getAllMusicInfoAsListById().map { it.toDomain() }
-            val keyFn: (MusicInfo) -> String = when (orderBy) {
-                "title" -> { info -> stringToPinyinSortKey(info.music.title) }
-                "artist" -> { info -> stringToPinyinSortKey(info.music.artist) }
-                else -> { info -> stringToPinyinSortKey(info.music.album) }
-            }
-            val rawFn: (MusicInfo) -> String = when (orderBy) {
-                "title" -> { info -> info.music.title }
-                "artist" -> { info -> info.music.artist }
-                else -> { info -> info.music.album }
-            }
-            return if (safeOrderType == "DESC") {
-                list.sortedWith(compareByDescending(keyFn).thenByDescending(rawFn))
-            } else {
-                list.sortedWith(compareBy(keyFn).thenBy(rawFn))
-            }
-        }
-        val baseList = musicAllDao.getAllMusicInfoAsListById()
-        val mappedList = baseList.map { it.toDomain() }
-        return if (safeOrderType == "DESC") {
-            when (orderBy) {
-                "duration" -> mappedList.sortedByDescending { it.music.duration }
-                "playCount" -> mappedList.sortedByDescending { it.userInfo?.playCount ?: 0 }
-                else -> mappedList.sortedByDescending { it.music.id }
-            }
-        } else {
-            mappedList
-        }
-    }
-
-    override suspend fun getDeletedMusicIdsGroupedByFolder(): List<Pair<String, List<Long>>> {
-        val list = musicDao.getRemovedMusicIdAndPath()
-        return list
-            .groupBy { (_, path) ->
-                try {
-                    File(path).parent ?: "Unknown"
-                } catch (e: Exception) {
-                    "Unknown"
-                }
-            }
-            .map { (path, entries) -> path to entries.map { it.id } }
-            .sortedByDescending { it.second.size }
-    }
-
+    // `getAllMusicInfoAsList` 已上收到 `MusicRepositoryBase`（一-5 / D2-08）：
+    // 这一份原先与 desktop/ios 两份近乎相同，却多了两处只有自己有的行为
+    // （raw 原文次级键、ASC 分支对 duration/playCount 直接返回未排序列表）。
+    //
+    // `getDeletedMusicIdsGroupedByFolder` 同样已上收（一-5 / D2-13）：这一端原先用
+    // `File(path).parent`（三份里唯一行为正确的那份），现在三端共用基类那一份 ——
+    // Android 是 POSIX 路径，走默认的 `/` 分隔符即可。
 
     companion object {
-        private const val MIN_DURATION_MS = 60000L
 
         /**
          * 逐文件标签解析的并发上限。单文件工作是「小 IO + 轻解析」，
@@ -236,11 +195,14 @@ class MusicRepositoryImpl(
         // 目录管理（R3 恢复）：Android 无「扫描根」概念（MediaStore 已索引全部可读媒体），
         // 故此处语义为**过滤**：scanDirectories 作 include、blockedDirectories 作 exclude，
         // 以 DATA 前缀匹配施加到查询上。此前该配置在 Android 侧既不持久化也不被读取。
+        //
+        // 时长下限**不再写在 SQL 里**（D2-09）：原先这里是 `DURATION > 60000` —— 一分钟，
+        // 于是 40 秒的前奏 / 音效 / 采样片段在 Android 上根本看不见，而 Desktop / iOS 那时毫无下限。
+        // 现在三端统一走 `AudioFormats.isIncludedInLibrary`（白名单 + 5 秒），
+        // `IS_MUSIC` 仍是第一道，白名单是第二道。
         val dirConfig = settingsRepository.scanDirectoryConfig.first()
-        val selectionBuilder = StringBuilder(
-            "${MediaStore.Audio.Media.IS_MUSIC} != 0 AND ${MediaStore.Audio.Media.DURATION} > ?"
-        )
-        val selectionArgs = mutableListOf(MIN_DURATION_MS.toString())
+        val selectionBuilder = StringBuilder("${MediaStore.Audio.Media.IS_MUSIC} != 0")
+        val selectionArgs = mutableListOf<String>()
         if (dirConfig.scanDirectories.isNotEmpty()) {
             selectionBuilder.append(" AND (")
             dirConfig.scanDirectories.forEachIndexed { index, dir ->
@@ -266,6 +228,7 @@ class MusicRepositoryImpl(
 
         // ── 第一步：MediaStore 查询（纯元数据，单线程，毫秒级）──
         val scanRows = mutableListOf<ScanRow>()
+        var filteredOut = 0
         context.contentResolver.query(
             MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
             projection,
@@ -284,6 +247,13 @@ class MusicRepositoryImpl(
                     val albumId = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM_ID))
                     val mimeType = cursor.getString(cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.MIME_TYPE))
                     val fileSize = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.SIZE))
+
+                    // 白名单 + 时长下限（D2-09）。放在标签解析**之前**：
+                    // 被排除的条目不该再付一次文件读取的代价。
+                    if (!AudioFormats.isIncludedInLibrary(path, duration)) {
+                        filteredOut++
+                        continue
+                    }
 
                     val albumArtUri = ContentUris.withAppendedId(
                         "content://media/external/audio/albumart".toUri(),
@@ -306,6 +276,11 @@ class MusicRepositoryImpl(
                 } catch (e: Exception) {
                     HmpLog.e(LogTag.DataMusicRepo, e) { "🎵 MusicRepository: Error processing music item: ${e.message}" }
                 }
+            }
+        }
+        if (filteredOut > 0) {
+            HmpLog.d(LogTag.DataMusicRepo) {
+                "🎵 MediaStore 条目被白名单/时长下限排除：$filteredOut（名单=${AudioFormats.supportedExtensions}，下限=${AudioFormats.MIN_TRACK_DURATION_MS}ms）"
             }
         }
 

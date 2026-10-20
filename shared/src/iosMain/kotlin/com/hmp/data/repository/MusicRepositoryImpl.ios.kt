@@ -118,50 +118,11 @@ class MusicRepositoryImpl(
 
     // endregion
 
-    // region Query（本端排序语义与 Android/Desktop 刻意不同，留在平台层）
+    // region Query（排序与"按文件夹分组"都已上收 `MusicRepositoryBase`，本端无分叉）
 
-    override suspend fun getAllMusicInfoAsList(orderBy: String, orderType: String): List<MusicInfo> {
-        val safeOrderType = if (orderType.uppercase() == "DESC") "DESC" else "ASC"
-        // Text-based sorts (title/artist/album) use in-memory pinyin-aware sorting
-        if (orderBy == "title" || orderBy == "artist" || orderBy == "album") {
-            val list = musicAllDao.getAllMusicInfoAsListById().map { it.toDomain() }
-            val keyFn: (MusicInfo) -> String = when (orderBy) {
-                "title" -> { info -> stringToPinyinSortKey(info.music.title) }
-                "artist" -> { info -> stringToPinyinSortKey(info.music.artist) }
-                else -> { info -> stringToPinyinSortKey(info.music.album) }
-            }
-            val sorted = list.sortedWith(compareBy(keyFn))
-            return if (safeOrderType == "DESC") sorted.reversed() else sorted
-        }
-        val list = musicAllDao.getAllMusicInfoAsListById().map { it.toDomain() }
-        return if (safeOrderType == "DESC") {
-            when (orderBy) {
-                "duration" -> list.sortedByDescending { it.music.duration }
-                "playCount" -> list.sortedByDescending { it.userInfo?.playCount ?: 0 }
-                else -> list.sortedByDescending { it.music.id }
-            }
-        } else {
-            when (orderBy) {
-                "duration" -> list.sortedBy { it.music.duration }
-                "playCount" -> list.sortedBy { it.userInfo?.playCount ?: 0 }
-                else -> list
-            }
-        }
-    }
-
-    override suspend fun getDeletedMusicIdsGroupedByFolder(): List<Pair<String, List<Long>>> {
-        val list = musicDao.getRemovedMusicIdAndPath()
-        return list
-            .groupBy { (_, path) ->
-                try {
-                    path.substringBeforeLast("/", "Unknown")
-                } catch (e: Exception) {
-                    "Unknown"
-                }
-            }
-            .map { (path, entries) -> path to entries.map { it.id } }
-            .sortedByDescending { it.second.size }
-    }
+    // `getAllMusicInfoAsList` 已上收（一-5 / D2-08，与 Desktop 那份逐字相同）；
+    // `getDeletedMusicIdsGroupedByFolder` 已上收（一-5 / D2-13）—— iOS 是 POSIX 路径，
+    // 走基类默认的 `/`，不需要再手写 `substringBeforeLast("/")`。
 
     // endregion
 

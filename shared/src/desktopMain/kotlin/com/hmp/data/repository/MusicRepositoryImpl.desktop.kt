@@ -19,6 +19,7 @@ import com.hmp.data.database.currentTimeMillis
 import com.hmp.data.mapper.toDomain
 import com.hmp.data.network.OpenAiCompatibleAdapter
 import com.hmp.data.util.DeviceMusicScanner
+import com.hmp.data.util.FileCoverArtWriter
 import com.hmp.data.util.stringToPinyinSortKey
 import com.hmp.domain.music.MusicInfo
 import com.hmp.domain.music.MusicRepository
@@ -67,7 +68,9 @@ class MusicRepositoryImpl(
     agentAuditLogDao = agentAuditLogDao,
     forgottenDeliveryDao = forgottenDeliveryDao,
     json = json,
-    transactionRunner = transactionRunner
+    transactionRunner = transactionRunner,
+    // 标签写入换封面时要能把新封面落盘并跟上 uri（D2-17）—— 这一端有文件缓存，所以有写手
+    coverArtWriter = FileCoverArtWriter()
 ) {
 
 
@@ -128,49 +131,14 @@ class MusicRepositoryImpl(
 
     // endregion
 
-    // region Query（本端排序语义与 Android/iOS 刻意不同，留在平台层）
+    // region Query（本端只剩"路径认哪些分隔符"这一条声明；分组与排序都已上收基类）
 
-    override suspend fun getAllMusicInfoAsList(orderBy: String, orderType: String): List<MusicInfo> {
-        val safeOrderType = if (orderType.uppercase() == "DESC") "DESC" else "ASC"
-        if (orderBy == "title" || orderBy == "artist" || orderBy == "album") {
-            val list = musicAllDao.getAllMusicInfoAsListById().map { it.toDomain() }
-            val keyFn: (MusicInfo) -> String = when (orderBy) {
-                "title" -> { info -> stringToPinyinSortKey(info.music.title) }
-                "artist" -> { info -> stringToPinyinSortKey(info.music.artist) }
-                else -> { info -> stringToPinyinSortKey(info.music.album) }
-            }
-            val sorted = list.sortedWith(compareBy(keyFn))
-            return if (safeOrderType == "DESC") sorted.reversed() else sorted
-        }
-        val list = musicAllDao.getAllMusicInfoAsListById().map { it.toDomain() }
-        return if (safeOrderType == "DESC") {
-            when (orderBy) {
-                "duration" -> list.sortedByDescending { it.music.duration }
-                "playCount" -> list.sortedByDescending { it.userInfo?.playCount ?: 0 }
-                else -> list.sortedByDescending { it.music.id }
-            }
-        } else {
-            when (orderBy) {
-                "duration" -> list.sortedBy { it.music.duration }
-                "playCount" -> list.sortedBy { it.userInfo?.playCount ?: 0 }
-                else -> list
-            }
-        }
-    }
-
-    override suspend fun getDeletedMusicIdsGroupedByFolder(): List<Pair<String, List<Long>>> {
-        val list = musicDao.getRemovedMusicIdAndPath()
-        return list
-            .groupBy { (_, path) ->
-                try {
-                    path.substringBeforeLast("/", "Unknown")
-                } catch (e: Exception) {
-                    "Unknown"
-                }
-            }
-            .map { (path, entries) -> path to entries.map { it.id } }
-            .sortedByDescending { it.second.size }
-    }
+    // `getAllMusicInfoAsList` 已上收到 `MusicRepositoryBase`（一-5 / D2-08）；
+    // `getDeletedMusicIdsGroupedByFolder` 同一处上收（一-5 / D2-13）—— 原先这一端手写
+    // `substringBeforeLast("/")`，而 Windows 上存进来的 path 是 `C:\Music\a.mp3`，
+    // 切不出父目录，于是「已隐藏文件夹」把所有歌聚成一个错分组。
+    // 现在这一端只需要声明：反斜杠与正斜杠都算分隔符（与 `java.io.File` 在 Windows 上的宽容一致）。
+    protected override val pathSeparators: String = "\\/"
 
     // endregion
 

@@ -9,10 +9,10 @@ import platform.Foundation.NSCalendarUnitMinute
 import platform.Foundation.NSCalendarUnitSecond
 import platform.Foundation.NSCalendarUnitDay
 import platform.Foundation.NSCalendarUnitWeekday
-import platform.Foundation.NSDate
 import platform.Foundation.NSTimeZone
 import platform.Foundation.timeIntervalSince1970
-import platform.Foundation.NSTimeIntervalSince1970
+import platform.Foundation.dateWithTimeIntervalSince1970
+import platform.Foundation.localTimeZone
 
 @OptIn(ExperimentalForeignApi::class)
 actual fun todayDateString(): String {
@@ -25,9 +25,10 @@ actual fun todayDateString(): String {
 actual fun parseDateToMillis(date: String): Long? = try {
     val formatter = NSDateFormatter()
     formatter.dateFormat = "yyyy-MM-dd"
+    // 本地时区当日 00:00 → epoch 毫秒（timeIntervalSince1970 就是"距 1970 的秒"，
+    // 不必再手写 Foundation reference date 的 978307200 偏移）
     formatter.dateFromString(date)?.let { nsDate ->
-        // Foundation reference date 偏移：2001-01-01 距 1970-01-01 共 978307200 秒（对齐 PlatformTime.ios 惯例）
-        ((nsDate.timeIntervalSinceReferenceDate * 1000.0) + 978_307_200_000.0).toLong()
+        (nsDate.timeIntervalSince1970 * 1000.0).toLong()
     }
 } catch (_: Exception) {
     null
@@ -60,8 +61,7 @@ actual fun millisUntilNextLocalMidnight(): Long {
 
 @OptIn(ExperimentalForeignApi::class)
 actual fun formatMmddFromMillis(epochMs: Long): String {
-    // epoch ms → NSDate（加回 Foundation 偏移 978307200 秒）
-    val nsDate = NSDate(timeIntervalSinceReferenceDate = (epochMs / 1000.0) - 978_307_200.0)
+    val nsDate = NSDate.dateWithTimeIntervalSince1970(epochMs / 1000.0)
     val formatter = NSDateFormatter()
     formatter.dateFormat = "MM-dd"
     return formatter.stringFromDate(nsDate)
@@ -70,7 +70,7 @@ actual fun formatMmddFromMillis(epochMs: Long): String {
 actual fun localHourOfDay(epochMs: Long): Int {
     val components = NSCalendar.currentCalendar.components(
         NSCalendarUnitHour,
-        fromDate = NSDate(timeIntervalSince1970 = epochMs / 1000.0)
+        fromDate = NSDate.dateWithTimeIntervalSince1970(epochMs / 1000.0)
     )
     return components.hour.toInt()
 }
@@ -79,21 +79,23 @@ actual fun localHourOfDay(epochMs: Long): Int {
 actual fun localDateString(epochMs: Long): String {
     val formatter = NSDateFormatter()
     formatter.dateFormat = "yyyy-MM-dd"
-    formatter.timeZone = NSTimeZone.localTimeZone
-    return formatter.stringFromDate(NSDate(timeIntervalSince1970 = epochMs / 1000.0))
+    formatter.timeZone = NSTimeZone.localTimeZone()
+    return formatter.stringFromDate(NSDate.dateWithTimeIntervalSince1970(epochMs / 1000.0))
 }
 
 @OptIn(ExperimentalForeignApi::class)
 actual fun localDayRange(date: String): Pair<Long, Long>? = try {
     val formatter = NSDateFormatter()
     formatter.dateFormat = "yyyy-MM-dd"
-    formatter.timeZone = NSTimeZone.localTimeZone
+    formatter.timeZone = NSTimeZone.localTimeZone()
     val start = formatter.dateFromString(date) ?: return null
+    // options 传 0：只要"次日本地 00:00"，不要 NSCalendar 的任何进位偏好。
+    // Desktop 端是 day.plusDays(1).atStartOfDay(localZone)，DST 由日历本身处理，这里同口径。
     val nextDay = NSCalendar.currentCalendar.dateByAddingUnit(
         unit = NSCalendarUnitDay,
         value = 1,
         toDate = start,
-        options = NSCalendarOptionsMatchStrictlyNext
+        options = 0uL
     ) ?: return null
     (start.timeIntervalSince1970 * 1000.0).toLong() to (nextDay.timeIntervalSince1970 * 1000.0).toLong()
 } catch (_: Exception) {
@@ -105,7 +107,7 @@ actual fun localDayOfWeekIso(epochMs: Long): Int {
     // NSCalendar.weekday: 1=周日 … 7=周六 → 折成 ISO 的 1=周一 … 7=周日
     val components = NSCalendar.currentCalendar.components(
         NSCalendarUnitWeekday,
-        fromDate = NSDate(timeIntervalSince1970 = epochMs / 1000.0)
+        fromDate = NSDate.dateWithTimeIntervalSince1970(epochMs / 1000.0)
     )
     val sundayFirst = components.weekday.toInt()
     return if (sundayFirst == 1) 7 else sundayFirst - 1

@@ -1,6 +1,10 @@
 package com.hmp.data.repository
 
 import com.hmp.data.database.AgentAuditLog
+import com.hmp.data.util.CoverArtStore
+import com.hmp.data.util.CoverArtWriter
+import com.hmp.data.util.UNKNOWN_FOLDER
+import com.hmp.data.util.parentPathOf
 import com.hmp.data.database.AgentAuditLogDao
 import com.hmp.data.database.ListeningDuration
 import com.hmp.data.database.ListeningDurationDao
@@ -20,6 +24,8 @@ import com.hmp.data.database.PlaylistItemDao
 import com.hmp.data.database.UserInfo
 import com.hmp.data.database.UserInfoDao
 import com.hmp.data.database.currentTimeMillis
+import com.hmp.domain.music.MusicSortKey
+import com.hmp.domain.music.SortDirection
 import com.hmp.data.database.myenum.LabelCategory as DataLabelCategory
 import com.hmp.data.database.myenum.LabelName as DataLabelName
 import com.hmp.data.mapper.toDomain
@@ -84,8 +90,12 @@ import com.hmp.log.LogTag
  * 平台层仅保留真正分叉的能力：
  * - 设备扫描本身（`performMusicScan`）——MediaStore vs 文件系统 vs NSFileManager；
  *   落库（含事务与 upsert 语义）只有一份，见上面的「设备扫描与落库」区（D2-01 / D2-02）；
- * - `getAllMusicInfoAsList`——三端排序语义刻意不同（android 含 raw 分键与 SQL 前缀路径）；
- * - `getDeletedMusicIdsGroupedByFolder`——File.parent vs substringBeforeLast。
+ * - 本端路径认哪些**分隔符**（`pathSeparators`）——`getDeletedMusicIdsGroupedByFolder` 的分组逻辑
+ *   原先三端各写一份（Desktop 那份在 Windows 上切不出父目录），现已收进本类一份（D2-13）。
+ *
+ * `getAllMusicInfoAsList` 原先也列在"刻意分叉"里：三份近乎相同、又各有分歧
+ * （Android 有 raw 次级键、且 ASC 分支对 duration/playCount 直接返回未排序列表；
+ * Desktop/iOS 用 `reversed()`）—— 已收成一份，见下面的「排序」区（一-5 / D2-08）。
  *
  * 新增 expect/actual 日期工具（todayDateString / parseDateToMillis）把三端日期差异收口，
  * 使统计类方法（recordListeningDuration / getUserUsageAnalytics）可公共化。
@@ -104,8 +114,62 @@ abstract class MusicRepositoryBase(
     protected val json: Json,
     protected val agentAuditLogDao: AgentAuditLogDao,
     protected val forgottenDeliveryDao: com.hmp.data.database.ForgottenDeliveryDao,
+    /**
+     * 封面落盘（D2-17）。Desktop 注入 `FileCoverArtWriter`；
+     * Android 传 null —— 它的封面是 `content://media/external/audio/albumart/<albumId>`，由 MediaStore 供给，
+     * 本来就不经过我们的缓存；iOS 传 null 是**待办**（Swift 侧的 extractor 目前自己决定文件名，
+     * 要改成"抽出字节、文件名交给这唯一一份规则"，见 `docs/7_3/domain/D2.md` D2-16 / D2-17 施工结果）。
+     */
+    protected val coverArtWriter: CoverArtWriter? = null,
     protected val transactionRunner: TransactionRunner,
 ) : MusicRepository {
+
+    // region 排序（D2-08）
+    //
+    // 三端各一份的时代结束：原先三份 `when (orderBy) { … else -> }` 既互有分歧，
+    // 又都对着裸字符串兜底 —— 拼错键不报错，只是换个排法
+    // （RadioSubAgent 的 "play_count"、列表页排序菜单的 "fileSize" / "date" 全都静默落进 else）。
+
+    /**
+     * 文本三键（标题 / 艺术家 / 专辑）用拼音排序键，并以原文做次级键 —— 同音字不会随机换序。
+     *
+     * 缺附加信息（`extra == null`）按"最小"处理：升序在最前、降序在最后。
+     * 唯独 [MusicSortKey.DATE] 把"没有日期"的行**固定在末尾**，与索引条的「未知」档同一口径
+     * （见 `MusicListConfig.computeDateSmartAnchors`）—— 整列反转的话，点「未知」会跳到列表头部。
+     */
+    override suspend fun getAllMusicInfoAsList(key: MusicSortKey, direction: SortDirection): List<MusicInfo> {
+        val list = musicAllDao.getAllMusicInfoAsListById().map { it.toDomain() }
+        val desc = direction.isDescending
+        val comparator: Comparator<MusicInfo> = when (key) {
+            MusicSortKey.TITLE ->
+                compareBy<MusicInfo>({ stringToPinyinSortKey(it.music.title) }, { it.music.title }).oriented(desc)
+            MusicSortKey.ARTIST ->
+                compareBy<MusicInfo>({ stringToPinyinSortKey(it.music.artist) }, { it.music.artist }).oriented(desc)
+            MusicSortKey.ALBUM ->
+                compareBy<MusicInfo>({ stringToPinyinSortKey(it.music.album) }, { it.music.album }).oriented(desc)
+            MusicSortKey.DURATION ->
+                compareBy<MusicInfo> { it.music.duration }.oriented(desc)
+            MusicSortKey.FILE_SIZE ->
+                compareBy<MusicInfo> { it.extra?.fileSize ?: 0L }.oriented(desc)
+            MusicSortKey.PLAY_COUNT ->
+                compareBy<MusicInfo> { it.userInfo?.playCount ?: 0 }.thenBy { it.music.id }.oriented(desc)
+            MusicSortKey.DATE ->
+                compareBy<MusicInfo> { it.extra?.date == null }
+                    .then(
+                        if (desc) compareByDescending { it.extra?.date ?: 0L }
+                        else compareBy { it.extra?.date ?: 0L }
+                    )
+                    .thenBy { it.music.id }
+            MusicSortKey.ID -> compareBy<MusicInfo> { it.music.id }.oriented(desc)
+        }
+        return list.sortedWith(comparator)
+    }
+
+    /** 降序就是把比较器整个反过来；收成一个助手，免得八个分支各写一遍 `reversed()`。 */
+    private fun <T : Any> Comparator<T>.oriented(descending: Boolean): Comparator<T> =
+        if (descending) reversed() else this
+
+    // endregion
 
     // region 设备扫描与落库（D2-01 / D2-02）
     //
@@ -246,26 +310,34 @@ abstract class MusicRepositoryBase(
         )
     }
 
+    /**
+     * 艺术家总览（D2-15）：走 SQL `GROUP BY`，不再把全库载入内存逐行分组。
+     *
+     * 并列破序改成按名字，见 DAO 上那段注释 —— 这是本条唯一一处对外可见的顺序变化。
+     */
     override suspend fun getAllArtistsSummary(limit: Int): List<Pair<String, Int>> =
-        getAllMusicInfoAsList("playCount", "DESC")
-            .filter { !it.music.artist.isBlank() }
-            .groupBy { it.music.artist }
-            .mapValues { (_, list) -> list.size }
-            .toList()
-            .sortedByDescending { it.second }
-            .take(limit)
+        musicAllDao.getTopArtistSummary(limit).map { it.name to it.count }
 
     override suspend fun getAllAlbumsSummary(limit: Int): List<Pair<String, Int>> =
-        getAllMusicInfoAsList("playCount", "DESC")
-            .filter { !it.music.album.isBlank() }
-            .groupBy { it.music.album }
-            .mapValues { (_, list) -> list.size }
-            .toList()
-            .sortedByDescending { it.second }
-            .take(limit)
+        musicAllDao.getTopAlbumSummary(limit).map { it.name to it.count }
 
     override suspend fun searchMusic(query: String): List<MusicInfo> =
-        musicAllDao.searchMusic("%$query%").map { it.toDomain() }
+        musicAllDao.searchMusic(query.toLikeContainsPattern()).map { it.toDomain() }
+
+    /**
+     * 「已隐藏文件夹」的分组（D2-13）：三端原先各写一份，Desktop 那份在 Windows 上切不出父目录。
+     *
+     * 分组口径只在这里有一份，平台只声明**本端路径用哪些分隔符**（[pathSeparators]）——
+     * 分隔符是参数不是写死的 `/`，所以这条能在任意操作系统上用反斜杠路径验。
+     */
+    override suspend fun getDeletedMusicIdsGroupedByFolder(): List<Pair<String, List<Long>>> =
+        musicDao.getRemovedMusicIdAndPath()
+            .groupBy { (_, path) -> parentPathOf(path, pathSeparators) ?: UNKNOWN_FOLDER }
+            .map { (folder, entries) -> folder to entries.map { it.id } }
+            .sortedByDescending { it.second.size }
+
+    /** 本端路径的分隔符集合；POSIX 是 `/`，Desktop 在 Windows 上还要认 `\`（D2-13）。 */
+    protected open val pathSeparators: String = "/"
 
     // endregion
 
@@ -447,6 +519,7 @@ abstract class MusicRepositoryBase(
                                     .copy(lyrics = newLyrics)
                             )
                         }
+                        applyCoverArtIfPresent(musicId, tags)
                         Result.success(Unit)
                     },
                     onFailure = { Result.failure(it) }
@@ -475,11 +548,34 @@ abstract class MusicRepositoryBase(
                             .copy(lyrics = newLyrics)
                     )
                 }
+                applyCoverArtIfPresent(musicId, tags)
                 Result.success(Unit)
             } catch (e: Exception) {
                 Result.failure(e)
             }
         }
+
+    /**
+     * 随标签一起提交的新封面要落盘并把 `music.albumArtUri` 指过去（D2-17）。
+     *
+     * 修前这两个函数只管 title/artist/album/lyrics，**根本不碰 `albumArtUri`** ——
+     * 再叠上缓存那侧"按路径命名 + 存在即跳过"，结果就是用户换封面保存成功、看到的仍是旧图。
+     * 现在文件名由内容指纹决定（换封面 = 换文件），这里再把 uri 跟上新文件。
+     *
+     * 三条口径：空数组是"移除封面"（`EditableMusicTags.albumArt` 的既定语义）；
+     * 本端没有缓存（Android 走 MediaStore 的 content uri）就原样不动；
+     * 落盘失败**保留原 uri**，不要把能显示的封面抹成空。
+     */
+    private suspend fun applyCoverArtIfPresent(musicId: Long, tags: EditableMusicTags) {
+        val bytes = tags.albumArt ?: return
+        if (bytes.isEmpty()) {
+            musicDao.updateAlbumArtUriById(musicId, "")
+            return
+        }
+        val writer = coverArtWriter ?: return
+        val uri = CoverArtStore.store(bytes, writer) ?: return
+        musicDao.updateAlbumArtUriById(musicId, uri)
+    }
 
     // endregion
 
@@ -518,12 +614,23 @@ abstract class MusicRepositoryBase(
 
     // region Similarity
 
+    /**
+     * 相似度的类别权重（D2-15 顺带查出的一处真 bug 在这里修）。
+     *
+     * **键必须是 [LabelCategory]（domain 那个）** —— `calcSimilarity` 查的是 `base.type`，
+     * 而 `base` 是 `MusicLabel`（domain 模型），它的 `type` 就是 domain 的 `LabelCategory`。
+     * 原先这五项里有四项写的是 `com.hmp.data.database.myenum.LabelCategory.…`（DAO 实体的枚举），
+     * 于是 map 的键类型被推成 `Any`，`labelCategoryWeight[base.type]` **除了 SCENARIO 以外全都查不中**，
+     * 一律走 `?: 1` —— "按类别加权"这件事实际从来没生效过：权重最高的 MOOD(4) 与 GENRE(3)
+     * 都按 1 计，心动模式/推荐扩列的排序等于只数重叠标签个数。
+     * 编译器抓不到它，因为 `Map<Any, Int>` 是完全合法的写法；抓到它的是本次新增的那条判据。
+     */
     private val labelCategoryWeight = mapOf(
-        com.hmp.data.database.myenum.LabelCategory.GENRE to 3,
-        com.hmp.data.database.myenum.LabelCategory.MOOD to 4,
+        LabelCategory.GENRE to 3,
+        LabelCategory.MOOD to 4,
         LabelCategory.SCENARIO to 2,
-        com.hmp.data.database.myenum.LabelCategory.LANGUAGE to 1,
-        com.hmp.data.database.myenum.LabelCategory.ERA to 1
+        LabelCategory.LANGUAGE to 1,
+        LabelCategory.ERA to 1
     )
 
     private fun calcSimilarity(
@@ -541,6 +648,18 @@ abstract class MusicRepositoryBase(
         return score
     }
 
+    /**
+     * 相似歌（心动模式、agent 推荐扩列的取数处）—— **查询次数从 `1 + N` 收成 2**（D2-15）。
+     *
+     * 修前这里是全仓最典型的一处 N+1：`getAllMusicInfoAsList` 把全库载入之后，
+     * 又对**每一行**调一次 `getMusicLabels(id)`（一次 `SELECT * FROM musicLabel WHERE musicId = ?`）。
+     * 3000 首的库 = 3001 次查询 + 3000 个列表分配，而它的可达入口是用户主动按下的「心动模式」
+     * 与 agent 的推荐扩列（不是自动切歌，切歌只查单次标签）。
+     *
+     * 现在一次取全库、一次取全部标签，在内存里按 `musicId` 分桶。
+     * 分数与顺序都不变：`calcSimilarity` 是对配对求和，与单个曲目内部的标签顺序无关；
+     * 并列仍按 `ID ASC`（`sortedByDescending` 是稳定排序，遍历顺序就是取数顺序）。
+     */
     override suspend fun getSimilarSongsByWeightedLabels(
         musicId: Long,
         limit: Int
@@ -548,13 +667,14 @@ abstract class MusicRepositoryBase(
         val baseLabels = getMusicLabels(musicId)
         if (baseLabels.isEmpty()) return emptyList()
 
-        val allMusic = getAllMusicInfoAsList("id", "ASC")
+        val allMusic = getAllMusicInfoAsList(MusicSortKey.ID, SortDirection.ASC)
+        val labelsByMusicId: Map<Long, List<MusicLabel>> =
+            musicLabelDao.getAllLabels().groupBy({ it.musicId }, { it.toDomain() })
+
         return allMusic
             .filter { it.music.id != musicId }
-            .map { musicInfo ->
-                val targetLabels = getMusicLabels(musicInfo.music.id)
-                val similarity = calcSimilarity(baseLabels, targetLabels)
-                musicInfo to similarity
+            .map { info ->
+                info to calcSimilarity(baseLabels, labelsByMusicId[info.music.id] ?: emptyList())
             }
             .filter { it.second > 0 }
             .sortedByDescending { it.second }
@@ -609,7 +729,7 @@ abstract class MusicRepositoryBase(
         val recentHistory = playbackHistoryDao.getRecentHistory(10)
         val allDurations = listeningDurationDao.getAllDurations()
         val allLabels = musicLabelDao.getAllLabels()
-        val allMusic = getAllMusicInfoAsList("playCount", "DESC")
+        val allMusic = getAllMusicInfoAsList(MusicSortKey.PLAY_COUNT, SortDirection.DESC)
         val playlists = playlistDao.getAllPlaylists()
         val playlistItems = playlistItemDao.getAllPlaylistItems()
 
@@ -1416,3 +1536,14 @@ abstract class MusicRepositoryBase(
         const val LABEL_CORRECTION_TOOL = "label_correction"
     }
 }
+
+/**
+ * 把用户输入折成 `LIKE ... ESCAPE '\'` 用的模式（D2-05）。
+ *
+ * 次序是这函数唯一的正确性所在：**先**转义反斜杠本身，再转义 `%` 与 `_`；
+ * 反过来会让"转义 `_`"写出来的 `\_` 在下一轮被当成"反斜杠转义反斜杠"，变成 `\\_`。
+ * 与 `MusicRepositoryImpl.android.kt` 里 `toMediaStoreLikePattern()` 同一套转义口径
+ * （那处是给 MediaStore 的目录前缀匹配用的，同样配 `ESCAPE '\'`），所以两处行为一致。
+ */
+internal fun String.toLikeContainsPattern(): String =
+    "%" + replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"

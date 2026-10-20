@@ -90,6 +90,12 @@ data class UserInfo(
 
 data class MusicIdPath(val id: Long, val path: String)
 
+/**
+ * 一条"名字 + 数量"的聚合行（D2-15）：艺术家 / 专辑总览用 SQL `GROUP BY` 直接算出来，
+ * 不再把全库载入内存逐行 `groupBy`。
+ */
+data class NameCountRow(val name: String, val count: Int)
+
 data class MusicExtraIdDate(val id: Long, val date: Long?)
 
 /** FORGOTTEN 卡候选：曲目 ID + 上次播放时间（null=从未播放） */
@@ -163,6 +169,13 @@ interface MusicDao {
 
     @Query("UPDATE music SET title = :title, artist = :artist, album = :album WHERE id = :id")
     suspend fun updateMusicTags(id: Long, title: String, artist: String, album: String)
+
+    /**
+     * 把封面指针指到新文件（D2-17）：标签写入换过封面之后，`albumArtUri` 必须跟过去，
+     * 否则库里存着旧文件的 uri、UI 就一直显示旧图。空串表示"移除封面"。
+     */
+    @Query("UPDATE music SET albumArtUri = :uri WHERE id = :id")
+    suspend fun updateAlbumArtUriById(id: Long, uri: String)
 }
 
 @Dao
@@ -390,8 +403,23 @@ interface MusicAllDao {
     @Query("SELECT COUNT(*) FROM musicExtra WHERE isGetExtraInfo = 0")
     fun getMusicWithMissingExtraCount(): Flow<Int>
 
+    /**
+     * 曲库搜索。
+     *
+     * 三条 LIKE 都带 `ESCAPE '\'`（D2-05）：没有它，用户输入里的 `_` 是单字符通配符、
+     * `%` 是多字符通配符 —— 搜 `_` 会把所有单字标题都匹配出来，搜 `100%` 变成"100 后跟任意串"。
+     * 转义由调用方做（见 `MusicRepositoryBase.toLikeContainsPattern`），次序必须是先转义反斜杠本身。
+     *
+     * 匹配列是 title / artist / **album**（D2-06）：专辑名原先不在里面，
+     * `AlbumScreen` 里的歌无法通过专辑名反查回来，而 README 把"音乐搜索"标为已完成。
+     */
     @Transaction
-    @Query("SELECT * FROM music WHERE isDeleted = 0 AND (title LIKE :query OR artist LIKE :query)")
+    @Query(
+        "SELECT * FROM music WHERE isDeleted = 0 AND (" +
+            "title LIKE :query ESCAPE '\\' OR " +
+            "artist LIKE :query ESCAPE '\\' OR " +
+            "album LIKE :query ESCAPE '\\')"
+    )
     suspend fun searchMusic(query: String): List<MusicInfo>
 
     @Transaction
@@ -421,25 +449,44 @@ interface MusicAllDao {
     @Query("SELECT * FROM music ORDER BY id ASC")
     fun getAllMusicInfoSortedById(): Flow<List<MusicInfo>>
 
+    /**
+     * 唯一的"取全表"查询：**不带** `ORDER BY` 任何业务键。
+     *
+     * 原先这里另有 `…ByTitle` / `…ByArtist` / `…ByAlbum` / `…ByDuration` 四条各自带 SQL
+     * `ORDER BY` 的兄弟查询，Android 用它们走"SQL 前缀路径"，与另两端的内存拼音排序语义不一致；
+     * 5A-2 把排序收进 [com.hmp.data.repository.MusicRepositoryBase.getAllMusicInfoAsList] 一份之后
+     * 它们已无生产者调用点，一并删除 —— 留着就会有人重新拾起那条与另两端不同的排序路。
+     */
     @Transaction
     @Query("SELECT * FROM music LEFT JOIN musicExtra ON music.id = musicExtra.id LEFT JOIN userInfo ON music.id = userInfo.id WHERE music.isDeleted = 0 ORDER BY music.id ASC")
     suspend fun getAllMusicInfoAsListById(): List<MusicInfo>
 
+    /**
+     * 艺术家 / 专辑总览（D2-15）：**一次 `GROUP BY` 算完**，取代"全库载入内存再逐行分组"。
+     *
+     * 三点要留意，都是刻意定的：
+     * - `TRIM(artist) <> ''` 而不是 `artist <> ''`：与原来 Kotlin 侧的 `!isBlank()` 同口径
+     *   （只有空格的艺名不算一个分组，SQL 的 `<> ''` 会把它留下）；
+     * - 可见性仍只看 `music.isDeleted = 0`（与 D2-02 之后的可见性口径一致）；
+     * - 并列时 `ORDER BY count DESC, name ASC` —— **这是一处行为改动**：修前并列顺序等于
+     *   "按 playCount 降序的遍历顺序"，同一份库换个播放历史，top N 的名单就会变。
+     *   定成按名字破并列，这条查询才变得可断言、可复现。
+     */
     @Transaction
-    @Query("SELECT * FROM music LEFT JOIN musicExtra ON music.id = musicExtra.id LEFT JOIN userInfo ON music.id = userInfo.id WHERE music.isDeleted = 0 ORDER BY music.title ASC")
-    suspend fun getAllMusicInfoAsListByTitle(): List<MusicInfo>
+    @Query(
+        "SELECT artist AS name, COUNT(*) AS count FROM music " +
+            "WHERE isDeleted = 0 AND artist IS NOT NULL AND TRIM(artist) <> '' " +
+            "GROUP BY artist ORDER BY count DESC, name ASC LIMIT :limit"
+    )
+    suspend fun getTopArtistSummary(limit: Int): List<NameCountRow>
 
     @Transaction
-    @Query("SELECT * FROM music LEFT JOIN musicExtra ON music.id = musicExtra.id LEFT JOIN userInfo ON music.id = userInfo.id WHERE music.isDeleted = 0 ORDER BY music.artist ASC")
-    suspend fun getAllMusicInfoAsListByArtist(): List<MusicInfo>
-
-    @Transaction
-    @Query("SELECT * FROM music LEFT JOIN musicExtra ON music.id = musicExtra.id LEFT JOIN userInfo ON music.id = userInfo.id WHERE music.isDeleted = 0 ORDER BY music.album ASC")
-    suspend fun getAllMusicInfoAsListByAlbum(): List<MusicInfo>
-
-    @Transaction
-    @Query("SELECT * FROM music LEFT JOIN musicExtra ON music.id = musicExtra.id LEFT JOIN userInfo ON music.id = userInfo.id WHERE music.isDeleted = 0 ORDER BY music.duration ASC")
-    suspend fun getAllMusicInfoAsListByDuration(): List<MusicInfo>
+    @Query(
+        "SELECT album AS name, COUNT(*) AS count FROM music " +
+            "WHERE isDeleted = 0 AND album IS NOT NULL AND TRIM(album) <> '' " +
+            "GROUP BY album ORDER BY count DESC, name ASC LIMIT :limit"
+    )
+    suspend fun getTopAlbumSummary(limit: Int): List<NameCountRow>
 
     @Transaction
     @Query("SELECT * FROM music LEFT JOIN musicExtra ON music.id = musicExtra.id LEFT JOIN userInfo ON music.id = userInfo.id WHERE music.artist = :artist AND music.isDeleted = 0 ORDER BY music.id ASC")
