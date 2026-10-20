@@ -44,7 +44,7 @@
 - **desktop/app**: Desktop应用入口模块，包含窗口管理、系统托盘和应用生命周期
 - **desktop/core-player**: Desktop播放核心模块，包含FFmpeg音频引擎和播放控制逻辑
 - **ios**: iOS 应用模块，原生壳（原生层：AppDelegate / 播放引擎 / MediaSession / Live Activity / 桥，共 22 个 Swift 文件 = HMP 18 + HMPNowPlaying 4）+ 共享 Compose UI
-- **storybook**: 组件展示与文档模块 (Kotlin/Wasm) —— **已移出构建**（`380f225` 起不在 `settings.gradle.kts` 中），源码保留
+- **storybook**: 组件展示与文档模块 (Kotlin/Wasm) —— **已移出构建**（`380f225` 起不在 `settings.gradle.kts` 中），源码保留。**2026-09-30 决议（`docs/7_3/plan.md` §九 决策 6）：原地保留，定位为「设计沙盒」** —— 不恢复 `include`、不在任何构建图内、不保证可编译、无 CI 覆盖
 
 ### 模块间依赖关系
 

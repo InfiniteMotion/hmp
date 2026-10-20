@@ -10,6 +10,7 @@
 > 4 项 A 级 + B3 已在 `release/7.2.0` 修完（含回归用例），以下是当时判定「不该拖住发版」的余项。
 > **2026-09-28 改列 v7.2.2**：这批原本标着 v7.2.1，但 v7.2.1 实际只发了发版通道与桌面打包修复（PR #41/#42，已发布 2026-09-25），本节一条没动；版本号不复用，故整体顺延。**编号不连续**：本节是 R1–R17 + R23–R26，R20–R22、R27–R30 归 §四 清理线。
 > **2026-09-28 再顺延 v7.3.0**：v7.2.2 已发布（2026-09-28，只发 `release.toml` 发版链路本身），本节仍一条未动。与 §六（架构实现审查 R39–R56）同批做，其中 **R1/R2/R26 必须与 R39 同批**——三者都要开 v10 迁移，分开做就是两次 schema 变更。
+> **2026-09-30 归口**：v7.3.0 的施工分解真源已切到 [docs/7_3/domain-baseline.md](docs/7_3/domain-baseline.md)（九域 + 横切线，109 条发现），本节与 §六 的 R 条目改作**证据台账**。开工前读 §六 开头的「台账口径」与文末对照表/决议。
 
 ### 数据与备份安全（优先级最高）
 
@@ -86,8 +87,13 @@
 
 ## 六、v7.3.0：架构实现审查的遗留（R39–R56，2026-09-28）
 
-> 出处：[docs/review-7.3-architecture.md](docs/7_3/review-7.3-architecture.md)（5 路分片并行审 + 主审对全部 S1 逐条重跑证据；含误报否决记录与「刻意不做」清单）。
-> **顺序是硬约束**：先闸门批（R44→R43→R41 闸门段→R47 闸门段→R56），再 S1 批（R39/R40/R42/R45/R46），结构批（R48–R53）放最后。闸门未绿之前动结构，等于在没有安全网的地方重构。
+> 出处：[review-7.3-architecture.md](docs/7_3/review-7.3-architecture.md)（5 路分片并行审 + 主审对全部 S1 逐条重跑证据；含误报否决记录与「刻意不做」清单）。
+
+> **⚖️ 台账口径（2026-09-30 归口，动本节之前先读这段）**
+> - **v7.3.0 的工作分解真源是** [docs/7_3/domain-baseline.md](docs/7_3/domain-baseline.md) → `docs/7_3/domain/D{1..9}.md` + `domain/X.md` + [v10-migration.md](docs/7_3/v10-migration.md)；可执行条目落 `docs/7_3/taskbook/`。
+> - **施工顺序以 `domain-baseline.md` §三 / §八 的批次为准**：批一数据面（D2/D3/D5/D7，schema 需求统一收口 v10）→ 批二运行时（D1/D4/D6）→ 批三平台界面（D8/D9），横切线 X 单列。本节原来的"先闸门 → 再 S1 → 后结构"是**上一轮审查的排序，已不作施工顺序**（原文见下方删除线，留档备查）。
+> - **本节 R 条目保留为 2026-09-24 / 09-28 两轮审查的证据台账**：`file:line` 与判据仍是取证记录，但**不作为施工分解来源**（新基线明确声明不继承其编号与分类）。开工前按下表找到落点；**旧条目不得因"新基线没提"而被自动视为已处置**。
+> - ~~**顺序是硬约束**：先闸门批（R44→R43→R41 闸门段→R47 闸门段→R56），再 S1 批（R39/R40/R42/R45/R46），结构批（R48–R53）放最后。闸门未绿之前动结构，等于在没有安全网的地方重构。~~（**已被 baseline §三 批次取代**，原文留档）
 
 ### 闸门（本节的头，其余各项的前置）
 
@@ -119,6 +125,63 @@
 - [ ] **R53** 发版真源链路的结构边界：① `sync-release.py` **写与核共用同一套正则** → 锚点位移类错误能同时骗过 `--check`，无独立 oracle；② `site/js/config.js` 取**首个** `version:`、`pbxproj` 全量替换 `MARKETING_VERSION`、ROADMAP 生成块内手改被无警告覆盖；③ 真源集不全：iOS build number 恒 `1`（`project.yml:51`）、部署目标三源（26.3 / 16.0 / 文档）、三套包名空间、`dmgPackageVersion="1"` → 引入独立 oracle（从产物侧读回真实版本比对），并决定 `pbxproj`/`Info.plist` 是否收敛成一份 `.xcconfig`（与 **R38** 同批）。**判据**：故意把某个派生点的锚点位移，核对会报错而不是静默通过
 - [ ] **R54** 文档真值失真已影响对外：审查确认 **14 条失真**（逐条见审查报告 §四），其中一条**已随 v7.2.2 进入公开 Release Notes**——ROADMAP 写着"`release.toml` 已修正 README/CLAUDE/DEVELOP 版本口径与 Kotlin 2.3.21"，实际 `DEVELOP.md:273` 仍写 Kotlin 2.2.21 / `:276` 仍写 AGP 9.0.0（真值 2.3.21 / 9.1.1）、`CLAUDE.md:7` 与 `README.md:219` 仍写"最新 v7.2.1 / 下一版 v7.2.2 未开工"（v7.2.2 已发布）、`CLAUDE.md:296` 仍写 72001、`DEVELOP.md:473` 说 release 组 8 个（实为 10）、`CLAUDE.md:85,88` 教的 `:shared-ui:testDebugUnitTest` 任务不存在（应为 `testAndroidHostTest`）、`README.md:83` 说 17 个 Swift 文件（实为 22）、`TODO` 的 I2 待删文件已删 → **与 R36 合并执行**：硬计数改脚本生成，散文只在标记段断言等值。**判据**：故意把 README 的版本改错，`sync --check` 或 pr-check 能红。**⚠ 2026-09-29 部分订正，判据仍未达成故不结案**：借建 `AGENTS.md` 之机，上列失真已按实物逐条改准（`CLAUDE.md` 掏空为 `@AGENTS.md` 指针、`README.md` 开发日志段版本口径、`DEVELOP.md` 全档 **24 处** —— 含 Kotlin/AGP/Gradle/SDK 版本、ktlint 三物不存在、JUnit 实为 `kotlin.test`、Git Flow 与 `develop-*` 分支不存在、版本号真源已移 `release.toml`、AppImage 已移除、任务数 26→27、release 组 8→10、Release Notes 不再取 ROADMAP、五个不存在的类名 `MusicScanner`/`ID3Parser`/`PlayControlViewModel`/`MediaSessionManager`/`MusicViewModel`）。**残留**：①「最新发布版本」这句散文**至今没有任何机器核对**，下次 bump 还会漂（这才是本条判据，归 **R36** 做）；② `DEVELOP.md` 学习资源段仍列 SwiftUI 文档与教程，而项目只剩 1 个 SwiftUI 文件；③ `docs/ktlint-integration.md` 的 `ci.yml` 前提失效属 **R50**，未动
 - [ ] **R55** `storybook` 是孤儿模块：有 `build.gradle.kts`(42 行) 却**未被 `settings.gradle.kts` include**，不依赖 `:shared-ui` 而自带 fork 组件与旧版 icons(1.7.3)，仓库唯一 lockfile（`kotlin-js-store/wasm/yarn.lock`）服务的正是它 → 只做决策（删除 / 归位 / 明确声明为设计沙盒），**不进重构范围**（不在构建图里的东西无法被验证）
+
+### 与新基线的对照表（2026-09-30 归口时逐条核）
+
+> 口径：左列旧条目 → 右列 `docs/7_3/` 中的落点。**"未见对应"= 在 `docs/7_3/**` 全域检索该条目的特征符号（`ReActLoop` / `stepBudget` / `ToolRegistryView` / `LocalWindowSizeInfo` / `getMusicIdListByType` / `plurals` / `提示注入` / `泰语` / `podspec` / `convention plugin` / `oracle` 等）0 命中**，**不等于问题不存在**，须逐条复核后再决定立案或结案。
+
+| 旧条目 | 新基线落点 | 状态 |
+|---|---|---|
+| R39 备份/恢复无事务 | D7-02、D3-03、D2-01、D5-12、v10 §四 | ✅ 已重现 |
+| R1 / R2 迁移测试只覆盖部分环、假测试 | D7-09 | ✅ 已重现 |
+| R26 `PlaybackHistory` 无索引 | D5-11、D2-07、v10 §2.1 | ✅ 已重现 |
+| R23 无界增长（`token_ledger` / 证据表） | D6-05、D5-12 | ✅ 已重现 |
+| R4 `AgentScheduler` 竞态 | D6-04 | ✅ 已重现 |
+| R10 iOS 密钥 XOR | D7-03 | ✅ 已重现 |
+| R40 iOS 扫描目录空壳 | D2-14、D7-06 | ✅ 已重现 |
+| R41 NavKey 漏注册 serializer | D8-01、D8-02、X-05 | ✅ 已重现 |
+| R42 歌词设置双存储 | D4-01 | ✅ 已重现 |
+| R43 DI 无图校验 | X-04 | ✅ 已重现 |
+| R45 版本号静默回落 | X-03、D9-03 | ✅ 已重现 |
+| R49 设计 token 自愿制 | D8-03 | ✅ 已重现 |
+| R50 无静态闸门 | X-07 | ✅ 已重现 |
+| R52 三套构建图不一致 | X-09、X-10 | ✅ 已重现 |
+| R55 `storybook` 孤儿模块 | X-08 | ✅ 已重现 |
+| R30 Android 版本兜底 | X-03 | ✅ 已重现 |
+| R29 发版前实机核验 | 各域 §5「验证缺口」 | ◐ 部分 |
+| R47 三端镜像漂移 | D3-14（仅 Playlist Impl 一节） | ◐ 部分 |
+| R48 / R15 agent 区无 VM | D6 矩阵第 5 行（记为"待验\*"，**未立案**） | ◐ 部分 |
+| R53 发版真源结构边界 | D9-03、X-02、X-03（"独立 oracle"未落） | ◐ 部分 |
+| R54 文档真值失真 | X-07 附加 doc-truth | ◐ 部分 |
+| R56 依赖矩阵无人守 | X-11（**结论不同**：X-11 判 KMP 侧已有守护） | ◐ 部分 |
+| R44 CI 不编译、不测试、不编 iOS | X-01 已改判为"按当前环境实现" | ✅ 已定调 ① |
+| R3 `ReActLoop` 无 `try/finally` | D6 §4 横查**不构成反驳**；R3 前半与熔断顺序为真缺陷 | ✅ 已定调 ②，待立案 |
+| R13 i18n 三件事 | **已立案 D8-06** | ✅ 已处置 ③ |
+| R5 设置项 `stepBudget` 无效 · R6 Hello `stateFlow` 不更新 · R7 提示注入 · R8 写路径不过闸 · R9 WARN 日志泄露曲库 · R11 首轮阻塞主线程 · R12 `musicLabel` 聚合 · R16 撤销链路 · R17 产品决策 · R20 死抽象 · R21 注释口径漂移 · R22 大文件拆分 · R24 断点两套 · R25 `plurals` · R27 静默截断 · R28 测试盲区 · R31 CI 测试挂死 · R36 版本号散文核对 · R37 发布后核对 · R38 iOS 脚本改写验证 · R46 `podspec` 入库 · R51 构建拓扑平铺 | —（另注：R31 的新证据见 `docs/7_3/taskbook/README.md` §四：Robolectric 全仓只存在于 `:android:core-player`） | ❓ 未见对应，须逐条复核 |
+
+### 归口时发现的三个问题与决议（2026-09-30）
+
+**① CI 编译与测试 —— 决议：按"当前环境能跑就都跑"实现。**
+- **原冲突**：旧 **R44** 要求 `pr-check` 加 `HMP_BUILD_TARGET=desktop ./gradlew compileAll` + `assembleDebug` 与一个 macOS 编译 job；`domain/X.md` **X-01** 与**刻意不做**主张"维持 CI 不跑单测、不编 iOS"；而 `taskbook/README.md` §四 的实测结论是"`:shared:desktopTest` 与 `:shared-ui:testAndroidHostTest` 现在就能进 CI"。
+- **决议（用户，2026-09-30）**：编译测试是必要的；开发环境有时确实不支持 iOS，所以**按当前环境实现** —— Linux runner 上跑得到的编译与测试一律纳入；iOS 只在 macOS runner 可用时跑，**缺环境跳过而非失败**。
+- **落地清单（属 X-01；2026-09-30 用户决议「CI 先放着」→ 暂缓施工，清单留档以免重新论证）**：
+  1. `verify` job（`ubuntu-latest`）：`HMP_BUILD_TARGET=desktop ./gradlew compileAll` + `:android:app:assembleDebug`；测试跑 `:shared:desktopTest` + `:shared-ui:testAndroidHostTest`（这两个不依赖 Robolectric）。
+  2. `:android:core-player` 是**全仓唯一带 Robolectric 的模块**（口径见 `taskbook/README.md` §四），其测试要单独处理：先加挂钟超时 / 缓存 `~/.m2/repository/org/robolectric` 再纳入，否则会复现 R31 的挂死。
+  3. iOS：macOS runner 上跑 `:shared:compileKotlinIosArm64`（零新代码，KSP target 已配齐），可选 `:shared:iosSimulatorArm64Test`；**仅在 macOS runner 可用时触发**。
+  4. **触发范围**：现 `pr-check.yml` 只在 `pull_request → master` 触发，开发线 `feature/*` 的提交**完全无 CI**。要让开发线有反馈，需加 `on: push: branches: ['feature/**']`（或约定手动 dispatch）。
+  5. 落地后同步改 `AGENTS.md` §一.5（现写"CI 既不跑单元测试、也不编译 iOS"）与 X-01。
+- **判据**：提交一个语法错的 commit，CI 红；无 macOS runner 时 iOS job 跳过而非失败。
+
+**② R3 与 D6 对 `ReActLoop` 的结论 —— 决议：两者都对，问的不是同一件事（2026-09-30 亲验实物）。**
+- **事实**（`shared/src/commonMain/.../runtime/ReActLoop.kt`）：
+  1. **确实没有 `try/finally`**：收尾的 `presenceBus.emit(idle)`（`:176`）与 `onSessionComplete?.invoke()`（`:179`）在循环体外，异常路径不执行。协程取消（`LlmCallExecutor.call` / `batchDecideApprovals` / `executeOne` 抛 `CancellationException`）直接跳过这两行 → 终态 Presence 不发（停在 `thinking active=true`）、`onSessionComplete` 不跑 → `persistMasterPolicy()` 不落盘，本次会话里累积的 `alwaysAllow`（`:158-160` 原地改 `MutableSet`）**丢失**。→ **R3 前半成立。**
+  2. **"tool 轮次不回传"要分两层**：**同一次 run 内确实回传** —— `:95` 以 `trackMessages = true` 构造 `ToolCallExecutor`，`:162` 把每个工具结果 append 成 `role="tool"` 消息（`ToolCallExecutor.kt:198-205`），下一步 LLM 看得到。**跨轮看不到** —— 下一轮 `history` 由 `ChatAgentGateway.buildHistory()` 从 `agent_message` 表装载（`:230-238`），只映射 `"user"` 与 `"agent"/"assistant"`，其余一律 `mapNotNull → null` 丢弃；存储端口注释也写明 role 只有 `user / agent / system`（`AgentMessageStore.kt:11`）。→ **R3 此点成立于跨轮，不成立于同一 run 内。**
+  3. **熔断确实在工具执行之后**：`:158-163` 先执行本步全部工具，`:165` 才判 `steps >= stepBudget` 并 break —— 该步写工具已落地，但模型没再被叫起来总结（`finalText` 空 → 走 `:183-184` 兜底文案）。→ **R3 此点成立。**
+- **结论**：D6 §4 横查（`:109`）的"单 Agent 内部生命周期正常"指的是**退出机制**（`while` + `stepBudget` 不挂死不泄漏），也成立 —— 但它没回答"取消路径的收尾"，**不构成对 R3 的反驳**。两条都留：D6 不改；R3 的前半与第三点作为真缺陷立案（补 `try/finally` + 把 tool 轮次持久化）。
+- **遗留**：R3 里"下一轮看不到已执行 → **可能**重复执行写工具"是**推理不是实测** —— 最终答复文本（`role="agent"`）是存下来的，若模型在文本里说了"已加进歌单"就仍有信号。要坐实需一条用例：同一会话两轮，第一轮执行写工具后取消/熔断，看第二轮是否重复执行。
+
+**③ i18n —— 决议：同意立案，已落 `D8-06`。**
+- 已在 [docs/7_3/domain/D8.md](docs/7_3/domain/D8.md) 追加 **D8-06**（androidMain 旧平行副本 / 无键集合校验 / 泰语 258 行未译），并把该文件 §4「i18n 无键漂移」的"结构性保证"措辞订正为"实测齐平但无机制保证"、§6 语种条注明"覆盖承诺"不含翻译质量。证据与口径见 D8-06 全文，此处不重复；域发现总数随之 **108 → 109**。
 
 ---
 
