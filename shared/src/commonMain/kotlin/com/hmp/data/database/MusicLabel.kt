@@ -3,6 +3,7 @@ package com.hmp.data.database
 import androidx.room.ColumnInfo
 import androidx.room.Dao
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
@@ -12,7 +13,10 @@ import kotlinx.coroutines.flow.Flow
 
 @Entity(
     tableName = "musicLabel",
-    primaryKeys = ["musicId", "label"]
+    primaryKeys = ["musicId", "label"],
+    // v10（D2-07）：主键是 (musicId, label)，label 在第二列 —— 主键前缀索引帮不了
+    // `WHERE label = :label` / 按 type / source 的筛选，所以这三条要单独建。
+    indices = [Index("label"), Index("type"), Index("source")],
 )
 data class MusicLabel(
     val musicId: Long,

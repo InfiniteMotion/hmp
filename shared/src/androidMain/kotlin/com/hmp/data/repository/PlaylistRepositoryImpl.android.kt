@@ -82,7 +82,6 @@ class PlaylistRepositoryImpl(
     override suspend fun addToPlaylist(playlistId: Long, musicId: Long, musicPath: String) {
         val maxOrder = playlistItemDao.getMaxOrder(playlistId) ?: -1
         val item = PlaylistItem(
-            songUrl = musicPath,
             songId = musicId,
             playlistId = playlistId
         )
@@ -101,9 +100,8 @@ class PlaylistRepositoryImpl(
     }
 
     override suspend fun reorderPlaylistItems(playlistId: Long, orderedMusicIds: List<Long>) {
-        orderedMusicIds.forEachIndexed { index, songId ->
-            playlistItemDao.updateItemOrder(playlistId, songId, index)
-        }
+        // v10 起 itemOrder 唯一，逐条 UPDATE 会中途撞号 —— 交给 DAO 的两阶段重排（D3-03 的事务在 一-2/一-4）
+        playlistItemDao.replaceOrder(playlistId, orderedMusicIds)
         refreshPlaylistStats(playlistId)
     }
 
@@ -127,8 +125,7 @@ class PlaylistRepositoryImpl(
         val playlists = playlistDao.getAllPlaylists().map { it.toDomain() }
         val items = playlistItemDao.getAllPlaylistItems().map {
             PlaylistItem(
-                songUrl = it.songUrl,
-                songId = it.songId,
+                                songId = it.songId,
                 playlistId = it.playlistId
             )
         }
@@ -148,8 +145,7 @@ class PlaylistRepositoryImpl(
         val finalItems = groupedItems.flatMap { (_, list) ->
             list.mapIndexed { index, it ->
                 com.hmp.data.database.PlaylistItem(
-                    songUrl = it.songUrl,
-                    songId = it.songId,
+                                        songId = it.songId,
                     playlistId = it.playlistId,
                     itemOrder = index
                 )

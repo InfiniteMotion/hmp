@@ -79,7 +79,7 @@ class PlaylistRepositoryImpl(
 
     override suspend fun addToPlaylist(playlistId: Long, musicId: Long, musicPath: String) {
         val maxOrder = playlistItemDao.getMaxOrder(playlistId) ?: -1
-        val item = PlaylistItemDomain(songUrl = musicPath, songId = musicId, playlistId = playlistId)
+        val item = PlaylistItemDomain(songId = musicId, playlistId = playlistId)
         playlistItemDao.insert(item.toEntity(itemOrder = maxOrder + 1))
         refreshPlaylistStats(playlistId)
     }
@@ -95,9 +95,8 @@ class PlaylistRepositoryImpl(
     }
 
     override suspend fun reorderPlaylistItems(playlistId: Long, orderedMusicIds: List<Long>) {
-        orderedMusicIds.forEachIndexed { index, songId ->
-            playlistItemDao.updateItemOrder(playlistId, songId, index)
-        }
+        // v10 起 itemOrder 唯一，逐条 UPDATE 会中途撞号 —— 交给 DAO 的两阶段重排（D3-03 的事务在 一-2/一-4）
+        playlistItemDao.replaceOrder(playlistId, orderedMusicIds)
         refreshPlaylistStats(playlistId)
     }
 
@@ -120,7 +119,7 @@ class PlaylistRepositoryImpl(
     override suspend fun exportPlaylistsSnapshot(): PlaylistsSnapshot {
         val playlists = playlistDao.getAllPlaylists().map { it.toDomain() }
         val items = playlistItemDao.getAllPlaylistItems().map {
-            PlaylistItemDomain(songUrl = it.songUrl, songId = it.songId, playlistId = it.playlistId)
+            PlaylistItemDomain(songId = it.songId, playlistId = it.playlistId)
         }
         return PlaylistsSnapshot(playlists = playlists, playlistItems = items)
     }
@@ -133,7 +132,7 @@ class PlaylistRepositoryImpl(
         val groupedItems = snapshot.playlistItems.groupBy { it.playlistId }
         val finalItems = groupedItems.flatMap { (_, list) ->
             list.mapIndexed { index, it ->
-                PlaylistItem(songUrl = it.songUrl, songId = it.songId, playlistId = it.playlistId, itemOrder = index)
+                PlaylistItem(songId = it.songId, playlistId = it.playlistId, itemOrder = index)
             }
         }
         playlistItemDao.insertPlaylist(finalItems)

@@ -191,7 +191,6 @@ data class Playlist(
 
 @Serializable
 data class PlaylistItem(
-    val songUrl: String,
     val songId: Long,
     val playlistId: Long,
 )

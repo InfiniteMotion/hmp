@@ -34,13 +34,11 @@ fun Playlist.toEntity(): PlaylistEntity = PlaylistEntity(
 )
 
 fun PlaylistItemEntity.toDomain(): PlaylistItem = PlaylistItem(
-    songUrl = songUrl,
     songId = songId,
     playlistId = playlistId
 )
 
 fun PlaylistItem.toEntity(itemOrder: Int = 0): PlaylistItemEntity = PlaylistItemEntity(
-    songUrl = songUrl,
     songId = songId,
     playlistId = playlistId,
     itemOrder = itemOrder

@@ -17,10 +17,13 @@ import kotlinx.serialization.modules.subclass
  * Android 专属反射实现；非 Android 平台必须走显式注册了 NavKey 多态
  * serializer 的版本。本函数统一两侧都走显式注册版，避免平台行为分叉。
  *
- * 维护约束：新增路由时需在此补 subclass 注册——漏注册无编译期报错，
- * 仅在该 key 参与保存/恢复（进程重建/配置变更）时运行时报错。
+ * 维护约束：新增路由时需在此补 subclass 注册。漏注册无编译期报错，仅在该 key 参与
+ * 保存/恢复（进程重建/配置变更）时运行时报错 —— 所以 `NavRegistrationGateTest`（androidHostTest）
+ * 遍历 `Routes` 里的每个 NavKey 做真实多态往返，漏一条即红，不必再靠人记。
+ *
+ * `internal` 是给该闸门测试的可见性，不是对外 API。
  */
-private val HMP_NAV_KEY_SERIALIZERS = SerializersModule {
+internal val HMP_NAV_KEY_SERIALIZERS = SerializersModule {
     polymorphic(baseClass = NavKey::class) {
         // Main
         subclass(serializer = Routes.Main.Tabs.serializer())
@@ -49,8 +52,10 @@ private val HMP_NAV_KEY_SERIALIZERS = SerializersModule {
         subclass(serializer = Routes.Settings.LibrarySettings.serializer())
         subclass(serializer = Routes.Settings.LyricsSettings.serializer())
         subclass(serializer = Routes.Settings.AuditLog.serializer())
+        subclass(serializer = Routes.Settings.AgentMonitor.serializer())
         // AI / Custom / UserData
         subclass(serializer = Routes.AI.AI.serializer())
+        subclass(serializer = Routes.AI.AgentConfig.serializer())
         subclass(serializer = Routes.Custom.Custom.serializer())
         subclass(serializer = Routes.UserData.UserUsageData.serializer())
         // Companion（听歌伙伴对话）

@@ -2,13 +2,22 @@ package com.hmp.data.database
 
 import androidx.room.Dao
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.PrimaryKey
 import androidx.room.Query
 import kotlinx.coroutines.flow.Flow
 
-@Entity
+@Entity(
+    // 表名沿用类名 `PlaybackHistory`（v1 起如此，改名会动身份哈希）—— DDL 里必须用这个名字。
+    indices = [
+        // v10（D5-11）：所有窗口聚合的谓词都是 playedAt >= cutoff，按歌聚合的谓词是 musicId；
+        // 此前零索引，历史越长窗口查询越退化成全表扫。
+        Index("playedAt"),
+        Index("musicId", "playedAt"),
+    ],
+)
 data class PlaybackHistory(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,

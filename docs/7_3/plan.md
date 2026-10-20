@@ -62,7 +62,10 @@
 | **P0-1** | 迁移测试补环：补 `7→8`、`8→9`，再加一条 `createDatabase(1)` 跑全链到 9 | D7-09 | `:shared:desktopTest` 出现这四段用例；故意写坏一条 DDL 必红 | — |
 | **P0-2** | 修假用例 `migratedDatabase_canBeOpenedByRoom`：改为先跑一次真实 DAO 查询再断言 | D7-09 | 同上（它是"DDL 写错也绿"的那一条） | P0-1 |
 | **P0-3** | `AppDatabase` 暴露 `ALL_MIGRATIONS`，三端 `addMigrations(...)` 引用它 | v10 §三.1 | 抽掉任一端引用后，回归用例能发现（而不是靠人记） | P0-1 |
-| **P0-4** | 本机基线（**已完成 2026-09-30**） | — | 964 用例 / 119 套件 / 全绿 / 约 61 秒；命令见 §七 | — |
+| **P0-4** | 本机基线（2026-09-30 首测；批 0 后于 2026-10-08 复测） | — | 复测 **968 用例** / 119 套件 / 全绿；命令见 §七 | — |
+
+> **批 0 状态（2026-10-08）：P0-1 / P0-2 / P0-3 已完成**，M0 判据达成。施工结果与两处判据收窄记在 `domain/D7.md` D7-09 的「施工结果」段（条目未拆进 `taskbook/` —— 该包三步在同一天内做完并回填，按 `taskbook/README.md` §一「做完就删文件」的口径，建一个即删的文件只留漂移面）。
+> 顺带修掉一处测试基建缺陷：`AppDatabaseMigrationTest` 原先 8 个用例共用一个 `build/migration_test.db`，Windows 上一个用例失败就会让后续用例继承旧库、报出与自身无关的错。现每实例唯一文件名。
 
 > **P0-1 的顺序硬约束（本次实测得出，`v10-migration.md` 未写）**：`10.json` 是 `runMigrationsAndValidate(10, …)` 的比对基准，必须**先**由 KSP 导出并入库，**再**写迁移用例。正确顺序为：改 `@Entity` + 写 `MIGRATION_9_10` → 构建导出 `10.json` → 写用例。反过来会先红在"找不到 `10.json`"。该条应写进批一-1 的 taskbook 条目。
 
@@ -82,6 +85,10 @@
 | **一-6** | **设置、备份与密钥**：Android 恢复后密钥解不开要降级不崩、`rememberSaveable` 不落明文、备份路径约束、旧设置链的可靠性、Android 备份读写切 IO、快照覆盖面与 `version` | D7-01、D7-03、D7-04、D7-05、D7-06、D7-07、D7-08、D7-11、D7-12 | `:shared:desktopTest` + `:shared:commonTest`（`BackupSnapshotRoundTripTest`）；其中 D7-01、D7-03、D7-05、D7-06 的 iOS/Android 段为实机 | 一-2 |
 | **一-7** | **降级守卫**：`user_version > 9` 时不崩、记日志、给可见提示 | D7-10 | 构造 `user_version = 11` 的库打开：不崩 + 日志含 `dbVersion` + UI 出现版本过高提示；三端各一次（实机） | 一-1；**§九 决策 4** |
 | **一-8** | **结构（可选，建议延后）**：三端 `PlaylistRepositoryImpl` / `SettingsRepositoryImpl` 抽公共基类 | D3-14 | 现有 `PlaylistRepositoryImplTest`(17 例) / `SettingsRepositoryImplTest`(57 例) / `PlaylistDaoTest`(17 例) 全绿 | 一-1..一-4 全绿后 |
+
+> **一-1 已完成（2026-10-08）**：13 条索引 + 删 `songUrl` + `MIGRATION_9_10` + `10.json` 入库全落，判据走过红→绿，并在真实库副本上演练过（`v10-migration.md` §八 记了结果与三处偏离）。
+> 两处需要后续包接手的：**`addToPlaylist` 并发现在会撞索引**（一-2 的优先级由"防半空库"升为"防崩溃"）；**`musicPath` 死参数**与按名删除（一-4）。
+> 顺带：`music(title/artist/album)` 三条 B-tree 索引对现有 `LIKE '%q%'` 搜索无效，别把 D2-05/搜索性能记成"已随索引解决"（详见 `domain/D2.md` D2-07 施工结果）。
 
 > **一-1 的两个前置决策**（不做完不能动迁移）：存量 `itemOrder` 去重策略、`playlist.name` 同名链与系统歌单豁免。见 §九 决策 1/2。
 
@@ -121,6 +128,21 @@
 | **X-目标** | `maybeDepends` 在错目标下静默零工作 → fail-fast | X-10 | `HMP_BUILD_TARGET=desktop ./gradlew testAndroid` 不再静默绿 | — |
 | **X-其余** | 静态闸门 / storybook 去留 / 依赖矩阵 / 平台源集覆盖 | X-06、X-07、X-08、X-11 | 见域章节；**§九 决策 6** | 决策 6 |
 
+> **三-1 已完成（2026-10-08）**：两条 serializer 补齐，恒真断言删除，遍历式闸门落在
+> `shared-ui/src/androidHostTest/.../NavRegistrationGateTest.kt`（多态往返 + `entry` 覆盖，30 = 26 entry + 4 Tab 豁免）。
+> 实测：无人注册的新路由会被精确点名；`:shared-ui:testAndroidHostTest` 93 例 / 0 失败。
+> X-05 的**运行期那半**（真机"不保留活动"后回栈恢复）仍留在 §六 实机清单。施工记录与两个反射陷阱见 `domain/D8.md` D8-01 / D8-02。
+>
+> **闸门段进度（2026-10-08）**：**X-闸 已完成，且从 1 条扩成 3 条**，覆盖两端真实装配组合 ——
+> `shared/src/desktopTest/.../KoinGraphVerificationTest.kt`（领域/数据层）、
+> `shared-ui/src/desktopTest/.../DesktopKoinGraphVerificationTest.kt`（桌面完整装配）、
+> `shared-ui/src/androidHostTest/.../AndroidAppKoinGraphVerificationTest.kt`（Android 完整装配）。
+> 全用 koin-test `verify()` 静态校验（`checkModules` 会实例化定义 → 会打开本机 `~/.hmp` 真库，故弃用）。
+> 实测信号：删 `single<MusicAllDao>` → `:shared` 那条红；删桌面侧 `single<PlaybackController>` → 桌面那条红且 Android 那条不受影响。
+> **两个如实记录的覆盖边界**（详见 `domain/X.md` X-04 施工结果）：① 带默认值的构造参数被静态校验当成可缺省（删 `single { PresenceBus() }` 三条全绿，而运行期 `chatPresenceBus = get()` 照样抛）；② iOS 装配拼不出、`MainActivity` 里 `loadModules` 动态注册的 `PlatformServices` 看不见。
+> **X-testAll 已完成，并按新事实修正**：先摘 `:shared-ui:desktopTest`（当时目录不存在），补另一半时发现 `shared-ui/build.gradle.kts` 早已声明该源集、只缺目录 —— 于是建出目录并把 `testAll`/`testUi` **重新挂回**，`testUiDesktop` 因此保留（不再是空绿陷阱）。
+> 同类残留**已同日处理**：`desktop/app` 建出 `src/desktopTest/` 并放 `SingleInstanceGuardTest`（单实例锁 4 例，实测 `release()` 不释放会精确红一条），`testAll` 挂的 `:desktop:app:desktopTest` 从此有真实内容。
+>
 > **三-1 / X-闸 / X-testAll 建议先做**：三者的成本都在"改几行 + 加一条断言"，但它们把后续所有包的回归风险降一档。这也是上一轮审查"先闸门再 S1"的意图 —— 本轮按 baseline §三 的批次走，但闸门段可以并行提前。
 
 ---
@@ -156,7 +178,7 @@
   ```
 
   理由：`gradlew-lowmem.bat testCore` 首次执行时报 `:shared:desktopTest FROM-CACHE` + `testCore UP-TO-DATE`，**BUILD SUCCESSFUL 但零用例执行**（`org.gradle.caching=true`），连测试报告都是缓存里那份。`.md` 里的"任务 UP-TO-DATE 时加 `--rerun`"不足以覆盖 `FROM-CACHE` 这种情况。
-- **本机基线（2026-09-30）**：119 套件 / **964 用例** / 0 失败 0 错误 0 跳过 / 约 61 秒；其中 `commonTest` 764 例、`desktopTest` 200 例（逐条相加吻合）。最慢套件 `RadioSubAgentTest` 12.55s。
+- **本机基线（2026-10-08 复测）**：119 套件 / **968 用例** / 0 失败 0 错误 0 跳过；由 2026-09-30 的 964 例 +4 得来，+4 全部来自批 0 给 `AppDatabaseMigrationTest` 补的四条（`migrate_7_8` / `migrate_8_9` / `1→9` 全链 / 链连续性）。最慢套件 `RadioSubAgentTest` 12.55s（旧测）。
 - **测试源集实况**（8 个）：`shared/{commonTest,desktopTest}`、`shared-ui/{commonTest,androidHostTest}`、`desktop/core-player/desktopTest`、`android/core-player/test`（Robolectric，51 例）、`android/app/{test,androidTest}`（模板桩）。**`:shared` 无 `androidHostTest`**：AGP 9 KMP 库插件默认关闭 host test，需 `withHostTest{}` 显式 opt-in（`shared-ui/build.gradle.kts:19-21` 有先例）。
 - **iOS 侧有任务、无源集**：`:shared` 有 `iosSimulatorArm64Test` / `iosX64Test`，会带上 `commonTest` 的 764 例，但**只能在 macOS 上跑**（本机验证不可达，属待验）。
 
@@ -216,8 +238,8 @@
 
 | 里程碑 | 内容 | 完成判据 |
 |---|---|---|
-| **M0** | 批 0（迁移骨架 + 常量） | 故意写坏一条 DDL 必红；`1→9` 全链用例在跑 |
-| **M1** | 批一（含 v10 迁移与四域逻辑） | 一-1..一-7 全绿；`10.json` 入库；三端注册；降级守卫可用 |
+| **M0** | 批 0（迁移骨架 + 常量） | **已达成（2026-10-08）**：故意写坏 `MIGRATION_8_9` 的一个 NOT NULL → 精确 3 红；改回 8/8 绿。`1→9` 全链用例在跑，三端引用同一份 `ALL_MIGRATIONS` |
+| **M1** | 批一（含 v10 迁移与四域逻辑） | **进行中：一-1 已完成（2026-10-08）**；一-2..一-7 待做。`10.json` 入库；三端注册；降级守卫可用 |
 | **M2** | 批二（运行时） | 可测部分全绿；iOS 项进实机清单 |
 | **M3** | 批三 + 横切线安全网 | 三-1..三-7 + X-闸/X-testAll/X-版本/X-目标 全绿 |
 | **M4** | 发版准备 | `preflight` 绿；实机签收；走 `skills/release-prep` |

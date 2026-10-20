@@ -89,7 +89,8 @@ tasks.register("testAll") {
     notCompatibleWithConfigurationCache("test fan-out task")
 
     // KMP 侧（shared / shared-ui 恒在构建中）
-    // 注：shared-ui 的 desktopTest 为空，真正的用例在 androidHostTest
+    // :shared-ui:desktopTest 2026-10-08 起有真内容（src/desktopTest 目录补齐，放桌面装配图的 DI 校验），
+    // 所以重新挂回来。此前它因目录不存在被摘掉（X-09）—— 那时挂着是 NO-SOURCE 静默绿，现在是实际用例。
     dependsOn(":shared:desktopTest", ":shared-ui:desktopTest", ":shared-ui:testAndroidHostTest")
 
     // 平台侧（按目标存在性过滤，见文件顶部 maybeDepends 说明）
@@ -118,11 +119,8 @@ tasks.register("testQuick") {
 tasks.register("testUi") {
     group = "verification"
     description = "只测 :shared-ui（Compose UI 与平台桥接）"
-    // 注意：shared-ui 的 desktopTest 源集**目前为空**（只有 androidHostTest 有测试，
-    // 8 个文件），因此单挂 desktopTest 会 NO-SOURCE 空过。这里把 androidHostTest
-    // 一并挂上，否则 shared-ui 的测试实际上没人跑。
-    // androidHostTest 不需要真机/模拟器（它是 JVM 上的 Robolectric 风格宿主测试），
-    // 但仍需 Android SDK —— Android SDK 缺失的环境可改用 testUiDesktop。
+    // 两个源集都要挂：androidHostTest 是历史主力（需 Android SDK），
+    // desktopTest 2026-10-08 起补齐目录并有真用例（桌面装配图的 DI 校验），无 Android SDK 也能跑。
     dependsOn(":shared-ui:desktopTest")
     dependsOn(":shared-ui:testAndroidHostTest")
 }
@@ -130,6 +128,9 @@ tasks.register("testUi") {
 tasks.register("testUiDesktop") {
     group = "verification"
     description = "只测 :shared-ui 的 desktop 源集（不依赖 Android SDK）"
+    // 2026-10-08：`shared-ui/src/desktopTest` 目录补齐（桌面装配图的 DI 校验），本任务从此有真用例。
+    // 此前它挂在空源集上、必然 NO-SOURCE 绿 —— 那个"删除本任务"的建议因此作废：
+    // 它现在是缺 Android SDK 环境下唯一能跑 shared-ui 测试的入口。
     dependsOn(":shared-ui:desktopTest")
 }
 

@@ -86,13 +86,11 @@ class PlaylistMapperTest {
     @Test
     fun playlistItemEntity_toDomain_mapsCorrectly() {
         val entity = PlaylistItemEntity(
-            songUrl = "/songs/test.mp3",
             songId = 42,
             playlistId = 1,
             itemOrder = 3
         )
         val domain = entity.toDomain()
-        assertEquals("/songs/test.mp3", domain.songUrl)
         assertEquals(42L, domain.songId)
         assertEquals(1L, domain.playlistId)
     }
@@ -100,12 +98,10 @@ class PlaylistMapperTest {
     @Test
     fun playlistItem_toEntity_mapsWithItemOrder() {
         val domain = PlaylistItem(
-            songUrl = "/songs/test.flac",
             songId = 50,
             playlistId = 2
         )
         val entity = domain.toEntity(itemOrder = 7)
-        assertEquals("/songs/test.flac", entity.songUrl)
         assertEquals(50L, entity.songId)
         assertEquals(2L, entity.playlistId)
         assertEquals(7, entity.itemOrder)
@@ -114,7 +110,6 @@ class PlaylistMapperTest {
     @Test
     fun playlistItem_toEntity_defaultItemOrder() {
         val domain = PlaylistItem(
-            songUrl = "/test",
             songId = 1,
             playlistId = 1
         )
@@ -125,13 +120,11 @@ class PlaylistMapperTest {
     @Test
     fun playlistItem_roundTrip() {
         val original = PlaylistItem(
-            songUrl = "/path/song.mp3",
             songId = 99,
             playlistId = 5
         )
         val entity = original.toEntity(3)
         val restored = entity.toDomain()
-        assertEquals(original.songUrl, restored.songUrl)
         assertEquals(original.songId, restored.songId)
         assertEquals(original.playlistId, restored.playlistId)
     }

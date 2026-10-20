@@ -127,7 +127,7 @@ class PlaylistDaoTest {
     fun item_insertAndRetrieve() = runTest {
         val playlistId = playlistDao.insert(Playlist(name = "Test"))
         musicDao.insert(music(1))
-        playlistItemDao.insert(PlaylistItem(songUrl = "/1.mp3", songId = 1, playlistId = playlistId, itemOrder = 0))
+        playlistItemDao.insert(PlaylistItem(songId = 1, playlistId = playlistId, itemOrder = 0))
         val items = playlistItemDao.getPlaylistById(playlistId)
         assertEquals(1, items.size)
         assertEquals(1L, items[0].music.id)
@@ -137,9 +137,9 @@ class PlaylistDaoTest {
     fun item_getMaxOrder() = runTest {
         val playlistId = playlistDao.insert(Playlist(name = "Test"))
         musicDao.insertAll(listOf(music(1), music(2), music(3)))
-        playlistItemDao.insert(PlaylistItem(songUrl = "/1.mp3", songId = 1, playlistId = playlistId, itemOrder = 0))
-        playlistItemDao.insert(PlaylistItem(songUrl = "/2.mp3", songId = 2, playlistId = playlistId, itemOrder = 1))
-        playlistItemDao.insert(PlaylistItem(songUrl = "/3.mp3", songId = 3, playlistId = playlistId, itemOrder = 2))
+        playlistItemDao.insert(PlaylistItem(songId = 1, playlistId = playlistId, itemOrder = 0))
+        playlistItemDao.insert(PlaylistItem(songId = 2, playlistId = playlistId, itemOrder = 1))
+        playlistItemDao.insert(PlaylistItem(songId = 3, playlistId = playlistId, itemOrder = 2))
         assertEquals(2, playlistItemDao.getMaxOrder(playlistId))
     }
 
@@ -147,8 +147,8 @@ class PlaylistDaoTest {
     fun item_deleteItemByIds() = runTest {
         val playlistId = playlistDao.insert(Playlist(name = "Test"))
         musicDao.insertAll(listOf(music(1), music(2)))
-        playlistItemDao.insert(PlaylistItem(songUrl = "/1.mp3", songId = 1, playlistId = playlistId, itemOrder = 0))
-        playlistItemDao.insert(PlaylistItem(songUrl = "/2.mp3", songId = 2, playlistId = playlistId, itemOrder = 1))
+        playlistItemDao.insert(PlaylistItem(songId = 1, playlistId = playlistId, itemOrder = 0))
+        playlistItemDao.insert(PlaylistItem(songId = 2, playlistId = playlistId, itemOrder = 1))
         playlistItemDao.deleteItemByIds(1, playlistId)
         val items = playlistItemDao.getPlaylistById(playlistId)
         assertEquals(1, items.size)
@@ -159,10 +159,18 @@ class PlaylistDaoTest {
     fun item_updateItemOrder() = runTest {
         val playlistId = playlistDao.insert(Playlist(name = "Test"))
         musicDao.insertAll(listOf(music(1), music(2)))
-        playlistItemDao.insert(PlaylistItem(songUrl = "/1.mp3", songId = 1, playlistId = playlistId, itemOrder = 0))
-        playlistItemDao.insert(PlaylistItem(songUrl = "/2.mp3", songId = 2, playlistId = playlistId, itemOrder = 1))
-        playlistItemDao.updateItemOrder(playlistId, 2, 0)
-        playlistItemDao.updateItemOrder(playlistId, 1, 1)
+        playlistItemDao.insert(PlaylistItem(songId = 1, playlistId = playlistId, itemOrder = 0))
+        playlistItemDao.insert(PlaylistItem(songId = 2, playlistId = playlistId, itemOrder = 1))
+
+        // v10 的 UNIQUE(playlistId,itemOrder) 让"裸换位"当场撞号 —— 钉住这条约束，
+        // 免得有人把重排改回逐条 UPDATE（置顶/重排是活的 UI 路径，撞号=崩溃）。
+        val collision = runCatching { playlistItemDao.updateItemOrder(playlistId, 2, 0) }
+        assertTrue(collision.isFailure, "裸 updateItemOrder 互换应撞唯一索引；不撞说明索引没了")
+        // 撞号的那次 UPDATE 已回滚，原顺序保持 0/1
+        assertEquals(listOf(1L, 2L), playlistItemDao.getSongIdsInOrder(playlistId))
+
+        // 正确的做法：两阶段整体重排
+        playlistItemDao.replaceOrder(playlistId, listOf(2L, 1L))
         // Order should now be: song2 (order=0), song1 (order=1)
         val items = playlistItemDao.getPlaylistById(playlistId)
         assertEquals(2L, items[0].music.id)
@@ -173,7 +181,7 @@ class PlaylistDaoTest {
     fun item_cascadeDelete_onPlaylistDelete() = runTest {
         val playlistId = playlistDao.insert(Playlist(name = "Test"))
         musicDao.insert(music(1))
-        playlistItemDao.insert(PlaylistItem(songUrl = "/1.mp3", songId = 1, playlistId = playlistId, itemOrder = 0))
+        playlistItemDao.insert(PlaylistItem(songId = 1, playlistId = playlistId, itemOrder = 0))
         playlistDao.deletePlaylistById(playlistId)
         val items = playlistItemDao.getPlaylistById(playlistId)
         assertTrue(items.isEmpty())
@@ -184,9 +192,9 @@ class PlaylistDaoTest {
         val p1 = playlistDao.insert(Playlist(name = "A"))
         val p2 = playlistDao.insert(Playlist(name = "B"))
         musicDao.insertAll(listOf(music(1), music(2), music(3)))
-        playlistItemDao.insert(PlaylistItem(songUrl = "/1.mp3", songId = 1, playlistId = p1, itemOrder = 0))
-        playlistItemDao.insert(PlaylistItem(songUrl = "/2.mp3", songId = 2, playlistId = p2, itemOrder = 0))
-        playlistItemDao.insert(PlaylistItem(songUrl = "/3.mp3", songId = 3, playlistId = p1, itemOrder = 1))
+        playlistItemDao.insert(PlaylistItem(songId = 1, playlistId = p1, itemOrder = 0))
+        playlistItemDao.insert(PlaylistItem(songId = 2, playlistId = p2, itemOrder = 0))
+        playlistItemDao.insert(PlaylistItem(songId = 3, playlistId = p1, itemOrder = 1))
         assertEquals(3, playlistItemDao.getAllPlaylistItems().size)
     }
 }
