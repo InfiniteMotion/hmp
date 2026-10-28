@@ -2,6 +2,8 @@ package com.hmp.domain.music.usecase
 
 import com.hmp.domain.music.Music
 import com.hmp.domain.music.MusicInfo
+import com.hmp.domain.music.MusicSortKey
+import com.hmp.domain.music.SortDirection
 import com.hmp.test.fakes.FakeMusicRepository
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
@@ -39,7 +41,7 @@ class GetAllMusicUseCaseTest {
         repository.addMusic(music(1, "S1", artist = "Alice"))
         repository.addMusic(music(2, "S2", artist = "Charlie"))
         repository.addMusic(music(3, "S3", artist = "Bob"))
-        val result = useCase(orderBy = "artist", orderType = "DESC")
+        val result = useCase(orderBy = MusicSortKey.ARTIST, orderType = SortDirection.DESC)
         assertEquals("Charlie", result[0].music.artist)
         assertEquals("Bob", result[1].music.artist)
         assertEquals("Alice", result[2].music.artist)
@@ -50,7 +52,7 @@ class GetAllMusicUseCaseTest {
         repository.addMusic(music(1, "Short", duration = 60000))
         repository.addMusic(music(2, "Long", duration = 300000))
         repository.addMusic(music(3, "Medium", duration = 180000))
-        val result = useCase(orderBy = "duration")
+        val result = useCase(orderBy = MusicSortKey.DURATION)
         assertEquals(60000, result[0].music.duration)
         assertEquals(180000, result[1].music.duration)
         assertEquals(300000, result[2].music.duration)

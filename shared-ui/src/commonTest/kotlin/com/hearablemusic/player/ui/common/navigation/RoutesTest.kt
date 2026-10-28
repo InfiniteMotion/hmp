@@ -211,39 +211,9 @@ class RoutesTest {
         assertEquals(original, deserialized)
     }
 
-    @Test
-    fun `all route classes should extend NavKey`() {
-        // Given
-        val routes = listOf(
-            Routes.Main.Tabs,
-            Routes.Main.Home,
-            Routes.Main.Gallery,
-            Routes.Main.List,
-            Routes.Main.User,
-            Routes.Player.Player,
-            Routes.Player.Lyrics,
-            Routes.Player.AudioEffects,
-            Routes.Library.Search,
-            Routes.Library.SongDetail(1),
-            Routes.Library.Artist("test"),
-            Routes.Library.Album("test"),
-            Routes.Playlist.Playlist("test"),
-            Routes.Playlist.CustomPlaylist(1),
-            Routes.Playlist.UserPlaylistManage,
-            Routes.Settings.Setting,
-            Routes.Settings.ProfileSettings,
-            Routes.Settings.BackupSettings,
-            Routes.Settings.LibrarySettings,
-            Routes.AI.AI,
-            Routes.Custom.Custom,
-            Routes.UserData.UserUsageData
-        )
-
-        // When / Then
-        routes.forEach { route ->
-            assertTrue(route is NavKey, "Route $route should be instance of NavKey")
-        }
-    }
+    // 「所有路由都继承 NavKey」这条断言已被删除（D8-02）：Routes.kt 里每个声明都带 `: NavKey`，
+    // `assertTrue(route is NavKey)` 恒真；且它手写 22 条、漏 8 条，也不触及 serializer / entry 注册。
+    // 真正会响的闸门在 NavRegistrationGateTest（androidHostTest）：反射遍历每个 NavKey 做多态往返 + entry 覆盖比对。
 
     @Test
     fun `data class routes should have correct toString representation`() {

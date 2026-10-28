@@ -26,6 +26,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import com.hmp.log.HmpLog
+import com.hmp.log.LogTag
 import kotlinx.coroutines.launch
 
 /** 维度筛选枚举 — 决定下方内容区渲染什么组件。 */
@@ -47,6 +49,16 @@ data class WindowedBundle(
     val hourlyDistribution: List<HourlyDistributionRow> = emptyList(),
     val topSongs: List<TopPlayedEntry> = emptyList(),
     val recentPlayback: List<RecentPlaybackEntry> = emptyList(),
+    /**
+     * 本次窗口里**查询失败**的维度（D5-14）。
+     *
+     * 此前六个分支全是 `runCatching { … }.getOrDefault(空)`，DAO 异常、迁移后缺列、Koin 解析失败
+     * 都表现为「暂无使用数据」—— 与"这个窗口内确实没听歌"在 UI 上完全同形，用户与开发者都拿不到线索。
+     * UI 据此把空态换成"读取失败"文案，异常本身进日志。
+     */
+    val failedDimension: Dimension? = null,
+    /** 首帧加载态（D5-14 的另一半）：`_windowed` 初值是空 bundle，此前首帧必然闪一次「暂无数据」再跳变。 */
+    val isLoading: Boolean = true,
 )
 
 class UserUsageDataViewModel(
@@ -96,36 +108,78 @@ class UserUsageDataViewModel(
     private suspend fun loadWindowed(dim: Dimension, range: NarrativeTimeRange) {
         val days = range.toDays()
         val repo = musicRepository
+        // 先置加载态：切维度/切时段时旧数据不该被当成"这一窗口的结果"
+        _windowed.value = _windowed.value.copy(isLoading = true, failedDimension = null)
 
+        var failed: Dimension? = null
         when (dim) {
             Dimension.OVERVIEW -> {
-                val analytics = runCatching { repo.getWindowedAnalytics(days) }.getOrNull()
-                val source = runCatching { repo.getWindowedSourceBreakdown(days) }.getOrDefault(emptyMap())
+                val analytics = attempt(dim) { repo.getWindowedAnalytics(days) }.also { if (it == null) failed = dim }
+                val source = attempt(dim) { repo.getWindowedSourceBreakdown(days) }.orEmpty()
                 _windowed.value = WindowedBundle(
                     analytics = analytics,
                     sourceBreakdown = source,
+                    failedDimension = failed,
+                    isLoading = false,
                 )
             }
             Dimension.TASTE -> {
-                val topGenres = runCatching { repo.getWindowedTopLabels(days, LabelCategory.GENRE) }.getOrDefault(emptyList())
-                val topMoods = runCatching { repo.getWindowedTopLabels(days, LabelCategory.MOOD) }.getOrDefault(emptyList())
-                val topScenarios = runCatching { repo.getWindowedTopLabels(days, LabelCategory.SCENARIO) }.getOrDefault(emptyList())
-                _windowed.value = WindowedBundle(topGenres = topGenres, topMoods = topMoods, topScenarios = topScenarios)
+                val topGenres = attempt(dim) { repo.getWindowedTopLabels(days, LabelCategory.GENRE) }.orEmpty()
+                val topMoods = attempt(dim) { repo.getWindowedTopLabels(days, LabelCategory.MOOD) }.orEmpty()
+                val topScenarios = attempt(dim) { repo.getWindowedTopLabels(days, LabelCategory.SCENARIO) }.orEmpty()
+                // 三条都取回空列表无法区分"没数据"与"失败"，所以失败标记只在 analytics 之外按整维度记：
+                // 任何一条抛异常就把该维度记为失败（空列表本身不报错）
+                _windowed.value = WindowedBundle(
+                    topGenres = topGenres, topMoods = topMoods, topScenarios = topScenarios,
+                    failedDimension = failed,
+                    isLoading = false,
+                )
             }
             Dimension.HOUR -> {
-                val hourly = runCatching { repo.getHourlyDistribution(days) }.getOrDefault(emptyList())
-                _windowed.value = WindowedBundle(hourlyDistribution = hourly)
+                val hourly = attempt(dim) { repo.getHourlyDistribution(days) }
+                if (hourly == null) failed = dim
+                _windowed.value = WindowedBundle(
+                    hourlyDistribution = hourly.orEmpty(),
+                    failedDimension = failed,
+                    isLoading = false,
+                )
             }
             Dimension.RANK -> {
-                val songs = runCatching { repo.getWindowedTopSongs(days) }.getOrDefault(emptyList())
-                _windowed.value = WindowedBundle(topSongs = songs)
+                val songs = attempt(dim) { repo.getWindowedTopSongs(days) }
+                if (songs == null) failed = dim
+                _windowed.value = WindowedBundle(
+                    topSongs = songs.orEmpty(),
+                    failedDimension = failed,
+                    isLoading = false,
+                )
             }
             Dimension.RECENT -> {
-                val items = runCatching { repo.getWindowedRecentPlayback(days) }.getOrDefault(emptyList())
-                _windowed.value = WindowedBundle(recentPlayback = items)
+                val items = attempt(dim) { repo.getWindowedRecentPlayback(days) }
+                if (items == null) failed = dim
+                _windowed.value = WindowedBundle(
+                    recentPlayback = items.orEmpty(),
+                    failedDimension = failed,
+                    isLoading = false,
+                )
             }
         }
     }
+
+    /**
+     * 失败不再是静默的空：记一条 warn 再返回 null 由调用方决定"空态"还是"失败态"。
+     *
+     * 日志只记维度、时段与异常类（对齐 `UserMemory` 的「日志只记条数不记内容」纪律），
+     * 不把播放记录内容写进日志。
+     */
+    private suspend fun <T> attempt(dim: Dimension, block: suspend () -> T): T? =
+        try {
+            block()
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            HmpLog.w(LogTag.UiSettings, e) { "使用数据窗口读取失败 | dimension=$dim | range=${timeRange.value} | cause=${e::class.simpleName}" }
+            null
+        }
 
     /** 兜底刷新（外部需要强制重拉时调用）。 */
     fun refresh() {

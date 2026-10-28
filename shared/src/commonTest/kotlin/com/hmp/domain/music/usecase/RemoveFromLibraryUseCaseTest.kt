@@ -1,6 +1,8 @@
 package com.hmp.domain.music.usecase
 
 import com.hmp.domain.music.Music
+import com.hmp.domain.music.MusicSortKey
+import com.hmp.domain.music.SortDirection
 import com.hmp.domain.music.MusicInfo
 import com.hmp.test.fakes.FakeMusicRepository
 import kotlinx.coroutines.test.runTest
@@ -31,7 +33,7 @@ class RemoveFromLibraryUseCaseTest {
         repository.addMusic(music(2))
         repository.addMusic(music(3))
         useCase(listOf(1, 3))
-        val remaining = repository.getAllMusicInfoAsList("title", "ASC")
+        val remaining = repository.getAllMusicInfoAsList(MusicSortKey.TITLE, SortDirection.ASC)
         assertEquals(1, remaining.size)
         assertEquals(2, remaining[0].music.id)
     }
@@ -41,6 +43,6 @@ class RemoveFromLibraryUseCaseTest {
         repository.addMusic(music(1))
         repository.addMusic(music(2))
         useCase(listOf(1, 2))
-        assertTrue(repository.getAllMusicInfoAsList("title", "ASC").isEmpty())
+        assertTrue(repository.getAllMusicInfoAsList(MusicSortKey.TITLE, SortDirection.ASC).isEmpty())
     }
 }

@@ -10,7 +10,6 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.hmp.data.network.BuiltInApiKeyProvider
-import com.hmp.data.util.SecureStorageHelper
 import com.hmp.domain.backup.AppSettingsSnapshot
 import com.hmp.domain.config.DisplayMode
 import com.hmp.domain.config.LyricsAlignment
@@ -30,7 +29,12 @@ private val Context.dataStore by preferencesDataStore(name = "player_preferences
 
 class SettingsRepositoryImpl(
     private val context: Context,
-    private val builtInApiKeyProvider: BuiltInApiKeyProvider = BuiltInApiKeyProvider()
+    private val builtInApiKeyProvider: BuiltInApiKeyProvider = BuiltInApiKeyProvider(),
+    /**
+     * 密钥读写门面（D7-01）。**Android 是这条缺陷的主发现地**：`allowBackup` 把 DataStore 里的
+     * 密文随云备份 / 设备迁移带走，而 AndroidKeyStore 的密钥不可导出、不迁移 → 恢复后必解不开。
+     */
+    private val secrets: com.hmp.data.util.SecureSecrets = com.hmp.data.util.PlatformSecureSecrets
 ) : SettingsRepository {
     private companion object {
         const val HAZE_MODE_CUSTOM = "custom"
@@ -271,36 +275,29 @@ class SettingsRepositoryImpl(
 
     override val customAiConfig: kotlinx.coroutines.flow.Flow<AiEndpointConfig>
         get() = dataStore.data.map { prefs ->
-            val endpoint = prefs[PreferencesKeys.CUSTOM_AI_ENDPOINT] ?: ""
-            val encryptedKey = prefs[PreferencesKeys.CUSTOM_AI_API_KEY]
-            val apiKey = encryptedKey?.let { SecureStorageHelper.decrypt(it) } ?: ""
-            val model = prefs[PreferencesKeys.CUSTOM_AI_MODEL] ?: ""
-            AiEndpointConfig(
-                endpoint = endpoint,
-                apiKey = apiKey,
-                selectedModel = model,
-                isConfigured = endpoint.isNotBlank() && apiKey.isNotBlank()
+            // 三端同一份读取规则见 `readEndpointConfig`（D7-01）：解不开不抛，回空串 + keyNeedsRefill
+            readEndpointConfig(
+                endpoint = prefs[PreferencesKeys.CUSTOM_AI_ENDPOINT] ?: "",
+                encryptedKey = prefs[PreferencesKeys.CUSTOM_AI_API_KEY],
+                model = prefs[PreferencesKeys.CUSTOM_AI_MODEL] ?: "",
+                secrets = secrets,
             )
         }
 
     override suspend fun getCustomAiConfig(): AiEndpointConfig {
         val prefs = context.dataStore.data.first()
-        val endpoint = prefs[PreferencesKeys.CUSTOM_AI_ENDPOINT] ?: ""
-        val encryptedKey = prefs[PreferencesKeys.CUSTOM_AI_API_KEY]
-        val apiKey = encryptedKey?.let { SecureStorageHelper.decrypt(it) } ?: ""
-        val model = prefs[PreferencesKeys.CUSTOM_AI_MODEL] ?: ""
-        return AiEndpointConfig(
-            endpoint = endpoint,
-            apiKey = apiKey,
-            selectedModel = model,
-            isConfigured = endpoint.isNotBlank() && apiKey.isNotBlank()
+        return readEndpointConfig(
+            endpoint = prefs[PreferencesKeys.CUSTOM_AI_ENDPOINT] ?: "",
+            encryptedKey = prefs[PreferencesKeys.CUSTOM_AI_API_KEY],
+            model = prefs[PreferencesKeys.CUSTOM_AI_MODEL] ?: "",
+            secrets = secrets,
         )
     }
 
     override suspend fun saveCustomAiConfig(config: AiEndpointConfig) {
         dataStore.edit { prefs ->
             prefs[PreferencesKeys.CUSTOM_AI_ENDPOINT] = config.endpoint
-            prefs[PreferencesKeys.CUSTOM_AI_API_KEY] = SecureStorageHelper.encrypt(config.apiKey)
+            prefs[PreferencesKeys.CUSTOM_AI_API_KEY] = secrets.encrypt(config.apiKey)
             prefs[PreferencesKeys.CUSTOM_AI_MODEL] = config.selectedModel
         }
     }
@@ -318,13 +315,11 @@ class SettingsRepositoryImpl(
         // endpoint 为空 → 没配过，返回 null 表示跟随全局
         if (endpoint.isBlank()) return null
         val encryptedKey = prefs[PreferencesKeys.agentApiKeyKey(agentRole)]
-        val apiKey = encryptedKey?.let { runCatching { SecureStorageHelper.decrypt(it) }.getOrDefault("") } ?: ""
-        val model = prefs[PreferencesKeys.agentModelKey(agentRole)] ?: ""
-        return AiEndpointConfig(
+        return readEndpointConfig(
             endpoint = endpoint,
-            apiKey = apiKey,
-            selectedModel = model,
-            isConfigured = endpoint.isNotBlank() && apiKey.isNotBlank()
+            encryptedKey = prefs[PreferencesKeys.agentApiKeyKey(agentRole)],
+            model = prefs[PreferencesKeys.agentModelKey(agentRole)] ?: "",
+            secrets = secrets,
         )
     }
 
@@ -337,7 +332,7 @@ class SettingsRepositoryImpl(
                 prefs.remove(PreferencesKeys.agentModelKey(agentRole))
             } else {
                 prefs[PreferencesKeys.agentEndpointKey(agentRole)] = config.endpoint
-                prefs[PreferencesKeys.agentApiKeyKey(agentRole)] = SecureStorageHelper.encrypt(config.apiKey)
+                prefs[PreferencesKeys.agentApiKeyKey(agentRole)] = secrets.encrypt(config.apiKey)
                 prefs[PreferencesKeys.agentModelKey(agentRole)] = config.selectedModel
             }
         }
@@ -420,70 +415,6 @@ class SettingsRepositoryImpl(
     override suspend fun saveCustomEqualizerLevels(levels: FloatArray) {
         dataStore.edit { prefs -> prefs[PreferencesKeys.CUSTOM_EQUALIZER_LEVELS] = levels.joinToString(",") }
     }
-    override suspend fun backupSettings(): kotlin.Result<String> {
-        return try {
-            val backupDir = File(context.filesDir, "backups")
-            if (!backupDir.exists()) backupDir.mkdirs()
-            val backupFile = File(backupDir, "settings_backup_${System.currentTimeMillis()}.json")
-            val preferences = context.dataStore.data.first()
-            val jsonContent = buildString {
-                append("{")
-                preferences.asMap().entries.forEachIndexed { index, entry ->
-                    if (index > 0) append(",")
-                    append("\"${entry.key.name}\":")
-                    when (val value = entry.value) {
-                        is String -> append("\"$value\"")
-                        is Boolean -> append(value)
-                        is Long -> append(value)
-                        is Int -> append(value)
-                        is Float -> append(value)
-                        else -> append("null")
-                    }
-                }
-                append("}")
-            }
-            backupFile.writeText(jsonContent)
-            kotlin.Result.success(backupFile.absolutePath)
-        } catch (e: Exception) {
-            kotlin.Result.failure(e)
-        }
-    }
-    override suspend fun restoreSettings(backupFilePath: String): kotlin.Result<Unit> {
-        return try {
-            val backupFile = File(backupFilePath)
-            if (!backupFile.exists()) return kotlin.Result.failure(IOException("Backup file does not exist"))
-            val jsonContent = backupFile.readText()
-            val regex = """"([^"]+)":\s*([^,}]+)""".toRegex()
-            val matches = regex.findAll(jsonContent)
-            context.dataStore.edit { prefs ->
-                prefs.clear()
-                matches.forEach { match ->
-                    val key = match.groupValues[1]
-                    val value = match.groupValues[2].trim()
-                    when (key) {
-                        PreferencesKeys.IS_FIRST_LAUNCH.name -> prefs[PreferencesKeys.IS_FIRST_LAUNCH] = value.toBoolean()
-                        PreferencesKeys.IS_LOAD_MUSIC.name -> prefs[PreferencesKeys.IS_LOAD_MUSIC] = value.toBoolean()
-                        PreferencesKeys.CURRENT_MUSIC_ID.name -> prefs[PreferencesKeys.CURRENT_MUSIC_ID] = value.toLong()
-                        PreferencesKeys.CURRENT_PLAYLIST_ID.name -> prefs[PreferencesKeys.CURRENT_PLAYLIST_ID] = value.toLong()
-                        PreferencesKeys.LIKED_PLAYLIST_ID.name -> prefs[PreferencesKeys.LIKED_PLAYLIST_ID] = value.toLong()
-                        PreferencesKeys.RECENT_PLAYLIST_ID.name -> prefs[PreferencesKeys.RECENT_PLAYLIST_ID] = value.toLong()
-                        PreferencesKeys.USER_NAME.name -> prefs[PreferencesKeys.USER_NAME] = value.trim('"')
-                        PreferencesKeys.AVATAR_URI.name -> prefs[PreferencesKeys.AVATAR_URI] = value.trim('"')
-                        PreferencesKeys.HAZE_INTENSITY.name -> prefs[PreferencesKeys.HAZE_INTENSITY] = value.toFloat()
-                        PreferencesKeys.HAZE_BLUR_RADIUS.name -> prefs[PreferencesKeys.HAZE_BLUR_RADIUS] = value.toFloat().coerceAtLeast(0f)
-                        PreferencesKeys.EQUALIZER_PRESET.name -> prefs[PreferencesKeys.EQUALIZER_PRESET] = value.toInt()
-                        PreferencesKeys.BASS_BOOST_LEVEL.name -> prefs[PreferencesKeys.BASS_BOOST_LEVEL] = value.toInt()
-                        PreferencesKeys.IS_SURROUND_SOUND_ENABLED.name -> prefs[PreferencesKeys.IS_SURROUND_SOUND_ENABLED] = value.toBoolean()
-                        PreferencesKeys.REVERB_PRESET.name -> prefs[PreferencesKeys.REVERB_PRESET] = value.toInt()
-                        PreferencesKeys.CUSTOM_EQUALIZER_LEVELS.name -> prefs[PreferencesKeys.CUSTOM_EQUALIZER_LEVELS] = value.trim('"')
-                    }
-                }
-            }
-            kotlin.Result.success(Unit)
-        } catch (e: Exception) {
-            kotlin.Result.failure(e)
-        }
-    }
     override suspend fun saveLyricsOriginalTextSize(size: Int) {
         dataStore.edit { prefs -> prefs[PreferencesKeys.LYRICS_ORIGINAL_TEXT_SIZE] = size }
     }
@@ -541,19 +472,6 @@ class SettingsRepositoryImpl(
     override suspend fun getLyricsTranslatedTextSize(): Int = dataStore.data.first()[PreferencesKeys.LYRICS_TRANSLATED_TEXT_SIZE] ?: 14
     override suspend fun getLyricsCurrentTimeTextSize(): Int = dataStore.data.first()[PreferencesKeys.LYRICS_CURRENT_TIME_TEXT_SIZE] ?: 16
     override suspend fun getLyricsLineSpacing(): Int = dataStore.data.first()[PreferencesKeys.LYRICS_LINE_SPACING] ?: 6
-    override suspend fun cleanOldBackups(keepCount: Int): kotlin.Result<Unit> {
-        return try {
-            val backupDir = File(context.filesDir, "backups")
-            if (!backupDir.exists()) return kotlin.Result.success(Unit)
-            val backupFiles = backupDir.listFiles { file -> file.name.startsWith("settings_backup_") && file.name.endsWith(".json") }?.sortedByDescending { it.lastModified() } ?: emptyList()
-            if (backupFiles.size > keepCount) {
-                backupFiles.drop(keepCount).forEach { file -> file.delete() }
-            }
-            kotlin.Result.success(Unit)
-        } catch (e: Exception) {
-            kotlin.Result.failure(e)
-        }
-    }
     override suspend fun saveDefaultAlgorithmType(type: String) {
         dataStore.edit { prefs -> prefs[PreferencesKeys.DEFAULT_ALGORITHM_TYPE] = type }
     }

@@ -104,6 +104,17 @@ internal class IosMusicTagEditService : MusicTagEditService {
         }
         onResult(result)
     }
+
+    /**
+     * iOS 不能写标签 —— 这条申报是 UI 降级用的（D2-12）。
+     *
+     * 底下 `MusicTagEditor.ios.kt` 要有 Swift 注册的写桥才可能成功，而全仓没有任何地方注册
+     * `TagWriterBridge`（对照 `MetadataParserBridge` / `ArtworkBridge` 都在 `AppDelegate` 注册了），
+     * 所以两条保存路径都会合流到同一个 `UnsupportedOperationException`。
+     * 长期做法是给 Swift 写一个基于 `AVAssetExportSession` 的 writer 并注册；
+     * 在它有生之前，本端的正确表现是**不提供保存入口**，而不是提供后再报错。
+     */
+    override val canWriteTags: Boolean = false
 }
 
 /** 悬浮歌词：iOS 无悬浮窗体系，空实现（与 Desktop 一致）。 */

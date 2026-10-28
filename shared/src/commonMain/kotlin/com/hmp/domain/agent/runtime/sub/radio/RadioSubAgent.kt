@@ -33,6 +33,8 @@ import com.hmp.domain.agent.runtime.ToolRegistryView
 import com.hmp.domain.enum.LabelCategory
 import com.hmp.domain.enum.LabelName
 import com.hmp.domain.music.MusicRepository
+import com.hmp.domain.music.MusicSortKey
+import com.hmp.domain.music.SortDirection
 import com.hmp.domain.music.MusicInfo
 import com.hmp.domain.setting.model.AiEndpointConfig
 import kotlinx.coroutines.CancellationException
@@ -952,7 +954,7 @@ internal class RadioSubAgent(
 
         if (fresh.isEmpty()) {
             // 标签池挖不出新歌 → 退化到全库，仍然避开已排过的
-            fresh = runCatching { musicRepository.getAllMusicInfoAsList("play_count", "desc") }
+            fresh = runCatching { musicRepository.getAllMusicInfoAsList(MusicSortKey.PLAY_COUNT, SortDirection.DESC) }
                 .getOrDefault(emptyList())
                 .filter { it.music.id !in have && it.music.id != currentPlayingId }
                 .take(targetCount)
@@ -1249,7 +1251,7 @@ internal class RadioSubAgent(
         val budget = rows ?: (LIBRARY_TOKEN_BUDGET / TOKENS_PER_TRACK).coerceAtLeast(MIN_LIBRARY_ROWS)
 
         val ids = if (total <= budget) {
-            runCatching { musicRepository.getAllMusicInfoAsList("play_count", "desc") }
+            runCatching { musicRepository.getAllMusicInfoAsList(MusicSortKey.PLAY_COUNT, SortDirection.DESC) }
                 .getOrDefault(emptyList())
                 .map { it.music.id }
         } else {
@@ -1592,7 +1594,7 @@ internal class RadioSubAgent(
         if (candidateIds.isEmpty()) {
             HmpLog.w(LogTag.AgentRadio) { "📻 buildLocalFallback: no local match for seedLabels=${seedLabels.map { it.name }}" }
             // 完全没标签匹配 → 退化为全局随机 top N
-            val fallback = runCatching { musicRepository.getAllMusicInfoAsList("play_count", "desc") }
+            val fallback = runCatching { musicRepository.getAllMusicInfoAsList(MusicSortKey.PLAY_COUNT, SortDirection.DESC) }
                 .getOrDefault(emptyList())
                 .take(targetCount)
             return fallback.map { musicInfoToRadioTrack(it, "热门曲目", RadioTrackSource.LOCAL) }

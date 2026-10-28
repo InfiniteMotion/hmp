@@ -1,8 +1,8 @@
 package com.hmp.data.util
 
+import com.hmp.domain.music.AudioFormats
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.withContext
 import platform.Foundation.NSDocumentDirectory
 import platform.Foundation.NSFileManager
@@ -10,19 +10,17 @@ import platform.Foundation.NSURL
 import platform.Foundation.NSUserDomainMask
 import platform.Foundation.NSFileSize
 
+/**
+ * iOS 的 NSFileManager 目录遍历（**不是** expect/actual 成员，D2-10）。
+ *
+ * 与 Desktop 那份是"同名的两份平台内实现"，共享抽象在 `MusicRepositoryBase.performMusicScan()`；
+ * 扫描进行中的状态由仓库那份（`MusicRepository.isScanning`）负责。
+ */
 @OptIn(ExperimentalForeignApi::class)
-actual object DeviceMusicScanner {
-    private val _isScanning = MutableStateFlow(false)
+object DeviceMusicScanner {
 
-    actual fun isScanning(): Boolean = _isScanning.value
-
-    actual suspend fun scanMusic(): List<ScannedMusicFile> = withContext(Dispatchers.Default) {
-        _isScanning.value = true
-        try {
-            performScan()
-        } finally {
-            _isScanning.value = false
-        }
+    suspend fun scanMusic(): List<ScannedMusicFile> = withContext(Dispatchers.Default) {
+        performScan()
     }
 
     private fun performScan(): List<ScannedMusicFile> {
@@ -37,16 +35,15 @@ actual object DeviceMusicScanner {
             null
         ) ?: return musicList
 
-        val musicExtensions = setOf("mp3", "m4a", "wav", "flac", "aac", "ogg", "alac")
-
-        scanDirectory(documentsURL.path!!, musicExtensions, musicList, fileManager)
+        // 白名单的唯一真源在 commonMain（D2-09）：原先 iOS 自备一份 7 项、少 opus / wma，
+        // 同一个文件夹在 Desktop 与 iOS 上会扫出不同数量的歌。
+        scanDirectory(documentsURL.path!!, musicList, fileManager)
 
         return musicList
     }
 
     private fun scanDirectory(
         directory: String,
-        extensions: Set<String>,
         results: MutableList<ScannedMusicFile>,
         fileManager: NSFileManager
     ) {
@@ -56,20 +53,24 @@ actual object DeviceMusicScanner {
             val fullPath = "$directory/$item"
             val url = NSURL.fileURLWithPath(fullPath)
             if (url.hasDirectoryPath) {
-                scanDirectory(fullPath, extensions, results, fileManager)
+                scanDirectory(fullPath, results, fileManager)
             } else {
-                val ext = item.toString().substringAfterLast(".", "").lowercase()
-                if (ext in extensions) {
-                    results.add(createScannedMusicFile(fullPath, item.toString()))
-                }
+                createScannedMusicFile(fullPath, item.toString())?.let { results.add(it) }
             }
         }
     }
 
-    private fun createScannedMusicFile(path: String, filename: String): ScannedMusicFile {
+    /**
+     * 一个文件 → 一条扫描结果；不属于曲库的返回 null（D2-09）。
+     *
+     * 白名单与时长下限都走 commonMain 那一份谓词 `AudioFormats.isIncludedInLibrary` ——
+     * 这里原先是本地再判一遍扩展名，且**没有任何时长下限**。
+     */
+    private fun createScannedMusicFile(path: String, filename: String): ScannedMusicFile? {
         val fallbackTitle = filename.substringBeforeLast(".")
 
         val metadata = MusicTagParser.parseMetadata(path)
+        if (!AudioFormats.isIncludedInLibrary(filename, metadata?.duration)) return null
 
         val fileSize: Long? = try {
             val attributes = NSFileManager.defaultManager.attributesOfItemAtPath(path, null)
@@ -90,7 +91,7 @@ actual object DeviceMusicScanner {
         val albumArtUri = ArtworkBridge.registered?.extractAndSave(path) ?: ""
 
         return ScannedMusicFile(
-            id = generateStableId(path),
+            id = stableIdFor(path),
             title = metadata?.title ?: fallbackTitle,
             artist = metadata?.artist ?: "Unknown Artist",
             album = metadata?.album ?: "Unknown Album",
@@ -103,15 +104,6 @@ actual object DeviceMusicScanner {
             format = metadata?.format ?: path.substringAfterLast(".").uppercase(),
             lyrics = metadata?.lyrics
         )
-    }
-
-    private fun generateStableId(path: String): Long {
-        var hash = 0xcbf29ce484222325UL
-        for (byte in path.encodeToByteArray()) {
-            hash = hash xor byte.toULong()
-            hash *= 0x100000001b3UL
-        }
-        return hash.toLong()
     }
 }
 

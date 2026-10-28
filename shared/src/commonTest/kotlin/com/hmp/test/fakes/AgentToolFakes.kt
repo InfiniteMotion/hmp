@@ -35,7 +35,11 @@ open class FakeAgentMusicRepository : MusicRepository {
     /** 标签 → 曲目 id（供 searchLibrary 标签过滤测试）。 */
     val musicIdsByLabel = mutableMapOf<LabelName, List<Long>>()
 
-    override suspend fun getAllMusicInfoAsList(orderBy: String, orderType: String): List<MusicInfo> = songs.values.toList()
+    /** 顺序不模拟（Agent 工具只数条目）；签名与真仓库一致，方向与键在此被忽略。 */
+    override suspend fun getAllMusicInfoAsList(
+        key: com.hmp.domain.music.MusicSortKey,
+        direction: com.hmp.domain.music.SortDirection,
+    ): List<MusicInfo> = songs.values.toList()
     override fun getMusicCount(): Flow<Int> = flowOf(songs.size)
     override fun getMusicWithExtraCount(): Flow<Int> = flowOf(0)
     override fun getMusicWithMissingExtraCount(): Flow<Int> = flowOf(songs.size)
@@ -166,7 +170,7 @@ class FakeAgentPlaylistRepository : PlaylistRepository {
         playlistItems[id] = mutableListOf()
         return id
     }
-    override suspend fun removePlaylist(name: String) { playlists.values.removeIf { it.name == name } }
+    override suspend fun getPlaylistByName(name: String): Playlist? = playlists.values.firstOrNull { it.name == name }
     override suspend fun removePlaylistById(id: Long) { playlists.remove(id); playlistItems.remove(id) }
     override suspend fun getAllPlaylists(): List<Playlist> = playlists.values.toList()
     override suspend fun getPlaylistMeta(id: Long): Playlist? = playlists[id]
@@ -176,12 +180,30 @@ class FakeAgentPlaylistRepository : PlaylistRepository {
     override suspend fun setPlaylistPinned(id: Long, isPinned: Boolean) { playlists[id]?.let { playlists[id] = it.copy(isPinned = isPinned) } }
     override suspend fun incrementPlaylistPlayCount(id: Long) { playlists[id]?.let { playlists[id] = it.copy(playCount = it.playCount + 1) } }
     override suspend fun setPlaylistLastPlayedAt(id: Long, timestamp: Long) { playlists[id]?.let { playlists[id] = it.copy(lastPlayedAt = timestamp) } }
-    override suspend fun addToPlaylist(playlistId: Long, musicId: Long, musicPath: String) { playlistItems.getOrPut(playlistId) { mutableListOf() } += musicId }
+    override suspend fun addToPlaylist(playlistId: Long, musicId: Long) { playlistItems.getOrPut(playlistId) { mutableListOf() } += musicId }
     override suspend fun removeItemFromPlaylist(musicId: Long, playlistId: Long) { playlistItems[playlistId]?.remove(musicId) }
     override suspend fun resetPlaylistItems(playlistId: Long, musicList: List<com.hmp.domain.music.MusicInfo>) { }
-    override suspend fun reorderPlaylistItems(playlistId: Long, orderedMusicIds: List<Long>) { playlistItems[playlistId] = orderedMusicIds.toMutableList() }
+    /** 与真仓库同契约（D3-04）：入参不是当前内容的完整排列就返回 false，且不改动任何东西。 */
+    override suspend fun reorderPlaylistItems(playlistId: Long, orderedMusicIds: List<Long>): Boolean {
+        val current = playlistItems.getOrPut(playlistId) { mutableListOf() }
+        if (orderedMusicIds.distinct().size != orderedMusicIds.size) return false
+        if (orderedMusicIds.toSet() != current.toSet()) return false
+        playlistItems[playlistId] = orderedMusicIds.toMutableList()
+        return true
+    }
     override fun getMusicInfoInPlaylist(playlistId: Long): Flow<List<MusicInfo>> = flowOf(emptyList())
-    override suspend fun getPlaylistById(playlistId: Long): List<MusicInfo> = emptyList()
+    /** 要反映真实成员：`playlist_remove_song` 现在先查成员再删（D3-12），空实现会让那条判据恒绿。 */
+    override suspend fun getPlaylistById(playlistId: Long): List<MusicInfo> =
+        (playlistItems[playlistId] ?: listOf()).map { id ->
+            MusicInfo(
+                music = com.hmp.domain.music.Music(
+                    id = id, title = "song-$id", artist = "a", album = "b",
+                    duration = 0L, path = "/$id.mp3", albumArtUri = ""
+                ),
+                extra = null,
+                userInfo = null,
+            )
+        }
     override suspend fun getPlaylistByIdList(playlistIdList: List<Long>): List<MusicInfo> = emptyList()
     override fun getAllPlaylistsFlow(): Flow<List<Playlist>> = flowOf(playlists.values.toList())
     override suspend fun exportPlaylistsSnapshot(): com.hmp.domain.backup.PlaylistsSnapshot = com.hmp.domain.backup.PlaylistsSnapshot()

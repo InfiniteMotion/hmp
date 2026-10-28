@@ -7,6 +7,7 @@ import com.hmp.data.network.OpenAiLlmTransport
 import com.hmp.data.network.createHttpClient
 import com.hmp.data.network.createJson
 import com.hmp.domain.agent.config.EngineDefaults
+import com.hmp.domain.agent.port.LibraryMutatedNotifier
 import com.hmp.domain.agent.port.LlmTransport
 import com.hmp.domain.agent.port.PlaybackObservationBus
 import com.hmp.domain.agent.runtime.GlobalTokenCounter
@@ -36,6 +37,8 @@ import com.hmp.domain.setting.usecase.PlaybackHistoryUseCase
 import com.hmp.domain.setting.usecase.TimerUseCase
 import com.hmp.domain.setting.usecase.UserSettingsUseCase
 import com.hmp.domain.backup.usecase.DeleteBackupUseCase
+import com.hmp.data.database.RoomTransactionRunner
+import com.hmp.domain.backup.TransactionRunner
 import com.hmp.domain.backup.usecase.ExportUserDataBackupUseCase
 import com.hmp.domain.backup.usecase.GetBackupsUseCase
 import com.hmp.domain.backup.usecase.ImportUserDataBackupUseCase
@@ -158,6 +161,8 @@ val sharedModule = module {
             userProfileEvidenceDao = get(),
             userProfilePortraitDao = get(),
             userProfileNarrativeDao = get(),
+            // 画像刷写的事务入口（D5-12）：证据写与侧写重算同成同败
+            profileTransactionRunner = get(),
         ).also { master ->
             // F9-A0: bindCapabilityTools 已移到 MasterAgent.initialize() 里
             // （避免在 Koin single 创建过程中再 get<ToolRegistry>() 引发循环依赖）
@@ -187,7 +192,14 @@ val sharedModule = module {
         }
     }
 
+    // 一-2 / D2-03 前置端口：UI 只发「库变了」这一个命令，依赖接口而不是 MasterAgent 具体类
+    //（挂住具体类会让 LibraryViewModel 在测试里构造不出来）
+    single<LibraryMutatedNotifier> { get<MasterAgent>() }
+
     // Use Cases
+    // 一-2 / D7-02：跨仓库写的事务入口（AppDatabase 三端都注册为 single，实现只在数据层一份）
+    single<TransactionRunner> { RoomTransactionRunner(get()) }
+
     single { GetAllMusicUseCase(get()) }
     single { SearchMusicUseCase(get()) }
     single { LoadMusicFromDeviceUseCase(get()) }
@@ -207,7 +219,7 @@ val sharedModule = module {
     single { GetUserUsageDataUseCase(get()) }
     single { TimerUseCase(get()) }
     single { ExportUserDataBackupUseCase(get(), get(), get(), get()) }
-    single { ImportUserDataBackupUseCase(get(), get(), get(), get()) }
+    single { ImportUserDataBackupUseCase(get(), get(), get(), get(), get(), get()) }
     single { GetBackupsUseCase(get()) }
     single { DeleteBackupUseCase(get()) }
 }

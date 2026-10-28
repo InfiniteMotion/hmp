@@ -16,6 +16,7 @@
 3. **行号坐标会过期。** 审查报告里的 `file.kt:123` 是当日工作树坐标，动手前先按符号名 grep。
 4. **不要自己 `push` / 建 PR / 合并。** 发版前半程见 `skills/release-prep/SKILL.md`，其 ⑧ 步明确把这几件事交回用户。
 5. **CI 既不跑单元测试、也不编译 iOS。** 唯一守门人是本机 `preflight`。这条决定了：你改完代码没有任何机器反馈，必须自己跑对任务（见下节）。
+   > **2026-09-30 决议改向**：编译与测试是必要的，方针改为「**当前环境能跑就都跑**」——Linux runner 跑得到的编译/测试一律纳入 CI，iOS 编译只在 macOS runner 可用时跑、缺环境不阻塞合入。落地清单见 `TODO.md` §六 决议 ①（**该决议已暂缓，用户 2026-09-30：「CI 先放着」**）。**在本条落地之前，现状仍然成立**——别等 CI，自己跑。
 6. **归档 `docs/archive/**` 只进不改**；`docs/7_3/review-7.3-architecture.md` 是带日期的审查证据，不要重写它的结论与行号。
 
 ---
@@ -51,6 +52,7 @@
 | `shared` 的 Domain / Agent | `./gradlew-lowmem.bat testCore` |
 | `shared-ui` 的 UI | `./gradlew-lowmem.bat testUi` |
 | 改了公共 API | `./gradlew-lowmem.bat compileAll`（查下游破坏，比全量测试快得多） |
+| 改了 `iosMain` / expect-actual 的 iOS 半边 | `./gradlew-lowmem.bat :shared:compileKotlinIosSimulatorArm64 :shared-ui:compileKotlinIosSimulatorArm64` —— **`compileAll` 不编译 iOS 目标**，它只挂 desktop/android |
 | 提交前 | `./gradlew-lowmem.bat testAll` |
 | 发版前 | `./gradlew-lowmem.bat preflight` |
 
@@ -105,7 +107,7 @@ HMP/
 ├── desktop/core-player/  FFmpeg + JNA 自研引擎
 ├── ios/             iOS 原生壳（XcodeGen + CocoaPods，22 个 Swift 文件）
 ├── shared-ios/      iOS 聚合框架（shared + shared-ui → sharedIos）
-└── storybook/       孤儿模块：有 build 脚本但未被 settings.gradle.kts include
+└── storybook/       设计沙盒（2026-09-30 决议保留）：有 build 脚本但未被 settings.gradle.kts include，不在构建图内、不保证可编译
 ```
 
 依赖关系：
@@ -127,7 +129,9 @@ HMP/
 
 ## 四、跨平台机制
 
-`expect`/`actual` 在文件级 **1:1:1 配对，三端无孤儿**。已知的 expect：`DeviceMusicScanner`、`MusicTagParser`、`SecureStorageHelper`、`stringToPinyinSortKey()`、`getRoomDatabase()`、`AppDatabaseConstructor`（无手写 actual，由 Room KSP 生成）、`DataStoreFactory`、`createHttpClient()` / `createJson()`、`currentTimeMillis()`、`rememberStatusBarsController()`、`platform/Synchronized.kt` 与 `Volatile.kt`（Android/Desktop 是 `actual typealias` 到 `kotlin.jvm.*`，iOS 是真正的 `actual annotation class`）。
+`expect`/`actual` 在文件级 **1:1:1 配对，三端无孤儿**。已知的 expect：`MusicTagParser`、`SecureStorageHelper`、`stringToPinyinSortKey()`、`getRoomDatabase()`、`AppDatabaseConstructor`（无手写 actual，由 Room KSP 生成）、`DataStoreFactory`、`createHttpClient()` / `createJson()`、`currentTimeMillis()`、`rememberStatusBarsController()`、`platform/Synchronized.kt` 与 `Volatile.kt`（Android/Desktop 是 `actual typealias` 到 `kotlin.jvm.*`，iOS 是真正的 `actual annotation class`）。
+
+⚠️ **`DeviceMusicScanner` 已经不是 expect/actual**（2026-10-12，一-5 B 批，D2-10）：三端真正的共享抽象是 `MusicRepositoryBase.performMusicScan()`，Desktop / iOS 的 `object DeviceMusicScanner` 只是各自源集里的平台内助手，Android 那份是零调用死码（内含一处必崩 bug）已删。**别再把"三端对称"当成保留理由** —— 那道对称当初正是为了让一个从不被消费的 Android actual 看起来合理。
 
 平台差异在 UI 侧收口到 `shared-ui/src/commonMain/.../ui/platform/` 的接口：`PlaybackController`（137 行，约 17 个 StateFlow + 30 个方法，接口已冻结）、`AlbumArtPixelsLoader`、`PlatformServices`（`Share` / `FilePicker` / `Permission` / `MusicTagEdit` / `Haptic` / `FloatingLyrics` 的门面）。三端实现：`MusicControllerPlaybackAdapter` / `DesktopMusicControllerPlaybackAdapter` / `IosPlaybackController` + `IosPlaybackStateSink`。
 
@@ -178,10 +182,28 @@ HMP/
 
 ## 七、数据层
 
-- **Room 2.8.3 KMP**：`AppDatabase` **version = 9**，`exportSchema = true`，18 实体 / 19 DAO。schema json 在 `shared/schemas/com.hmp.data.database.AppDatabase/1..9.json`。迁移是手写的 `MIGRATION_1_2 … MIGRATION_8_9`，在三端各自的 `DatabaseBuilder.{android,desktop,ios}.kt` **分别注册**（漏一端就是单端升级崩溃）。
-- **三端都去掉了 destructive 兜底**（A4）：新增实体/字段忘了写迁移 = 线上硬失败，不是静默重建。**改 schema 必须同时补迁移 + 三端注册 + 重导 schema json。**
+- **`music.isDeleted` 有两个成因**（一-2 B 批起）：用户主动移除、以及"这次扫描没见到这个文件"。可见性过滤仍只看 `isDeleted`，
+  但**用户意图记在 `userInfo.removedByUser`**，扫描只读它、永不写它 —— 因此设置页的「已移除」列表（`getDeletedMusicIdsGroupedByFolder` → `MusicDao.getRemovedMusicIdAndPath`）只列用户移除的那些，
+  缺文件的曲目不在里面。想恢复可见性走 `RestoreToLibraryUseCase`（同时清两位置）。
+- **Room 2.8.3 KMP**：`AppDatabase` **version = 10**，`exportSchema = true`，18 实体 / 19 DAO。schema json 在 `shared/schemas/com.hmp.data.database.AppDatabase/1..10.json`。迁移是手写的 `MIGRATION_1_2 … MIGRATION_9_10`，统一收在 `AppDatabase.ALL_MIGRATIONS` 一个常量里，三端 `DatabaseBuilder.{android,desktop,ios}.kt` 都 `addMigrations(*AppDatabase.ALL_MIGRATIONS)` —— **不再有逐端手抄的名单**（2026-10-08 批 0 收口，漏一端曾是单端升级崩溃的来源）。v10 = 批一收口的一次迁移（13 条索引 + 删 `playlist_item.songUrl` + 后补的 `userInfo.removedByUser`；未发布期间并批，不再另开 v11），需求与判据的唯一真源是 `docs/7_3/v10-migration.md`。
+- **迁移链的门禁**：`AppDatabaseMigrationTest` 跑逐环 + `1→10` 全链 + 链连续性；故意写坏一条 DDL 会红。新增版本必须**同时**改 `@Database.version` + 追加 `MIGRATION_{n-1}_{n}` 与 `ALL_MIGRATIONS` + 重导 schema json + 同步测试里的 `latestSchemaVersion`，少一处都有断言红（v10 施工时实测过这条红法）。
+- **三端都去掉了 destructive 兜底**（A4）：新增实体/字段忘了写迁移 = 线上硬失败，不是静默重建。
+- **降级有守卫，但没有 Room 回调**（一-7）：`AppDatabaseGuard` 在 build 之前探 `PRAGMA user_version`，库比代码新时记 error 日志 + 抛 `DatabaseTooNewException`，三端启动路径先 `probe` 挂状态、`AppRoot` 在解析任何 DAO 之前分流到提示页。别改回 `RoomDatabase.Callback`：Room 的版本校验发生在建连接过程中，`onOpen` 到不了，挂了等于没挂。代码版本读的是 `AppDatabase.CODE_SCHEMA_VERSION`（Room 不把注解版本暴露成常量），**bump 版本要同时改 `@Database.version` 与它**，迁移测试断言三者一致。
+- **改 schema 必须同时补迁移（并追加进 `ALL_MIGRATIONS`）+ 重导 schema json。** 三端注册现在由常量结构性保证，不必手工三处同步。
 - 仓库接口 4 个：`MusicRepository`、`PlaylistRepository`、`SettingsRepository`、`BackupFileRepository`。实现**按平台三份镜像**（`*Impl.{android,desktop,ios}.kt`，基于 `MusicRepositoryBase.kt` 1245 行），`SettingsRepositoryImpl.{desktop,ios}` 各约 500 行。
 - UseCase 共 22 个（music 10 / setting 6 / backup 4 / playlist 2）。
+- **播放时长的单一口径**（一-3 C3）：`PlaybackHistory.playDuration` = **本次会话累计实听毫秒**（不含 seek 空档，与 `listeningDuration` 的日累计同语义）—— 不是引擎当前位置，也不是曲目元数据时长。三端各自的结算点算的就是这一个数，新增播放入口时别顺手改回另外两种。
+- **排序只有一个入口、键是枚举**（一-5 A 批，D2-08）：`MusicRepository.getAllMusicInfoAsList(MusicSortKey, SortDirection)`，枚举在 `domain/music/MusicSort.kt`，**实现只在 `MusicRepositoryBase` 一份**。三端各一份 `when (orderBy) { … else -> 按 id }` 的时代结束：拼错的键现在是编译错误（`RadioSubAgent` 曾传 `"play_count"`，三端全落进 `else`、实际按 id 排也不报错）。新增键必须给 `when` 补分支，UI 侧 `IndexJumpModeTest` 会拦"没表态"的新键。`DATE` 的口径：**没有日期的行两个方向都在末尾**（与索引条「未知」档一致）。⚠️ `SettingsRepository.galleryOrderBy` / `galleryOrderType` 仍是裸字符串，且**全仓没有任何读取方**（存了没人读）。
+- **音频格式白名单与时长下限只有一份**（一-5，D2-09）：`domain/music/AudioFormats.kt`。Desktop / iOS 在文件遍历时判，**Android 也在 MediaStore 查询之后按它后置过滤**（`IS_MUSIC` 是第一道，白名单是第二道；用户 2026-10-12 决定收窄，代价是已发布平台上 `.aiff` / `.m4b` 这类条目会从曲库消失）。时长下限统一为 **5 秒**（`MIN_TRACK_DURATION_MS`），只挡碎片；**"读不到时长"不等于"时长为 0"，null 一律收** —— 因读不出而丢条目等于在扫描阶段静默少歌。三端别再各写 `DURATION > …` 或本地扩展名集合（修前 Android 硬编码 60 秒、Desktop/iOS 无下限，这才是"同一份音乐三台机器不一样"的主因）。放宽 `ape` / `dsf` / `wv` 前要以"随包那份 FFmpeg 真能解"为前件（§五）。⚠️ `wma` 留着而 iOS 的 AVPlayer 解不了它 —— **能扫进来与能播不是同一个集合**（用户已接受这一代价），要分开得另开一层申报，别偷偷改这份名单。
+
+- **搜索一次按键只打一次仓库**（一-5 A 批，D2-18）：`SearchScreen` 的唯一调用点是 `LaunchedEffect`；防抖与**取消**都在 `SearchViewModel`，"旧结果不覆盖新结果"靠 `searchJob?.cancel()`，防抖只减次数。`LIKE` 的转义在 `MusicRepositoryBase.toLikeContainsPattern()`（先转 `\` 自身、再转 `%` / `_`），DAO 侧配 `ESCAPE '\\'` —— Kotlin 里**必须写两个反斜杠**，`"ESCAPE '\'"` 能编过但拼出的 SQL 是 `ESCAPE ''`，SQLite 直接报 "must be a single character"。
+
+- **系统歌单只剩"按 id"这一条路**（一-4 B1 / B2）：`removePlaylist(name)` 已从 DAO / 仓库 / UseCase 整条删掉（它绕过保护，还会级联清空用户的心动 / 最近播放），只有 `getPlaylistByName` 留着；启动自愈遇到悬空 id 时**接管同名行**，不删不建。删除保护是 `ManagePlaylistUseCase.removePlaylistById` 返回 `false`，**不是抛异常**（抛过一次，Android 上删"心动"即崩溃），谓词只在 `domain/playlist/SystemPlaylists.kt` 一份，Agent 的 `playlist_delete` 也调它。
+- **`playlist_item.itemOrder` 是用户资产**：领域 `PlaylistItem` 现在带 `itemOrder`，导出查询带 `ORDER BY playlistId, itemOrder`，恢复时按它排序后重编号（旧快照全 0 会撞 `UNIQUE(playlistId,itemOrder)`，所以不"原样写回"）。别再往三端 Impls 里各写一份落库逻辑。
+- **路径的父目录只有一处切分**（一-5 B 批，D2-13）：`shared/.../data/util/parentPathOf(path, separators)`，平台通过 `MusicRepositoryBase.pathSeparators` **声明**自己认哪些分隔符（Desktop 认 `\` 与 `/`，另两端 `/`）。**别再写 `path.substringBeforeLast("/")`**，也别在跨平台代码里用 `File(path).parent` 来算分组键 —— 分隔符做成显式参数，唯一目的是让这条规则能在任何 OS 上对 `C:\…` 断言。UI 侧 `fileParentOf`（`shared-ui`）三端 actual 都委托它，因为仓库侧的分组标签与 UI 侧"这首歌属于哪个被隐藏的文件夹"**必须是同一个字符串**，否则「取消隐藏」恢复不了任何东西。
+- **封面文件名的规则是「内容指纹」**（一-5 B 批，D2-17 / D2-16）：`shared/.../data/util/CoverArtStore.fileNameFor(bytes)` = FNV-1a over 封面字节，渲染成**无符号十六进制**。别再按音频路径命名 + "存在即跳过"（那正是"换封面永远显示旧图"的成因），也不要给某一端单独 `abs(...)`。落盘走 `CoverArtWriter`（Desktop `FileCoverArtWriter`；Android 传 null 因为它用 MediaStore 的 `content://…/albumart`；iOS 待 Swift 侧改造）。写了新封面入口就要在成功后更新 `music.albumArtUri`。⚠️ `stableIdFor(path)`（曲目 id）**保持有符号 `Long`**，那个数已经是三端真实库的主键，改渲染方式等于换 id。
+- **平台能力要申报，不要靠"点了报错"**（一-5 B 批，D2-12 短期版）：`MusicTagEditService.canWriteTags`（默认 true，iOS false —— 那侧从没注册 `TagWriterBridge`，写入必失败），UI 的降级规则是纯函数 `tagEditFormPolicy(canWriteTags)`。加新平台或新能力时**先申报能力，再让 UI 决定摆不摆入口**；同类接缝已有 `directorySelectionMode = UNSUPPORTED`（iOS 扫描目录）。
+- **播放来源是闭集**：取值真源 `shared/.../domain/music/PlaybackSources.kt`（以 Android 已发布的拼写为准，库里已有历史数据，改名会让同一来源在饼图里裂成两条）。⚠️ iOS 侧是 **Swift 里复制的一份**（`MusicPlayerController.swift` 的 `enum PlaybackSource`）—— Kotlin `object` 的导出名在本仓库没有已验证先例，而 CI 不编译 iOS，猜错就是一次真机构建失败；**改取值要两头对**。
 - **Ktor 只用于用户自填的 AI API**，无网络取曲。Android 走 OkHttp engine、iOS 走 Darwin engine。
 - **DataStore** 存偏好；`SecureStorageHelper` 存 API Key。
 
@@ -191,21 +213,28 @@ HMP/
 
 以下都在 [TODO](TODO.md) §六 R39–R56 / §一 挂了账，但**不知道就会踩**：
 
-1. **`testAll` 会静默空过。** `build.gradle.kts:93` 硬 `dependsOn(":shared-ui:desktopTest")`，而该源集**目录不存在** → `NO-SOURCE` 绿。真正的用例在 `androidHostTest`（6 文件）和 `commonTest`（3 文件）。`build.gradle.kts:121-122` 那句"desktopTest 源集目前为空（只有 androidHostTest，8 个文件）"本身也是过期口径。
+1. **`shared-ui` 的测试在两个源集，都要挂。** `androidHostTest`（94 例）+ `desktopTest`（42 例，2026-10-08 才把 `src/desktopTest/` 目录建出来；`build.gradle.kts` 早先就声明了该源集、一直缺目录 → `:shared-ui:desktopTest` 长期 NO-SOURCE 静默绿）。`commonTest` 的用例会同时进这两个目标。`testAll`/`testUi` 现已同时挂两者；无 Android SDK 时可用 `testUiDesktop`（现在有真内容）。同类坑已一并处理：`desktop/app` 的 `desktopTest` 源集也是只声明没有目录，现已建出并放 `SingleInstanceGuardTest`（单实例锁 4 例）。**教训**：`maybeDepends`/`dependsOn` 挂了某个 test 任务不等于它有内容 —— 判据是 `<模块>/build/test-results/<任务>/TEST-*.xml` 里有没有用例。
+   - **`PlaylistViewModel` 在 `shared-ui` 的测试源集里构造不出来**：它的 `init` 会调 `initializeDefaultPlaylists()`，那里解析 compose 资源名 `getString(Res.string.heart)`，而该源集没接 Robolectric —— 实跑报 `Method getSystem in android.content.res.Resources not mocked`。要写 VM 级判据，先按 `docs/7_3/domain/D3.md` D3-06 的退路把规则抽成纯函数（`userVisiblePlaylists`），或给该源集配资源解析。
 2. **`maybeDepends` 在错目标下静默丢依赖。** `export HMP_BUILD_TARGET=desktop` 后跑 `./gradlew testAndroid` **必绿且零工作**（R52）。
-3. **`Routes.kt` 有 30 个 NavKey，`HmpNavBackStack.kt` 只注册了 28 个 serializer**，漏的正是 `Routes.AI.AgentConfig` 与 `Routes.Settings.AgentMonitor`。该文件的注释自己写明"漏注册无编译期报错，仅在该 key 参与保存/恢复时运行时报错"。**新增 NavKey 必须同时补 serializer 和 `NavigationGraph` 的 `entry<>`**（R41）。`RoutesTest` 里手写 22 条 `is NavKey` 断言是恒真闸门，不会替你把关。
-4. **DI 无图校验**（`checkModules`/`verify()` 全仓 0 命中）。Android 只 eager 解 `MasterAgent`、Desktop 只解控制器、iOS 纯懒 → **"进页面才崩"在 iOS 成立**。新加 `single` 后本机至少跑一次启动（R43）。
-5. **`withTransaction` / `inTransaction` 全仓 0 命中。** 备份恢复是 `deleteAll()` 后逐条 insert，`ImportUserDataBackupUseCase` 串行 4 个仓库 restore 后 `catch → Result.failure`，无回滚无安全副本（R39）。**新写批量落库请自己包事务。**
+
+3. **新增 NavKey 要同时动三处**：`Routes.kt` 声明、`HmpNavBackStack.kt` 的 `subclass` 注册、`NavigationGraph.kt` 的 `entry<>`。漏 serializer 过去**无编译期报错**，只在该 key 参与保存/恢复时运行期崩（"进页面转一圈就崩"），而 `RoutesTest` 那条手写 22 条 `is NavKey` 断言是恒真的、不把关。2026-10-08（三-1）起这道关由 `shared-ui/src/androidHostTest/.../NavRegistrationGateTest.kt` 守着：反射遍历每个 NavKey 做多态往返 + `entry` 覆盖比对，漏一处即红，新增路由自动进闸门。4 个 Tab key（`Main.Home/Gallery/List/User`）没有 `entry<>`，由 `MainShell` 的 HorizontalPager 承载 —— 它们在那个测试里是显式豁免名单，别当漏注册去补。
+4. **DI 图校验：3 条，且只覆盖"必传依赖"。** `shared/src/desktopTest/.../KoinGraphVerificationTest.kt`（领域/数据层）+ `shared-ui/src/desktopTest/.../DesktopKoinGraphVerificationTest.kt`（桌面完整装配）+ `shared-ui/src/androidHostTest/.../AndroidAppKoinGraphVerificationTest.kt`（Android 完整装配）。都用 koin-test `verify()` 静态校验，**不实例化定义**（`checkModules` 会实例化 → 等于打开你本机 `~/.hmp` 的真库与 DataStore）。两个必须知道的限制：① **带默认值的构造参数被当成可缺省** —— 实测删掉 `single { PresenceBus() }` 三条全绿，而 `MasterAgent` 装配处写的是 `chatPresenceBus = get()`（形参 `PresenceBus? = null`），运行期照样抛；② iOS 装配任何本机源集都拼不出，`MainActivity` 里 `loadModules` 动态注册的 `PlatformServices` 也看不见。所以新加 `single` 除了跑校验还要本机跑一次启动（R43）。
+5. **批量写的事务要靠你自己包，没有闸门替你查。** 2026-10-08（一-2 A 批）之后这条不再是"全仓 0 事务"：`domain/backup/TransactionRunner.kt`（实现在 `data/database/RoomTransactionRunner.kt`）把导入的四条 restore 收进单个 Room 事务，导入前必先落一份 `pre-restore-*.json` 安全副本；歌单的增删改排序收在 `PlaylistItemDao` 的 `@Transaction` 写族里。**仍然没有静态检查**——新写跨表批量落库要么走这些现成入口，要么自己包 `useWriterConnection { deferredTransaction }`；而且**设置那条走 DataStore，进不了 Room 事务**（它被排在事务块的最后，就是为了把不对称窗口缩到"DataStore 自己写失败"）。
+    - v10 那条唯一索引的崩溃后果已在 一-2 收口：重排走 `PlaylistItemDao.reorderAndRefresh`（两阶段：先整体取负再落终值），添加侧 `getMaxOrder` 已删、取号并进 `insertWithNextOrder` 一条语句。
+    - **设备扫描落库**（2026-10-09，一-2 B 批）同样收了口：三端各一份的「`deleteAll()` ×3 再分批重灌」合成 `MusicRepositoryBase.persistScannedLibrary` 一份，跑在单个事务里，语义是按 id 的 upsert。
+      平台侧现在只剩 `performMusicScan()`（"设备上有哪些歌"）—— **别再往三端各抄一遍落库**；新增的可注入点就是那个 `protected abstract`。
 6. **版本号读不到时静默回落到错误值。** `android/app` 兜底 `51000`/`"5.10.0"`，`desktop/app` 兜底 `"1.0.0"` 且 `dmgPackageVersion = "1"` 硬编码（R45、R30）。
 7. **`copyToReleases` 找不到产物只 `println("!! Not found")` 不失败** → `./gradlew release` 可以"成功"地产出零个文件（本机侧；CI 的 `sync-release.py collect` 会失败）。
-8. **`DeviceMusicScanner.android.kt:50` 是已知 bug**：`val context = android.app.Application()`（新建 Application 无 base context，`contentResolver.query` 必失败），且未注入 Context。**这条不在任何待办里**，动 Android 扫描前先确认它是否已被某处绕过。
+8. **~~`DeviceMusicScanner.android.kt:50` 是已知 bug~~（2026-10-12，一-5 B 批已删）**：那条 `val context = android.app.Application()`（新建 Application 无 base context，`contentResolver.query` 必失败）连同整个零调用 actual 一起删了；Android 的真实扫描一直在 `MusicRepositoryImpl.android.kt` 的 MediaStore 查询里。**这条不再是待办，但它的成因要记住**：见 §四 那句"别再把三端对称当保留理由"。
 9. **iOS 的扫描目录设置是空壳**：`SettingsRepositoryImpl.ios.kt` 的 `scanDirectoryConfig = flowOf(ScanDirectoryConfig())` 恒默认值、`saveScanDirectoryConfig` 是空函数体，`DeviceMusicScanner.ios.kt` 写死扫 Documents（R40）。
 10. **歌词设置双存储**：播放页读 `@Deprecated` 的 legacy 扁平键，设置页写新的 per-component JSON，全仓唯一新模型消费者是 Android 悬浮歌词 → 设置页改字号，播放页静默不生效（R42）。真身在 `domain/setting/usecase/LyricsSettingsUseCase.kt`。
 11. **iOS 密钥不是加密**：`SecureStorageHelper.ios.kt` 的 `simpleEncrypt` 实为 XOR，密钥文件却叫 `.aes_key`，且落在 `Documents/.keys`（与密文同目录），而 `project.yml` 开着 `UIFileSharingEnabled: true` → 沙箱可经"文件"App 直接拷出（R10）。Desktop 用硬编码 keystore 口令。三端密文互不可解。
 12. **`androidMain` / `iosMain` 的实现测试覆盖为 0。** 107 个平台源集文件里 12 个 `*Impl*`，只有 2 个有同名测试（都在 `shared/src/desktopTest`）。`shared/src` 下只有 `commonTest` 与 `desktopTest` 两个测试源集，**没有 androidHostTest、没有 iosTest**。
 13. **`shared_ios.podspec` 是被 track 的生成物**，Windows 会把 `spec.resources` 写成反斜杠路径，`.gitattributes` 没有 `*.podspec` 规则（R46）。
-14. **没有任何静态闸门**：无 ktlint、无 detekt、无 `.editorconfig`、无 `core.hooksPath`。`DEVELOP.md:396-400` 声称"使用 ktlint 检查"是**失真的**。新代码靠自觉保持一致性。
+14. **没有任何静态闸门**：无 ktlint、无 detekt、无 `.editorconfig`、无 `core.hooksPath`。`DEVELOP.md:406` 现已如实写明这一点（方案仍在 `docs/ktlint-integration.md`，暂缓）。**2026-09-30 订正**：本条原称"`DEVELOP.md:396-400` 声称使用 ktlint 属失真"，该指控已随 DEVELOP 改写而失效——现在失真的是旧说法本身（独立复核见 `docs/7_3/domain/X.md` X-07 附加 doc-truth）。新代码靠自觉保持一致性。
 15. **设计 token 是自愿制**：`.dp` 字面量 1444 处 vs `dimens.*` 仅 209 处；硬编码 hex 色 53 处；卡片两套并存（`HMPCard` vs 裸 `Card(`/`Surface(`）；336 个 `@Composable` 只有 81 个带 `modifier: Modifier`（R49）。
+16. **`iosMain` 以前根本没有编译器看过**：2026-10-12 第一次把 `:shared:compileKotlinIosSimulatorArm64` 跑起来，发现 iOS 目标**从 一-3 C1 起就一直编不过**（`DateFormats.ios.kt` 里 `import platform.Foundation.NSDate` 抄了两遍、`NSDate(timeIntervalSince1970 = …)` 这个构造参数不存在、`NSTimeZone.localTimeZone` 少了括号，另有 一-7 带进来的 `DatabaseBuilder.ios.kt` 重复 `@OptIn`），已在 2026-10-12 修掉。教训不是"这几处写错了"，而是：**Foundation 的类方法与属性在 K/N 里是分类(category)扩展，必须单独 import**（`dateWithTimeIntervalSince1970` / `localTimeZone` / `timeIntervalSince1970` 都是），写 iosMain 时不能凭 JVM 直觉。改完 iosMain 一定要单跑那两个 iOS 编译任务（见 §二 表最后一行）。
+17. **`LabelCategory` / `LabelName` 各有一套同名枚举**（domain 的 `com.hmp.domain.enum.*` 与 DAO 实体的 `com.hmp.data.database.myenum.*`），互转靠 mapper。把两套混进同一个 `mapOf` 时 **Kotlin 会把键类型推成 `Any`，编译照过、查找永远不命中、`?: 默认值` 静默接管** —— 2026-10-12 就靠新判据查出 `labelCategoryWeight` 五项里四项的键用了 DAO 枚举，导致"按类别加权"从来没生效过。写这类权重/映射表前先确认键到底是哪一套枚举。
 
 ---
 
@@ -257,7 +286,9 @@ HMP/
 | **AI 协作者须知（本文件）** | [AGENTS.md](AGENTS.md) |
 | 版本号规范 / 真源分层 / 发版清单 / CI 与产物现状 | [docs/spec/hmp-release.md](docs/spec/hmp-release.md) |
 | **发版工序与判据（agent 执行发版照它走）** | [skills/release-prep/SKILL.md](skills/release-prep/SKILL.md) |
-| **架构实现审查（v7.3.0 待办 R39–R56 的证据出处）** | [docs/7_3/review-7.3-architecture.md](docs/7_3/review-7.3-architecture.md) |
+| **v7.3.0 施工基线（九域 + 横切线，唯一工作分解入口）** | [docs/7_3/domain-baseline.md](docs/7_3/domain-baseline.md) → `docs/7_3/domain/D{1..9}.md` / [X.md](docs/7_3/domain/X.md)、[docs/7_3/v10-migration.md](docs/7_3/v10-migration.md)、施工条目 `docs/7_3/taskbook/` |
+| **v7.3.0 施工计划（顺序真源，已评审）** | [docs/7_3/plan.md](docs/7_3/plan.md)（34 个工作包 / 判据落点 / 验收定义 / **8 条决策记录** / 里程碑） |
+| 架构实现审查（2026-09-28，**历史证据，非施工入口**） | [docs/7_3/review-7.3-architecture.md](docs/7_3/review-7.3-architecture.md)（TODO §六 R39–R56 出处）、[review-7.3-code.md](docs/7_3/review-7.3-code.md) |
 | 设计系统（色彩/字体/间距/组件） | [docs/spec/hmp-design.md](docs/spec/hmp-design.md) |
 | 日志门面 `HmpLog` / `LogTag` 规范 | [docs/spec/hmp-log.md](docs/spec/hmp-log.md) |
 | Room KMP 跨平台配置 | [docs/room-kmp-setup.md](docs/room-kmp-setup.md) |

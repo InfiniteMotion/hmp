@@ -23,6 +23,15 @@ data class AiEndpointConfig(
     val apiKey: String = "",
     val selectedModel: String = "",
     val availableModels: List<String> = emptyList(),
-    val isConfigured: Boolean = false
+    val isConfigured: Boolean = false,
+    /**
+     * 存过密钥但**解不开** —— Android 换机 / 云备份恢复后的常态（D7-01）。
+     *
+     * 必须有这个三态区分，不能只看 `apiKey.isEmpty()`：
+     * "用户存了空 key"与"密文回来了、密钥没回来"都表现为空串，
+     * 但前者什么都不该提示、后者必须告诉用户"请重新填写 API Key"——
+     * 否则用户看到的是"我明明填过，怎么又空了"。
+     */
+    val keyNeedsRefill: Boolean = false
 )
 

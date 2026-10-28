@@ -6,18 +6,28 @@ import com.hmp.domain.playlist.Playlist
 import com.hmp.domain.playlist.PlaylistItem
 import com.hmp.domain.setting.model.ListeningDuration
 import com.hmp.domain.setting.model.PlaybackHistory
-import kotlinx.serialization.Contextual
 import kotlinx.serialization.Serializable
 
 @Serializable
 data class UserBackupSnapshot(
-    val version: Int = 1,
+    val version: Int = CURRENT_VERSION,
     val createdAt: Long = 0L,
     val appSettings: AppSettingsSnapshot? = null,
     val musicUserState: MusicUserStateSnapshot = MusicUserStateSnapshot(),
     val playlists: PlaylistsSnapshot = PlaylistsSnapshot(),
     val listeningStats: ListeningStatsSnapshot = ListeningStatsSnapshot()
-)
+) {
+    companion object {
+        /**
+         * 当前快照格式版本（D7-12）。导入时 `snapshot.version > CURRENT_VERSION` 一律拒绝，
+         * 由 [com.hmp.domain.backup.usecase.ImportUserDataBackupUseCase] 执行。
+         *
+         * 加字段 + 升版本号是同一件事：只加字段不升版本，旧版本应用会 `ignoreUnknownKeys`
+         * 静默丢掉新字段；只升版本不加字段则是无意义的拒绝。
+         */
+        const val CURRENT_VERSION = 1
+    }
+}
 
 @Serializable
 data class AppSettingsSnapshot(
@@ -82,16 +92,12 @@ data class MusicLabelSnapshot(
 
 @Serializable
 data class PlaylistsSnapshot(
-    @Contextual
     val playlists: List<Playlist> = emptyList(),
-    @Contextual
     val playlistItems: List<PlaylistItem> = emptyList()
 )
 
 @Serializable
 data class ListeningStatsSnapshot(
-    @Contextual
     val listeningDurations: List<ListeningDuration> = emptyList(),
-    @Contextual
     val playbackHistories: List<PlaybackHistory> = emptyList()
 )

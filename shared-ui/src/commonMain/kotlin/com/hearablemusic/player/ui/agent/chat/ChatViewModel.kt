@@ -11,7 +11,7 @@ import com.hearablemusic.player.ui.generated.resources.agent_chat_hint_playlist
 import com.hearablemusic.player.ui.generated.resources.agent_chat_hint_scanning
 import com.hearablemusic.player.ui.generated.resources.agent_chat_hint_thinking
 import com.hearablemusic.player.ui.generated.resources.agent_chat_hint_wait
-import com.hearablemusic.player.ui.platform.currentTimeMillis
+import com.hmp.data.database.currentTimeMillis
 import com.hmp.domain.agent.port.ConfirmOutcome
 import com.hmp.domain.agent.port.ToolPermissionLevel
 import com.hmp.domain.agent.funnel.CommandLexicon

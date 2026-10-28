@@ -1,13 +1,18 @@
 package com.hmp.data.util
 
+import com.hmp.domain.music.AudioFormats
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.withContext
 import java.io.File
 
-actual object DeviceMusicScanner {
-    private val _isScanning = MutableStateFlow(false)
-    private val musicExtensions = setOf("mp3", "flac", "m4a", "wav", "aac", "ogg", "wma", "alac", "opus")
+/**
+ * Desktop 的文件遍历助手（**不是** expect/actual 成员，D2-10）。
+ *
+ * 共享抽象是 `MusicRepositoryBase.performMusicScan()`；本对象只服务 desktopMain 这一端，
+ * 与 iOS 那份是"同名的两份平台内实现"，不是"同一契约的两个 actual"。
+ * 扫描进行中的状态由仓库那份（`MusicRepository.isScanning`）负责，这里不再自备一份。
+ */
+object DeviceMusicScanner {
 
     private val scanDirectories = mutableListOf<File>()
     private val blockedDirectories = mutableSetOf<String>()
@@ -28,26 +33,19 @@ actual object DeviceMusicScanner {
         })
     }
 
-    actual fun isScanning(): Boolean = _isScanning.value
-
-    actual suspend fun scanMusic(): List<ScannedMusicFile> = withContext(Dispatchers.IO) {
-        _isScanning.value = true
-        try {
-            val dirsToScan = if (scanDirectories.isEmpty()) {
-                getDefaultMusicDirectories()
-            } else {
-                scanDirectories
-            }
-            val results = mutableListOf<ScannedMusicFile>()
-            for (dir in dirsToScan) {
-                if (dir.exists() && dir.isDirectory) {
-                    scanDirectory(dir, results)
-                }
-            }
-            results
-        } finally {
-            _isScanning.value = false
+    suspend fun scanMusic(): List<ScannedMusicFile> = withContext(Dispatchers.IO) {
+        val dirsToScan = if (scanDirectories.isEmpty()) {
+            getDefaultMusicDirectories()
+        } else {
+            scanDirectories
         }
+        val results = mutableListOf<ScannedMusicFile>()
+        for (dir in dirsToScan) {
+            if (dir.exists() && dir.isDirectory) {
+                scanDirectory(dir, results)
+            }
+        }
+        results
     }
 
     private fun getDefaultMusicDirectories(): List<File> {
@@ -64,17 +62,29 @@ actual object DeviceMusicScanner {
         dir.listFiles()?.forEach { file ->
             if (file.isDirectory) {
                 scanDirectory(file, results)
-            } else if (file.extension.lowercase() in musicExtensions) {
-                results.add(createScannedMusicFile(file))
+            } else {
+                createScannedMusicFile(file)?.let { results.add(it) }
             }
         }
     }
 
-    private fun createScannedMusicFile(file: File): ScannedMusicFile {
+    private val coverArtWriter = FileCoverArtWriter()
+
+    /**
+     * 一个文件 → 一条扫描结果；**不属于曲库的返回 null**（D2-09）。
+     *
+     * 白名单与时长下限都用 commonMain 那一份谓词 [AudioFormats.isIncludedInLibrary]：
+     * 原先 Desktop 只有白名单、没有下限，几秒的碎片文件也收进来；而 Android 那时带着一分钟的硬下限，
+     * 于是同一个文件夹在三端扫出不同数量。时长未知（元数据解析不出来）不因下限被丢 —— 见该函数注释。
+     */
+    private fun createScannedMusicFile(file: File): ScannedMusicFile? {
         val metadata = MusicTagParser.parseMetadata(file.absolutePath)
-        val albumArtUri = metadata?.albumArt?.let { saveAlbumArt(it, file.absolutePath) } ?: ""
+        if (!AudioFormats.isIncludedInLibrary(file.name, metadata?.duration)) return null
+        // 封面名字由内容指纹决定（D2-17）：原先按音频文件路径命名 + "存在即跳过"，
+        // 于是换过封面的文件永远显示旧图。
+        val albumArtUri = metadata?.albumArt?.let { CoverArtStore.store(it, coverArtWriter) } ?: ""
         return ScannedMusicFile(
-            id = generateStableId(file.absolutePath),
+            id = stableIdFor(file.absolutePath),
             title = metadata?.title ?: file.nameWithoutExtension,
             artist = metadata?.artist ?: "Unknown Artist",
             album = metadata?.album ?: "Unknown Album",
@@ -87,34 +97,5 @@ actual object DeviceMusicScanner {
             format = metadata?.format ?: file.extension.uppercase(),
             lyrics = metadata?.lyrics
         )
-    }
-
-    private fun getCoversDirectory(): File {
-        val dir = File(System.getProperty("user.home"), ".hmp/covers")
-        if (!dir.exists()) dir.mkdirs()
-        return dir
-    }
-
-    private fun saveAlbumArt(data: ByteArray, filePath: String): String? {
-        return try {
-            val coversDir = getCoversDirectory()
-            val id = generateStableId(filePath)
-            val coverFile = File(coversDir, "cover_$id.jpg")
-            if (!coverFile.exists()) {
-                coverFile.writeBytes(data)
-            }
-            coverFile.absolutePath
-        } catch (_: Exception) {
-            null
-        }
-    }
-
-    private fun generateStableId(path: String): Long {
-        var hash = 0xcbf29ce484222325UL
-        for (byte in path.encodeToByteArray()) {
-            hash = hash xor byte.toULong()
-            hash *= 0x100000001b3UL
-        }
-        return hash.toLong()
     }
 }

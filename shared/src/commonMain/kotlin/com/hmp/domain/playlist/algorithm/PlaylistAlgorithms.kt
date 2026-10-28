@@ -1,6 +1,8 @@
 package com.hmp.domain.playlist.algorithm
 
 import com.hmp.domain.music.MusicInfo
+import com.hmp.domain.music.MusicSortKey
+import com.hmp.domain.music.SortDirection
 import com.hmp.domain.music.MusicLabel
 import com.hmp.domain.playlist.AlgorithmType
 
@@ -47,7 +49,7 @@ class PlaylistAlgorithms(
         if (seedLabels.isEmpty()) return emptyList()
         
         // 获取所有候选音乐
-        val allMusic = musicRepository.getAllMusicInfoAsList("id", "asc")
+        val allMusic = musicRepository.getAllMusicInfoAsList(MusicSortKey.ID, SortDirection.ASC)
             .filter { it.music.id != seedMusicId }
         
         // 根据不同策略执行不同的生成逻辑
@@ -153,7 +155,7 @@ class PlaylistAlgorithms(
         strategy: ChainStrategy,
 
     ): MusicInfo? {
-        val allMusic = musicRepository.getAllMusicInfoAsList("id", "asc")
+        val allMusic = musicRepository.getAllMusicInfoAsList(MusicSortKey.ID, SortDirection.ASC)
         
         return allMusic
             .filter { it.music.id !in visited }
@@ -184,7 +186,7 @@ class PlaylistAlgorithms(
         
         if (seedLabels.isEmpty()) return emptyList()
         
-        val allMusic = musicRepository.getAllMusicInfoAsList("id", "asc")
+        val allMusic = musicRepository.getAllMusicInfoAsList(MusicSortKey.ID, SortDirection.ASC)
             .filter { it.music.id != seedMusicId }
         
         return allMusic.map { candidate ->

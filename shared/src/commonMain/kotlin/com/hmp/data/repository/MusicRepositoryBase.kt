@@ -1,9 +1,14 @@
 package com.hmp.data.repository
 
 import com.hmp.data.database.AgentAuditLog
+import com.hmp.data.util.CoverArtStore
+import com.hmp.data.util.CoverArtWriter
+import com.hmp.data.util.UNKNOWN_FOLDER
+import com.hmp.data.util.parentPathOf
 import com.hmp.data.database.AgentAuditLogDao
 import com.hmp.data.database.ListeningDuration
 import com.hmp.data.database.ListeningDurationDao
+import com.hmp.data.database.Music
 import com.hmp.data.database.MusicAllDao
 import com.hmp.data.database.MusicDao
 import com.hmp.data.database.MusicExtra
@@ -19,6 +24,8 @@ import com.hmp.data.database.PlaylistItemDao
 import com.hmp.data.database.UserInfo
 import com.hmp.data.database.UserInfoDao
 import com.hmp.data.database.currentTimeMillis
+import com.hmp.domain.music.MusicSortKey
+import com.hmp.domain.music.SortDirection
 import com.hmp.data.database.myenum.LabelCategory as DataLabelCategory
 import com.hmp.data.database.myenum.LabelName as DataLabelName
 import com.hmp.data.mapper.toDomain
@@ -30,6 +37,9 @@ import com.hmp.data.util.MusicTagEditor
 import com.hmp.data.util.parseDateToMillis
 import com.hmp.data.util.formatMmddFromMillis
 import com.hmp.data.util.stringToPinyinSortKey
+import com.hmp.data.util.localDayRange
+import com.hmp.data.util.localDateString
+import com.hmp.data.util.localHourOfDay
 import com.hmp.data.util.todayDateString
 import com.hmp.domain.agent.enrich.EnrichBatchResult
 import com.hmp.domain.agent.enrich.EnrichHealth
@@ -38,6 +48,7 @@ import com.hmp.domain.backup.ListeningStatsSnapshot
 import com.hmp.domain.backup.MusicExtraUserSnapshot
 import com.hmp.domain.backup.MusicLabelSnapshot
 import com.hmp.domain.backup.MusicUserStateSnapshot
+import com.hmp.domain.backup.TransactionRunner
 import com.hmp.domain.backup.UserInfoSnapshot
 import com.hmp.domain.enum.LabelCategory
 import com.hmp.domain.enum.LabelName
@@ -60,7 +71,10 @@ import com.hmp.domain.setting.model.UserUsageAnalytics
 import com.hmp.domain.setting.model.WindowedUsageAnalytics
 import com.hmp.domain.agent.card.daysToCutoffMs
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
@@ -74,9 +88,14 @@ import com.hmp.log.LogTag
  *
  * 上提 commonMain 的全部方法在 android/desktop/ios 三份实现中逐字一致（2026-08-27 复核）；
  * 平台层仅保留真正分叉的能力：
- * - 设备扫描（loadMusicFromDevice / syncMusicFromDeviceIncremental）——MediaStore vs 文件系统 vs NSFileManager；
- * - `getAllMusicInfoAsList`——三端排序语义刻意不同（android 含 raw 分键与 SQL 前缀路径）；
- * - `getDeletedMusicIdsGroupedByFolder`——File.parent vs substringBeforeLast。
+ * - 设备扫描本身（`performMusicScan`）——MediaStore vs 文件系统 vs NSFileManager；
+ *   落库（含事务与 upsert 语义）只有一份，见上面的「设备扫描与落库」区（D2-01 / D2-02）；
+ * - 本端路径认哪些**分隔符**（`pathSeparators`）——`getDeletedMusicIdsGroupedByFolder` 的分组逻辑
+ *   原先三端各写一份（Desktop 那份在 Windows 上切不出父目录），现已收进本类一份（D2-13）。
+ *
+ * `getAllMusicInfoAsList` 原先也列在"刻意分叉"里：三份近乎相同、又各有分歧
+ * （Android 有 raw 次级键、且 ASC 分支对 duration/playCount 直接返回未排序列表；
+ * Desktop/iOS 用 `reversed()`）—— 已收成一份，见下面的「排序」区（一-5 / D2-08）。
  *
  * 新增 expect/actual 日期工具（todayDateString / parseDateToMillis）把三端日期差异收口，
  * 使统计类方法（recordListeningDuration / getUserUsageAnalytics）可公共化。
@@ -95,7 +114,173 @@ abstract class MusicRepositoryBase(
     protected val json: Json,
     protected val agentAuditLogDao: AgentAuditLogDao,
     protected val forgottenDeliveryDao: com.hmp.data.database.ForgottenDeliveryDao,
+    /**
+     * 封面落盘（D2-17）。Desktop 注入 `FileCoverArtWriter`；
+     * Android 传 null —— 它的封面是 `content://media/external/audio/albumart/<albumId>`，由 MediaStore 供给，
+     * 本来就不经过我们的缓存；iOS 传 null 是**待办**（Swift 侧的 extractor 目前自己决定文件名，
+     * 要改成"抽出字节、文件名交给这唯一一份规则"，见 `docs/7_3/domain/D2.md` D2-16 / D2-17 施工结果）。
+     */
+    protected val coverArtWriter: CoverArtWriter? = null,
+    protected val transactionRunner: TransactionRunner,
 ) : MusicRepository {
+
+    // region 排序（D2-08）
+    //
+    // 三端各一份的时代结束：原先三份 `when (orderBy) { … else -> }` 既互有分歧，
+    // 又都对着裸字符串兜底 —— 拼错键不报错，只是换个排法
+    // （RadioSubAgent 的 "play_count"、列表页排序菜单的 "fileSize" / "date" 全都静默落进 else）。
+
+    /**
+     * 文本三键（标题 / 艺术家 / 专辑）用拼音排序键，并以原文做次级键 —— 同音字不会随机换序。
+     *
+     * 缺附加信息（`extra == null`）按"最小"处理：升序在最前、降序在最后。
+     * 唯独 [MusicSortKey.DATE] 把"没有日期"的行**固定在末尾**，与索引条的「未知」档同一口径
+     * （见 `MusicListConfig.computeDateSmartAnchors`）—— 整列反转的话，点「未知」会跳到列表头部。
+     */
+    override suspend fun getAllMusicInfoAsList(key: MusicSortKey, direction: SortDirection): List<MusicInfo> {
+        val list = musicAllDao.getAllMusicInfoAsListById().map { it.toDomain() }
+        val desc = direction.isDescending
+        val comparator: Comparator<MusicInfo> = when (key) {
+            MusicSortKey.TITLE ->
+                compareBy<MusicInfo>({ stringToPinyinSortKey(it.music.title) }, { it.music.title }).oriented(desc)
+            MusicSortKey.ARTIST ->
+                compareBy<MusicInfo>({ stringToPinyinSortKey(it.music.artist) }, { it.music.artist }).oriented(desc)
+            MusicSortKey.ALBUM ->
+                compareBy<MusicInfo>({ stringToPinyinSortKey(it.music.album) }, { it.music.album }).oriented(desc)
+            MusicSortKey.DURATION ->
+                compareBy<MusicInfo> { it.music.duration }.oriented(desc)
+            MusicSortKey.FILE_SIZE ->
+                compareBy<MusicInfo> { it.extra?.fileSize ?: 0L }.oriented(desc)
+            MusicSortKey.PLAY_COUNT ->
+                compareBy<MusicInfo> { it.userInfo?.playCount ?: 0 }.thenBy { it.music.id }.oriented(desc)
+            MusicSortKey.DATE ->
+                compareBy<MusicInfo> { it.extra?.date == null }
+                    .then(
+                        if (desc) compareByDescending { it.extra?.date ?: 0L }
+                        else compareBy { it.extra?.date ?: 0L }
+                    )
+                    .thenBy { it.music.id }
+            MusicSortKey.ID -> compareBy<MusicInfo> { it.music.id }.oriented(desc)
+        }
+        return list.sortedWith(comparator)
+    }
+
+    /** 降序就是把比较器整个反过来；收成一个助手，免得八个分支各写一遍 `reversed()`。 */
+    private fun <T : Any> Comparator<T>.oriented(descending: Boolean): Comparator<T> =
+        if (descending) reversed() else this
+
+    // endregion
+
+    // region 设备扫描与落库（D2-01 / D2-02）
+    //
+    // 三端各自只剩「设备上有哪些歌」这一件事（performMusicScan），落库只有一份。
+    // 原先三份逐字镜像的实现是 `deleteAll()` ×3 再分批重灌：跨语句无事务，进程被杀就把库
+    // 停在半成品上且对外表现为空曲库；即便跑完，`userInfo` 的收藏/播放数与 `musicExtra`
+    // 的歌词/富化结果也一起被抹掉。语义因此从"清空重灌"改成"按 id upsert"。
+
+    private val _isScanning = MutableStateFlow(false)
+    override val isScanning: Flow<Boolean> = _isScanning.asStateFlow()
+
+    /** 平台分叉点：MediaStore vs 文件系统 vs NSFileManager。返回的三张表只是"扫描认为应当存在"的行。 */
+    protected abstract suspend fun performMusicScan(): Triple<List<Music>, List<MusicExtra>, List<UserInfo>>
+
+    /**
+     * 全量与增量共用同一条落库路径 —— 改成 upsert 之后两者本就等价：
+     * "全量重建"不再意味着先清空，它只是"不带条件地重扫一遍并同步可见性"。
+     */
+    override suspend fun loadMusicFromDevice(): Result<Unit> = scanAndPersist()
+
+    override suspend fun syncMusicFromDeviceIncremental(): Result<Unit> = scanAndPersist()
+
+    private suspend fun scanAndPersist(): Result<Unit> {
+        _isScanning.value = true
+        return try {
+            val (scannedMusic, scannedExtras, scannedUserInfo) = performMusicScan()
+            HmpLog.i(LogTag.DataMusicRepo) { "🎵 scanned ${scannedMusic.size} music files" }
+            persistScannedLibrary(scannedMusic, scannedExtras, scannedUserInfo)
+            Result.success(Unit)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            HmpLog.e(LogTag.DataMusicRepo, e) { "🎵 MusicRepository: Music scan failed: ${e.message}" }
+            Result.failure(e)
+        } finally {
+            _isScanning.value = false
+        }
+    }
+
+    /**
+     * 一次扫描的落库，全程单事务（D2-01 判据：中途抛异常后曲库条数与扫描前一致，不出现半空库）。
+     *
+     * 三张表各有归属：`music` 由扫描整行覆盖（它是文件元数据），`musicExtra` / `userInfo`
+     * 里既有扫描列也有用户资产，所以只补不覆盖。可见位 `isDeleted` 不由扫描直接决定，
+     * 而是「文件在不在」与「用户有没有主动移除」（`userInfo.removedByUser`，D2-02）的与。
+     */
+    private suspend fun persistScannedLibrary(
+        scannedMusic: List<Music>,
+        scannedExtras: List<MusicExtra>,
+        scannedUserInfo: List<UserInfo>,
+    ) = transactionRunner.run {
+        val existingMusicIds = musicDao.getAllIds().toSet()
+        val existingUserIds = userInfoDao.getAllIds().toSet()
+        val removedIds = userInfoDao.getRemovedByUserIds().toSet()
+
+        val scannedIds = scannedMusic.map { it.id }.toSet()
+        val missingIds = (existingMusicIds - scannedIds).toList()
+        val extrasByScannedId = scannedExtras.associateBy { it.id }
+
+        scannedMusic.chunked(SCAN_BATCH_SIZE).forEach { batch ->
+            // 文件在 → 只有"用户移除"能让它保持不可见
+            musicDao.insertAll(batch.map { it.copy(isDeleted = it.id in removedIds) })
+
+            val batchIds = batch.map { it.id }
+            val existingExtras = musicExtraDao.getByIds(batchIds).associateBy { it.id }
+            val mergedExtras = batchIds.mapNotNull { scannedExtrasId ->
+                val scannedExtra = extrasByScannedId[scannedExtrasId] ?: return@mapNotNull null
+                val existing = existingExtras[scannedExtrasId]
+                val visible = scannedExtrasId !in removedIds
+                if (existing == null) {
+                    scannedExtra.copy(isDeleted = visible)
+                } else {
+                    // 扫描只补自己读的列；isGetExtraInfo 与富化文案、用户改过的歌词留在原行上
+                    existing.copy(
+                        lyrics = scannedExtra.lyrics ?: existing.lyrics,
+                        bitRate = scannedExtra.bitRate ?: existing.bitRate,
+                        sampleRate = scannedExtra.sampleRate ?: existing.sampleRate,
+                        fileSize = scannedExtra.fileSize ?: existing.fileSize,
+                        format = scannedExtra.format ?: existing.format,
+                        isDeleted = visible,
+                    )
+                }
+            }
+            if (mergedExtras.isNotEmpty()) musicExtraDao.upsertAll(mergedExtras)
+        }
+
+        // 用户态：只为"库里还没有的曲目"建默认行，已有行一律不碰（收藏 / 播放数 / 上次播放是用户资产）
+        val newUserInfos = scannedUserInfo
+            .filter { it.id !in existingUserIds && it.id in scannedIds }
+            .map { UserInfo(id = it.id) }
+        if (newUserInfos.isNotEmpty()) {
+            newUserInfos.chunked(SCAN_BATCH_SIZE).forEach { userInfoDao.insertAll(it) }
+        }
+
+        // 本次没扫到的：文件不在了 → 三表一起标不可见（用户移除意图仍留着）
+        if (missingIds.isNotEmpty()) {
+            missingIds.chunked(SCAN_BATCH_SIZE).forEach { chunk ->
+                musicDao.markDeletedByIds(chunk)
+                musicExtraDao.markDeletedByIds(chunk)
+                userInfoDao.markDeletedByIds(chunk)
+            }
+            // 同 D3-08：文件消失让曲目不可见，歌单的缓存计数得跟着改，
+            // 否则"10 首"的标题底下只有 7 首。这里已在同一事务内，失败应当一起回滚，不吞。
+            playlistItemDao.refreshStatsForPlaylistsContaining(missingIds, currentTimeMillis())
+        }
+
+        HmpLog.i(LogTag.DataMusicRepo) { "🎵 persisted ${scannedMusic.size} tracks, ${missingIds.size} marked missing" }
+        Unit
+    }
+
+    // endregion
 
     // region Query
 
@@ -125,26 +310,34 @@ abstract class MusicRepositoryBase(
         )
     }
 
+    /**
+     * 艺术家总览（D2-15）：走 SQL `GROUP BY`，不再把全库载入内存逐行分组。
+     *
+     * 并列破序改成按名字，见 DAO 上那段注释 —— 这是本条唯一一处对外可见的顺序变化。
+     */
     override suspend fun getAllArtistsSummary(limit: Int): List<Pair<String, Int>> =
-        getAllMusicInfoAsList("playCount", "DESC")
-            .filter { !it.music.artist.isBlank() }
-            .groupBy { it.music.artist }
-            .mapValues { (_, list) -> list.size }
-            .toList()
-            .sortedByDescending { it.second }
-            .take(limit)
+        musicAllDao.getTopArtistSummary(limit).map { it.name to it.count }
 
     override suspend fun getAllAlbumsSummary(limit: Int): List<Pair<String, Int>> =
-        getAllMusicInfoAsList("playCount", "DESC")
-            .filter { !it.music.album.isBlank() }
-            .groupBy { it.music.album }
-            .mapValues { (_, list) -> list.size }
-            .toList()
-            .sortedByDescending { it.second }
-            .take(limit)
+        musicAllDao.getTopAlbumSummary(limit).map { it.name to it.count }
 
     override suspend fun searchMusic(query: String): List<MusicInfo> =
-        musicAllDao.searchMusic("%$query%").map { it.toDomain() }
+        musicAllDao.searchMusic(query.toLikeContainsPattern()).map { it.toDomain() }
+
+    /**
+     * 「已隐藏文件夹」的分组（D2-13）：三端原先各写一份，Desktop 那份在 Windows 上切不出父目录。
+     *
+     * 分组口径只在这里有一份，平台只声明**本端路径用哪些分隔符**（[pathSeparators]）——
+     * 分隔符是参数不是写死的 `/`，所以这条能在任意操作系统上用反斜杠路径验。
+     */
+    override suspend fun getDeletedMusicIdsGroupedByFolder(): List<Pair<String, List<Long>>> =
+        musicDao.getRemovedMusicIdAndPath()
+            .groupBy { (_, path) -> parentPathOf(path, pathSeparators) ?: UNKNOWN_FOLDER }
+            .map { (folder, entries) -> folder to entries.map { it.id } }
+            .sortedByDescending { it.second.size }
+
+    /** 本端路径的分隔符集合；POSIX 是 `/`，Desktop 在 Windows 上还要认 `\`（D2-13）。 */
+    protected open val pathSeparators: String = "/"
 
     // endregion
 
@@ -160,16 +353,33 @@ abstract class MusicRepositoryBase(
 
     override suspend fun removeFromLibrary(ids: List<Long>) {
         if (ids.isEmpty()) return
+        // D2-02：`removedByUser` 是"用户主动移除"的记录，扫描看得见它才不会在下次重扫时把歌放回来。
+        // 三张表的软删标记仍要一起打（可见性过滤按 music/musicExtra 的 isDeleted）。
         musicDao.markDeletedByIds(ids)
         musicExtraDao.markDeletedByIds(ids)
-        userInfoDao.markDeletedByIds(ids)
+        userInfoDao.markRemovedByIds(ids)
+        refreshAffectedPlaylistStats(ids)
     }
 
     override suspend fun restoreToLibrary(ids: List<Long>) {
         if (ids.isEmpty()) return
         musicDao.markActiveByIds(ids)
         musicExtraDao.markActiveByIds(ids)
-        userInfoDao.markActiveByIds(ids)
+        userInfoDao.clearRemovedByIds(ids)
+        refreshAffectedPlaylistStats(ids)
+    }
+
+    /**
+     * 曲目**可见性**变了之后，重算受影响歌单的 `songCount` / `totalDurationMs`（D3-08）。
+     *
+     * 为什么在这儿：歌单派生列原先只被"条目增删"触发，而"从曲库移除"是软删 `music.isDeleted`、
+     * 根本不碰 `playlist_item` —— 于是详情页头部继续显示"10 首 / 45 分钟"，列表实际只有 9 首；
+     * 取消移除时反向也错。歌单列表那层的 `songCount > 0` 过滤（D3-06）也读这个缓存列。
+     *
+     * 失败不阻断主操作：可见性已经改成功了，统计旧了是显示问题，不该让用户"移除失败"。
+     */
+    private suspend fun refreshAffectedPlaylistStats(ids: List<Long>) {
+        runCatching { playlistItemDao.refreshStatsForPlaylistsContaining(ids, currentTimeMillis()) }
     }
 
     // endregion
@@ -309,6 +519,7 @@ abstract class MusicRepositoryBase(
                                     .copy(lyrics = newLyrics)
                             )
                         }
+                        applyCoverArtIfPresent(musicId, tags)
                         Result.success(Unit)
                     },
                     onFailure = { Result.failure(it) }
@@ -337,11 +548,34 @@ abstract class MusicRepositoryBase(
                             .copy(lyrics = newLyrics)
                     )
                 }
+                applyCoverArtIfPresent(musicId, tags)
                 Result.success(Unit)
             } catch (e: Exception) {
                 Result.failure(e)
             }
         }
+
+    /**
+     * 随标签一起提交的新封面要落盘并把 `music.albumArtUri` 指过去（D2-17）。
+     *
+     * 修前这两个函数只管 title/artist/album/lyrics，**根本不碰 `albumArtUri`** ——
+     * 再叠上缓存那侧"按路径命名 + 存在即跳过"，结果就是用户换封面保存成功、看到的仍是旧图。
+     * 现在文件名由内容指纹决定（换封面 = 换文件），这里再把 uri 跟上新文件。
+     *
+     * 三条口径：空数组是"移除封面"（`EditableMusicTags.albumArt` 的既定语义）；
+     * 本端没有缓存（Android 走 MediaStore 的 content uri）就原样不动；
+     * 落盘失败**保留原 uri**，不要把能显示的封面抹成空。
+     */
+    private suspend fun applyCoverArtIfPresent(musicId: Long, tags: EditableMusicTags) {
+        val bytes = tags.albumArt ?: return
+        if (bytes.isEmpty()) {
+            musicDao.updateAlbumArtUriById(musicId, "")
+            return
+        }
+        val writer = coverArtWriter ?: return
+        val uri = CoverArtStore.store(bytes, writer) ?: return
+        musicDao.updateAlbumArtUriById(musicId, uri)
+    }
 
     // endregion
 
@@ -380,12 +614,23 @@ abstract class MusicRepositoryBase(
 
     // region Similarity
 
+    /**
+     * 相似度的类别权重（D2-15 顺带查出的一处真 bug 在这里修）。
+     *
+     * **键必须是 [LabelCategory]（domain 那个）** —— `calcSimilarity` 查的是 `base.type`，
+     * 而 `base` 是 `MusicLabel`（domain 模型），它的 `type` 就是 domain 的 `LabelCategory`。
+     * 原先这五项里有四项写的是 `com.hmp.data.database.myenum.LabelCategory.…`（DAO 实体的枚举），
+     * 于是 map 的键类型被推成 `Any`，`labelCategoryWeight[base.type]` **除了 SCENARIO 以外全都查不中**，
+     * 一律走 `?: 1` —— "按类别加权"这件事实际从来没生效过：权重最高的 MOOD(4) 与 GENRE(3)
+     * 都按 1 计，心动模式/推荐扩列的排序等于只数重叠标签个数。
+     * 编译器抓不到它，因为 `Map<Any, Int>` 是完全合法的写法；抓到它的是本次新增的那条判据。
+     */
     private val labelCategoryWeight = mapOf(
-        com.hmp.data.database.myenum.LabelCategory.GENRE to 3,
-        com.hmp.data.database.myenum.LabelCategory.MOOD to 4,
+        LabelCategory.GENRE to 3,
+        LabelCategory.MOOD to 4,
         LabelCategory.SCENARIO to 2,
-        com.hmp.data.database.myenum.LabelCategory.LANGUAGE to 1,
-        com.hmp.data.database.myenum.LabelCategory.ERA to 1
+        LabelCategory.LANGUAGE to 1,
+        LabelCategory.ERA to 1
     )
 
     private fun calcSimilarity(
@@ -403,6 +648,18 @@ abstract class MusicRepositoryBase(
         return score
     }
 
+    /**
+     * 相似歌（心动模式、agent 推荐扩列的取数处）—— **查询次数从 `1 + N` 收成 2**（D2-15）。
+     *
+     * 修前这里是全仓最典型的一处 N+1：`getAllMusicInfoAsList` 把全库载入之后，
+     * 又对**每一行**调一次 `getMusicLabels(id)`（一次 `SELECT * FROM musicLabel WHERE musicId = ?`）。
+     * 3000 首的库 = 3001 次查询 + 3000 个列表分配，而它的可达入口是用户主动按下的「心动模式」
+     * 与 agent 的推荐扩列（不是自动切歌，切歌只查单次标签）。
+     *
+     * 现在一次取全库、一次取全部标签，在内存里按 `musicId` 分桶。
+     * 分数与顺序都不变：`calcSimilarity` 是对配对求和，与单个曲目内部的标签顺序无关；
+     * 并列仍按 `ID ASC`（`sortedByDescending` 是稳定排序，遍历顺序就是取数顺序）。
+     */
     override suspend fun getSimilarSongsByWeightedLabels(
         musicId: Long,
         limit: Int
@@ -410,13 +667,14 @@ abstract class MusicRepositoryBase(
         val baseLabels = getMusicLabels(musicId)
         if (baseLabels.isEmpty()) return emptyList()
 
-        val allMusic = getAllMusicInfoAsList("id", "ASC")
+        val allMusic = getAllMusicInfoAsList(MusicSortKey.ID, SortDirection.ASC)
+        val labelsByMusicId: Map<Long, List<MusicLabel>> =
+            musicLabelDao.getAllLabels().groupBy({ it.musicId }, { it.toDomain() })
+
         return allMusic
             .filter { it.music.id != musicId }
-            .map { musicInfo ->
-                val targetLabels = getMusicLabels(musicInfo.music.id)
-                val similarity = calcSimilarity(baseLabels, targetLabels)
-                musicInfo to similarity
+            .map { info ->
+                info to calcSimilarity(baseLabels, labelsByMusicId[info.music.id] ?: emptyList())
             }
             .filter { it.second > 0 }
             .sortedByDescending { it.second }
@@ -471,7 +729,7 @@ abstract class MusicRepositoryBase(
         val recentHistory = playbackHistoryDao.getRecentHistory(10)
         val allDurations = listeningDurationDao.getAllDurations()
         val allLabels = musicLabelDao.getAllLabels()
-        val allMusic = getAllMusicInfoAsList("playCount", "DESC")
+        val allMusic = getAllMusicInfoAsList(MusicSortKey.PLAY_COUNT, SortDirection.DESC)
         val playlists = playlistDao.getAllPlaylists()
         val playlistItems = playlistItemDao.getAllPlaylistItems()
 
@@ -764,7 +1022,10 @@ abstract class MusicRepositoryBase(
                 updatedAt = currentTimeMillis()
             )
         }
-        listeningDurationDao.insertAll(durations)
+        // 一-2 / D5-13：恢复必须是"先清后写"。原先只 insertAll —— listeningDuration 按日期主键
+        // 侥幸覆盖得住，PlaybackHistory 的主键是自增 id，快照里的行 id 全是 0 → 每次恢复都另起一批新行，
+        // 历史条数翻倍，总时长 / 完播率 / Top 歌曲跟着一起失真。
+        listeningDurationDao.replaceAll(durations)
 
         val history = snapshot.playbackHistories.map {
             com.hmp.data.database.PlaybackHistory(
@@ -775,7 +1036,7 @@ abstract class MusicRepositoryBase(
                 source = it.source
             )
         }
-        playbackHistoryDao.insertAll(history)
+        playbackHistoryDao.replaceAll(history)
     }
 
     // endregion
@@ -965,8 +1226,12 @@ abstract class MusicRepositoryBase(
 
     /** 今日有新播放的 musicId（DAO strftime SQL，单次查询）。 */
     override suspend fun getMusicIdsPlayedOn(date: String): List<Long> {
-        val mmdd = date.substring(5) // "MM-dd"
-        return runCatching { playbackHistoryDao.getMusicIdsPlayedOn(mmdd) }.getOrDefault(emptyList())
+        // 由 Kotlin 侧算出本地日的 [dayStart, dayEnd) 再走 playedAt 范围扫描（D5-11 未做的改写段）：
+        // `strftime('%m-%d', playedAt/1000, 'unixepoch', 'localtime') = :mmdd` 每行求值，v10 建的
+        // `index_PlaybackHistory_playedAt` 对它完全使不上力。
+        val (dayStart, dayEnd) = localDayRange(date) ?: return emptyList()
+        return runCatching { playbackHistoryDao.getMusicIdsPlayedBetween(dayStart, dayEnd) }
+            .getOrDefault(emptyList())
     }
 
     /** 某歌单累计被播放次数。 */
@@ -988,12 +1253,30 @@ abstract class MusicRepositoryBase(
         return musicAllDao.getPlaylistByIdList(ids).map { it.toDomain() }
     }
 
-    /** 最近 days 天的日均听歌时长（分钟），报告叙事段自适应频率判断用。 */
+    /**
+     * 日均听歌时长（分钟）—— 「每个**听歌日**的平均」，不是把没听的天摊进来的日均（D5-03）。
+     *
+     * 旧实现里 `days` 只出现在除数位置：全表求和 ÷ N，也就是"有史以来总量 ÷ N"。
+     * 后果是切到「今日」拿到的是全年量（恒 > 120 分钟 → 报告频率恒判日更），
+     * 切到「全部」除以 3650 → 恒 ≤ 30 → 判周更，与真实活跃度脱钩。
+     *
+     * 口径定两条并写在这里：
+     * - `days > 0`：只看最近 `days` 个日历日（含今天），按 `date` 列做窗口过滤；
+     * - `days <= 0`（`NarrativeTimeRange.ALL.toDays() == -1`）：看全部历史；
+     * - 两种情况的分母都是**窗口内有记录的天数** —— 这就是"每个听歌日的平均"，
+     *   除以日历天数会让"这周只听了一天"的人显示成极低的日均，语义相反。
+     */
     override suspend fun getAvgDailyListeningMinutes(days: Int): Float {
-        val all = listeningDurationDao.getAllDurations()
-        if (all.isEmpty()) return 0f
-        val totalMs = all.sumOf { it.duration }
-        return (totalMs / 60_000f) / days.coerceAtLeast(1)
+        val windowed = if (days > 0) {
+            val fromDate = localDateString(currentTimeMillis() - (days - 1).toLong() * 86_400_000L)
+            listeningDurationDao.getDurationsSince(fromDate)
+        } else {
+            listeningDurationDao.getAllDurations()
+        }
+        if (windowed.isEmpty()) return 0f
+        val activeDays = windowed.map { it.date }.distinct().size
+        val totalMs = windowed.sumOf { it.duration }
+        return (totalMs / 60_000f) / activeDays.coerceAtLeast(1)
     }
 
     // region F9-T1：时段分布 + 遗忘唤醒送达标记
@@ -1003,7 +1286,10 @@ abstract class MusicRepositoryBase(
      * 只返回实际有数据的桶，UI 层补零位。
      */
     override suspend fun getHourlyDistribution(windowDays: Int): List<HourlyDistributionRow> {
-        val sinceMs = currentTimeMillis() - windowDays.coerceAtLeast(1) * 86_400_000L
+        // daysToCutoffMs 认 -1 = 「全部」（≈10 年前）。此处原先是 `windowDays.coerceAtLeast(1)`，
+        // 于是「全部」被夹成 1 天：其余四个维度给 10 年口径、只有时段柱图画最近 24 小时，
+        // 而页面标签仍写「全部」（D5-02）。
+        val sinceMs = daysToCutoffMs(windowDays)
         return playbackHistoryDao.getHourlyDistribution(sinceMs).map { row ->
             HourlyDistributionRow(hour = row.hour, playCount = row.playCount, totalMs = row.totalMs)
         }
@@ -1083,9 +1369,8 @@ abstract class MusicRepositoryBase(
      * - `getFirstPlayedAtPerTrack` 取每首首播时间（判断窗口内新歌）
      */
     override suspend fun getBehaviorSnapshot(windowDays: Int): BehaviorSnapshot {
-        val days = windowDays.coerceAtLeast(1)
-        val now = currentTimeMillis()
-        val sinceMs = now - days.toLong() * 24 * 3600 * 1000
+        val days = windowDays
+        val sinceMs = daysToCutoffMs(days)
         val rows = playbackHistoryDao.getPlayRowsSince(sinceMs)
         if (rows.isEmpty()) return BehaviorSnapshot(windowDays = days, totalPlays = 0, activeDays = 0)
 
@@ -1218,15 +1503,23 @@ abstract class MusicRepositoryBase(
         }
     }
 
-    private fun hourOf(epochMs: Long): Int = ((epochMs / 3_600_000L) % 24).toInt().let { if (it < 0) it + 24 else it }
+    /** 本地时区小时桶（D5-01）：与 DAO 的 `strftime('%H', …, 'localtime')` 同口径，判据见 HourBucketParityTest。 */
+    private fun hourOf(epochMs: Long): Int = localHourOfDay(epochMs)
 
-    private fun dayKey(epochMs: Long): Long = epochMs / (24L * 3600 * 1000)
+    /** 本地日历日（D5-01）：原先按 UTC 日界切，跨零点的一小时会被算进相邻两天。 */
+    private fun dayKey(epochMs: Long): String = localDateString(epochMs)
 
     // endregion
 
     // endregion
 
     companion object {
+        /**
+         * 扫描落库的批大小。50 是原三端各抄一份时用的同一个数（Android 注释给了理由：
+         * 批太小来回往返、太大一次性占住写连接），改收在一处后不再有第三份口径。
+         */
+        private const val SCAN_BATCH_SIZE = 50
+
         /** 认识来源（musicLabel.source 取值，设计总纲 7.3）：模型富化。 */
         const val SOURCE_LLM = "LLM"
 
@@ -1243,3 +1536,14 @@ abstract class MusicRepositoryBase(
         const val LABEL_CORRECTION_TOOL = "label_correction"
     }
 }
+
+/**
+ * 把用户输入折成 `LIKE ... ESCAPE '\'` 用的模式（D2-05）。
+ *
+ * 次序是这函数唯一的正确性所在：**先**转义反斜杠本身，再转义 `%` 与 `_`；
+ * 反过来会让"转义 `_`"写出来的 `\_` 在下一轮被当成"反斜杠转义反斜杠"，变成 `\\_`。
+ * 与 `MusicRepositoryImpl.android.kt` 里 `toMediaStoreLikePattern()` 同一套转义口径
+ * （那处是给 MediaStore 的目录前缀匹配用的，同样配 `ESCAPE '\'`），所以两处行为一致。
+ */
+internal fun String.toLikeContainsPattern(): String =
+    "%" + replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"

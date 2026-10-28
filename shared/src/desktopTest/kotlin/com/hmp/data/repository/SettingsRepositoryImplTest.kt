@@ -8,6 +8,8 @@ import com.hmp.domain.config.DisplayMode
 import com.hmp.domain.config.LyricsAlignment
 import com.hmp.domain.setting.model.AiAccessMode
 import com.hmp.domain.setting.model.AiEndpointConfig
+import com.hmp.domain.setting.model.ScanDirectoryConfig
+import com.hmp.test.fakes.FakeSecureSecrets
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
@@ -31,7 +33,9 @@ class SettingsRepositoryImplTest {
     fun setup() {
         tempFile = File.createTempFile("test_settings", ".preferences_pb")
         dataStore = PreferenceDataStoreFactory.create { tempFile }
-        repo = SettingsRepositoryImpl(dataStore, json)
+        // 注入密钥替身：Desktop 的 SecureStorageHelper 读写的是开发者机器上真实的
+        // ~/.hmp/keystore.p12，不打桩就等于单测在碰真密钥（D7-01）
+        repo = SettingsRepositoryImpl(dataStore, json, secrets = com.hmp.test.fakes.FakeSecureSecrets())
     }
 
     @After
@@ -312,9 +316,26 @@ class SettingsRepositoryImplTest {
     // ===== Scan Config =====
 
     @Test
-    fun scanDirectoryConfig_defaultNotNull() = runTest {
+    fun scanDirectoryConfig_defaultIsEmpty() = runTest {
         val config = repo.scanDirectoryConfig.first()
-        assertNotNull(config)
+        assertTrue(config.scanDirectories.isEmpty())
+        assertTrue(config.blockedDirectories.isEmpty())
+    }
+
+    /**
+     * D7-06：原来这条只断言 `assertNotNull` —— 等于没测。iOS 那份实现是空壳（存完即丢），
+     * 但 desktop 这份要是也退化成"写得进、读不回"，只有逐字段往返才看得出来。
+     */
+    @Test
+    fun scanDirectoryConfig_roundTrip() = runTest {
+        val config = ScanDirectoryConfig(
+            scanDirectories = listOf("/music", "D:\\Music Library"),
+            blockedDirectories = listOf("/music/audiobooks"),
+        )
+
+        repo.saveScanDirectoryConfig(config)
+
+        assertEquals(config, repo.scanDirectoryConfig.first())
     }
 
     // ===== Haze =====

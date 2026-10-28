@@ -20,6 +20,7 @@ import androidx.core.content.FileProvider
 import com.example.hearablemusicplayer.ui.player.floating.FloatingLyricsService
 import com.hearablemusic.player.ui.R
 import com.hmp.data.util.MusicTagEditor
+import com.hmp.domain.backup.BackupFileRepository
 import com.hmp.domain.music.EditableMusicTags
 import com.hmp.log.HmpLog
 import com.hmp.log.LogTag
@@ -119,7 +120,7 @@ class FilePickerServiceImpl(private val context: Context) : FilePickerService {
             dispatch(KEY_PICK_IMAGE, uri?.let(::copyAvatarImage))
         }
         openBackupLauncher = registry.register(KEY_OPEN_BACKUP, ActivityResultContracts.OpenDocument()) { uri ->
-            dispatch(KEY_OPEN_BACKUP, if (uri != null) copyBackupToCache(uri) else null)
+            dispatch(KEY_OPEN_BACKUP, if (uri != null) copyBackupForImport(uri) else null)
         }
     }
 
@@ -160,18 +161,28 @@ class FilePickerServiceImpl(private val context: Context) : FilePickerService {
         }
     }
 
-    /** 旧 BackupSettingsScreen 行为：复制到 cacheDir/restore_temp.json，返回绝对路径。 */
-    private fun copyBackupToCache(uri: Uri): String? {
+    /**
+     * SAF 给的是 `content://` Uri，必须先落成文件路径才能交给备份链。
+     *
+     * 落点从 `cacheDir/restore_temp.json` 改到 `filesDir/backups/`（D7-05）：仓库层现在只接受
+     * 备份目录内的路径，落在 cacheDir 的副本会被自己的守卫拒掉；顺带把"同名覆盖"（连续两次
+     * 导入互相踩）换成带时间戳的独立文件，导入的那份也就出现在"本地备份"列表里，可手工找回。
+     */
+    private fun copyBackupForImport(uri: Uri): String? {
         return try {
+            val dir = File(context.filesDir, "backups").apply { if (!exists()) mkdirs() }
+            val target = File(
+                dir,
+                "${BackupFileRepository.IMPORTED_PREFIX}-${System.currentTimeMillis()}.json"
+            )
             val inputStream = context.contentResolver.openInputStream(uri)
-            val tempFile = File(context.cacheDir, "restore_temp.json")
-            val outputStream = FileOutputStream(tempFile)
+            val outputStream = FileOutputStream(target)
             inputStream?.copyTo(outputStream)
             inputStream?.close()
             outputStream.close()
-            tempFile.absolutePath
+            target.absolutePath
         } catch (e: Exception) {
-            HmpLog.w(LogTag.UiSettings, e) { "⚙️ copyBackupToCache failed | non-fatal | reason=${e.message}" }
+            HmpLog.w(LogTag.UiSettings, e) { "⚙️ copyBackupForImport failed | non-fatal | reason=${e.message}" }
             null
         }
     }

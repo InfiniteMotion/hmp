@@ -70,6 +70,7 @@ import com.hearablemusic.player.ui.generated.resources.loading
 import com.hearablemusic.player.ui.generated.resources.skip_rate
 import com.hearablemusic.player.ui.generated.resources.title_user_usage_data
 import com.hearablemusic.player.ui.generated.resources.usage_data_empty
+import com.hearablemusic.player.ui.generated.resources.usage_data_load_failed
 import com.hearablemusic.player.ui.player.components.MiniPlayerSafeSpacer
 import com.hearablemusic.player.ui.settings.viewmodel.Dimension
 import com.hearablemusic.player.ui.settings.viewmodel.PersonalityBundle
@@ -127,6 +128,13 @@ fun UserUsageDataScreen(
             Spacer(modifier = Modifier.height(dimens.spacing.lg))
 
             // ═══════════ 内容区（WindowedBundle 按维度分发）═══════════
+            // 首帧与切维度/切时段时旧数据为空 —— 此前直接落到「暂无数据」再跳变（D5-14 补记的加载态）
+            if (windowed.isLoading && windowed.analytics == null && windowed.hourlyDistribution.isEmpty() &&
+                windowed.topSongs.isEmpty() && windowed.recentPlayback.isEmpty() &&
+                windowed.topGenres.isEmpty() && windowed.topMoods.isEmpty() && windowed.topScenarios.isEmpty()
+            ) {
+                UsageDataLoading()
+            } else {
             when (dimension) {
                 Dimension.OVERVIEW -> OverviewWindowContent(
                     windowed = windowed,
@@ -146,17 +154,20 @@ fun UserUsageDataScreen(
                     }
                 }
                 Dimension.RANK -> RankingWindowContent(
+                    windowed = windowed,
                     items = windowed.topSongs,
                     rangeLabel = timeRange.zhName(),
                     navController = navController,
                     haptic = haptic,
                 )
                 Dimension.RECENT -> RecentWindowContent(
+                    windowed = windowed,
                     items = windowed.recentPlayback,
                     rangeLabel = timeRange.zhName(),
                     navController = navController,
                     haptic = haptic,
                 )
+            }
             }
             MiniPlayerSafeSpacer()
         }
@@ -276,9 +287,9 @@ private fun OverviewWindowContent(
             }
         }
 
-        // analytics 为 null —— 空态
+        // analytics 为 null —— 空态或失败态
         if (windowed.analytics == null) {
-            EmptyHint(text = stringResource(Res.string.usage_data_empty))
+            WindowedEmptyHint(windowed, Dimension.OVERVIEW)
         }
     }
 }
@@ -294,7 +305,7 @@ private fun TasteWindowContent(
             windowed.topMoods.isNotEmpty() ||
             windowed.topScenarios.isNotEmpty()
     if (!hasAny) {
-        EmptyHint(text = stringResource(Res.string.usage_data_empty))
+        WindowedEmptyHint(windowed, Dimension.TASTE)
         return
     }
     HMPCard(
@@ -359,6 +370,7 @@ private fun TasteWindowContent(
 /** 排行窗口：Top 歌曲列表 + 空态提示。 */
 @Composable
 private fun RankingWindowContent(
+    windowed: WindowedBundle,
     items: List<TopPlayedEntry>,
     rangeLabel: String,
     navController: NavBackStack<NavKey>,
@@ -368,7 +380,7 @@ private fun RankingWindowContent(
     SectionHeader(title = stringResource(Res.string.usage_rank, rangeLabel))
     Spacer(modifier = Modifier.height(dimens.spacing.sm))
     if (items.isEmpty()) {
-        EmptyHint(text = stringResource(Res.string.usage_data_empty))
+        WindowedEmptyHint(windowed, Dimension.RANK)
     } else {
         HMPCard(
             modifier = Modifier.fillMaxWidth(),
@@ -396,6 +408,7 @@ private fun RankingWindowContent(
 /** 最近播放窗口：RecentPlaybackItem 列表 + 空态提示。 */
 @Composable
 private fun RecentWindowContent(
+    windowed: WindowedBundle,
     items: List<RecentPlaybackEntry>,
     rangeLabel: String,
     navController: NavBackStack<NavKey>,
@@ -405,7 +418,7 @@ private fun RecentWindowContent(
     SectionHeader(title = stringResource(Res.string.usage_recent, rangeLabel))
     Spacer(modifier = Modifier.height(dimens.spacing.sm))
     if (items.isEmpty()) {
-        EmptyHint(text = stringResource(Res.string.usage_data_empty))
+        WindowedEmptyHint(windowed, Dimension.RECENT)
     } else {
         items.forEach { entry ->
             RecentPlaybackItem(
@@ -493,6 +506,20 @@ private fun TopSongRow(
         }
     }
     Spacer(modifier = Modifier.height(dimens.spacing.xs))
+}
+
+/**
+ * 空态 vs 失败态（D5-14）。两者此前同形：DAO 异常、迁移后缺列、Koin 解析失败
+ * 都显示成「暂无使用数据」，用户与开发者都拿不到线索。
+ */
+@Composable
+private fun WindowedEmptyHint(windowed: WindowedBundle, dimension: Dimension) {
+    val text = if (windowed.failedDimension == dimension) {
+        stringResource(Res.string.usage_data_load_failed)
+    } else {
+        stringResource(Res.string.usage_data_empty)
+    }
+    EmptyHint(text = text)
 }
 
 /** 空态提示（统一样式）。 */
@@ -1074,8 +1101,14 @@ private fun HourlyChart(rows: List<HourlyDistributionRow>) {
     }
 }
 
-/** 把小时转成显示用的时段范围描述：22→「22-23」 / 0→「0-1」 / 12→「12-13」 */
-private fun formatHourRange(hour: Int): String {
-    val next = (hour + 1) % 24
-    return if (next == 0) "-24" else "-"
+/**
+ * 把小时转成显示用的时段范围描述：22→「22-23」 / 0→「0-1」 / 23→「23-0」。
+ *
+ * 旧函数体只有 `if (next == 0) "-24" else "-"` —— 从没把 `hour` 拼进去，
+ * 于是峰值解读恒显示成「深夜 - 是你最常听的时段」这种缺主语句（D5-10）。
+ * `internal` 是为判据留的测试缝（同文件测不到 private，跨文件测就得公开 —— 取中间）。
+ */
+internal fun formatHourRange(hour: Int): String {
+    require(hour in 0..23) { "hour 必须来自小时桶，实际 $hour" }
+    return "$hour-${(hour + 1) % 24}"
 }

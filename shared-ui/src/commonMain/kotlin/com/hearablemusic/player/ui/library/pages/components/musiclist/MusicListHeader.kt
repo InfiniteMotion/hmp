@@ -1,5 +1,7 @@
 package com.hearablemusic.player.ui.library.pages.components.musiclist
 
+import com.hmp.domain.music.MusicSortKey
+import com.hmp.domain.music.SortDirection
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
@@ -167,10 +169,10 @@ private fun SimpleHeader(
 
 @Composable
 private fun FullHeader(
-    selectedGenre: String,
-    selectedOrder: String,
-    onFilterGenreChange: (String) -> Unit,
-    onFilterOrderChange: (String) -> Unit,
+    selectedGenre: MusicSortKey,
+    selectedOrder: SortDirection,
+    onFilterGenreChange: (MusicSortKey) -> Unit,
+    onFilterOrderChange: (SortDirection) -> Unit,
     onOrderPlay: () -> Unit,
     onShufflePlay: () -> Unit,
     showEditButton: Boolean,
@@ -274,16 +276,18 @@ private fun FullHeader(
                 color = transparent,
             ) {
                 val genres = listOf(
-                    stringResource(Res.string.sort_title) to "title",
-                    stringResource(Res.string.sort_artist) to "artist",
-                    stringResource(Res.string.sort_duration) to "duration",
-                    stringResource(Res.string.sort_size) to "fileSize",
-                    stringResource(Res.string.sort_play_count) to "playCount",
-                    stringResource(Res.string.sort_add_time) to "date",
+                    // 键是枚举（D2-08）：这里从前写 "fileSize" / "date"，
+                    // 而三端仓库的 when 不认这两个串 —— 点"按文件大小排序"实际按 id 排。
+                    stringResource(Res.string.sort_title) to MusicSortKey.TITLE,
+                    stringResource(Res.string.sort_artist) to MusicSortKey.ARTIST,
+                    stringResource(Res.string.sort_duration) to MusicSortKey.DURATION,
+                    stringResource(Res.string.sort_size) to MusicSortKey.FILE_SIZE,
+                    stringResource(Res.string.sort_play_count) to MusicSortKey.PLAY_COUNT,
+                    stringResource(Res.string.sort_add_time) to MusicSortKey.DATE,
                 )
                 val orders = listOf(
-                    stringResource(Res.string.order_asc) to "ASC",
-                    stringResource(Res.string.order_desc) to "DESC",
+                    stringResource(Res.string.order_asc) to SortDirection.ASC,
+                    stringResource(Res.string.order_desc) to SortDirection.DESC,
                 )
                 Column(
                     modifier = Modifier.padding(8.dp),
@@ -309,7 +313,7 @@ private fun FullHeader(
                                     selected = selectedGenre == value,
                                     onClick = {
                                         haptic.perform(HapticEffect.TICK)
-                                        if (selectedGenre != value) onFilterGenreChange(value)
+                                        onFilterGenreChange(value)
                                     },
                                     label = {
                                         Text(
@@ -341,7 +345,7 @@ private fun FullHeader(
                                     selected = selectedOrder == value,
                                     onClick = {
                                         haptic.perform(HapticEffect.TICK)
-                                        if (selectedOrder != value) onFilterOrderChange(value)
+                                        onFilterOrderChange(value)
                                     },
                                     label = {
                                         Text(

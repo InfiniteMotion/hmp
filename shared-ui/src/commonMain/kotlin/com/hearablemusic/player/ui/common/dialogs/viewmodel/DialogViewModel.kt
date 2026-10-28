@@ -1,5 +1,7 @@
 package com.hearablemusic.player.ui.common.dialogs.viewmodel
 
+import com.hmp.domain.music.MusicSortKey
+import com.hmp.domain.music.SortDirection
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.hearablemusic.player.ui.common.text.UiText
@@ -349,7 +351,6 @@ class DialogViewModel(
                             managePlaylistUseCase.addToPlaylist(
                                 playlistId = playlist.id,
                                 musicId = musicInfo.music.id,
-                                musicPath = musicInfo.music.path
                             )
                             dialogManager.showMessage(getString(Res.string.added_to_playlist))
                             onComplete()
@@ -485,7 +486,7 @@ class DialogViewModel(
         pendingCreatePlaylistStateForPicker = current
         viewModelScope.launch {
             try {
-                val allMusic = getAllMusicUseCase("title", "ASC")
+                val allMusic = getAllMusicUseCase(MusicSortKey.TITLE, SortDirection.ASC)
                 createDialogMusicLookup = allMusic.associateBy { it.music.id }
                 showMusicPickerDialog(
                     allMusic = allMusic,
@@ -667,16 +668,12 @@ class DialogViewModel(
         selectedSongIds: Set<Long>
     ) {
         if (selectedSongIds.isEmpty()) return
+        // 不再为"取路径"多查一次曲目：条目只存 id，路径是 music 表的事（D3-15 收尾）
         selectedSongIds.forEach { songId ->
-            val path = createDialogMusicLookup[songId]?.music?.path
-                ?: getAllMusicUseCase.getMusicById(songId)?.music?.path
-            if (!path.isNullOrBlank()) {
-                managePlaylistUseCase.addToPlaylist(
-                    playlistId = playlistId,
-                    musicId = songId,
-                    musicPath = path
-                )
-            }
+            managePlaylistUseCase.addToPlaylist(
+                playlistId = playlistId,
+                musicId = songId,
+            )
         }
     }
 

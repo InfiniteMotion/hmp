@@ -215,9 +215,6 @@ class MinimalSettingsRepository : SettingsRepository {
 
     override suspend fun exportAppSettingsSnapshot(): AppSettingsSnapshot = unused()
     override suspend fun restoreFromSnapshot(snapshot: AppSettingsSnapshot) = unused()
-    override suspend fun backupSettings(): Result<String> = unused()
-    override suspend fun restoreSettings(backupFilePath: String): Result<Unit> = unused()
-    override suspend fun cleanOldBackups(keepCount: Int): Result<Unit> = unused()
 
     @Suppress("unused")
     private fun unused(): Nothing = throw UnsupportedOperationException("Unused in ChatViewModel test")

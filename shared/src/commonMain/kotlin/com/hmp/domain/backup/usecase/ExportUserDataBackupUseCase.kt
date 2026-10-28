@@ -13,7 +13,10 @@ class ExportUserDataBackupUseCase(
     private val playlistRepository: PlaylistRepository,
     private val backupFileRepository: BackupFileRepository
 ) {
-    suspend operator fun invoke(): Result<String> {
+    /** `filePrefix` 为 [BackupFileRepository.PRE_RESTORE_PREFIX] 时是"恢复前安全副本"（D7-02）。 */
+    suspend operator fun invoke(
+        filePrefix: String = BackupFileRepository.USER_BACKUP_PREFIX,
+    ): Result<String> {
         return try {
             val appSettings = settingsRepository.exportAppSettingsSnapshot()
             val musicUserState = musicRepository.exportMusicUserStateSnapshot()
@@ -28,7 +31,7 @@ class ExportUserDataBackupUseCase(
                 playlists = playlists
             )
 
-            backupFileRepository.saveBackup(snapshot)
+            backupFileRepository.saveBackup(snapshot, filePrefix)
         } catch (e: Exception) {
             Result.failure(e)
         }

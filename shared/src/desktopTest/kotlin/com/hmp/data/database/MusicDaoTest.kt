@@ -260,17 +260,6 @@ class MusicDaoTest {
     }
 
     @Test
-    fun musicAll_sortedByTitle() = runTest {
-        musicDao.insertAll(listOf(music(1, "Cherry"), music(2, "Apple"), music(3, "Banana")))
-        musicExtraDao.insertAll(listOf(extra(1), extra(2), extra(3)))
-        userInfoDao.insertAll(listOf(userInfo(1), userInfo(2), userInfo(3)))
-        val results = musicAllDao.getAllMusicInfoAsListByTitle()
-        assertEquals("Apple", results[0].music.title)
-        assertEquals("Banana", results[1].music.title)
-        assertEquals("Cherry", results[2].music.title)
-    }
-
-    @Test
     fun musicAll_sortedById() = runTest {
         musicDao.insertAll(listOf(music(3), music(1), music(2)))
         musicExtraDao.insertAll(listOf(extra(3), extra(1), extra(2)))

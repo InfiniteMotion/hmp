@@ -2,6 +2,8 @@ package com.hmp.domain.music.usecase
 
 import com.hmp.domain.music.MusicInfo
 import com.hmp.domain.music.MusicRepository
+import com.hmp.domain.music.MusicSortKey
+import com.hmp.domain.music.SortDirection
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlin.coroutines.cancellation.CancellationException
@@ -20,7 +22,10 @@ class GetAllMusicUseCase(
      * @return 音乐列表
      */
     @Throws(CancellationException::class)
-    suspend operator fun invoke(orderBy: String = "title", orderType: String = "ASC"): List<MusicInfo> {
+    suspend operator fun invoke(
+        orderBy: MusicSortKey = MusicSortKey.TITLE,
+        orderType: SortDirection = SortDirection.ASC,
+    ): List<MusicInfo> {
         return musicRepository.getAllMusicInfoAsList(orderBy, orderType)
     }
 

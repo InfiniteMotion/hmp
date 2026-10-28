@@ -8,6 +8,17 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
+/**
+ * 只当**冒烟**用（D2-06 的教训）。
+ *
+ * 这一组跑的是 `FakeMusicRepository.searchMusic`，不是生产 SQL。曾经替身匹配 title+artist+album
+ * 而真 SQL 只匹配 title+artist —— `invoke_matchesAlbum` 一直绿，证明的却是"假实现按假预期工作"，
+ * 把"搜专辑恒为空"这个真缺陷完全掩盖掉。
+ *
+ * 真正的搜索契约（列集合、`_`/`%` 按字面处理、软删不可见）在
+ * `:shared:desktopTest` 的 `MusicRepositoryBaseTest.searchMusic_treatsWildcardsLiterallyAndMatchesAlbum`
+ * 上跑真 Room。改生产 SQL 的列集合时，两边的断言都要跟着对一遍。
+ */
 class SearchMusicUseCaseTest {
 
     private val repository = FakeMusicRepository()

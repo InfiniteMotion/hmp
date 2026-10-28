@@ -84,7 +84,7 @@ internal fun MusicListIndexStrip(
         val listOrderKey = musicInfoList.map { it.music.id }
         val (rawLabels, rawMap) = remember(listOrderKey) { config.smartAnchor!!(musicInfoList) }
         // 降序时反转锚点条：从上到下与列表首项（大/长）对应
-        val (anchorLabels, anchorToIndexMap) = if (config.orderType.uppercase() == "DESC" && rawLabels.isNotEmpty()) {
+        val (anchorLabels, anchorToIndexMap) = if (config.orderType.isDescending && rawLabels.isNotEmpty()) {
             val rev = rawLabels.reversed()
             val n = rawLabels.size
             val remap = (0 until n).associate { i -> i to (rawMap[n - 1 - i] ?: 0) }

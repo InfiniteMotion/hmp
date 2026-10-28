@@ -93,7 +93,8 @@
     <string name="hidden_folders">已隐藏的文件夹</string>
     <string name="confirm_hide_folder">确定要隐藏此文件夹吗？</string>
     <string name="unhide_folder">取消隐藏</string>
-    <string name="gallery_batch_delete_unsupported">此设备不支持批量删除</string>
+    <string name="edit_tags_unsupported">此设备不支持编辑标签</string>
+<string name="gallery_batch_delete_unsupported">此设备不支持批量删除</string>
     <!-- ==================== 播放器 ==================== -->
     <string name="play">播放</string>
     <string name="pause">暂停</string>
@@ -328,6 +329,7 @@
     <string name="relaunch_or_config_ai">请重新启动或配置 AI 服务商</string>
     <!-- AI 模式 -->
     <string name="ai_tab_free">免费体验</string>
+    <string name="ai_key_needs_refill">已保存的 API Key 无法解密（换机或云备份恢复后会这样），请重新填写并保存。</string>
     <string name="ai_tab_custom">自定义配置</string>
     <string name="ai_tab_paid">付费模式</string>
     <string name="ai_free_remaining">剩余 %1$d 次</string>
@@ -350,8 +352,10 @@
     <string name="backup_desc">备份数据</string>
     <string name="export_backup">导出备份</string>
     <string name="export_backup_desc">将数据导出为备份文件</string>
+    <string name="backup_scope_note">备份包含：歌单及其顺序、曲目用户态（喜欢 / 评分 / 播放次数 / 标签）、听歌统计、外观与 AI 端点设置。不包含：API Key、扫描目录、歌词与音效设置、每个 Agent 的独立配置、播放进度。</string>
     <string name="restore_backup">恢复备份</string>
     <string name="restore_backup_desc">导入之前导出的备份文件以恢复数据。</string>
+    <string name="restore_overwrites_note">恢复会覆盖当前歌单、曲目用户态与听歌统计。API Key、扫描目录、歌词与音效设置不在备份内，恢复后保持原样。</string>
     <string name="local_backup">本地备份</string>
     <string name="local_backup_desc">本地备份文件</string>
     <string name="no_local_backups">暂无本地备份</string>
@@ -430,7 +434,10 @@
     <string name="played_at">于 %1$s 播放</string>
     <string name="no_data_available">暂无数据</string>
     <string name="no_data_loaded">数据未加载</string>
-    <string name="usage_data_empty">暂无使用数据</string>
+        <string name="db_too_new_title">数据库版本过高</string>
+    <string name="db_too_new_body">本应用支持的数据版本是 %1$d，而检测到的库版本是 %2$d（更新）。你的数据没有被修改：请升级到更新版本的应用，或从更早的备份恢复。</string>
+<string name="usage_data_empty">暂无使用数据</string>
+    <string name="usage_data_load_failed">这段时间的数据读取失败，请稍后重试</string>
     <string name="completed">已完成</string>
     <string name="incomplete">未完成</string>
     <string name="counts">次数</string>

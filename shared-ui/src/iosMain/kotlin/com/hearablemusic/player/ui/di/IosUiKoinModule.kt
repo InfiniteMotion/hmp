@@ -5,6 +5,8 @@ import com.hearablemusic.player.ui.common.dialogs.viewmodel.DialogManagerViewMod
 import com.hearablemusic.player.ui.common.dialogs.viewmodel.DialogViewModel
 import com.hearablemusic.player.ui.common.viewmodel.ThemeViewModel
 import com.hearablemusic.player.ui.library.viewmodel.EditMusicTagsViewModel
+import com.hmp.data.database.AppDatabaseGuard
+import com.hmp.data.database.hmpDatabasePath
 import com.hearablemusic.player.ui.library.viewmodel.LibraryViewModel
 import com.hearablemusic.player.ui.library.viewmodel.SearchViewModel
 import com.hearablemusic.player.ui.library.viewmodel.SongDetailViewModel
@@ -31,15 +33,26 @@ import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
 
 /**
- * iosMain �?UI Koin 模块（A3，镜�?desktopMain DesktopUiKoinModule）�? *
- * 注册面与 android/desktop 完全一致（commonMain VM 类相同、构造参数相同）�? * 差异仅平台桥三件�? * - PlaybackController �?IosPlaybackController（Swift 引擎双桥：状态汇�?+ 命令闭包�? * - AlbumArtPixelsLoader �?skiko 实现（IosAlbumArtPixelsLoader，与 Desktop 同构�? * - PlatformServices �?IosPlatformServices（Swift 闭包�?+ Taptic Engine 触觉�? *
- * 装配时机：ios 壳（AppDelegate）在 KoinInitializer 之后�? * `installKoinIosWithSharedUi()` 一并注册（�?shared �?sharedModule + iosPlatformModule）�? */
+ * iosMain 侧 UI Koin 模块（A3，镜像 desktopMain 的 DesktopUiKoinModule）。
+ *
+ * 注册面与 android / desktop 完全一致（commonMain 的 VM 类相同、构造参数相同），差异只有平台桥三件：
+ * - PlaybackController → IosPlaybackController（Swift 引擎双桥：状态汇总 + 命令闭包）
+ * - AlbumArtPixelsLoader → skiko 实现（IosAlbumArtPixelsLoader，与 Desktop 同构）
+ * - PlatformServices → IosPlatformServices（Swift 闭包 + Taptic Engine 触觉）
+ *
+ * 装配时机：ios 壳（AppDelegate）在 KoinInitializer 之后调 `installKoinIosWithSharedUi()`，
+ * 一并注册 shared 侧的 sharedModule + iosPlatformModule。
+ */
 val iosUiModule = module {
     includes(chatGatewayModule)
 
     single { DialogManager() }
 
-    // 平台桥三件（PlaybackController 为单�?object，Swift 桥与 Koin 共用同一实例�?    single<PlaybackController> { IosPlaybackController }
+    // 平台桥三件（PlaybackController 为单例 object，Swift 桥与 Koin 共用同一实例）。
+    // ⚠️ 这一行曾因文件编码损坏被并进上一行的 `//` 注释里 —— 编译不报错（注释合法），
+    // 但 `single<PlaybackController>` 实际从未注册，commonMain 的 `koinInject<PlaybackController>()`
+    // 在 iOS 上会抛 NoDefinitionFound。改动这段注释时别把代码行粘进注释。
+    single<PlaybackController> { IosPlaybackController }
     single<AlbumArtPixelsLoader> { IosAlbumArtPixelsLoader() }
     single<PlatformServices> { IosPlatformServices() }
 
@@ -65,7 +78,9 @@ val iosUiModule = module {
     viewModel { ThemeViewModel(get(), get()) }
 }
 
-/** iOS 壳一次性装配入口：shared（业�?平台�?+ shared-ui 全部 Koin 模块�?*/
+/** iOS 壳一次性装配入口：shared（业务 + 平台）+ shared-ui 的全部 Koin 模块。 */
 fun installKoinIosWithSharedUi() {
+    // 降级守卫（D7-10）：Swift 侧不必知道这件事 —— AppRoot 的分流读的是同一个状态
+    AppDatabaseGuard.probe(hmpDatabasePath())
     com.hmp.di.initKoinIos(iosUiModule)
 }

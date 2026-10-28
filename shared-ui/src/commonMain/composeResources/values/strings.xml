@@ -93,7 +93,8 @@
     <string name="hidden_folders">Hidden folders</string>
     <string name="confirm_hide_folder">Are you sure you want to hide this folder?</string>
     <string name="unhide_folder">Unhide folder</string>
-    <string name="gallery_batch_delete_unsupported">Batch delete not supported on this device</string>
+    <string name="edit_tags_unsupported">Editing tags is not supported on this device</string>
+<string name="gallery_batch_delete_unsupported">Batch delete not supported on this device</string>
     <!-- ==================== 播放器 ==================== -->
     <string name="play">Play</string>
     <string name="pause">Pause</string>
@@ -328,6 +329,7 @@
     <string name="relaunch_or_config_ai">Please relaunch or configure AI provider</string>
     <!-- AI 模式 -->
     <string name="ai_tab_free">Free Trial</string>
+    <string name="ai_key_needs_refill">The saved API key could not be decrypted (this happens after a device transfer or cloud restore). Please re-enter it and save.</string>
     <string name="ai_tab_custom">Custom</string>
     <string name="ai_tab_paid">Paid</string>
     <string name="ai_free_remaining">Remaining: %1$d times</string>
@@ -350,8 +352,10 @@
     <string name="backup_desc">Backup your data</string>
     <string name="export_backup">Export Backup</string>
     <string name="export_backup_desc">Export your data to a backup file</string>
+    <string name="backup_scope_note">Includes: playlists and their order, per-track state (likes, ratings, play counts, labels), listening stats, appearance and AI endpoint settings. Not included: API Key, scan folders, lyrics and audio-effect settings, per-agent configs, playback position.</string>
     <string name="restore_backup">Restore Backup</string>
     <string name="restore_backup_desc">Import a previously exported backup file to restore your data.</string>
+    <string name="restore_overwrites_note">Restoring overwrites the current playlists, per-track state and listening stats. API Key, scan folders, lyrics and audio-effect settings are not in the backup and stay as they are.</string>
     <string name="local_backup">Local Backup</string>
     <string name="local_backup_desc">Local backup files</string>
     <string name="no_local_backups">No local backups found</string>
@@ -430,7 +434,10 @@
     <string name="played_at">Played at %1$s</string>
     <string name="no_data_available">No data available</string>
     <string name="no_data_loaded">No data loaded</string>
-    <string name="usage_data_empty">No usage data yet</string>
+        <string name="db_too_new_title">Database version is too new</string>
+    <string name="db_too_new_body">This app supports database version %1$d, but the stored database is version %2$d, which is newer. Your data has not been modified. Update to a newer version of the app, or restore from an older backup.</string>
+<string name="usage_data_empty">No usage data yet</string>
+    <string name="usage_data_load_failed">Failed to load this period. Try again later.</string>
     <string name="completed">Completed</string>
     <string name="incomplete">Incomplete</string>
     <string name="counts">Counts</string>

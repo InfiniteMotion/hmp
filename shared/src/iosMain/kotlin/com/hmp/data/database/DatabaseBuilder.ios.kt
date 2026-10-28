@@ -9,8 +9,13 @@ import platform.Foundation.NSFileManager
 import platform.Foundation.NSUserDomainMask
 
 @OptIn(ExperimentalForeignApi::class)
+fun hmpDatabasePath(): String = documentDirectory() + "/music_database.db"
+
+@OptIn(ExperimentalForeignApi::class)
 fun getDatabaseBuilder(): androidx.room.RoomDatabase.Builder<AppDatabase> {
-    val dbFilePath = documentDirectory() + "/music_database.db"
+    val dbFilePath = hmpDatabasePath()
+    // 降级守卫（D7-10）：见 desktop 端同处注释
+    AppDatabaseGuard.enforce(dbFilePath)
     return Room.databaseBuilder<AppDatabase>(
         name = dbFilePath
     )
@@ -19,16 +24,7 @@ fun getDatabaseBuilder(): androidx.room.RoomDatabase.Builder<AppDatabase> {
 @OptIn(ExperimentalForeignApi::class)
 actual fun getRoomDatabase(builder: androidx.room.RoomDatabase.Builder<AppDatabase>): AppDatabase {
     return builder
-        .addMigrations(
-            AppDatabase.MIGRATION_1_2,
-            AppDatabase.MIGRATION_2_3,
-            AppDatabase.MIGRATION_3_4,
-            AppDatabase.MIGRATION_4_5,
-            AppDatabase.MIGRATION_5_6,
-            AppDatabase.MIGRATION_6_7,
-            AppDatabase.MIGRATION_7_8,
-            AppDatabase.MIGRATION_8_9,
-        )
+        .addMigrations(*AppDatabase.ALL_MIGRATIONS)
         // 1→9 迁移链完整，故不再挂破坏式重建兜底。
         // fallbackToDestructiveMigration(dropAllTables = true) 会连「降级」与「未知版本」一起放过：
         // 用户的库版本只要高于本应用（beta 回退、新设备备份恢复、新库拷回旧安装），

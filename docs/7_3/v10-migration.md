@@ -1,0 +1,151 @@
+# v10 迁移设计（批一收敛产物）
+
+> **状态**：**已施工完成（2026-10-08，工作包 一-1）** —— 见文末 §八 的施工结果；本文仍是 v10 schema 增量的唯一真源。本文是 `domain-baseline.md` §三 批一的落地入口：批一四域（D2 / D3 / D5 / D7）的审查共同指向**同一次** Room 迁移，散做等于把迁移拆三次。
+> **来源**：本文全部条目溯源到 `docs/7_3/domain/{D2,D3,D5,D7}.md`，不重复论证，只做归并与定序。
+> **当前库**：`version = 9`（`AppDatabase.kt:40`，`shared/schemas/.../9.json`）。目标 `version = 10`，迁移 `MIGRATION_9_10`。
+
+---
+
+## 一、为什么必须是一次
+
+批一四域各自独立发现了"库要变"，但落到 Room 上它们是**同一份 schema 版本号**：
+
+- D2-07 四表零索引 → 要加 9 条索引；
+- D3-03 / D3-05 缺两个唯一索引；D3-15 要删一列；
+- D5-11 `PlaybackHistory` 缺两个索引 + 要定保留窗口（**2026-09-30 决策 3：不自动清理，只给手动清理入口**）；
+- D7-09 / D7-10 迁移链本身缺门禁与降级出口。
+
+这些不能同时开三次 `version++`。所以统一在 **v10** 一次做完，迁移测试 `AppDatabaseMigrationTest` 只守一道关（`9 → 10`）。
+
+---
+
+## 二、Schema 增量（落在 `MIGRATION_9_10`）
+
+### 2.1 新增索引
+
+| 表 | 索引 | 来源 | 现有状态 |
+|---|---|---|---|
+| `music` | `(isDeleted)` | D2-07 | `9.json` 中 `indices: null` |
+| `music` | `(title)` | D2-07 | 同上 |
+| `music` | `(artist)` | D2-07 | 同上 |
+| `music` | `(album)` | D2-07 | 同上 |
+| `musicLabel` | `(label)` | D2-07 | 主键 `(musicId,label)`，`label` 在第二列，前缀索引无效 |
+| `musicLabel` | `(type)` | D2-07 | — |
+| `musicLabel` | `(source)` | D2-07 | — |
+| `userInfo` | `(isDeleted)` | D2-07 | `9.json` 中 `indices: null` |
+| `musicExtra` | `(isGetExtraInfo, isDeleted)` | D2-07 | 同上 |
+| `playlist_item` | `UNIQUE(playlistId, itemOrder)` | D3-03 | 仅 `index_playlist_item_playlistId` |
+| `playlist` | `UNIQUE(name)` | D3-05 | `name` 上无唯一约束 |
+| `PlaybackHistory` | `(playedAt)` | D5-11 | `indices: null` |
+| `PlaybackHistory` | `(musicId, playedAt)` | D5-11 | 同上 |
+
+**实现纪律**：每条索引必须**同时**改 `@Entity` 的 `indices` 与手写 `MIGRATION_9_10`，并在三端各自的 `DatabaseBuilder.{android,desktop,ios}` 注册（`AGENTS.md` §七）。索引语句写进迁移、又写进 `@Entity` 是 Room 的常态，漏一端漏一处都会让 `9.json` 与代码漂移。
+
+### 2.2 删列
+
+| 表 | 动作 | 来源 | 说明 |
+|---|---|---|---|
+| `playlist_item` | 删除 `songUrl` 冗余列 | D3-15 | Room 无原生删列，需建新表 + 搬数据 + 删旧表 + 改名；存量 `songUrl = ` 构造点（grep 口径：单文件 `songUrl = `，约 12 处）需同步改写 |
+
+### 2.2b 后补的列（一-2 B 批，2026-10-09）
+
+| 表 | 动作 | 来源 | 说明 |
+|---|---|---|---|
+| `userInfo` | 新增 `removedByUser`（`INTEGER NOT NULL DEFAULT 0`） | D2-02 | 把"用户主动移除"与"这次没扫到（文件不在）"两种 `isDeleted` 成因分开。放 `userInfo` 不放 `music`：后者是扫描整行覆盖的表 |
+
+**为什么并进 v10 而不是开 v11**：v10 尚未发布（`MIGRATION_9_10` 与 `10.json` 都只在这个开发分支上），
+D2-02 的判据又明确要求"可分辨的记录"，而它必须在同一次扫描落库改造里生效 —— 开 v11 等于把一条未发布的迁移拆成两次验证。
+落地方式：`MIGRATION_9_10` 在建索引之前 `ALTER TABLE userInfo ADD COLUMN ... DEFAULT 0`（Room 期望的 `createSql` 不带 `DEFAULT`，
+但 SQLite 的 `ADD COLUMN ... NOT NULL` 必须带默认值；`runMigrationsAndValidate(10)` 对此不报差异，实测 `AppDatabaseMigrationTest` 9/9 绿）。
+列在实体声明顺序里排最后，与 `ALTER ADD COLUMN` 的追加位置一致。
+
+### 2.3 建索引前的去重（迁移内顺序敏感）
+
+- `playlist_item(playlistId, itemOrder)` 唯一索引：**先跑一次去重**（同歌单内 `itemOrder` 重复的行合并/重排），再 `CREATE UNIQUE INDEX`，否则存量库迁移直接失败（D3-03）。
+- `playlist.name` 唯一索引：**先跑去重 / 自动改名**（同名歌单后缀 `_2`），再建（D3-05）。
+
+### 2.4 保留窗口（非索引，属同批次落地）
+
+- `PlaybackHistory` **不做自动清理**（2026-09-30 决策 3，覆盖本文件原先"建议 24 个月"的口径）：只提供**手动清理入口**（D5-11）。窗口本身不是 schema 字段，故本项**不产生任何迁移语句**；索引照做——它治的是查询退化，不是库体积。
+
+---
+
+## 三、迁移工程门禁（D7-09 / D7-10）
+
+1. **单一 `ALL_MIGRATIONS` 常量**：`AppDatabase` 暴露 `ALL_MIGRATIONS`，三端 `addMigrations(...)` 都引用它 —— 结构上不可能漏端（D7-09 目标 6）。
+2. **逐环 `runMigrationsAndValidate`**：`1 → 9` 每一环补断言；新增 v10 忘了写迁移 = `AppDatabaseMigrationTest` 红（D7-09）。
+3. **降级守卫**：`user_version > 9`（库比代码新）时，不静默失败、不崩溃 —— 记 `HmpLog.e(LogTag.Data*)` + 给用户「库版本高于本版本，请升级或恢复备份」的可见路径（D7-10）。当前无任何 `RoomDatabase.Callback` 处理此场景。
+
+---
+
+## 四、随 v10 一起修的逻辑（不是 schema，但必须同批次，否则迁移白做）
+
+| 逻辑项 | 来源 | 说明 |
+|---|---|---|
+| 软删除只由用户决定：扫描结果不覆盖 `isDeleted`；文件缺失导致的软删保留可分辨记录 | D2-02 / D2-03 | 否则 v10 加了索引，但全量重扫仍抹掉隐藏标记 |
+| 全量重建包进单事务 + upsert 语义，不碰 `musicExtra`/`userInfo` 用户资产 | D2-01 | `withTransaction` 全仓 0 命中，需在 `AppDatabase` 暴露事务上下文 |
+| 歌单批量写/重排/恢复进业务事务；`itemOrder` 进 domain 模型与 mapper | D3-03 / D3-04 / D3-02 | 否则唯一索引建了，但写入仍可能撞号/丢序 |
+| 按名删除改按 id 删除；系统歌单自愈按 id | D3-05 | 唯一索引建了，但按名路径绕过保护仍会出事 |
+| 派生字段 `songCount`/`totalDurationMs`/`coverUri` 在同一事务内重算或改为查询时算 | D3-08 / D3-07 | 避免软删后歌单计数不刷新 |
+| iOS 存量时间戳修正：`createdAt < 1_000_000_000_000L` 加回偏移（按平台判别） | D5-01 | 否则新口径下旧数据全错 |
+| 窗口聚合从 `strftime` 改为 Kotlin 侧算 `[dayStart, dayEnd)` 毫秒区间 | D5-01 / D5-11 | 配合 `PlaybackHistory(playedAt)` 索引走范围扫描 |
+
+---
+
+## 五、明确不在 v10（除非被上面的依赖带入）
+
+- **`year` / `genre` / `track` 入库列**（D2-11）：D2 已判「刻意不做」——不为它单独开迁移；改判条件是"v10 已因别的理由开了就顺带带"（D2 刻意不做 #3）。**当前不列**。
+- **FTS5 / 拼音列**（D2 刻意不做 #2）：库 <2 万首且搜索无延迟前不做。
+- **年度（365 天）热力图**（D5 刻意不做 #1）：只要求名实相符，允许降级改文案。
+- **`songCount`/`totalDurationMs` 改查询时聚合**（D3 刻意不做 #4）：本轮只补刷新时机，长期方案才动表。
+- **`musicLabel` 主键改造**（D2 刻意不做 #1）：有意的"同一事实单槽位"建模，不动。
+- **`playlist` / `playlist_item` 主键外键结构**（D3 刻意不做 #7）：除本文 §2.2 / §2.1 已列的索引与删列外不动。
+
+---
+
+## 六、验证（判据落点）
+
+1. `:shared:desktopTest` 的 `AppDatabaseMigrationTest` 新增 `9 → 10`：
+   - `PRAGMA index_list` 含 §2.1 全部预期索引；
+   - `PRAGMA table_info(playlist_item)` 不含 `songUrl`；
+   - `SELECT COUNT(*) FROM playlist_item` 迁移前后相等。
+2. `EXPLAIN QUERY PLAN` 断言 `getWindowedAnalytics` 的 cutoff 查询走 `PlaybackHistory(playedAt)` 索引而非 `SCAN TABLE`（D5-11）。性能绝对值不进判据，只断言计划形态。
+3. `10.json` schema 导出 diff 中 `music.indices` 含 §2.1 五项（`D2-07`）。
+4. 降级守卫：构造 `user_version = 11` 的库打开，断言不崩且日志/UI 出现版本过高提示（D7-10）。
+
+---
+
+## 七、依赖与批二/批三的接口
+
+- 本迁移由**批一收口**，不依赖批二（D1/D4/D6）或批三（D8/D9）的任何结论；但批二若挖出新的 schema 需求（例如 D1 播放引擎要落新的持久化字段），**必须并入 v10 或另开 v11**，不允许在 `version=9` 上偷偷加字段。
+- 批二开工前，本文件 §2.1 / §2.2 应是 v10 迁移实现的唯一 schema 真源；具体 `file:line` 改动在动手前按符号名复验（`AGENTS.md` 行号纪律）。
+
+**© 2026 Hearable Music Player · v10 迁移设计 · 批一收敛**
+
+---
+
+## 八、施工结果（2026-10-08，一-1）
+
+**落地范围**：7 个实体的 13 条索引 + `playlist_item` 重建去 `songUrl`；`@Database.version` 9→10；`MIGRATION_9_10` 追加进 `ALL_MIGRATIONS`（三端引用同一份）；`10.json` 由 KSP 导出并入库，与手写 DDL 的索引名/列序/唯一性逐字核对一致。
+
+**三处与本文原设计不同，都是实测逼出来的（改本文，不是偷偷改实现）**：
+1. **§2.3 的"先去重再建索引"不是纯 SQL**。`itemOrder` 重编与同名后缀在 Kotlin 侧读全量再逐行写：
+   写成一条 `UPDATE ... (SELECT ROW_NUMBER() ...)` 会在同一趟扫描里边写边读同一张表，`ROW_NUMBER` 的序随已改写的行漂移，结果不可复现。
+   重名组按 `id` 升序保留最早那条，其余加 `_2`/`_3`（含撇号的名字走 SQL 字面量转义，测试里种了 `Rock'n`）。
+2. **§四"随迁移一起修的逻辑"里的重排写入必须同批做，否则迁移上线即崩**：
+   `UNIQUE(playlistId,itemOrder)` 一建，`reorderPlaylistItems` 的逐条 `updateItemOrder` 就 `SQLITE_CONSTRAINT`（置顶是活的 UI 路径）。
+   已新增 `PlaylistItemDao.replaceOrder`（`@Transaction` 两阶段：先整体 `-(itemOrder+1)` 取负、再落终值，未列出的按原相对顺序接续），三端 Impl 统一改调它。
+   **添加侧仍无事务**：`addToPlaylist` 的 `getMaxOrder → insert` 并发下从"静默同序号"变成**撞索引抛错** —— 一-2 的优先级因此从"防半空库"升为"防崩溃"。
+   > 后续（2026-10-08，一-2 A 批）：重排方法已随派生列同事务重算改名为 `reorderAndRefresh`（另有 `addSongAndRefresh` / `removeSongAndRefresh` / `replaceItemsAndRefresh`），
+   > `getMaxOrder` 从 DAO 删除、取号并进 `insertWithNextOrder` 一条语句，撞索引那条路已断 —— 判据见 `domain/D3.md` D3-03 施工结果。
+3. **§六的判据落成 4 条断言并走过红→绿**：`PRAGMA index_list` 逐表比对 13+1 条索引、`table_info(playlist_item)` 只剩三列、迁移前后行数相等、`EXPLAIN QUERY PLAN` 出现 `index_PlaybackHistory_playedAt` 且无 `SCAN TABLE`。
+   另有一条"链末端必须等于声明版本"的断言在 bump 版本没同步时先红了（那就是批 0 装门禁的目的）。
+
+**B 批追加（2026-10-09）**：`userInfo.removedByUser` 一列随 §2.2b 并进 v10；重导后的 `10.json` 里 `userInfo` 有 10 列，
+`AppDatabaseMigrationTest` 的 `1→10` 全链与链连续性断言都已跟到这一版。
+
+**真实库演练（一次性，脚本不入库）**：把 `~/.hmp/music_database.db` 连同 `-wal`/`-shm` 拷进 `build/`，让同一份 Kotlin 迁移在副本上跑完并过 Room 校验 ——
+7 张表行数一字不变、`songUrl` 消失、索引名与 `10.json` 一致；原库 size/mtime/md5 三个指纹前后一致，确认演练没碰它。
+本机这份库**没有**重名/重复序号/孤儿行，所以清洗分支的覆盖完全靠合成脏数据（那条测试才是清洗逻辑的判据）。
+
+**留给后续包的**：`addToPlaylist(..., musicPath)` 这个死参数（一-4）、批量写的事务与导入前安全副本（一-2）、`strftime` 改 Kotlin 侧区间（一-3）、快照 `version` 闸门（一-6）。

@@ -5,6 +5,7 @@ import com.hearablemusic.player.ui.generated.resources.agent_chat_error_failed
 import com.hearablemusic.player.ui.generated.resources.agent_chat_radio_night_summary
 import com.hearablemusic.player.ui.generated.resources.agent_chat_radio_seed_summary
 import com.hmp.domain.agent.port.ConfirmGate
+import com.hmp.data.util.currentHour
 import com.hmp.domain.agent.port.ConfirmOutcome
 import com.hmp.domain.agent.port.ConfirmRequest
 import com.hmp.domain.agent.runtime.BuiltinIntentId
@@ -22,9 +23,11 @@ import com.hmp.domain.agent.runtime.ContextAssembler
 import com.hmp.domain.agent.config.EngineDefaults
 import com.hmp.domain.agent.runtime.MasterAgent
 import com.hmp.domain.agent.runtime.sub.radio.RadioState
+import com.hmp.domain.music.MusicSortKey
+import com.hmp.domain.music.SortDirection
 import com.hmp.domain.music.MusicRepository
 import com.hmp.domain.setting.model.AiEndpointConfig
-import com.hearablemusic.player.ui.platform.currentTimeMillis
+import com.hmp.data.database.currentTimeMillis
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -177,7 +180,7 @@ class MasterChatGateway(
                     if (playlist != null && playlist.isNotEmpty()) {
                         val ids = playlist.map { it.musicId }
                         val musicInfos = runCatching {
-                            musicRepository.getAllMusicInfoAsList("id", "asc")
+                            musicRepository.getAllMusicInfoAsList(MusicSortKey.ID, SortDirection.ASC)
                                 .filter { it.music.id in ids }
                         }.getOrDefault(emptyList())
                         val radioEvent = ChatAgentEvent.RadioStarted(
@@ -253,7 +256,7 @@ class MasterChatGateway(
         val total = musicRepository.getMusicCount().first()
         val known = musicRepository.getMusicWithExtraCount().first()
         val recognitionText = ContextAssembler.buildRecognitionProgress(known, total)
-        val hour = ((currentTimeMillis() / 3_600_000L) % 24).toInt()
+        val hour = currentHour()   // 与统计侧同一个本地时区口径（D5-01：原先这里是 UTC 自算）
         val overviewText = ContextAssembler.buildLibraryOverview(buildLibraryOverview())
         // 对话开始时顺手推进行为画像 —— 契约 §4.2 说"定时聚合"，本项目没有常驻调度器，
         // 改成"低频闸门 + 事件触发"（间隔 20h，见 ProfileConfig）；这里是最自然的事件点。
@@ -294,7 +297,7 @@ class MasterChatGateway(
         // 把 RadioTrack.musicId 批量查 MusicInfo
         val ids = tracks.map { it.musicId }
         val musicInfos = runCatching {
-            musicRepository.getAllMusicInfoAsList("id", "asc")
+            musicRepository.getAllMusicInfoAsList(MusicSortKey.ID, SortDirection.ASC)
                 .filter { it.music.id in ids }
         }.getOrDefault(emptyList())
 

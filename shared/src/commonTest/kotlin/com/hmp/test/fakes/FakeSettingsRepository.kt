@@ -244,11 +244,14 @@ class FakeSettingsRepository : SettingsRepository {
     override suspend fun getDefaultExtensionConfig(): String = _defaultExtensionConfig.value
 
     override suspend fun exportAppSettingsSnapshot(): AppSettingsSnapshot = AppSettingsSnapshot()
-    override suspend fun restoreFromSnapshot(snapshot: AppSettingsSnapshot) {}
 
-    override suspend fun backupSettings(): Result<String> = Result.success("/backup.json")
-    override suspend fun restoreSettings(backupFilePath: String): Result<Unit> = Result.success(Unit)
-    override suspend fun cleanOldBackups(keepCount: Int): Result<Unit> = Result.success(Unit)
+    /** 供 D7-02 的判据断言：写不出安全副本时一条 restore 都不该被执行。 */
+    var restoreFromSnapshotCalls = 0
+        private set
+
+    override suspend fun restoreFromSnapshot(snapshot: AppSettingsSnapshot) {
+        restoreFromSnapshotCalls++
+    }
 
     override suspend fun getAgentPolicyConfig(agentRole: String): com.hmp.domain.agent.policy.AgentPolicyConfig =
         com.hmp.domain.agent.policy.AgentPolicyConfig()

@@ -3,15 +3,28 @@ package com.hmp.data.database
 import androidx.room.Dao
 import androidx.room.Embedded
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.PrimaryKey
 import androidx.room.Query
 import androidx.room.Relation
 import androidx.room.Transaction
+import androidx.room.Upsert
 import kotlinx.coroutines.flow.Flow
 
-@Entity(tableName = "music")
+@Entity(
+    tableName = "music",
+    // v10（D2-07）：这四列此前零索引，曲库增长时等值查询/排序全表扫。
+    // ⚠️ title/artist/album 的 B-tree 索引救不了 `LIKE '%q%'` 中缀通配搜索（那属 D2-05 / FTS），
+    // 它们治的是等值与排序 —— 别把"搜索变快"记在本批账上。
+    indices = [
+        Index("isDeleted"),
+        Index("title"),
+        Index("artist"),
+        Index("album"),
+    ],
+)
 data class Music(
     @PrimaryKey val id: Long,
     val title: String,
@@ -23,7 +36,11 @@ data class Music(
     val isDeleted: Boolean = false,
 )
 
-@Entity(tableName = "musicExtra")
+@Entity(
+    tableName = "musicExtra",
+    // v10（D2-07）：富化管道按 (isGetExtraInfo, isDeleted) 找待处理曲目，此前全表扫。
+    indices = [Index("isGetExtraInfo", "isDeleted")],
+)
 data class MusicExtra(
     @PrimaryKey val id: Long,
     val lyrics: String? = null,
@@ -44,7 +61,11 @@ data class MusicExtra(
     val isDeleted: Boolean = false,
 )
 
-@Entity(tableName = "userInfo")
+@Entity(
+    tableName = "userInfo",
+    // v10（D2-07）：收藏/播放统计的可见性过滤按 isDeleted，此前全表扫。
+    indices = [Index("isDeleted")],
+)
 data class UserInfo(
     @PrimaryKey val id: Long,
     val liked: Boolean = false,
@@ -55,9 +76,25 @@ data class UserInfo(
     val userRating: Int? = null,
     val inCustomPlaylistCount: Int? = null,
     val isDeleted: Boolean = false,
+    /**
+     * 用户主动"从曲库移除"（v10 / D2-02）。
+     *
+     * 为什么单开一列：`isDeleted` 有两个成因 —— 用户移除、以及"这次扫描没见到这个文件"。
+     * 二者必须能被分辨，否则扫描落库时无法判断该不该把行恢复成可见：
+     * 一律恢复会让"用户隐藏的歌"下次重扫全部复活（D2-02 的原件），一律不恢复则
+     * 用户把文件夹挪回来也永远找不回这首歌。**扫描只读这一列，永不写它**；
+     * 写在 `userInfo`（用户态表）而不是 `music`（扫描整行覆盖的表），就是为了让扫描抹不掉它。
+     */
+    val removedByUser: Boolean = false,
 )
 
 data class MusicIdPath(val id: Long, val path: String)
+
+/**
+ * 一条"名字 + 数量"的聚合行（D2-15）：艺术家 / 专辑总览用 SQL `GROUP BY` 直接算出来，
+ * 不再把全库载入内存逐行 `groupBy`。
+ */
+data class NameCountRow(val name: String, val count: Int)
 
 data class MusicExtraIdDate(val id: Long, val date: Long?)
 
@@ -98,6 +135,10 @@ interface MusicDao {
     @Query("SELECT id FROM music WHERE isDeleted = 0")
     suspend fun getAllActiveIds(): List<Long>
 
+    /** 扫描落库用（D2-01）：判断"这条曲目库里有没有"必须含软删行，只取 active 会把隐藏的歌当新歌重写。 */
+    @Query("SELECT id FROM music")
+    suspend fun getAllIds(): List<Long>
+
     @Query("UPDATE music SET isDeleted = 1 WHERE id IN (:ids)")
     suspend fun markDeletedByIds(ids: List<Long>)
 
@@ -113,8 +154,28 @@ interface MusicDao {
     @Query("SELECT id, path FROM music WHERE isDeleted = 1")
     suspend fun getDeletedMusicIdAndPath(): List<MusicIdPath>
 
+    /**
+     * 「用户主动隐藏」的曲目（D2-02）。与 [getDeletedMusicIdAndPath] 的区别就是本条的意义：
+     * 后者混着"文件不在了"，前者只含用户意图，所以"已隐藏"管理页要按这一条列。
+     */
+    @Query(
+        """
+        SELECT music.id, music.path FROM music
+        INNER JOIN userInfo ON music.id = userInfo.id
+        WHERE music.isDeleted = 1 AND userInfo.removedByUser = 1
+    """
+    )
+    suspend fun getRemovedMusicIdAndPath(): List<MusicIdPath>
+
     @Query("UPDATE music SET title = :title, artist = :artist, album = :album WHERE id = :id")
     suspend fun updateMusicTags(id: Long, title: String, artist: String, album: String)
+
+    /**
+     * 把封面指针指到新文件（D2-17）：标签写入换过封面之后，`albumArtUri` 必须跟过去，
+     * 否则库里存着旧文件的 uri、UI 就一直显示旧图。空串表示"移除封面"。
+     */
+    @Query("UPDATE music SET albumArtUri = :uri WHERE id = :id")
+    suspend fun updateAlbumArtUriById(id: Long, uri: String)
 }
 
 @Dao
@@ -143,6 +204,13 @@ interface MusicExtraDao {
 
     @Query("SELECT * FROM musicExtra WHERE id=:id")
     suspend fun getExtraFieldsById(id: Long): MusicExtra?
+
+    /** 扫描落库按批读回既有行（D2-01）：合并只补扫描拥有的列，富化结果与用户改过的歌词要留在原行上。 */
+    @Query("SELECT * FROM musicExtra WHERE id IN (:ids)")
+    suspend fun getByIds(ids: List<Long>): List<MusicExtra>
+
+    @Upsert
+    suspend fun upsertAll(items: List<MusicExtra>)
 
     @Query("SELECT COUNT(*) FROM musicExtra WHERE isGetExtraInfo = true")
     fun getExtraInfoNum(): Flow<Int>
@@ -262,6 +330,46 @@ interface UserInfoDao {
     @Query("SELECT id FROM userInfo WHERE isDeleted = 0")
     suspend fun getAllActiveIds(): List<Long>
 
+    /** 扫描落库用（D2-01）：库里有没有这一行要看全部行，active 集合会把隐藏曲误判成新歌并覆盖用户数据。 */
+    @Query("SELECT id FROM userInfo")
+    suspend fun getAllIds(): List<Long>
+
+    @Query("SELECT id FROM userInfo WHERE removedByUser = 1")
+    suspend fun getRemovedByUserIds(): List<Long>
+
+    @Query("SELECT * FROM userInfo WHERE id IN (:ids)")
+    suspend fun getByIds(ids: List<Long>): List<UserInfo>
+
+    @Upsert
+    suspend fun upsertAll(items: List<UserInfo>)
+
+    /**
+     * 记用户移除意图（D2-02）。整行读出再改两列写回，因为 `userInfo` 的其它列都是用户资产
+     * （`liked` / `playCount` / `lastPlayed`），部分列的 `@Insert(REPLACE)` 会把它们清零。
+     */
+    @Transaction
+    suspend fun markRemovedByIds(ids: List<Long>) {
+        if (ids.isEmpty()) return
+        val existing = getByIds(ids).associateBy { it.id }
+        upsertAll(
+            ids.map {
+                (existing[it] ?: UserInfo(id = it)).copy(removedByUser = true, isDeleted = true)
+            }
+        )
+    }
+
+    /** 用户恢复：意图位与可见位一起清（两成因里"用户移除"这一支被显式撤销）。 */
+    @Transaction
+    suspend fun clearRemovedByIds(ids: List<Long>) {
+        if (ids.isEmpty()) return
+        val existing = getByIds(ids).associateBy { it.id }
+        upsertAll(
+            ids.map {
+                (existing[it] ?: UserInfo(id = it)).copy(removedByUser = false, isDeleted = false)
+            }
+        )
+    }
+
     @Query("UPDATE userInfo SET isDeleted = 1 WHERE id IN (:ids)")
     suspend fun markDeletedByIds(ids: List<Long>)
 
@@ -295,8 +403,23 @@ interface MusicAllDao {
     @Query("SELECT COUNT(*) FROM musicExtra WHERE isGetExtraInfo = 0")
     fun getMusicWithMissingExtraCount(): Flow<Int>
 
+    /**
+     * 曲库搜索。
+     *
+     * 三条 LIKE 都带 `ESCAPE '\'`（D2-05）：没有它，用户输入里的 `_` 是单字符通配符、
+     * `%` 是多字符通配符 —— 搜 `_` 会把所有单字标题都匹配出来，搜 `100%` 变成"100 后跟任意串"。
+     * 转义由调用方做（见 `MusicRepositoryBase.toLikeContainsPattern`），次序必须是先转义反斜杠本身。
+     *
+     * 匹配列是 title / artist / **album**（D2-06）：专辑名原先不在里面，
+     * `AlbumScreen` 里的歌无法通过专辑名反查回来，而 README 把"音乐搜索"标为已完成。
+     */
     @Transaction
-    @Query("SELECT * FROM music WHERE isDeleted = 0 AND (title LIKE :query OR artist LIKE :query)")
+    @Query(
+        "SELECT * FROM music WHERE isDeleted = 0 AND (" +
+            "title LIKE :query ESCAPE '\\' OR " +
+            "artist LIKE :query ESCAPE '\\' OR " +
+            "album LIKE :query ESCAPE '\\')"
+    )
     suspend fun searchMusic(query: String): List<MusicInfo>
 
     @Transaction
@@ -326,25 +449,44 @@ interface MusicAllDao {
     @Query("SELECT * FROM music ORDER BY id ASC")
     fun getAllMusicInfoSortedById(): Flow<List<MusicInfo>>
 
+    /**
+     * 唯一的"取全表"查询：**不带** `ORDER BY` 任何业务键。
+     *
+     * 原先这里另有 `…ByTitle` / `…ByArtist` / `…ByAlbum` / `…ByDuration` 四条各自带 SQL
+     * `ORDER BY` 的兄弟查询，Android 用它们走"SQL 前缀路径"，与另两端的内存拼音排序语义不一致；
+     * 5A-2 把排序收进 [com.hmp.data.repository.MusicRepositoryBase.getAllMusicInfoAsList] 一份之后
+     * 它们已无生产者调用点，一并删除 —— 留着就会有人重新拾起那条与另两端不同的排序路。
+     */
     @Transaction
     @Query("SELECT * FROM music LEFT JOIN musicExtra ON music.id = musicExtra.id LEFT JOIN userInfo ON music.id = userInfo.id WHERE music.isDeleted = 0 ORDER BY music.id ASC")
     suspend fun getAllMusicInfoAsListById(): List<MusicInfo>
 
+    /**
+     * 艺术家 / 专辑总览（D2-15）：**一次 `GROUP BY` 算完**，取代"全库载入内存再逐行分组"。
+     *
+     * 三点要留意，都是刻意定的：
+     * - `TRIM(artist) <> ''` 而不是 `artist <> ''`：与原来 Kotlin 侧的 `!isBlank()` 同口径
+     *   （只有空格的艺名不算一个分组，SQL 的 `<> ''` 会把它留下）；
+     * - 可见性仍只看 `music.isDeleted = 0`（与 D2-02 之后的可见性口径一致）；
+     * - 并列时 `ORDER BY count DESC, name ASC` —— **这是一处行为改动**：修前并列顺序等于
+     *   "按 playCount 降序的遍历顺序"，同一份库换个播放历史，top N 的名单就会变。
+     *   定成按名字破并列，这条查询才变得可断言、可复现。
+     */
     @Transaction
-    @Query("SELECT * FROM music LEFT JOIN musicExtra ON music.id = musicExtra.id LEFT JOIN userInfo ON music.id = userInfo.id WHERE music.isDeleted = 0 ORDER BY music.title ASC")
-    suspend fun getAllMusicInfoAsListByTitle(): List<MusicInfo>
+    @Query(
+        "SELECT artist AS name, COUNT(*) AS count FROM music " +
+            "WHERE isDeleted = 0 AND artist IS NOT NULL AND TRIM(artist) <> '' " +
+            "GROUP BY artist ORDER BY count DESC, name ASC LIMIT :limit"
+    )
+    suspend fun getTopArtistSummary(limit: Int): List<NameCountRow>
 
     @Transaction
-    @Query("SELECT * FROM music LEFT JOIN musicExtra ON music.id = musicExtra.id LEFT JOIN userInfo ON music.id = userInfo.id WHERE music.isDeleted = 0 ORDER BY music.artist ASC")
-    suspend fun getAllMusicInfoAsListByArtist(): List<MusicInfo>
-
-    @Transaction
-    @Query("SELECT * FROM music LEFT JOIN musicExtra ON music.id = musicExtra.id LEFT JOIN userInfo ON music.id = userInfo.id WHERE music.isDeleted = 0 ORDER BY music.album ASC")
-    suspend fun getAllMusicInfoAsListByAlbum(): List<MusicInfo>
-
-    @Transaction
-    @Query("SELECT * FROM music LEFT JOIN musicExtra ON music.id = musicExtra.id LEFT JOIN userInfo ON music.id = userInfo.id WHERE music.isDeleted = 0 ORDER BY music.duration ASC")
-    suspend fun getAllMusicInfoAsListByDuration(): List<MusicInfo>
+    @Query(
+        "SELECT album AS name, COUNT(*) AS count FROM music " +
+            "WHERE isDeleted = 0 AND album IS NOT NULL AND TRIM(album) <> '' " +
+            "GROUP BY album ORDER BY count DESC, name ASC LIMIT :limit"
+    )
+    suspend fun getTopAlbumSummary(limit: Int): List<NameCountRow>
 
     @Transaction
     @Query("SELECT * FROM music LEFT JOIN musicExtra ON music.id = musicExtra.id LEFT JOIN userInfo ON music.id = userInfo.id WHERE music.artist = :artist AND music.isDeleted = 0 ORDER BY music.id ASC")

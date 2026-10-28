@@ -39,6 +39,7 @@ import com.hearablemusic.player.ui.common.layout.LocalWindowSizeInfo
 import com.hearablemusic.player.ui.common.pages.base.SubScreen
 import com.hearablemusic.player.ui.common.util.activityViewModel
 import com.hearablemusic.player.ui.generated.resources.Res
+import com.hearablemusic.player.ui.generated.resources.backup_scope_note
 import com.hearablemusic.player.ui.generated.resources.backup_settings
 import com.hearablemusic.player.ui.generated.resources.cancel_action
 import com.hearablemusic.player.ui.generated.resources.confirm_restore
@@ -54,6 +55,7 @@ import com.hearablemusic.player.ui.generated.resources.refresh
 import com.hearablemusic.player.ui.generated.resources.restore_action
 import com.hearablemusic.player.ui.generated.resources.restore_backup
 import com.hearablemusic.player.ui.generated.resources.restore_backup_desc
+import com.hearablemusic.player.ui.generated.resources.restore_overwrites_note
 import com.hearablemusic.player.ui.generated.resources.restore_successful
 import com.hearablemusic.player.ui.generated.resources.trash
 import com.hearablemusic.player.ui.platform.PlatformServices
@@ -161,6 +163,17 @@ private fun ExportBackupSection(
                 modifier = Modifier.fillMaxWidth()
             )
 
+            // D7-12③：把"备份里有什么、没有什么"写在导出按钮上方。
+            // 快照只覆盖 14 项设置（歌单 / 曲目用户态 / 听歌统计 / 外观与 AI 端点），
+            // 不写这一句，用户会以为 API Key、歌词与音效也备进去了 —— 恢复后才发现"丢了"。
+            Text(
+                text = stringResource(Res.string.backup_scope_note),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Start,
+                modifier = Modifier.fillMaxWidth()
+            )
+
             Button(
                 modifier = Modifier.fillMaxWidth(),
                 onClick = {
@@ -206,7 +219,8 @@ private fun ImportBackupSection(
             Button(
                 modifier = Modifier.fillMaxWidth(),
                 onClick = {
-                    // 选择备份文件（复制到 cacheDir/restore_temp.json 由平台实现完成）
+                    // 选择备份文件：Android 在平台层把 SAF Uri 复制进 filesDir/backups，
+                    // 其余两端的路径由 ImportUserDataBackupUseCase 复制进备份目录（D7-05）。
                     platformServices.filePicker.openBackupFile { path ->
                         if (path != null) {
                             selectedBackupFilePath = path
@@ -374,7 +388,9 @@ private fun RestoreConfirmDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(Res.string.confirm_restore)) },
-        text = { Text(stringResource(Res.string.confirm_restore)) },
+        // 原来这里又渲染了一遍标题（"确认恢复"当正文），等于什么都没说明。
+        // 恢复是破坏性操作，正文该写清"会覆盖什么、不会带回什么"（D7-12③）。
+        text = { Text(stringResource(Res.string.restore_overwrites_note)) },
         confirmButton = {
             TextButton(onClick = onConfirm) {
                 Text(stringResource(Res.string.restore_action))

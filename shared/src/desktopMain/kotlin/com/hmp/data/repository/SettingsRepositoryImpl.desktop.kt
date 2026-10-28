@@ -11,7 +11,6 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import com.hmp.data.database.currentTimeMillis
 import com.hmp.data.network.BuiltInApiKeyProvider
-import com.hmp.data.util.SecureStorageHelper
 import com.hmp.domain.backup.AppSettingsSnapshot
 import com.hmp.domain.config.DisplayMode
 import com.hmp.domain.config.LyricsAlignment
@@ -31,7 +30,13 @@ import java.io.File
 class SettingsRepositoryImpl(
     private val dataStore: DataStore<Preferences>,
     private val json: Json,
-    private val builtInApiKeyProvider: BuiltInApiKeyProvider = BuiltInApiKeyProvider()
+    private val builtInApiKeyProvider: BuiltInApiKeyProvider = BuiltInApiKeyProvider(),
+    /**
+     * 密钥读写门面（D7-01）。默认走各端真实的 `SecureStorageHelper`；
+     * **测试必须注入替身** —— Desktop 的密钥文件路径写死在 `user.home/.hmp/keystore.p12`，
+     * 不打桩就是拿开发者机器上的真密钥跑单测。
+     */
+    private val secrets: com.hmp.data.util.SecureSecrets = com.hmp.data.util.PlatformSecureSecrets
 ) : SettingsRepository {
     private companion object {
         const val HAZE_MODE_CUSTOM = "custom"
@@ -209,24 +214,27 @@ class SettingsRepositoryImpl(
         return try { AiAccessMode.valueOf(dataStore.data.first()[PreferencesKeys.AI_ACCESS_MODE] ?: "FREE") } catch (e: Exception) { AiAccessMode.FREE }
     }
     override suspend fun saveAiAccessMode(mode: AiAccessMode) { dataStore.edit { prefs -> prefs[PreferencesKeys.AI_ACCESS_MODE] = mode.name } }
+    /** 三端同一份读取规则见 `readEndpointConfig`（D7-01）：解不开不抛，回空串 + `keyNeedsRefill`。 */
     override val customAiConfig: kotlinx.coroutines.flow.Flow<AiEndpointConfig>
         get() = dataStore.data.map { prefs ->
-            val endpoint = prefs[PreferencesKeys.CUSTOM_AI_ENDPOINT] ?: ""
-            val encryptedKey = prefs[PreferencesKeys.CUSTOM_AI_API_KEY]
-            val apiKey = encryptedKey?.let { SecureStorageHelper.decrypt(it) } ?: ""
-            val model = prefs[PreferencesKeys.CUSTOM_AI_MODEL] ?: ""
-            AiEndpointConfig(endpoint = endpoint, apiKey = apiKey, selectedModel = model, isConfigured = endpoint.isNotBlank() && apiKey.isNotBlank())
+            readEndpointConfig(
+                endpoint = prefs[PreferencesKeys.CUSTOM_AI_ENDPOINT] ?: "",
+                encryptedKey = prefs[PreferencesKeys.CUSTOM_AI_API_KEY],
+                model = prefs[PreferencesKeys.CUSTOM_AI_MODEL] ?: "",
+                secrets = secrets,
+            )
         }
     override suspend fun getCustomAiConfig(): AiEndpointConfig {
         val prefs = dataStore.data.first()
-        val endpoint = prefs[PreferencesKeys.CUSTOM_AI_ENDPOINT] ?: ""
-        val encryptedKey = prefs[PreferencesKeys.CUSTOM_AI_API_KEY]
-        val apiKey = encryptedKey?.let { SecureStorageHelper.decrypt(it) } ?: ""
-        val model = prefs[PreferencesKeys.CUSTOM_AI_MODEL] ?: ""
-        return AiEndpointConfig(endpoint = endpoint, apiKey = apiKey, selectedModel = model, isConfigured = endpoint.isNotBlank() && apiKey.isNotBlank())
+        return readEndpointConfig(
+            endpoint = prefs[PreferencesKeys.CUSTOM_AI_ENDPOINT] ?: "",
+            encryptedKey = prefs[PreferencesKeys.CUSTOM_AI_API_KEY],
+            model = prefs[PreferencesKeys.CUSTOM_AI_MODEL] ?: "",
+            secrets = secrets,
+        )
     }
     override suspend fun saveCustomAiConfig(config: AiEndpointConfig) {
-        dataStore.edit { prefs -> prefs[PreferencesKeys.CUSTOM_AI_ENDPOINT] = config.endpoint; prefs[PreferencesKeys.CUSTOM_AI_API_KEY] = SecureStorageHelper.encrypt(config.apiKey); prefs[PreferencesKeys.CUSTOM_AI_MODEL] = config.selectedModel }
+        dataStore.edit { prefs -> prefs[PreferencesKeys.CUSTOM_AI_ENDPOINT] = config.endpoint; prefs[PreferencesKeys.CUSTOM_AI_API_KEY] = secrets.encrypt(config.apiKey); prefs[PreferencesKeys.CUSTOM_AI_MODEL] = config.selectedModel }
     }
     override suspend fun getActiveAiConfig(): AiEndpointConfig {
         return when (getAiAccessMode()) { AiAccessMode.FREE, AiAccessMode.PAID -> builtInApiKeyProvider.getConfig(); AiAccessMode.CUSTOM -> getCustomAiConfig() }
@@ -235,10 +243,12 @@ class SettingsRepositoryImpl(
         val prefs = dataStore.data.first()
         val endpoint = prefs[PreferencesKeys.agentEndpointKey(agentRole)] ?: ""
         if (endpoint.isBlank()) return null
-        val encryptedKey = prefs[PreferencesKeys.agentApiKeyKey(agentRole)]
-        val apiKey = encryptedKey?.let { runCatching { SecureStorageHelper.decrypt(it) }.getOrDefault("") } ?: ""
-        val model = prefs[PreferencesKeys.agentModelKey(agentRole)] ?: ""
-        return AiEndpointConfig(endpoint = endpoint, apiKey = apiKey, selectedModel = model, isConfigured = endpoint.isNotBlank() && apiKey.isNotBlank())
+        return readEndpointConfig(
+            endpoint = endpoint,
+            encryptedKey = prefs[PreferencesKeys.agentApiKeyKey(agentRole)],
+            model = prefs[PreferencesKeys.agentModelKey(agentRole)] ?: "",
+            secrets = secrets,
+        )
     }
     override suspend fun saveAgentEndpointConfig(agentRole: String, config: AiEndpointConfig?) {
         dataStore.edit { prefs ->
@@ -248,7 +258,7 @@ class SettingsRepositoryImpl(
                 prefs.remove(PreferencesKeys.agentModelKey(agentRole))
             } else {
                 prefs[PreferencesKeys.agentEndpointKey(agentRole)] = config.endpoint
-                prefs[PreferencesKeys.agentApiKeyKey(agentRole)] = SecureStorageHelper.encrypt(config.apiKey)
+                prefs[PreferencesKeys.agentApiKeyKey(agentRole)] = secrets.encrypt(config.apiKey)
                 prefs[PreferencesKeys.agentModelKey(agentRole)] = config.selectedModel
             }
         }
@@ -314,73 +324,6 @@ class SettingsRepositoryImpl(
     override suspend fun saveSurroundSoundEnabled(enabled: Boolean) { dataStore.edit { prefs -> prefs[PreferencesKeys.IS_SURROUND_SOUND_ENABLED] = enabled } }
     override suspend fun saveReverbPreset(preset: Int) { dataStore.edit { prefs -> prefs[PreferencesKeys.REVERB_PRESET] = preset } }
     override suspend fun saveCustomEqualizerLevels(levels: FloatArray) { dataStore.edit { prefs -> prefs[PreferencesKeys.CUSTOM_EQUALIZER_LEVELS] = levels.joinToString(",") } }
-    override suspend fun backupSettings(): Result<String> = withContext(Dispatchers.IO) {
-        try {
-            val prefs = dataStore.data.first()
-            val entries = prefs.asMap().entries.mapNotNull { (key, value) ->
-                val keyName = key.name
-                val valueStr = when (value) {
-                    is String -> "\"$value\""
-                    is Boolean -> value.toString()
-                    is Long -> value.toString()
-                    is Int -> value.toString()
-                    is Float -> value.toString()
-                    else -> null
-                }
-                valueStr?.let { "\"$keyName\":$it" }
-            }
-            val jsonString = "{${entries.joinToString(",")}}"
-
-            val backupDir = getBackupDir()
-            val filename = "settings_backup_${currentTimeMillis()}.json"
-            val file = File(backupDir, filename)
-            file.writeText(jsonString)
-            Result.success(file.absolutePath)
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
-
-    override suspend fun restoreSettings(backupFilePath: String): Result<Unit> = withContext(Dispatchers.IO) {
-        try {
-            val file = File(backupFilePath)
-            if (!file.exists()) {
-                return@withContext Result.failure(Exception("Backup file does not exist"))
-            }
-            val jsonString = file.readText()
-            val regex = """"([^"]+)":\s*([^,}]+)""".toRegex()
-            val matches = regex.findAll(jsonString)
-
-            dataStore.edit { prefs ->
-                matches.forEach { match ->
-                    val key = match.groupValues[1]
-                    val value = match.groupValues[2].trim()
-                    try {
-                        when (key) {
-                            PreferencesKeys.IS_FIRST_LAUNCH.name -> prefs[PreferencesKeys.IS_FIRST_LAUNCH] = value.toBoolean()
-                            PreferencesKeys.IS_LOAD_MUSIC.name -> prefs[PreferencesKeys.IS_LOAD_MUSIC] = value.toBoolean()
-                            PreferencesKeys.CURRENT_MUSIC_ID.name -> prefs[PreferencesKeys.CURRENT_MUSIC_ID] = value.toLong()
-                            PreferencesKeys.CURRENT_PLAYLIST_ID.name -> prefs[PreferencesKeys.CURRENT_PLAYLIST_ID] = value.toLong()
-                            PreferencesKeys.LIKED_PLAYLIST_ID.name -> prefs[PreferencesKeys.LIKED_PLAYLIST_ID] = value.toLong()
-                            PreferencesKeys.RECENT_PLAYLIST_ID.name -> prefs[PreferencesKeys.RECENT_PLAYLIST_ID] = value.toLong()
-                            PreferencesKeys.USER_NAME.name -> prefs[PreferencesKeys.USER_NAME] = value.trim('"')
-                            PreferencesKeys.AVATAR_URI.name -> prefs[PreferencesKeys.AVATAR_URI] = value.trim('"')
-                            PreferencesKeys.HAZE_INTENSITY.name -> prefs[PreferencesKeys.HAZE_INTENSITY] = value.toFloat()
-                            PreferencesKeys.HAZE_BLUR_RADIUS.name -> prefs[PreferencesKeys.HAZE_BLUR_RADIUS] = value.toFloat().coerceAtLeast(0f)
-                            PreferencesKeys.EQUALIZER_PRESET.name -> prefs[PreferencesKeys.EQUALIZER_PRESET] = value.toInt()
-                            PreferencesKeys.BASS_BOOST_LEVEL.name -> prefs[PreferencesKeys.BASS_BOOST_LEVEL] = value.toInt()
-                            PreferencesKeys.IS_SURROUND_SOUND_ENABLED.name -> prefs[PreferencesKeys.IS_SURROUND_SOUND_ENABLED] = value.toBoolean()
-                            PreferencesKeys.REVERB_PRESET.name -> prefs[PreferencesKeys.REVERB_PRESET] = value.toInt()
-                            PreferencesKeys.CUSTOM_EQUALIZER_LEVELS.name -> prefs[PreferencesKeys.CUSTOM_EQUALIZER_LEVELS] = value.trim('"')
-                        }
-                    } catch (_: Exception) { }
-                }
-            }
-            Result.success(Unit)
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
     override suspend fun saveLyricsOriginalTextSize(size: Int) { dataStore.edit { prefs -> prefs[PreferencesKeys.LYRICS_ORIGINAL_TEXT_SIZE] = size } }
     override suspend fun saveLyricsTranslatedTextSize(size: Int) { dataStore.edit { prefs -> prefs[PreferencesKeys.LYRICS_TRANSLATED_TEXT_SIZE] = size } }
     override suspend fun saveLyricsCurrentTimeTextSize(size: Int) { dataStore.edit { prefs -> prefs[PreferencesKeys.LYRICS_CURRENT_TIME_TEXT_SIZE] = size } }
@@ -413,29 +356,6 @@ class SettingsRepositoryImpl(
     override suspend fun getLyricsTranslatedTextSize(): Int = dataStore.data.first()[PreferencesKeys.LYRICS_TRANSLATED_TEXT_SIZE] ?: 14
     override suspend fun getLyricsCurrentTimeTextSize(): Int = dataStore.data.first()[PreferencesKeys.LYRICS_CURRENT_TIME_TEXT_SIZE] ?: 16
     override suspend fun getLyricsLineSpacing(): Int = dataStore.data.first()[PreferencesKeys.LYRICS_LINE_SPACING] ?: 6
-    override suspend fun cleanOldBackups(keepCount: Int): Result<Unit> = withContext(Dispatchers.IO) {
-        try {
-            val dir = getBackupDir()
-            if (!dir.exists()) return@withContext Result.success(Unit)
-            val files = dir.listFiles()
-                ?.filter { it.name.startsWith("settings_backup_") && it.name.endsWith(".json") }
-                ?.sortedByDescending { it.lastModified() }
-                ?: return@withContext Result.success(Unit)
-
-            if (files.size > keepCount) {
-                files.drop(keepCount).forEach { it.delete() }
-            }
-            Result.success(Unit)
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
-
-    private fun getBackupDir(): File {
-        val dir = File(System.getProperty("user.home"), ".hmp/backups")
-        if (!dir.exists()) dir.mkdirs()
-        return dir
-    }
     override suspend fun saveDefaultAlgorithmType(type: String) { dataStore.edit { prefs -> prefs[PreferencesKeys.DEFAULT_ALGORITHM_TYPE] = type } }
     override suspend fun getDefaultAlgorithmType(): String = dataStore.data.first()[PreferencesKeys.DEFAULT_ALGORITHM_TYPE] ?: "OPTIMIZED_SIMILARITY"
     override suspend fun saveDefaultWeightTemplate(template: String) { dataStore.edit { prefs -> prefs[PreferencesKeys.DEFAULT_WEIGHT_TEMPLATE] = template } }
