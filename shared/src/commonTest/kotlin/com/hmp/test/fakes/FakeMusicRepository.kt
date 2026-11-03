@@ -49,6 +49,10 @@ class FakeMusicRepository : MusicRepository {
         musicList.add(musicInfo)
     }
 
+    /** 调用次数（`D6-06` 判据用：跨天刷新是否真的重新跑了一遍 dailyRefreshOnce）。 */
+    var getMusicCountCalls: Int = 0
+        private set
+
     /**
      * ⚠️ 与 `MusicRepositoryBase.getAllMusicInfoAsList` 同一签名、同一批排序键（D2-08 的教训：
      * 替身比真身"更能干"或"更宽容"，绿灯就成了反向信号）。这里仍用简单的大小写不敏感比较，
@@ -69,7 +73,10 @@ class FakeMusicRepository : MusicRepository {
         return sorted
     }
 
-    override fun getMusicCount(): Flow<Int> = flowOf(musicList.size)
+    override fun getMusicCount(): Flow<Int> {
+        getMusicCountCalls++
+        return flowOf(musicList.size)
+    }
 
     override fun getMusicWithExtraCount(): Flow<Int> =
         flowOf(musicList.count { it.extra?.isGetExtraInfo == true })
@@ -223,7 +230,14 @@ class FakeMusicRepository : MusicRepository {
     override suspend fun refreshMusicTags(musicId: Long, tags: EditableMusicTags): Result<Unit> =
         updateMusicTags(musicId, tags)
 
-    override suspend fun getSimilarSongsByWeightedLabels(musicId: Long, limit: Int): List<MusicInfo> =
+    override suspend fun getAllMusicLabels(): Map<Long, List<MusicLabel>> =
+        labels.mapValues { it.value.toList() }
+
+    override suspend fun getSimilarSongsByWeightedLabels(
+        musicId: Long,
+        limit: Int,
+        weights: Map<com.hmp.domain.enum.LabelCategory, Double>?
+    ): List<MusicInfo> =
         musicList.filter { it.music.id != musicId }.take(limit)
 
     override fun getRecentListeningDurations(limit: Int): Flow<List<ListeningDuration>> =

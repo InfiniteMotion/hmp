@@ -46,8 +46,7 @@
     <string name="today_heartbeat_playlist">Lista de reproducción de latidos de hoy</string>
     <string name="generating_heartbeat_playlist">Generando lista de latidos…</string>
     <string name="play_heartbeat_playlist">Reproducir lista de latidos</string>
-    <string name="generated">Generado</string>
-    <string name="suitable_for_now">Adecuado para ahora</string>
+<string name="suitable_for_now">Adecuado para ahora</string>
     <string name="banner_daily_A">Biblioteca</string>
     <string name="banner_daily_AA">PREDETERMINADO</string>
     <string name="banner_daily_B">Género</string>
@@ -265,8 +264,7 @@
     <string name="bass_boost">Refuerzo de graves</string>
     <string name="surround_sound">Sonido envolvente</string>
     <string name="reverb">Reverberación</string>
-    <string name="balance">Balance</string>
-    <string name="hall">Salón</string>
+<string name="hall">Salón</string>
     <string name="church">Iglesia</string>
     <string name="small_room">Habitación pequeña</string>
     <string name="large_room">Habitación grande</string>
@@ -307,19 +305,16 @@
     <string name="ai_tab_free">Prueba gratuita</string>
     <string name="ai_tab_custom">Personalizado</string>
     <string name="ai_tab_paid">De pago</string>
-    <string name="ai_free_remaining">Restante: %1$d veces</string>
-    <string name="ai_free_used">Usado: %1$d / %2$d</string>
+    <string name="ai_free_remaining">Restante: %1$s tokens</string>
+    <string name="ai_free_used">Usado: %1$s / %2$s</string>
     <string name="ai_free_exhausted">Prueba gratuita agotada. Configura tu propia clave API para continuar.</string>
     <string name="ai_free_hint">Cada canción procesada cuenta como un uso. No se necesita configuración de clave API.</string>
     <string name="ai_paid_coming_soon">Próximamente</string>
     <string name="ai_paid_description">El modo de pago con mayores cuotas y más funciones está en desarrollo.</string>
     <string name="test">Probar</string>
     <string name="test_failed">Error en la prueba: %1$s</string>
-    <string name="save_failed">Error al guardar: %1$s</string>
-    <string name="fetch_models_failed">Error al obtener modelos: %1$s</string>
-    <string name="generation_error">Error de generación: %1$s</string>
-    <string name="generation_failed">Error en la generación: %1$s</string>
-    <string name="connected">Conectado</string>
+<string name="fetch_models_failed">Error al obtener modelos: %1$s</string>
+<string name="connected">Conectado</string>
     <string name="backup">Copia de seguridad</string>
     <string name="backup_settings">Copia de seguridad</string>
     <string name="backup_desc">Respaldar tus datos</string>
@@ -357,10 +352,7 @@
     <string name="share_music">Compartir música</string>
     <string name="music_not_found">Canción no encontrada</string>
     <string name="genre">Género</string>
-    <string name="mood">Ánimo</string>
-    <string name="scene">Escenario</string>
-    <string name="era">Época</string>
-    <string name="personal_stats">Personal</string>
+<string name="personal_stats">Personal</string>
     <string name="year">Año</string>
     <string name="favorite">Favorito</string>
     <string name="heart">Me gusta</string>
@@ -408,8 +400,7 @@
     <string name="top_songs_in_playlists">Canciones principales en listas</string>
     <string name="startup_count_label">Conteo de inicios</string>
     <string name="recommendation_mode">Recomendación</string>
-    <string name="generate_recommend_list">Generar</string>
-    <string name="start_experience">Iniciar</string>
+<string name="start_experience">Iniciar</string>
     <string name="intro_step_1">Bienvenido</string>
     <string name="intro_step_1_desc">Gracias por elegir Hearable Music</string>
     <string name="intro_step_2">Permisos</string>
@@ -473,7 +464,8 @@
     <string name="unsaved_changes">Cambios sin guardar</string>
     <string name="agent_monitor_title">Monitor de agentes</string>
     <string name="agent_monitor_token_usage">Uso de tokens</string>
-    <string name="agent_monitor_total_usage">Uso total · registro completo</string>
+    <string name="agent_monitor_total_usage">Últimos 30 días</string>
+    <string name="agent_monitor_token_clear_confirm">¿Eliminar %1$s registros del libro (desde %2$s)? Esta acción no se puede deshacer.</string>
     <string name="agent_monitor_quota_line">Hoy %1$s · Restante %2$s · %3$d%%</string>
     <string name="agent_monitor_run_logs">Registros de ejecución</string>
     <string name="agent_monitor_log_count">%1$d registros ›</string>
@@ -511,7 +503,7 @@
     <string name="agent_ai_agent_mgmt_header">Gestión de agentes</string>
     <string name="agent_ai_memory_header">Memoria</string>
     <string name="agent_ai_free_tier">Prueba gratuita</string>
-    <string name="agent_ai_free_remaining">Quedan %1$d usos</string>
+    <string name="agent_ai_free_remaining">Quedan %1$s tokens</string>
     <string name="agent_ai_not_configured">Sin configurar</string>
     <string name="agent_ai_custom_endpoint">Endpoint personalizado</string>
     <string name="agent_ai_paid_mode">Plan de pago</string>
@@ -789,4 +781,30 @@
     <string name="intro_skip_permission">Ahora no</string>
     <string name="library_permission_required">Sin permiso de lectura de audio — no se puede escanear la biblioteca</string>
     <string name="go_to_settings">Abrir ajustes</string>
+
+
+    <!-- 二-11 / 一-7 新增键的译文补齐（D8-06 门禁） -->
+    <string name="edit_tags_unsupported">La edición de etiquetas no es compatible con este dispositivo</string>
+    <string name="ai_key_needs_refill">No se pudo descifrar la clave de API guardada (ocurre tras cambiar de dispositivo o restaurar desde la nube). Vuelve a introducirla y guárdala.</string>
+    <string name="ai_free_unavailable">Este dispositivo no tiene servicio de IA integrado. Usa una configuración personalizada.</string>
+    <string name="ai_quota_exhausted_hint">Cuota de IA agotada. Ajusta el límite o añade tu propia clave de API en Ajustes.</string>
+    <string name="agent_token_limits_title">Límites de uso</string>
+    <string name="agent_token_limits_enable">Activar límites diarios</string>
+    <string name="agent_token_limits_global">Límite diario global (tokens, vacío = ilimitado)</string>
+    <string name="agent_token_limits_per_agent">Límite diario (tokens, vacío = ilimitado)</string>
+    <string name="agent_token_limits_save">Guardar límites</string>
+    <string name="backup_scope_note">Incluye: listas de reproducción y su orden, estado por pista (me gusta, valoraciones, reproducciones, etiquetas), estadísticas de escucha, apariencia y ajustes del endpoint de IA. No incluye: clave de API, carpetas de escaneo, ajustes de letras y efectos de audio, configuración por agente, posición de reproducción.</string>
+    <string name="restore_overwrites_note">Restaurar sobrescribe las listas actuales, el estado por pista y las estadísticas de escucha. La clave de API, las carpetas de escaneo y los ajustes de letras y efectos de audio no están en la copia y se mantienen.</string>
+    <string name="db_too_new_title">La versión de la base de datos es demasiado reciente</string>
+    <string name="db_too_new_body">Esta app admite la versión %1$d de la base de datos, pero la base guardada es la versión %2$d, más reciente. Tus datos no se han modificado. Actualiza la app o restaura una copia anterior.</string>
+    <string name="usage_data_load_failed">No se pudo cargar este periodo. Inténtalo más tarde.</string>
+    <string name="agent_cfg_global_unavailable">Endpoint global no disponible: no hay clave de API configurada</string>
+    <string name="home_reco_unavailable">Cuota agotada</string>
+
+
+    <!-- 播放页电台入口（2026-11-03） -->
+    <string name="radio_card_open_console">Ver programación</string>
+    <string name="radio_card_end_session">Terminar esta sesión</string>
+    <string name="radio_entry_seed_title">Empezar con esta canción</string>
+    <string name="radio_entry_seed_desc">Primero una selección local, luego la IA continúa; a continuación del tema actual</string>
 </resources>

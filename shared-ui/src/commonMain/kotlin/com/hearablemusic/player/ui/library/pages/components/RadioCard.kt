@@ -9,6 +9,7 @@ import com.hearablemusic.player.ui.generated.resources.radio_card_open
 import com.hearablemusic.player.ui.generated.resources.radio_card_picking
 import com.hearablemusic.player.ui.generated.resources.radio_card_renewing
 import com.hearablemusic.player.ui.generated.resources.radio_card_starting
+import com.hearablemusic.player.ui.generated.resources.ai_quota_exhausted_hint
 import com.hearablemusic.player.ui.generated.resources.radio_card_theme_renew
 import com.hearablemusic.player.ui.generated.resources.radio_card_upcoming
 
@@ -80,6 +81,9 @@ fun RadioCard(
     haptic: HapticFeedbackHelper = rememberHapticFeedback(),
 ) {
     val scope = rememberCoroutineScope()
+    val quotaGate: com.hmp.domain.agent.quota.TokenQuotaGate = koinInject()
+    val dialogManager: com.hearablemusic.player.ui.common.dialogs.controller.DialogManager = koinInject()
+    val quotaText = stringResource(Res.string.ai_quota_exhausted_hint)
 
     // ✅ 主路径：直接 collect MasterAgent 暴露的 radioState StateFlow
     val radioState by masterAgent.radioState.collectAsState()
@@ -96,6 +100,11 @@ fun RadioCard(
 
     fun toggle() {
         haptic.performClick()
+        // 额度不足：只在「开启」方向拦截；关闭永远允许
+        if (!isActive && quotaGate.isBucketExhausted("radio")) {
+            scope.launch { dialogManager.showMessage(quotaText) }
+            return
+        }
         scope.launch {
             if (isActive) {
                 masterAgent.stopRadio()    // 已开启（运行 / 暂停 / 启动中）→ 关闭

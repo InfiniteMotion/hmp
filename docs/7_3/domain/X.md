@@ -52,6 +52,14 @@
 - **影响**：若 `gradle.properties` 的 `hmp.version*` 缺失/过期且 `syncVersion` 未随 `release.toml` 提交，build 仍「成功」产出带错误/默认版本号的包。`CI` 的 `sync --check`（X-02）可兜住「未提交同步」情形，但默认串本身绕过 `checkVersion` 之外任何保护。
 - **动作**：将关键默认改为 fail-fast（缺失即 `throw GradleException`），至少对 `versionCode`。
 - **判据**：难以自动化（仅属性缺失触发）；靠 `syncVersion` 纪律 + `pr-check` 的 `sync --check` 兜底。谁验：发版前比对 `gradle.properties` 与 `release.toml`。
+- **施工结果（2026-11-02，B 批）**：四处默认值全部改为 fail-fast——
+  ① 根脚本 `hmp.versionName` / `hmp.versionCode` 缺失或空白即抛（删掉 `unknown` / `0`）；
+  ② `android/app` 的 `51000` / `"5.10.0"` 删除，`versionCode` 非整数也抛；
+  ③ `desktop/app` 顶端一次性求值 `hmpVersionName` / `hmpVersionCode`，`packageVersion` 与 `msiPackageVersion` 共用，`dmgPackageVersion` 由硬编码 `"1"` 改为 `versionCode.toString()`；
+  ④ `copyToReleases` 缺件抛异常；`releaseDesktop` 扫不到任何 msi/dmg/deb 也抛；`copyDesktopJar` 缺 jar 抛。
+  验证（均为本地实跑）：`./gradlew help` 正常；`help -Phmp.versionName=` 红在本条新增的提示上；
+  `releaseAndroid -x assembleRelease -x bundleRelease` 红在「缺少发布产物」上；临时移走桌面产物目录后 `releaseDesktop -x packageDistributionForCurrentOS` 红在「未找到桌面分发产物」上（目录已恢复）。
+  如实记：只验了**配置期**与**拷贝期**的失败路径，未跑真实打包（APK/DMG/MSI 全量构建不在本轮范围）。
 
 ### X-04 · DI 无模块图校验（亲验）
 - **现状**：grep 口径 `checkModules|verify(|koin.verify`，全仓 `.kt` 源码 **0 命中**（仅在 `docs/7_3/review-7.3-architecture.md`、`TODO.md` 出现）。`startKoin`/`modules(` 在 `MusicApplication.kt`、`HmpDesktopApplication.kt`、`IosModules.kt`、`DesktopModules.kt`，但无 `checkModules`。
@@ -120,6 +128,12 @@
 - **影响**：错目标下跑 `testAndroid`/`testDesktop` 给人「通过」错觉。
 - **动作**：错目标时 fail-fast（如 `throw` 提示「请在该模块所属目标下运行」）而非静默绿。
 - **判据**：`HMP_BUILD_TARGET=desktop ./gradlew testAndroid` 绿零工作（可复现，待本地执行确认细节）。
+- **施工结果（2026-11-02，B 批）**：新增 `Task.requireTarget(modulePath)`，只在 `testAndroid` / `testDesktop` 注册块里调用——
+  目标不含对应模块时抛 `GradleException`，提示改用 `android` / `desktop` / `all`。
+  **没有改 `maybeDepends`**：`testAll` / `compileAll` 正依赖它「按当前目标跳过不存在的模块」，
+  改全局会让单目标下的全量任务自炸（`compileAll` 无条件依赖 `compileDesktop`）。
+  验证：`HMP_BUILD_TARGET=desktop ./gradlew testAndroid` 红在新增提示上；同目标下 `testAll --dry-run` 仍成功。
+  如实记：域章节原文这条「判据」写的是缺陷复现（绿零工作）；本次按 `plan.md` §五 **X-目标** 的目标口径执行（不再静默绿），未改写原判据文本。
 
 ### X-11 · 依赖矩阵：KMP 侧有单源守护，iOS 侧独立（亲验，部分）
 - **现状**：`gradle/libs.versions.toml` 集中 `[versions]`（agp 9.1.1 / kotlin 2.3.21 / compose 1.11.1 / room 2.8.3 / ktor 3.1.1 / koin 4.2.2 等，`libs.versions.toml:1-40`）；`build.gradle.kts:5-13` 用 `alias(libs.plugins.*)`。**KMP/Android/Desktop 依赖一致性有守护**。iOS 侧依赖（XcodeGen `ios/HMP/project.yml` + CocoaPods）不在该目录守护范围内——`sync-release.py` 仅写 `project.yml` 的版本号字段（L257–261），不守护 pod 版本。

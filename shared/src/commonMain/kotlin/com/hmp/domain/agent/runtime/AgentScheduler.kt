@@ -61,7 +61,6 @@ enum class AgentRunState { RUNNING, PAUSED, UNREGISTERED }
  */
 internal class AgentScheduler(
     private val timeProvider: TimeProvider,
-    private val tokenCounter: GlobalTokenCounter,
     /** 系统条件提供者（expect/actual 桥接：Android 传 BatteryManager/ConnectivityManager） */
     private val systemConditions: SystemConditions,
 ) {
@@ -167,12 +166,11 @@ internal class AgentScheduler(
         return if (batteryOk || wifiOk) AgentRunState.RUNNING else AgentRunState.PAUSED
     }
 
-    /** Enrich (3): 电量≥50% 且 WiFi 且 日配额剩≥10% */
+    /** Enrich (3): 电量≥50% 且 WiFi —— Token 配额改由 TokenQuotaGate 逐次判定，不再有全局日熔断 */
     private fun decideEnrichState(): AgentRunState {
         val batteryOk = systemConditions.batteryLevel() >= 0.5f
         val wifiOk = systemConditions.isWifiConnected()
-        val quotaOk = !tokenCounter.shouldStop(GlobalTokenCounter.SCHEDULER_PAUSE_THRESHOLD)
-        return if (batteryOk && wifiOk && quotaOk) AgentRunState.RUNNING else AgentRunState.PAUSED
+        return if (batteryOk && wifiOk) AgentRunState.RUNNING else AgentRunState.PAUSED
     }
 }
 

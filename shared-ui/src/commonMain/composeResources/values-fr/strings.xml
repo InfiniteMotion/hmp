@@ -46,8 +46,7 @@
     <string name="today_heartbeat_playlist">Playlist du jour</string>
     <string name="generating_heartbeat_playlist">Génération de la playlist…</string>
     <string name="play_heartbeat_playlist">Lire la playlist</string>
-    <string name="generated">Généré</string>
-    <string name="suitable_for_now">Adapté à maintenant</string>
+<string name="suitable_for_now">Adapté à maintenant</string>
     <string name="banner_daily_A">Bibliothèque</string>
     <string name="banner_daily_AA">DEFAULT</string>
     <string name="banner_daily_B">Genre</string>
@@ -132,8 +131,7 @@
     <string name="top_songs_in_playlists">Top morceaux dans les playlists</string>
     <string name="startup_count_label">Nombre de démarrages</string>
     <string name="recommendation_mode">Recommandation</string>
-    <string name="generate_recommend_list">Générer</string>
-    <string name="start_experience">Commencer</string>
+<string name="start_experience">Commencer</string>
     <string name="intro_step_1">Bienvenue</string>
     <string name="intro_step_1_desc">Merci d\'avoir choisi Hearable Music</string>
     <string name="intro_step_2">Permissions</string>
@@ -220,8 +218,7 @@
     <string name="reset_component_to_default">Réinitialiser %1$s par défaut</string>
     <string name="fetched_n_models">%1$d modèles récupérés</string>
     <string name="configured">✓ Configuré</string>
-    <string name="era">Époque</string>
-    <string name="related_info">Informations connexes</string>
+<string name="related_info">Informations connexes</string>
     <string name="add_to_playlist_desc">Ajouter à la playlist</string>
     <string name="ai_free_hint">Chaque morceau traité compte comme une utilisation. Aucune configuration de clé API requise.</string>
     <string name="timer_off">Désactivé</string>
@@ -243,8 +240,7 @@
     <string name="large_room">Grande salle</string>
     <string name="enter_new_user_name">Veuillez entrer un nouveau nom d\'utilisateur</string>
     <string name="ai_fetch_models">Récupérer les modèles disponibles</string>
-    <string name="scene">Scénario</string>
-    <string name="play_source_breakdown">Répartition des sources de lecture</string>
+<string name="play_source_breakdown">Répartition des sources de lecture</string>
     <string name="more_settings">Plus de paramètres\n→</string>
     <string name="album_label_en">Album</string>
     <string name="removed_from_current_list">Retiré de la liste actuelle</string>
@@ -262,7 +258,7 @@
     <string name="avatar_change_cancelled">Changement d\'avatar annulé !</string>
     <string name="default_list">Liste par défaut</string>
     <string name="translated_text">Traduit</string>
-    <string name="ai_free_used">Utilisé : %1$d / %2$d</string>
+    <string name="ai_free_used">Utilisé : %1$s / %2$s</string>
     <string name="order">Ordre</string>
     <string name="not_configured">⚠ Non configuré</string>
     <string name="original_text_size">Taille du texte original</string>
@@ -348,12 +344,10 @@
     <string name="restore_backup">Restaurer la sauvegarde</string>
     <string name="artist">Artiste</string>
     <string name="style_fluid">Fluide</string>
-    <string name="balance">Balance</string>
-    <string name="expand_sort_desc">Développer le tri</string>
+<string name="expand_sort_desc">Développer le tri</string>
     <string name="fetch_models_failed">Échec de la récupération des modèles : %1$s</string>
     <string name="no_pending_music">Aucune musique en attente</string>
-    <string name="generation_error">Erreur de génération : %1$s</string>
-    <string name="text_settings">Texte</string>
+<string name="text_settings">Texte</string>
     <string name="please_config_provider">Veuillez d\'abord configurer le fournisseur IA</string>
     <string name="line_spacing">Interligne</string>
     <string name="top_artists">Artistes principaux</string>
@@ -365,8 +359,7 @@
     <string name="align_right">Droite</string>
     <string name="custom_equalizer">Égaliseur personnalisé</string>
     <string name="go_to_ai_config">Aller à la config IA</string>
-    <string name="save_failed">Échec de l\'enregistrement : %1$s</string>
-    <string name="ai_tab_free">Essai gratuit</string>
+<string name="ai_tab_free">Essai gratuit</string>
     <string name="user_name">Nom d\'utilisateur</string>
     <string name="playback_mode">Mode de lecture</string>
     <string name="fullscreen">Plein écran</string>
@@ -389,14 +382,12 @@
     <string name="processing_ai_recommendation">Traitement de la recommandation IA…</string>
     <string name="restore_successful">Restauration réussie</string>
     <string name="restore_failed">Échec de la restauration : %1$s</string>
-    <string name="generation_failed">Échec de la génération : %1$s</string>
-    <string name="style_fluid_desc">Dégradé fluide dynamique</string>
+<string name="style_fluid_desc">Dégradé fluide dynamique</string>
     <string name="decrease">Diminuer</string>
     <string name="song_description">Description</string>
     <string name="next_desc">Suivant</string>
     <string name="listening_insights">Statistiques d\'écoute</string>
-    <string name="mood">Humeur</string>
-    <string name="no_songs_available">Aucun morceau disponible</string>
+<string name="no_songs_available">Aucun morceau disponible</string>
     <string name="timer_minutes">%1$d min</string>
     <string name="labels">Étiquettes</string>
     <string name="last_week_minutes">Semaine dernière</string>
@@ -437,7 +428,7 @@
     <string name="processing_music">Traitement : %1$s</string>
     <string name="order_desc">Décroissant</string>
     <string name="avatar_changed">Avatar modifié !</string>
-    <string name="ai_free_remaining">Restant : %1$d fois</string>
+    <string name="ai_free_remaining">Restant : %1$s tokens</string>
     <string name="sample_rate">Fréquence d\'échantillonnage</string>
     <string name="enable_floating_lyrics">Activer les paroles flottantes</string>
     <string name="user_custom_playlists">Playlists personnalisées</string>
@@ -473,7 +464,8 @@
     <string name="unsaved_changes">Modifications non enregistrées</string>
     <string name="agent_monitor_title">Moniteur d'agents</string>
     <string name="agent_monitor_token_usage">Utilisation des jetons</string>
-    <string name="agent_monitor_total_usage">Utilisation totale · grand livre complet</string>
+    <string name="agent_monitor_total_usage">30 derniers jours</string>
+    <string name="agent_monitor_token_clear_confirm">Supprimer %1$s entrées du journal (depuis %2$s) ? Cette action est irréversible.</string>
     <string name="agent_monitor_quota_line">Aujourd'hui %1$s · Restant %2$s · %3$d%%</string>
     <string name="agent_monitor_run_logs">Journaux d'exécution</string>
     <string name="agent_monitor_log_count">%1$d journaux ›</string>
@@ -511,7 +503,7 @@
     <string name="agent_ai_agent_mgmt_header">Gestion des agents</string>
     <string name="agent_ai_memory_header">Mémoire</string>
     <string name="agent_ai_free_tier">Essai gratuit</string>
-    <string name="agent_ai_free_remaining">%1$d utilisations restantes</string>
+    <string name="agent_ai_free_remaining">%1$s tokens restants</string>
     <string name="agent_ai_not_configured">Non configuré</string>
     <string name="agent_ai_custom_endpoint">Point de terminaison personnalisé</string>
     <string name="agent_ai_paid_mode">Forfait payant</string>
@@ -789,4 +781,30 @@
     <string name="intro_skip_permission">Plus tard</string>
     <string name="library_permission_required">Autorisation audio non accordée — impossible d'analyser la bibliothèque</string>
     <string name="go_to_settings">Ouvrir les réglages</string>
+
+
+    <!-- 二-11 / 一-7 新增键的译文补齐（D8-06 门禁） -->
+    <string name="edit_tags_unsupported">La modification des tags n'est pas prise en charge sur cet appareil</string>
+    <string name="ai_key_needs_refill">La clé API enregistrée n'a pas pu être déchiffrée (cela arrive après un changement d'appareil ou une restauration cloud). Saisissez-la à nouveau et enregistrez.</string>
+    <string name="ai_free_unavailable">Aucun service d'IA intégré sur cet appareil. Utilisez une configuration personnalisée.</string>
+    <string name="ai_quota_exhausted_hint">Quota d'IA épuisé. Ajustez la limite ou ajoutez votre propre clé API dans les réglages.</string>
+    <string name="agent_token_limits_title">Limites d'utilisation</string>
+    <string name="agent_token_limits_enable">Activer les limites quotidiennes</string>
+    <string name="agent_token_limits_global">Plafond quotidien global (tokens, vide = illimité)</string>
+    <string name="agent_token_limits_per_agent">Plafond quotidien (tokens, vide = illimité)</string>
+    <string name="agent_token_limits_save">Enregistrer les limites</string>
+    <string name="backup_scope_note">Inclus : playlists et leur ordre, état par piste (favoris, notes, lectures, labels), statistiques d'écoute, apparence et réglages du point de terminaison IA. Non inclus : clé API, dossiers d'analyse, réglages des paroles et des effets audio, configuration par agent, position de lecture.</string>
+    <string name="restore_overwrites_note">La restauration écrase les playlists actuelles, l'état par piste et les statistiques d'écoute. La clé API, les dossiers d'analyse et les réglages des paroles et effets audio ne figurent pas dans la sauvegarde et restent inchangés.</string>
+    <string name="db_too_new_title">La version de la base de données est trop récente</string>
+    <string name="db_too_new_body">Cette application prend en charge la version %1$d de la base, mais la base enregistrée est en version %2$d, plus récente. Vos données n'ont pas été modifiées. Mettez l'application à jour ou restaurez une sauvegarde plus ancienne.</string>
+    <string name="usage_data_load_failed">Impossible de charger cette période. Réessayez plus tard.</string>
+    <string name="agent_cfg_global_unavailable">Point de terminaison global indisponible : aucune clé API configurée</string>
+    <string name="home_reco_unavailable">Quota épuisé</string>
+
+
+    <!-- 播放页电台入口（2026-11-03） -->
+    <string name="radio_card_open_console">Voir le programme</string>
+    <string name="radio_card_end_session">Terminer cette session</string>
+    <string name="radio_entry_seed_title">Partir de ce morceau</string>
+    <string name="radio_entry_seed_desc">Une première sélection locale, puis l'IA enchaîne ; à la suite du titre en cours</string>
 </resources>

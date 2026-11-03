@@ -60,6 +60,14 @@ interface PlaybackController {
 
     // ── 音效状态流（AudioEffects 页） ──
 
+    /**
+     * 本端是否有真实音效实现。
+     *
+     * Android 接 `MusicController` 的 Equalizer/BassBoost；Desktop/iOS 是空桩 → false。
+     * 设置页据此撤下「音效」入口（§九 决策 5）。
+     */
+    val audioEffectsSupported: Boolean get() = false
+
     val audioEffectSettings: StateFlow<AudioEffectSettings>
     val equalizerPresets: StateFlow<List<String>>
     val equalizerBandCount: StateFlow<Int>

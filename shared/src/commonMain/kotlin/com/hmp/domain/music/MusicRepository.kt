@@ -72,6 +72,14 @@ interface MusicRepository {
     suspend fun removeUserMusicLabel(musicId: Long, label: LabelName)
     suspend fun getMusicLabels(musicId: Long): List<MusicLabel>
 
+    /**
+     * 全库标签（曲库视图 / 批量相似度用）。
+     *
+     * 一次查询拿到 `musicId → labels`，避免"每首歌一次 getMusicLabels"的 N+1；
+     * 无标签的曲目不出现在 map 里。
+     */
+    suspend fun getAllMusicLabels(): Map<Long, List<MusicLabel>>
+
     /** 编辑单曲标签（ID3 元数据），写入文件成功后同步更新本地曲库记录。 */
     suspend fun updateMusicTags(musicId: Long, tags: EditableMusicTags): Result<Unit>
 
@@ -81,7 +89,17 @@ interface MusicRepository {
     suspend fun refreshMusicTags(musicId: Long, tags: EditableMusicTags): Result<Unit>
 
     // 相似度推荐 (Similarity)
-    suspend fun getSimilarSongsByWeightedLabels(musicId: Long, limit: Int = 10): List<MusicInfo>
+    /**
+     * 按标签相似度取相似曲目。
+     *
+     * @param weights 智能生成的**内部黑盒权重**（D1，`SmartWeights`）；null = 仓库默认权重，
+     *   保持旧调用点（Agent 工具、上下文播放）行为不变。
+     */
+    suspend fun getSimilarSongsByWeightedLabels(
+        musicId: Long,
+        limit: Int = 10,
+        weights: Map<LabelCategory, Double>? = null,
+    ): List<MusicInfo>
 
     // 收听时长统计
     fun getRecentListeningDurations(limit: Int = 7): Flow<List<ListeningDuration>>

@@ -46,8 +46,7 @@
     <string name="today_heartbeat_playlist">Today\'s Heartbeat Playlist</string>
     <string name="generating_heartbeat_playlist">Generating heartbeat playlist…</string>
     <string name="play_heartbeat_playlist">Play heartbeat playlist</string>
-    <string name="generated">Generated</string>
-    <string name="suitable_for_now">Suitable for now</string>
+<string name="suitable_for_now">Suitable for now</string>
     <string name="banner_daily_A">Library</string>
     <string name="banner_daily_AA">DEFAULT</string>
     <string name="banner_daily_B">Genre</string>
@@ -265,8 +264,7 @@
     <string name="bass_boost">Bass Boost</string>
     <string name="surround_sound">Surround Sound</string>
     <string name="reverb">Reverb</string>
-    <string name="balance">Balance</string>
-    <string name="hall">Hall</string>
+<string name="hall">Hall</string>
     <string name="church">Church</string>
     <string name="small_room">Small Room</string>
     <string name="large_room">Large Room</string>
@@ -307,19 +305,16 @@
     <string name="ai_tab_free">Free Trial</string>
     <string name="ai_tab_custom">Custom</string>
     <string name="ai_tab_paid">Paid</string>
-    <string name="ai_free_remaining">Remaining: %1$d times</string>
-    <string name="ai_free_used">Used: %1$d / %2$d</string>
+    <string name="ai_free_remaining">เหลือ %1$s โทเคน</string>
+    <string name="ai_free_used">ใช้ไป: %1$s / %2$s</string>
     <string name="ai_free_exhausted">Free trial exhausted. Please configure your own API Key to continue.</string>
     <string name="ai_free_hint">Each song processed counts as one use. No API Key configuration needed.</string>
     <string name="ai_paid_coming_soon">Coming Soon</string>
     <string name="ai_paid_description">Paid mode with higher quotas and more features is under development.</string>
     <string name="test">Test</string>
     <string name="test_failed">Test failed: %1$s</string>
-    <string name="save_failed">Save failed: %1$s</string>
-    <string name="fetch_models_failed">Failed to fetch models: %1$s</string>
-    <string name="generation_error">Generation error: %1$s</string>
-    <string name="generation_failed">Generation failed: %1$s</string>
-    <string name="connected">Connected</string>
+<string name="fetch_models_failed">Failed to fetch models: %1$s</string>
+<string name="connected">Connected</string>
     <string name="backup">Backup</string>
     <string name="backup_settings">Backup</string>
     <string name="backup_desc">Backup your data</string>
@@ -357,10 +352,7 @@
     <string name="share_music">Share Music</string>
     <string name="music_not_found">Music not found</string>
     <string name="genre">Genre</string>
-    <string name="mood">Mood</string>
-    <string name="scene">Scenario</string>
-    <string name="era">Era</string>
-    <string name="personal_stats">Personal</string>
+<string name="personal_stats">Personal</string>
     <string name="year">Year</string>
     <string name="favorite">Favorite</string>
     <string name="heart">Heart</string>
@@ -408,8 +400,7 @@
     <string name="top_songs_in_playlists">Top songs in playlists</string>
     <string name="startup_count_label">Startup count</string>
     <string name="recommendation_mode">Recommendation</string>
-    <string name="generate_recommend_list">Generate</string>
-    <string name="start_experience">Start</string>
+<string name="start_experience">Start</string>
     <string name="intro_step_1">Welcome</string>
     <string name="intro_step_1_desc">Thank you for choosing Hearable Music</string>
     <string name="intro_step_2">Permissions</string>
@@ -473,7 +464,8 @@
     <string name="unsaved_changes">การเปลี่ยนแปลงที่ยังไม่บันทึก</string>
     <string name="agent_monitor_title">มอนิเตอร์เอเจนต์</string>
     <string name="agent_monitor_token_usage">การใช้โทเคน</string>
-    <string name="agent_monitor_total_usage">การใช้งานรวม · บันทึกทั้งหมด</string>
+    <string name="agent_monitor_total_usage">30 วันที่ผ่านมา</string>
+    <string name="agent_monitor_token_clear_confirm">ลบรายการบัญชี %1$s รายการ (ตั้งแต่ %2$s) หรือไม่? การดำเนินการนี้ย้อนกลับไม่ได้</string>
     <string name="agent_monitor_quota_line">วันนี้ %1$s · เหลือ %2$s · %3$d%%</string>
     <string name="agent_monitor_run_logs">บันทึกการทำงาน</string>
     <string name="agent_monitor_log_count">%1$d บันทึก ›</string>
@@ -511,7 +503,7 @@
     <string name="agent_ai_agent_mgmt_header">การจัดการเอเจนต์</string>
     <string name="agent_ai_memory_header">ความจำ</string>
     <string name="agent_ai_free_tier">ทดลองใช้ฟรี</string>
-    <string name="agent_ai_free_remaining">เหลือ %1$d ครั้ง</string>
+    <string name="agent_ai_free_remaining">เหลือ %1$s โทเคน</string>
     <string name="agent_ai_not_configured">ยังไม่ได้ตั้งค่า</string>
     <string name="agent_ai_custom_endpoint">ปลายทางกำหนดเอง</string>
     <string name="agent_ai_paid_mode">แผนแบบเสียค่าใช้จ่าย</string>
@@ -789,4 +781,30 @@
     <string name="intro_skip_permission">ไว้ทีหลัง</string>
     <string name="library_permission_required">ยังไม่ได้อนุญาตให้อ่านเสียง — ไม่สามารถสแกนคลังเพลงได้</string>
     <string name="go_to_settings">เปิดการตั้งค่า</string>
+
+
+    <!-- 二-11 / 一-7 新增键的译文补齐（D8-06 门禁） -->
+    <string name="edit_tags_unsupported">อุปกรณ์นี้ไม่รองรับการแก้ไขแท็ก</string>
+    <string name="ai_key_needs_refill">ไม่สามารถถอดรหัสคีย์ API ที่บันทึกไว้ได้ (เกิดขึ้นหลังย้ายอุปกรณ์หรือกู้คืนจากคลาวด์) โปรดป้อนและบันทึกอีกครั้ง</string>
+    <string name="ai_free_unavailable">อุปกรณ์นี้ไม่มีบริการ AI ในตัว โปรดใช้การกำหนดค่าแบบกำหนดเอง</string>
+    <string name="ai_quota_exhausted_hint">โควตา AI หมดแล้ว ปรับขีดจำกัดหรือเพิ่มคีย์ API ของคุณเองในการตั้งค่า</string>
+    <string name="agent_token_limits_title">ขีดจำกัดการใช้งาน</string>
+    <string name="agent_token_limits_enable">เปิดใช้ขีดจำกัดรายวัน</string>
+    <string name="agent_token_limits_global">ขีดจำกัดรายวันแบบรวม (โทเคน ว่าง = ไม่จำกัด)</string>
+    <string name="agent_token_limits_per_agent">ขีดจำกัดรายวัน (โทเคน ว่าง = ไม่จำกัด)</string>
+    <string name="agent_token_limits_save">บันทึกขีดจำกัด</string>
+    <string name="backup_scope_note">รวม: เพลย์ลิสต์และลำดับ สถานะต่อเพลง (ถูกใจ คะแนน จำนวนเล่น ป้ายกำกับ) สถิติการฟัง รูปลักษณ์ และการตั้งค่าปลายทาง AI ไม่รวม: คีย์ API โฟลเดอร์สแกน การตั้งค่าเนื้อเพลงและเอฟเฟกต์เสียง การกำหนดค่าต่อเอเจนต์ ตำแหน่งเล่น</string>
+    <string name="restore_overwrites_note">การกู้คืนจะเขียนทับเพลย์ลิสต์ปัจจุบัน สถานะต่อเพลง และสถิติการฟัง คีย์ API โฟลเดอร์สแกน และการตั้งค่าเนื้อเพลง/เอฟเฟกต์เสียงไม่อยู่ในข้อมูลสำรองและจะคงอยู่ตามเดิม</string>
+    <string name="db_too_new_title">เวอร์ชันฐานข้อมูลใหม่เกินไป</string>
+    <string name="db_too_new_body">แอปนี้รองรับฐานข้อมูลเวอร์ชัน %1$d แต่ฐานข้อมูลที่จัดเก็บเป็นเวอร์ชัน %2$d ซึ่งใหม่กว่า ข้อมูลของคุณไม่ถูกแก้ไข โปรดอัปเดตแอปหรือกู้คืนจากข้อมูลสำรองรุ่นเก่า</string>
+    <string name="usage_data_load_failed">โหลดช่วงเวลานี้ไม่สำเร็จ โปรดลองอีกครั้งภายหลัง</string>
+    <string name="agent_cfg_global_unavailable">ปลายทางส่วนกลางไม่พร้อมใช้งาน: ยังไม่ได้กำหนดค่าคีย์ API</string>
+    <string name="home_reco_unavailable">โควตาหมดแล้ว</string>
+
+
+    <!-- 播放页电台入口（2026-11-03） -->
+    <string name="radio_card_open_console">ดูรายการ</string>
+    <string name="radio_card_end_session">จบเซสชันนี้</string>
+    <string name="radio_entry_seed_title">เริ่มจากเพลงนี้</string>
+    <string name="radio_entry_seed_desc">เลือกเพลงในเครื่องก่อน แล้ว AI จะต่อให้ ต่อจากเพลงปัจจุบัน</string>
 </resources>

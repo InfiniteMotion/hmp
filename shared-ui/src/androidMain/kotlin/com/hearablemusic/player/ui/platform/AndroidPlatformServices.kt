@@ -463,6 +463,7 @@ class HapticServiceImpl(private val context: Context) : HapticService {
 
 /** 悬浮歌词：Android 前台 Service 启停。 */
 class FloatingLyricsServiceImpl(private val context: Context) : FloatingLyricsController {
+    override val isSupported: Boolean = true
 
     override fun start() {
         context.startService(Intent(context, FloatingLyricsService::class.java))

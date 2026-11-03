@@ -263,19 +263,6 @@ class SettingsRepositoryImplTest {
         assertEquals("gpt-4", saved.selectedModel)
     }
 
-    @Test
-    fun aiFreeTrialRemainingCount_default() = runTest {
-        val count = repo.getAiFreeTrialRemainingCount()
-        assertTrue(count > 0)
-    }
-
-    @Test
-    fun decrementAiFreeTrialCount() = runTest {
-        val initial = repo.getAiFreeTrialRemainingCount()
-        repo.decrementAiFreeTrialCount()
-        assertEquals(initial - 1, repo.getAiFreeTrialRemainingCount())
-    }
-
     // ===== Gallery Sort =====
 
     @Test
@@ -287,30 +274,6 @@ class SettingsRepositoryImplTest {
     fun saveGalleryOrderBy() = runTest {
         repo.saveGalleryOrderBy("artist")
         assertEquals("artist", repo.galleryOrderBy.first())
-    }
-
-    // ===== Playlist Algorithm =====
-
-    @Test
-    fun defaultAlgorithmType_defaultOptimized() = runTest {
-        assertEquals("OPTIMIZED_SIMILARITY", repo.getDefaultAlgorithmType())
-    }
-
-    @Test
-    fun saveDefaultAlgorithmType() = runTest {
-        repo.saveDefaultAlgorithmType("CHAIN_SIMILARITY")
-        assertEquals("CHAIN_SIMILARITY", repo.getDefaultAlgorithmType())
-    }
-
-    @Test
-    fun defaultWeightTemplate_defaultBalanced() = runTest {
-        assertEquals("BALANCED", repo.getDefaultWeightTemplate())
-    }
-
-    @Test
-    fun saveDefaultWeightTemplate() = runTest {
-        repo.saveDefaultWeightTemplate("HEAVY_BASS")
-        assertEquals("HEAVY_BASS", repo.getDefaultWeightTemplate())
     }
 
     // ===== Scan Config =====

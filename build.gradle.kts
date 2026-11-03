@@ -13,8 +13,12 @@ plugins {
     id("org.jetbrains.compose") version libs.versions.composeMultiplatform.get() apply false
 }
 
-val versionName: String = findProperty("hmp.versionName")?.toString() ?: "unknown"
-val versionCode: String = findProperty("hmp.versionCode")?.toString() ?: "0"
+// X-03：版本真源是 release.toml → syncVersion → gradle.properties。
+// 读不到就硬失败：此前 `?: "unknown"` 会让包"构建成功"但版本号是错的。
+val versionName: String = findProperty("hmp.versionName")?.toString()?.takeIf { it.isNotBlank() }
+    ?: throw GradleException("缺少 hmp.versionName：请先跑 ./gradlew syncVersion（真源 release.toml）")
+val versionCode: String = findProperty("hmp.versionCode")?.toString()?.takeIf { it.isNotBlank() }
+    ?: throw GradleException("缺少 hmp.versionCode：请先跑 ./gradlew syncVersion（真源 release.toml）")
 val projectDirFile: File = projectDir
 val isMacOS: Boolean = org.gradle.internal.os.OperatingSystem.current().isMacOsX
 val buildTargetLabel: String = System.getenv("HMP_BUILD_TARGET") ?: "all"
@@ -36,6 +40,21 @@ fun Task.maybeDepends(path: String) {
     if (rootProject.findProject(projectPath) != null) dependsOn(path)
 }
 
+/**
+ * X-10：显式指定平台的聚合任务，目标不含该平台时必须**报错**而不是静默零工作。
+ *
+ * 不能把这个判断塞进 [maybeDepends] —— `testAll` / `compileAll` 依赖它
+ * 「按当前目标跳过不存在的模块」，改全局会让单目标下的全量任务自炸。
+ */
+fun Task.requireTarget(modulePath: String) {
+    if (rootProject.findProject(modulePath) == null) {
+        throw GradleException(
+            "任务 $name 需要模块 $modulePath，但当前 HMP_BUILD_TARGET=$buildTargetLabel 未包含它。" +
+                "请用对应目标重跑（android / desktop / all）。"
+        )
+    }
+}
+
 // ── Helper: copy file to releases/ ──────────────────────────────────────
 
 fun copyToReleases(src: File, destName: String, category: String) {
@@ -45,7 +64,11 @@ fun copyToReleases(src: File, destName: String, category: String) {
         Files.copy(src.toPath(), outDir.resolve(destName).toPath(), StandardCopyOption.REPLACE_EXISTING)
         println("OK -> releases/$category/$destName")
     } else {
-        println("!! Not found: $src")
+        // X-03：缺件必须红。此前只 println("!! Not found")，release 会"成功"但产物不齐。
+        throw GradleException(
+            "缺少发布产物：$src —— 期望复制为 releases/$category/$destName。" +
+                "若刚用 -x 跳过了构建任务，请完整重跑。"
+        )
     }
 }
 
@@ -137,15 +160,17 @@ tasks.register("testUiDesktop") {
 tasks.register("testDesktop") {
     group = "verification"
     description = "只测 Desktop 侧（需构建目标含 desktop）"
-    maybeDepends(":desktop:app:desktopTest")
-    maybeDepends(":desktop:core-player:desktopTest")
+    // X-10：目标不含 desktop 时报错，不再"零依赖 → 必绿"
+    requireTarget(":desktop:app")
+    dependsOn(":desktop:app:desktopTest", ":desktop:core-player:desktopTest")
 }
 
 tasks.register("testAndroid") {
     group = "verification"
     description = "只测 Android 侧（需构建目标含 android）"
-    maybeDepends(":android:app:testDebugUnitTest")
-    maybeDepends(":android:core-player:testDebugUnitTest")
+    // X-10：同上 —— HMP_BUILD_TARGET=desktop 下跑 testAndroid 必须红
+    requireTarget(":android:app")
+    dependsOn(":android:app:testDebugUnitTest", ":android:core-player:testDebugUnitTest")
 }
 
 // ── 验证：编译（不含打包）──────────────────────────────────────────────
@@ -279,9 +304,12 @@ tasks.register("releaseDesktop") {
         val distDir = projectDirFile.resolve("desktop/app/build/compose/binaries/main")
         // 只有真正是单文件分发格式的才 copy；AppImage 不是文件产物（见 desktop/app 注释）
         val extensions = setOf("msi", "dmg", "deb")
-        distDir.walk().filter { it.isFile && it.extension in extensions }.forEach { f ->
-            copyToReleases(f, f.name, "desktop")
+        val artifacts = distDir.walk().filter { it.isFile && it.extension in extensions }.toList()
+        // X-03：一个都没找到时此前是"成功但什么都没复制" → 现在硬失败
+        if (artifacts.isEmpty()) {
+            throw GradleException("未找到桌面分发产物（msi/dmg/deb）：$distDir（打包任务是否被跳过？）")
         }
+        artifacts.forEach { f -> copyToReleases(f, f.name, "desktop") }
     }
 }
 
@@ -294,9 +322,9 @@ tasks.register("copyDesktopJar") {
 
     doLast {
         val jarDir = projectDirFile.resolve("desktop/app/build/compose/jars")
-        jarDir.listFiles()?.firstOrNull { it.extension == "jar" }?.let {
-            copyToReleases(it, "HMP-v${versionName}-desktop.jar", "desktop")
-        }
+        val jar = jarDir.listFiles()?.firstOrNull { it.extension == "jar" }
+            ?: throw GradleException("未找到 Uber JAR：$jarDir（packageUberJarForCurrentOS 是否被跳过？）")
+        copyToReleases(jar, "HMP-v${versionName}-desktop.jar", "desktop")
     }
 }
 

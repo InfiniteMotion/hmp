@@ -6,6 +6,9 @@ import com.hmp.log.HmpLog
 import com.hmp.log.LogTag
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 
 // ===== 模型返回的 wire 类型 =====
 //
@@ -283,4 +286,40 @@ internal object EnrichResponseParser {
         HmpLog.w(LogTag.AgentEnrich) { "📚 [$agentId] extractJsonArrayElements: NO array wrapper! cleaned(prefix)=${cleaned.take(200)}, fallback → ${fallback.size} objects" }
         return fallback
     }
+
+    // ===== T5：单首富化解析（一次调用出完整 draft）=====
+
+    private val singleSongJson = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
+
+    /**
+     * 解析单首精简输出。任何字段缺失都按空处理（模型偶尔只给 genre），
+     * 整体不是合法 JSON 才返回 null —— 让调用方计一次失败。
+     */
+    fun parseSingleSong(text: String, agentId: String = ""): EnrichDraft? {
+        val jsonText = JsonText.extractJsonBlock(text)
+        return runCatching {
+            val obj = singleSongJson.parseToJsonElement(jsonText).jsonObject
+            fun arr(key: String): List<String> =
+                obj[key]?.let { it as? kotlinx.serialization.json.JsonArray }
+                    ?.mapNotNull { (it as? kotlinx.serialization.json.JsonPrimitive)?.contentOrNull }
+                    ?.filter { it.isNotBlank() }
+                    ?: emptyList()
+
+            fun str(key: String): String =
+                (obj[key] as? kotlinx.serialization.json.JsonPrimitive)?.contentOrNull?.trim().orEmpty()
+
+            EnrichDraft(
+                genre = arr("genre"),
+                mood = arr("mood"),
+                scenario = arr("scenario"),
+                language = str("language").ifBlank { "UNKNOWN" },
+                era = str("era").ifBlank { "UNKNOWN" },
+                description = str("description"),
+                singerIntroduce = str("singerIntroduce"),
+            )
+        }.onFailure {
+            HmpLog.w(LogTag.AgentEnrich) { "📚 [$agentId] single-song JSON parse failed: ${text.take(120)}" }
+        }.getOrNull()
+    }
+
 }

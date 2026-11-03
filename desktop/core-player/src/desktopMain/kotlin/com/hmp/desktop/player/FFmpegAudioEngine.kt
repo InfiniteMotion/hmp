@@ -1,9 +1,11 @@
 package com.hmp.desktop.player
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -25,6 +27,10 @@ class FFmpegAudioEngine : AudioEngine {
     private var ffmpegProcess: Process? = null
     private var sourceLine: SourceDataLine? = null
     private var playbackJob: Job? = null
+
+    /** 播放代次：seek/stop 后旧协程的异常与“播完”事件都必须被识别为过期。 */
+    @Volatile
+    private var playbackGeneration: Long = 0L
 
     private var currentPath: String? = null
     private var isPaused = false
@@ -144,6 +150,7 @@ class FFmpegAudioEngine : AudioEngine {
     }
 
     override fun stop() {
+        playbackGeneration++
         isStopped = true
         isPaused = false
         playbackJob?.cancel()
@@ -184,6 +191,8 @@ class FFmpegAudioEngine : AudioEngine {
         sourceLine = null
         ffmpegProcess?.destroyForcibly()
         ffmpegProcess = null
+        // 先让旧协程“过期”，再取消：旧 read 可能抛 IOException 而非 CancellationException
+        playbackGeneration++
         playbackJob?.cancel()
 
         startPlayback(path, positionMs)
@@ -284,6 +293,7 @@ class FFmpegAudioEngine : AudioEngine {
      * Checks process exit code and reports errors.
      */
     private fun startPlayback(path: String, seekMs: Long) {
+        val generation = ++playbackGeneration
         playbackJob = scope.launch {
             try {
                 // Probe duration/format on IO thread (no longer blocks Main)
@@ -340,8 +350,10 @@ class FFmpegAudioEngine : AudioEngine {
                 if (!AudioSystem.isLineSupported(info)) {
                     val msg = "Audio line not supported for format: ${sampleRate.toInt()}Hz ${channels}ch"
                     HmpLog.e(LogTag.PlayerFfmpeg) { "🎬 ERROR: $msg" }
-                    withContext(Dispatchers.Main) {
-                        onError?.invoke(Exception(msg))
+                    if (generation == playbackGeneration) {
+                        withContext(Dispatchers.Main) {
+                            onError?.invoke(Exception(msg))
+                        }
                     }
                     return@launch
                 }
@@ -390,7 +402,7 @@ class FFmpegAudioEngine : AudioEngine {
 
                 HmpLog.i(LogTag.PlayerFfmpeg) { "🎬 process exited with code $exitCode, stderr: ${stderrOutput.take(300)}" }
 
-                if (!isStopped && isActive) {
+                if (!isStopped && isActive && generation == playbackGeneration) {
                     if (exitCode != 0 && bytesWritten == 0L) {
                         withContext(Dispatchers.Main) {
                             onError?.invoke(Exception("Playback failed (exit $exitCode): ${stderrOutput.take(200)}"))
@@ -402,11 +414,19 @@ class FFmpegAudioEngine : AudioEngine {
                     }
                 }
             } catch (e: Exception) {
+                // seek/stop 会取消旧协程；旧协程的 read 往往抛 IOException 而不是 CancellationException，
+                // 不能把它当播放故障上报（D1-05）。代次 + 协程存活 + isStopped 三者一起判。
+                val report = shouldReportPlaybackError(
+                    isCancellation = e is CancellationException,
+                    isStopped = isStopped,
+                    isActive = currentCoroutineContext().isActive,
+                    generation = generation,
+                    currentGeneration = playbackGeneration,
+                )
+                if (!report) return@launch
                 HmpLog.e(LogTag.PlayerFfmpeg, e) { "🎬 exception: ${e.message}" }
-                if (!isStopped) {
-                    withContext(Dispatchers.Main) {
-                        onError?.invoke(e)
-                    }
+                withContext(Dispatchers.Main) {
+                    onError?.invoke(e)
                 }
             }
         }
@@ -429,3 +449,17 @@ class FFmpegAudioEngine : AudioEngine {
         return (ms * bytesPerMs).toLong()
     }
 }
+
+/**
+ * 是否应把播放循环里的异常当成“播放错误”上报。
+ *
+ * 正常 seek 会取消旧 job；旧 job 的 read 可能抛 IOException，不能弹 toast。
+ * 拆成纯函数，便于在 `desktopTest` 里钉住四个条件。
+ */
+internal fun shouldReportPlaybackError(
+    isCancellation: Boolean,
+    isStopped: Boolean,
+    isActive: Boolean,
+    generation: Long,
+    currentGeneration: Long,
+): Boolean = !isCancellation && !isStopped && isActive && generation == currentGeneration

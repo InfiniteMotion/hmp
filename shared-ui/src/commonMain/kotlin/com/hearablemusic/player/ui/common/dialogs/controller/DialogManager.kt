@@ -4,7 +4,6 @@ import com.hmp.domain.agent.port.ConfirmDecision
 import com.hmp.domain.agent.port.ConfirmStep
 import com.hearablemusic.player.ui.common.dialogs.viewmodel.DialogEvent
 import com.hearablemusic.player.ui.common.dialogs.viewmodel.MessageDuration
-import com.hearablemusic.player.ui.common.util.nowEpochMillis
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -14,6 +13,8 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlin.coroutines.resume
 
 /**
@@ -46,17 +47,31 @@ class DialogManager {
     private val pendingConfirms = mutableMapOf<Long, PendingConfirm>()
 
     /**
+     * 确认链的 key（D6-08）。
+     *
+     * 原来用 `nowEpochMillis()` 当 key：同一毫秒内两条确认链会拿到同一个 id，
+     * 后写的把前一条覆盖掉 —— 前一条的 continuation 永远不会 `resume`，对应工具调用挂死。
+     * 改成进程内单调计数器之后，碰撞在结构上不可能发生；从 0 开始也便于测试断言。
+     *
+     * 用 `Mutex` 而不是 `AtomicLong`：`kotlin.concurrent.atomics` 在当前 Kotlin 版本仍是实验 API，
+     * 而这里只在 `requestConfirm` 的挂起点前取一次号，串行化成本可以忽略。
+     */
+    private val idMutex = Mutex()
+    private var nextConfirmId = 0L
+
+    /** internal 而非 private：D6-08 的并发判据直接压这一层（事件流有 DROP_OLDEST 缓冲，按事件数断言不可靠）。 */
+    internal suspend fun allocateConfirmId(): Long = idMutex.withLock { ++nextConfirmId }
+
+    /**
      * 请求用户做一条确认链。挂起直到 UI 层全部通过 / 拒绝 / 取消。
      * STRONG_CONFIRM 场景传 2 步：第一步 Agent 意图，第二步系统权限确认。
      */
-    suspend fun requestConfirm(steps: List<ConfirmStep>): ConfirmDecision =
-        suspendCancellableCoroutine { cont ->
-            if (steps.isEmpty()) {
-                // 没 step → 直接 Approved
-                cont.resume(ConfirmDecision.Approved)
-                return@suspendCancellableCoroutine
-            }
-            val id = nowEpochMillis()
+    suspend fun requestConfirm(steps: List<ConfirmStep>): ConfirmDecision {
+        // 没 step → 直接 Approved（不进挂起，也不占号）
+        if (steps.isEmpty()) return ConfirmDecision.Approved
+
+        val id = allocateConfirmId()
+        return suspendCancellableCoroutine { cont ->
             val pending = PendingConfirm(
                 steps = steps,
                 stepIndex = 0,
@@ -78,6 +93,7 @@ class DialogManager {
                 pendingConfirms.remove(id)
             }
         }
+    }
 
     /** UI 层：用户点当前 step 的「确认」。如果还有下一步 → 推进；否则整条链 Approved。 */
     fun advanceConfirmStep(id: Long) {

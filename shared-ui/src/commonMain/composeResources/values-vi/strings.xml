@@ -46,8 +46,7 @@
     <string name="today_heartbeat_playlist">Danh sách phát yêu thích hôm nay</string>
     <string name="generating_heartbeat_playlist">Đang tạo danh sách phát yêu thích…</string>
     <string name="play_heartbeat_playlist">Phát danh sách phát yêu thích</string>
-    <string name="generated">Đã tạo</string>
-    <string name="suitable_for_now">Phù hợp lúc này</string>
+<string name="suitable_for_now">Phù hợp lúc này</string>
     <string name="banner_daily_A">Thư viện</string>
     <string name="banner_daily_AA">MẶC ĐỊNH</string>
     <string name="banner_daily_B">Thể loại</string>
@@ -265,8 +264,7 @@
     <string name="bass_boost">Tăng cường bass</string>
     <string name="surround_sound">Âm thanh vòm</string>
     <string name="reverb">Vang vọng</string>
-    <string name="balance">Cân bằng</string>
-    <string name="hall">Nhà hát</string>
+<string name="hall">Nhà hát</string>
     <string name="church">Nhà thờ</string>
     <string name="small_room">Phòng nhỏ</string>
     <string name="large_room">Phòng lớn</string>
@@ -307,19 +305,16 @@
     <string name="ai_tab_free">Dùng thử miễn phí</string>
     <string name="ai_tab_custom">Tùy chỉnh</string>
     <string name="ai_tab_paid">Trả phí</string>
-    <string name="ai_free_remaining">Còn lại: %1$d lần</string>
-    <string name="ai_free_used">Đã dùng: %1$d / %2$d</string>
+    <string name="ai_free_remaining">Còn lại: %1$s token</string>
+    <string name="ai_free_used">Đã dùng: %1$s / %2$s</string>
     <string name="ai_free_exhausted">Đã hết lượt dùng thử miễn phí. Vui lòng cấu hình Khóa API của riêng bạn để tiếp tục.</string>
     <string name="ai_free_hint">Mỗi bài hát được xử lý tính là một lần sử dụng. Không cần cấu hình Khóa API.</string>
     <string name="ai_paid_coming_soon">Sắp ra mắt</string>
     <string name="ai_paid_description">Chế độ trả phí với hạn ngạch cao hơn và nhiều tính năng hơn đang được phát triển.</string>
     <string name="test">Kiểm tra</string>
     <string name="test_failed">Kiểm tra thất bại: %1$s</string>
-    <string name="save_failed">Lưu thất bại: %1$s</string>
-    <string name="fetch_models_failed">Lấy mô hình thất bại: %1$s</string>
-    <string name="generation_error">Lỗi tạo: %1$s</string>
-    <string name="generation_failed">Tạo thất bại: %1$s</string>
-    <string name="connected">Đã kết nối</string>
+<string name="fetch_models_failed">Lấy mô hình thất bại: %1$s</string>
+<string name="connected">Đã kết nối</string>
     <string name="backup">Sao lưu</string>
     <string name="backup_settings">Sao lưu</string>
     <string name="backup_desc">Sao lưu dữ liệu của bạn</string>
@@ -357,10 +352,7 @@
     <string name="share_music">Chia sẻ nhạc</string>
     <string name="music_not_found">Không tìm thấy bài hát</string>
     <string name="genre">Thể loại</string>
-    <string name="mood">Tâm trạng</string>
-    <string name="scene">Kịch bản</string>
-    <string name="era">Kỷ nguyên</string>
-    <string name="personal_stats">Cá nhân</string>
+<string name="personal_stats">Cá nhân</string>
     <string name="year">Năm</string>
     <string name="favorite">Yêu thích</string>
     <string name="heart">Yêu thích</string>
@@ -408,8 +400,7 @@
     <string name="top_songs_in_playlists">Bài hát hàng đầu trong danh sách phát</string>
     <string name="startup_count_label">Số lần khởi động</string>
     <string name="recommendation_mode">Đề xuất</string>
-    <string name="generate_recommend_list">Tạo</string>
-    <string name="start_experience">Bắt đầu</string>
+<string name="start_experience">Bắt đầu</string>
     <string name="intro_step_1">Chào mừng</string>
     <string name="intro_step_1_desc">Cảm ơn bạn đã chọn Hearable Music</string>
     <string name="intro_step_2">Quyền truy cập</string>
@@ -473,7 +464,8 @@
     <string name="unsaved_changes">Thay đổi chưa lưu</string>
     <string name="agent_monitor_title">Giám sát Agent</string>
     <string name="agent_monitor_token_usage">Mức dùng token</string>
-    <string name="agent_monitor_total_usage">Tổng sử dụng · toàn bộ sổ cái</string>
+    <string name="agent_monitor_total_usage">30 ngày qua</string>
+    <string name="agent_monitor_token_clear_confirm">Xóa %1$s bản ghi nhật ký (từ %2$s)? Không thể hoàn tác thao tác này.</string>
     <string name="agent_monitor_quota_line">Hôm nay %1$s · Còn lại %2$s · %3$d%%</string>
     <string name="agent_monitor_run_logs">Nhật ký chạy</string>
     <string name="agent_monitor_log_count">%1$d nhật ký ›</string>
@@ -511,7 +503,7 @@
     <string name="agent_ai_agent_mgmt_header">Quản lý Agent</string>
     <string name="agent_ai_memory_header">Ký ức</string>
     <string name="agent_ai_free_tier">Dùng thử miễn phí</string>
-    <string name="agent_ai_free_remaining">Còn %1$d lượt</string>
+    <string name="agent_ai_free_remaining">Còn %1$s token</string>
     <string name="agent_ai_not_configured">Chưa cấu hình</string>
     <string name="agent_ai_custom_endpoint">Endpoint tùy chỉnh</string>
     <string name="agent_ai_paid_mode">Gói trả phí</string>
@@ -789,4 +781,30 @@
     <string name="intro_skip_permission">Để sau</string>
     <string name="library_permission_required">Chưa được cấp quyền đọc âm thanh — không thể quét thư viện</string>
     <string name="go_to_settings">Mở cài đặt</string>
+
+
+    <!-- 二-11 / 一-7 新增键的译文补齐（D8-06 门禁） -->
+    <string name="edit_tags_unsupported">Thiết bị này không hỗ trợ chỉnh sửa thẻ</string>
+    <string name="ai_key_needs_refill">Không thể giải mã khóa API đã lưu (xảy ra sau khi chuyển thiết bị hoặc khôi phục từ đám mây). Vui lòng nhập lại và lưu.</string>
+    <string name="ai_free_unavailable">Thiết bị này không có dịch vụ AI tích hợp. Hãy dùng cấu hình tùy chỉnh.</string>
+    <string name="ai_quota_exhausted_hint">Đã hết hạn mức AI. Hãy điều chỉnh giới hạn hoặc thêm khóa API của bạn trong Cài đặt.</string>
+    <string name="agent_token_limits_title">Giới hạn sử dụng</string>
+    <string name="agent_token_limits_enable">Bật giới hạn hàng ngày</string>
+    <string name="agent_token_limits_global">Giới hạn hàng ngày toàn cục (token, để trống = không giới hạn)</string>
+    <string name="agent_token_limits_per_agent">Giới hạn hàng ngày (token, để trống = không giới hạn)</string>
+    <string name="agent_token_limits_save">Lưu giới hạn</string>
+    <string name="backup_scope_note">Bao gồm: danh sách phát và thứ tự, trạng thái từng bài (yêu thích, đánh giá, số lần phát, nhãn), thống kê nghe, giao diện và cài đặt điểm cuối AI. Không bao gồm: khóa API, thư mục quét, cài đặt lời bài hát và hiệu ứng âm thanh, cấu hình từng agent, vị trí phát.</string>
+    <string name="restore_overwrites_note">Khôi phục sẽ ghi đè danh sách phát hiện tại, trạng thái từng bài và thống kê nghe. Khóa API, thư mục quét, cài đặt lời bài hát và hiệu ứng âm thanh không có trong bản sao lưu và sẽ giữ nguyên.</string>
+    <string name="db_too_new_title">Phiên bản cơ sở dữ liệu quá mới</string>
+    <string name="db_too_new_body">Ứng dụng này hỗ trợ phiên bản cơ sở dữ liệu %1$d, nhưng cơ sở dữ liệu đã lưu là phiên bản %2$d, mới hơn. Dữ liệu của bạn không bị thay đổi. Hãy cập nhật ứng dụng hoặc khôi phục từ bản sao lưu cũ hơn.</string>
+    <string name="usage_data_load_failed">Không tải được khoảng thời gian này. Hãy thử lại sau.</string>
+    <string name="agent_cfg_global_unavailable">Điểm cuối toàn cục không khả dụng: chưa cấu hình khóa API</string>
+    <string name="home_reco_unavailable">Đã hết hạn mức</string>
+
+
+    <!-- 播放页电台入口（2026-11-03） -->
+    <string name="radio_card_open_console">Xem chương trình</string>
+    <string name="radio_card_end_session">Kết thúc phiên này</string>
+    <string name="radio_entry_seed_title">Bắt đầu từ bài này</string>
+    <string name="radio_entry_seed_desc">Chọn cục bộ trước, AI tiếp nối; phát sau bài hiện tại</string>
 </resources>

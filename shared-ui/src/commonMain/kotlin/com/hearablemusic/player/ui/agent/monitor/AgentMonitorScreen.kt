@@ -11,6 +11,10 @@ import com.hearablemusic.player.ui.generated.resources.agent_monitor_run_logs
 import com.hearablemusic.player.ui.generated.resources.agent_monitor_title
 import com.hearablemusic.player.ui.generated.resources.agent_monitor_token_usage
 import com.hearablemusic.player.ui.generated.resources.agent_monitor_total_usage
+import com.hearablemusic.player.ui.generated.resources.agent_monitor_token_clear_confirm
+import com.hearablemusic.player.ui.generated.resources.cancel
+import com.hearablemusic.player.ui.generated.resources.clear
+import com.hearablemusic.player.ui.generated.resources.confirm
 
 import com.hearablemusic.player.ui.agent.AgentStatusColors
 import com.hearablemusic.player.ui.agent.agentDetailOf
@@ -47,6 +51,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -84,8 +89,10 @@ import com.hmp.domain.agent.runtime.MasterAgent
 import com.hmp.log.LogEntry
 import com.hmp.log.MemLogWriter
 import com.hmp.memLogWriter
-import com.hmp.data.database.TokenAggregateRow
 import com.hmp.data.database.TokenLedgerDao
+import com.hmp.data.util.localDateString
+import com.hmp.domain.agent.quota.TokenLedgerMaintenance
+import com.hmp.domain.agent.quota.TokenLedgerSnapshot
 import com.hearablemusic.player.ui.common.components.base.HMPCard
 import com.hearablemusic.player.ui.common.dialogs.base.ScrimDialog
 import com.hearablemusic.player.ui.common.util.hazeStyleForIntensity
@@ -109,21 +116,23 @@ fun AgentMonitorScreen(
 ) {
     val masterAgent: MasterAgent = koinInject()
     val ledgerDao: TokenLedgerDao = koinInject()
+    val ledger = remember(ledgerDao) { TokenLedgerMaintenance(ledgerDao) }
     val scope = rememberCoroutineScope()
     // 日志弹窗的毛玻璃要采样本页内容 → 本页建 HazeState 并把内容标为 hazeSource。
     val hazeState = rememberHazeState()
 
-    // 各 Agent 的 Token 分账（账本按 agent_id 聚合；label 即 agent_id）
-    var agentRows by remember { mutableStateOf<List<TokenAggregateRow>>(emptyList()) }
+    // 账本快照：总用量与按 Agent 分账共用同一个 30 天窗口（D6-05）。
+    // 不再分别调 sumTotal() / sumByAgent(0L) —— 那样既全表扫，又让两处口径对不上。
+    var ledgerSnap by remember { mutableStateOf<TokenLedgerSnapshot?>(null) }
 
     fun reloadAgentTokens() {
-        scope.launch { runCatching { agentRows = ledgerDao.sumByAgent(0L) } }
+        scope.launch { runCatching { ledgerSnap = ledger.snapshot() } }
     }
     LaunchedEffect(Unit) { reloadAgentTokens() }
 
     @Composable
     fun tokenTextFor(agentId: String): String? {
-        val row = agentRows.firstOrNull { it.label.equals(agentId, ignoreCase = true) } ?: return null
+        val row = ledgerSnap?.agentRows?.firstOrNull { it.label.equals(agentId, ignoreCase = true) } ?: return null
         return stringResource(Res.string.agent_monitor_token_line, fmtTokens(row.totalTokens), row.calls)
     }
 
@@ -153,7 +162,14 @@ fun AgentMonitorScreen(
         ) {
             TokenMonitorCard(
                 masterAgent = masterAgent,
-                onReloaded = { reloadAgentTokens() },
+                snapshot = ledgerSnap,
+                onReload = { reloadAgentTokens() },
+                onClear = {
+                    scope.launch {
+                        runCatching { ledger.clearAll() }
+                        reloadAgentTokens()
+                    }
+                },
             )
 
             // 网格：每行 [columns] 张，同行等高。
@@ -193,42 +209,52 @@ fun AgentMonitorScreen(
 @Composable
 private fun TokenMonitorCard(
     masterAgent: MasterAgent,
-    onReloaded: () -> Unit,
+    snapshot: TokenLedgerSnapshot?,
+    onReload: () -> Unit,
+    onClear: () -> Unit,
 ) {
     val snap by masterAgent.tokenUsage.collectAsState()
-    val ledgerDao: TokenLedgerDao = koinInject()
-    var total by remember { mutableStateOf(0L) }
-    val scope = rememberCoroutineScope()
+    val quotaGate: com.hmp.domain.agent.quota.TokenQuotaGate = koinInject()
+    val mode by quotaGate.currentMode.collectAsState()
+    val bucketUsage by quotaGate.bucketUsage.collectAsState()
+    val exhaustedBuckets by quotaGate.exhausted.collectAsState()
 
-    fun reload() {
-        scope.launch {
-            runCatching {
-                total = ledgerDao.sumTotal()
-                onReloaded()
-            }
-        }
-    }
-    LaunchedEffect(Unit) { reload() }
+    var showClearConfirm by remember { mutableStateOf(false) }
+    val total = snapshot?.totalTokens ?: 0L
+    val totalRows = snapshot?.totalRows ?: 0L
+    val earliestText = snapshot?.earliestMs?.let { localDateString(it) } ?: "—"
 
     HMPCard {
         Column(modifier = Modifier.padding(16.dp)) {
-            // 标题 + 刷新
+            // 标题 + 清空（仅在有记录时可用）+ 刷新
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 SectionLabel(stringResource(Res.string.agent_monitor_token_usage))
-                IconButton(onClick = { reload() }, modifier = Modifier.size(28.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        "↻",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        stringResource(Res.string.clear),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (totalRows > 0) MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(6.dp))
+                            .clickable(enabled = totalRows > 0) { showClearConfirm = true }
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
                     )
+                    IconButton(onClick = onReload, modifier = Modifier.size(28.dp)) {
+                        Text(
+                            "↻",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
             }
             Spacer(Modifier.height(6.dp))
-            // 累计总用量（账本全量）——数字是这张卡的视觉焦点
+            // 窗口内总用量（近 30 天）——数字是这张卡的视觉焦点
             Text(
                 fmtTokens(total),
                 style = MaterialTheme.typography.headlineSmall,
@@ -241,15 +267,75 @@ private fun TokenMonitorCard(
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            Spacer(Modifier.height(14.dp))
-            // 实时配额进度（按日滚动计数）
-            SlimProgress(snap.rate)
-            Spacer(Modifier.height(6.dp))
-            Text(
-                stringResource(Res.string.agent_monitor_quota_line, snap.used, snap.remaining, (snap.rate * 100).toInt()),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            // 配额进度：只有真的存在上限时才画。
+            // CUSTOM 且用户没开限额时 quota=0 —— 画一条 0% 的进度条 +「剩余 0」是在骗人。
+            if (snap.quota > 0L) {
+                Spacer(Modifier.height(14.dp))
+                SlimProgress(snap.rate)
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    stringResource(Res.string.agent_monitor_quota_line, snap.used, snap.remaining, (snap.rate * 100).toInt()),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            // 免费模式：四桶明细（哪桶用完了标红）。用户要能看出是谁把额度吃掉的。
+            if (mode == com.hmp.domain.setting.model.AiAccessMode.FREE) {
+                Spacer(Modifier.height(12.dp))
+                com.hmp.domain.agent.quota.QuotaBucket.entries.forEach { bucket ->
+                    val used = bucketUsage[bucket] ?: 0L
+                    val cap = com.hmp.domain.agent.quota.TokenQuotaGate.FREE_BUCKET_CAPS[bucket] ?: 0L
+                    val drained = bucket in exhaustedBuckets
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        Text(
+                            text = bucket.bucketId.replaceFirstChar { it.uppercase() },
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (drained) MaterialTheme.colorScheme.error
+                            else MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Text(
+                            text = "${fmtTokens(used)} / ${fmtTokens(cap)}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (drained) MaterialTheme.colorScheme.error
+                            else MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    // 清空确认：正文带「将删除多少条、自哪天起」，避免用户点一下就抹掉全部诊断数据。
+    if (showClearConfirm) {
+        ScrimDialog(onDismissRequest = { showClearConfirm = false }) {
+            HMPCard(modifier = Modifier.fillMaxWidth(0.92f), shape = RoundedCornerShape(24.dp)) {
+                Column(modifier = Modifier.padding(20.dp)) {
+                    Text(
+                        stringResource(Res.string.agent_monitor_token_clear_confirm, totalRows.toString(), earliestText),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End
+                    ) {
+                        TextButton(onClick = { showClearConfirm = false }) {
+                            Text(stringResource(Res.string.cancel))
+                        }
+                        TextButton(onClick = {
+                            showClearConfirm = false
+                            onClear()
+                        }) {
+                            Text(stringResource(Res.string.confirm))
+                        }
+                    }
+                }
+            }
         }
     }
 }

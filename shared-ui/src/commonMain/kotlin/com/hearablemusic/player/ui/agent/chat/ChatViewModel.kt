@@ -23,7 +23,10 @@ import com.hmp.domain.agent.port.StoredAgentMessage
 import com.hmp.domain.setting.usecase.UserSettingsUseCase
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -58,7 +61,13 @@ class ChatViewModel(
     private val userSettings: UserSettingsUseCase,
     private val playbackCommandPort: PlaybackCommandPort,
     private val agentMessageStore: AgentMessageStore,
+    private val quotaGate: com.hmp.domain.agent.quota.TokenQuotaGate,
 ) : ViewModel() {
+
+    /** Master 桶是否已耗尽 —— 发送按钮置灰 + 顶部提示文字都看它。 */
+    val quotaBlocked: StateFlow<Boolean> = quotaGate.usage
+        .map { quotaGate.isBucketExhausted(com.hmp.domain.agent.quota.QuotaBucket.MASTER.bucketId) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), quotaGate.isBucketExhausted(com.hmp.domain.agent.quota.QuotaBucket.MASTER.bucketId))
 
     private val _state = MutableStateFlow(ChatUiState())
     val state: StateFlow<ChatUiState> = _state.asStateFlow()
@@ -126,6 +135,7 @@ class ChatViewModel(
 
     /** 发送：追加用户气泡 → 启动一轮引擎对话。 */
     fun send() {
+        if (quotaBlocked.value) return  // UI 已置灰；这里再兜一层，防止外部入口绕过
         val text = _state.value.input.trim()
         if (text.isEmpty()) return
         _state.update { it.copy(input = "") }

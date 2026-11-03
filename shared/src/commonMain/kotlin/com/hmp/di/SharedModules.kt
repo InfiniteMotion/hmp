@@ -10,7 +10,8 @@ import com.hmp.domain.agent.config.EngineDefaults
 import com.hmp.domain.agent.port.LibraryMutatedNotifier
 import com.hmp.domain.agent.port.LlmTransport
 import com.hmp.domain.agent.port.PlaybackObservationBus
-import com.hmp.domain.agent.runtime.GlobalTokenCounter
+import com.hmp.domain.agent.port.TimeProvider
+import com.hmp.domain.agent.quota.TokenQuotaGate
 import com.hmp.domain.agent.runtime.MasterAgent
 import com.hmp.domain.agent.runtime.TokenMeter
 import com.hmp.domain.setting.SettingsRepository
@@ -28,7 +29,6 @@ import com.hmp.domain.music.usecase.RemoveFromLibraryUseCase
 import com.hmp.domain.music.usecase.RestoreToLibraryUseCase
 import com.hmp.domain.music.usecase.SearchMusicUseCase
 import com.hmp.domain.music.usecase.SyncMusicFromDeviceIncrementalUseCase
-import com.hmp.domain.playlist.usecase.GeneratePlaylistUseCase
 import com.hmp.domain.playlist.usecase.ManagePlaylistUseCase
 import com.hmp.domain.setting.usecase.CurrentPlaybackUseCase
 import com.hmp.domain.setting.usecase.GetUserUsageDataUseCase
@@ -71,19 +71,30 @@ val sharedModule = module {
     // 控制器侧拿 Sink（只写），agent 侧拿 Bus（订阅 Flow）。
     singleOf(::PlaybackObservationBus)
 
-    // ── F12-T1：Token 计量基础设施 ──
-    // 全局日配额计数器：MasterAgent 与 TokenMeter 共享同一实例，
-    // 保证"计量累加"和"配额熔断"读的是同一份数据（否则闸门看不见自己的消费）。
-    single { GlobalTokenCounter(timeProvider = { currentTimeMillis() }) }
+    // 统一时钟（T1 配额门面 / 计量 / 计数器共用）：图校验要能静态看见它，别再用内联 lambda。
+    single<TimeProvider> { { currentTimeMillis() } }
 
+    // ── F12-T1：Token 计量基础设施 ──
     // 唯一记账口：一次 LLM 调用写三处 —— 当日累加（GlobalTokenCounter）·
     // 窗口占用（各 AgentContextBudget 自行更新）· 明细账本（token_ledger）。
     // ledgerDao 由平台模块提供（Room），跨模块解析。
+    // 配额闸门：免费体验 100M 总额 + 四桶硬顶（40/25/25/10）；自定义模式按用户日限额。
+    // 状态从账本回填，不依赖进程内计数 —— 重启不会把已用额度清零。
     single {
-        TokenMeter(
-            counter = get(),
+        TokenQuotaGate(
             ledgerDao = get(),
-            timeProvider = { currentTimeMillis() },
+            settingsRepository = get(),
+            timeProvider = get(),
+        )
+    }
+
+    single {
+        val settings = get<SettingsRepository>()
+        TokenMeter(
+            ledgerDao = get(),
+            timeProvider = get(),
+            quotaGate = get(),
+            accessModeProvider = { settings.getAiAccessMode().name },
         )
     }
 
@@ -129,7 +140,7 @@ val sharedModule = module {
         MasterAgent(
             timeProvider = { currentTimeMillis() },
             // F12-T1：注入共享单例，确保计量与配额熔断读同一份计数（meter 同 bean）
-            tokenCounter = get(),
+            quotaGate = get(),
             tokenMeter = get(),
             musicRepository = get(),
             // 对话依赖
@@ -211,7 +222,6 @@ val sharedModule = module {
     single { EditMusicTagsUseCase(get()) }
     single { GetDailyMusicRecommendationUseCase(get(), get()) }
     single { ManagePlaylistUseCase(get(), get()) }
-    single { GeneratePlaylistUseCase(get(), get()) }
     single { UserSettingsUseCase(get()) }
     single { LyricsSettingsUseCase(get()) }
     single { CurrentPlaybackUseCase(get(), get(), get()) }

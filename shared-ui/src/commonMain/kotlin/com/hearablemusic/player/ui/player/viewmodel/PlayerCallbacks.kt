@@ -1,9 +1,6 @@
 package com.hearablemusic.player.ui.player.viewmodel
 
 import com.hmp.domain.music.MusicInfo
-import com.hmp.domain.playlist.AlgorithmType
-import com.hmp.domain.playlist.ExtensionConfig
-import com.hmp.domain.playlist.WeightTemplate
 
 interface PlayerCallbacks {
     fun onSeek(position: Long)
@@ -16,8 +13,6 @@ interface PlayerCallbacks {
     fun onShowTimerDialog()
     fun onCancelTimer()
     fun onHeartMode()
-    fun onGeneratePlaylist(seedMusicId: Long)
-    fun onSaveDefaultConfig(algorithmType: AlgorithmType, weightTemplate: WeightTemplate, extensionConfig: ExtensionConfig)
     fun onArtistClick(artistName: String)
     fun onClearPlaylist()
     fun onPlayItem(musicInfo: MusicInfo)

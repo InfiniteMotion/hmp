@@ -49,8 +49,7 @@
     <string name="today_heartbeat_playlist">Today\'s Heartbeat Playlist</string>
     <string name="generating_heartbeat_playlist">Generating heartbeat playlist…</string>
     <string name="play_heartbeat_playlist">Play heartbeat playlist</string>
-    <string name="generated">Generated</string>
-    <string name="suitable_for_now">Suitable for now</string>
+<string name="suitable_for_now">Suitable for now</string>
     <!-- Banner -->
     <string name="banner_daily_A">Library</string>
     <string name="banner_daily_AA">DEFAULT</string>
@@ -286,8 +285,7 @@
     <string name="bass_boost">Bass Boost</string>
     <string name="surround_sound">Surround Sound</string>
     <string name="reverb">Reverb</string>
-    <string name="balance">Balance</string>
-    <string name="hall">Hall</string>
+<string name="hall">Hall</string>
     <string name="church">Church</string>
     <string name="small_room">Small Room</string>
     <string name="large_room">Large Room</string>
@@ -332,20 +330,24 @@
     <string name="ai_key_needs_refill">The saved API key could not be decrypted (this happens after a device transfer or cloud restore). Please re-enter it and save.</string>
     <string name="ai_tab_custom">Custom</string>
     <string name="ai_tab_paid">Paid</string>
-    <string name="ai_free_remaining">Remaining: %1$d times</string>
-    <string name="ai_free_used">Used: %1$d / %2$d</string>
+    <string name="ai_free_remaining">%1$s tokens left</string>
+    <string name="ai_free_used">Used %1$s / %2$s</string>
     <string name="ai_free_exhausted">Free trial exhausted. Please configure your own API Key to continue.</string>
-    <string name="ai_free_hint">Each song processed counts as one use. No API Key configuration needed.</string>
+    <string name="ai_free_unavailable">No built-in AI service on this device. Use a custom configuration.</string>
+    <string name="ai_quota_exhausted_hint">AI quota exhausted. Adjust the limit or add your own API Key in Settings.</string>
+    <string name="agent_token_limits_title">Usage limits</string>
+    <string name="agent_token_limits_enable">Enable daily limits</string>
+    <string name="agent_token_limits_global">Global daily cap (tokens, blank = unlimited)</string>
+    <string name="agent_token_limits_per_agent">Daily cap (tokens, blank = unlimited)</string>
+    <string name="agent_token_limits_save">Save limits</string>
+    <string name="ai_free_hint">The free tier uses the built-in service, split across the four agents. When it runs out, add your own key under Custom.</string>
     <string name="ai_paid_coming_soon">Coming Soon</string>
     <string name="ai_paid_description">Paid mode with higher quotas and more features is under development.</string>
     <!-- AI 错误 -->
     <string name="test">Test</string>
     <string name="test_failed">Test failed: %1$s</string>
-    <string name="save_failed">Save failed: %1$s</string>
-    <string name="fetch_models_failed">Failed to fetch models: %1$s</string>
-    <string name="generation_error">Generation error: %1$s</string>
-    <string name="generation_failed">Generation failed: %1$s</string>
-    <string name="connected">Connected</string>
+<string name="fetch_models_failed">Failed to fetch models: %1$s</string>
+<string name="connected">Connected</string>
     <!-- ==================== 备份恢复 ==================== -->
     <string name="backup">Backup</string>
     <string name="backup_settings">Backup</string>
@@ -388,10 +390,7 @@
     <string name="music_not_found">Music not found</string>
     <!-- 分类标签 -->
     <string name="genre">Genre</string>
-    <string name="mood">Mood</string>
-    <string name="scene">Scenario</string>
-    <string name="era">Era</string>
-    <string name="personal_stats">Personal</string>
+<string name="personal_stats">Personal</string>
     <string name="year">Year</string>
     <string name="favorite">Favorite</string>
     <string name="heart">Heart</string>
@@ -444,8 +443,7 @@
     <string name="top_songs_in_playlists">Top songs in playlists</string>
     <string name="startup_count_label">Startup count</string>
     <string name="recommendation_mode">Recommendation</string>
-    <string name="generate_recommend_list">Generate</string>
-    <!-- ==================== 引导页 ==================== -->
+<!-- ==================== 引导页 ==================== -->
     <string name="start_experience">Start</string>
     <string name="intro_step_1">Welcome</string>
     <string name="intro_step_1_desc">Thank you for choosing Hearable Music</string>
@@ -516,7 +514,8 @@
     <string name="agent_capsule_radio_desc">Radio on — long press for console</string>
     <string name="agent_monitor_title">Agent Monitor</string>
     <string name="agent_monitor_token_usage">Token Usage</string>
-    <string name="agent_monitor_total_usage">Total usage · full ledger</string>
+    <string name="agent_monitor_total_usage">Last 30 days</string>
+    <string name="agent_monitor_token_clear_confirm">Delete %1$s ledger rows (since %2$s)? This cannot be undone.</string>
     <string name="agent_monitor_quota_line">Today %1$s · Remaining %2$s · %3$d%%</string>
     <string name="agent_monitor_run_logs">Run logs</string>
     <string name="agent_monitor_log_count">%1$d logs ›</string>
@@ -554,7 +553,7 @@
     <string name="agent_ai_agent_mgmt_header">Agent Management</string>
     <string name="agent_ai_memory_header">Memory</string>
     <string name="agent_ai_free_tier">Free Trial</string>
-    <string name="agent_ai_free_remaining">Remaining %1$d uses</string>
+    <string name="agent_ai_free_remaining">%1$s tokens left</string>
     <string name="agent_ai_not_configured">Not configured</string>
     <string name="agent_ai_custom_endpoint">Custom Endpoint</string>
     <string name="agent_ai_paid_mode">Paid Plan</string>
@@ -606,6 +605,7 @@
     <string name="agent_cfg_endpoint_custom">Dedicated Endpoint</string>
     <string name="agent_cfg_endpoint_url_label">Endpoint URL</string>
     <string name="agent_cfg_model_label">Model</string>
+    <string name="agent_cfg_global_unavailable">Global endpoint unavailable: no API key configured</string>
     <string name="agent_cfg_following_global">Currently following the global AI settings</string>
     <string name="agent_cfg_loading">Loading…</string>
     <string name="agent_cfg_endpoint_value">Endpoint: %1$s</string>
@@ -684,6 +684,7 @@
     <string name="home_explore">Explore</string>
     <string name="home_today_reco">Today's picks</string>
     <string name="home_private_reco">Private picks</string>
+    <string name="home_reco_unavailable">Quota used up</string>
     <string name="play_all">Play all</string>
     <string name="reco_label_daily">Daily picks · %1$d songs</string>
     <string name="reco_label_private">Private picks · %1$d songs</string>
@@ -829,4 +830,11 @@
     <string name="intro_skip_permission">Not now</string>
     <string name="library_permission_required">Audio permission not granted — cannot scan your library</string>
     <string name="go_to_settings">Open settings</string>
+
+
+    <!-- 播放页电台入口（2026-11-03） -->
+    <string name="radio_card_open_console">View program</string>
+    <string name="radio_card_end_session">End this session</string>
+    <string name="radio_entry_seed_title">Start from this song</string>
+    <string name="radio_entry_seed_desc">A local batch first, then AI continues; queued after the current track</string>
 </resources>

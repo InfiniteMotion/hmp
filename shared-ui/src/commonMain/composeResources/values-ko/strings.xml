@@ -46,8 +46,7 @@
     <string name="today_heartbeat_playlist">오늘의 하트비트 재생목록</string>
     <string name="generating_heartbeat_playlist">하트비트 재생목록 생성 중…</string>
     <string name="play_heartbeat_playlist">하트비트 재생목록 재생</string>
-    <string name="generated">생성됨</string>
-    <string name="suitable_for_now">지금에 적합</string>
+<string name="suitable_for_now">지금에 적합</string>
     <string name="banner_daily_A">라이브러리</string>
     <string name="banner_daily_AA">DEFAULT</string>
     <string name="banner_daily_B">장르</string>
@@ -265,8 +264,7 @@
     <string name="bass_boost">베이스 부스트</string>
     <string name="surround_sound">서라운드 사운드</string>
     <string name="reverb">리버브</string>
-    <string name="balance">밸런스</string>
-    <string name="hall">홀</string>
+<string name="hall">홀</string>
     <string name="church">교회</string>
     <string name="small_room">작은 방</string>
     <string name="large_room">큰 방</string>
@@ -307,19 +305,16 @@
     <string name="ai_tab_free">무료 체험</string>
     <string name="ai_tab_custom">사용자 지정</string>
     <string name="ai_tab_paid">유료</string>
-    <string name="ai_free_remaining">남은 횟수: %1$d회</string>
-    <string name="ai_free_used">사용: %1$d / %2$d</string>
+    <string name="ai_free_remaining">남은 토큰: %1$s</string>
+    <string name="ai_free_used">사용: %1$s / %2$s</string>
     <string name="ai_free_exhausted">무료 체험이 소진되었습니다. 계속하려면 API 키를 설정하세요.</string>
     <string name="ai_free_hint">곡 하나 처리 시 1회로 계산됩니다. API 키 설정이 필요 없습니다.</string>
     <string name="ai_paid_coming_soon">출시 예정</string>
     <string name="ai_paid_description">더 높은 할당량과 더 많은 기능을 제공하는 유료 모드를 개발 중입니다.</string>
     <string name="test">테스트</string>
     <string name="test_failed">테스트 실패: %1$s</string>
-    <string name="save_failed">저장 실패: %1$s</string>
-    <string name="fetch_models_failed">모델 가져오기 실패: %1$s</string>
-    <string name="generation_error">생성 오류: %1$s</string>
-    <string name="generation_failed">생성 실패: %1$s</string>
-    <string name="connected">연결됨</string>
+<string name="fetch_models_failed">모델 가져오기 실패: %1$s</string>
+<string name="connected">연결됨</string>
     <string name="backup">백업</string>
     <string name="backup_settings">백업</string>
     <string name="backup_desc">데이터 백업</string>
@@ -357,10 +352,7 @@
     <string name="share_music">음악 공유</string>
     <string name="music_not_found">음악을 찾을 수 없습니다</string>
     <string name="genre">장르</string>
-    <string name="mood">분위기</string>
-    <string name="scene">상황</string>
-    <string name="era">시대</string>
-    <string name="personal_stats">개인</string>
+<string name="personal_stats">개인</string>
     <string name="year">연도</string>
     <string name="favorite">즐겨찾기</string>
     <string name="heart">하트</string>
@@ -408,8 +400,7 @@
     <string name="top_songs_in_playlists">재생목록 인기곡</string>
     <string name="startup_count_label">시작 횟수</string>
     <string name="recommendation_mode">추천</string>
-    <string name="generate_recommend_list">생성</string>
-    <string name="start_experience">시작</string>
+<string name="start_experience">시작</string>
     <string name="intro_step_1">환영합니다</string>
     <string name="intro_step_1_desc">Hearable Music을 선택해 주셔서 감사합니다</string>
     <string name="intro_step_2">권한</string>
@@ -473,7 +464,8 @@
     <string name="unsaved_changes">저장되지 않은 변경 사항</string>
     <string name="agent_monitor_title">에이전트 모니터</string>
     <string name="agent_monitor_token_usage">토큰 사용량</string>
-    <string name="agent_monitor_total_usage">총 사용량 · 전체 기록</string>
+    <string name="agent_monitor_total_usage">최근 30일</string>
+    <string name="agent_monitor_token_clear_confirm">원장 기록 %1$s건(%2$s 이후)을 삭제할까요? 이 작업은 되돌릴 수 없습니다.</string>
     <string name="agent_monitor_quota_line">오늘 %1$s · 남음 %2$s · %3$d%%</string>
     <string name="agent_monitor_run_logs">실행 로그</string>
     <string name="agent_monitor_log_count">%1$d개 로그 ›</string>
@@ -511,7 +503,7 @@
     <string name="agent_ai_agent_mgmt_header">에이전트 관리</string>
     <string name="agent_ai_memory_header">기억</string>
     <string name="agent_ai_free_tier">무료 체험</string>
-    <string name="agent_ai_free_remaining">%1$d회 남음</string>
+    <string name="agent_ai_free_remaining">%1$s 토큰 남음</string>
     <string name="agent_ai_not_configured">미설정</string>
     <string name="agent_ai_custom_endpoint">사용자 지정 엔드포인트</string>
     <string name="agent_ai_paid_mode">유료 요금제</string>
@@ -789,4 +781,30 @@
     <string name="intro_skip_permission">나중에</string>
     <string name="library_permission_required">오디오 읽기 권한이 없어 라이브러리를 검색할 수 없습니다</string>
     <string name="go_to_settings">설정 열기</string>
+
+
+    <!-- 二-11 / 一-7 新增键的译文补齐（D8-06 门禁） -->
+    <string name="edit_tags_unsupported">이 기기에서는 태그 편집이 지원되지 않습니다</string>
+    <string name="ai_key_needs_refill">저장된 API 키의 암호를 해독할 수 없습니다(기기 이전이나 클라우드 복원 후 발생). 다시 입력하고 저장해 주세요.</string>
+    <string name="ai_free_unavailable">이 기기에는 내장 AI 서비스가 없습니다. 사용자 지정 구성을 사용하세요.</string>
+    <string name="ai_quota_exhausted_hint">AI 할당량이 소진되었습니다. 한도를 조정하거나 설정에서 직접 API 키를 추가하세요.</string>
+    <string name="agent_token_limits_title">사용 한도</string>
+    <string name="agent_token_limits_enable">일일 한도 사용</string>
+    <string name="agent_token_limits_global">전체 일일 한도(토큰, 비우면 무제한)</string>
+    <string name="agent_token_limits_per_agent">일일 한도(토큰, 비우면 무제한)</string>
+    <string name="agent_token_limits_save">한도 저장</string>
+    <string name="backup_scope_note">포함: 재생목록과 순서, 트랙별 상태(좋아요, 평점, 재생 횟수, 라벨), 청취 통계, 화면 구성 및 AI 엔드포인트 설정. 미포함: API 키, 검색 폴더, 가사 및 음향 효과 설정, 에이전트별 구성, 재생 위치.</string>
+    <string name="restore_overwrites_note">복원하면 현재 재생목록, 트랙별 상태, 청취 통계를 덮어씁니다. API 키, 검색 폴더, 가사 및 음향 효과 설정은 백업에 포함되지 않으며 그대로 유지됩니다.</string>
+    <string name="db_too_new_title">데이터베이스 버전이 너무 최신입니다</string>
+    <string name="db_too_new_body">이 앱은 데이터베이스 버전 %1$d을(를) 지원하지만 저장된 데이터베이스는 더 최신인 %2$d입니다. 데이터는 변경되지 않았습니다. 앱을 업데이트하거나 이전 백업에서 복원하세요.</string>
+    <string name="usage_data_load_failed">이 기간을 불러오지 못했습니다. 나중에 다시 시도하세요.</string>
+    <string name="agent_cfg_global_unavailable">전역 엔드포인트를 사용할 수 없음: API 키가 구성되지 않았습니다</string>
+    <string name="home_reco_unavailable">할당량 소진</string>
+
+
+    <!-- 播放页电台入口（2026-11-03） -->
+    <string name="radio_card_open_console">프로그램 보기</string>
+    <string name="radio_card_end_session">이 세션 종료</string>
+    <string name="radio_entry_seed_title">이 곡에서 시작</string>
+    <string name="radio_entry_seed_desc">먼저 로컬에서 선곡하고 AI가 이어갑니다. 현재 곡 뒤에 재생</string>
 </resources>

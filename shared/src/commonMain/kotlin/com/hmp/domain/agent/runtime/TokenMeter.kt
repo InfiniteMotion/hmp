@@ -1,6 +1,8 @@
 package com.hmp.domain.agent.runtime
 
 import com.hmp.domain.agent.port.TimeProvider
+import com.hmp.domain.agent.quota.QuotaDecision
+import com.hmp.domain.agent.quota.TokenQuotaGate
 
 import com.hmp.data.database.TokenLedgerDao
 import com.hmp.data.database.TokenLedgerEntry
@@ -13,13 +15,13 @@ import com.hmp.log.LogTag
 /**
  * 进程级单一计量口（F12-T1）。
  *
- * **一次 LLM 调用写三处**，对应三个不同的问题：
+ * **一次 LLM 调用写两处**，对应两个不同的问题（进程内日累加器已删除，配额由闸门从账本回填）：
  *
  * | 出口 | 形态 | 回答什么 |
  * |---|---|---|
- * | [GlobalTokenCounter] | 单值（当日累加）| "今天还能不能继续调" |
  * | [TokenLedgerDao] | 每次调用一行明细 | "谁（agent / 端点 / 模型）在什么时候花了多少" |
  * | 调用方自行更新 budget | 单值（最近一次 prompt）| "这次请求塞得进吗" |
+ * | [com.hmp.domain.agent.quota.TokenQuotaGate] | 单值（免费总额 / 自定义日限额）| "还能不能继续调" |
  *
  * **为什么不让 budget 自己记账**：budget 是 per-Agent 实例、随 Agent start 构造。
  * 改为**调用方上报、meter 只聚合**，避免引入"注册表 / 反查实例"这类易错耦合
@@ -29,10 +31,17 @@ import com.hmp.log.LogTag
  * **打标 `measured=false`** —— 看板必须能区分两者，否则又回到"用假数字骗自己"。
  */
 internal class TokenMeter(
-    private val counter: GlobalTokenCounter? = null,
     private val ledgerDao: TokenLedgerDao? = null,
     private val timeProvider: TimeProvider,
+    /** 配额闸门：准入在 [checkQuota]，结算在 [record]。null = 不设限（测试 / 未装配）。 */
+    private val quotaGate: TokenQuotaGate? = null,
+    /** 本次记的是哪套凭据（FREE / CUSTOM / PAID）—— 账本的 access_mode 列，配额分账依据。 */
+    private val accessModeProvider: suspend () -> String = { TokenQuotaGate.MODE_FREE },
 ) {
+
+    /** 发请求前的准入判定。null gate = 永远放行。 */
+    suspend fun checkQuota(agentId: String): QuotaDecision =
+        quotaGate?.check(agentId) ?: QuotaDecision.Allowed
 
     /**
      * 记一次 LLM 调用。
@@ -53,6 +62,7 @@ internal class TokenMeter(
         taskId: String? = null,
     ): TokenLedgerEntry? {
         val measured = usage != null
+        val accessMode = accessModeProvider()
         val entry = if (measured) {
             TokenLedgerEntry(
                 createdAt = timeProvider(),
@@ -63,6 +73,7 @@ internal class TokenMeter(
                 completionTokens = usage.completionTokens,
                 cachedTokens = usage.cachedTokens,
                 measured = true,
+                accessMode = accessMode,
                 taskId = taskId,
             )
         } else {
@@ -78,12 +89,13 @@ internal class TokenMeter(
                 completionTokens = 0,
                 cachedTokens = 0,
                 measured = false,
+                accessMode = accessMode,
                 taskId = taskId,
             )
         }
 
-        // ① 当日累加（配额仲裁的输入）
-        counter?.recordTokens((entry.promptTokens + entry.completionTokens).toLong())
+        // ① 配额分桶（免费总额 / 自定义日限额的输入）—— 与账本同源，重启从账本回填
+        quotaGate?.record(agentId, (entry.promptTokens + entry.completionTokens).toLong())
 
         // ② 明细账本（分账 / 分时的唯一事实来源）
         //    落库失败不致命：计量是诊断能力，不得拖垮对话/电台

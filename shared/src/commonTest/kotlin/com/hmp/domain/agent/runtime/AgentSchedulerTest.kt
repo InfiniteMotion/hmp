@@ -11,59 +11,56 @@ import kotlin.test.assertTrue
 class AgentSchedulerTest {
 
     private fun timeProvider(): TimeProvider = { 1_700_000_000_000L }
-    private fun counter() = GlobalTokenCounter(timeProvider(), dailyTokenQuota = 500_000)
     private fun reg(p: AgentPriority, id: String) = AgentRegistration(agentId = id, priority = p)
 
     @Test
     fun `Master 永远 RUNNING`() = runTest {
-        val s = AgentScheduler(timeProvider(), counter(), FakeSystemConditions())
+        val s = AgentScheduler(timeProvider(), FakeSystemConditions())
         assertEquals(AgentRunState.RUNNING, s.registerAgent(reg(AgentPriority.MASTER, "m")))
     }
 
     @Test
     fun `Hello 永远 RUNNING`() = runTest {
-        val s = AgentScheduler(timeProvider(), counter(), FakeSystemConditions())
+        val s = AgentScheduler(timeProvider(), FakeSystemConditions())
         assertEquals(AgentRunState.RUNNING, s.registerAgent(reg(AgentPriority.HELLO, "h")))
     }
 
     @Test
     fun `Radio 电量或 WiFi 满足才 RUNNING`() = runTest {
         // WiFi 连接 → RUNNING（即便电量低）
-        val s1 = AgentScheduler(timeProvider(), counter(), FakeSystemConditions(batteryLevelValue = 0.1f, wifiConnected = true))
+        val s1 = AgentScheduler(timeProvider(), FakeSystemConditions(batteryLevelValue = 0.1f, wifiConnected = true))
         assertEquals(AgentRunState.RUNNING, s1.registerAgent(reg(AgentPriority.RADIO, "r")))
 
         // 无 WiFi 且电量 < 20% → PAUSED
-        val s2 = AgentScheduler(timeProvider(), counter(), FakeSystemConditions(batteryLevelValue = 0.1f, wifiConnected = false))
+        val s2 = AgentScheduler(timeProvider(), FakeSystemConditions(batteryLevelValue = 0.1f, wifiConnected = false))
         assertEquals(AgentRunState.PAUSED, s2.registerAgent(reg(AgentPriority.RADIO, "r")))
 
         // 无 WiFi 但电量 ≥ 20% → RUNNING
-        val s3 = AgentScheduler(timeProvider(), counter(), FakeSystemConditions(batteryLevelValue = 0.3f, wifiConnected = false))
+        val s3 = AgentScheduler(timeProvider(), FakeSystemConditions(batteryLevelValue = 0.3f, wifiConnected = false))
         assertEquals(AgentRunState.RUNNING, s3.registerAgent(reg(AgentPriority.RADIO, "r")))
     }
 
     @Test
     fun `Enrich 三者全满足才 RUNNING`() = runTest {
-        val ok = AgentScheduler(timeProvider(), counter(), FakeSystemConditions(batteryLevelValue = 0.6f, wifiConnected = true))
+        val ok = AgentScheduler(timeProvider(), FakeSystemConditions(batteryLevelValue = 0.6f, wifiConnected = true))
         assertEquals(AgentRunState.RUNNING, ok.registerAgent(reg(AgentPriority.ENRICH, "e")))
 
         // 电量 < 50% → PAUSED
-        val lowBattery = AgentScheduler(timeProvider(), counter(), FakeSystemConditions(batteryLevelValue = 0.4f, wifiConnected = true))
+        val lowBattery = AgentScheduler(timeProvider(), FakeSystemConditions(batteryLevelValue = 0.4f, wifiConnected = true))
         assertEquals(AgentRunState.PAUSED, lowBattery.registerAgent(reg(AgentPriority.ENRICH, "e")))
 
         // 无 WiFi → PAUSED
-        val noWifi = AgentScheduler(timeProvider(), counter(), FakeSystemConditions(batteryLevelValue = 0.6f, wifiConnected = false))
+        val noWifi = AgentScheduler(timeProvider(), FakeSystemConditions(batteryLevelValue = 0.6f, wifiConnected = false))
         assertEquals(AgentRunState.PAUSED, noWifi.registerAgent(reg(AgentPriority.ENRICH, "e")))
 
-        // 配额耗尽 → PAUSED
-        val c2 = GlobalTokenCounter(timeProvider(), dailyTokenQuota = 1000)
-        c2.recordTokens(1000)
-        val quotaOut = AgentScheduler(timeProvider(), c2, FakeSystemConditions(batteryLevelValue = 0.6f, wifiConnected = true))
-        assertEquals(AgentRunState.PAUSED, quotaOut.registerAgent(reg(AgentPriority.ENRICH, "e")))
+        // 配额不再参与调度：Enrich 在电量/WiFi 都满足时就是 RUNNING（桶耗尽由停止信号让它优雅退出）
+        val fullBattery = AgentScheduler(timeProvider(), FakeSystemConditions(batteryLevelValue = 0.9f, wifiConnected = true))
+        assertEquals(AgentRunState.RUNNING, fullBattery.registerAgent(reg(AgentPriority.ENRICH, "e")))
     }
 
     @Test
     fun `unregister 后状态 UNREGISTERED`() = runTest {
-        val s = AgentScheduler(timeProvider(), counter(), FakeSystemConditions())
+        val s = AgentScheduler(timeProvider(), FakeSystemConditions())
         s.registerAgent(reg(AgentPriority.MASTER, "m"))
         s.unregisterAgent("m")
         assertEquals(AgentRunState.UNREGISTERED, s.getState("m"))
@@ -71,7 +68,7 @@ class AgentSchedulerTest {
 
     @Test
     fun `registeredAgentIds 返回已注册集合`() = runTest {
-        val s = AgentScheduler(timeProvider(), counter(), FakeSystemConditions())
+        val s = AgentScheduler(timeProvider(), FakeSystemConditions())
         s.registerAgent(reg(AgentPriority.MASTER, "a"))
         s.registerAgent(reg(AgentPriority.HELLO, "b"))
         assertTrue(s.registeredAgentIds().containsAll(listOf("a", "b")))
@@ -80,7 +77,7 @@ class AgentSchedulerTest {
     @Test
     fun `注册 RUNNING Agent 触发 onResume`() = runTest {
         var resumed = false
-        val s = AgentScheduler(timeProvider(), counter(), FakeSystemConditions())
+        val s = AgentScheduler(timeProvider(), FakeSystemConditions())
         s.registerAgent(AgentRegistration(agentId = "m", priority = AgentPriority.MASTER, onResume = { resumed = true }))
         yield(); yield()
         assertTrue(resumed, "RUNNING 注册应触发 onResume 回调")

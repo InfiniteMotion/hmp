@@ -1,5 +1,8 @@
 package com.hmp.domain.agent.runtime.i18n
 
+import com.hmp.log.HmpLog
+import com.hmp.log.LogTag
+
 /**
  * Agent 运行时语言枚举。
  *
@@ -264,6 +267,10 @@ Current task from Master:
     "hello.recommend.list" to mapOf(
         Lang.ZH to "你是一个懂音乐的朋友，负责用温暖简洁的中文推荐音乐。",
         Lang.EN to "You are a music-savvy friend, responsible for recommending music in warm, concise English.",
+    ),
+    "hello.recommend.select" to mapOf(
+        Lang.ZH to "你是音乐策展人，擅长从候选曲目中挑出有起伏、有场景感的播放顺序，并用一句话说明每首为什么在这里。",
+        Lang.EN to "You are a music curator, skilled at selecting and ordering a compelling sequence from a candidate list, with one line on why each track belongs.",
     ),
     "hello.forgotten.essay" to mapOf(
         Lang.ZH to "你是一个擅长写怀旧随笔的音乐人，能从一句歌词、一段旋律、一个时间跨度里，写出让人心头一暖的中文文字。",
@@ -531,6 +538,17 @@ fun resolvePrompt(
     preferredLang: String,
     globalReplyLanguage: String,
     userOverrides: Map<String, String>,
+    /**
+     * 未知 key 的可观测出口（`D8-04`）。
+     *
+     * 默认写一条 WARN —— 提示词 key 拼错时，此前是静默空串，模型行为异常却毫无信号。
+     * 测试注入 spy 来断言"告警确实触发"，生产不传。
+     */
+    onMissingKey: (String) -> Unit = { missing ->
+        HmpLog.w(LogTag.AgentContext) {
+            "🌐 [resolvePrompt] unknown prompt key='$missing' → empty string"
+        }
+    },
 ): String {
     // 1. 用户覆盖优先（不管语言——用户写的就是最终版）
     userOverrides[key]?.let { if (it.isNotBlank()) return it }
@@ -548,6 +566,10 @@ fun resolvePrompt(
     }
 
     // 3. 回落出厂默认
-    val defaults = L10N_PROMPTS[key] ?: return ""
+    val defaults = L10N_PROMPTS[key]
+    if (defaults == null) {
+        onMissingKey(key)
+        return ""
+    }
     return defaults[lang] ?: defaults[Lang.ZH] ?: defaults.values.firstOrNull() ?: ""
 }

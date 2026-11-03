@@ -300,4 +300,24 @@ $textSummary
 只返回 JSON，不要加任何解释。
 """.trimIndent()
     }
+
+    // ===== T5：单首富化的精简提示词（FREE / PAID 模式用）=====
+
+    /** 只要求 JSON，不带批量枚举/自检/反思的规则。 */
+    const val SINGLE_SONG_SYSTEM_PROMPT: String =
+        "你是音乐标签整理器。只输出一个 JSON 对象，不要解释、不要 markdown。\n" +
+            "字段：genre/mood/scenario 为中文标签数组（各 1-3 个），language/era 为字符串，" +
+            "description 不超过 40 字，singerIntroduce 不超过 30 字。\n" +
+            "没有把握就留空数组或空字符串，不要编造。"
+
+    /** 单首 user prompt：只带这首歌的最小信息。 */
+    fun buildSingleSongPrompt(song: com.hmp.domain.music.MusicInfo): String = """
+        歌名：${song.music.title}
+        歌手：${song.music.artist}
+        专辑：${song.music.album}
+
+        输出 JSON：
+        {"genre":[],"mood":[],"scenario":[],"language":"","era":"","description":"","singerIntroduce":""}
+    """.trimIndent()
+
 }

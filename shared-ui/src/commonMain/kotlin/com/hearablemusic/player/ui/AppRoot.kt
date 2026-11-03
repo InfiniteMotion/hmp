@@ -59,6 +59,7 @@ import com.hearablemusic.player.ui.agent.shell.BottomFusionBar
 import com.hearablemusic.player.ui.agent.shell.FusionSidebar
 import com.hearablemusic.player.ui.agent.shell.AgentNotice
 import com.hearablemusic.player.ui.agent.shell.RadioConsole
+import com.hearablemusic.player.ui.agent.shell.RadioConsoleController
 import com.hearablemusic.player.ui.common.components.TabPageIndicator
 import com.hearablemusic.player.ui.common.design.animation.AnimationTokens
 import com.hmp.data.database.AppDatabaseGuard
@@ -271,12 +272,13 @@ fun AppRoot(darkTheme: Boolean) {
     }
 
     // 长按伙伴胶囊（电台开启时）唤起的电台控制台 —— 弹窗
-    var radioConsoleVisible by remember { mutableStateOf(false) }
+    val radioConsoleController: RadioConsoleController = koinInject()
+    val radioConsoleVisible by radioConsoleController.visible.collectAsState()
     val radioConsoleScope = rememberCoroutineScope()
     // 电台一旦不在（用户收档 / 对话说停电台 / 看板停止），面板自动收起；
     // 滑动收档 → stopRadio → 这里触发 → 面板淡出，正是"收档"的收尾动作。
     LaunchedEffect(radioActive) {
-        if (!radioActive) radioConsoleVisible = false
+        if (!radioActive) radioConsoleController.close()
     }
 
     // ── M6-T2c/M6-T3：PresenceBus → AgentNoticeBar 侧条 ──
@@ -357,7 +359,7 @@ fun AppRoot(darkTheme: Boolean) {
                                             event.type == KeyEventType.KeyDown &&
                                                 event.key == Key.Escape &&
                                                 radioConsoleVisible -> {
-                                                radioConsoleVisible = false
+                                                radioConsoleController.close()
                                                 true
                                             }
                                             else -> false
@@ -613,7 +615,7 @@ fun AppRoot(darkTheme: Boolean) {
                                                     openCompanionChat()
                                                 },
                                                 radioActive = radioActive,
-                                                onOpenRadioConsole = { radioConsoleVisible = true },
+                                                onOpenRadioConsole = { radioConsoleController.open() },
                                                 hazeState = hazeState,
                                             showNavText = windowSizeInfo.isLandscape,
                                             showNavCapsule = bfbIsOnTabPage,
@@ -759,9 +761,9 @@ fun AppRoot(darkTheme: Boolean) {
                             // 覆盖在底栏与所有内容之上；面板打开期间电台照常运行（只读观察窗）。
                             RadioConsole(
                                 visible = radioConsoleVisible,
-                                onDismiss = { radioConsoleVisible = false },
+                                onDismiss = { radioConsoleController.close() },
                                 onEndSession = {
-                                    radioConsoleVisible = false
+                                    radioConsoleController.close()
                                     radioConsoleScope.launch { masterAgent.stopRadio() }
                                 },
                                 onPlayTrack = { musicId ->

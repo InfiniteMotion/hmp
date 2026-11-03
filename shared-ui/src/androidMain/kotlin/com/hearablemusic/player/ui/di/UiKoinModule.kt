@@ -1,5 +1,6 @@
 package com.hearablemusic.player.ui.di
 
+import com.hearablemusic.player.ui.agent.shell.RadioConsoleController
 import com.hearablemusic.player.ui.common.dialogs.controller.DialogManager
 import com.hearablemusic.player.ui.common.dialogs.viewmodel.DialogManagerViewModel
 import com.hearablemusic.player.ui.common.dialogs.viewmodel.DialogViewModel
@@ -33,6 +34,7 @@ val uiModule = module {
     includes(chatGatewayModule)
 
     single { DialogManager() }
+    single { RadioConsoleController() }
     single<PlaybackController> { MusicControllerPlaybackAdapter(get()) }
     viewModel { DialogManagerViewModel(get()) }
     viewModel { DialogViewModel(get(), get(), get(), get(), get(), get()) }
@@ -42,17 +44,17 @@ val uiModule = module {
     viewModel { SongDetailViewModel(get(), get()) }
     viewModel { EditMusicTagsViewModel(get(), get(), get()) }
     viewModel { PlaybackViewModel(get()) }
-    viewModel { PlaylistQueueViewModel(get(), get(), get(), get()) }
+    viewModel { PlaylistQueueViewModel(get()) }
     viewModel { PlaylistViewModel(get(), get(), get(), get()) }
     viewModel { ArtistAlbumViewModel(get()) }
     viewModel { SettingsViewModel(get()) }
     viewModel { AudioEffectViewModel(get()) }
     viewModel { BackupViewModel(get(), get(), get(), get()) }
-    viewModel { AiSettingsViewModel(get(), get()) }
+    viewModel { AiSettingsViewModel(get(), get(), get()) }
     viewModel { LyricsSettingsViewModel(get()) }
     viewModel { RecommendationViewModel(get(), get(), get()) }
     viewModel { UserUsageDataViewModel(get<com.hmp.domain.music.MusicRepository>(), get<com.hmp.domain.agent.runtime.MasterAgent>()) }
-    viewModel { ChatViewModel(get(), get(), get(), get()) }
+    viewModel { ChatViewModel(get(), get(), get(), get(), get()) }
     single<AlbumArtPixelsLoader> { CoilAlbumArtPixelsLoader(androidContext()) }
     viewModel { ThemeViewModel(get(), get()) }
 }

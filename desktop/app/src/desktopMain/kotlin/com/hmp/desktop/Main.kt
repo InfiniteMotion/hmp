@@ -260,7 +260,7 @@ fun main() {
                 Box(modifier = Modifier.fillMaxSize()) {
                     // musicController is already resolved — no LoadingScreen needed
                     DisposableEffect(Unit) {
-                        onDispose { musicController.release() }
+                        onDispose { settlePlaybackBeforeExit(musicController) }
                     }
 
                     // Initialize system tray with playback controls

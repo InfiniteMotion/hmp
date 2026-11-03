@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 10,
-    "identityHash": "b3e9f7ae4a96010f489220200dac66e6",
+    "identityHash": "3d083716475d73bcb578f4d809a4e04e",
     "entities": [
       {
         "tableName": "music",
@@ -1139,7 +1139,7 @@
       },
       {
         "tableName": "token_ledger",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `created_at` INTEGER NOT NULL, `agent_id` TEXT NOT NULL, `endpoint_host` TEXT NOT NULL, `model` TEXT NOT NULL, `prompt_tokens` INTEGER NOT NULL, `completion_tokens` INTEGER NOT NULL, `cached_tokens` INTEGER NOT NULL, `measured` INTEGER NOT NULL, `task_id` TEXT)",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `created_at` INTEGER NOT NULL, `agent_id` TEXT NOT NULL, `endpoint_host` TEXT NOT NULL, `model` TEXT NOT NULL, `prompt_tokens` INTEGER NOT NULL, `completion_tokens` INTEGER NOT NULL, `cached_tokens` INTEGER NOT NULL, `measured` INTEGER NOT NULL, `access_mode` TEXT NOT NULL DEFAULT 'FREE', `task_id` TEXT)",
         "fields": [
           {
             "fieldPath": "id",
@@ -1196,6 +1196,13 @@
             "notNull": true
           },
           {
+            "fieldPath": "accessMode",
+            "columnName": "access_mode",
+            "affinity": "TEXT",
+            "notNull": true,
+            "defaultValue": "'FREE'"
+          },
+          {
             "fieldPath": "taskId",
             "columnName": "task_id",
             "affinity": "TEXT"
@@ -1231,7 +1238,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'b3e9f7ae4a96010f489220200dac66e6')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '3d083716475d73bcb578f4d809a4e04e')"
     ]
   }
 }

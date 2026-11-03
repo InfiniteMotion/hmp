@@ -4,11 +4,16 @@ import com.hmp.domain.agent.port.LlmEvent
 import com.hmp.domain.agent.port.LlmMessage
 import com.hmp.domain.agent.port.LlmToolSpec
 import com.hmp.domain.agent.port.LlmTransport
+import com.hmp.domain.agent.quota.QuotaDecision
 import com.hmp.domain.setting.model.AiEndpointConfig
+
 import com.hmp.log.HmpLog
 import com.hmp.log.LogTag
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.toList
+
+/** 配额耗尽时回给调用方的失败原因。调用方按 [CollectedLlmResult.quotaExhausted] 分支，不要当网络错误重试。 */
+internal const val QUOTA_EXHAUSTED_MESSAGE: String = "QUOTA_EXHAUSTED"
 
 /**
  * 单次 LLM 调用执行器——采集 streamChat Flow 为结构化结果。
@@ -47,6 +52,17 @@ internal object LlmCallExecutor {
         meter: TokenMeter? = null,
         taskId: String? = null,
     ): CollectedLlmResult {
+        // 配额闸门：先判后发。拒绝时不发请求、不计量，交给调用方安静降级。
+        if (meter?.checkQuota(agentId) is QuotaDecision.Denied) {
+            return CollectedLlmResult(
+                text = "",
+                toolCalls = emptyList(),
+                failed = true,
+                failedMessage = QUOTA_EXHAUSTED_MESSAGE,
+                quotaExhausted = true,
+            )
+        }
+
         val text = StringBuilder()
         val calls = mutableListOf<LlmEvent.ToolCall>()
         var usage: LlmEvent.Usage? = null
@@ -111,4 +127,6 @@ internal data class CollectedLlmResult(
     val failed: Boolean,
     /** 失败原因（failed=true 时有值） */
     val failedMessage: String? = null,
+    /** 是否因为配额耗尽被拦下（此时**没有发请求**，也没有计量）。调用方应安静降级而不是报错。 */
+    val quotaExhausted: Boolean = false,
 )

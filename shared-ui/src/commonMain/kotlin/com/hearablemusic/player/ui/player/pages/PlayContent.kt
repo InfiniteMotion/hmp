@@ -58,7 +58,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.hearablemusic.player.ui.common.components.base.HMPCard
 import com.hearablemusic.player.ui.common.design.dimens.LocalHMPDimens
-import com.hearablemusic.player.ui.common.components.base.GeneratePlaylistComboButtons
 import com.hearablemusic.player.ui.common.dialogs.TimerDialog
 import com.hearablemusic.player.ui.common.layout.LocalWindowSizeInfo
 import com.hearablemusic.player.ui.common.layout.WindowWidthSizeClass
@@ -78,6 +77,7 @@ import com.hearablemusic.player.ui.library.pages.components.musiclist.defaultMus
 import com.hearablemusic.player.ui.library.viewmodel.SongDetailData
 import com.hearablemusic.player.ui.library.viewmodel.SongDetailViewModel
 import com.hearablemusic.player.ui.player.components.DotPager
+import com.hearablemusic.player.ui.player.components.RadioEntryCard
 import com.hearablemusic.player.ui.common.viewmodel.PaletteColors
 import com.hearablemusic.player.ui.generated.resources.Res
 import com.hearablemusic.player.ui.generated.resources.album_label
@@ -104,6 +104,7 @@ import com.hearablemusic.player.ui.generated.resources.play_pause
 import com.hearablemusic.player.ui.generated.resources.playback_mode
 import com.hearablemusic.player.ui.generated.resources.playlist
 import com.hearablemusic.player.ui.generated.resources.playlist_count
+import com.hearablemusic.player.ui.generated.resources.radio_card_idle
 import com.hearablemusic.player.ui.generated.resources.recommendation_mode
 import com.hearablemusic.player.ui.generated.resources.scope
 import com.hearablemusic.player.ui.generated.resources.more
@@ -129,15 +130,14 @@ import com.hmp.domain.config.LyricsAlignment
 import com.hmp.domain.enum.PlaybackMode
 import com.hmp.domain.music.Music
 import com.hmp.domain.music.MusicInfo
-import com.hmp.domain.playlist.AlgorithmType
-import com.hmp.domain.playlist.ExtensionConfig
-import com.hmp.domain.playlist.WeightTemplate
 import kotlin.math.abs
+import com.hearablemusic.player.ui.agent.shell.RadioConsoleController
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
+import org.koin.compose.koinInject
 
 // 格式化时间为 mm:ss（commonMain 无 String.format，用 padStart 等价实现）
 fun formatTime(millis: Long): String {
@@ -160,6 +160,7 @@ fun PlayContent(
     onOpenChat: () -> Unit = {},
 ) {
     val haptic = rememberHapticFeedback()
+    val radioConsole: RadioConsoleController = koinInject()
 
     var showTimerDialog by remember { mutableStateOf(false) }
     var playlistExpanded by remember { mutableStateOf(false) }
@@ -175,8 +176,6 @@ fun PlayContent(
     val lyrics = playerUiState.lyrics
     val playlist = playerUiState.playlist
     val currentIndex = playerUiState.currentIndex
-    val defaultAlgorithmType = playerUiState.defaultAlgorithmType
-    val defaultTemplate = playerUiState.defaultTemplate
 
     val lyricsOriginalTextSize = lyricsSettingsState.lyricsOriginalTextSize
     val lyricsTranslatedTextSize = lyricsSettingsState.lyricsTranslatedTextSize
@@ -235,7 +234,7 @@ fun PlayContent(
                             modifier = Modifier.graphicsLayer { translationX = dragOffset })
                     }
                     Column(Modifier.weight(0.65f).fillMaxHeight().padding(start = 16.dp, end = 24.dp).padding(vertical = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                        val tabs = listOf("controls", "lyrics", "info", "generate", "playlist")
+                        val tabs = listOf("controls", "lyrics", "info", "radio", "playlist")
                         val pagerState = rememberPagerState(initialPage = 0) { tabs.size }
                         LaunchedEffect(selectedTab) {
                             val idx = tabs.indexOf(selectedTab)
@@ -275,8 +274,10 @@ fun PlayContent(
                                     }
                                     "playlist" -> PlaylistTabContent(playlist, currentIndex ?: 0, onPlayItem = { callbacks.onPlayItem(it) }, onMoveToTop = { callbacks.onMoveToTop(it) }, onRemoveFromPlaylist = { callbacks.onRemoveFromPlaylist(it) }, onClearPlaylist = { callbacks.onClearPlaylist() })
                                     "info" -> SongDetailInfoTab(songDetailState, musicInfo?.extra, musicInfo?.userInfo)
-                                    "generate" -> Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-                                        GeneratePlaylistComboButtons(musicInfo?.music?.id ?: 0L, defaultAlgorithmType, defaultTemplate, onGeneratePlaylist = { callbacks.onGeneratePlaylist(it) }, onSaveDefaultConfig = { a, b, c -> callbacks.onSaveDefaultConfig(a, b, c) })
+                                    "radio" -> if (musicInfo != null) {
+                                        Box(Modifier.fillMaxSize().padding(horizontal = 16.dp), contentAlignment = Alignment.Center) {
+                                            RadioEntryCard(onOpenConsole = { radioConsole.open() })
+                                        }
                                     }
                                     else -> AdvancedLyrics(Modifier.fillMaxSize().padding(vertical = 16.dp), lyrics, currentPosition, { callbacks.onSeek(it) }, lyricsOriginalTextSize, lyricsTranslatedTextSize, lyricsCurrentTimeTextSize, lyricsLineSpacing, totalDurationMs = duration, karaokeEnabled = lyricsKaraokeEnabled, isPlaying = isPlaying, paletteColors = paletteColors, displayMode = lyricsDisplayMode, alignment = lyricsAlignment)
                                 }
@@ -320,7 +321,7 @@ fun PlayContent(
                     }
                     Box(Modifier.width(1.dp).fillMaxHeight().background(MaterialTheme.colorScheme.outlineVariant))
                     Column(Modifier.weight(0.6f).fillMaxHeight().padding(start = 16.dp, end = 24.dp).padding(vertical = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                        val tabs = listOf("lyrics", "info", "playlist")
+                        val tabs = listOf("lyrics", "info", "radio", "playlist")
                         val pagerState = rememberPagerState(initialPage = 0) { tabs.size }
                         LaunchedEffect(selectedTab) {
                             val idx = tabs.indexOf(selectedTab)
@@ -336,12 +337,28 @@ fun PlayContent(
                         Box(Modifier.weight(1f)) {
                             HorizontalPager(state = pagerState) { page ->
                                 when (tabs[page]) {
-                                    "playlist" -> PlaylistTabContent(playlist, currentIndex ?: 0, musicInfo?.music?.id, defaultAlgorithmType, defaultTemplate, { callbacks.onGeneratePlaylist(it) }, { a, b, c -> callbacks.onSaveDefaultConfig(a, b, c) }, { callbacks.onPlayItem(it) }, { callbacks.onMoveToTop(it) }, { callbacks.onRemoveFromPlaylist(it) }, { callbacks.onClearPlaylist() })
+                                    "playlist" -> PlaylistTabContent(playlist, currentIndex ?: 0, onPlayItem = { callbacks.onPlayItem(it) }, onMoveToTop = { callbacks.onMoveToTop(it) }, onRemoveFromPlaylist = { callbacks.onRemoveFromPlaylist(it) }, onClearPlaylist = { callbacks.onClearPlaylist() })
                                     "info" -> SongDetailInfoTab(songDetailState, musicInfo?.extra, musicInfo?.userInfo)
+                                    "radio" -> if (musicInfo != null) {
+                                        Box(Modifier.fillMaxSize().padding(horizontal = 16.dp), contentAlignment = Alignment.Center) {
+                                            RadioEntryCard(onOpenConsole = { radioConsole.open() })
+                                        }
+                                    }
                                     else -> AdvancedLyrics(Modifier.fillMaxSize().padding(vertical = 16.dp), lyrics, currentPosition, { callbacks.onSeek(it) }, lyricsOriginalTextSize, lyricsTranslatedTextSize, lyricsCurrentTimeTextSize, lyricsLineSpacing, totalDurationMs = duration, karaokeEnabled = lyricsKaraokeEnabled, isPlaying = isPlaying, paletteColors = paletteColors, displayMode = lyricsDisplayMode, alignment = lyricsAlignment)
                                 }
                             }
-                            Box(Modifier.align(Alignment.BottomCenter).padding(bottom = 8.dp)) { PlayerTabBar(selectedTab, { selectedTab = it }) }
+                            Box(Modifier.align(Alignment.BottomCenter).padding(bottom = 8.dp)) {
+                                PlayerTabBar(
+                                    selectedTab,
+                                    { selectedTab = it },
+                                    tabs = listOf(
+                                        "lyrics" to stringResource(Res.string.lyrics),
+                                        "info" to stringResource(Res.string.song_detail_tab_intro),
+                                        "radio" to stringResource(Res.string.radio_card_idle),
+                                        "playlist" to stringResource(Res.string.playlist),
+                                    ),
+                                )
+                            }
                         }
                     }
                 }
@@ -373,8 +390,6 @@ fun PlayContent(
                             musicInfo = musicInfo,
                             lyrics = lyrics,
                             currentPosition = currentPosition,
-                            defaultAlgorithmType = defaultAlgorithmType,
-                            defaultTemplate = defaultTemplate,
                             originalTextSize = lyricsOriginalTextSize,
                             translatedTextSize = lyricsTranslatedTextSize,
                             currentTimeTextSize = lyricsCurrentTimeTextSize,
@@ -386,8 +401,7 @@ fun PlayContent(
                               paletteColors = paletteColors,
                               isPlaying = isPlaying,
                               onSeek = { callbacks.onSeek(it) },
-                            onGeneratePlaylist = { callbacks.onGeneratePlaylist(it) },
-                            onSaveDefaultConfig = { a, b, c -> callbacks.onSaveDefaultConfig(a, b, c) },
+                            onOpenConsole = { radioConsole.open() },
                             modifier = Modifier.weight(1f)
                         )
                     }
@@ -522,8 +536,6 @@ fun MusicInfoExtra(
     musicInfo: MusicInfo?,
     lyrics: String?,
     currentPosition: Long,
-    defaultAlgorithmType: AlgorithmType?,
-    defaultTemplate: WeightTemplate?,
     originalTextSize: Int = 14,
     translatedTextSize: Int = 14,
     currentTimeTextSize: Int = 16,
@@ -535,26 +547,20 @@ fun MusicInfoExtra(
     paletteColors: PaletteColors? = null,
     isPlaying: Boolean = true,
     onSeek: (Long) -> Unit,
-    onGeneratePlaylist: (Long) -> Unit,
-    onSaveDefaultConfig: (AlgorithmType, WeightTemplate, ExtensionConfig) -> Unit
+    onOpenConsole: () -> Unit,
 ) {
     val contents = listOf<@Composable () -> Unit>(
         {
             Column(
-                verticalArrangement = Arrangement.SpaceBetween
+                modifier = Modifier
+                    .padding(16.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 if (musicInfo?.extra != null) {
-                    TechnicalInfoCard(musicInfo.extra, modifier = Modifier.padding(16.dp))
+                    TechnicalInfoCard(musicInfo.extra)
                 }
-                if (musicInfo?.extra?.isGetExtraInfo == true) {
-                    GeneratePlaylistComboButtons(
-                        musicInfo.music.id,
-                        defaultAlgorithmType,
-                        defaultTemplate,
-                        onGeneratePlaylist,
-                        onSaveDefaultConfig
-                    )
-                }
+                musicInfo?.let { RadioEntryCard(onOpenConsole = onOpenConsole) }
             }
         },
         {
@@ -868,18 +874,11 @@ fun PlaybackControlsButtons(
 @Composable
 private fun PlaylistTabContent(
     playlist: List<MusicInfo>, currentIndex: Int,
-    seedMusicId: Long? = null, defaultAlgorithmType: AlgorithmType? = null, defaultTemplate: WeightTemplate? = null,
-    onGeneratePlaylist: ((Long) -> Unit)? = null,
-    onSaveDefaultConfig: ((AlgorithmType, WeightTemplate, ExtensionConfig) -> Unit)? = null,
     onPlayItem: (MusicInfo) -> Unit, onMoveToTop: (MusicInfo) -> Unit,
     onRemoveFromPlaylist: (MusicInfo) -> Unit, onClearPlaylist: () -> Unit
 ) {
     val haptic = rememberHapticFeedback()
     Column(modifier = Modifier.fillMaxSize().padding(horizontal = 32.dp, vertical = 16.dp)) {
-        if (seedMusicId != null && onGeneratePlaylist != null) {
-            GeneratePlaylistComboButtons(seedMusicId, defaultAlgorithmType, defaultTemplate, onGeneratePlaylist, onSaveDefaultConfig ?: { _, _, _ -> })
-            Spacer(Modifier.height(16.dp))
-        }
         HMPCard(
             modifier = Modifier.fillMaxWidth().weight(1f),
             contentPadding = Modifier

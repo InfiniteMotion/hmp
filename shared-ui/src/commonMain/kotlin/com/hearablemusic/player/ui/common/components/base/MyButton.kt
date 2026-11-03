@@ -2,29 +2,22 @@ package com.hearablemusic.player.ui.common.components.base
 
 import com.hmp.domain.music.MusicSortKey
 import com.hmp.domain.music.SortDirection
+import com.hearablemusic.player.ui.generated.resources.lightbulb
 import com.hearablemusic.player.ui.generated.resources.Res
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 
 import com.hearablemusic.player.ui.generated.resources.back_button_desc
-import com.hearablemusic.player.ui.generated.resources.balance
 import com.hearablemusic.player.ui.generated.resources.chevron_left
-import com.hearablemusic.player.ui.generated.resources.era
-import com.hearablemusic.player.ui.generated.resources.generate_recommend_list
-import com.hearablemusic.player.ui.generated.resources.heart
-import com.hearablemusic.player.ui.generated.resources.lightbulb
 import com.hearablemusic.player.ui.generated.resources.magnifyingglass
-import com.hearablemusic.player.ui.generated.resources.mood
 import com.hearablemusic.player.ui.generated.resources.new_playlist_desc
 import com.hearablemusic.player.ui.generated.resources.order
 import com.hearablemusic.player.ui.generated.resources.order_asc
 import com.hearablemusic.player.ui.generated.resources.order_desc
 import com.hearablemusic.player.ui.generated.resources.order_play
 import com.hearablemusic.player.ui.generated.resources.plus
-import com.hearablemusic.player.ui.generated.resources.scene
 import com.hearablemusic.player.ui.generated.resources.search_button_desc
 import com.hearablemusic.player.ui.generated.resources.shuffle
-import com.hearablemusic.player.ui.generated.resources.similar
 import com.hearablemusic.player.ui.generated.resources.slider_vertical_3
 import com.hearablemusic.player.ui.generated.resources.sort
 import com.hearablemusic.player.ui.generated.resources.sort_add_time
@@ -33,7 +26,6 @@ import com.hearablemusic.player.ui.generated.resources.sort_duration
 import com.hearablemusic.player.ui.generated.resources.sort_play_count
 import com.hearablemusic.player.ui.generated.resources.sort_size
 import com.hearablemusic.player.ui.generated.resources.sort_title
-import com.hearablemusic.player.ui.generated.resources.style
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
@@ -76,11 +68,6 @@ import androidx.compose.ui.graphics.Color.Companion.Transparent
 import androidx.compose.ui.unit.dp
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
-import com.hmp.domain.playlist.AlgorithmType
-import com.hmp.domain.playlist.ExtensionConfig
-import com.hmp.domain.playlist.WeightTemplate
-import com.hearablemusic.player.ui.common.components.SegmentedControl
-import com.hearablemusic.player.ui.common.components.SegmentedOption
 import com.hearablemusic.player.ui.common.design.animation.AnimationTokens
 import com.hearablemusic.player.ui.common.navigation.Routes
 import com.hearablemusic.player.ui.common.util.rememberHapticFeedback
@@ -392,105 +379,3 @@ fun NewPlaylistButton(onClick: () -> Unit) {
  * 第一排：偏好选择（多选一）
  * 第二排：算法选择（二选一）+ 生成按钮
  */
-@Composable
-fun GeneratePlaylistComboButtons(
-    seedMusicId: Long,
-    defaultAlgorithmType: AlgorithmType?,
-    defaultTemplate: WeightTemplate?,
-    onGeneratePlaylist: (Long) -> Unit,
-    onSaveDefaultConfig: ((AlgorithmType, WeightTemplate, ExtensionConfig) -> Unit)
-) {
-    val haptic = rememberHapticFeedback()
-    var selectedAlgorithm by remember { mutableStateOf(defaultAlgorithmType?: AlgorithmType.OPTIMIZED_SIMILARITY) }
-    var selectedTemplate by remember { mutableStateOf(defaultTemplate?: WeightTemplate.BALANCED) }
-    val weightOptions = listOf(
-        SegmentedOption(
-            id = WeightTemplate.BALANCED.name,
-            label = stringResource(Res.string.balance)
-        ),
-        SegmentedOption(
-            id = WeightTemplate.GENRE_FOCUS.name,
-            label = stringResource(Res.string.style)
-        ),
-        SegmentedOption(
-            id = WeightTemplate.MOOD_FOCUS.name,
-            label = stringResource(Res.string.mood)
-        ),
-        SegmentedOption(
-            id = WeightTemplate.SCENARIO_FOCUS.name,
-            label = stringResource(Res.string.scene)
-        ),
-        SegmentedOption(
-            id = WeightTemplate.ERA_FOCUS.name,
-            label = stringResource(Res.string.era)
-        )
-    )
-    val algorithmOptions = listOf(
-        SegmentedOption(
-            id = AlgorithmType.OPTIMIZED_SIMILARITY.name,
-            label = stringResource(Res.string.similar)
-        ),
-        SegmentedOption(
-            id = AlgorithmType.CHAIN_SIMILARITY.name,
-            label = stringResource(Res.string.heart)
-        )
-    )
-    Column(
-        modifier = Modifier
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        SegmentedControl(
-            modifier = Modifier,
-            options = weightOptions,
-            selectedOption = selectedTemplate.name,
-            onOptionSelected = { optionId ->
-                WeightTemplate.entries.find { it.name == optionId }?.let {
-                    selectedTemplate = it
-                }
-                onSaveDefaultConfig(selectedAlgorithm, selectedTemplate, ExtensionConfig())
-                haptic.performClick()
-            },
-            showIcons = false
-        )
-
-        SegmentedControl(
-            modifier = Modifier,
-            options = algorithmOptions,
-            selectedOption = selectedAlgorithm.name,
-            onOptionSelected = { optionId ->
-                AlgorithmType.entries.find { it.name == optionId }?.let {
-                    selectedAlgorithm = it
-                }
-                onSaveDefaultConfig(selectedAlgorithm, selectedTemplate, ExtensionConfig())
-                haptic.performClick()
-            },
-            showIcons = false
-        )
-
-        Row(
-            modifier = Modifier.height(48.dp)
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(16.dp))
-                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f))
-                .border(1.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(16.dp))
-                .clickable { onGeneratePlaylist(seedMusicId) },
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center
-        ) {
-            Icon(
-                painter = painterResource(Res.drawable.lightbulb),
-                tint = MaterialTheme.colorScheme.primary,
-                contentDescription = "generate Button",
-                modifier = Modifier.size(16.dp)
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = stringResource(Res.string.generate_recommend_list),
-                style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.primary
-            )
-        }
-    }
-}

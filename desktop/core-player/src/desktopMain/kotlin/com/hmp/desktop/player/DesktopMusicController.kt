@@ -34,6 +34,8 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeoutOrNull
 
 class DesktopMusicController(
@@ -122,6 +124,10 @@ class DesktopMusicController(
     private val _playbackMode = MutableStateFlow(PlaybackMode.SEQUENTIAL)
     val playbackMode: StateFlow<PlaybackMode> = _playbackMode.asStateFlow()
 
+    /** 启动恢复失败次数（D1-08）：过去是空 catch，失败了没有任何痕迹。 */
+    private val _restoreFailures = MutableStateFlow(0)
+    val restoreFailures: StateFlow<Int> = _restoreFailures.asStateFlow()
+
     // Position & Duration
     private val _currentPosition = MutableStateFlow(0L)
     val currentPosition: StateFlow<Long> = _currentPosition.asStateFlow()
@@ -130,6 +136,10 @@ class DesktopMusicController(
     val duration: StateFlow<Long> = _duration.asStateFlow()
 
     private var progressJob: Job? = null
+
+    /** 退出结算只做一次：标题栏关闭与 onDispose 会各调一次。 */
+    private val releaseMutex = Mutex()
+    @Volatile private var released = false
 
     private var playStartTime: Long = 0L
     private var lastDurationRecordTime: Long = 0L
@@ -193,7 +203,10 @@ class DesktopMusicController(
         try {
             val lastPos = settingsRepository.currentPosition.first()
             _currentPosition.value = lastPos
-        } catch (_: Exception) {}
+        } catch (e: Exception) {
+            _restoreFailures.value += 1
+            HmpLog.w(LogTag.PlayerCore, e) { "启动恢复失败 stage=lastPosition" }
+        }
     }
 
     private suspend fun loadPlaylistFromSettings() {
@@ -204,7 +217,10 @@ class DesktopMusicController(
             _currentPlaylist.value = list
             _playbackMode.value = PlaybackMode.SEQUENTIAL
             _currentIndex.value = list.indexOfFirst { it.music.id == currentMusicId }.takeIf { it >= 0 } ?: 0
-        } catch (_: Exception) {}
+        } catch (e: Exception) {
+            _restoreFailures.value += 1
+            HmpLog.w(LogTag.PlayerCore, e) { "启动恢复失败 stage=playlist" }
+        }
     }
 
     fun preloadCurrentMusicInfo(musicInfo: MusicInfo) {
@@ -757,18 +773,23 @@ class DesktopMusicController(
      * `currentPlaybackHistoryId` 已清空而不重复结算（这条由判据钉住）。
      */
     suspend fun releaseAndSettle(timeoutMs: Long = 3_000L) {
-        stopProgressTracking()
-        closeListeningSegment()
-        // 退出前把不足一个上报周期的残值也结掉（旧版直接丢掉最后 0~30 秒）
-        val flushJob = flushListeningDuration()
-        val sessionJob = endCurrentPlaybackSession(isCompleted = false)
-        val positionJob = persistCurrentPosition(_currentPosition.value)
-        val playlistJob = persistCurrentPlaylistToDatabase(_currentPlaylist.value)
-        // 有界等待：退出不能因为一次卡住的写盘就挂死；超时后照常释放引擎
-        withTimeoutOrNull(timeoutMs) {
-            listOfNotNull(flushJob, sessionJob, positionJob, playlistJob).joinAll()
-        } ?: HmpLog.w(LogTag.PlayerCore) { "退出时落库未在 ${timeoutMs}ms 内完成，最后一段播放记录可能未写入" }
-        audioEngine.release()
+        releaseMutex.withLock {
+            if (released) return@withLock
+            released = true
+
+            stopProgressTracking()
+            closeListeningSegment()
+            // 退出前把不足一个上报周期的残值也结掉（旧版直接丢掉最后 0~30 秒）
+            val flushJob = flushListeningDuration()
+            val sessionJob = endCurrentPlaybackSession(isCompleted = false)
+            val positionJob = persistCurrentPosition(_currentPosition.value)
+            val playlistJob = persistCurrentPlaylistToDatabase(_currentPlaylist.value)
+            // 有界等待：退出不能因为一次卡住的写盘就挂死；超时后照常释放引擎
+            withTimeoutOrNull(timeoutMs) {
+                listOfNotNull(flushJob, sessionJob, positionJob, playlistJob).joinAll()
+            } ?: HmpLog.w(LogTag.PlayerCore) { "退出时落库未在 ${timeoutMs}ms 内完成，最后一段播放记录可能未写入" }
+            audioEngine.release()
+        }
     }
 
     /**
@@ -786,15 +807,6 @@ class DesktopMusicController(
         } else null
         lastDurationRecordTime = now
         return job
-    }
-
-    /**
-     * 兼容旧调用点的即发即弃版本。
-     *
-     * 新代码请用 [releaseAndSettle]：这个重载没法等待，退出路径上用它就等于保留 D5-07 描述的老行为。
-     */
-    fun release() {
-        scope.launch { releaseAndSettle() }
     }
 
     // region Desktop-specific aliases

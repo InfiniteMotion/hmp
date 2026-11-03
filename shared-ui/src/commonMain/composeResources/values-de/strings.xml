@@ -46,8 +46,7 @@
     <string name="today_heartbeat_playlist">Herzschlag-Playlist für heute</string>
     <string name="generating_heartbeat_playlist">Herzschlag-Playlist wird erstellt…</string>
     <string name="play_heartbeat_playlist">Herzschlag-Playlist abspielen</string>
-    <string name="generated">Erstellt</string>
-    <string name="suitable_for_now">Passend für jetzt</string>
+<string name="suitable_for_now">Passend für jetzt</string>
     <string name="banner_daily_A">Bibliothek</string>
     <string name="banner_daily_AA">STANDARD</string>
     <string name="banner_daily_B">Genre</string>
@@ -156,8 +155,7 @@
     <string name="top_songs_in_playlists">Top-Titel in Playlists</string>
     <string name="startup_count_label">Startanzahl</string>
     <string name="recommendation_mode">Empfehlung</string>
-    <string name="generate_recommend_list">Generieren</string>
-    <string name="start_experience">Starten</string>
+<string name="start_experience">Starten</string>
     <string name="intro_step_1">Willkommen</string>
     <string name="intro_step_1_desc">Danke, dass du dich für Hearable Music entschieden hast</string>
     <string name="intro_step_2">Berechtigungen</string>
@@ -239,8 +237,7 @@
     <string name="reset_component_to_default">%1$s auf Standard zurücksetzen</string>
     <string name="fetched_n_models">%1$d Modelle abgerufen</string>
     <string name="configured">✓ Konfiguriert</string>
-    <string name="era">Epoche</string>
-    <string name="related_info">Zugehörige Informationen</string>
+<string name="related_info">Zugehörige Informationen</string>
     <string name="add_to_playlist_desc">Zur Playlist hinzufügen</string>
     <string name="ai_free_hint">Jeder verarbeitete Titel zählt als eine Nutzung. Keine API-Schlüssel-Konfiguration erforderlich.</string>
     <string name="timer_off">Aus</string>
@@ -260,8 +257,7 @@
     <string name="large_room">Großer Raum</string>
     <string name="enter_new_user_name">Bitte neuen Benutzernamen eingeben</string>
     <string name="ai_fetch_models">Verfügbare Modelle abrufen</string>
-    <string name="scene">Szenario</string>
-    <string name="play_source_breakdown">Aufschlüsselung der Abspielquelle</string>
+<string name="play_source_breakdown">Aufschlüsselung der Abspielquelle</string>
     <string name="more_settings">Weitere Einstellungen\n→</string>
     <string name="album_label_en">Album</string>
     <string name="removed_from_current_list">Aus aktueller Liste entfernt</string>
@@ -278,7 +274,7 @@
     <string name="avatar_change_cancelled">Avatar-Änderung abgebrochen!</string>
     <string name="default_list">Standardliste</string>
     <string name="translated_text">Übersetzt</string>
-    <string name="ai_free_used">Verwendet: %1$d / %2$d</string>
+    <string name="ai_free_used">Verwendet: %1$s / %2$s</string>
     <string name="order">Reihenfolge</string>
     <string name="not_configured">⚠ Nicht konfiguriert</string>
     <string name="original_text_size">Originaltextgröße</string>
@@ -305,15 +301,14 @@
     <string name="ai_tab_free">Kostenlose Testversion</string>
     <string name="enable_floating_lyrics">Schwebende Songtexte aktivieren</string>
     <string name="year">Jahr</string>
-    <string name="mood">Stimmung</string>
-    <string name="order_asc">Aufsteigend</string>
+<string name="order_asc">Aufsteigend</string>
     <string name="technical_details">Technische Details</string>
     <string name="restore_successful">Wiederherstellung erfolgreich</string>
     <string name="creative_background">Kreativer Hintergrund</string>
     <string name="similar">Ähnlich</string>
     <string name="church">Kirche</string>
     <string name="update_playlist_failed">Playlist konnte nicht aktualisiert werden</string>
-    <string name="ai_free_remaining">Verbleibend: %1$d Mal</string>
+    <string name="ai_free_remaining">Verbleibend: %1$s Token</string>
     <string name="song_description">Beschreibung</string>
     <string name="order_desc">Absteigend</string>
     <string name="playlist_description_hint">Playlist-Beschreibung eingeben (optional)</string>
@@ -339,9 +334,7 @@
     <string name="shuffle_desc">Zufallswiedergabe</string>
     <string name="playback_mode">Wiedergabemodus</string>
     <string name="added_to_playlist">Zur Playlist hinzugefügt</string>
-    <string name="save_failed">Speichern fehlgeschlagen: %1$s</string>
-    <string name="generation_failed">Generierung fehlgeschlagen: %1$s</string>
-    <string name="sort_artist">Künstler</string>
+<string name="sort_artist">Künstler</string>
     <string name="test_failed">Test fehlgeschlagen: %1$s</string>
     <string name="artist_placeholder">Künstlername</string>
     <string name="remove_from_list">Aus Liste entfernen</string>
@@ -435,12 +428,10 @@
     <string name="batch_add_to_playlist_done">%1$d Titel zu %2$s hinzugefügt</string>
     <string name="restore_backup">Backup wiederherstellen</string>
     <string name="style_fluid">Flüssig</string>
-    <string name="balance">Balance</string>
-    <string name="expand_sort_desc">Sortierung erweitern</string>
+<string name="expand_sort_desc">Sortierung erweitern</string>
     <string name="fetch_models_failed">Modelle konnten nicht abgerufen werden: %1$s</string>
     <string name="no_pending_music">Keine ausstehende Musik</string>
-    <string name="generation_error">Generierungsfehler: %1$s</string>
-    <string name="text_settings">Text</string>
+<string name="text_settings">Text</string>
     <string name="please_config_provider">Bitte zuerst KI-Anbieter konfigurieren</string>
     <string name="line_spacing">Zeilenabstand</string>
     <string name="reset_all">Alles zurücksetzen</string>
@@ -473,7 +464,8 @@
     <string name="unsaved_changes">Nicht gespeicherte Änderungen</string>
     <string name="agent_monitor_title">Agent-Monitor</string>
     <string name="agent_monitor_token_usage">Token-Verbrauch</string>
-    <string name="agent_monitor_total_usage">Gesamtnutzung · vollständiges Journal</string>
+    <string name="agent_monitor_total_usage">Letzte 30 Tage</string>
+    <string name="agent_monitor_token_clear_confirm">%1$s Ledger-Einträge löschen (seit %2$s)? Dies kann nicht rückgängig gemacht werden.</string>
     <string name="agent_monitor_quota_line">Heute %1$s · Verbleibend %2$s · %3$d%%</string>
     <string name="agent_monitor_run_logs">Ausführungsprotokolle</string>
     <string name="agent_monitor_log_count">%1$d Protokolle ›</string>
@@ -511,7 +503,7 @@
     <string name="agent_ai_agent_mgmt_header">Agent-Verwaltung</string>
     <string name="agent_ai_memory_header">Erinnerung</string>
     <string name="agent_ai_free_tier">Kostenlos testen</string>
-    <string name="agent_ai_free_remaining">Verbleibend %1$d Nutzungen</string>
+    <string name="agent_ai_free_remaining">Verbleibend %1$s Token</string>
     <string name="agent_ai_not_configured">Nicht konfiguriert</string>
     <string name="agent_ai_custom_endpoint">Eigener Endpunkt</string>
     <string name="agent_ai_paid_mode">Bezahlplan</string>
@@ -789,4 +781,30 @@
     <string name="intro_skip_permission">Nicht jetzt</string>
     <string name="library_permission_required">Keine Berechtigung zum Lesen von Audio — Bibliothek kann nicht gescannt werden</string>
     <string name="go_to_settings">Einstellungen öffnen</string>
+
+
+    <!-- 二-11 / 一-7 新增键的译文补齐（D8-06 门禁） -->
+    <string name="edit_tags_unsupported">Das Bearbeiten von Tags wird auf diesem Gerät nicht unterstützt</string>
+    <string name="ai_key_needs_refill">Der gespeicherte API-Schlüssel konnte nicht entschlüsselt werden (tritt nach einem Gerätewechsel oder einer Cloud-Wiederherstellung auf). Bitte erneut eingeben und speichern.</string>
+    <string name="ai_free_unavailable">Auf diesem Gerät ist kein integrierter KI-Dienst verfügbar. Verwende eine eigene Konfiguration.</string>
+    <string name="ai_quota_exhausted_hint">KI-Kontingent aufgebraucht. Passe das Limit an oder hinterlege in den Einstellungen einen eigenen API-Schlüssel.</string>
+    <string name="agent_token_limits_title">Nutzungslimits</string>
+    <string name="agent_token_limits_enable">Tägliche Limits aktivieren</string>
+    <string name="agent_token_limits_global">Globales Tageslimit (Token, leer = unbegrenzt)</string>
+    <string name="agent_token_limits_per_agent">Tageslimit (Token, leer = unbegrenzt)</string>
+    <string name="agent_token_limits_save">Limits speichern</string>
+    <string name="backup_scope_note">Enthalten: Playlists und ihre Reihenfolge, Status je Titel (Likes, Bewertungen, Wiedergabezahlen, Labels), Hörstatistik, Darstellung und KI-Endpunkt-Einstellungen. Nicht enthalten: API-Schlüssel, Scan-Ordner, Liedtext- und Klangeffekt-Einstellungen, Konfigurationen je Agent, Wiedergabeposition.</string>
+    <string name="restore_overwrites_note">Beim Wiederherstellen werden die aktuellen Playlists, der Status je Titel und die Hörstatistik überschrieben. API-Schlüssel, Scan-Ordner, Liedtext- und Klangeffekt-Einstellungen sind nicht in der Sicherung enthalten und bleiben unverändert.</string>
+    <string name="db_too_new_title">Datenbankversion ist zu neu</string>
+    <string name="db_too_new_body">Diese App unterstützt Datenbankversion %1$d, die gespeicherte Datenbank hat jedoch Version %2$d und ist neuer. Deine Daten wurden nicht verändert. Aktualisiere die App oder stelle eine ältere Sicherung wieder her.</string>
+    <string name="usage_data_load_failed">Dieser Zeitraum konnte nicht geladen werden. Versuche es später erneut.</string>
+    <string name="agent_cfg_global_unavailable">Globaler Endpunkt nicht verfügbar: kein API-Schlüssel konfiguriert</string>
+    <string name="home_reco_unavailable">Kontingent aufgebraucht</string>
+
+
+    <!-- 播放页电台入口（2026-11-03） -->
+    <string name="radio_card_open_console">Programm ansehen</string>
+    <string name="radio_card_end_session">Diese Sendung beenden</string>
+    <string name="radio_entry_seed_title">Mit diesem Song starten</string>
+    <string name="radio_entry_seed_desc">Erst lokal vorbereitet, dann von der KI weitergeführt; läuft nach dem aktuellen Titel</string>
 </resources>

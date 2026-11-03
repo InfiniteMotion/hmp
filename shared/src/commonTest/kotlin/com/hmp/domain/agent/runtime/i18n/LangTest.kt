@@ -3,6 +3,7 @@ package com.hmp.domain.agent.runtime.i18n
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
@@ -117,6 +118,26 @@ class LangTest {
     @Test
     fun unknownKey_returnsEmptyString() {
         assertEquals("", resolvePrompt("no.such.key", "zh", "zh", emptyMap()), "未知 key 返回空串，不抛异常")
+    }
+
+    @Test
+    fun unknownKey_triggersWarningCallback() {
+        var warned: String? = null
+
+        val text = resolvePrompt("no.such.key", "zh", "zh", emptyMap()) { warned = it }
+
+        assertEquals("", text, "回落仍是空串（不改既有契约）")
+        assertEquals("no.such.key", warned, "未知 key 必须上报，不能再静默")
+    }
+
+    @Test
+    fun knownKey_doesNotTriggerWarning() {
+        var warned: String? = null
+
+        val text = resolvePrompt("chat.system", "zh", "zh", emptyMap()) { warned = it }
+
+        assertTrue(text.isNotBlank())
+        assertNull(warned, "正常 key 不应误报")
     }
 
     // ───────────────────── 出厂词表完整性 ─────────────────────

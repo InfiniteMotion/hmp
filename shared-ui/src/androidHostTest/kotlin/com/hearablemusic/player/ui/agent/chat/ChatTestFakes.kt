@@ -112,9 +112,7 @@ class MinimalSettingsRepository : SettingsRepository {
     override suspend fun getGlobalAgentConfig(): GlobalAgentConfig = GlobalAgentConfig()
     override suspend fun saveGlobalAgentConfig(config: GlobalAgentConfig) = unused()
 
-    override val aiFreeTrialRemainingCount: Flow<Int> get() = kotlinx.coroutines.flow.flowOf(100)
-    override suspend fun getAiFreeTrialRemainingCount(): Int = 100
-    override suspend fun decrementAiFreeTrialCount() = unused()
+    override suspend fun isBuiltInAiConfigured(): Boolean = true
 
     override val equalizerPreset: Flow<Int> get() = kotlinx.coroutines.flow.flowOf(0)
     override suspend fun saveEqualizerPreset(preset: Int) = unused()
@@ -200,18 +198,6 @@ class MinimalSettingsRepository : SettingsRepository {
 
     override val galleryOrderType: Flow<String> get() = kotlinx.coroutines.flow.flowOf("ASC")
     override suspend fun saveGalleryOrderType(orderType: String) = unused()
-
-    override val defaultAlgorithmType: Flow<String> get() = kotlinx.coroutines.flow.flowOf("OPTIMIZED_SIMILARITY")
-    override suspend fun saveDefaultAlgorithmType(type: String) = unused()
-    override suspend fun getDefaultAlgorithmType(): String = "OPTIMIZED_SIMILARITY"
-
-    override val defaultWeightTemplate: Flow<String> get() = kotlinx.coroutines.flow.flowOf("BALANCED")
-    override suspend fun saveDefaultWeightTemplate(template: String) = unused()
-    override suspend fun getDefaultWeightTemplate(): String = "BALANCED"
-
-    override val defaultExtensionConfig: Flow<String> get() = kotlinx.coroutines.flow.flowOf("{}")
-    override suspend fun saveDefaultExtensionConfig(configJson: String) = unused()
-    override suspend fun getDefaultExtensionConfig(): String = "{}"
 
     override suspend fun exportAppSettingsSnapshot(): AppSettingsSnapshot = unused()
     override suspend fun restoreFromSnapshot(snapshot: AppSettingsSnapshot) = unused()

@@ -15,6 +15,7 @@ import com.hearablemusic.player.ui.generated.resources.test_failed
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.getString
@@ -25,15 +26,50 @@ import org.jetbrains.compose.resources.getString
  */
 class AiSettingsViewModel(
     private val userSettingsUseCase: UserSettingsUseCase,
-    private val getDailyRecommendationUseCase: GetDailyMusicRecommendationUseCase
+    private val getDailyRecommendationUseCase: GetDailyMusicRecommendationUseCase,
+    private val quotaGate: com.hmp.domain.agent.quota.TokenQuotaGate,
 ) : ViewModel() {
 
     // AI Config
     val aiAccessMode: StateFlow<AiAccessMode> = userSettingsUseCase.aiAccessMode
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), AiAccessMode.FREE)
 
-    val aiFreeTrialRemainingCount: StateFlow<Int> = userSettingsUseCase.aiFreeTrialRemainingCount
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 100)
+    /** 免费额度快照（100M 总额，来自账本回填，重启不归零）。 */
+    val quotaUsage: StateFlow<com.hmp.domain.agent.runtime.TokenSnapshot> = quotaGate.usage
+
+    /** 内置端点是否可用 —— 免费入口的显示条件是"有可用的内置服务"，不是平台。 */
+    val freeAvailable: StateFlow<Boolean> = flow {
+        emit(userSettingsUseCase.isBuiltInAiConfigured())
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+
+    /** 全局 Agent 配置（含自定义限额）。 */
+    private val _globalConfig = MutableStateFlow(com.hmp.domain.agent.runtime.GlobalAgentConfig())
+    val globalConfig: StateFlow<com.hmp.domain.agent.runtime.GlobalAgentConfig> = _globalConfig
+
+    init {
+        // 首次进设置页就把额度从账本回填，否则显示的是 0 / 100M 的初始值
+        viewModelScope.launch { quotaGate.snapshot() }
+        viewModelScope.launch {
+            _globalConfig.value = userSettingsUseCase.getGlobalAgentConfig()
+        }
+    }
+
+    /** 保存自定义限额；空 map / 0 表示不限。 */
+    fun saveTokenLimits(
+        enabled: Boolean,
+        globalDailyQuota: Int,
+        perAgentDailyQuota: Map<String, Long>,
+    ) {
+        viewModelScope.launch {
+            val updated = _globalConfig.value.copy(
+                tokenLimitsEnabled = enabled,
+                dailyTokenQuota = globalDailyQuota,
+                perAgentDailyTokenQuota = perAgentDailyQuota,
+            )
+            userSettingsUseCase.saveGlobalAgentConfig(updated)
+            _globalConfig.value = updated
+        }
+    }
 
     private val _customAiConfig = MutableStateFlow(AiEndpointConfig())
     val customAiConfig: StateFlow<AiEndpointConfig> = _customAiConfig

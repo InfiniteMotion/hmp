@@ -1,6 +1,7 @@
 package com.hearablemusic.player.ui.library.pages
 import com.hearablemusic.player.ui.generated.resources.home_explore
 import com.hearablemusic.player.ui.generated.resources.home_private_reco
+import com.hearablemusic.player.ui.generated.resources.home_reco_unavailable
 import com.hearablemusic.player.ui.generated.resources.home_recommended
 import com.hearablemusic.player.ui.generated.resources.home_today_reco
 import com.hearablemusic.player.ui.generated.resources.play_all
@@ -93,6 +94,11 @@ fun HomeScreen(
     val masterAgent: MasterAgent = koinInject()
     val dailyPayload by masterAgent.dailyRecommendList.collectAsState()
     val privatePayload by masterAgent.privateRecommendList.collectAsState()
+
+    // 两个歌单由 Hello 生成 → 额度看 hello 桶；耗尽时入口置灰并显示「额度不足」。
+    val quotaGate: com.hmp.domain.agent.quota.TokenQuotaGate = koinInject()
+    val exhaustedBuckets by quotaGate.exhausted.collectAsState()
+    val helloQuotaBlocked = com.hmp.domain.agent.quota.QuotaBucket.HELLO in exhaustedBuckets
 
     // 堆叠卡短按 → 按卡型分流（能播的播、能跳的跳、纯文案卡不响应）
     val musicRepository: MusicRepository = koinInject()
@@ -224,6 +230,7 @@ fun HomeScreen(
                                             modifier = Modifier.weight(1f).fillMaxWidth(),
                                             source = RecommendSource.DAILY,
                                             payload = dailyPayload,
+                                            enabled = !helloQuotaBlocked,
                                             onOpen = { navController.add(NavRoutes.Recommend.Daily) },
                                             onPlay = { playRecommend(RecommendSource.DAILY) },
                                         )
@@ -231,6 +238,7 @@ fun HomeScreen(
                                             modifier = Modifier.weight(1f).fillMaxWidth(),
                                             source = RecommendSource.PRIVATE,
                                             payload = privatePayload,
+                                            enabled = !helloQuotaBlocked,
                                             onOpen = { navController.add(NavRoutes.Recommend.Private) },
                                             onPlay = { playRecommend(RecommendSource.PRIVATE) },
                                         )
@@ -293,6 +301,7 @@ fun HomeScreen(
                                     modifier = Modifier.weight(1f).fillMaxWidth(),
                                     source = RecommendSource.DAILY,
                                     payload = dailyPayload,
+                                    enabled = !helloQuotaBlocked,
                                     onOpen = { navController.add(NavRoutes.Recommend.Daily) },
                                     onPlay = { playRecommend(RecommendSource.DAILY) },
                                 )
@@ -300,6 +309,7 @@ fun HomeScreen(
                                     modifier = Modifier.weight(1f).fillMaxWidth(),
                                     source = RecommendSource.PRIVATE,
                                     payload = privatePayload,
+                                    enabled = !helloQuotaBlocked,
                                     onOpen = { navController.add(NavRoutes.Recommend.Private) },
                                     onPlay = { playRecommend(RecommendSource.PRIVATE) },
                                 )
@@ -354,11 +364,13 @@ private fun RecommendEntryCard(
     payload: RecommendListPayload?,
     onOpen: () -> Unit,
     onPlay: () -> Unit,
+    enabled: Boolean = true,
 ) {
     // 无数据（已生成但为空）→ 入口不显示
     if (payload != null && payload.items.isEmpty()) return
 
     val ready = payload != null && payload.items.isNotEmpty()
+    val actionable = ready && enabled
     val title = when (source) {
         RecommendSource.DAILY -> stringResource(Res.string.home_today_reco)
         RecommendSource.PRIVATE -> stringResource(Res.string.home_private_reco)
@@ -367,7 +379,7 @@ private fun RecommendEntryCard(
     // 容器对齐 TitleWidget / User·Setting 页卡片：透明底 + outlineVariant 50% 描边 + dimens.corner.md
     HMPCard(
         modifier = modifier
-            .clickable(enabled = ready) { onOpen() },
+            .clickable(enabled = actionable) { onOpen() },
         contentPadding = Modifier.padding(horizontal = 14.dp, vertical = 12.dp)
     ) {
         // 撑满卡片可用区并垂直居中：卡高由调用方决定（宽窗 70dp / Compact 70dp），
@@ -379,29 +391,37 @@ private fun RecommendEntryCard(
             Text(
                 text = title,
                 style = MaterialTheme.typography.titleMedium,
-                color = if (ready) {
-                    MaterialTheme.colorScheme.onSurface
-                } else {
-                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                color = when {
+                    !enabled -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+                    ready -> MaterialTheme.colorScheme.onSurface
+                    else -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                 },
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
             )
             Spacer(Modifier.width(10.dp))
-            FilledIconButton(
-                onClick = { if (ready) onPlay() },
-                enabled = ready,
-                colors = IconButtonDefaults.filledIconButtonColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary,
-                    disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                    disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                ),
-            ) {
-                Icon(
-                    painter = painterResource(Res.drawable.play_fill),
-                    contentDescription = stringResource(Res.string.play_all),
+            if (enabled) {
+                FilledIconButton(
+                    onClick = { if (actionable) onPlay() },
+                    enabled = actionable,
+                    colors = IconButtonDefaults.filledIconButtonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary,
+                        disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                        disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    ),
+                ) {
+                    Icon(
+                        painter = painterResource(Res.drawable.play_fill),
+                        contentDescription = stringResource(Res.string.play_all),
+                    )
+                }
+            } else {
+                Text(
+                    text = stringResource(Res.string.home_reco_unavailable),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.error,
                 )
             }
         }

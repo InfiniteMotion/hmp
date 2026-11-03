@@ -6,7 +6,6 @@ import com.hmp.domain.agent.policy.PolicyGuard
 import com.hmp.domain.agent.port.AgentKeepAlivePort
 import com.hmp.domain.agent.port.NowPlayingContextProvider
 import com.hmp.domain.agent.port.PlaybackCommandPort
-import com.hmp.domain.agent.runtime.GlobalTokenCounter
 import com.hmp.domain.agent.runtime.MasterAgent
 import com.hmp.domain.agent.runtime.TokenMeter
 import com.hmp.domain.agent.tool.spec.ToolRegistry
@@ -47,7 +46,6 @@ class KoinGraphVerificationTest {
             // 静态校验会把它读成一条需要注入的 kotlin.Function0。按定义逐条声明，
             // 不用 extraTypes 全局放行 Function0 —— 那样以后任何真的漏注入的函数字面量都会被跳过。
             injections = injectedParameters(
-                definition<GlobalTokenCounter>(Function0::class),
                 definition<TokenMeter>(Function0::class),
                 definition<MasterAgent>(Function0::class),
             ),

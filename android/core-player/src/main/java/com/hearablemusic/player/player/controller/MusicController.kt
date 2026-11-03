@@ -339,7 +339,7 @@ class MusicController(
             // 如果服务已经绑定，尝试seek到该位置
             playControl?.seekTo(lastPos)
         } catch (e: Exception) {
-            // Ignore
+            HmpLog.w(LogTag.PlayerService, e) { "启动恢复失败 stage=lastPosition" }
         }
     }
 
@@ -352,7 +352,7 @@ class MusicController(
             _playbackMode.value = PlaybackMode.SEQUENTIAL
             _currentIndex.value = list.indexOfFirst { it.music.id == currentMusicId }.takeIf { it >= 0 } ?: 0
         } catch (e: Exception) {
-            // Ignore
+            HmpLog.w(LogTag.PlayerService, e) { "启动恢复失败 stage=playlist" }
         }
     }
     

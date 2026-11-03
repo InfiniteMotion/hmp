@@ -363,6 +363,13 @@ abstract class AppDatabase : RoomDatabase() {
                     "CREATE INDEX IF NOT EXISTS `index_PlaybackHistory_musicId_playedAt` " +
                         "ON `PlaybackHistory` (`musicId`, `playedAt`)",
                 ).forEach { statement -> connection.execSQL(statement) }
+
+                // ⑥ 配额分账列：`token_ledger` 是 8→9 建的，这里补 `access_mode`。
+                //    v10 尚未发布，直接并进同一版，不再新开迁移（与 userInfo.removedByUser 同一先例）。
+                //    存量行一律按 FREE 处理 —— 此前能用的只有内置 Key。
+                connection.execSQL(
+                    "ALTER TABLE `token_ledger` ADD COLUMN `access_mode` TEXT NOT NULL DEFAULT 'FREE'"
+                )
             }
 
             /** 决策 1：每个歌单内按 `(itemOrder, songId)` 排序后重编 `0..n-1`；本来就正确的行不动。 */

@@ -1,5 +1,6 @@
 package com.hearablemusic.player.ui.di
 
+import com.hearablemusic.player.ui.agent.shell.RadioConsoleController
 import com.hearablemusic.player.ui.common.dialogs.controller.DialogManager
 import com.hearablemusic.player.ui.common.dialogs.viewmodel.DialogManagerViewModel
 import com.hearablemusic.player.ui.common.dialogs.viewmodel.DialogViewModel
@@ -47,6 +48,7 @@ val iosUiModule = module {
     includes(chatGatewayModule)
 
     single { DialogManager() }
+    single { RadioConsoleController() }
 
     // 平台桥三件（PlaybackController 为单例 object，Swift 桥与 Koin 共用同一实例）。
     // ⚠️ 这一行曾因文件编码损坏被并进上一行的 `//` 注释里 —— 编译不报错（注释合法），
@@ -64,17 +66,17 @@ val iosUiModule = module {
     viewModel { SongDetailViewModel(get(), get()) }
     viewModel { EditMusicTagsViewModel(get(), get(), get()) }
     viewModel { PlaybackViewModel(get()) }
-    viewModel { PlaylistQueueViewModel(get(), get(), get(), get()) }
+    viewModel { PlaylistQueueViewModel(get()) }
     viewModel { PlaylistViewModel(get(), get(), get(), get()) }
     viewModel { ArtistAlbumViewModel(get()) }
     viewModel { SettingsViewModel(get()) }
     viewModel { AudioEffectViewModel(get()) }
     viewModel { BackupViewModel(get(), get(), get(), get()) }
-    viewModel { AiSettingsViewModel(get(), get()) }
+    viewModel { AiSettingsViewModel(get(), get(), get()) }
     viewModel { LyricsSettingsViewModel(get()) }
     viewModel { RecommendationViewModel(get(), get(), get()) }
     viewModel { UserUsageDataViewModel(get<com.hmp.domain.music.MusicRepository>(), get<com.hmp.domain.agent.runtime.MasterAgent>()) }
-    viewModel { ChatViewModel(get(), get(), get(), get()) }
+    viewModel { ChatViewModel(get(), get(), get(), get(), get()) }
     viewModel { ThemeViewModel(get(), get()) }
 }
 

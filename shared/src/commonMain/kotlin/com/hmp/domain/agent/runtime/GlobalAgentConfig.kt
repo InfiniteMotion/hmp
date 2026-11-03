@@ -10,8 +10,20 @@ import kotlinx.serialization.Serializable
  */
 @Serializable
 data class GlobalAgentConfig(
-    /** 日 Token 配额（全局，跨所有 Agent 共享）。 */
+    /** 日 Token 配额（全局，跨所有 Agent 共享）。仅在 [tokenLimitsEnabled] 打开时生效。 */
     val dailyTokenQuota: Int = 500_000,
+    /**
+     * 自定义模式是否启用限额（默认关 = 不限）。
+     *
+     * 免费体验模式不走这里 —— 它有独立的 100M 总额与四桶比例，见
+     * [com.hmp.domain.agent.quota.TokenQuotaGate]。
+     */
+    val tokenLimitsEnabled: Boolean = false,
+    /**
+     * 自定义模式下每个 Agent 的独立日上限（key 用 `master` / `radio` / `enrich` / `hello`）；
+     * 没配的桶 = 不限。空 map 是默认值，老用户零迁移。
+     */
+    val perAgentDailyTokenQuota: Map<String, Long> = emptyMap(),
     /** 回复语言："zh" / "en" / "auto"。 */
     val replyLanguage: String = "zh",
     /** 嗓音与耳朵开关（M7 gate，默认关闭）。 */

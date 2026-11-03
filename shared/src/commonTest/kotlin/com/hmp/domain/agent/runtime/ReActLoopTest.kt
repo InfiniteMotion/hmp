@@ -33,7 +33,6 @@ class ReActLoopTest {
 
     private fun loop(
         stepBudget: Int = 8,
-        tokenCounter: GlobalTokenCounter? = null,
         policyGuard: PolicyGuard? = null,
         auditLog: com.hmp.domain.agent.port.AuditLogPort? = null,
         presenceBus: PresenceBus? = null,
@@ -42,7 +41,6 @@ class ReActLoopTest {
     ) = ReActLoop(
         stepBudget = stepBudget,
         temperature = 0.7f,
-        tokenCounter = tokenCounter,
         policyGuard = policyGuard,
         confirmGate = null,
         auditLog = auditLog,
@@ -91,24 +89,13 @@ class ReActLoopTest {
     }
 
     @Test
-    fun `云端配额耗尽 → CLOUD_QUOTA_EXHAUSTED`() = runTest {
-        val timeProvider: com.hmp.domain.agent.port.TimeProvider = { 1_700_000_000_000L }
-        val counter = GlobalTokenCounter(timeProvider, dailyTokenQuota = 1000)
-        counter.recordTokens(1000) // usageRate = 1.0 > 0.95
-        assertTrue(counter.shouldStop())
+    fun `停止信号软停 → CLOUD_QUOTA_EXHAUSTED`() = runTest {
+        // 全局日熔断已删除：子 Agent 的桶耗尽经 StopSignal 传进来，Master 侧只看 quotaExhausted
         val transport = perTurnTransport(listOf(LlmEvent.TextDelta("x"), LlmEvent.Completed))
-        val result = loop(tokenCounter = counter).run(policy, transport, config, systemPrompt, input, registry = registry(RecordingTool()))
+        val result = loop(stopSignal = FakeStopSignal(softStop = true))
+            .run(policy, transport, config, systemPrompt, input, registry = registry(RecordingTool()))
         assertEquals(TerminationReason.CLOUD_QUOTA_EXHAUSTED, result.terminatedBy)
         assertEquals(0, result.stepsUsed)
-    }
-
-    @Test
-    fun `停止信号软停 → FAILED`() = runTest {
-        val transport = perTurnTransport(listOf(LlmEvent.TextDelta("x"), LlmEvent.Completed))
-        val result = loop(stopSignal = FakeStopSignal(softStop = true)).run(
-            policy, transport, config, systemPrompt, input, registry = registry(RecordingTool()),
-        )
-        assertEquals(TerminationReason.FAILED, result.terminatedBy)
     }
 
     @Test
@@ -144,5 +131,48 @@ class ReActLoopTest {
         runCurrent()   // 泵一次调度，让收集者消费缓冲中的事件
         assertTrue(events.any { it is PresenceEvent.TaskProgress && it.phase == "thinking" }, "应发出 thinking 进度事件")
         assertTrue(events.any { it is PresenceEvent.TaskProgress && it.phase == "idle" }, "应发出 idle 进度事件")
+    }
+
+    /**
+     * T3 判据：免费桶用完后，Master 的对话**不得发出请求**，且给的是可行动话术。
+     */
+    @Test
+    fun quotaExhausted_stopsBeforeTransport_andSaysWhy() = runTest {
+        val dao = object : com.hmp.data.database.TokenLedgerDao {
+            override suspend fun insert(entry: com.hmp.data.database.TokenLedgerEntry): Long = 0L
+            override suspend fun count(): Long = 1L
+            override suspend fun earliestMs(): Long? = null
+            override suspend fun sumByAgent(sinceMs: Long): List<com.hmp.data.database.TokenAggregateRow> = emptyList()
+            override suspend fun sumByAgentForMode(sinceMs: Long, mode: String): List<com.hmp.data.database.TokenAggregateRow> =
+                listOf(
+                    com.hmp.data.database.TokenAggregateRow(
+                        label = "master",
+                        promptTokens = 40_000_000L,
+                        completionTokens = 0L,
+                        totalTokens = 40_000_000L,
+                        estimatedRows = 0L,
+                        calls = 1L,
+                    )
+                )
+            override suspend fun sumByEndpoint(sinceMs: Long): List<com.hmp.data.database.TokenAggregateRow> = emptyList()
+            override suspend fun sumByHour(sinceMs: Long): List<com.hmp.data.database.TokenTimeBucket> = emptyList()
+            override suspend fun sumByDay(sinceMs: Long): List<com.hmp.data.database.TokenTimeBucket> = emptyList()
+            override suspend fun sumByHourForAgent(sinceMs: Long, agentId: String): List<com.hmp.data.database.TokenTimeBucket> = emptyList()
+            override suspend fun sumTotal(): Long = 40_000_000L
+            override suspend fun sumTotalSince(sinceMs: Long): Long = sumTotal()
+            override suspend fun deleteAll() {}
+        }
+        val gate = com.hmp.domain.agent.quota.TokenQuotaGate(
+            ledgerDao = dao,
+            settingsRepository = com.hmp.test.fakes.FakeSettingsRepository(),
+            timeProvider = { 0L },
+        )
+        val meter = TokenMeter(ledgerDao = dao, timeProvider = { 0L }, quotaGate = gate)
+
+        val transport = perTurnTransport(listOf(LlmEvent.TextDelta("不该被调用"), LlmEvent.Completed)) as com.hmp.test.fakes.FakeLlmTransport
+        val result = loop(tokenMeter = meter).run(policy, transport, config, systemPrompt, input, registry = registry())
+
+        assertTrue(transport.calls.isEmpty(), "配额耗尽时不得发出任何 LLM 请求")
+        assertTrue(result.text.contains("额度"), "应给用户可行动的话术，而不是\"对话中断\"")
     }
 }

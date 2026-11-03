@@ -159,6 +159,14 @@ interface HapticService {
 
 /** 悬浮歌词控制（Android 前台 Service；Desktop 空实现）。 */
 interface FloatingLyricsController {
+    /**
+     * 本端是否有真实的悬浮歌词实现。
+     *
+     * Android 有前台 Service；Desktop/iOS 目前是空壳 → false，设置页据此隐藏「悬浮歌词」tab，
+     * 避免"看起来能开、实际无效"（D4-04）。
+     */
+    val isSupported: Boolean get() = false
+
     /** 启动悬浮歌词（实现内部处理 overlay 权限检查与开关持久化之外的启动细节）。 */
     fun start()
 

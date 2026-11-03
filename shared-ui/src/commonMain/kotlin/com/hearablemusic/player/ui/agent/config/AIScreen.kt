@@ -7,6 +7,12 @@ import com.hearablemusic.player.ui.generated.resources.agent_ai_custom_endpoint
 import com.hearablemusic.player.ui.generated.resources.agent_ai_endpoint_prereq
 import com.hearablemusic.player.ui.generated.resources.agent_ai_expand
 import com.hearablemusic.player.ui.generated.resources.agent_ai_free_remaining
+import com.hearablemusic.player.ui.generated.resources.agent_token_limits_title
+import com.hearablemusic.player.ui.generated.resources.agent_token_limits_enable
+import com.hearablemusic.player.ui.generated.resources.agent_token_limits_global
+import com.hearablemusic.player.ui.generated.resources.agent_token_limits_per_agent
+import com.hearablemusic.player.ui.generated.resources.agent_token_limits_save
+
 import com.hearablemusic.player.ui.generated.resources.agent_ai_free_tier
 import com.hearablemusic.player.ui.generated.resources.agent_ai_lang_auto
 import com.hearablemusic.player.ui.generated.resources.agent_ai_lang_en
@@ -125,6 +131,7 @@ import com.hearablemusic.player.ui.generated.resources.ai_fetch_models
 import com.hearablemusic.player.ui.generated.resources.ai_free_exhausted
 import com.hearablemusic.player.ui.generated.resources.ai_free_hint
 import com.hearablemusic.player.ui.generated.resources.ai_free_remaining
+import com.hearablemusic.player.ui.generated.resources.ai_free_unavailable
 import com.hearablemusic.player.ui.generated.resources.ai_free_used
 import com.hearablemusic.player.ui.generated.resources.ai_paid_coming_soon
 import com.hearablemusic.player.ui.generated.resources.ai_paid_description
@@ -175,7 +182,8 @@ fun AIScreen(
     val musicWithExtraCount by libraryViewModel.musicWithExtraCount.collectAsState(initial = 0)
     val pendingCount by recommendationViewModel.pendingMusicCount.collectAsState(initial = 0)
     val aiAccessMode by aiSettingsViewModel.aiAccessMode.collectAsState()
-    val freeTrialRemaining by aiSettingsViewModel.aiFreeTrialRemainingCount.collectAsState()
+    val freeQuota by aiSettingsViewModel.quotaUsage.collectAsState()
+    val freeAvailable by aiSettingsViewModel.freeAvailable.collectAsState()
     val customConfig by aiSettingsViewModel.customAiConfig.collectAsState()
     val availableModels by aiSettingsViewModel.availableModels.collectAsState()
     val isTestingApi by aiSettingsViewModel.isTestingApi.collectAsState()
@@ -185,7 +193,8 @@ fun AIScreen(
 
     AIScreenContent(
         aiAccessMode = aiAccessMode,
-        freeTrialRemaining = freeTrialRemaining,
+        freeQuota = freeQuota,
+        freeAvailable = freeAvailable,
         customConfig = customConfig,
         availableModels = availableModels,
         isTestingApi = isTestingApi,
@@ -202,6 +211,7 @@ fun AIScreen(
         onClearTestResult = aiSettingsViewModel::clearApiTestResult,
         onAutoBatchProcessChange = aiSettingsViewModel::saveAutoBatchProcess,
         startAutoProcessExtraInfo = recommendationViewModel::startAutoProcessWithCurrentProvider,
+        aiSettingsViewModel = aiSettingsViewModel,
         pauseProcess = recommendationViewModel::pauseProcessing,
         resumeProcess = recommendationViewModel::resumeProcessing,
         cancelProcess = recommendationViewModel::cancelProcessing,
@@ -216,7 +226,8 @@ fun AIScreen(
 @Composable
 private fun AIScreenContent(
     aiAccessMode: AiAccessMode,
-    freeTrialRemaining: Int,
+    freeQuota: com.hmp.domain.agent.runtime.TokenSnapshot,
+    freeAvailable: Boolean,
     customConfig: AiEndpointConfig,
     availableModels: List<String>,
     isTestingApi: Boolean,
@@ -233,6 +244,7 @@ private fun AIScreenContent(
     onClearTestResult: () -> Unit,
     onAutoBatchProcessChange: (Boolean) -> Unit,
     startAutoProcessExtraInfo: () -> Unit,
+    aiSettingsViewModel: AiSettingsViewModel,
     pauseProcess: () -> Unit,
     resumeProcess: () -> Unit,
     cancelProcess: () -> Unit,
@@ -289,7 +301,8 @@ private fun AIScreenContent(
                 SectionHeader(stringResource(Res.string.agent_ai_access_header))
                 AiAccessSection(
                     aiAccessMode = aiAccessMode,
-                    freeTrialRemaining = freeTrialRemaining,
+                    freeQuota = freeQuota,
+        freeAvailable = freeAvailable,
                     customConfig = customConfig,
                     availableModels = availableModels,
                     isTestingApi = isTestingApi,
@@ -300,6 +313,9 @@ private fun AIScreenContent(
                     onTestConnection = onTestConnection,
                     dialogManager = dialogManager,
                 )
+                if (aiAccessMode == AiAccessMode.CUSTOM) {
+                    TokenLimitsCard(aiSettingsViewModel)
+                }
                 // 分区 3：语言和语音
                 SectionHeader(stringResource(Res.string.agent_ai_lang_voice_header))
                 ReplyLanguageSection(masterAgent = masterAgent)
@@ -340,7 +356,8 @@ private fun AIScreenContent(
             SectionHeader(stringResource(Res.string.agent_ai_access_header))
             AiAccessSection(
                 aiAccessMode = aiAccessMode,
-                freeTrialRemaining = freeTrialRemaining,
+                freeQuota = freeQuota,
+        freeAvailable = freeAvailable,
                 customConfig = customConfig,
                 availableModels = availableModels,
                 isTestingApi = isTestingApi,
@@ -351,6 +368,9 @@ private fun AIScreenContent(
                 onTestConnection = onTestConnection,
                 dialogManager = dialogManager,
             )
+            if (aiAccessMode == AiAccessMode.CUSTOM) {
+                TokenLimitsCard(aiSettingsViewModel)
+            }
 
             // ═══ 分区 2：Agent 管理 —— 监控看板 + 配置入口 ═══
             SectionHeader(stringResource(Res.string.agent_ai_agent_mgmt_header))
@@ -388,9 +408,14 @@ private data class AccessSummary(val title: String, val detail: String)
 private fun accessSummary(
     mode: AiAccessMode,
     config: AiEndpointConfig,
-    freeTrialRemaining: Int,
+    freeQuota: com.hmp.domain.agent.runtime.TokenSnapshot,
+    freeAvailable: Boolean,
 ): AccessSummary = when (mode) {
-    AiAccessMode.FREE -> AccessSummary(stringResource(Res.string.agent_ai_free_tier), stringResource(Res.string.agent_ai_free_remaining, freeTrialRemaining))
+    AiAccessMode.FREE -> AccessSummary(
+        stringResource(Res.string.agent_ai_free_tier),
+        if (!freeAvailable) stringResource(Res.string.ai_free_unavailable)
+        else stringResource(Res.string.agent_ai_free_remaining, fmtTokens(freeQuota.remaining)),
+    )
     AiAccessMode.CUSTOM -> {
         val detail = when {
             config.selectedModel.isNotBlank() -> config.selectedModel
@@ -410,7 +435,8 @@ private fun accessSummary(
 @Composable
 private fun AiAccessSection(
     aiAccessMode: AiAccessMode,
-    freeTrialRemaining: Int,
+    freeQuota: com.hmp.domain.agent.runtime.TokenSnapshot,
+    freeAvailable: Boolean,
     customConfig: AiEndpointConfig,
     availableModels: List<String>,
     isTestingApi: Boolean,
@@ -422,7 +448,7 @@ private fun AiAccessSection(
     dialogManager: DialogManager,
 ) {
     var expanded by remember { mutableStateOf(false) }
-    val summary = accessSummary(aiAccessMode, customConfig, freeTrialRemaining)
+    val summary = accessSummary(aiAccessMode, customConfig, freeQuota, freeAvailable)
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         // 概要行：始终可见，点击切换展开/折叠
@@ -479,8 +505,8 @@ private fun AiAccessSection(
             )
             when (aiAccessMode) {
                 AiAccessMode.FREE -> FreeTrialContent(
-                    freeTrialRemaining = freeTrialRemaining,
-                    pendingCount = pendingCount
+                    freeQuota = freeQuota,
+                    freeAvailable = freeAvailable,
                 )
                 AiAccessMode.CUSTOM -> CustomConfigContent(
                     customConfig = customConfig,
@@ -501,8 +527,8 @@ private fun AiAccessSection(
 
 @Composable
 private fun FreeTrialContent(
-    freeTrialRemaining: Int,
-    pendingCount: Int
+    freeQuota: com.hmp.domain.agent.runtime.TokenSnapshot,
+    freeAvailable: Boolean,
 ) {
     TitleWidget(title = stringResource(Res.string.ai_tab_free)) {
         Column(
@@ -512,48 +538,60 @@ private fun FreeTrialContent(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // 剩余次数显示
-            Text(
-                text = stringResource(Res.string.ai_free_remaining, freeTrialRemaining),
-                style = MaterialTheme.typography.headlineMedium,
-                color = if (freeTrialRemaining > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
-            )
-
-            // 进度条
-            val usedPercent = ((100 - freeTrialRemaining).coerceAtLeast(0) / 100f).coerceIn(0f, 1f)
-            LinearProgressIndicator(
-                progress = { usedPercent },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(4.dp)
-                    .clip(RoundedCornerShape(2.dp)),
-                color = if (freeTrialRemaining > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
-                trackColor = MaterialTheme.colorScheme.surfaceVariant
-            )
-
-            Text(
-                text = stringResource(Res.string.ai_free_used, 100 - freeTrialRemaining, 100),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-
-            if (freeTrialRemaining <= 0) {
+            // 免费入口的显示条件是「有没有可用的内置端点」，不是平台
+            if (!freeAvailable) {
                 Text(
-                    text = stringResource(Res.string.ai_free_exhausted),
+                    text = stringResource(Res.string.ai_free_unavailable),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.error,
                     textAlign = TextAlign.Center
                 )
             } else {
+                val remaining = freeQuota.remaining
                 Text(
-                    text = stringResource(Res.string.ai_free_hint),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center
+                    text = stringResource(Res.string.ai_free_remaining, fmtTokens(remaining)),
+                    style = MaterialTheme.typography.headlineMedium,
+                    color = if (remaining > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
                 )
+                LinearProgressIndicator(
+                    progress = { freeQuota.rate },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(4.dp)
+                        .clip(RoundedCornerShape(2.dp)),
+                    color = if (remaining > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                    trackColor = MaterialTheme.colorScheme.surfaceVariant
+                )
+                Text(
+                    text = stringResource(Res.string.ai_free_used, fmtTokens(freeQuota.used), fmtTokens(freeQuota.quota)),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                if (remaining <= 0) {
+                    Text(
+                        text = stringResource(Res.string.ai_free_exhausted),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.error,
+                        textAlign = TextAlign.Center
+                    )
+                } else {
+                    Text(
+                        text = stringResource(Res.string.ai_free_hint),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center
+                    )
+                }
             }
         }
     }
+}
+
+/** 100_000_000 → 100M，12_345 → 12.3K。设置页与看板同口径。 */
+private fun fmtTokens(n: Long): String {
+    if (n >= 1_000_000L) return "${(n / 100_000L) / 10.0}M"
+    if (n >= 1000L) return "${(n / 100L) / 10.0}K"
+    return "$n"
 }
 
 // ==================== 自定义配置 Tab ====================
@@ -777,6 +815,102 @@ private fun CustomConfigContent(
                     color = MaterialTheme.colorScheme.primary
                 )
             }
+
+        }
+    }
+}
+
+/**
+ * 自定义模式的用量限额（T6）。语义与 `TokenQuotaGate` 对齐：
+ * - 关掉开关 = 完全不限；
+ * - 全局 / 每个 Agent 留空 = 该项不限；
+ * - 窗口是**每日**（免费模式才是总额 100M，两者不混）。
+ */
+@Composable
+private fun TokenLimitsCard(vm: AiSettingsViewModel) {
+    val config by vm.globalConfig.collectAsState()
+    var enabled by remember(config) { mutableStateOf(config.tokenLimitsEnabled) }
+    var globalLimit by remember(config) {
+        mutableStateOf(if (config.dailyTokenQuota > 0) config.dailyTokenQuota.toString() else "")
+    }
+    val perAgent = remember(config) {
+        androidx.compose.runtime.mutableStateMapOf<String, String>().apply {
+            listOf("master", "radio", "enrich", "hello").forEach { key ->
+                put(key, config.perAgentDailyTokenQuota[key]?.toString().orEmpty())
+            }
+        }
+    }
+    var saved by remember { mutableStateOf(false) }
+
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        Text(
+            text = stringResource(Res.string.agent_token_limits_title),
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = stringResource(Res.string.agent_token_limits_enable),
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            Switch(checked = enabled, onCheckedChange = { enabled = it; saved = false })
+        }
+
+        if (enabled) {
+            OutlinedTextField(
+                value = globalLimit,
+                onValueChange = { globalLimit = it.filter(Char::isDigit); saved = false },
+                label = { Text(stringResource(Res.string.agent_token_limits_global)) },
+                singleLine = true,
+                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                    keyboardType = androidx.compose.ui.text.input.KeyboardType.Number,
+                ),
+                modifier = Modifier.fillMaxWidth(),
+            )
+            listOf("master", "radio", "enrich", "hello").forEach { key ->
+                OutlinedTextField(
+                    value = perAgent[key].orEmpty(),
+                    onValueChange = { value -> perAgent[key] = value.filter(Char::isDigit); saved = false },
+                    label = { Text("${key.replaceFirstChar { it.uppercase() }} · ${stringResource(Res.string.agent_token_limits_per_agent)}") },
+                    singleLine = true,
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                        keyboardType = androidx.compose.ui.text.input.KeyboardType.Number,
+                    ),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        }
+
+        Button(
+            onClick = {
+                vm.saveTokenLimits(
+                    enabled = enabled,
+                    globalDailyQuota = globalLimit.toIntOrNull() ?: 0,
+                    perAgentDailyQuota = if (enabled) {
+                        perAgent.mapNotNull { (key, value) ->
+                            value.toLongOrNull()?.takeIf { it > 0 }?.let { key to it }
+                        }.toMap()
+                    } else {
+                        emptyMap()
+                    },
+                )
+                saved = true
+            },
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(stringResource(Res.string.agent_token_limits_save), color = MaterialTheme.colorScheme.onPrimary)
+        }
+        if (saved) {
+            Text(
+                text = stringResource(Res.string.config_saved),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.primary,
+            )
         }
     }
 }

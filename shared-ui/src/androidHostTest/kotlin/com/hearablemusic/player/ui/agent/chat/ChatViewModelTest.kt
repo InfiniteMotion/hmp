@@ -48,7 +48,14 @@ class ChatViewModelTest {
     }
 
     private fun vm(gateway: FakeChatAgentGateway) =
-        ChatViewModel(gateway, UserSettingsUseCase(MinimalSettingsRepository()), FakePlaybackCommandPort, fakeMessageStore)
+        ChatViewModel(
+            gateway,
+            UserSettingsUseCase(MinimalSettingsRepository()),
+            FakePlaybackCommandPort,
+            fakeMessageStore,
+            // 测试里不限额：dao/settings 均可空，闸门恒放行
+            com.hmp.domain.agent.quota.TokenQuotaGate(null, null) { 0L },
+        )
 
     private fun needConfirm() = ChatAgentEvent.NeedConfirm(
         turnId = "t1",

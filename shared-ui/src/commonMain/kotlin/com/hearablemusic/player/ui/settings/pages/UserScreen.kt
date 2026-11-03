@@ -77,6 +77,7 @@ import com.hearablemusic.player.ui.generated.resources.total_listening_minutes
 import com.hearablemusic.player.ui.settings.components.buildListeningHeatmap
 import com.hearablemusic.player.ui.settings.components.ListeningChart
 import com.hearablemusic.player.ui.settings.viewmodel.RecommendationViewModel
+import com.hearablemusic.player.ui.platform.PlaybackController
 import com.hearablemusic.player.ui.settings.viewmodel.SettingsViewModel
 import com.hearablemusic.player.ui.settings.viewmodel.UserUsageDataViewModel
 import com.hearablemusic.player.ui.settings.viewmodel.WindowedBundle
@@ -86,15 +87,16 @@ import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
+import org.koin.compose.koinInject
 import kotlin.math.abs
 
-private data class SettingsEntry(
+internal data class SettingsEntry(
     val title: UiText,
     val icon: DrawableResource,
     val route: NavKey
 )
 
-private val settingsItems = listOf(
+internal val settingsItems = listOf(
     SettingsEntry(Res.string.theme_customization.asUiText(), Res.drawable.slider_vertical_3, Routes.Custom.Custom),
     SettingsEntry(Res.string.audio_effects.asUiText(), Res.drawable.identify_song, Routes.Player.AudioEffects),
     SettingsEntry(Res.string.ai_services.asUiText(), Res.drawable.icloud, Routes.AI.AI),
@@ -105,6 +107,15 @@ private val settingsItems = listOf(
     SettingsEntry(Res.string.agent_ai_memory_log_title.asUiText(), Res.drawable.list_bullet, Routes.Settings.AuditLog),
 )
 
+/**
+ * 设置页可见项。
+ *
+ * Desktop/iOS 的音效是空桩（`PlaybackController.audioEffectsSupported=false`），
+ * 按 §九 决策 5 从 UI 撤下入口，避免误导。
+ */
+internal fun visibleSettingsEntries(audioEffectsSupported: Boolean): List<SettingsEntry> =
+    settingsItems.filter { it.route != Routes.Player.AudioEffects || audioEffectsSupported }
+
 @Composable
 private fun SettingsListCard(
     navController: NavBackStack<NavKey>,
@@ -112,11 +123,13 @@ private fun SettingsListCard(
 ) {
     val haptic = rememberHapticFeedback()
     val dimens = LocalHMPDimens.current
+    val playbackController: PlaybackController = koinInject()
+    val entries = visibleSettingsEntries(playbackController.audioEffectsSupported)
     HMPCard(
         modifier = modifier,
         contentPadding = Modifier.padding(vertical = dimens.spacing.sm)
     ) {
-        settingsItems.forEachIndexed { index, (title, icon, route) ->
+        entries.forEachIndexed { index, (title, icon, route) ->
                 if (index > 0) {
                     HorizontalDivider(
                         color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)

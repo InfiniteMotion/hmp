@@ -97,15 +97,13 @@ class UserSettingsUseCase(
         return settingsRepository.getActiveAiConfig()
     }
 
-    val aiFreeTrialRemainingCount: Flow<Int> = settingsRepository.aiFreeTrialRemainingCount
+    suspend fun isBuiltInAiConfigured(): Boolean = settingsRepository.isBuiltInAiConfigured()
 
-    suspend fun getAiFreeTrialRemainingCount(): Int {
-        return settingsRepository.getAiFreeTrialRemainingCount()
-    }
+    suspend fun getGlobalAgentConfig(): com.hmp.domain.agent.runtime.GlobalAgentConfig =
+        settingsRepository.getGlobalAgentConfig()
 
-    suspend fun decrementAiFreeTrialCount() {
-        settingsRepository.decrementAiFreeTrialCount()
-    }
+    suspend fun saveGlobalAgentConfig(config: com.hmp.domain.agent.runtime.GlobalAgentConfig) =
+        settingsRepository.saveGlobalAgentConfig(config)
 
     val autoBatchProcess: Flow<Boolean> = settingsRepository.autoBatchProcess
 

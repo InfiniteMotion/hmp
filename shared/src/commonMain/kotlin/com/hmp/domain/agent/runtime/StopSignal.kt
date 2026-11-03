@@ -18,11 +18,9 @@ internal interface StopSignal {
     suspend fun waitResume()
 }
 
-/** MasterAgent 用——永不暂停，只查 token/step 熔断（ReActLoop 内部也会查 stepBudget） */
-internal class AlwaysRunningStopSignal(
-    private val tokenCounter: GlobalTokenCounter? = null,
-) : StopSignal {
-    override fun shouldSoftStop(): Boolean = tokenCounter?.shouldStop() ?: false
+/** MasterAgent 用——永不暂停。配额耗尽由 ReActLoop 对 `quotaExhausted` 的分支处理（不发请求 + 可行动话术）。 */
+internal class AlwaysRunningStopSignal : StopSignal {
+    override fun shouldSoftStop(): Boolean = false
     override suspend fun waitResume() {}  // Master 永不暂停，空实现
 }
 
@@ -40,7 +38,7 @@ internal class AlwaysRunningStopSignal(
  * 旧版 tryLock 成功后不释放，Agent 第二个批次就自锁在自己持有的锁上（已修复）。
  *
  * 使用方式：
- *   val stopSignal = SchedulerStopSignal(tokenCounter)
+ *   val stopSignal = SchedulerStopSignal(quotaGate, "enrich")
  *   scheduler.registerAgent(AgentRegistration(
  *       agentId = "enrich",
  *       priority = ENRICH,
@@ -49,7 +47,8 @@ internal class AlwaysRunningStopSignal(
  *   ))
  */
 internal class SchedulerStopSignal(
-    private val tokenCounter: GlobalTokenCounter? = null,
+    private val quotaGate: com.hmp.domain.agent.quota.TokenQuotaGate? = null,
+    private val agentId: String = "",
 ) : StopSignal {
 
     /** 门闩：pauseRequested=true 时由 onSchedulerPaused 持锁 */
@@ -59,7 +58,7 @@ internal class SchedulerStopSignal(
     @Volatile
     private var pauseRequested: Boolean = false
 
-    override fun shouldSoftStop(): Boolean = tokenCounter?.shouldStop() ?: false
+    override fun shouldSoftStop(): Boolean = quotaGate?.isBucketExhausted(agentId) ?: false
 
     /**
      * Agent 每次循环开始时调用。

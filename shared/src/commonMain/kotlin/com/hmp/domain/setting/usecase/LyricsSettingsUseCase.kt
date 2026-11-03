@@ -1,20 +1,22 @@
 package com.hmp.domain.setting.usecase
 
-import com.hmp.domain.config.DisplayMode
-import com.hmp.domain.config.LyricsAlignment
 import com.hmp.domain.config.LyricsConfig
 import com.hmp.domain.lyrics.LyricsComponent
 import com.hmp.domain.lyrics.LyricsComponentConfig
 import com.hmp.domain.lyrics.LyricsConfigResolver
 import com.hmp.domain.setting.SettingsRepository
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.Json
 
 class LyricsSettingsUseCase(
     private val settingsRepository: SettingsRepository
 ) {
     private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+    private val updateMutex = Mutex()
 
     // ==================== Per-component config ====================
 
@@ -59,6 +61,47 @@ class LyricsSettingsUseCase(
     }
 
     /**
+     * **三端渲染器的唯一读取入口**（D4-01）。
+     *
+     * 读的是 per-component 配置并现场解析 `linkedTo` 链，所以设置页改字号 / 行距 / 显示模式 /
+     * 对齐 / 逐字开关后，播放页与独立歌词页会立刻跟着变。此前的读取走的是 legacy 扁平键
+     * （`settingsRepository.lyricsOriginalTextSize` 等），设置页写的是新模型 —— 两边各存各的，
+     * 用户改了设置看不到任何变化。
+     */
+    fun configFlow(component: LyricsComponent): Flow<LyricsConfig> =
+        combine(
+            settingsRepository.lyricsPlayerConfig,
+            settingsRepository.lyricsFullscreenConfig,
+            settingsRepository.lyricsFloatingConfig,
+        ) { player, fullscreen, floating ->
+            LyricsConfigResolver.resolve(
+                component,
+                mapOf(
+                    LyricsComponent.PLAYER to parseConfig(player),
+                    LyricsComponent.FULLSCREEN to parseConfig(fullscreen),
+                    LyricsComponent.FLOATING to parseConfig(floating),
+                )
+            )
+        }
+
+    /**
+     * 读-改-写单个组件的配置（页内快捷面板用）。
+     *
+     * 走「先取当前值再 copy」而不是整份覆盖：面板只改一个字段，不能让同组件上
+     * 用户刚在设置页配好的 `linkedTo` / 其它字段被默认值抹掉。
+     *
+     * 加锁是必要的：面板在拖动滑杆时会连发多次修改，`getAllComponentConfigs()` 与
+     * `saveComponentConfig()` 之间有挂起点，两次调用交错就会丢掉前一次的值。
+     */
+    suspend fun updateComponentConfig(
+        component: LyricsComponent,
+        transform: (LyricsComponentConfig) -> LyricsComponentConfig,
+    ) = updateMutex.withLock {
+        val current = getAllComponentConfigs()[component] ?: LyricsComponentConfig.DEFAULT
+        saveComponentConfig(component, transform(current))
+    }
+
+    /**
      * 重置指定组件为默认配置
      */
     suspend fun resetComponentToDefault(component: LyricsComponent) {
@@ -79,80 +122,5 @@ class LyricsSettingsUseCase(
     suspend fun saveFloatingLyricsEnabled(enabled: Boolean) {
         settingsRepository.saveFloatingLyricsEnabled(enabled)
     }
-
-    // ==================== Legacy (deprecated) ====================
-
-    @Deprecated("Use getComponentConfig(LyricsComponent.PLAYER) instead")
-    val originalTextSize: Flow<Int> = settingsRepository.lyricsOriginalTextSize
-
-    @Deprecated("Use getComponentConfig(LyricsComponent.PLAYER) instead")
-    val translatedTextSize: Flow<Int> = settingsRepository.lyricsTranslatedTextSize
-
-    @Deprecated("Use getComponentConfig(LyricsComponent.PLAYER) instead")
-    val currentTimeTextSize: Flow<Int> = settingsRepository.lyricsCurrentTimeTextSize
-
-    @Deprecated("Use getComponentConfig(LyricsComponent.PLAYER) instead")
-    val lineSpacing: Flow<Int> = settingsRepository.lyricsLineSpacing
-
-    @Deprecated("Use getComponentConfig(LyricsComponent.PLAYER) instead")
-    val displayMode: Flow<DisplayMode> = settingsRepository.lyricsDisplayMode
-
-    @Deprecated("Use getComponentConfig(LyricsComponent.PLAYER) instead")
-    val alignment: Flow<LyricsAlignment> = settingsRepository.lyricsAlignment
-
-    val karaokeEnabled: Flow<Boolean> = settingsRepository.lyricsKaraokeEnabled
-
-    @Deprecated("Use saveComponentConfig() instead")
-    suspend fun saveOriginalTextSize(size: Int) { settingsRepository.saveLyricsOriginalTextSize(size) }
-
-    @Deprecated("Use saveComponentConfig() instead")
-    suspend fun saveTranslatedTextSize(size: Int) { settingsRepository.saveLyricsTranslatedTextSize(size) }
-
-    @Deprecated("Use saveComponentConfig() instead")
-    suspend fun saveCurrentTimeTextSize(size: Int) { settingsRepository.saveLyricsCurrentTimeTextSize(size) }
-
-    @Deprecated("Use saveComponentConfig() instead")
-    suspend fun saveLineSpacing(spacing: Int) { settingsRepository.saveLyricsLineSpacing(spacing) }
-
-    @Deprecated("Use saveComponentConfig() instead")
-    suspend fun saveDisplayMode(mode: DisplayMode) { settingsRepository.saveLyricsDisplayMode(mode) }
-
-    @Deprecated("Use saveComponentConfig() instead")
-    suspend fun saveAlignment(alignment: LyricsAlignment) { settingsRepository.saveLyricsAlignment(alignment) }
-
-    suspend fun saveKaraokeEnabled(enabled: Boolean) {
-        settingsRepository.saveLyricsKaraokeEnabled(enabled)
-    }
-
-    suspend fun getKaraokeEnabled(): Boolean = settingsRepository.getLyricsKaraokeEnabled()
-
-    @Deprecated("Use resolveConfig(LyricsComponent.PLAYER) instead")
-    suspend fun getLyricsConfig(): LyricsConfig {
-        return LyricsConfig(
-            originalTextSize = settingsRepository.getLyricsOriginalTextSize(),
-            translatedTextSize = settingsRepository.getLyricsTranslatedTextSize(),
-            currentTimeTextSize = settingsRepository.getLyricsCurrentTimeTextSize(),
-            lineSpacing = settingsRepository.getLyricsLineSpacing(),
-            displayMode = settingsRepository.getLyricsDisplayMode(),
-            alignment = settingsRepository.getLyricsAlignment(),
-            karaokeEnabled = settingsRepository.getLyricsKaraokeEnabled()
-        )
-    }
-
-    @Deprecated("Use saveComponentConfig() instead")
-    suspend fun saveLyricsConfig(config: LyricsConfig) {
-        saveOriginalTextSize(config.originalTextSize)
-        saveTranslatedTextSize(config.translatedTextSize)
-        saveCurrentTimeTextSize(config.currentTimeTextSize)
-        saveLineSpacing(config.lineSpacing)
-        saveDisplayMode(config.displayMode)
-        saveAlignment(config.alignment)
-        saveKaraokeEnabled(config.karaokeEnabled)
-    }
-
-    @Deprecated("Use resetComponentToDefault() instead")
-    suspend fun resetToDefault() {
-        val defaultConfig = LyricsConfig()
-        saveLyricsConfig(defaultConfig)
-    }
 }
+

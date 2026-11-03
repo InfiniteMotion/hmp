@@ -76,7 +76,13 @@ open class FakeAgentMusicRepository : MusicRepository {
     override suspend fun removeUserMusicLabel(musicId: Long, label: LabelName) {}
     override suspend fun updateMusicTags(musicId: Long, tags: EditableMusicTags): Result<Unit> = Result.success(Unit)
     override suspend fun refreshMusicTags(musicId: Long, tags: EditableMusicTags): Result<Unit> = Result.success(Unit)
-    override suspend fun getSimilarSongsByWeightedLabels(musicId: Long, limit: Int): List<MusicInfo> =
+    override suspend fun getAllMusicLabels(): Map<Long, List<MusicLabel>> = emptyMap()
+
+    override suspend fun getSimilarSongsByWeightedLabels(
+        musicId: Long,
+        limit: Int,
+        weights: Map<com.hmp.domain.enum.LabelCategory, Double>?
+    ): List<MusicInfo> =
         songs.values.take(limit)
     override fun getRecentListeningDurations(limit: Int): Flow<List<ListeningDuration>> = flowOf(emptyList())
     override suspend fun getMusicLyrics(musicId: Long): String? = null

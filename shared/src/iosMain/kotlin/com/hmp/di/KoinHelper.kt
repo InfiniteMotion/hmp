@@ -11,7 +11,6 @@ import com.hmp.domain.music.usecase.RestoreToLibraryUseCase
 import com.hmp.domain.music.usecase.GetDeletedMusicIdsGroupedByFolderUseCase
 import com.hmp.domain.music.usecase.MusicLabelUseCase
 import com.hmp.domain.playlist.usecase.ManagePlaylistUseCase
-import com.hmp.domain.playlist.usecase.GeneratePlaylistUseCase
 import com.hmp.domain.setting.SettingsRepository
 import com.hmp.domain.setting.usecase.CurrentPlaybackUseCase
 import com.hmp.domain.setting.model.PlaybackHistory
@@ -63,9 +62,6 @@ fun getMusicRepository(): MusicRepository =
 
 // Playlist
 fun getManagePlaylistUseCase(): ManagePlaylistUseCase =
-    KoinPlatform.getKoin().get()
-
-fun getGeneratePlaylistUseCase(): GeneratePlaylistUseCase =
     KoinPlatform.getKoin().get()
 
 // Settings / Playback

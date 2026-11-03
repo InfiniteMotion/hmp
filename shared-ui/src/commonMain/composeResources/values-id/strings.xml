@@ -49,7 +49,6 @@
 <string name="today_heartbeat_playlist">Daftar Putar Detak Jantung Hari Ini</string>    
 <string name="generating_heartbeat_playlist">Membuat daftar putar detak jantung…</string>    
 <string name="play_heartbeat_playlist">Putar daftar putar detak jantung</string>    
-<string name="generated">Telah dibuat</string>    
 <string name="suitable_for_now">Cocok untuk saat ini</string>    
 <!-- Banner -->    
 <string name="banner_daily_A">Perpustakaan</string>    
@@ -284,7 +283,6 @@
 <string name="bass_boost">Penambah Bass</string>    
 <string name="surround_sound">Suara Surround</string>    
 <string name="reverb">Gaung</string>    
-<string name="balance">Keseimbangan</string>    
 <string name="hall">Aula</string>    
 <string name="church">Gereja</string>    
 <string name="small_room">Ruang Kecil</string>    
@@ -329,8 +327,8 @@
 <string name="ai_tab_free">Uji Coba Gratis</string>    
 <string name="ai_tab_custom">Kustom</string>    
 <string name="ai_tab_paid">Berbayar</string>    
-<string name="ai_free_remaining">Remaining: %1$d times</string>    
-<string name="ai_free_used">Used: %1$d / %2$d</string>    
+    <string name="ai_free_remaining">Sisa: %1$s token</string>
+    <string name="ai_free_used">Digunakan: %1$s / %2$s</string>
 <string name="ai_free_exhausted">Uji coba gratis habis. Silakan konfigurasi Kunci API Anda sendiri untuk melanjutkan.</string>    
 <string name="ai_free_hint">Setiap lagu yang diproses dihitung sebagai satu penggunaan. Tidak perlu konfigurasi Kunci API.</string>    
 <string name="ai_paid_coming_soon">Segera Hadir</string>    
@@ -338,10 +336,7 @@
 <!-- AI 错误 -->    
 <string name="test">Tes</string>    
 <string name="test_failed">Tes failed: %1$s</string>    
-<string name="save_failed">Simpan failed: %1$s</string>    
 <string name="fetch_models_failed">Failed to fetch models: %1$s</string>    
-<string name="generation_error">Generation erratau: %1$s</string>    
-<string name="generation_failed">Generation failed: %1$s</string>    
 <string name="connected">Terhubung</string>    
 <!-- ==================== 备份恢复 ==================== -->    
 <string name="backup">Cadangan</string>    
@@ -383,9 +378,6 @@
 <string name="music_not_found">Musik tidak ditemukan</string>    
 <!-- 分类标签 -->    
 <string name="genre">Genre</string>    
-<string name="mood">Suasana</string>    
-<string name="scene">Skenario</string>    
-<string name="era">Era</string>    
 <string name="personal_stats">Pribadi</string>    
 <string name="year">Tahun</string>    
 <string name="favorite">Favatauit</string>    
@@ -436,7 +428,6 @@
 <string name="top_songs_in_playlists">Lagu teratas di daftar putar</string>    
 <string name="startup_count_label">Jumlah permulaan</string>    
 <string name="recommendation_mode">Rekomendasi</string>    
-<string name="generate_recommend_list">Hasilkan</string>    
 <!-- ==================== 引导页 ==================== -->    
 <string name="start_experience">Mulai</string>    
 <string name="intro_step_1">Selamat Datang</string>    
@@ -505,7 +496,8 @@
     <string name="unsaved_changes">Perubahan belum disimpan</string>
     <string name="agent_monitor_title">Monitor Agen</string>
     <string name="agent_monitor_token_usage">Penggunaan Token</string>
-    <string name="agent_monitor_total_usage">Total penggunaan · buku besar lengkap</string>
+    <string name="agent_monitor_total_usage">30 hari terakhir</string>
+    <string name="agent_monitor_token_clear_confirm">Hapus %1$s baris buku besar (sejak %2$s)? Tindakan ini tidak dapat dibatalkan.</string>
     <string name="agent_monitor_quota_line">Hari ini %1$s · Tersisa %2$s · %3$d%%</string>
     <string name="agent_monitor_run_logs">Log eksekusi</string>
     <string name="agent_monitor_log_count">%1$d log ›</string>
@@ -543,7 +535,7 @@
     <string name="agent_ai_agent_mgmt_header">Manajemen Agen</string>
     <string name="agent_ai_memory_header">Memori</string>
     <string name="agent_ai_free_tier">Uji Coba Gratis</string>
-    <string name="agent_ai_free_remaining">Sisa %1$d penggunaan</string>
+    <string name="agent_ai_free_remaining">Sisa %1$s token</string>
     <string name="agent_ai_not_configured">Belum dikonfigurasi</string>
     <string name="agent_ai_custom_endpoint">Endpoint Kustom</string>
     <string name="agent_ai_paid_mode">Paket Berbayar</string>
@@ -821,4 +813,30 @@
     <string name="intro_skip_permission">Nanti saja</string>
     <string name="library_permission_required">Izin baca audio belum diberikan — pustaka tidak dapat dipindai</string>
     <string name="go_to_settings">Buka pengaturan</string>
+
+
+    <!-- 二-11 / 一-7 新增键的译文补齐（D8-06 门禁） -->
+    <string name="edit_tags_unsupported">Pengeditan tag tidak didukung di perangkat ini</string>
+    <string name="ai_key_needs_refill">Kunci API tersimpan tidak dapat didekripsi (ini terjadi setelah pindah perangkat atau pemulihan cloud). Masukkan kembali dan simpan.</string>
+    <string name="ai_free_unavailable">Tidak ada layanan AI bawaan di perangkat ini. Gunakan konfigurasi khusus.</string>
+    <string name="ai_quota_exhausted_hint">Kuota AI habis. Sesuaikan batas atau tambahkan Kunci API Anda sendiri di Pengaturan.</string>
+    <string name="agent_token_limits_title">Batas penggunaan</string>
+    <string name="agent_token_limits_enable">Aktifkan batas harian</string>
+    <string name="agent_token_limits_global">Batas harian global (token, kosong = tanpa batas)</string>
+    <string name="agent_token_limits_per_agent">Batas harian (token, kosong = tanpa batas)</string>
+    <string name="agent_token_limits_save">Simpan batas</string>
+    <string name="backup_scope_note">Mencakup: playlist dan urutannya, status per lagu (suka, rating, jumlah putar, label), statistik mendengarkan, tampilan, dan pengaturan endpoint AI. Tidak termasuk: Kunci API, folder pemindaian, pengaturan lirik dan efek audio, konfigurasi per agen, posisi pemutaran.</string>
+    <string name="restore_overwrites_note">Pemulihan akan menimpa playlist saat ini, status per lagu, dan statistik mendengarkan. Kunci API, folder pemindaian, serta pengaturan lirik dan efek audio tidak ada dalam cadangan dan tetap seperti semula.</string>
+    <string name="db_too_new_title">Versi basis data terlalu baru</string>
+    <string name="db_too_new_body">Aplikasi ini mendukung versi basis data %1$d, tetapi basis data tersimpan berversi %2$d, yang lebih baru. Data Anda tidak diubah. Perbarui aplikasi atau pulihkan cadangan yang lebih lama.</string>
+    <string name="usage_data_load_failed">Gagal memuat periode ini. Coba lagi nanti.</string>
+    <string name="agent_cfg_global_unavailable">Endpoint global tidak tersedia: Kunci API belum dikonfigurasi</string>
+    <string name="home_reco_unavailable">Kuota habis</string>
+
+
+    <!-- 播放页电台入口（2026-11-03） -->
+    <string name="radio_card_open_console">Lihat program</string>
+    <string name="radio_card_end_session">Akhiri sesi ini</string>
+    <string name="radio_entry_seed_title">Mulai dari lagu ini</string>
+    <string name="radio_entry_seed_desc">Pilihan lokal dulu, lalu AI melanjutkan; setelah lagu saat ini</string>
 </resources>

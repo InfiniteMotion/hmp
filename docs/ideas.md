@@ -4,7 +4,7 @@
 > **不是什么**：不是单一事实源（那是 ROADMAP.md），不是可执行任务表（那是 TODO.md），不是设计文档。
 > **约定**：
 > - 每条按日期追加，不要删改旧条目，只在末尾续写或更新其「状态」。
-> - 状态标记：`💡 灵感`（刚记下）/ `🔶 待评估`（值得 revisit）/ `⏸ 挂起`（已决定暂不排期、整体延期）/ `✅ 已立项`（已升格为方向/任务，移出本文件）。
+> - 状态标记：`💡 灵感`（刚记下）/ `🔶 待评估`（值得 revisit）/ `⏸ 挂起`（已决定暂不排期、整体延期）/ `✅ 已立项`（已升格为方向/任务，移出本文件）/ `✅ 已结案`（问题已由其他方案解决，本条不立项）。
 > - 立项时，把内容提炼进对应设计文档 + TODO 桩，并回头把本条状态改为 `✅ 已立项` 并注明去向。
 
 ---
@@ -107,7 +107,7 @@
 
 ## 2026-09-23 · Desktop 播放引擎改用 JavaCPP/JavaCV 的 FFmpeg 绑定
 
-**状态**：💡 灵感（未承诺进任何版本）
+**状态**：✅ 已结案（不采用 JavaCPP/JavaCV；原问题已由「GitHub Release 固定 FFmpeg」解决，2026-11-03）
 
 **缘起**：Desktop 侧目前靠**外部 ffmpeg 可执行文件**解码 —— 构建期从第三方站点下载预编译二进制，运行期 `ProcessBuilder` 起进程、读 stdout 的裸 PCM 喂给 `SourceDataLine`。这条链路在 2026-09 暴露出一整类问题：下载型依赖的**架构必须匹配终端用户**，而构建脚本只判断了操作系统（`isMacOS`），没判断 CPU 架构。Apple Silicon 上因此拿到 x86_64 二进制，未装 Rosetta 时直接 `Exec failed, error: 86 (Bad CPU type in executable)`。
 
@@ -130,6 +130,15 @@
 **与既有条目的关系**：与「桌面端 FFmpeg 获取可靠性」是同一问题的两种解法 —— 当前已按"固定 URL + SHA256 + 按架构选择"修好（低成本、保留外部进程模型）；本条是**根治型**替代方案，等方向 C（播放功能增强补齐）启动时一并评估是否值得切换。
 
 **待决**：是否真的需要平台裁剪（`ffmpeg` vs `ffmpeg-platform`）；重写 seek/暂停语义的成本；是否借机把 Desktop 播放引擎与 Android 的 Media3、iOS 的 AVFoundation 做更统一的抽象（三者目前是三套独立实现）。
+
+**结案说明（2026-11-03）**：原条目要解决的是「下载型依赖的架构不匹配 + 第三方站点可用性 + URL/SHA 维护」，不是「必须用 JavaCPP」。
+现在 `desktop/app/build.gradle.kts:54-220` 已把 FFmpeg **按 (OS, 架构) 固定到本仓库的 GitHub Release `ffmpeg-binaries`**：
+- `ffmpegArtifacts` 三条（macOS arm64 / Linux amd64 / Windows amd64），每条固定 `version + url + sha256`；
+- 下载后强制 SHA256 校验，失败即中断；`ffmpeg-artifact.txt` 指纹用于复用本地二进制；
+- 支持 `ffmpeg-vendor/` 预置产物，同样过 SHA256；
+- 架构由 `ffmpegArtifactKey` 精确选择，未覆盖的架构直接报错，不再静默拿错二进制。
+
+这三条正好覆盖原痛点的全部三项，且保留了外部进程模型，成本远低于重写解码链路。因此本条**不立项**，JavaCPP 方案仅在方向 C 需要「进程内 avfilter / 实时音效链」时再评估——那是功能驱动的选型，不是可靠性修复。文档保留原始收益/代价段落，作为将来 revisit 的依据。
 
 ---
 
@@ -173,3 +182,26 @@
 **与既有条目的关系**：与 Agent 类灵感同源，但与「MCP / A2A 外溢」无耦合。若落地，与方向 B 的 A0（Capability 统一化）、F12（token 计量）天然衔接——`hasWork()` 可以考虑直接作为 `Capability` 接口的一个成员，与 `CapabilityStatusTool` 同一层。Enrich 那一处的**最小修复**（只加端点闸 + 闭环）是通用框架的一个特例，两者不冲突，可以先修后再评估是否升格本条。
 
 **待决**：`hasWork()` 放哪里（扩 `Capability` 接口 vs Master 内 `when` 分支表）；是否所有 agent 都允许端点覆盖（UI 侧现状需核对）；触发点清单是否还有遗漏（如备份还原、语言切换后重算）；UI 是否要把「未配置端点」做成可点击跳转设置页的提示。
+
+---
+
+## 2026-11-03 · 歌词自动滚动只顶不居中（D4-03）
+
+**状态**：⏸ 挂起（已知缺陷，暂不排期；等歌词体验专项一起做）
+
+**现象**：播放时高亮歌词贴在视口顶部，不是纵向中线；全屏歌词页、播放页竖屏 / 手机横屏 / 平板横屏四处同源（都走 `AdvancedLyrics`）。
+
+**根因**：
+- `AdvancedLyrics.kt:125-132` 用 `animateScrollToItem(index, scrollOffset = 0)`。这个 API 的语义是「item 顶部对齐视口顶部」，不是居中。
+- `contentPadding` 上下各半屏（`:138`）只在第 0 行时把内容整体推下去；`currentIndex > 0` 后 padding 已被滚掉，高亮行自然贴顶。
+- 当前行字号从 14sp 变 16sp，带翻译还多一行 → item 高度不固定，不能写死 offset；注释里「居中显示」与实现不符。
+
+**修法草案**：
+1. `animateScrollToItem(currentIndex)` 粗定位；
+2. `snapshotFlow { scrollState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == currentIndex } }` 等布局；
+3. `delta = item.offset + item.size / 2 - containerHeightPx / 2`，`animateScrollBy(delta)`；
+4. delta 计算抽纯函数做边界单测；仓库没有 Compose UI 测试基建，最终靠真机 / 桌面肉眼确认。
+
+**为什么先放着**：不影响播放正确性，属观感问题；改动集中在滚动时机与测量，容易引入抖动，值得和歌词专项（逐字、翻译、对齐）一起做。
+
+**关联**：`docs/7_3/domain/D4.md` D4-03；`plan.md` 二-2a。

@@ -3,8 +3,6 @@ package com.hearablemusic.player.ui.player.viewmodel
 import androidx.compose.runtime.Stable
 import com.hmp.domain.enum.PlaybackMode
 import com.hmp.domain.music.MusicInfo
-import com.hmp.domain.playlist.AlgorithmType
-import com.hmp.domain.playlist.WeightTemplate
 
 @Stable
 data class PlayerUiState(
@@ -17,7 +15,5 @@ data class PlayerUiState(
     val isLiked: Boolean = false,
     val lyrics: String? = null,
     val playlist: List<MusicInfo> = emptyList(),
-    val currentIndex: Int = 0,
-    val defaultAlgorithmType: AlgorithmType? = null,
-    val defaultTemplate: WeightTemplate? = null
+    val currentIndex: Int = 0
 )

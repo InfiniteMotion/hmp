@@ -298,4 +298,37 @@ class EnrichResponseParserTest {
         assertEquals("新", drafts.getValue(1L).lyric)
         assertEquals(1, drafts.size)
     }
+
+    // ===== T5：单首精简输出 =====
+
+    @Test
+    fun parseSingleSong_mapsAllFields() {
+        val text = """```json
+        {"genre":["摇滚","流行"],"mood":["热血"],"scenario":["运动"],"language":"华语","era":"2000s","description":"一段简介","singerIntroduce":"歌手介绍"}
+        ```"""
+        val draft = EnrichResponseParser.parseSingleSong(text)
+        requireNotNull(draft)
+        assertEquals(listOf("摇滚", "流行"), draft.genre)
+        assertEquals(listOf("热血"), draft.mood)
+        assertEquals(listOf("运动"), draft.scenario)
+        assertEquals("华语", draft.language)
+        assertEquals("2000s", draft.era)
+        assertEquals("一段简介", draft.description)
+        assertEquals("歌手介绍", draft.singerIntroduce)
+    }
+
+    @Test
+    fun parseSingleSong_missingFields_fallsBackToEmpty() {
+        val draft = EnrichResponseParser.parseSingleSong("""{"genre":["摇滚"]}""")
+        requireNotNull(draft)
+        assertEquals(listOf("摇滚"), draft.genre)
+        assertEquals("UNKNOWN", draft.language)
+        assertEquals("UNKNOWN", draft.era)
+        assertEquals("", draft.description)
+    }
+
+    @Test
+    fun parseSingleSong_notJson_returnsNull() {
+        assertEquals(null, EnrichResponseParser.parseSingleSong("抱歉，我无法判断"))
+    }
 }

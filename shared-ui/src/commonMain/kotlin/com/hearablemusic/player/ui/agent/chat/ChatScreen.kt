@@ -52,6 +52,7 @@ import com.hearablemusic.player.ui.common.pages.base.SubScreen
 import com.hearablemusic.player.ui.common.components.base.HMPTextField
 import com.hearablemusic.player.ui.common.layout.LocalWindowSizeInfo
 import com.hearablemusic.player.ui.generated.resources.Res
+import com.hearablemusic.player.ui.generated.resources.ai_quota_exhausted_hint
 import org.jetbrains.compose.resources.stringResource
 import com.hearablemusic.player.ui.generated.resources.chevron_up
 import com.hearablemusic.player.ui.platform.PlaybackController
@@ -88,8 +89,10 @@ fun ChatScreen(
         }
     }
 
+    val quotaBlocked by chatViewModel.quotaBlocked.collectAsState()
     ChatScreenContent(
         state = state,
+        quotaBlocked = quotaBlocked,
         onInputChange = chatViewModel::onInputChange,
         onSend = chatViewModel::send,
         onToggleConfirm = chatViewModel::toggleConfirmItem,
@@ -106,6 +109,7 @@ fun ChatScreen(
 @Composable
 private fun ChatScreenContent(
     state: ChatUiState,
+    quotaBlocked: Boolean,
     onInputChange: (String) -> Unit,
     onSend: () -> Unit,
     onToggleConfirm: (String) -> Unit,
@@ -174,10 +178,20 @@ private fun ChatScreenContent(
             }
         }
 
+        // 配额耗尽提示：与输入栏同层，不占输入区排版
+        if (quotaBlocked) {
+            Text(
+                text = stringResource(Res.string.ai_quota_exhausted_hint),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.error,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+            )
+        }
         // 底部输入栏（自绘紧凑输入框 + 圆形发送）
         ChatInputBar(
             input = state.input,
             running = state.running || (state.pendingConfirm != null && !state.pendingConfirm.submitted),
+            quotaBlocked = quotaBlocked,
             onInputChange = onInputChange,
             onSend = onSend,
             onFocusChanged = { inputFocused = it },
@@ -261,11 +275,12 @@ private fun RunningHint(hint: UiText) {
 private fun ChatInputBar(
     input: String,
     running: Boolean,
+    quotaBlocked: Boolean,
     onInputChange: (String) -> Unit,
     onSend: () -> Unit,
     onFocusChanged: (Boolean) -> Unit = {},
 ) {
-    val canSend = input.isNotBlank() && !running
+    val canSend = input.isNotBlank() && !running && !quotaBlocked
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -278,7 +293,7 @@ private fun ChatInputBar(
             onValueChange = onInputChange,
             placeholder = stringResource(Res.string.agent_chat_input_placeholder),
             modifier = Modifier.weight(1f),
-            enabled = !running,
+            enabled = !running && !quotaBlocked,
             onFocusChanged = onFocusChanged,
         )
         Spacer(Modifier.width(10.dp))

@@ -46,8 +46,7 @@
     <string name="today_heartbeat_playlist">Плейлист ритма дня</string>
     <string name="generating_heartbeat_playlist">Создание плейлиста ритма…</string>
     <string name="play_heartbeat_playlist">Воспроизвести плейлист ритма</string>
-    <string name="generated">Создано</string>
-    <string name="suitable_for_now">Подходит сейчас</string>
+<string name="suitable_for_now">Подходит сейчас</string>
     <string name="banner_daily_A">Библиотека</string>
     <string name="banner_daily_AA">ПО УМОЛЧАНИЮ</string>
     <string name="banner_daily_B">Жанр</string>
@@ -265,8 +264,7 @@
     <string name="bass_boost">Усиление басов</string>
     <string name="surround_sound">Объёмный звук</string>
     <string name="reverb">Реверберация</string>
-    <string name="balance">Баланс</string>
-    <string name="hall">Зал</string>
+<string name="hall">Зал</string>
     <string name="church">Церковь</string>
     <string name="small_room">Малая комната</string>
     <string name="large_room">Большая комната</string>
@@ -307,19 +305,16 @@
     <string name="ai_tab_free">Бесплатный пробный</string>
     <string name="ai_tab_custom">Пользовательский</string>
     <string name="ai_tab_paid">Платный</string>
-    <string name="ai_free_remaining">Осталось: %1$d раз</string>
-    <string name="ai_free_used">Использовано: %1$d / %2$d</string>
+    <string name="ai_free_remaining">Осталось: %1$s токенов</string>
+    <string name="ai_free_used">Использовано: %1$s / %2$s</string>
     <string name="ai_free_exhausted">Бесплатный пробный период исчерпан. Настройте собственный API-ключ для продолжения.</string>
     <string name="ai_free_hint">Каждая обработанная песня засчитывается как одно использование. Настройка API-ключа не требуется.</string>
     <string name="ai_paid_coming_soon">Скоро</string>
     <string name="ai_paid_description">Платный режим с увеличенными квотами и дополнительными функциями находится в разработке.</string>
     <string name="test">Тест</string>
     <string name="test_failed">Ошибка теста: %1$s</string>
-    <string name="save_failed">Ошибка сохранения: %1$s</string>
-    <string name="fetch_models_failed">Не удалось получить модели: %1$s</string>
-    <string name="generation_error">Ошибка генерации: %1$s</string>
-    <string name="generation_failed">Ошибка генерации: %1$s</string>
-    <string name="connected">Подключено</string>
+<string name="fetch_models_failed">Не удалось получить модели: %1$s</string>
+<string name="connected">Подключено</string>
     <string name="backup">Резервная копия</string>
     <string name="backup_settings">Резервная копия</string>
     <string name="backup_desc">Резервное копирование данных</string>
@@ -357,10 +352,7 @@
     <string name="share_music">Поделиться музыкой</string>
     <string name="music_not_found">Музыка не найдена</string>
     <string name="genre">Жанр</string>
-    <string name="mood">Настроение</string>
-    <string name="scene">Сценарий</string>
-    <string name="era">Эпоха</string>
-    <string name="personal_stats">Личное</string>
+<string name="personal_stats">Личное</string>
     <string name="year">Год</string>
     <string name="favorite">Избранное</string>
     <string name="heart">Сердце</string>
@@ -408,8 +400,7 @@
     <string name="top_songs_in_playlists">Лучшие песни в плейлистах</string>
     <string name="startup_count_label">Количество запусков</string>
     <string name="recommendation_mode">Рекомендации</string>
-    <string name="generate_recommend_list">Создать</string>
-    <string name="start_experience">Начать</string>
+<string name="start_experience">Начать</string>
     <string name="intro_step_1">Добро пожаловать</string>
     <string name="intro_step_1_desc">Спасибо, что выбрали Hearable Music</string>
     <string name="intro_step_2">Разрешения</string>
@@ -473,7 +464,8 @@
     <string name="unsaved_changes">Несохраненные изменения</string>
     <string name="agent_monitor_title">Монитор агентов</string>
     <string name="agent_monitor_token_usage">Использование токенов</string>
-    <string name="agent_monitor_total_usage">Общее использование · полный журнал</string>
+    <string name="agent_monitor_total_usage">Последние 30 дней</string>
+    <string name="agent_monitor_token_clear_confirm">Удалить %1$s записей журнала (с %2$s)? Это действие нельзя отменить.</string>
     <string name="agent_monitor_quota_line">Сегодня %1$s · Осталось %2$s · %3$d%%</string>
     <string name="agent_monitor_run_logs">Журналы запусков</string>
     <string name="agent_monitor_log_count">%1$d журналов ›</string>
@@ -511,7 +503,7 @@
     <string name="agent_ai_agent_mgmt_header">Управление агентами</string>
     <string name="agent_ai_memory_header">Память</string>
     <string name="agent_ai_free_tier">Пробный период</string>
-    <string name="agent_ai_free_remaining">Осталось %1$d использований</string>
+    <string name="agent_ai_free_remaining">Осталось %1$s токенов</string>
     <string name="agent_ai_not_configured">Не настроено</string>
     <string name="agent_ai_custom_endpoint">Свой эндпоинт</string>
     <string name="agent_ai_paid_mode">Платный план</string>
@@ -789,4 +781,30 @@
     <string name="intro_skip_permission">Не сейчас</string>
     <string name="library_permission_required">Нет разрешения на чтение аудио — невозможно просканировать библиотеку</string>
     <string name="go_to_settings">Открыть настройки</string>
+
+
+    <!-- 二-11 / 一-7 新增键的译文补齐（D8-06 门禁） -->
+    <string name="edit_tags_unsupported">Редактирование тегов не поддерживается на этом устройстве</string>
+    <string name="ai_key_needs_refill">Не удалось расшифровать сохранённый ключ API (так бывает после переноса на другое устройство или восстановления из облака). Введите его заново и сохраните.</string>
+    <string name="ai_free_unavailable">На этом устройстве нет встроенного ИИ-сервиса. Используйте собственную конфигурацию.</string>
+    <string name="ai_quota_exhausted_hint">Квота ИИ исчерпана. Измените лимит или добавьте свой ключ API в настройках.</string>
+    <string name="agent_token_limits_title">Лимиты использования</string>
+    <string name="agent_token_limits_enable">Включить дневные лимиты</string>
+    <string name="agent_token_limits_global">Общий дневной лимит (токены, пусто = без ограничений)</string>
+    <string name="agent_token_limits_per_agent">Дневной лимит (токены, пусто = без ограничений)</string>
+    <string name="agent_token_limits_save">Сохранить лимиты</string>
+    <string name="backup_scope_note">Включает: плейлисты и их порядок, состояние треков (лайки, оценки, прослушивания, метки), статистику прослушивания, оформление и настройки ИИ-эндпоинта. Не включает: ключ API, папки сканирования, настройки текстов и звуковых эффектов, конфигурации агентов, позицию воспроизведения.</string>
+    <string name="restore_overwrites_note">Восстановление перезапишет текущие плейлисты, состояние треков и статистику прослушивания. Ключ API, папки сканирования и настройки текстов и звуковых эффектов не входят в резервную копию и останутся без изменений.</string>
+    <string name="db_too_new_title">Версия базы данных слишком новая</string>
+    <string name="db_too_new_body">Приложение поддерживает версию базы %1$d, но сохранённая база имеет версию %2$d — более новую. Ваши данные не изменены. Обновите приложение или восстановите более старую резервную копию.</string>
+    <string name="usage_data_load_failed">Не удалось загрузить этот период. Повторите попытку позже.</string>
+    <string name="agent_cfg_global_unavailable">Глобальный эндпоинт недоступен: ключ API не настроен</string>
+    <string name="home_reco_unavailable">Квота исчерпана</string>
+
+
+    <!-- 播放页电台入口（2026-11-03） -->
+    <string name="radio_card_open_console">Смотреть программу</string>
+    <string name="radio_card_end_session">Завершить этот эфир</string>
+    <string name="radio_entry_seed_title">Начать с этой песни</string>
+    <string name="radio_entry_seed_desc">Сначала локальная подборка, затем продолжит ИИ; после текущего трека</string>
 </resources>

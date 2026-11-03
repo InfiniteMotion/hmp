@@ -12,6 +12,7 @@ import com.hmp.domain.setting.usecase.TimerUseCase
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestResult
 import kotlinx.coroutines.test.TestScope
@@ -142,6 +143,51 @@ class DesktopPlaybackSettlementTest {
             assertEquals(1, log.inserted.size, "release 不应新建播放会话")
             assertTrue(audio.releaseCalled, "releaseAndSettle 收尾要释放引擎")
         }
+
+    /** D1-04：releaseAndSettle 返回前，当前位置与队列都必须已写盘。 */
+    @Test
+    fun releasePersistsPositionAndPlaylistBeforeReturning(): TestResult = runTestWithMain {
+        val audio = FakeAudioEngine()
+        val log = Recorded()
+        val playlistRepo = FakePlaylistRepository()
+        val savedPositions = mutableListOf<Long>()
+
+        val settings = stubInterface<SettingsRepository>(
+            onCall = { name, args ->
+                if (name == "saveCurrentPosition") {
+                    savedPositions += (args.firstOrNull() as? Number)?.toLong() ?: -1L
+                }
+            },
+        ) { name ->
+            when (name) {
+                "getCurrentPlaylistId" -> MutableStateFlow<Long?>(1L)
+                "getLikedPlaylistId" -> MutableStateFlow<Long?>(2L)
+                "getRecentPlaylistId" -> MutableStateFlow<Long?>(3L)
+                "getCurrentMusicId" -> MutableStateFlow<Long?>(null)
+                "getCurrentPosition" -> MutableStateFlow(0L)
+                else -> null
+            }
+        }
+
+        val controller = DesktopMusicController(
+            audioEngine = audio,
+            currentPlaybackUseCase = CurrentPlaybackUseCase(recordingRepository(log), playlistRepo, settings),
+            playbackHistoryUseCase = PlaybackHistoryUseCase(recordingRepository(log)),
+            timerUseCase = TimerUseCase(settings),
+            managePlaylistUseCase = ManagePlaylistUseCase(playlistRepo, settings),
+            settingsRepository = settings,
+        )
+
+        controller.playMusic(track(1L))
+        runCurrent()
+        controller.seekTo(12_345L)
+        runCurrent()
+
+        controller.releaseAndSettle()
+
+        assertEquals(12_345L, savedPositions.lastOrNull(), "退出返回时当前位置必须已落盘")
+        assertTrue(playlistRepo.writes.isNotEmpty(), "退出返回时队列必须已写回")
+    }
 
     /** D5-06：入口必须带来源，且取值落在三端共用的闭集里（iOS 曾恒传 null，来源分布恒空）。 */
     @Test

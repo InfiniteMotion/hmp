@@ -25,17 +25,15 @@ import com.hmp.domain.setting.model.AiEndpointConfig
  *
  * @param stepBudget 最大步数（Master 对话 8，Radio 仲裁 4）
  * @param temperature 采样温度（对话 0.7，仲裁 0.1，Enrich 0.3）
- * @param tokenCounter 日配额熔断（可共享）；null 表示不查日配额
  * @param policyGuard 许可护栏；null 时跳过（全自动）
  * @param confirmGate 危险操作确认门；null 时跳过（全自动）
  * @param auditLog 审计日志；null 时跳过（不审计）
  * @param presenceBus 存在感总线；null 时跳过（不发 thinking/idle 事件）
- * @param stopSignal 停止信号；null 时只查 stepBudget + tokenCounter
+ * @param stopSignal 停止信号；null 时只查 stepBudget
  */
 internal class ReActLoop(
     private val stepBudget: Int = 8,
     private val temperature: Float = 0.7f,
-    private val tokenCounter: GlobalTokenCounter? = null,
     private val policyGuard: PolicyGuard? = null,
     private val confirmGate: ConfirmGate? = null,
     private val auditLog: AuditLogPort? = null,
@@ -96,13 +94,10 @@ internal class ReActLoop(
         )
 
         while (steps < stepBudget) {
-            // 双重熔断：外部 stopSignal + tokenCounter
-            if (stopSignal?.shouldSoftStop() == true || tokenCounter?.shouldStop() == true) {
-                terminated = if (tokenCounter?.shouldStop() == true)
-                    com.hmp.domain.agent.runtime.TerminationReason.CLOUD_QUOTA_EXHAUSTED
-                else
-                    com.hmp.domain.agent.runtime.TerminationReason.FAILED
-                HmpLog.w(LogTag.AgentReActLoop) { "🔁 step $steps: soft stop (tokenQuota=${tokenCounter?.shouldStop()}, stopSignal=${stopSignal?.shouldSoftStop()})" }
+            // 软停止：外部 stopSignal（子 Agent 的桶耗尽 / 外部 shutdown）
+            if (stopSignal?.shouldSoftStop() == true) {
+                terminated = com.hmp.domain.agent.runtime.TerminationReason.CLOUD_QUOTA_EXHAUSTED
+                HmpLog.w(LogTag.AgentReActLoop) { "🔁 step $steps: soft stop (stopSignal=true)" }
                 auditLog?.record(AuditEntry(
                     tool = "react.loop", outcome = "budget_exhausted",
                     reason = "soft stop at step $steps", taskId = taskId,
@@ -128,6 +123,18 @@ internal class ReActLoop(
 
             // Token 计量（F12-T1）已在 LlmCallExecutor 内经 TokenMeter 收口 ——
             // 这里**不再**调用 recordTokens：旧实现在此用估算值累加，是"记账只有一处且为估算"的根源。
+
+            // 配额耗尽：请求根本没发出去（闸门在 LlmCallExecutor 里前置拦截），要给出可行动的话术，
+            // 而不是让用户看到"对话中断"去重试。
+            if (turn.quotaExhausted) {
+                terminated = com.hmp.domain.agent.runtime.TerminationReason.CLOUD_QUOTA_EXHAUSTED
+                finalText = "（AI 用量额度已用完，可在设置里配置自己的 API Key 或调整用量上限）"
+                auditLog?.record(AuditEntry(
+                    tool = "react.loop", outcome = "denied",
+                    reason = "quota_exhausted; steps=$steps", taskId = taskId,
+                ))
+                break
+            }
 
             if (turn.failed) {
                 terminated = com.hmp.domain.agent.runtime.TerminationReason.FAILED

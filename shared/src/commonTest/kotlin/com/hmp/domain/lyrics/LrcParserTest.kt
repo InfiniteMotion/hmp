@@ -119,14 +119,43 @@ class LrcParserTest {
     }
 
     @Test
-    fun parse_enhancedDoubleTimestamp_buildsCharTimings() {
+    fun parse_doubleTimestampPrefix_isRepeatNotCharTiming() {
+        // D4-02：行首连续时间戳是标准 LRC 的"同一句重复出现"，不是逐字结束标记。
+        // 旧实现把它当逐字标记，第二段时间点整体丢失；逐字时序请用 `<mm:ss.xx>`。
         val lrc = "[00:12.34][00:12.78]我 爱"
         val result = LrcParser.parse(lrc)
-        assertEquals(1, result.size)
+        assertEquals(2, result.size)
         assertEquals(12340L, result[0].timestamp)
+        assertEquals(12780L, result[1].timestamp)
         assertEquals("我 爱", result[0].originalText)
-        assertEquals(1, result[0].charTimings.size)
-        assertEquals(12780L, result[0].charTimings[0].startMs)
+        assertEquals("我 爱", result[1].originalText)
+        assertTrue(result[0].charTimings.isEmpty())
+        assertTrue(result[1].charTimings.isEmpty())
+    }
+
+    @Test
+    fun parse_repeatedTimestamps_expandsEveryTimestamp() {
+        val lrc = "[00:12.00][00:40.00]hello"
+        val result = LrcParser.parse(lrc)
+        assertEquals(2, result.size)
+        assertEquals(12000L, result[0].timestamp)
+        assertEquals(40000L, result[1].timestamp)
+        assertEquals("hello", result[0].originalText)
+        assertEquals("hello", result[1].originalText)
+        assertTrue(result[0].charTimings.isEmpty())
+        assertTrue(result[1].charTimings.isEmpty())
+    }
+
+    @Test
+    fun parse_repeatedTimestamps_stillSupportsInlineCharMarkers() {
+        // 重复时间戳展开后，正文里的 `<...>` 逐字标记仍按原逻辑解析
+        val lrc = "[00:12.00][00:40.00]<00:12.00>你<00:12.50>好"
+        val result = LrcParser.parse(lrc)
+        assertEquals(2, result.size)
+        assertEquals("你好", result[0].originalText)
+        assertEquals(40000L, result[1].timestamp)
+        assertEquals(2, result[0].charTimings.size)
+        assertEquals(2, result[1].charTimings.size)
     }
 
     @Test
@@ -230,6 +259,32 @@ class DualLanguageAnalyzerTest {
         val result = DualLanguageAnalyzer.analyzeSingleLine("你好世界")
         assertEquals("你好世界", result.first)
         assertNull(result.second)
+    }
+
+    /**
+     * D4-05：旧实现按字符过滤重组，数字与标点会被静默丢掉（2026 直接消失）。
+     * 现在按"段"切，两侧原文原样保留。
+     */
+    @Test
+    fun analyzeSingleLine_splitKeepsDigitsAndPunctuation() {
+        val result = DualLanguageAnalyzer.analyzeSingleLine("Hello, world! 你好，世界 2026")
+        assertEquals("Hello, world!", result.first)
+        assertEquals("你好，世界 2026", result.second)
+    }
+
+    /** 交错混排不是"原文 + 译文"，拆了会丢语序 —— 一律不拆。 */
+    @Test
+    fun analyzeSingleLine_interleavedScripts_notSplit() {
+        val result = DualLanguageAnalyzer.analyzeSingleLine("今天 weather 很好")
+        assertEquals("今天 weather 很好", result.first)
+        assertNull(result.second)
+    }
+
+    @Test
+    fun analyzeSingleLine_chineseFirst_englishStillOriginal() {
+        val result = DualLanguageAnalyzer.analyzeSingleLine("你好，世界 Hello, world!")
+        assertEquals("Hello, world!", result.first)
+        assertEquals("你好，世界", result.second)
     }
 
     @Test

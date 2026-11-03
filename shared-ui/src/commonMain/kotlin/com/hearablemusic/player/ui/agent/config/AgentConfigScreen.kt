@@ -31,6 +31,7 @@ import com.hearablemusic.player.ui.generated.resources.agent_cfg_endpoint_value
 import com.hearablemusic.player.ui.generated.resources.agent_cfg_following_global
 import com.hearablemusic.player.ui.generated.resources.agent_cfg_hello_prompt_desc
 import com.hearablemusic.player.ui.generated.resources.agent_cfg_lang_desc
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_global_unavailable
 import com.hearablemusic.player.ui.generated.resources.agent_cfg_lang_follow_global
 import com.hearablemusic.player.ui.generated.resources.agent_cfg_lang_follow_global_default
 import com.hearablemusic.player.ui.generated.resources.agent_cfg_lang_follow_system
@@ -643,6 +644,14 @@ fun AgentConfigScreen(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                    if (endpointLoaded && !globalEndpoint.isConfigured) {
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            stringResource(Res.string.agent_cfg_global_unavailable),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
                     Spacer(Modifier.height(4.dp))
                     Text(
                         stringResource(Res.string.agent_cfg_change_global_hint),
@@ -1164,6 +1173,14 @@ private fun ConfigFormLeftColumn(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+            if (endpointLoaded && !globalEndpoint.isConfigured) {
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    stringResource(Res.string.agent_cfg_global_unavailable),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
             Spacer(Modifier.height(4.dp))
             Text(
                 stringResource(Res.string.agent_cfg_change_global_hint),

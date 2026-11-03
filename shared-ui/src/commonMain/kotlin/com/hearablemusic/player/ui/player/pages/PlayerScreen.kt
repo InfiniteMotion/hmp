@@ -41,9 +41,6 @@ import com.hearablemusic.player.ui.settings.viewmodel.SettingsViewModel
 import com.hearablemusic.player.ui.settings.viewmodel.LyricsSettingsViewModel
 import com.hearablemusic.player.ui.common.viewmodel.ThemeViewModel
 import com.hmp.domain.music.MusicInfo
-import com.hmp.domain.playlist.AlgorithmType
-import com.hmp.domain.playlist.ExtensionConfig
-import com.hmp.domain.playlist.WeightTemplate
 import dev.chrisbanes.haze.rememberHazeState
 
 // 播放器主界面
@@ -86,17 +83,9 @@ fun PlayerScreen(
     val lyrics by playlistQueueViewModel.currentMusicLyrics.collectAsState()
     val playlist by playlistQueueViewModel.currentPlaylist.collectAsState()
     val currentIndex by playlistQueueViewModel.currentIndex.collectAsState()
-    val defaultAlgorithmType by playlistQueueViewModel.defaultAlgorithmType.collectAsState()
-    val defaultTemplate by playlistQueueViewModel.defaultWeightTemplate.collectAsState()
 
-    // 歌词配置
-    val lyricsOriginalTextSize by lyricsSettingsViewModel.lyricsOriginalTextSize.collectAsState()
-    val lyricsTranslatedTextSize by lyricsSettingsViewModel.lyricsTranslatedTextSize.collectAsState()
-    val lyricsCurrentTimeTextSize by lyricsSettingsViewModel.lyricsCurrentTimeTextSize.collectAsState()
-    val lyricsLineSpacing by lyricsSettingsViewModel.lyricsLineSpacing.collectAsState()
-    val lyricsDisplayMode by lyricsSettingsViewModel.lyricsDisplayMode.collectAsState()
-    val lyricsAlignment by lyricsSettingsViewModel.lyricsAlignment.collectAsState()
-    val lyricsKaraokeEnabled by lyricsSettingsViewModel.lyricsKaraokeEnabled.collectAsState()
+    // 歌词配置（D4-01：per-component 配置是唯一来源；legacy 扁平键已从用例里删除）
+    val lyricsConfig by lyricsSettingsViewModel.playerLyricsConfig.collectAsState()
     val paletteColors by themeViewModel.paletteColors.collectAsState()
 
     val playerUiState = PlayerUiState(
@@ -109,19 +98,17 @@ fun PlayerScreen(
         isLiked = isLiked,
         lyrics = lyrics,
         playlist = playlist,
-        currentIndex = currentIndex,
-        defaultAlgorithmType = defaultAlgorithmType,
-        defaultTemplate = defaultTemplate
+        currentIndex = currentIndex
     )
 
     val lyricsSettingsState = LyricsSettingsState(
-        lyricsOriginalTextSize = lyricsOriginalTextSize,
-        lyricsTranslatedTextSize = lyricsTranslatedTextSize,
-        lyricsCurrentTimeTextSize = lyricsCurrentTimeTextSize,
-        lyricsLineSpacing = lyricsLineSpacing,
-        lyricsDisplayMode = lyricsDisplayMode,
-        lyricsAlignment = lyricsAlignment,
-        lyricsKaraokeEnabled = lyricsKaraokeEnabled
+        lyricsOriginalTextSize = lyricsConfig.originalTextSize,
+        lyricsTranslatedTextSize = lyricsConfig.translatedTextSize,
+        lyricsCurrentTimeTextSize = lyricsConfig.currentTimeTextSize,
+        lyricsLineSpacing = lyricsConfig.lineSpacing,
+        lyricsDisplayMode = lyricsConfig.displayMode,
+        lyricsAlignment = lyricsConfig.alignment,
+        lyricsKaraokeEnabled = lyricsConfig.karaokeEnabled
     )
 
     val playerCallbacks = object : PlayerCallbacks {
@@ -144,8 +131,6 @@ fun PlayerScreen(
         }
         override fun onCancelTimer() { playbackViewModel.cancelTimer() }
         override fun onHeartMode() { navController.add(Routes.Player.Lyrics) }
-        override fun onGeneratePlaylist(seedMusicId: Long) { playlistQueueViewModel.generatePlaylist(seedMusicId) }
-        override fun onSaveDefaultConfig(algorithmType: AlgorithmType, weightTemplate: WeightTemplate, extensionConfig: ExtensionConfig) { playlistQueueViewModel.saveAlgorithmConfig(algorithmType, weightTemplate, extensionConfig) }
         override fun onArtistClick(artistName: String) { navController.add(Routes.Library.Artist(artistName)) }
         override fun onClearPlaylist() { playlistQueueViewModel.clearPlaylist() }
         override fun onPlayItem(musicInfo: MusicInfo) { playlistQueueViewModel.playAt(musicInfo) }

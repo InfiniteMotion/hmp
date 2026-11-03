@@ -20,6 +20,17 @@ enum class TimePhase {
     UNKNOWN,
 }
 
+/** TimePhase → 中文描述（LLM prompt 与兜底文案共用）。 */
+fun TimePhase.zhName(): String = when (this) {
+    TimePhase.NIGHT -> "深夜"
+    TimePhase.MORNING_COMMUTE -> "早高峰"
+    TimePhase.WORK -> "工作时段"
+    TimePhase.LUNCH -> "午休"
+    TimePhase.EVENING_COMMUTE -> "晚高峰"
+    TimePhase.EVENING_LEISURE -> "晚间休闲"
+    TimePhase.UNKNOWN -> "随机时段"
+}
+
 /** 根据小时数推算时段 */
 fun detectTimePhase(hour: Int): TimePhase = when (hour) {
     in 0..6 -> TimePhase.NIGHT
@@ -152,6 +163,14 @@ data class RecommendListPayload(
     val generatedAt: Long,
     val generatedForDate: String,
     val items: List<RecommendItemRecord>,
+    /**
+     * 本次生成使用的内部权重 seed（D1 黑盒，`SmartWeights`）。
+     *
+     * 只作复现/排查用：同 seed 可还原同一套权重。旧缓存没有这个字段 → 默认 0。
+     */
+    val weightSeed: Long = 0L,
+    /** 本次刻意加权的维度名（D1 黑盒，仅审计/排查用；旧缓存为空）。 */
+    val weightEmphasis: String? = null,
 )
 
 /** UI 展示模型：读时由 `MusicRepository.getMusicInfoByIds` hydrate 出 MusicInfo */

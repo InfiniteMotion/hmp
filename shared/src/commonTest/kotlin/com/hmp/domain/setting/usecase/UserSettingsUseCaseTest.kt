@@ -76,23 +76,6 @@ class UserSettingsUseCaseTest {
     }
 
     @Test
-    fun aiFreeTrialRemainingCount_default100() = runTest {
-        assertEquals(100, useCase.aiFreeTrialRemainingCount.first())
-    }
-
-    @Test
-    fun decrementAiFreeTrialCount_decrements() = runTest {
-        useCase.decrementAiFreeTrialCount()
-        assertEquals(99, useCase.aiFreeTrialRemainingCount.first())
-    }
-
-    @Test
-    fun decrementAiFreeTrialCount_clampsAtZero() = runTest {
-        repeat(101) { useCase.decrementAiFreeTrialCount() }
-        assertEquals(0, useCase.aiFreeTrialRemainingCount.first())
-    }
-
-    @Test
     fun saveAndReadCustomAiConfig() = runTest {
         val config = AiEndpointConfig(endpoint = "https://api.test.com", apiKey = "key123", selectedModel = "gpt-4")
         useCase.saveCustomAiConfig(config)

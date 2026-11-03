@@ -60,13 +60,15 @@ internal fun testMusicInfo(id: Long, title: String = "曲目 $id"): MusicInfo = 
  */
 @Suppress("UNCHECKED_CAST")
 internal inline fun <reified T : Any> stubInterface(
+    noinline onCall: ((String, Array<out Any?>) -> Unit)? = null,
     noinline handler: (name: String) -> Any? = { null },
 ): T {
     val clazz = T::class.java
     return java.lang.reflect.Proxy.newProxyInstance(
         clazz.classLoader,
         arrayOf(clazz),
-    ) { _, method, _ ->
+    ) { _, method, args ->
+        onCall?.invoke(method.name, args ?: emptyArray())
         val custom = handler(method.name)
         if (custom != null) return@newProxyInstance custom
 

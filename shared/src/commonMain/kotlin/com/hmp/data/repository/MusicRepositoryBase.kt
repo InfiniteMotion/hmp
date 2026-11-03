@@ -489,6 +489,10 @@ abstract class MusicRepositoryBase(
     override suspend fun getMusicLabels(musicId: Long): List<MusicLabel> =
         musicLabelDao.getLabelsById(musicId).map { it.toDomain() }
 
+    override suspend fun getAllMusicLabels(): Map<Long, List<MusicLabel>> =
+        musicLabelDao.getAllLabels()
+            .groupBy({ it.musicId }, { it.toDomain() })
+
     override suspend fun removeUserMusicLabel(musicId: Long, label: LabelName) {
         val dataLabel = try {
             DataLabelName.valueOf(label.name)
@@ -633,15 +637,21 @@ abstract class MusicRepositoryBase(
         LabelCategory.ERA to 1
     )
 
+    /** 默认权重的 Double 版（避免每次相似度计算都做一次 map 转换）。 */
+    private val defaultSimilarityWeights: Map<LabelCategory, Double> =
+        labelCategoryWeight.mapValues { it.value.toDouble() }
+
     private fun calcSimilarity(
         baseLabels: List<MusicLabel>,
-        targetLabels: List<MusicLabel>
-    ): Int {
-        var score = 0
+        targetLabels: List<MusicLabel>,
+        weights: Map<LabelCategory, Double>? = null
+    ): Double {
+        val effective = weights ?: defaultSimilarityWeights
+        var score = 0.0
         for (base in baseLabels) {
             for (target in targetLabels) {
                 if (base.label == target.label) {
-                    score += labelCategoryWeight[base.type] ?: 1
+                    score += effective[base.type] ?: 1.0
                 }
             }
         }
@@ -662,7 +672,8 @@ abstract class MusicRepositoryBase(
      */
     override suspend fun getSimilarSongsByWeightedLabels(
         musicId: Long,
-        limit: Int
+        limit: Int,
+        weights: Map<com.hmp.domain.enum.LabelCategory, Double>?
     ): List<MusicInfo> {
         val baseLabels = getMusicLabels(musicId)
         if (baseLabels.isEmpty()) return emptyList()
@@ -674,7 +685,11 @@ abstract class MusicRepositoryBase(
         return allMusic
             .filter { it.music.id != musicId }
             .map { info ->
-                info to calcSimilarity(baseLabels, labelsByMusicId[info.music.id] ?: emptyList())
+                info to calcSimilarity(
+                    baseLabels,
+                    labelsByMusicId[info.music.id] ?: emptyList(),
+                    weights,
+                )
             }
             .filter { it.second > 0 }
             .sortedByDescending { it.second }

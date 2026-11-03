@@ -22,6 +22,8 @@ fun findCurrentLyricIndex(parsedLyrics: List<LyricLineData>, currentPosition: Lo
 object LrcParser {
 
     private val timeRegex = """^\[(\d{2}):(\d{2})\.(\d{2,3})]""".toRegex()
+    /** 非锚定版本：用于逐段吃行首连续时间戳（`[t1][t2]text`）。 */
+    private val anyTimeRegex = """\[(\d{2}):(\d{2})\.(\d{2,3})]""".toRegex()
     private val inlineTimeRegex =
         """<(\d{2}):(\d{2})\.(\d{2,3})(?:,(\d{2}):(\d{2})\.(\d{2,3}))?>""".toRegex()
 
@@ -35,15 +37,17 @@ object LrcParser {
         val groupedLines = mutableMapOf<Long, MutableList<RawLine>>()
 
         lines.forEach { line ->
-            val match = timeRegex.find(line) ?: return@forEach
-            val timestamp = parseTime(
-                minutes = match.groupValues[1],
-                seconds = match.groupValues[2],
-                millis = match.groupValues[3]
-            )
-            val content = line.substring(match.range.last + 1).trim()
-            if (content.isNotEmpty()) {
-                groupedLines.getOrPut(timestamp) { mutableListOf() }.add(parseTimedContent(content, timestamp))
+            // D4-02：标准 LRC 允许 `[00:12.00][00:40.00]hello` —— 同一句在多个时间点重复出现。
+            // 旧实现只取第一个时间戳，第二个留在正文里被当成逐字标记，于是 40s 那遍整体丢失、
+            // 12s 那遍的逐字时序还错乱。这里把行首连续的时间戳逐个展开成独立条目。
+            val timestamps = leadingTimestamps(line)
+            if (timestamps.isEmpty()) return@forEach
+            val content = line.substring(timestamps.last().second).trim()
+            if (content.isEmpty()) return@forEach
+
+            timestamps.forEach { (timestamp, _) ->
+                groupedLines.getOrPut(timestamp) { mutableListOf() }
+                    .add(parseTimedContent(content, timestamp))
             }
         }
 
@@ -78,6 +82,28 @@ object LrcParser {
         minutes.toLong() * 60000 +
                 seconds.toLong() * 1000 +
                 millis.padEnd(3, '0').take(3).toLong()
+
+    /**
+     * 行首连续的 `[mm:ss.xx]` 前缀，返回 `(时间戳, 该前缀之后的字符下标)`。
+     * 只吃**从行首开始、紧邻无空隙**的那一段；正文里出现的 `[..]` 交给 [parseTimedContent]。
+     */
+    private fun leadingTimestamps(line: String): List<Pair<Long, Int>> {
+        val result = mutableListOf<Pair<Long, Int>>()
+        var cursor = 0
+        while (cursor < line.length) {
+            val match = anyTimeRegex.find(line, cursor)
+            if (match == null || match.range.first != cursor) break
+            val timestamp = parseTime(
+                minutes = match.groupValues[1],
+                seconds = match.groupValues[2],
+                millis = match.groupValues[3]
+            )
+            val next = match.range.last + 1
+            result.add(timestamp to next)
+            cursor = next
+        }
+        return result
+    }
 
     /**
      * 解析可能包含逐字时间戳的内容。支持：
@@ -202,12 +228,7 @@ object DualLanguageAnalyzer {
 
     fun analyzeSingleLine(text: String): Pair<String, String?> {
         if (!mayContainDualLanguages(text)) return Pair(text, null)
-
-        return when {
-            containsClearLanguageBoundaries(text) -> splitByBoundaries(text)
-            containsMixedScriptPattern(text) -> extractByScript(text)
-            else -> Pair(text, null)
-        }
+        return splitTwoScriptSegments(text) ?: Pair(text, null)
     }
 
     fun analyzeDualLines(text1: String, text2: String): Pair<String, String?> {
@@ -237,38 +258,45 @@ object DualLanguageAnalyzer {
         return languageCounts.count { it > 0 } >= 2
     }
 
-    private fun containsClearLanguageBoundaries(text: String): Boolean {
-        return "[\\u4e00-\\u9fff][a-zA-Z]|[a-zA-Z][\\u4e00-\\u9fff]".toRegex().containsMatchIn(text)
-    }
+    /**
+     * 只有"两种文字各占一段、且恰好一次切换"才拆（D4-05）。
+     *
+     * 旧实现按字符过滤重组：`"Hello, 你好! 2026"` 会变成 `("Hello", "你好")` —— 数字和标点被静默丢掉；
+     * `"今天 weather 很好"` 这种交错混排也会被拆成两半、语序丢失。现在这两种都返回 `null`（不拆），
+     * 因为"猜错"比"不拆"更伤：错拆会把原文/译文弄反，还会让用户看到少字的歌词。
+     */
+    private fun splitTwoScriptSegments(text: String): Pair<String, String?>? {
+        val trimmed = text.trim()
+        val firstCjk = trimmed.indexOfFirst { it.isCjk() }
+        val firstLatin = trimmed.indexOfFirst { it.isLatinLetter() }
+        if (firstCjk < 0 || firstLatin < 0) return null
 
-    private fun splitByBoundaries(text: String): Pair<String, String?> {
-        val chinesePart = text.filter { it.code in 0x4E00..0x9FFF }
-        val englishPart = "\\b[a-zA-Z]+(?:'[a-zA-Z]+)*\\b".toRegex()
-            .findAll(text).joinToString(" ") { it.value }
-        return if (chinesePart.isNotBlank() && englishPart.isNotBlank()) {
-            Pair(englishPart, chinesePart)
+        return if (firstCjk < firstLatin) {
+            val boundary = indexOfFirstFrom(trimmed, firstCjk) { it.isLatinLetter() }
+            if (boundary <= 0) return null
+            val tail = trimmed.substring(boundary)
+            if (tail.any { it.isCjk() }) return null
+            val cjk = trimmed.substring(0, boundary).trim()
+            val latin = tail.trim()
+            if (cjk.isEmpty() || latin.isEmpty()) null else Pair(latin, cjk)
         } else {
-            Pair(text, null)
+            val boundary = indexOfFirstFrom(trimmed, firstLatin) { it.isCjk() }
+            if (boundary <= 0) return null
+            val tail = trimmed.substring(boundary)
+            if (tail.any { it.isLatinLetter() }) return null
+            val latin = trimmed.substring(0, boundary).trim()
+            val cjk = tail.trim()
+            if (latin.isEmpty() || cjk.isEmpty()) null else Pair(latin, cjk)
         }
     }
 
-    private fun containsMixedScriptPattern(text: String): Boolean {
-        return text.any { it.code in 0x4E00..0x9FFF } &&
-                text.any { it.isLetter() && it.code < 128 }
+    private fun indexOfFirstFrom(text: String, start: Int, predicate: (Char) -> Boolean): Int {
+        for (i in start until text.length) if (predicate(text[i])) return i
+        return -1
     }
 
-    private fun extractByScript(text: String): Pair<String, String?> {
-        val chineseChars = text.filter { it.code in 0x4E00..0x9FFF }
-        val englishWords = text.split("\\s+".toRegex())
-            .filter { it.all { char -> char.isLetter() && char.code < 128 } }
-            .filter { it.length > 1 }
-        val englishPart = englishWords.joinToString(" ")
-        return if (englishPart.isNotBlank() && chineseChars.isNotBlank()) {
-            Pair(englishPart, chineseChars)
-        } else {
-            Pair(text, null)
-        }
-    }
+    private fun Char.isCjk(): Boolean = code in 0x4E00..0x9FFF
+    private fun Char.isLatinLetter(): Boolean = isLetter() && code < 128
 
     fun detectDominantLanguage(text: String): Language {
         val chineseChars = text.count { it.code in 0x4E00..0x9FFF }

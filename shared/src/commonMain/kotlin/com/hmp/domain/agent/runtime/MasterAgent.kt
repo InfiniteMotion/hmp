@@ -65,17 +65,19 @@ import com.hmp.platform.Volatile
  * ② **后台管理**（面向 SubAgent）：startEnrich/stopEnrich/pauseEnrich/resumeEnrich/rescanEnrich ——
  *    Master 只管外部生命周期，SubAgent 自管内部循环（Enrich 拉活/处理/验收/重试、Radio 生成 playlist/续歌）。
  *    AgentScheduler 注册 + SubAgent 注册表。
- * ③ **全局基础设施**：AgentScheduler（priority 仲裁 pause/resume）+ GlobalTokenCounter（日配额）。
+ * ③ **全局基础设施**：AgentScheduler（priority 仲裁 pause/resume）+ TokenQuotaGate（免费/自定义配额）。
  *
  * 与原 AgentOrchestrator 的关系：
  * AgentOrchestrator.run() 的循环逻辑**完整搬进** handleUserMessage()，AgentOrchestrator 类保留作为
  * 兼容薄壳（内部委托给 MasterAgent），现有 ChatAgentGateway 测试零修改。
  */
+private val EMPTY_TOKEN_USAGE = kotlinx.coroutines.flow.MutableStateFlow(TokenSnapshot(used = 0L, quota = 0L))
+
 class MasterAgent internal constructor(
     /** 时间来源（毫秒） */
     private val timeProvider: () -> Long,
-    /** 全局 Token 日配额计数器 */
-    internal val tokenCounter: GlobalTokenCounter = GlobalTokenCounter(timeProvider),
+    /** 配额闸门（免费总额 / 自定义日限额）：停止信号与看板读它；null = 不设限（测试/老装配）。 */
+    internal val quotaGate: com.hmp.domain.agent.quota.TokenQuotaGate? = null,
     /**
      * F12-T1：唯一记账口。一次 LLM 调用写三处 —— 当日累加（tokenCounter）·
      * 窗口占用（各 AgentContextBudget 自行更新）· 明细账本（token_ledger）。
@@ -276,7 +278,7 @@ class MasterAgent internal constructor(
     private var radioStateForwarderJob: kotlinx.coroutines.Job? = null
 
     /** 全局唯一调度器（F3） */
-    internal val scheduler = AgentScheduler(timeProvider, tokenCounter, systemConditions)
+    internal val scheduler = AgentScheduler(timeProvider, systemConditions)
 
     /**
      * 看板用：今日 Token 用量快照（门面）。
@@ -284,7 +286,8 @@ class MasterAgent internal constructor(
      * **F13**：UI 只需要「用了多少 / 配额多少」这个**数据形状**，不需要引擎计数器本身。
      * 暴露这一条即可把 `tokenCounter`（及 [GlobalTokenCounter]）收敛为 internal。
      */
-    val tokenUsage: kotlinx.coroutines.flow.StateFlow<TokenSnapshot> get() = tokenCounter.snapshot
+    val tokenUsage: kotlinx.coroutines.flow.StateFlow<TokenSnapshot>
+        get() = quotaGate?.usage ?: EMPTY_TOKEN_USAGE
 
     // ═══ per-Agent 持久化配置（AgentPolicyConfig v0→v1：从 2 字段扩展到 6 字段）═══
     // init 块里从 DataStore 读（runBlocking，因为 init 块不是 suspend）；
@@ -382,8 +385,15 @@ class MasterAgent internal constructor(
      * - "enrich" → EnrichSubAgent（自循环 Worker）
      * - "radio"  → RadioSubAgent（自循环 Worker，M6）
      */
-    private val _subAgents = mutableMapOf<String, com.hmp.domain.agent.runtime.sub.shared.SubAgent>()
-    internal val subAgents: Map<String, com.hmp.domain.agent.runtime.sub.shared.SubAgent> get() = _subAgents.toMap()
+    /**
+     * 子 Agent 注册表（D6-04）。写路径只能走 [installSubAgent] / [uninstallSubAgent] /
+     * [clearSubAgents]（内部由 [SubAgentRegistry] 串行化 + 快照替换）；读侧拿到的是不可变快照，
+     * 任意线程并发读都安全，也不会 `ConcurrentModificationException`。
+     */
+    private val subAgentRegistry = SubAgentRegistry()
+    private val _subAgents: Map<String, com.hmp.domain.agent.runtime.sub.shared.SubAgent>
+        get() = subAgentRegistry.entries
+    internal val subAgents: Map<String, com.hmp.domain.agent.runtime.sub.shared.SubAgent> get() = _subAgents
 
     /** F9-A0：所有实现了 Capability 接口的 SubAgent —— Tool 层和 UI 层从这里读统一状态 */
     internal val capabilities: Map<String, Capability> get() =
@@ -404,6 +414,15 @@ class MasterAgent internal constructor(
     /** Radio 生命周期保护（同上） */
     private val radioLifecycleMutex = Mutex()
     private var radioRunLoopJob: kotlinx.coroutines.Job? = null
+
+    // ── 子 Agent 注册表的写路径（D6-04）──
+    private suspend fun installSubAgent(key: String, agent: com.hmp.domain.agent.runtime.sub.shared.SubAgent) =
+        subAgentRegistry.put(key, agent)
+
+    private suspend fun uninstallSubAgent(key: String): com.hmp.domain.agent.runtime.sub.shared.SubAgent? =
+        subAgentRegistry.remove(key)
+
+    private suspend fun clearSubAgents() = subAgentRegistry.clear()
 
     // ===== 生命周期 =====
 
@@ -474,6 +493,9 @@ class MasterAgent internal constructor(
      */
     internal suspend fun initialize(enrichTransport: LlmTransport? = null) {
         HmpLog.i(LogTag.AgentMaster) { "🤖 [Master] initialize start" }
+
+        // 配额先回填：UI 的置灰/余量依赖它，别等第一次 LLM 调用才发现用量是 0
+        runCatching { quotaGate?.snapshot() }
 
         // ── 加载 Per-Agent LLM Endpoint Config（null = 跟随全局） ──
         settingsRepo?.let { repo ->
@@ -549,8 +571,9 @@ class MasterAgent internal constructor(
         scheduler.stopArbitration()
         _subAgents.values.forEach { it.shutdown() }
         cancelAllRunLoopJobs()
-        _subAgents.clear()
+        clearSubAgents()
         lifecycleScope.coroutineContext[kotlinx.coroutines.Job]?.cancel()
+        cancelMasterScope()
         HmpLog.i(LogTag.AgentMaster) { "🤖 [Master] shutdown complete" }
     }
 
@@ -563,10 +586,28 @@ class MasterAgent internal constructor(
     fun close() {
         HmpLog.i(LogTag.AgentMaster) { "🤖 [Master] close (non-suspend)" }
         cancelAllRunLoopJobs()
-        _subAgents.clear()
+        // close() 不是 suspend：单次引用替换即可，读侧拿到的是新快照
+        subAgentRegistry.clearNow()
         lifecycleScope.coroutineContext[kotlinx.coroutines.Job]?.cancel()
+        cancelMasterScope()
         HmpLog.i(LogTag.AgentMaster) { "🤖 [Master] close complete" }
     }
+
+    /**
+     * D6-02：主作用域里的 7 个转发/监听协程（radioStateForwarder、radioPlaylistForwarder、
+     * radioSettled/Pause/TrackChangeListener、recommendListForwarder …）全是 `scope.launch`，
+     * 只 cancel `lifecycleScope` 动不到它们。平台若直接 terminate → `close()`（没走 stopRadio），
+     * 这些协程会继续观察 StateFlow、占 CPU 与电量，移动端还可能拖住进程退出。
+     *
+     * `scope` 到这里已是终态（close/shutdown 之后 Master 不再复用），整域取消。
+     */
+    private fun cancelMasterScope() {
+        scope.coroutineContext[kotlinx.coroutines.Job]?.cancel()
+    }
+
+    /** 供 D6-02 判据：主作用域里还活着的子协程数 —— [close] / [shutdown] 之后必须为 0。 */
+    internal fun activeScopeChildren(): Int =
+        scope.coroutineContext[kotlinx.coroutines.Job]?.children?.count { it.isActive } ?: 0
 
     private fun cancelAllRunLoopJobs() {
         enrichRunLoopJob?.cancel()
@@ -638,7 +679,7 @@ class MasterAgent internal constructor(
             )
 
             // ② 创建 SchedulerStopSignal——桥接 Scheduler pause/resume ↔ Enrich runLoop 的 waitResume()
-            val enrichStopSignal = SchedulerStopSignal(tokenCounter)
+            val enrichStopSignal = SchedulerStopSignal(quotaGate, "enrich")
 
             // ③ 构造 system prompt（F5：Master 注入，Enrich 不自演化角色）
             val systemPrompt = com.hmp.domain.agent.runtime.sub.enrich.EnrichPrompts.buildSystemPrompt(
@@ -662,8 +703,12 @@ class MasterAgent internal constructor(
                 enrichConfig = enrichConfig,
                 targetCoverage = task.targetCoverage,
                 stopSignal = enrichStopSignal,
+                // T5：免费/付费（内置 Key）走单首省 token；自定义端点保留完整批量流程
+                accessModeProvider = {
+                    settingsRepo?.getAiAccessMode() ?: com.hmp.domain.setting.model.AiAccessMode.CUSTOM
+                },
             )
-            _subAgents["enrich"] = enrichAgent
+            installSubAgent("enrich", enrichAgent)
 
             // ⑥ 注册到 Scheduler（priority=3）
             scheduler.registerAgent(
@@ -693,7 +738,7 @@ class MasterAgent internal constructor(
         _subAgents["enrich"]?.let { enrich ->
             enrich.shutdown()
             scheduler.unregisterAgent("enrich")
-            _subAgents.remove("enrich")
+            uninstallSubAgent("enrich")
             HmpLog.i(LogTag.AgentMaster) { "🤖 [Master] Enrich stopped" }
         }
         enrichRunLoopJob?.let { old ->
@@ -767,7 +812,7 @@ class MasterAgent internal constructor(
             val toolView = ToolRegistryView.radio(registry)
 
             // ③ StopSignal——桥接 Scheduler pause/resume
-            val radioStopSignal = SchedulerStopSignal(tokenCounter)
+            val radioStopSignal = SchedulerStopSignal(quotaGate, "radio")
 
             // ④ 实例化 RadioSubAgent
             val radioAgent = com.hmp.domain.agent.runtime.sub.radio.RadioSubAgent(
@@ -794,7 +839,7 @@ class MasterAgent internal constructor(
                 globalReplyLanguage = globalAgentConfig.replyLanguage,
                 promptOverrides = radioPolicyConfig.promptOverrides.toMap(),
             )
-            _subAgents["radio"] = radioAgent
+            installSubAgent("radio", radioAgent)
 
             // ⑤ 注册到 Scheduler（priority=2，比 Master 低、比 Enrich 高）
             scheduler.registerAgent(
@@ -891,7 +936,7 @@ class MasterAgent internal constructor(
             (radio as? com.hmp.domain.agent.runtime.sub.radio.RadioSubAgent)?.stopRadio()
             radio.shutdown()
             scheduler.unregisterAgent("radio")
-            _subAgents.remove("radio")
+            uninstallSubAgent("radio")
             HmpLog.i(LogTag.AgentMaster) { "🤖 [Master] Radio stopped" }
         }
         // F11-L1：电台会话已结束 → 撤销保活诉求
@@ -922,11 +967,16 @@ class MasterAgent internal constructor(
         observationBus?.muteFor(com.hmp.domain.agent.runtime.sub.radio.ORCHESTRATION_MUTE_MS)
     }
 
-    /** Master 下令暂停电台：播放引擎 PAUSE → SubAgent 内部状态切 PAUSED（runLoop + playlist 保留） */
-    internal suspend fun pauseRadio() {
+    /**
+     * Master 下令暂停电台：播放引擎 PAUSE → SubAgent 内部状态切 PAUSED（runLoop + playlist 保留）。
+     *
+     * D6-03：必须持 [radioLifecycleMutex] —— 否则与 [stopRadioLocked]（同一把锁、会 remove + shutdown）
+     * 并发时，这里拿到的可能是正在销毁的实例，PAUSE 落在半销毁状态上。
+     */
+    internal suspend fun pauseRadio() = radioLifecycleMutex.withLock {
         val radio = _subAgents["radio"] as? com.hmp.domain.agent.runtime.sub.radio.RadioSubAgent ?: run {
             HmpLog.w(LogTag.AgentMaster) { "🤖 [Master] pauseRadio: no radio agent" }
-            return
+            return@withLock
         }
         // 先停播放引擎（RadioSubAgent 已剥离播放控制）
         muteObservation()
@@ -935,11 +985,11 @@ class MasterAgent internal constructor(
         HmpLog.i(LogTag.AgentMaster) { "🤖 [Master] Radio paused" }
     }
 
-    /** Master 下令恢复电台：先启播放引擎 → SubAgent 内部状态切 PLAYING */
-    internal suspend fun resumeRadio() {
+    /** Master 下令恢复电台：先启播放引擎 → SubAgent 内部状态切 PLAYING（同样持 [radioLifecycleMutex]，见 D6-03） */
+    internal suspend fun resumeRadio() = radioLifecycleMutex.withLock {
         val radio = _subAgents["radio"] as? com.hmp.domain.agent.runtime.sub.radio.RadioSubAgent ?: run {
             HmpLog.w(LogTag.AgentMaster) { "🤖 [Master] resumeRadio: no radio agent" }
-            return
+            return@withLock
         }
         // 先启播放引擎（RadioSubAgent 已剥离播放控制）
         // 必须静默：否则这次 PLAY 会被观测面当成"用户在电台暂停期间自己点了播放"→ 立刻退出电台
@@ -991,7 +1041,7 @@ class MasterAgent internal constructor(
             // ③ 构造 AgentContextBudget + ToolRegistryView.empty()
             // helloTransport 独立于 chatTransport（方案 B：每 Agent 一 Transport）
             val toolView = ToolRegistryView.empty(chatToolRegistry)
-            val stopSignal = SchedulerStopSignal(tokenCounter)
+            val stopSignal = SchedulerStopSignal(quotaGate, "hello")
             val helloSystemPrompt = DefaultCompanionProfiles.DEFAULT.personaPrompt
 
             // ④ 实例化 HelloSubAgent → _subAgents["hello"]
@@ -1023,7 +1073,7 @@ class MasterAgent internal constructor(
                 promptOverrides = helloPolicyConfig.promptOverrides.toMap(),
                 llmTemperature = helloPolicyConfig.temperature,  // null = 回落 typeTemperature 按卡型兜底
             )
-            _subAgents["hello"] = helloAgent
+            installSubAgent("hello", helloAgent)
 
             // ⑤ 注册 Scheduler（priority=HELLO=4，永不暂停）
             scheduler.registerAgent(
@@ -1061,7 +1111,7 @@ class MasterAgent internal constructor(
         _subAgents["hello"]?.let { hello ->
             hello.shutdown()
             scheduler.unregisterAgent("hello")
-            _subAgents.remove("hello")
+            uninstallSubAgent("hello")
             HmpLog.i(LogTag.AgentMaster) { "🤖 [Master] Hello stopped" }
         }
         helloRunLoopJob?.let { old ->
@@ -1252,7 +1302,7 @@ class MasterAgent internal constructor(
         return _subAgents.mapValues { (_, agent) -> agent.state().name } +
             mapOf(
                 "scheduler_state" to scheduler.registeredAgentIds().joinToString(","),
-                "token_usage" to "${tokenCounter.usedToday()}/${tokenCounter.dailyTokenQuota}",
+                "token_usage" to "${quotaGate?.usage?.value?.used ?: 0L}/${quotaGate?.usage?.value?.quota ?: 0L}",
             )
     }
 
@@ -1271,7 +1321,7 @@ class MasterAgent internal constructor(
         return buildMap {
             put("active", isEnrichActive().toString())
             put("scheduler_state", schedulerEnrichState)
-            put("token_remaining", "${tokenCounter.remainingToday()}")
+            put("token_remaining", "${quotaGate?.usage?.value?.remaining ?: 0L}")
             put("processed", progress?.processed?.toString() ?: "0")
             put("success", progress?.success?.toString() ?: "0")
             put("failed", progress?.failed?.toString() ?: "0")
@@ -1558,11 +1608,10 @@ class MasterAgent internal constructor(
         // 循环编排从 MasterAgent 剥离为可复用组件（未来 Radio 第 3 轮 diff 仲裁也用）
         val loop = ReActLoop(
             stepBudget = stepBudget,
-            tokenCounter = tokenCounter,
             policyGuard = policyGuard,
             auditLog = chatAuditLog,
             presenceBus = chatPresenceBus,
-            stopSignal = AlwaysRunningStopSignal(tokenCounter),  // Master 永不暂停
+            stopSignal = AlwaysRunningStopSignal(),  // Master 永不暂停
             agentId = TokenMeter.AGENT_MASTER,
             tokenMeter = tokenMeter,
         )

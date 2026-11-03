@@ -15,6 +15,13 @@ java {
     }
 }
 
+// X-03：版本读不到就硬失败。此前 `?: "1.0.0"` / dmg 恒 "1" 会让文件名像 vX.Y.Z、
+// 包内版本却是 1.0.0，且桌面 job 不跑 checkVersion，没人会发现。
+val hmpVersionName: String = project.findProperty("hmp.versionName")?.toString()?.takeIf { it.isNotBlank() }
+    ?: throw GradleException("hmp.versionName 缺失：请先跑 ./gradlew syncVersion（真源 release.toml）")
+val hmpVersionCode: Int = project.findProperty("hmp.versionCode")?.toString()?.toIntOrNull()
+    ?: throw GradleException("hmp.versionCode 缺失或不是整数：请先跑 ./gradlew syncVersion（真源 release.toml）")
+
 kotlin {
     jvm("desktop")
 
@@ -337,7 +344,7 @@ compose.desktop {
                 "java.transaction.xa"  // JDBC transactions
             )
             packageName = "HMP"
-            packageVersion = project.findProperty("hmp.versionName")?.toString() ?: "1.0.0"
+            packageVersion = hmpVersionName
             description = "Hearable Music Player - A cross-platform local music player"
             vendor = "HMP"
 
@@ -362,7 +369,7 @@ compose.desktop {
             macOS {
                 iconFile.set(project.file("src/desktopMain/resources/icon.icns"))
                 bundleID = "com.hmp.desktop"
-                dmgPackageVersion = "1"
+                dmgPackageVersion = hmpVersionCode.toString()
             }
 
             windows {
@@ -374,7 +381,7 @@ compose.desktop {
                 // This UUID MUST remain the same across all versions — do NOT change it.
                 upgradeUuid = "6ec556dd-5375-494f-ab38-f19bcdb497e7"
                 // Explicit MSI package version — allows upgrade even if version format changes
-                msiPackageVersion = project.findProperty("hmp.versionName")?.toString() ?: "1.0.0"
+                msiPackageVersion = hmpVersionName
             }
 
             linux {

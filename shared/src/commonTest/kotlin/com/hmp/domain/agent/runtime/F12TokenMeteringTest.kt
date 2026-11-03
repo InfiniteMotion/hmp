@@ -26,11 +26,25 @@ private class FakeTokenLedgerDao : TokenLedgerDao {
     override suspend fun count(): Long = inserted.size.toLong()
     override suspend fun earliestMs(): Long? = inserted.minOfOrNull { it.createdAt }
     override suspend fun sumByAgent(sinceMs: Long): List<TokenAggregateRow> = emptyList()
+    override suspend fun sumByAgentForMode(sinceMs: Long, mode: String): List<TokenAggregateRow> =
+        inserted.filter { it.accessMode == mode && it.createdAt >= sinceMs }
+            .groupBy { it.agentId }
+            .map { (agent, rows) ->
+                TokenAggregateRow(
+                    label = agent,
+                    promptTokens = rows.sumOf { it.promptTokens.toLong() },
+                    completionTokens = rows.sumOf { it.completionTokens.toLong() },
+                    totalTokens = rows.sumOf { (it.promptTokens + it.completionTokens).toLong() },
+                    estimatedRows = rows.count { !it.measured }.toLong(),
+                    calls = rows.size.toLong(),
+                )
+            }
     override suspend fun sumByEndpoint(sinceMs: Long): List<TokenAggregateRow> = emptyList()
     override suspend fun sumByHour(sinceMs: Long): List<TokenTimeBucket> = emptyList()
     override suspend fun sumByDay(sinceMs: Long): List<TokenTimeBucket> = emptyList()
     override suspend fun sumByHourForAgent(sinceMs: Long, agentId: String): List<TokenTimeBucket> = emptyList()
     override suspend fun sumTotal(): Long = inserted.sumOf { (it.promptTokens + it.completionTokens).toLong() }
+    override suspend fun sumTotalSince(sinceMs: Long): Long = sumTotal()
     override suspend fun deleteAll() { inserted.clear() }
 }
 
@@ -42,10 +56,9 @@ private class FakeTokenLedgerDao : TokenLedgerDao {
  */
 class F12TokenMeteringTest {
 
-    private fun meterWith(dao: FakeTokenLedgerDao): Pair<TokenMeter, GlobalTokenCounter> {
-        val counter = GlobalTokenCounter(timeProvider = { 0L })
-        val meter = TokenMeter(counter = counter, ledgerDao = dao, timeProvider = { 123L })
-        return meter to counter
+    private fun meterWith(dao: FakeTokenLedgerDao): TokenMeter {
+        val meter = TokenMeter(ledgerDao = dao, timeProvider = { 123L })
+        return meter
     }
 
     private val cfg = AiEndpointConfig(
@@ -57,7 +70,7 @@ class F12TokenMeteringTest {
     @Test
     fun recordsTrueUsageToLedgerAndCounter() = runBlocking {
         val dao = FakeTokenLedgerDao()
-        val (meter, counter) = meterWith(dao)
+        val meter = meterWith(dao)
 
         val entry = meter.record(
             agentId = TokenMeter.AGENT_MASTER,
@@ -69,7 +82,7 @@ class F12TokenMeteringTest {
         )
 
         // ① 当日累加（配额仲裁的输入）
-        assertEquals(150L, counter.usedToday())
+        assertEquals(150L, dao.inserted.sumOf { (it.promptTokens + it.completionTokens).toLong() })
         // ② 明细账本新增一行
         assertEquals(1, dao.inserted.size)
         // 真值 + 分账维度
@@ -85,7 +98,7 @@ class F12TokenMeteringTest {
     @Test
     fun fallsBackToEstimateAndSkipsFailedWithoutUsage() = runBlocking {
         val dao = FakeTokenLedgerDao()
-        val (meter, counter) = meterWith(dao)
+        val meter = meterWith(dao)
 
         val est = meter.record(
             agentId = TokenMeter.AGENT_ENRICH,

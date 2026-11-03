@@ -283,32 +283,86 @@
 
 | 包 | 内容 | 含条目 | 判据落点 | 依赖 |
 |---|---|---|---|---|
-| **二-1** | 歌词单一存储源：读写收敛 `getComponentConfig` / `resolveConfig`，修 LRC 重复时间行与双语拆分 | D4-01、D4-02、D4-05 | `:shared:desktopTest` / `commonTest`（`LyricsSettingsUseCaseTest` / `LrcParserTest`）+ `:shared-ui:testAndroidHostTest`（端到端） | — |
-| **二-2** | 歌词渲染：自动滚动居中、Desktop/iOS 悬浮空壳（实现或按平台隐藏） | D4-03、D4-04 | `:shared-ui:testAndroidHostTest`（位置断言，做不到则实机）+ 实机 | 二-1 |
-| **二-3** | Agent 生命周期与并发：`close()` 取消 scope、`pauseRadio/resumeRadio` 持锁、`_subAgents` 并发容器 | D6-02、D6-03、D6-04 | `:shared:commonTest`（`F11LifecycleTest` / `MasterAgentRadioTest` 同族） | — |
-| **二-4** | Agent 排序键与确认闸门：`"play_count"` 拼错静默错排、`DialogManager` 用毫秒当 key | D6-01、D6-08 | `:shared:commonTest` / `:shared-ui:testAndroidHostTest` | — |
-| **二-5** | `token_ledger` 的手动清理入口 + 监控页改窗口化聚合（**不自动清理**，与 `TokenLedger.kt:19` 的"永久保留"注记一致） | D6-05 | `:shared:desktopTest`：插大量行 → 调手动入口后 `count()` 归零；断言监控页取数 `sinceMs > 0`（不再传 `0L` / 不再走裸 `sumTotal()`） | 无（索引早已存在，**无 schema、无迁移**，见 §九 决策 8） |
-| **二-6** | 每日推荐触发时机 | D6-06 | `:shared:commonTest`（注入 `TimeProvider` 前进 1 天） | — |
-| **二-7** | 播放引擎可测部分：Desktop 退出时序、seek 误报错误、启动恢复异常空 catch（Desktop 段） | D1-04、D1-05、D1-08(Desktop 段) | `:shared:desktopTest` | — |
+| **二-1**（**已完成 2026-10-28**） | 歌词单一存储源：读写收敛 `getComponentConfig` / `resolveConfig`，修 LRC 重复时间行与双语拆分 | D4-01、D4-02、D4-05 | `:shared:desktopTest` / `commonTest`（`LyricsSettingsUseCaseTest` / `LrcParserTest`）+ `:shared-ui:testAndroidHostTest`（端到端） | — |
+| **二-2**（**部分完成 2026-11-03：D4-04 入口收窄已落；D4-03 暂缓，见 `docs/ideas.md`**） | 歌词渲染：自动滚动居中、Desktop/iOS 悬浮空壳（实现或按平台隐藏） | D4-03、D4-04 | `:shared-ui:testAndroidHostTest`（位置断言，做不到则实机）+ 实机 | 二-1 |
+| **二-3**（**已完成 2026-10-28**） | Agent 生命周期与并发：`close()` 取消 scope、`pauseRadio/resumeRadio` 持锁、`_subAgents` 并发容器 | D6-02、D6-03、D6-04 | `:shared:commonTest`（`F11LifecycleTest` / `MasterAgentRadioTest` 同族） | — |
+| **二-4**（**已完成 2026-10-28：D6-01 已由 一-5 收口，本批只落 D6-08**） | Agent 排序键与确认闸门：`"play_count"` 拼错静默错排、`DialogManager` 用毫秒当 key | D6-01、D6-08 | `:shared:commonTest` / `:shared-ui:testAndroidHostTest` | — |
+| **二-5**（**已完成 2026-11-02**） | `token_ledger` 的手动清理入口 + 监控页改窗口化聚合（**不自动清理**，与 `TokenLedger.kt:19` 的"永久保留"注记一致） | D6-05 | `:shared:desktopTest`：插大量行 → 调手动入口后 `count()` 归零；断言监控页取数 `sinceMs > 0`（不再传 `0L` / 不再走裸 `sumTotal()`） | 无（索引早已存在，**无 schema、无迁移**，见 §九 决策 8） |
+| **二-6**（**已完成 2026-11-02**） | 每日推荐触发时机 | D6-06 | `:shared:commonTest`（注入 `TimeProvider` 前进 1 天） | — |
+| **二-7**（**已完成 2026-11-03：D1-04/05/08 Desktop 段**） | 播放引擎可测部分：Desktop 退出时序、seek 误报错误、启动恢复异常空 catch（Desktop 段） | D1-04、D1-05、D1-08(Desktop 段) | `:shared:desktopTest`；实测 `:desktop:core-player:desktopTest` 7 套件 / 34 例 / 0 失败 | — |
 | **二-8** | 播放引擎 iOS 空壳（以实机为主） | D1-01、D1-02、D1-06、D1-07、D1-09、D1-08(iOS 段) | 实机（macOS + iOS）—— 本机不可达 | 需 iOS 设备 |
-| **二-9** | 音效空桩：实现 or UI 禁用 | D1-03 | `:shared-ui:testAndroidHostTest`（适配器不崩）+ 实机听感 | **§九 决策 5** |
+| **二-9**（**已完成 2026-11-03：按决策 5 撤下 Desktop/iOS 入口**） | 音效空桩：实现 or UI 禁用 | D1-03 | `:shared-ui:testAndroidHostTest`（适配器不崩）+ 实机听感 | **§九 决策 5** |
 | **二-10** | 播放增强登记（无施工） | D1-10 | 无判据（随方向 C 启动时补 `PlaybackController` 方法） | 方向 C |
+| **二-12**（**已完成 2026-11-03：权重 / 持久化 / agent 选曲 / 播放页电台入口 / 旧生成器退役**） | **智能歌单**：内部黑盒权重（每次生成随机抽偏重维度）+ 每日两单覆盖式持久化 + radio 式 agent 选曲（一次调用返回总述与按语） | 新增（用户 2026-11-03 决议，见 `smart-playlist-design.md`） | `SmartWeightsTest`（7 例）/ `HelloRecommendPersistenceTest`（3 例）/ `HelloRecommendSelectorTest`（9 例）；全量 144 套件 / 1095 例 | 一-2、二-11 |
+| **二-11**（**已完成 2026-10-29：T1–T6 全部落地，实机待签收**） | **免费体验 Token 额度**：100M 总额、四 Agent 40/25/25/10 硬顶、账本分账；自定义模式每日/每 Agent 限额；Enrich 改单首随机 + 省 token 提示词 | 新增（用户 2026-10-28 决议） | `:shared:desktopTest`（迁移新列、闸门边界、重启不归零、耗尽不发请求）+ 实机 | — |
+
+> **二-1 已完成（2026-10-28）**：D4-01 / D4-02 / D4-05。
+> 读取侧收成 `LyricsSettingsUseCase.configFlow(component)`（combine 三份 per-component 配置 → `LyricsConfigResolver`），
+> `PlayerScreen` 读 PLAYER、`LyricsScreen` 读 FULLSCREEN；写入侧面板改 `updateComponentConfig(FULLSCREEN)` 读-改-写。
+> **legacy 七条流与三个 legacy 方法整段删除**（不保留 deprecated 包装），`SettingsRepository` 的扁平键只剩测试引用，已标注待清理。
+> LRC：行首 `[t1][t2]text` 展开成多条（D4-02）；双语拆分从"按字符过滤重组"改成"按段切片"，不再丢数字与标点、交错混排不拆（D4-05）。
+> 判据：`:shared:desktopTest` **1062 例**（−3：删 9 条 legacy 用例、加 7 条新用例）、`:shared-ui:testAndroidHostTest` **128 例**（+3），均 0 失败。
+> 探针两组：`configFlow` 读 DEFAULT → **精确 2 红**；退回旧 LRC/双语实现 → **6 红**（3+3，其余照绿）。
+> 两个如实记的口径：① `[t1][t2]` 从"逐字结束标记"改成"重复时间戳"，与旧用例冲突处按 D4-02 的动作为准（逐字请用 `<...>`）；
+> ② UI 渲染层仍无机器判据（无 Compose 渲染测试基建），D4-01 的"改字号后播放页跟着变"退到 VM 状态层。
+
+> **二-3 已完成（2026-10-28）**：D6-02 / D6-03 / D6-04。
+> D6-02：`close()` / `shutdown()` 补 `cancelMasterScope()`，判据口是 `activeScopeChildren()`（7 个转发协程都在 `scope` 下，整域取消）。
+> D6-03：`pauseRadio` / `resumeRadio` 包进 `radioLifecycleMutex`；**审查发现 `MasterAgent.pauseRadio` 目前没有生产调用方**（真实暂停走播放观测），是接 `RADIO_PAUSE` 还是删，待口径。
+> D6-04：注册表抽成 `SubAgentRegistry`（`@Volatile` 快照 + Mutex），写路径 8 处全部改走它。
+> 判据：`:shared:desktopTest` **138 套件 / 1067 例 / 0 失败**（+2 套件 +5 例）。探针：删 `cancelMasterScope` → 1 红；注册表退回 `MutableMap` → 1 红（同批 5 例各只红 1 条）。
+> 一处如实记：D6-03 的交错竞态**没有确定性判据**（窗口太窄），只有顺序化 smoke；这条靠结构修改 + 评审，不假装有测试守住。
+> **二-4 已完成（2026-10-28）**：D6-01 早在 一-5 / 5A-2 换枚举时就一起收口了（三处 `MusicSortKey.PLAY_COUNT`，`"play_count"` 只剩注释），本批只在 D6 章节记账，不重复改代码；它的“先红后绿”判据在签名不再接受字符串后已无法成立，等价覆盖在 D2-08 的排序用例里。
+> D6-08 落的是 `DialogManager` 的取号器：`Mutex` + 单调计数器（`internal allocateConfirmId()`），空 steps 不占号；`DialogManagerTest` 3 例。探针把分配器换回 `nowEpochMillis()` → **3 例全红**。
+> 残余：`pendingConfirms` 这张普通 `MutableMap` 的跨线程访问没动（本轮只修 key 碰撞），已记进 D6-08。
+> **二-11 第一步已落（2026-10-28）**：T1 数据 + T2 配额核心 + Master 降级。
+> 账本加 `access_mode`（并入 v10，`10.json` 已重导，迁移 9→10 补列并回填 `FREE`）；
+> 新增 `TokenQuotaGate`（免费 100M + 四桶 40/25/25/10 硬顶；自定义按当日窗口 + 用户上限），
+> 状态从账本 `SUM` 回填 —— **重启不再归零**；`LlmCallExecutor` 在发请求前拦截，耗尽返回 `quotaExhausted`。
+> Master 的 ReAct 循环给了可行动话术（不再显示「对话中断」）。
+> 判据：`:shared:desktopTest` **139 套件 / 1075 例 / 0 失败**（新增 `TokenQuotaGateTest` 7 例、ReAct 配额 1 例、迁移补 2 条断言）。
+> **T4 已落（2026-10-28）**：删掉「100 次」整套（接口/三端/用例/替身/文案），AIScreen 改显示 token 余量（剩余 / 已用 / 进度）；免费入口的显示条件改为 **isBuiltInAiConfigured()**（有没有可用的内置端点），不再按平台判断。
+> **T3 部分已落**：Chat 发送按钮置灰 + 输入框禁用 + 顶部提示文案；Radio 开关在「开启」方向被拦截并 toast，关闭永远允许。
+> **歌单两个入口已落**：首页 RadioCard 右侧的「每日推荐 / 私人推荐」两卡按 **hello 桶**置灰 —— 不可点、标题降透明度、播放按钮换成「额度不足」；四处调用（宽窗 + 竖屏）同步。配额在 `MasterAgent.initialize()` 启动时回填。
+> **看板已落**：Token 卡在免费模式下显示四桶明细（Master/Radio/Enrich/Hello 的 used / cap，耗尽的桶标红）；模式与桶用量由 `TokenQuotaGate` 的 `currentMode` / `bucketUsage` / `exhausted` 三条流提供。
+> **配置页已落**：FREE 页签按 `isBuiltInAiConfigured()` 显示「此设备未配置内置 AI 服务」，免费余量耗尽时显示耗尽文案。
+> **T5 已落（2026-10-28，2026-10-29 修正口径）**：富化策略**按凭据模式分流** —— `runLoop` 入口读一次 `accessModeProvider`（Master 从设置注入）：
+> - **FREE / PAID（内置 Key）**：单首随机 + `SINGLE_SONG_SYSTEM_PROMPT` 精简请求（每次从 50 首候选池随机挑），省 token 优先；
+> - **CUSTOM（用户自己的 Key）**：**保留原有批量 6 轮完整流程**（预热/枚举/自检/自由文本/反思），质量优先。
+> 初版把单首套到了所有模式，把 CUSTOM 的质量也砍了 —— 已按用户指正恢复：`processChunk`、6 个批量提示词、`fetchNextEnrichWorkUnit` work-unit 链路全部在位。
+> 判据：批量路径由 `EnrichSubAgentTest`（恢复的 6 条编排用例）覆盖；单首路径新增 `EnrichSubAgentFreeModeTest` 2 例（**只发 1 次请求** + 精简 system prompt + 写库 / 无配置不发请求）+ `parseSingleSong` 3 例；`:shared:desktopTest` **139 套件 / 1070 例 / 0 失败**。
+> 如实记：① 单首质量低于 6 轮（靠「没有把握就留空」压编造），这正是把它限定在 FREE/PAID 的原因；② token 成本只按请求数记账，未做真实 A/B；③ 运行中切换凭据模式**不会**热切管线，需要重启 Enrich（Master 的 startEnrich 幂等）；④ 解析层批量函数继续由批量路径使用，不再是死代码。
+> **T6 已落（2026-10-28）**：CUSTOM 页签新增「用量限额」卡 —— 启用开关 + 全局每日上限 + 四个 Agent 独立每日上限（留空 = 不限），保存写 `GlobalAgentConfig`，与 `TokenQuotaGate` 的判定字段同一份。
+> **AgentConfig 横幅已落**：跟随全局时，若 `globalEndpoint.isConfigured == false`，在端点预览下方显示红字「全局端点不可用：未配置 API Key」（宽窗/竖屏两处）。
+> **旧 enrich 链路清理与回滚（2026-10-28 / 10-29）**：初版曾把 `fetchNextEnrichWorkUnit`、`EnrichWorkUnit`、6 个批量提示词一并删除；**该删除已随 10-29 的模式分流修正整体恢复**——CUSTOM 仍走完整 6 轮，这些不是死代码。解析层的批量函数同样在役。
+> 判据：`:shared:desktopTest` **138 套件 / 1068 例**、`:shared-ui:testAndroidHostTest` **21 套件 / 131 例**，均 0 失败；iOS 两目标重编通过。
+> **2026-10-28 追加**：全局日熔断（`GlobalTokenCounter`）已按决策 14 整体删除；`SchedulerStopSignal` 改为看「本 Agent 的桶是否耗尽」，`AgentScheduler` 只剩电量/WiFi，`ReActLoop` 去掉 95% 熔断（配额由闸门逐次判）。看板 `tokenUsage` 改由 `TokenQuotaGate.usage` 提供；CUSTOM 未开限额时（quota=0）不再渲染那条假的进度条。
+
+> **A 批已完成（2026-11-02）：二-5 / 二-6 / 三-2 / 三-3。**
+> 二-5 新增 `TokenLedgerMaintenance`（30 天窗口 + 手动清空），监控页不再 `sumByAgent(0L)` / 裸 `sumTotal()`，Token 卡加「清空」入口（带 N 条 / 最早日期确认）。
+> 二-6 给 `HelloSubAgent` 注入 `TimeProvider`（`todayString` / `hourOfDay` / 其余 10 处墙钟统一），`checkAndRunDailyRefresh()` 改 internal 供测试驱动。
+> 三-2 `resolvePrompt` 增 `onMissingKey` 回调（默认 `HmpLog.w`），未知键仍返回空串。
+> 三-3 新增 `I18nResourceGateTest`：14 语言键集合 + 占位符多重集；旧平行副本收敛为单键桥（只留 `share_music`）。
+> 判据：`:shared:desktopTest` **141 套件 / 1076 例**、`:shared-ui:testAndroidHostTest` **22 套件 / 133 例**，均 0 失败。
+> 反向探针（红→绿）：`snapshot` 的 `since` 改 0 → 二-5 精确 1 红；`todayString` 换回墙钟 → 二-6 精确 1 红；回滚后全绿。
+> 门禁首跑抓到真缺陷：12 语言三个配额文案用 `%d` 而调用方传 `fmtTokens(...)` 的 String（`AIScreen.kt:417/552/566`）→ 这些语言打开 AI 页会抛格式化异常；已统一 `%s`。
+> 同时补齐 12 语言缺的 16 键（各 **806** 键）；泰语与英文同值仍 **451/806**（只登记，R13 的重译未做）。
 
 ### 批三 · 平台与界面 + 横切线（可并行的安全网）
 
 | 包 | 内容 | 含条目 | 判据落点 | 依赖 |
 |---|---|---|---|---|
 | **三-1** | **导航注册真闸门**：补 2 条 serializer；把恒真断言换成"路由 ↔ entry ↔ serializer"遍历断言 | D8-01、D8-02、X-05 | `:shared-ui:testAndroidHostTest`（覆盖 commonTest）：删键/漏注册即红 | — |
-| **三-2** | `Lang.resolvePrompt` 未知键静默空串 → 告警 + 回落 | D8-04 | `:shared-ui:testAndroidHostTest` | — |
-| **三-3** | **i18n 覆盖率门禁**：键集合与占位符断言；androidMain 旧副本去留；未译率可见 | D8-06 | `:shared-ui:testAndroidHostTest`：删 `values-de` 一个键或改坏 `%1$s` 即红 | — |
-| **三-4** | 设计 token 硬约定 + 例外白名单（**只做增量守门**） | D8-03 | 编译 + 评审 + `compileAll`；机械门禁归 X-07 | X-07 |
+| **三-2**（**已完成 2026-11-02**） | `Lang.resolvePrompt` 未知键静默空串 → 告警 + 回落 | D8-04 | `:shared-ui:testAndroidHostTest` | — |
+| **三-3**（**已完成 2026-11-02**） | **i18n 覆盖率门禁**：键集合与占位符断言；androidMain 旧副本去留；未译率可见 | D8-06 | `:shared-ui:testAndroidHostTest`：删 `values-de` 一个键或改坏 `%1$s` 即红 | — |
+| **三-4**（**已完成 2026-11-03：基线+增量自定义门禁；存量审计见 `design-token-audit.md`，P0 色值已收口（38→23），P1/P2 分批；X-07 通用风格闸门仍待决策**） | 设计 token 硬约定 + 例外白名单（**只做增量守门**） | D8-03 | `./gradlew-lowmem checkDesignTokens`（探针：新增硬编码精确红）+ `compileAll` | X-07（通用 style gate） |
 | **三-5** | iOS 平台层空壳：Live Activity 不在构建图、标签写入桥未注册、DMG 版本号硬编码 | D9-01、D9-02、D9-03 | 实机（macOS + Xcode）；D9-03 本机可跑打包后 `mdls` | — |
 | **三-6** | Android 壳层：deep-link 声明无处理、`allowBackup` 与备份面 | D9-04、D9-05 | 实机（Android）；静态核查可本机 | — |
 | **三-7** | Desktop 壳层：主题监听线程、单实例不聚焦（产品取舍） | D9-06、D9-07 | 实机（macOS/Windows） | — |
 | **X-闸** | DI 模块图校验：`:shared:desktopTest` 接 `koin-test` 的 `checkModules` | X-04 | 删掉任意一条 `single` 即红 | — |
 | **X-testAll** | `testAll` 去掉不存在的 `:shared-ui:desktopTest` 依赖 | X-09 | `testAll` 不再有 NO-SOURCE 空壳依赖 | — |
-| **X-版本** | 版本读不到时的危险默认改 fail-fast（`android/app` 的 `51000`、`desktop/app` 的 `1.0.0`/`"1"`、`copyToReleases` 缺件不失败） | X-03 | 删掉 `hmp.versionName` 后构建**硬失败**；`releases/` 缺件时任务失败 | — |
-| **X-目标** | `maybeDepends` 在错目标下静默零工作 → fail-fast | X-10 | `HMP_BUILD_TARGET=desktop ./gradlew testAndroid` 不再静默绿 | — |
+| **X-版本**（**已完成 2026-11-02**） | 版本读不到时的危险默认改 fail-fast（`android/app` 的 `51000`、`desktop/app` 的 `1.0.0`/`"1"`、`copyToReleases` 缺件不失败） | X-03 | 删掉 `hmp.versionName` 后构建**硬失败**；`releases/` 缺件时任务失败 | — |
+| **X-目标**（**已完成 2026-11-02**） | `maybeDepends` 在错目标下静默零工作 → fail-fast | X-10 | `HMP_BUILD_TARGET=desktop ./gradlew testAndroid` 不再静默绿 | — |
 | **X-其余** | 静态闸门 / storybook 去留 / 依赖矩阵 / 平台源集覆盖 | X-06、X-07、X-08、X-11 | 见域章节；**§九 决策 6** | 决策 6 |
 
 > **三-1 已完成（2026-10-08）**：两条 serializer 补齐，恒真断言删除，遍历式闸门落在
@@ -327,6 +381,14 @@
 > 同类残留**已同日处理**：`desktop/app` 建出 `src/desktopTest/` 并放 `SingleInstanceGuardTest`（单实例锁 4 例，实测 `release()` 不释放会精确红一条），`testAll` 挂的 `:desktop:app:desktopTest` 从此有真实内容。
 >
 > **三-1 / X-闸 / X-testAll 建议先做**：三者的成本都在"改几行 + 加一条断言"，但它们把后续所有包的回归风险降一档。这也是上一轮审查"先闸门再 S1"的意图 —— 本轮按 baseline §三 的批次走，但闸门段可以并行提前。
+
+> **X-版本 / X-目标 已完成（2026-11-02，B 批）**
+> X-版本：根脚本、`android/app`、`desktop/app` 三处版本默认值全部改 fail-fast；`dmgPackageVersion` 由硬编码 `"1"` 改为 `versionCode`；
+> `copyToReleases` / `releaseDesktop` / `copyDesktopJar` 缺件均抛。
+> X-目标：新增 `Task.requireTarget()`，只挂在 `testAndroid` / `testDesktop` 上（**没有改 `maybeDepends`**，否则 `testAll` / `compileAll` 在单目标下会自炸）。
+> 验证：`help` 正常；`help -Phmp.versionName=` 红；`releaseAndroid -x assembleRelease -x bundleRelease` 红；
+> 桌面产物目录临时移走后 `releaseDesktop -x …` 红（已恢复）；`HMP_BUILD_TARGET=desktop testAndroid` 红，同目标 `testAll --dry-run` 仍成功。
+> 如实记：只验配置期与拷贝期，未跑真实打包全链。
 
 ---
 
@@ -421,6 +483,15 @@
 | 10 | `D7-12③` 快照覆盖面 | **先只做 UI 文案**，不补字段、不升 `CURRENT_VERSION`。导出卡片写明"包含 / 不包含"，恢复确认正文写明"会覆盖什么" | 快照格式与 v7.2.2 一致（`version = 1`）；将来补字段时必须同时升 2，否则旧版本应用会 `ignoreUnknownKeys` 静默丢字段 |
 
 > 两条都取域章节的**推荐项**，没有偏离；决策 9 与既有取向（3 / 6 号"不主动删"）不冲突 —— 那两条保的是**用户数据与可用代码**，这一条删的是**从未被调用且会误伤设置**的死链。
+### 2026-10-28 追补（免费体验额度）
+
+| # | 决策 | 决议 | 影响的下游 |
+|---|---|---|---|
+| 11 | 免费体验的计量口径 | **一次性总额 100,000,000 token**；Master / Radio / Enrich / Hello = **40 / 25 / 25 / 10**，**硬顶、不互相挪用**；总池用完四者全停；`profile` 记进 master 桶 | 新增 `TokenQuotaGate`；账本加 `access_mode`（并入未发布的 v10，不新增迁移）；旧的「100 次」整条删除，不折算 |
+| 12 | 自定义模式的限额 | 用户**自行决定是否限额**；开启后可选全局每日上限 + 每 Agent 独立每日上限（留空 = 不限） | 复用同一闸门；窗口按当日（账本 `created_at` 切日），配置落 `GlobalAgentConfig` |
+| 13 | 免费模式的平台范围 | **只做 Android** —— Desktop / iOS 的内置 Key 是空占位，免费 Tab 在该端不生效 | UI 按平台判定；Desktop/iOS 保留自定义模式 |
+| 14 | 全局日熔断（`GlobalTokenCounter` 500K/日） | **删除**。它与新模型重复：免费有 100M 总额 + 桶顶，自定义由用户决定是否限额；留着会让 CUSTOM 用户「明明没开限额却被暂停」 | 删 `GlobalTokenCounter` 及其单测；`SchedulerStopSignal` 改看「本 Agent 的桶是否耗尽」；`AgentScheduler` 只看电量/WiFi；`ReActLoop` 去掉 95% 熔断；看板快照改由 `TokenQuotaGate` 提供 |
+| 14 | 全局日熔断（`GlobalTokenCounter` 500K/日） | **删除**。它与新模型重复：免费有 100M 总额 + 桶顶，自定义由用户决定是否限额；留着会让 CUSTOM 用户「明明没开限额却被暂停」 | 删 `GlobalTokenCounter` 及其单测；`SchedulerStopSignal` 改看「本 Agent 的桶是否耗尽」；`AgentScheduler` 只看电量/WiFi；`ReActLoop` 去掉 95% 熔断；看板快照改由 `TokenQuotaGate` 提供 |
 
 ---
 
@@ -442,9 +513,9 @@
 | 里程碑 | 内容 | 完成判据 |
 |---|---|---|
 | **M0** | 批 0（迁移骨架 + 常量） | **已达成（2026-10-08）**：故意写坏 `MIGRATION_8_9` 的一个 NOT NULL → 精确 3 红；改回 8/8 绿。`1→9` 全链用例在跑，三端引用同一份 `ALL_MIGRATIONS` |
-| **M1** | 批一（含 v10 迁移与四域逻辑） | **进行中：一-1 已完成（2026-10-08）、一-2 已完成（A 批同日、B 批 2026-10-09）**；一-3 已完成（2026-10-09，C1/C2/C3）、一-7 已完成（2026-10-09）；一-4 / 一-5 只剩实机与待口径项；一-6 的 D7-01 与 B 批（D7-04/05/06/11/12①②，2026-10-28）已落，剩 D7-03 与 D7-07/D7-08。`10.json` 入库；三端注册；降级守卫可用 |
-| **M2** | 批二（运行时） | 可测部分全绿；iOS 项进实机清单 |
-| **M3** | 批三 + 横切线安全网 | 三-1..三-7 + X-闸/X-testAll/X-版本/X-目标 全绿 |
+| **M1** | 批一（含 v10 迁移与四域逻辑） | **进行中：一-1 已完成（2026-10-08）、一-2 已完成（A 批同日、B 批 2026-10-09）**；一-3 已完成（2026-10-09，C1/C2/C3）、一-7 已完成（2026-10-09）；一-4 / 一-5 只剩实机与待口径项；一-6 的 D7-01 与 B 批（D7-04/05/06/11/12①②，2026-10-28）已落，剩 D7-03（需 macOS）；D7-07/D7-08 已按决策 9 删除。`10.json` 入库；三端注册；降级守卫可用 |
+| **M2** | 批二（运行时） | **进行中：二-1 / 二-3 / 二-4（2026-10-28）、二-5 / 二-6（2026-11-02）、二-11（2026-10-29）已完成**；剩二-2 / 二-7 / 二-8 / 二-9 / 二-10；可测部分全绿，iOS 项进实机清单 |
+| **M3** | 批三 + 横切线安全网 | **三-1（2026-10-08）、三-2 / 三-3、X-版本 / X-目标（2026-11-02）已完成**；剩三-4..三-7 + X-其余；X-闸与 X-testAll 已完成 |
 | **M4** | 发版准备 | `preflight` 绿；实机签收；走 `skills/release-prep` |
 
 ---

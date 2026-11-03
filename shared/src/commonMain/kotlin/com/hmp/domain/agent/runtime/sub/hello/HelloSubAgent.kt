@@ -38,11 +38,15 @@ import com.hmp.log.LogTag
 import com.hmp.data.database.HelloCardCacheDao
 import com.hmp.data.database.HelloReportNarrativeDao
 import com.hmp.data.database.HelloReportNarrativeEntity
-import com.hmp.data.util.currentHour
-import com.hmp.data.util.todayDateString
+import com.hmp.data.database.currentTimeMillis
+import com.hmp.data.util.localDateString
+import com.hmp.data.util.localHourOfDay
+import com.hmp.domain.enum.LabelCategory
+import com.hmp.domain.playlist.algorithm.core.SmartWeights
 import com.hmp.domain.agent.infra.PresenceBus
 import com.hmp.domain.agent.infra.PresenceEvent
 import com.hmp.domain.agent.port.NowPlayingContextProvider
+import com.hmp.domain.agent.port.TimeProvider
 import com.hmp.domain.agent.port.LlmMessage
 import com.hmp.domain.agent.runtime.AgentContextBudget
 import com.hmp.domain.agent.runtime.AgentRunState
@@ -53,6 +57,8 @@ import com.hmp.domain.agent.runtime.i18n.resolvePrompt
 import com.hmp.domain.agent.runtime.ToolRegistryView
 import com.hmp.domain.music.MusicInfo
 import com.hmp.domain.music.MusicRepository
+import com.hmp.domain.music.MusicSortKey
+import com.hmp.domain.music.SortDirection
 import com.hmp.domain.enum.LabelName
 import com.hmp.domain.setting.model.AiEndpointConfig
 import com.hmp.domain.lyrics.LrcParser
@@ -201,6 +207,11 @@ class HelloSubAgent internal constructor(
     private val promptOverrides: Map<String, String> = emptyMap(),
     /** 统一 LLM 温度（null = 按卡型 typeTemperature 兜底）。 */
     private var llmTemperature: Float? = null,
+    /**
+     * 时钟（`D6-06`）。跨天判定与时段判定都走它，测试注入脚本化时钟后
+     * 才能断言"前进一天 → 次日刷新"；生产不传，默认系统时间。
+     */
+    private val timeProvider: TimeProvider = { currentTimeMillis() },
 ) : SubAgent(agentId, contextBudget, toolRegistryView), Capability {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -336,7 +347,8 @@ class HelloSubAgent internal constructor(
     }
 
     /** 核心逻辑：检查今日是否需要跑 dailyRefreshOnce，需要则跑 */
-    private suspend fun checkAndRunDailyRefresh() {
+    /** internal 仅为测试可见：跨天判定要能被 `TimeProvider` 驱动，见 `HelloDailyRefreshTest`。 */
+    internal suspend fun checkAndRunDailyRefresh() {
         val today = todayString()
         val dao = cardCacheDao
         val allTodayTypes: Set<String> = if (dao != null) {
@@ -389,7 +401,7 @@ class HelloSubAgent internal constructor(
         val allCards = mutableListOf<SlideCard>()
 
         // ① RECOMMEND（兜底版：按时段 label 取曲目）
-        val currentPhase = detectTimePhase(currentHour())
+        val currentPhase = detectTimePhase(hourOfDay())
         // B4: 同类型卡只 replace 第一张，避免 forEach replace 语义导致只剩最后一张
         val recommendCard = runCatching {
             generateRecommendCards(phase = currentPhase, count = dailyRecommendCount).firstOrNull()
@@ -427,7 +439,7 @@ class HelloSubAgent internal constructor(
         // ⑤ 写入 DAO（同日同类型删旧 + 插新；保留全量历史）+ 更新 memory 缓存
         runCatching {
             allCards.forEach { card ->
-                val now = currentTimeMillis()
+                val now = timeProvider()
                 val today = todayString()
                 cardCacheDao?.deleteSameDaySameType(card.type.name, today)
                 val cache = buildHelloCardCache(card, now, today, llmUsed = enableLlm)
@@ -463,7 +475,7 @@ class HelloSubAgent internal constructor(
             }
 
             // ② 检查时段变化
-            val currentPhase = detectTimePhase(currentHour())
+            val currentPhase = detectTimePhase(hourOfDay())
             if (currentPhase != session.lastPhase) {
                 HmpLog.i(LogTag.AgentHello) { "👋 minuteTickLoop: phase changed ${session.lastPhase} → $currentPhase" }
                 session.lastPhase = currentPhase
@@ -480,7 +492,7 @@ class HelloSubAgent internal constructor(
             // 所以这里每分钟检查一次，直到卡真正出现在 CardPool 里为止。
             if (!cardPool.containsType(SlideType.RECOMMEND)) {
                 runCatching {
-                    val phase = detectTimePhase(currentHour())
+                    val phase = detectTimePhase(hourOfDay())
                     refreshRecommendCard(phase)
                 }.onFailure { e -> HmpLog.w(LogTag.AgentHello, e) { "👋 RECOMMEND missing-retry failed" } }
             }
@@ -497,7 +509,7 @@ class HelloSubAgent internal constructor(
 
             // ④ GREETING 兜底定时（每 2h 检查一次）
             runCatching {
-                val nowMs = currentTimeMillis()
+                val nowMs = timeProvider()
                 if (nowMs - session.lastGreetingPeriodicCheck >= 2 * 60 * 60_000L) {
                     session.lastGreetingPeriodicCheck = nowMs
                     refreshGreetingIfNeeded(30 * 60_000L, reason = "periodic")
@@ -549,7 +561,7 @@ class HelloSubAgent internal constructor(
         reason: String,
         songId: Long? = null,
     ) {
-        val now = currentTimeMillis()
+        val now = timeProvider()
         if (minIntervalMs > 0 && now - session.lastGreetingRefreshAt < minIntervalMs) {
             HmpLog.d(LogTag.AgentHello) { "👋 GREETING skip: too soon (interval=${minIntervalMs}ms, reason=$reason)" }
             return
@@ -580,7 +592,7 @@ class HelloSubAgent internal constructor(
 
     /** GREETING 核心生成：收集上下文 → 打分路由 → LLM/fallback → 多样性更新 */
     private suspend fun generateGreeting(): GreetingContent {
-        val phase = detectTimePhase(currentHour())
+        val phase = detectTimePhase(hourOfDay())
 
         // ── 收集上下文 ──
         val nowPlaying = runCatching { nowPlayingProvider?.getNowPlaying() }.getOrNull()
@@ -884,7 +896,7 @@ class HelloSubAgent internal constructor(
     /** FORGOTTEN：每日凌晨扫历史——优先 getForgottenTracks(30)，没有则 90 天；用真实 lastPlayed 算 daysSince。 */
     private suspend fun checkForgotten(): SlideCard? {
         val repo = musicRepository ?: return null
-        val now = currentTimeMillis()
+        val now = timeProvider()
         val (id, lastPlayed) = runCatching {
             repo.getForgottenTracks(days = 30).firstOrNull()
                 ?: repo.getForgottenTracks(days = 90).firstOrNull()
@@ -921,7 +933,7 @@ class HelloSubAgent internal constructor(
     private suspend fun checkAnniversary(): SlideCard? {
         val repo = musicRepository ?: return null
         val today = todayString()
-        val now = currentTimeMillis()
+        val now = timeProvider()
 
         // ── 公共数据：一次查询，多处复用 ──
         val durationsByMusic = runCatching {
@@ -1131,7 +1143,7 @@ class HelloSubAgent internal constructor(
         val entity = HelloReportNarrativeEntity(
             timeRange = range,
             narrative = narrative,
-            generatedAt = currentTimeMillis(),
+            generatedAt = timeProvider(),
             avgDailyMinutes = avgMinutes,
         )
         runCatching { dao.insert(entity) }.onFailure { e ->
@@ -1164,7 +1176,7 @@ class HelloSubAgent internal constructor(
     }
 
     private fun isNarrativeExpired(entity: HelloReportNarrativeEntity, frequencyHours: Long): Boolean {
-        val ageMs = currentTimeMillis() - entity.generatedAt
+        val ageMs = timeProvider() - entity.generatedAt
         return ageMs > frequencyHours * 3_600_000L
     }
 
@@ -1314,17 +1326,6 @@ class HelloSubAgent internal constructor(
         TimePhase.UNKNOWN -> null
     }
 
-    /** TimePhase → 中文描述（给 LLM prompt 用） */
-    private fun TimePhase.zhName(): String = when (this) {
-        TimePhase.NIGHT -> "深夜"
-        TimePhase.MORNING_COMMUTE -> "早高峰"
-        TimePhase.WORK -> "工作时段"
-        TimePhase.LUNCH -> "午休"
-        TimePhase.EVENING_COMMUTE -> "晚高峰"
-        TimePhase.EVENING_LEISURE -> "晚间休闲"
-        TimePhase.UNKNOWN -> "随机时段"
-    }
-
     /** RECOMMEND 推荐理由——结合歌曲信息 + 时段 + 歌词摘要，LLM 优先，兜底模板 */
     suspend fun reasonForTrack(
         label: LabelName,
@@ -1396,7 +1397,7 @@ class HelloSubAgent internal constructor(
             ?: return false
         cardPool.replace(card.type, card)
         runCatching {
-            val now = currentTimeMillis()
+            val now = timeProvider()
             val today = todayString()
             cardCacheDao?.deleteSameDaySameType(SlideType.RECOMMEND.name, today)
             val cache = buildHelloCardCache(card, now, today, llmUsed = enableLlm)
@@ -1425,7 +1426,7 @@ class HelloSubAgent internal constructor(
                     source = source,
                     overview = "",
                     phase = null,
-                    generatedAt = currentTimeMillis(),
+                    generatedAt = timeProvider(),
                     generatedForDate = todayString(),
                     items = emptyList(),
                 )
@@ -1434,13 +1435,22 @@ class HelloSubAgent internal constructor(
         }
 
         val (payload, cache) = built
-        runCatching {
-            cardCacheDao?.deleteSameDaySameType(payload.source.cardType(), payload.generatedForDate)
-            cardCacheDao?.insert(cache)
-            memory.record(cache)  // 并入 recommend* 桶（跨列表 / 跨卡去重）
-        }.onFailure { e -> HmpLog.w(LogTag.AgentHello, e) { "👋 recommend list DAO write failed" } }
+        runCatching { persistRecommendSnapshot(cache) }
+            .onFailure { e -> HmpLog.w(LogTag.AgentHello, e) { "👋 recommend list DAO write failed" } }
         emitRecommendList(payload)
         HmpLog.i(LogTag.AgentHello) { "👋 refreshRecommendList: source=$source items=${payload.items.size}" }
+    }
+
+    /**
+     * D2：覆盖式写入 —— 每个 type 只保留最新一份，跨天不累积。
+     *
+     * 先删后插而不是 upsert：`hello_card_cache` 没有 (type) 唯一键，
+     * 且历史版本可能已经留下多行，`deleteByType` 能一次清干净。
+     */
+    internal suspend fun persistRecommendSnapshot(cache: HelloCardCache) {
+        cardCacheDao?.deleteByType(cache.cardType)
+        cardCacheDao?.insert(cache)
+        memory.record(cache)  // 并入 recommend* 桶（跨列表 / 跨卡去重）
     }
 
     private fun emitRecommendList(payload: RecommendListPayload) {
@@ -1455,8 +1465,19 @@ class HelloSubAgent internal constructor(
         source: RecommendSource,
         repo: com.hmp.domain.music.MusicRepository,
     ): Pair<RecommendListPayload, HelloCardCache>? {
-        val phase = detectTimePhase(currentHour())
+        val phase = detectTimePhase(hourOfDay())
         val phaseLabel = labelForPhase(phase)
+        val today = todayString()
+        // D1：内部黑盒权重。每次生成现取 seed —— 同一首歌、同一天、连续两次生成
+        // 也会换一套权重与偏重维度（这是设计意图，不是漂移）。
+        val previousEmphasis = when (source) {
+            RecommendSource.DAILY -> _dailyRecommendList.value?.weightEmphasis
+            RecommendSource.PRIVATE -> _privateRecommendList.value?.weightEmphasis
+        }?.let { name -> runCatching { LabelCategory.valueOf(name) }.getOrNull() }
+        val weightSet = SmartWeights.forSeed(
+            seed = SmartWeights.randomSeed(),
+            avoidEmphasis = previousEmphasis,
+        )
 
         // ① 选 1 首种子
         val seedId: Long = when (source) {
@@ -1478,7 +1499,9 @@ class HelloSubAgent internal constructor(
             .toSet()
 
         // ③ 扩列（种子本身由 getSimilarSongsByWeightedLabels 内部排除）
-        val expanded = runCatching { repo.getSimilarSongsByWeightedLabels(seedId, limit = recommendListSize * 2) }
+        val expanded = runCatching {
+            repo.getSimilarSongsByWeightedLabels(seedId, limit = recommendListSize * 2, weights = weightSet.weights)
+        }
             .getOrDefault(emptyList())
 
         val ordered = LinkedHashSet<Long>()
@@ -1492,44 +1515,120 @@ class HelloSubAgent internal constructor(
                 .forEach { if (ordered.size < recommendListSize && it !in excluded) ordered += it }
         }
 
-        val finalIds = ordered.take(recommendListSize).toList()
-        if (finalIds.isEmpty()) return null
+        // ④ 本地保底：种子 + 加权扩列 + 时段补齐，取前 N
+        val localIds = ordered.take(recommendListSize).toList()
+        if (localIds.isEmpty()) return null
 
-        // ④ hydrate + 每首按语
-        val infos = runCatching { repo.getMusicInfoByIds(finalIds) }
-            .getOrDefault(emptyList())
-            .associateBy { it.music.id }
-        val reasonLabel = phaseLabel ?: LabelName.CALM
-        val items = ArrayList<RecommendItemRecord>(finalIds.size)
-        val artists = ArrayList<String>(finalIds.size)
-        for (id in finalIds) {
-            val info = infos[id] ?: continue
-            val playCount = info.userInfo?.playCount ?: 0
-            val lyric = runCatching { fetchLyricSummary(id) }.getOrNull()
-            val reason = reasonForTrack(
-                label = reasonLabel,
-                phase = phase,
-                trackTitle = info.music.title,
-                artist = info.music.artist,
-                playCount = playCount,
-                lyricSummary = lyric,
-            )
-            items += RecommendItemRecord(trackId = id, reason = reason)
-            info.music.artist?.takeIf { it.isNotBlank() }?.let { artists += it }
+        // ⑤ 曲库视图：尽量给全量；超出 token 预算时按播放次数截断，并强制包含本地推荐
+        val allInfos = runCatching {
+            repo.getAllMusicInfoAsList(MusicSortKey.PLAY_COUNT, SortDirection.DESC)
+        }.getOrDefault(emptyList())
+        val allById = allInfos.associateBy { it.music.id }
+        val missingLocalIds = localIds.filter { it !in allById }
+        val fallbackInfos = if (missingLocalIds.isEmpty()) {
+            emptyList()
+        } else {
+            runCatching { repo.getMusicInfoByIds(missingLocalIds) }.getOrDefault(emptyList())
         }
+        val infoById = allById + fallbackInfos.associateBy { it.music.id }
+        val labelsById = runCatching { repo.getAllMusicLabels() }.getOrDefault(emptyMap())
+
+        fun toCandidate(info: com.hmp.domain.music.MusicInfo): RecommendCandidate = RecommendCandidate(
+            id = info.music.id,
+            title = info.music.title,
+            artist = info.music.artist,
+            labels = labelsById[info.music.id]
+                ?.map { it.label.name }
+                ?.distinct()
+                ?.take(3)
+                .orEmpty(),
+            playCount = info.userInfo?.playCount ?: 0,
+            liked = info.userInfo?.liked == true,
+        )
+
+        val localCandidates = localIds.mapNotNull { infoById[it]?.let(::toCandidate) }
+        if (localCandidates.isEmpty()) return null
+
+        val budgetRows = HelloRecommendSelector.libraryRowBudget()
+        val shownInfos = if (allInfos.size <= budgetRows) {
+            allInfos
+        } else {
+            val head = allInfos.take(budgetRows)
+            val shownIds = head.map { it.music.id }.toMutableSet()
+            val missingLocal = localIds.filter { it !in shownIds }
+            (head + missingLocal.mapNotNull { allById[it] }).distinctBy { it.music.id }
+        }
+        val libraryCandidates = shownInfos.map(::toCandidate)
+        val allowedCandidates = (libraryCandidates + localCandidates).distinctBy { it.id }
+        val totalCount = allInfos.size.coerceAtLeast(localCandidates.size)
+        val omitted = (totalCount - libraryCandidates.size).coerceAtLeast(0)
+
+        val reasonLabel = phaseLabel ?: LabelName.CALM
+        val localItems = localCandidates.map { c ->
+            RecommendItemRecord(
+                trackId = c.id,
+                reason = fallbackShortReason(c.title, c.artist, phase, reasonLabel),
+            )
+        }
+
+        // ⑥ 模型层：一次调用，在「本地参考 + 曲库视图」里选 N 首并排序（D3，radio 式）
+        //    失败 / 未配置 / 额度耗尽 → null，回落本地保底
+        val selection = if (enableLlm) {
+            runCatching {
+                val raw = callHelloLlm(
+                    cardType = null,
+                    systemPrompt = resolveIfConfigured(
+                        "hello.recommend.select",
+                        "你是音乐策展人，擅长从曲库中挑出有起伏、有场景感的播放顺序。",
+                    ),
+                    userPrompt = HelloRecommendSelector.buildPrompt(
+                        source = source,
+                        phase = phase,
+                        localPicks = localCandidates,
+                        library = libraryCandidates,
+                        totalCount = totalCount,
+                        omittedCount = omitted,
+                        count = recommendListSize,
+                    ),
+                    temperature = resolveTemperature(0.7f),
+                    postProcess = { it.trim() },
+                )
+                HelloRecommendSelector.parse(
+                    raw = raw.orEmpty(),
+                    allowedIds = allowedCandidates.map { it.id }.toSet(),
+                    max = recommendListSize,
+                )
+            }.getOrNull()
+        } else {
+            null
+        }
+
+        // ⑦ 合并：模型选择优先，不足按本地顺序补齐（模型只给 5 首而 N=8 时不空着）
+        val merged = LinkedHashMap<Long, String>()
+        selection?.items?.forEach { rec -> merged[rec.trackId] = rec.reason }
+        localItems.forEach { rec ->
+            if (merged.size < recommendListSize && rec.trackId !in merged) {
+                merged[rec.trackId] = rec.reason
+            }
+        }
+        val items = merged.map { (id, reason) -> RecommendItemRecord(trackId = id, reason = reason) }
         if (items.isEmpty()) return null
+        val artists = items.mapNotNull { infoById[it.trackId]?.music?.artist?.takeIf { a -> a.isNotBlank() } }
 
-        // ⑤ 总述
-        val overview = buildListOverview(source, phase, items.size)
+        // ⑧ 总述：模型那次调用已一并返回；为空才用模板（不再额外发一次请求）
+        val overview = selection?.overview?.takeIf { it.isNotBlank() }
+            ?: templateOverview(source, phase, items.size)
 
-        val now = currentTimeMillis()
+        val now = timeProvider()
         val payload = RecommendListPayload(
             source = source,
             overview = overview,
             phase = phase,
             generatedAt = now,
-            generatedForDate = todayString(),
+            generatedForDate = today,
             items = items,
+            weightSeed = weightSet.seed,
+            weightEmphasis = weightSet.emphasis.name,
         )
         val cache = HelloCardCache(
             cardType = source.cardType(),
@@ -1538,39 +1637,49 @@ class HelloSubAgent internal constructor(
             }.getOrElse { "" },
             generatedAt = now,
             generatedForDate = payload.generatedForDate,
-            llmUsed = enableLlm,
+            llmUsed = selection != null,
             recommendSongIds = items.map { it.trackId.toString() },
             recommendArtists = artists.distinct(),
         )
         return payload to cache
     }
 
-    /** 顶部总述：LLM 优先，模板兜底 */
-    private suspend fun buildListOverview(source: RecommendSource, phase: TimePhase, count: Int): String {
+    /** 顶部总述的模板兜底（模型那次调用会一并返回 overview，正常不走这里）。 */
+    private fun templateOverview(source: RecommendSource, phase: TimePhase, count: Int): String {
         val phaseDesc = phase.zhName()
-        val sourceDesc = when (source) {
-            RecommendSource.DAILY -> "今天的每日推荐"
-            RecommendSource.PRIVATE -> "根据你的收藏与收听做的私人推荐"
-        }
-        val llm = callHelloLlm(
-            cardType = null,
-            systemPrompt = resolveIfConfigured("hello.recommend.short", "你是一个懂音乐的朋友，用温暖简洁的中文写一句推荐开场白。"),
-            userPrompt = "用一句话（≤40字）为「$sourceDesc」写个开场总述，当前时段：$phaseDesc，共 $count 首。直接返回中文句子。",
-            temperature = resolveTemperature(0.7f),
-        )
-        if (!llm.isNullOrBlank()) return llm
         return when (source) {
             RecommendSource.DAILY -> "$phaseDesc，为你精选 $count 首"
             RecommendSource.PRIVATE -> "依你的收藏与收听，挑了 $count 首"
         }
     }
 
-    /** 启动时从 DAO 恢复今日推荐列表（跨重启不重算） */
-    private suspend fun restoreRecommendLists() {
+    /** 每首按语的短兜底（不调模型；模型选择时会给一句）。 */
+    private fun fallbackShortReason(
+        title: String,
+        artist: String?,
+        phase: TimePhase,
+        label: LabelName,
+    ): String {
+        val artistPart = artist?.takeIf { it.isNotBlank() }?.let { " · $it" }.orEmpty()
+        return when (label) {
+            LabelName.SLEEP -> "$title$artistPart，深夜听这首很合适"
+            LabelName.MORNING -> "$title$artistPart，早晨提神来一首"
+            LabelName.FOCUS -> "$title$artistPart，工作时专注背景音"
+            LabelName.RELAX -> "$title$artistPart，放松一下吧"
+            LabelName.DRIVING -> "$title$artistPart，开车路上的陪伴"
+            else -> "$title$artistPart，${phase.zhName()}听这首不错"
+        }
+    }
+
+    /**
+     * 启动时从 DAO 恢复**最近一次**推荐列表（D2：跨重启可见，哪怕不是今天）。
+     *
+     * 恢复后 `dailyRefreshLoop` 仍会按"今天有没有卡"决定是否重跑；重跑会覆盖这一份。
+     */
+    internal suspend fun restoreRecommendLists() {
         val dao = cardCacheDao ?: return
-        val today = todayString()
         for (source in RecommendSource.entries) {
-            val cache = runCatching { dao.getLatest(source.cardType(), today) }.getOrNull() ?: continue
+            val cache = runCatching { dao.getLatestOfAnyDate(source.cardType()) }.getOrNull() ?: continue
             val payload = runCatching {
                 json.decodeFromString(RecommendListPayload.serializer(), cache.cardContentJson)
             }.getOrNull() ?: continue
@@ -1691,7 +1800,10 @@ class HelloSubAgent internal constructor(
         }
     }
 
-    private fun todayString(): String = todayDateString()
+    private fun todayString(): String = localDateString(timeProvider())
+
+    /** 当前小时（本地时区），与 [todayString] 同源注入时钟。 */
+    private fun hourOfDay(): Int = localHourOfDay(timeProvider())
 
     // ═══ Hello 卡片生成统一 LLM 调用入口 ═══
     //

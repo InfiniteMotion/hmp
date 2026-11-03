@@ -70,7 +70,6 @@ class SettingsRepositoryImpl(
         val CUSTOM_AI_ENDPOINT = stringPreferencesKey("custom_ai_endpoint")
         val CUSTOM_AI_API_KEY = stringPreferencesKey("custom_ai_api_key")
         val CUSTOM_AI_MODEL = stringPreferencesKey("custom_ai_model")
-        val AI_FREE_TRIAL_REMAINING = intPreferencesKey("ai_free_trial_remaining")
         fun agentTrustLevelKey(role: String) = intPreferencesKey("agent_policy_${role}_trust_level")
         fun agentAlwaysAllowKey(role: String) = stringSetPreferencesKey("agent_policy_${role}_always_allow")
         fun agentTemperatureKey(role: String) = floatPreferencesKey("agent_policy_${role}_temperature")
@@ -99,9 +98,6 @@ class SettingsRepositoryImpl(
         val LYRICS_FULLSCREEN_CONFIG = stringPreferencesKey("lyrics_fullscreen_config")
         val LYRICS_FLOATING_CONFIG = stringPreferencesKey("lyrics_floating_config")
         val FLOATING_LYRICS_ENABLED = booleanPreferencesKey("floating_lyrics_enabled")
-        val DEFAULT_ALGORITHM_TYPE = stringPreferencesKey("default_algorithm_type")
-        val DEFAULT_WEIGHT_TEMPLATE = stringPreferencesKey("default_weight_template")
-        val DEFAULT_EXTENSION_CONFIG = stringPreferencesKey("default_extension_config")
         val GALLERY_ORDER_BY = stringPreferencesKey("gallery_order_by")
         val GALLERY_ORDER_TYPE = stringPreferencesKey("gallery_order_type")
         val SCAN_DIRECTORY_CONFIG = stringPreferencesKey("scan_directory_config")
@@ -143,7 +139,6 @@ class SettingsRepositoryImpl(
     override val aiAccessMode: Flow<AiAccessMode> = dataStore.data.map { prefs ->
         try { AiAccessMode.valueOf(prefs[PreferencesKeys.AI_ACCESS_MODE] ?: "FREE") } catch (e: Exception) { AiAccessMode.FREE }
     }
-    override val aiFreeTrialRemainingCount: Flow<Int> = dataStore.data.map { prefs -> prefs[PreferencesKeys.AI_FREE_TRIAL_REMAINING] ?: 100 }
     override val equalizerPreset: Flow<Int> = dataStore.data.map { prefs -> prefs[PreferencesKeys.EQUALIZER_PRESET] ?: 0 }
     override val bassBoostLevel: Flow<Int> = dataStore.data.map { prefs -> prefs[PreferencesKeys.BASS_BOOST_LEVEL] ?: 0 }
     override val isSurroundSoundEnabled: Flow<Boolean> = dataStore.data.map { prefs -> prefs[PreferencesKeys.IS_SURROUND_SOUND_ENABLED] ?: false }
@@ -183,9 +178,6 @@ class SettingsRepositoryImpl(
     override suspend fun saveGalleryOrderBy(orderBy: String) { dataStore.edit { prefs -> prefs[PreferencesKeys.GALLERY_ORDER_BY] = orderBy } }
     override suspend fun saveGalleryOrderType(orderType: String) { dataStore.edit { prefs -> prefs[PreferencesKeys.GALLERY_ORDER_TYPE] = orderType } }
 
-    override val defaultAlgorithmType: Flow<String> = dataStore.data.map { prefs -> prefs[PreferencesKeys.DEFAULT_ALGORITHM_TYPE] ?: "OPTIMIZED_SIMILARITY" }
-    override val defaultWeightTemplate: Flow<String> = dataStore.data.map { prefs -> prefs[PreferencesKeys.DEFAULT_WEIGHT_TEMPLATE] ?: "BALANCED" }
-    override val defaultExtensionConfig: Flow<String> = dataStore.data.map { prefs -> prefs[PreferencesKeys.DEFAULT_EXTENSION_CONFIG] ?: "{}" }
 
     override suspend fun saveIsFirstLaunch(isFirstLaunch: Boolean) { dataStore.edit { prefs -> prefs[PreferencesKeys.IS_FIRST_LAUNCH] = isFirstLaunch } }
     override suspend fun saveIsLoadMusic(isLoadMusic: Boolean) { dataStore.edit { prefs -> prefs[PreferencesKeys.IS_LOAD_MUSIC] = isLoadMusic } }
@@ -263,8 +255,7 @@ class SettingsRepositoryImpl(
             }
         }
     }
-    override suspend fun getAiFreeTrialRemainingCount(): Int = dataStore.data.first()[PreferencesKeys.AI_FREE_TRIAL_REMAINING] ?: 100
-    override suspend fun decrementAiFreeTrialCount() { dataStore.edit { prefs -> val current = prefs[PreferencesKeys.AI_FREE_TRIAL_REMAINING] ?: 100; prefs[PreferencesKeys.AI_FREE_TRIAL_REMAINING] = (current - 1).coerceAtLeast(0) } }
+    override suspend fun isBuiltInAiConfigured(): Boolean = builtInApiKeyProvider.getConfig().isConfigured
 
     override suspend fun getAgentPolicyConfig(agentRole: String): com.hmp.domain.agent.policy.AgentPolicyConfig {
         val prefs = dataStore.data.first()
@@ -356,12 +347,6 @@ class SettingsRepositoryImpl(
     override suspend fun getLyricsTranslatedTextSize(): Int = dataStore.data.first()[PreferencesKeys.LYRICS_TRANSLATED_TEXT_SIZE] ?: 14
     override suspend fun getLyricsCurrentTimeTextSize(): Int = dataStore.data.first()[PreferencesKeys.LYRICS_CURRENT_TIME_TEXT_SIZE] ?: 16
     override suspend fun getLyricsLineSpacing(): Int = dataStore.data.first()[PreferencesKeys.LYRICS_LINE_SPACING] ?: 6
-    override suspend fun saveDefaultAlgorithmType(type: String) { dataStore.edit { prefs -> prefs[PreferencesKeys.DEFAULT_ALGORITHM_TYPE] = type } }
-    override suspend fun getDefaultAlgorithmType(): String = dataStore.data.first()[PreferencesKeys.DEFAULT_ALGORITHM_TYPE] ?: "OPTIMIZED_SIMILARITY"
-    override suspend fun saveDefaultWeightTemplate(template: String) { dataStore.edit { prefs -> prefs[PreferencesKeys.DEFAULT_WEIGHT_TEMPLATE] = template } }
-    override suspend fun getDefaultWeightTemplate(): String = dataStore.data.first()[PreferencesKeys.DEFAULT_WEIGHT_TEMPLATE] ?: "BALANCED"
-    override suspend fun saveDefaultExtensionConfig(configJson: String) { dataStore.edit { prefs -> prefs[PreferencesKeys.DEFAULT_EXTENSION_CONFIG] = configJson } }
-    override suspend fun getDefaultExtensionConfig(): String = dataStore.data.first()[PreferencesKeys.DEFAULT_EXTENSION_CONFIG] ?: "{}"
 
     override suspend fun exportAppSettingsSnapshot(): AppSettingsSnapshot {
         val prefs = dataStore.data.first()

@@ -16,6 +16,8 @@ class MusicControllerPlaybackAdapter(
 ) : PlaybackController {
 
     // ── 播放状态流 ──
+    override val audioEffectsSupported: Boolean = true
+
     override val currentPlayingMusic get() = mc.currentPlayingMusic
     override val isPlaying get() = mc.isPlaying
     override val currentPosition get() = mc.currentPosition

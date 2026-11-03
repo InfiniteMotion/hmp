@@ -100,14 +100,15 @@ fun LyricsScreen(
     val duration by playbackViewModel.duration.collectAsState()
     val isPlaying by playbackViewModel.isPlaying.collectAsState()
 
-    // 歌词参数 - 从设置中获取
-    val originalTextSize by lyricsSettingsViewModel.lyricsOriginalTextSize.collectAsState()
-    val translatedTextSize by lyricsSettingsViewModel.lyricsTranslatedTextSize.collectAsState()
-    val currentTimeTextSize by lyricsSettingsViewModel.lyricsCurrentTimeTextSize.collectAsState()
-    val lineSpacing by lyricsSettingsViewModel.lyricsLineSpacing.collectAsState()
-    val displayMode by lyricsSettingsViewModel.lyricsDisplayMode.collectAsState()
-    val alignment by lyricsSettingsViewModel.lyricsAlignment.collectAsState()
-    val karaokeEnabled by lyricsSettingsViewModel.lyricsKaraokeEnabled.collectAsState()
+    // 歌词参数（D4-01：读 FULLSCREEN 组件配置，与设置页同一份数据）
+    val lyricsConfig by lyricsSettingsViewModel.fullscreenLyricsConfig.collectAsState()
+    val originalTextSize = lyricsConfig.originalTextSize
+    val translatedTextSize = lyricsConfig.translatedTextSize
+    val currentTimeTextSize = lyricsConfig.currentTimeTextSize
+    val lineSpacing = lyricsConfig.lineSpacing
+    val displayMode = lyricsConfig.displayMode
+    val alignment = lyricsConfig.alignment
+    val karaokeEnabled = lyricsConfig.karaokeEnabled
     val themeViewModel: ThemeViewModel = koinViewModel()
     val paletteColors by themeViewModel.paletteColors.collectAsState()
 
@@ -214,13 +215,13 @@ fun LyricsScreen(
                 displayMode = displayMode,
                 alignment = alignment,
                 karaokeEnabled = karaokeEnabled,
-                onKaraokeEnabledChange = { lyricsSettingsViewModel.saveLyricsKaraokeEnabled(it) },
-                onOriginalTextSizeChange = { lyricsSettingsViewModel.saveLyricsOriginalTextSize(it) },
-                onTranslatedTextSizeChange = { lyricsSettingsViewModel.saveLyricsTranslatedTextSize(it) },
-                onCurrentTimeTextSizeChange = { lyricsSettingsViewModel.saveLyricsCurrentTimeTextSize(it) },
-                onLineSpacingChange = { lyricsSettingsViewModel.saveLyricsLineSpacing(it) },
-                onDisplayModeChange = { lyricsSettingsViewModel.saveLyricsDisplayMode(it) },
-                onAlignmentChange = { lyricsSettingsViewModel.saveLyricsAlignment(it) }
+                onKaraokeEnabledChange = { v -> lyricsSettingsViewModel.updateFullscreenConfig { it.copy(karaokeEnabled = v) } },
+                onOriginalTextSizeChange = { v -> lyricsSettingsViewModel.updateFullscreenConfig { it.copy(originalTextSize = v) } },
+                onTranslatedTextSizeChange = { v -> lyricsSettingsViewModel.updateFullscreenConfig { it.copy(translatedTextSize = v) } },
+                onCurrentTimeTextSizeChange = { v -> lyricsSettingsViewModel.updateFullscreenConfig { it.copy(currentTimeTextSize = v) } },
+                onLineSpacingChange = { v -> lyricsSettingsViewModel.updateFullscreenConfig { it.copy(lineSpacing = v) } },
+                onDisplayModeChange = { v -> lyricsSettingsViewModel.updateFullscreenConfig { it.copy(displayMode = v) } },
+                onAlignmentChange = { v -> lyricsSettingsViewModel.updateFullscreenConfig { it.copy(alignment = v) } }
             )
         }
 

@@ -406,6 +406,11 @@ class AppDatabaseMigrationTest {
         }
         v9.execSQL("INSERT INTO `playlist_item` (songUrl, songId, playlistId, itemOrder) VALUES ('/m/9.mp3', 9, 2, 7)")
         v9.execSQL("INSERT INTO `PlaybackHistory` (musicId, playedAt, playDuration, isCompleted) VALUES (1, 5000, 100, 1)")
+        // 账本存量行：T1 加了 access_mode 列，迁移后必须给存量行补上默认值 FREE
+        v9.execSQL(
+            "INSERT INTO `token_ledger` (created_at, agent_id, endpoint_host, model, prompt_tokens, completion_tokens, cached_tokens, measured) " +
+                "VALUES (1000, ${sqlLiteral("master")}, ${sqlLiteral("api.deepseek.com")}, ${sqlLiteral("m")}, 10, 5, 0, 1)"
+        )
         val itemsBefore = countRows(v9, "`playlist_item`")
         v9.close()
 
@@ -418,6 +423,13 @@ class AppDatabaseMigrationTest {
             "v10 应删掉 songUrl（D3-15）",
         )
         assertEquals(itemsBefore, countRows(v10, "`playlist_item`"), "迁移不得增删 playlist_item 行数")
+
+        // ①.5 账本新列：access_mode 必须存在，存量行按 FREE 回填
+        assertTrue(columnNames(v10, "token_ledger").contains("access_mode"), "v10 应给 token_ledger 加 access_mode")
+        v10.prepare("SELECT access_mode FROM token_ledger").use { stmt ->
+            assertTrue(stmt.step(), "存量账本行应保留")
+            assertEquals("FREE", stmt.getText(0), "存量行的 access_mode 默认 FREE")
+        }
 
         // ② 决策 1：重复序号被重编为 0..n-1，相对顺序按 (itemOrder, songId) 即歌名 id 升序
         val orders = mutableListOf<Long>()

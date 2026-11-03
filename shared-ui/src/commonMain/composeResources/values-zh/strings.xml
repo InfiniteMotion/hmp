@@ -49,8 +49,7 @@
     <string name="today_heartbeat_playlist">今日心动歌单</string>
     <string name="generating_heartbeat_playlist">正在生成心动歌单…</string>
     <string name="play_heartbeat_playlist">播放心动歌单</string>
-    <string name="generated">已生成</string>
-    <string name="suitable_for_now">适合现在听</string>
+<string name="suitable_for_now">适合现在听</string>
     <!-- Banner -->
     <string name="banner_daily_A">默认列表</string>
     <string name="banner_daily_AA">Default</string>
@@ -286,8 +285,7 @@
     <string name="bass_boost">低音增强</string>
     <string name="surround_sound">环绕声</string>
     <string name="reverb">混响</string>
-    <string name="balance">平衡</string>
-    <string name="hall">大厅</string>
+<string name="hall">大厅</string>
     <string name="church">教堂</string>
     <string name="small_room">小房间</string>
     <string name="large_room">大房间</string>
@@ -332,20 +330,24 @@
     <string name="ai_key_needs_refill">已保存的 API Key 无法解密（换机或云备份恢复后会这样），请重新填写并保存。</string>
     <string name="ai_tab_custom">自定义配置</string>
     <string name="ai_tab_paid">付费模式</string>
-    <string name="ai_free_remaining">剩余 %1$d 次</string>
-    <string name="ai_free_used">已使用: %1$d / %2$d</string>
-    <string name="ai_free_exhausted">免费体验次数已用完，请配置自己的 API Key 继续使用</string>
-    <string name="ai_free_hint">每处理一首歌算一次使用，无需配置 API Key</string>
+    <string name="ai_free_remaining">剩余 %1$s token</string>
+    <string name="ai_free_used">已用 %1$s / %2$s</string>
+    <string name="ai_free_exhausted">免费体验额度已用完，请配置自己的 API Key 继续使用</string>
+    <string name="ai_free_unavailable">此设备未配置内置 AI 服务，请使用自定义配置</string>
+    <string name="ai_quota_exhausted_hint">AI 用量额度已用完，可在设置里调整限额或配置自己的 API Key</string>
+    <string name="agent_token_limits_title">用量限额</string>
+    <string name="agent_token_limits_enable">启用每日限额</string>
+    <string name="agent_token_limits_global">全局每日上限（token，留空 = 不限）</string>
+    <string name="agent_token_limits_per_agent">每日上限（token，留空 = 不限）</string>
+    <string name="agent_token_limits_save">保存限额</string>
+    <string name="ai_free_hint">免费体验共用内置服务，四个 Agent 按额度分桶；用完可在自定义配置里填自己的 Key。</string>
     <string name="ai_paid_coming_soon">即将推出</string>
     <string name="ai_paid_description">付费模式提供更高配额和更多功能，正在开发中</string>
     <!-- AI 错误 -->
     <string name="test">测试</string>
     <string name="test_failed">测试失败: %1$s</string>
-    <string name="save_failed">保存失败: %1$s</string>
-    <string name="fetch_models_failed">获取模型失败: %1$s</string>
-    <string name="generation_error">生成错误: %1$s</string>
-    <string name="generation_failed">生成失败: %1$s</string>
-    <string name="connected">已连接</string>
+<string name="fetch_models_failed">获取模型失败: %1$s</string>
+<string name="connected">已连接</string>
     <!-- ==================== 备份恢复 ==================== -->
     <string name="backup">备份</string>
     <string name="backup_settings">备份</string>
@@ -388,10 +390,7 @@
     <string name="music_not_found">未找到音乐</string>
     <!-- 分类标签 -->
     <string name="genre">风格</string>
-    <string name="mood">情绪</string>
-    <string name="scene">场景</string>
-    <string name="era">年代</string>
-    <string name="personal_stats">个人</string>
+<string name="personal_stats">个人</string>
     <string name="year">年份</string>
     <string name="favorite">收藏</string>
     <string name="heart">心动</string>
@@ -444,8 +443,7 @@
     <string name="top_songs_in_playlists">歌单中最常播放</string>
     <string name="startup_count_label">启动次数</string>
     <string name="recommendation_mode">推荐</string>
-    <string name="generate_recommend_list">生成</string>
-    <!-- ==================== 引导页 ==================== -->
+<!-- ==================== 引导页 ==================== -->
     <string name="start_experience">开始</string>
     <string name="intro_step_1">欢迎</string>
     <string name="intro_step_1_desc">感谢选择 Hearable Music</string>
@@ -515,7 +513,8 @@
     <string name="agent_capsule_radio_desc">电台已开启，长按打开控制台</string>
     <string name="agent_monitor_title">Agent 看板</string>
     <string name="agent_monitor_token_usage">Token 用量</string>
-    <string name="agent_monitor_total_usage">累计总用量 · 账本全量</string>
+    <string name="agent_monitor_total_usage">近 30 天</string>
+    <string name="agent_monitor_token_clear_confirm">将删除 %1$s 条账本记录（自 %2$s 起），此操作不可撤销。</string>
     <string name="agent_monitor_quota_line">今日 %1$s · 剩余 %2$s · %3$d%%</string>
     <string name="agent_monitor_run_logs">运行日志</string>
     <string name="agent_monitor_log_count">%1$d 条 ›</string>
@@ -553,7 +552,7 @@
     <string name="agent_ai_agent_mgmt_header">Agent 管理</string>
     <string name="agent_ai_memory_header">记忆管理</string>
     <string name="agent_ai_free_tier">免费体验</string>
-    <string name="agent_ai_free_remaining">剩余 %1$d 次</string>
+    <string name="agent_ai_free_remaining">剩余 %1$s token</string>
     <string name="agent_ai_not_configured">未配置</string>
     <string name="agent_ai_custom_endpoint">自定义端点</string>
     <string name="agent_ai_paid_mode">付费模式</string>
@@ -605,6 +604,7 @@
     <string name="agent_cfg_endpoint_custom">独立端点</string>
     <string name="agent_cfg_endpoint_url_label">端点 URL</string>
     <string name="agent_cfg_model_label">模型</string>
+    <string name="agent_cfg_global_unavailable">全局端点不可用：未配置 API Key</string>
     <string name="agent_cfg_following_global">当前跟随全局 AI 设置</string>
     <string name="agent_cfg_loading">读取中…</string>
     <string name="agent_cfg_endpoint_value">端点: %1$s</string>
@@ -683,6 +683,7 @@
     <string name="home_explore">探索</string>
     <string name="home_today_reco">今日推荐</string>
     <string name="home_private_reco">私人推荐</string>
+    <string name="home_reco_unavailable">额度不足</string>
     <string name="play_all">播放全部</string>
     <string name="reco_label_daily">每日推荐 · 共 %1$d 首</string>
     <string name="reco_label_private">私人推荐 · 共 %1$d 首</string>
@@ -828,4 +829,11 @@
     <string name="intro_skip_permission">稍后再说</string>
     <string name="library_permission_required">未授予音频读取权限，无法扫描音乐库</string>
     <string name="go_to_settings">去设置</string>
+
+
+    <!-- 播放页电台入口（2026-11-03） -->
+    <string name="radio_card_open_console">查看节目单</string>
+    <string name="radio_card_end_session">结束这一档</string>
+    <string name="radio_entry_seed_title">以此歌为起点</string>
+    <string name="radio_entry_seed_desc">本地先排一批，AI 接着排；接在当前曲之后</string>
 </resources>

@@ -40,8 +40,11 @@ android {
         applicationId = "com.hearablemusic.player"
         minSdk = 33
         targetSdk = 37
-        versionCode = project.findProperty("hmp.versionCode")?.toString()?.toIntOrNull() ?: 51000
-        versionName = project.findProperty("hmp.versionName")?.toString() ?: "5.10.0"
+        // X-03：版本读不到就硬失败，不再产出 51000 / "5.10.0" 的错误包
+        versionCode = project.findProperty("hmp.versionCode")?.toString()?.toIntOrNull()
+            ?: throw GradleException("hmp.versionCode 缺失或不是整数：请先跑 ./gradlew syncVersion（真源 release.toml）")
+        versionName = project.findProperty("hmp.versionName")?.toString()?.takeIf { it.isNotBlank() }
+            ?: throw GradleException("hmp.versionName 缺失：请先跑 ./gradlew syncVersion（真源 release.toml）")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 

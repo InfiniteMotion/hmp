@@ -16,7 +16,8 @@ import androidx.room.Query
  * 项目还存在"只有分时能回答"的问题（判断 Enrich 是否趁夜间跑了一整库），
  * 而日配额本身就按天滚动（`GlobalTokenCounter.rollDayIfNeeded`）——时间是原生维度。
  *
- * 体积：~150 B/行 × 常态 ~300 行/天 ≈ **16 MB/年** → 判为可承受，故**永久保留、不做清理**。
+ * 体积：~150 B/行 × 常态 ~300 行/天 ≈ **16 MB/年** → 判为可承受，故**默认永久保留、不做自动清理**；
+ * 用户可在 Agent 看板手动清空（`TokenLedgerMaintenance.clearAll()`，D6-05）。
  *
  * ⚠️ **隐私边界**：只存 `endpoint_host`，**不存完整 URL、绝不存 apiKey**（完整 URL 可能含路径令牌）。
  * ⚠️ **它不是记忆**：本表**不喂给任何 LLM、不进 `UserMemory`** —— 与 F11「电台不落盘」的裁定不冲突，
@@ -49,6 +50,14 @@ data class TokenLedgerEntry(
     val cachedTokens: Int,
     /** true = 端点返回的真实 usage；false = 估算兜底。**必须在图上可区分**，否则又回到"用假数字骗自己"。 */
     val measured: Boolean,
+    /**
+     * 这次调用花的是哪套凭据：`FREE`（内置 Key）/ `CUSTOM`（用户自填）/ `PAID`（预留）。
+     *
+     * 配额分账的唯一依据 —— 只看 `endpoint_host` 不可靠（用户完全可能把自定义端点配成同一个 host）。
+     * 由 [com.hmp.domain.agent.runtime.TokenMeter] 记账时写入；存量行为默认 `FREE`（v10 内新增，未发布）。
+     */
+    @ColumnInfo(name = "access_mode", defaultValue = "FREE")
+    val accessMode: String = "FREE",
     @ColumnInfo(name = "task_id")
     val taskId: String? = null,
 )
@@ -99,6 +108,24 @@ interface TokenLedgerDao {
     )
     suspend fun sumByAgent(sinceMs: Long): List<TokenAggregateRow>
 
+    /**
+     * 配额分账：**按 Agent 聚合某个凭据模式**的用量。
+     *
+     * 免费额度要的是"这台设备总共花了多少"（`sinceMs = 0` + `mode = FREE`）；
+     * 自定义限额要的是"今天花了多少"（`sinceMs = 当天起点` + `mode = CUSTOM`）。
+     */
+    @Query(
+        "SELECT agent_id AS label, " +
+            "SUM(prompt_tokens) AS promptTokens, " +
+            "SUM(completion_tokens) AS completionTokens, " +
+            "SUM(prompt_tokens + completion_tokens) AS totalTokens, " +
+            "SUM(CASE WHEN measured = 0 THEN 1 ELSE 0 END) AS estimatedRows, " +
+            "COUNT(*) AS calls " +
+            "FROM token_ledger WHERE access_mode = :mode AND created_at >= :sinceMs " +
+            "GROUP BY agent_id ORDER BY totalTokens DESC"
+    )
+    suspend fun sumByAgentForMode(sinceMs: Long, mode: String): List<TokenAggregateRow>
+
     /** 分账：**按端点 + 模型**聚合（换端点后会出现两行）。 */
     @Query(
         "SELECT endpoint_host || ' / ' || model AS label, " +
@@ -148,9 +175,23 @@ interface TokenLedgerDao {
     )
     suspend fun sumByHourForAgent(sinceMs: Long, agentId: String): List<TokenTimeBucket>
 
-    /** 全局累计总用量（所有历史，不分窗口）。 */
+    /**
+     * 全局累计总用量（所有历史，不分窗口）。
+     *
+     * ⚠️ 生产取数不要再直接用它：监控页已改为 [sumTotalSince] 的 30 天窗口（D6-05）。
+     * 保留它只为诊断/测试对账，避免"全历史 SUM"再次回到 UI。
+     */
     @Query("SELECT COALESCE(SUM(prompt_tokens + completion_tokens), 0) FROM token_ledger")
     suspend fun sumTotal(): Long
+
+    /**
+     * 窗口内总用量。
+     *
+     * 监控页从「全历史」改为「近 30 天」后走这条（`D6-05`）——
+     * 裸 [sumTotal] 在库变大后是每次全表扫，且与同页的分账窗口口径不一致。
+     */
+    @Query("SELECT COALESCE(SUM(prompt_tokens + completion_tokens), 0) FROM token_ledger WHERE created_at >= :sinceMs")
+    suspend fun sumTotalSince(sinceMs: Long): Long
 
     @Query("DELETE FROM token_ledger")
     suspend fun deleteAll()

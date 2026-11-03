@@ -108,9 +108,8 @@ interface SettingsRepository {
     suspend fun saveGlobalAgentConfig(config: com.hmp.domain.agent.runtime.GlobalAgentConfig)
 
     // Free Trial Quota
-    val aiFreeTrialRemainingCount: Flow<Int>
-    suspend fun getAiFreeTrialRemainingCount(): Int
-    suspend fun decrementAiFreeTrialCount()
+    /** 内置 Key 是否可用（免费体验 / 付费模式共用同一套内置配置）。UI 用它决定免费入口显不显示。 */
+    suspend fun isBuiltInAiConfigured(): Boolean
 
     // Audio Effects
     val equalizerPreset: Flow<Int>
@@ -149,7 +148,9 @@ interface SettingsRepository {
     val floatingLyricsEnabled: Flow<Boolean>
     suspend fun saveFloatingLyricsEnabled(enabled: Boolean)
 
-    // Lyrics Configuration (legacy - deprecated, use per-component configs above)
+    // Lyrics Configuration（legacy，**D4-01 起已无生产消费者**）
+    // 播放页与独立歌词页都改读上面三份 per-component 配置（经 LyricsConfigResolver 解析 linkedTo）。
+    // 这里只剩测试在引用；下次清理按 D7-07 的方式连同三端 Impl 一起删 —— 别再往这里加消费者。
     @Deprecated("Use lyricsPlayerConfig instead")
     val lyricsOriginalTextSize: Flow<Int>
     @Deprecated("Use lyricsPlayerConfig instead")
@@ -204,19 +205,6 @@ interface SettingsRepository {
     suspend fun saveGalleryOrderType(orderType: String)
 
     // Backup / Restore
-    // Playlist Algorithm Configuration
-    val defaultAlgorithmType: Flow<String>
-    suspend fun saveDefaultAlgorithmType(type: String)
-    suspend fun getDefaultAlgorithmType(): String
-    
-    val defaultWeightTemplate: Flow<String>
-    suspend fun saveDefaultWeightTemplate(template: String)
-    suspend fun getDefaultWeightTemplate(): String
-    
-    val defaultExtensionConfig: Flow<String>
-    suspend fun saveDefaultExtensionConfig(configJson: String)
-    suspend fun getDefaultExtensionConfig(): String
-    
     // Snapshot Export/Import
     suspend fun exportAppSettingsSnapshot(): com.hmp.domain.backup.AppSettingsSnapshot
     suspend fun restoreFromSnapshot(snapshot: com.hmp.domain.backup.AppSettingsSnapshot)

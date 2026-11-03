@@ -72,10 +72,21 @@ import com.hmp.domain.config.DisplayMode
 import com.hmp.domain.config.LyricsAlignment
 import com.hmp.domain.lyrics.LyricsComponent
 import com.hmp.domain.lyrics.LyricsComponentConfig
+
 import com.hmp.domain.setting.usecase.LyricsSettingsUseCase
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
+
+/**
+ * 设置页可见的歌词组件。
+ *
+ * Desktop/iOS 的悬浮歌词是空壳（`FloatingLyricsController.isSupported=false`），
+ * 直接隐藏这个 tab，避免"看起来能开、实际无效"（D4-04）。
+ */
+internal fun supportedLyricsComponents(floatingSupported: Boolean): List<LyricsComponent> =
+    LyricsComponent.entries.filter { it != LyricsComponent.FLOATING || floatingSupported }
+
 
 @Composable
 fun LyricsSettingsPage(
@@ -101,6 +112,7 @@ fun LyricsSettingsPage(
     val floatingEnabled by lyricsSettingsUseCase.floatingLyricsEnabled.collectAsState(false)
 
     fun startFloatingLyrics() {
+        if (!platformServices.floatingLyrics.isSupported) return
         if (platformServices.permission.hasOverlayPermission()) {
             scope.launch { lyricsSettingsUseCase.saveFloatingLyricsEnabled(true) }
             platformServices.floatingLyrics.start()
@@ -141,6 +153,12 @@ fun LyricsSettingsPage(
         LyricsComponent.FULLSCREEN to stringResource(Res.string.fullscreen),
         LyricsComponent.FLOATING to stringResource(Res.string.floating_lyrics)
     )
+    val components = supportedLyricsComponents(platformServices.floatingLyrics.isSupported)
+    LaunchedEffect(platformServices.floatingLyrics.isSupported) {
+        if (!platformServices.floatingLyrics.isSupported && selectedTab == LyricsComponent.FLOATING) {
+            selectedTab = LyricsComponent.PLAYER
+        }
+    }
 
     SubScreen(
         onBackClick = onBack,
@@ -156,11 +174,11 @@ fun LyricsSettingsPage(
             // 组件切换
             TitleWidget(title = stringResource(Res.string.lyrics_component)) {
                 SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                    LyricsComponent.entries.forEachIndexed { idx, comp ->
+                    components.forEachIndexed { idx, comp ->
                         SegmentedButton(
                             selected = selectedTab == comp,
                             onClick = { selectedTab = comp },
-                            shape = SegmentedButtonDefaults.itemShape(idx, LyricsComponent.entries.size)
+                            shape = SegmentedButtonDefaults.itemShape(idx, components.size)
                         ) { Text(tabLabels[comp] ?: comp.key) }
                     }
                 }

@@ -107,6 +107,15 @@ internal class EnrichSubAgent(
     private var enrichConfig: AiEndpointConfig? = null,
     /** 目标覆盖率（0.0 - 1.0） */
     @Volatile private var targetCoverage: Float = EngineDefaults.ENRICH_TARGET_COVERAGE,
+    /**
+     * 当前凭据模式（T5 分流）：
+     * - `FREE` / `PAID` → **单首随机 + 精简提示词**（花的是内置 Key 的额度，省 token 优先）；
+     * - `CUSTOM` → **保留原有批量 6 轮完整流程**（用户自己的 Key，质量优先）。
+     * 默认 CUSTOM：老装配 / 测试不传时行为不变。
+     */
+    private val accessModeProvider: suspend () -> com.hmp.domain.setting.model.AiAccessMode = {
+        com.hmp.domain.setting.model.AiAccessMode.CUSTOM
+    },
     /** 停止/暂停信号（类型收紧：只接受 SchedulerStopSignal） */
     private val stopSignal: SchedulerStopSignal? = null,
 ) : SubAgent(agentId, contextBudget, toolRegistryView), Capability {
@@ -208,7 +217,25 @@ internal class EnrichSubAgent(
     /**
      * Enrich 自循环：fetchNextWorkUnit → chunk 拆分 → 每 chunk 6 轮编排 → 验收 → 自退出。
      */
+    /**
+     * 入口分流（T5）：免费/付费（内置 Key）走省 token 的单首路径；自定义端点保留完整批量流程。
+     *
+     * 模式在**进入循环时**读一次 —— 运行中切换凭据模式需要重启 Enrich；
+     * Master 的 startEnrich 是幂等的，设置页切模式后由上层重启即可。
+     */
     override suspend fun runLoop() {
+        val mode = runCatching { accessModeProvider() }
+            .getOrDefault(com.hmp.domain.setting.model.AiAccessMode.CUSTOM)
+        if (mode == com.hmp.domain.setting.model.AiAccessMode.CUSTOM) {
+            HmpLog.i(LogTag.AgentEnrich) { "📚 [$agentId] mode=CUSTOM → batch(6-round) pipeline" }
+            runBatchLoop()
+        } else {
+            HmpLog.i(LogTag.AgentEnrich) { "📚 [$agentId] mode=$mode → single-song compact pipeline" }
+            runSingleSongLoop()
+        }
+    }
+
+    private suspend fun runBatchLoop() {
         HmpLog.i(LogTag.AgentEnrich) { "📚 [$agentId] runLoop start: target=${targetCoverage} config=${enrichConfig != null}" }
         isActive = true
         runState = AgentRunState.RUNNING
@@ -377,6 +404,107 @@ internal class EnrichSubAgent(
         HmpLog.i(LogTag.AgentEnrich) { "📚 [$agentId] runLoop exited (processed=$processedCount success=$successCount failed=$failCount)" }
     }
 
+    /**
+     * 单首循环（FREE / PAID）：每次从 50 首候选池随机取一首，1 次精简请求。
+     *
+     * 与 [runBatchLoop] 的差别只有"取几首 + 几次请求"：落库路径完全相同。
+     */
+    private suspend fun runSingleSongLoop() {
+        HmpLog.i(LogTag.AgentEnrich) { "📚 [$agentId] single-song loop start: target=${targetCoverage} config=${enrichConfig != null}" }
+        isActive = true
+        runState = AgentRunState.RUNNING
+        currentPhase = "单首富化中"
+        updateProgressState()
+
+        var consecutiveFails = 0
+
+        while (isActive) {
+            stopSignal?.waitResume()
+            if (!isActive) break
+            if (stopSignal?.shouldSoftStop() == true) {
+                HmpLog.i(LogTag.AgentEnrich) { "📚 [$agentId] stopSignal.shouldSoftStop() → exiting single-song loop" }
+                break
+            }
+
+            val pool = musicRepository.getUnenrichedSongs(RANDOM_POOL_SIZE)
+            if (pool.isEmpty()) {
+                val health = musicRepository.getEnrichHealth()
+                HmpLog.i(LogTag.AgentEnrich) { "📚 [$agentId] health: coverage=${health.coverageRate}/${targetCoverage} enriched=${health.enrichedSongCount}/${health.totalSongCount}" }
+                if (health.coverageRate >= targetCoverage) {
+                    HmpLog.i(LogTag.AgentEnrich) { "📚 [$agentId] target achieved, self-exiting" }
+                    break
+                }
+                currentPhase = "等待更多歌曲"
+                updateProgressState()
+                repeat(20) {
+                    if (!isActive) break
+                    stopSignal?.waitResume()
+                    if (stopSignal?.shouldSoftStop() == true) break
+                    delay(500)
+                }
+                continue
+            }
+
+            val song = pool.random()
+            currentArtist = song.music.artist
+            currentUnitSize = 1
+            chunkIndex = 1
+            chunkTotal = 1
+            updateProgressState()
+
+            val ok = processSingleSong(song)
+            consecutiveFails = if (ok) 0 else consecutiveFails + 1
+
+            if (consecutiveFails >= 5) {
+                HmpLog.e(LogTag.AgentEnrich) { "📚 [$agentId] consecutiveFails=$consecutiveFails → backoff 15s" }
+                currentPhase = "网络异常退避中"
+                updateProgressState()
+                consecutiveFails = 0
+                repeat(30) {
+                    if (!isActive) break
+                    stopSignal?.waitResume()
+                    if (stopSignal?.shouldSoftStop() == true) break
+                    delay(500)
+                }
+            } else if (!ok) {
+                delay(2000)
+            } else {
+                delay(200)
+            }
+        }
+
+        isActive = false
+        runState = AgentRunState.UNREGISTERED
+        currentArtist = null
+        chunkIndex = 0
+        chunkTotal = 0
+        currentPhase = "完成"
+        updateProgressState()
+        HmpLog.i(LogTag.AgentEnrich) { "📚 [$agentId] single-song loop exited (processed=$processedCount success=$successCount failed=$failCount)" }
+    }
+
+    /** 单首富化：1 次精简请求 → 解析 → 两路落库。 */
+    private suspend fun processSingleSong(song: MusicInfo): Boolean {
+        processedCount++
+        val config = enrichConfig
+        if (config == null) {
+            HmpLog.w(LogTag.AgentEnrich) { "📚 [$agentId] No AiEndpointConfig, skipping \"${song.music.title}\"" }
+            failCount++
+            return false
+        }
+        val text = callAndLog(
+            config = config,
+            roundLabel = "single \"${song.music.title}\"",
+            userPrompt = EnrichPrompts.buildSingleSongPrompt(song),
+            systemOverride = EnrichPrompts.SINGLE_SONG_SYSTEM_PROMPT,
+        ) ?: run { failCount++; return false }
+
+        val draft = EnrichResponseParser.parseSingleSong(text, agentId)
+        if (draft == null) { failCount++; return false }
+
+        writeSongResult(song, draft)
+        return true
+    }
     // ===== 核心编排：processChunk（每 chunk 5 轮 LLM call，预热已在 runLoop 处理） =====
 
     /**
@@ -523,10 +651,15 @@ internal class EnrichSubAgent(
     }
 
     /** 便捷封装：callLlmText + 日志。返回 null 表示失败。 */
-    private suspend fun callAndLog(config: AiEndpointConfig, roundLabel: String, userPrompt: String): String? {
+    private suspend fun callAndLog(
+        config: AiEndpointConfig,
+        roundLabel: String,
+        userPrompt: String,
+        systemOverride: String? = null,
+    ): String? {
         val text = contextBudget.callLlmText(
             config = config,
-            systemPrompt = systemPrompt,
+            systemPrompt = systemOverride ?: systemPrompt,
             newMessages = listOf(LlmMessage(role = "user", content = userPrompt)),
         )
         if (text == null) {
@@ -577,6 +710,9 @@ internal class EnrichSubAgent(
         private const val GROUP_KEY_MIXED = "__mixed__"
 
         /** 超大歌手拆分阈值：单次 LLM call 最多处理这么多首 */
+        /** 单首随机：一次取一页候选再随机挑，避免 ORDER BY RANDOM() 全表排序。 */
+        private const val RANDOM_POOL_SIZE = 50
+
         private const val CHUNK_SPLIT_SIZE = 20
     }
 

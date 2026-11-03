@@ -195,121 +195,78 @@ class LyricsSettingsUseCaseTest {
         assertFalse(useCase.floatingLyricsEnabled.first())
     }
 
-    // ===== karaokeEnabled =====
+    // ===== D4-01：per-component 配置是唯一读路径 =====
 
     @Test
-    fun karaokeEnabled_defaultIsTrue() = runTest {
-        val enabled = useCase.karaokeEnabled.first()
-        assertTrue(enabled)
-    }
+    fun configFlow_player_readsComponentConfig_notLegacyKeys() = runTest {
+        val legacySizeBefore = settingsRepository.getLyricsOriginalTextSize()
+        val legacyKaraokeBefore = settingsRepository.getLyricsKaraokeEnabled()
 
-    @Test
-    fun karaokeEnabled_saveAndRetrieve() = runTest {
-        useCase.saveKaraokeEnabled(false)
-        assertFalse(useCase.karaokeEnabled.first())
-        assertFalse(useCase.getKaraokeEnabled())
-
-        useCase.saveKaraokeEnabled(true)
-        assertTrue(useCase.karaokeEnabled.first())
-    }
-
-    // ===== Legacy API =====
-
-    @Test
-    fun legacy_saveOriginalTextSize_persists() = runTest {
-        useCase.saveOriginalTextSize(25)
-        assertEquals(25, settingsRepository.getLyricsOriginalTextSize())
-    }
-
-    @Test
-    fun legacy_saveTranslatedTextSize_persists() = runTest {
-        useCase.saveTranslatedTextSize(16)
-        assertEquals(16, settingsRepository.getLyricsTranslatedTextSize())
-    }
-
-    @Test
-    fun legacy_saveLineSpacing_persists() = runTest {
-        useCase.saveLineSpacing(12)
-        assertEquals(12, settingsRepository.getLyricsLineSpacing())
-    }
-
-    @Test
-    fun legacy_saveDisplayMode_persists() = runTest {
-        useCase.saveDisplayMode(DisplayMode.LANG1)
-        assertEquals(DisplayMode.LANG1, settingsRepository.getLyricsDisplayMode())
-    }
-
-    @Test
-    fun legacy_saveAlignment_persists() = runTest {
-        useCase.saveAlignment(LyricsAlignment.LEFT)
-        assertEquals(LyricsAlignment.LEFT, settingsRepository.getLyricsAlignment())
-    }
-
-    @Test
-    fun legacy_getLyricsConfig_includesKaraokeEnabled() = runTest {
-        useCase.saveKaraokeEnabled(false)
-        val config = useCase.getLyricsConfig()
-        assertFalse(config.karaokeEnabled)
-    }
-
-    @Test
-    fun legacy_saveLyricsConfig_persistsKaraokeEnabled() = runTest {
-        val config = com.hmp.domain.config.LyricsConfig(karaokeEnabled = false)
-        useCase.saveLyricsConfig(config)
-        assertFalse(settingsRepository.getLyricsKaraokeEnabled())
-    }
-
-    @Test
-    fun legacy_getLyricsConfig_returnsAllFields() = runTest {
-        useCase.saveOriginalTextSize(20)
-        useCase.saveTranslatedTextSize(18)
-        useCase.saveCurrentTimeTextSize(22)
-        useCase.saveLineSpacing(10)
-        useCase.saveDisplayMode(DisplayMode.DUAL)
-        useCase.saveAlignment(LyricsAlignment.RIGHT)
-
-        val config = useCase.getLyricsConfig()
-        assertEquals(20, config.originalTextSize)
-        assertEquals(18, config.translatedTextSize)
-        assertEquals(22, config.currentTimeTextSize)
-        assertEquals(10, config.lineSpacing)
-        assertEquals(DisplayMode.DUAL, config.displayMode)
-        assertEquals(LyricsAlignment.RIGHT, config.alignment)
-    }
-
-    @Test
-    fun legacy_saveLyricsConfig_persistsAllFields() = runTest {
-        val config = com.hmp.domain.config.LyricsConfig(
-            originalTextSize = 16,
-            translatedTextSize = 14,
-            currentTimeTextSize = 18,
-            lineSpacing = 8,
-            displayMode = DisplayMode.LANG1,
-            alignment = LyricsAlignment.LEFT
+        settingsRepository.saveLyricsPlayerConfig(
+            json.encodeToString(
+                LyricsComponentConfig.serializer(),
+                LyricsComponentConfig(originalTextSize = 20, lineSpacing = 11, karaokeEnabled = false)
+            )
         )
-        useCase.saveLyricsConfig(config)
 
-        assertEquals(16, settingsRepository.getLyricsOriginalTextSize())
-        assertEquals(14, settingsRepository.getLyricsTranslatedTextSize())
-        assertEquals(18, settingsRepository.getLyricsCurrentTimeTextSize())
-        assertEquals(8, settingsRepository.getLyricsLineSpacing())
-        assertEquals(DisplayMode.LANG1, settingsRepository.getLyricsDisplayMode())
-        assertEquals(LyricsAlignment.LEFT, settingsRepository.getLyricsAlignment())
+        val effective = useCase.configFlow(LyricsComponent.PLAYER).first()
+
+        assertEquals(20, effective.originalTextSize)
+        assertEquals(11, effective.lineSpacing)
+        assertFalse(effective.karaokeEnabled)
+        // 两套存储互不影响：写组件配置不动 legacy 键 —— 这正是 D4-01 立案时"改了不生效"的根因
+        assertEquals(legacySizeBefore, settingsRepository.getLyricsOriginalTextSize())
+        assertEquals(legacyKaraokeBefore, settingsRepository.getLyricsKaraokeEnabled())
     }
 
     @Test
-    fun legacy_resetToDefault_setsDefaultValues() = runTest {
-        useCase.saveOriginalTextSize(99)
-        useCase.saveTranslatedTextSize(88)
-        useCase.resetToDefault()
+    fun configFlow_player_resolvesLinkedToChain() = runTest {
+        settingsRepository.saveLyricsPlayerConfig(
+            json.encodeToString(
+                LyricsComponentConfig.serializer(),
+                LyricsComponentConfig(linkedTo = LyricsComponent.FULLSCREEN.key)
+            )
+        )
+        settingsRepository.saveLyricsFullscreenConfig(
+            json.encodeToString(LyricsComponentConfig.serializer(), LyricsComponentConfig(originalTextSize = 26))
+        )
 
-        val config = useCase.getLyricsConfig()
-        val defaultConfig = com.hmp.domain.config.LyricsConfig()
-        assertEquals(defaultConfig.originalTextSize, config.originalTextSize)
-        assertEquals(defaultConfig.translatedTextSize, config.translatedTextSize)
-        assertEquals(defaultConfig.currentTimeTextSize, config.currentTimeTextSize)
-        assertEquals(defaultConfig.lineSpacing, config.lineSpacing)
-        assertEquals(defaultConfig.displayMode, config.displayMode)
-        assertEquals(defaultConfig.alignment, config.alignment)
+        assertEquals(26, useCase.configFlow(LyricsComponent.PLAYER).first().originalTextSize)
+    }
+
+    @Test
+    fun updateComponentConfig_isReadModifyWrite_notFullOverwrite() = runTest {
+        val initial = LyricsComponentConfig(
+            originalTextSize = 15,
+            lineSpacing = 9,
+            karaokeEnabled = false,
+            linkedTo = LyricsComponent.FLOATING.key,
+        )
+        settingsRepository.saveLyricsFullscreenConfig(
+            json.encodeToString(LyricsComponentConfig.serializer(), initial)
+        )
+
+        useCase.updateComponentConfig(LyricsComponent.FULLSCREEN) { it.copy(originalTextSize = 30) }
+
+        val saved = useCase.getComponentConfig(LyricsComponent.FULLSCREEN).first()
+        assertEquals(30, saved.originalTextSize)
+        assertEquals(9, saved.lineSpacing)
+        assertFalse(saved.karaokeEnabled)
+        assertEquals(LyricsComponent.FLOATING.key, saved.linkedTo)
+    }
+
+    @Test
+    fun resetComponentToDefault_onlyResetsThatComponent() = runTest {
+        settingsRepository.saveLyricsPlayerConfig(
+            json.encodeToString(LyricsComponentConfig.serializer(), LyricsComponentConfig(originalTextSize = 20))
+        )
+        settingsRepository.saveLyricsFullscreenConfig(
+            json.encodeToString(LyricsComponentConfig.serializer(), LyricsComponentConfig(originalTextSize = 24))
+        )
+
+        useCase.resetComponentToDefault(LyricsComponent.FULLSCREEN)
+
+        assertEquals(20, useCase.getComponentConfig(LyricsComponent.PLAYER).first().originalTextSize)
+        assertEquals(LyricsComponentConfig.DEFAULT, useCase.getComponentConfig(LyricsComponent.FULLSCREEN).first())
     }
 }

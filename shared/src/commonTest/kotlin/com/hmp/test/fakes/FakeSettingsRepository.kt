@@ -112,10 +112,8 @@ class FakeSettingsRepository : SettingsRepository {
         if (config == null) _agentEndpointConfigs.remove(agentRole) else _agentEndpointConfigs[agentRole] = config
     }
 
-    private val _aiFreeTrialRemainingCount = MutableStateFlow(100)
-    override val aiFreeTrialRemainingCount: Flow<Int> = _aiFreeTrialRemainingCount.asStateFlow()
-    override suspend fun getAiFreeTrialRemainingCount(): Int = _aiFreeTrialRemainingCount.value
-    override suspend fun decrementAiFreeTrialCount() { _aiFreeTrialRemainingCount.value = (_aiFreeTrialRemainingCount.value - 1).coerceAtLeast(0) }
+    var builtInAiConfigured: Boolean = true
+    override suspend fun isBuiltInAiConfigured(): Boolean = builtInAiConfigured
 
     private val _equalizerPreset = MutableStateFlow(0)
     override val equalizerPreset: Flow<Int> = _equalizerPreset.asStateFlow()
@@ -228,20 +226,6 @@ class FakeSettingsRepository : SettingsRepository {
     override val galleryOrderType: Flow<String> = _galleryOrderType.asStateFlow()
     override suspend fun saveGalleryOrderType(orderType: String) { _galleryOrderType.value = orderType }
 
-    private val _defaultAlgorithmType = MutableStateFlow("OPTIMIZED_SIMILARITY")
-    override val defaultAlgorithmType: Flow<String> = _defaultAlgorithmType.asStateFlow()
-    override suspend fun saveDefaultAlgorithmType(type: String) { _defaultAlgorithmType.value = type }
-    override suspend fun getDefaultAlgorithmType(): String = _defaultAlgorithmType.value
-
-    private val _defaultWeightTemplate = MutableStateFlow("BALANCED")
-    override val defaultWeightTemplate: Flow<String> = _defaultWeightTemplate.asStateFlow()
-    override suspend fun saveDefaultWeightTemplate(template: String) { _defaultWeightTemplate.value = template }
-    override suspend fun getDefaultWeightTemplate(): String = _defaultWeightTemplate.value
-
-    private val _defaultExtensionConfig = MutableStateFlow("{}")
-    override val defaultExtensionConfig: Flow<String> = _defaultExtensionConfig.asStateFlow()
-    override suspend fun saveDefaultExtensionConfig(configJson: String) { _defaultExtensionConfig.value = configJson }
-    override suspend fun getDefaultExtensionConfig(): String = _defaultExtensionConfig.value
 
     override suspend fun exportAppSettingsSnapshot(): AppSettingsSnapshot = AppSettingsSnapshot()
 
@@ -257,7 +241,9 @@ class FakeSettingsRepository : SettingsRepository {
         com.hmp.domain.agent.policy.AgentPolicyConfig()
     override suspend fun saveAgentPolicyConfig(agentRole: String, config: com.hmp.domain.agent.policy.AgentPolicyConfig) {}
 
-    private val _globalAgentConfig = com.hmp.domain.agent.runtime.GlobalAgentConfig()
+    private var _globalAgentConfig = com.hmp.domain.agent.runtime.GlobalAgentConfig()
     override suspend fun getGlobalAgentConfig(): com.hmp.domain.agent.runtime.GlobalAgentConfig = _globalAgentConfig
-    override suspend fun saveGlobalAgentConfig(config: com.hmp.domain.agent.runtime.GlobalAgentConfig) {}
+    override suspend fun saveGlobalAgentConfig(config: com.hmp.domain.agent.runtime.GlobalAgentConfig) {
+        _globalAgentConfig = config
+    }
 }
