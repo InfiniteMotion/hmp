@@ -2,7 +2,6 @@ package com.hearablemusic.player.ui.agent.cards
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -43,6 +42,8 @@ import com.hearablemusic.player.ui.common.util.rememberHapticFeedback
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
+import com.hearablemusic.player.ui.common.design.animation.HmpMotion
 
 // ═══════════════════════════════════════════════════════════════════
 // HelloCardCoverflow —— 垂直卡片堆叠（横竖屏共用的唯一实现）
@@ -73,10 +74,10 @@ private const val CF_FLING_VELOCITY_PX_PER_MS = 1.2f
 private const val CF_VELOCITY_WINDOW_MS = 100f
 
 /**
- * 落定动画：带一点点回弹的弹簧。
- * dampingRatio 0.8 略欠阻尼（翻页有"吸住"的重量感），stiffness 420 让中短距离落定干脆不拖沓。
+ * 落定动画：带一点点回弹的弹簧（统一走 `HmpMotion.snappySpring`，阻尼 0.7 / 刚度 400）。
+ * 原调参 0.8 / 420 与 snappy 档接近，归并后翻页仍保留"吸住"的重量感。
  */
-private val settleSpec = spring<Float>(dampingRatio = 0.8f, stiffness = 420f)
+private val settleSpec = HmpMotion.snappySpring<Float>()
 
 /**
  * 垂直卡片堆叠。
@@ -93,6 +94,7 @@ internal fun HelloCardCoverflow(
     onCardClick: ((SlideCard) -> Unit)? = null,
     permanentLock: Boolean = false,
 ) {
+    val metrics = LocalHmpMetrics.current
     val state = rememberHelloCardsState()
     val cards = state.cards
     val locked = permanentLock || state.permanentLock
@@ -351,8 +353,8 @@ internal fun HelloCardCoverflow(
             Column(
                 modifier = Modifier
                     .align(Alignment.CenterEnd)
-                    .padding(end = 4.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
+                    .padding(end = metrics.micro),
+                verticalArrangement = Arrangement.spacedBy(metrics.micro),
             ) {
                 cards.forEachIndexed { index, _ ->
                     // 高亮判据也必须走**环形距离**：直接用 |index − offset| 在循环模式下会跳
@@ -360,8 +362,8 @@ internal fun HelloCardCoverflow(
                     val active = kotlin.math.abs(ringDelta(index.toFloat() - offset.value, n)) < 0.5f
                     Box(
                         modifier = Modifier
-                            .size(if (active) 6.dp else 4.dp)
-                            .clip(RoundedCornerShape(3.dp))
+                            .size(if (active) metrics.micro else metrics.micro)
+                            .clip(RoundedCornerShape(metrics.hair))
                             .background(
                                 if (active) dotColor else dotColor.copy(alpha = 0.3f)
                             )

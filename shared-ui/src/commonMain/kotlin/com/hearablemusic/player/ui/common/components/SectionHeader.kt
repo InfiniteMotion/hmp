@@ -15,32 +15,31 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.hearablemusic.player.ui.common.design.dimens.LocalHMPDimens
+import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 
 @Composable
 fun SectionHeader(title: String) {
-    val dimens = LocalHMPDimens.current
+    val metrics = LocalHmpMetrics.current
+    val typo = LocalHmpTypo.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = dimens.spacing.xs),
+            .padding(vertical = metrics.micro),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(
             modifier = Modifier
-                .width(4.dp)
-                .height(20.dp)
-                .clip(RoundedCornerShape(2.dp))
+                .width(metrics.micro)
+                .height(metrics.cozy)
+                .clip(RoundedCornerShape(metrics.hair))
                 .background(MaterialTheme.colorScheme.primary)
         )
-        Spacer(modifier = Modifier.width(dimens.spacing.md))
+        Spacer(modifier = Modifier.width(metrics.cozy))
         Text(
             text = title,
-            style = MaterialTheme.typography.titleMedium,
-            fontSize = dimens.type.md,
-            fontWeight = FontWeight.SemiBold,
+            style = typo.subtitle,
             color = MaterialTheme.colorScheme.onSurface
         )
     }

@@ -57,7 +57,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.hearablemusic.player.ui.common.components.base.HMPCard
-import com.hearablemusic.player.ui.common.design.dimens.LocalHMPDimens
+import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
+import com.hearablemusic.player.ui.common.design.typography.medium
 import com.hearablemusic.player.ui.common.dialogs.TimerDialog
 import com.hearablemusic.player.ui.common.layout.LocalWindowSizeInfo
 import com.hearablemusic.player.ui.common.layout.WindowWidthSizeClass
@@ -138,6 +139,9 @@ import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.compose.koinInject
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
+import com.hearablemusic.player.ui.common.design.metrics.HMPMetricTokens
+import com.hearablemusic.player.ui.common.design.metrics.LayoutConstraints
 
 // 格式化时间为 mm:ss（commonMain 无 String.format，用 padStart 等价实现）
 fun formatTime(millis: Long): String {
@@ -159,6 +163,7 @@ fun PlayContent(
     /** 打开对话页（轻量浮层已移除：播放页「对话」按钮直接进对话页） */
     onOpenChat: () -> Unit = {},
 ) {
+    val metrics = LocalHmpMetrics.current
     val haptic = rememberHapticFeedback()
     val radioConsole: RadioConsoleController = koinInject()
 
@@ -202,9 +207,9 @@ fun PlayContent(
         val containerWidth = maxWidth
         val scrollState = rememberScrollState()
         val coverSize = when (sizeClass) {
-            WindowWidthSizeClass.Compact -> minOf(containerWidth * 0.65f, 280.dp)
+            WindowWidthSizeClass.Compact -> minOf(containerWidth * 0.65f, LayoutConstraints.PanelMaxWidth)
             WindowWidthSizeClass.Medium, WindowWidthSizeClass.Expanded ->
-                minOf(containerWidth * 0.35f, 260.dp.coerceAtMost(maxHeight * 0.5f))
+                minOf(containerWidth * 0.35f, LayoutConstraints.CoverMaxWidthWide.coerceAtMost(maxHeight * 0.5f))
         }
 
         Box(
@@ -230,10 +235,10 @@ fun PlayContent(
                                 onHorizontalDrag = { _, dragAmount -> dragOffset += dragAmount }
                             )
                         }, contentAlignment = Alignment.Center) {
-                        AlbumCover(musicInfo?.music?.albumArtUri, minOf(containerWidth * 0.5f, 240.dp), 16.dp, 8.dp,
+                        AlbumCover(musicInfo?.music?.albumArtUri, minOf(containerWidth * 0.5f, LayoutConstraints.DialogMaxWidth), HMPMetricTokens.Compact.cozy, HMPMetricTokens.Compact.compact,
                             modifier = Modifier.graphicsLayer { translationX = dragOffset })
                     }
-                    Column(Modifier.weight(0.65f).fillMaxHeight().padding(start = 16.dp, end = 24.dp).padding(vertical = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Column(Modifier.weight(0.65f).fillMaxHeight().padding(start = metrics.cozy, end = metrics.section).padding(vertical = metrics.cozy), horizontalAlignment = Alignment.CenterHorizontally) {
                         val tabs = listOf("controls", "lyrics", "info", "radio", "playlist")
                         val pagerState = rememberPagerState(initialPage = 0) { tabs.size }
                         LaunchedEffect(selectedTab) {
@@ -251,9 +256,9 @@ fun PlayContent(
                             HorizontalPager(state = pagerState) { page ->
                                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                                 when (tabs[page]) {
-                                    "controls" -> Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                                    "controls" -> Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = metrics.cozy), horizontalAlignment = Alignment.CenterHorizontally) {
                                         MusicInfo(musicInfo?.music, { callbacks.onArtistClick(it) }, centerAlign = true)
-                                        Spacer(Modifier.height(24.dp))
+                                        Spacer(Modifier.height(metrics.section))
                                         SeekBar(currentPosition, duration) { callbacks.onSeek(it) }
                                         PlaybackControlsButtons(
                                             isPlaying = isPlaying,
@@ -275,11 +280,11 @@ fun PlayContent(
                                     "playlist" -> PlaylistTabContent(playlist, currentIndex ?: 0, onPlayItem = { callbacks.onPlayItem(it) }, onMoveToTop = { callbacks.onMoveToTop(it) }, onRemoveFromPlaylist = { callbacks.onRemoveFromPlaylist(it) }, onClearPlaylist = { callbacks.onClearPlaylist() })
                                     "info" -> SongDetailInfoTab(songDetailState, musicInfo?.extra, musicInfo?.userInfo)
                                     "radio" -> if (musicInfo != null) {
-                                        Box(Modifier.fillMaxSize().padding(horizontal = 16.dp), contentAlignment = Alignment.Center) {
+                                        Box(Modifier.fillMaxSize().padding(horizontal = metrics.cozy), contentAlignment = Alignment.Center) {
                                             RadioEntryCard(onOpenConsole = { radioConsole.open() })
                                         }
                                     }
-                                    else -> AdvancedLyrics(Modifier.fillMaxSize().padding(vertical = 16.dp), lyrics, currentPosition, { callbacks.onSeek(it) }, lyricsOriginalTextSize, lyricsTranslatedTextSize, lyricsCurrentTimeTextSize, lyricsLineSpacing, totalDurationMs = duration, karaokeEnabled = lyricsKaraokeEnabled, isPlaying = isPlaying, paletteColors = paletteColors, displayMode = lyricsDisplayMode, alignment = lyricsAlignment)
+                                    else -> AdvancedLyrics(Modifier.fillMaxSize().padding(vertical = metrics.cozy), lyrics, currentPosition, { callbacks.onSeek(it) }, lyricsOriginalTextSize, lyricsTranslatedTextSize, lyricsCurrentTimeTextSize, lyricsLineSpacing, totalDurationMs = duration, karaokeEnabled = lyricsKaraokeEnabled, isPlaying = isPlaying, paletteColors = paletteColors, displayMode = lyricsDisplayMode, alignment = lyricsAlignment)
                                 }
                                 } // center Box
                             }
@@ -292,13 +297,13 @@ fun PlayContent(
                 var isProgrammaticScroll by remember { mutableStateOf(false) }
                 Row(modifier = Modifier.fillMaxSize()) {
                     Column(Modifier.weight(0.4f).fillMaxHeight()) {
-                        Spacer(Modifier.height(12.dp))
+                        Spacer(Modifier.height(metrics.base))
                         PlayerHeader({ callbacks.onBackClick() })
-                        Column(Modifier.weight(1f).padding(horizontal = 16.dp).padding(top = 24.dp, bottom = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                        Column(Modifier.weight(1f).padding(horizontal = metrics.cozy).padding(top = metrics.section, bottom = metrics.compact), horizontalAlignment = Alignment.CenterHorizontally) {
                             MusicInfo(musicInfo?.music, { callbacks.onArtistClick(it) }, centerAlign = true)
-                            Spacer(Modifier.height(16.dp))
-                            Box(Modifier.weight(1f), contentAlignment = Alignment.Center) { AlbumCover(musicInfo?.music?.albumArtUri, 280.dp, 16.dp, 8.dp) }
-                            Spacer(Modifier.height(16.dp))
+                            Spacer(Modifier.height(metrics.cozy))
+                            Box(Modifier.weight(1f), contentAlignment = Alignment.Center) { AlbumCover(musicInfo?.music?.albumArtUri, LayoutConstraints.PanelMaxWidth, metrics.cozy, metrics.compact) }
+                            Spacer(Modifier.height(metrics.cozy))
                             SeekBar(currentPosition, duration) { callbacks.onSeek(it) }
                             PlaybackControlsButtons(
                                             isPlaying = isPlaying,
@@ -316,11 +321,11 @@ fun PlayContent(
                                             onTimerClick = { callbacks.onShowTimerDialog() },
                                             onHeartMode = { haptic.performConfirm(); callbacks.onHeartMode() },
                                         )
-                            Spacer(Modifier.height(8.dp))
+                            Spacer(Modifier.height(metrics.compact))
                         }
                     }
-                    Box(Modifier.width(1.dp).fillMaxHeight().background(MaterialTheme.colorScheme.outlineVariant))
-                    Column(Modifier.weight(0.6f).fillMaxHeight().padding(start = 16.dp, end = 24.dp).padding(vertical = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Box(Modifier.width(metrics.stroke.thin).fillMaxHeight().background(MaterialTheme.colorScheme.outlineVariant))
+                    Column(Modifier.weight(0.6f).fillMaxHeight().padding(start = metrics.cozy, end = metrics.section).padding(vertical = metrics.cozy), horizontalAlignment = Alignment.CenterHorizontally) {
                         val tabs = listOf("lyrics", "info", "radio", "playlist")
                         val pagerState = rememberPagerState(initialPage = 0) { tabs.size }
                         LaunchedEffect(selectedTab) {
@@ -340,14 +345,14 @@ fun PlayContent(
                                     "playlist" -> PlaylistTabContent(playlist, currentIndex ?: 0, onPlayItem = { callbacks.onPlayItem(it) }, onMoveToTop = { callbacks.onMoveToTop(it) }, onRemoveFromPlaylist = { callbacks.onRemoveFromPlaylist(it) }, onClearPlaylist = { callbacks.onClearPlaylist() })
                                     "info" -> SongDetailInfoTab(songDetailState, musicInfo?.extra, musicInfo?.userInfo)
                                     "radio" -> if (musicInfo != null) {
-                                        Box(Modifier.fillMaxSize().padding(horizontal = 16.dp), contentAlignment = Alignment.Center) {
+                                        Box(Modifier.fillMaxSize().padding(horizontal = metrics.cozy), contentAlignment = Alignment.Center) {
                                             RadioEntryCard(onOpenConsole = { radioConsole.open() })
                                         }
                                     }
-                                    else -> AdvancedLyrics(Modifier.fillMaxSize().padding(vertical = 16.dp), lyrics, currentPosition, { callbacks.onSeek(it) }, lyricsOriginalTextSize, lyricsTranslatedTextSize, lyricsCurrentTimeTextSize, lyricsLineSpacing, totalDurationMs = duration, karaokeEnabled = lyricsKaraokeEnabled, isPlaying = isPlaying, paletteColors = paletteColors, displayMode = lyricsDisplayMode, alignment = lyricsAlignment)
+                                    else -> AdvancedLyrics(Modifier.fillMaxSize().padding(vertical = metrics.cozy), lyrics, currentPosition, { callbacks.onSeek(it) }, lyricsOriginalTextSize, lyricsTranslatedTextSize, lyricsCurrentTimeTextSize, lyricsLineSpacing, totalDurationMs = duration, karaokeEnabled = lyricsKaraokeEnabled, isPlaying = isPlaying, paletteColors = paletteColors, displayMode = lyricsDisplayMode, alignment = lyricsAlignment)
                                 }
                             }
-                            Box(Modifier.align(Alignment.BottomCenter).padding(bottom = 8.dp)) {
+                            Box(Modifier.align(Alignment.BottomCenter).padding(bottom = metrics.compact)) {
                                 PlayerTabBar(
                                     selectedTab,
                                     { selectedTab = it },
@@ -377,14 +382,14 @@ fun PlayContent(
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 16.dp)
+                            .padding(horizontal = metrics.cozy)
                             .weight(1f) // 使顶部区域占据剩余空间
                     ) {
-                        Spacer(modifier = Modifier.height(16.dp))
+                        Spacer(modifier = Modifier.height(metrics.cozy))
                         PlayerHeader({ callbacks.onBackClick() })
-                        Spacer(modifier = Modifier.height(24.dp))
+                        Spacer(modifier = Modifier.height(metrics.section))
                         MusicInfo(musicInfo?.music, { callbacks.onArtistClick(it) })
-                        Spacer(modifier = Modifier.height(16.dp))
+                        Spacer(modifier = Modifier.height(metrics.cozy))
                         // 封面区域：使用 weight(1f) 实现弹性缩放
                         MusicInfoExtra(
                             musicInfo = musicInfo,
@@ -406,7 +411,7 @@ fun PlayContent(
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(metrics.cozy))
 
                     Column(
                         modifier = Modifier.fillMaxWidth()
@@ -454,7 +459,7 @@ fun PlayContent(
                             }
                         )
                     }
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(metrics.cozy))
                 }
 
                 // 播放列表区域：位于主界面下方
@@ -495,35 +500,37 @@ fun MusicInfo(
     onArtistClick: (String) -> Unit,
     centerAlign: Boolean = false
 ) {
+    val metrics = LocalHmpMetrics.current
+    val typo = LocalHmpTypo.current
     Column(
         horizontalAlignment = if (centerAlign) Alignment.CenterHorizontally else Alignment.Start,
-        modifier = Modifier.padding(horizontal = 32.dp)
+        modifier = Modifier.padding(horizontal = metrics.block)
     ) {
         val artistLabel = stringResource(Res.string.artist_label)
         Text(
             text = music?.title ?: stringResource(Res.string.music_title_placeholder),
             maxLines = 1,
             overflow = TextOverflow.MiddleEllipsis,
-            style = MaterialTheme.typography.displayMedium,
+            style = typo.display,
             color = MaterialTheme.colorScheme.onSurface
         )
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(metrics.compact))
         Text(
             text = music?.artist ?: artistLabel,
             maxLines = 1,
             overflow = TextOverflow.MiddleEllipsis,
-            style = MaterialTheme.typography.titleMedium,
+            style = typo.subtitle,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.clickable {
                 onArtistClick(music?.artist ?: artistLabel)
             }
         )
-        Spacer(modifier = Modifier.height(4.dp))
+        Spacer(modifier = Modifier.height(metrics.micro))
         Text(
             text = music?.album ?: stringResource(Res.string.album_label),
             maxLines = 1,
             overflow = TextOverflow.MiddleEllipsis,
-            style = MaterialTheme.typography.titleMedium,
+            style = typo.subtitle,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
@@ -549,13 +556,14 @@ fun MusicInfoExtra(
     onSeek: (Long) -> Unit,
     onOpenConsole: () -> Unit,
 ) {
+    val metrics = LocalHmpMetrics.current
     val contents = listOf<@Composable () -> Unit>(
         {
             Column(
                 modifier = Modifier
-                    .padding(16.dp)
+                    .padding(metrics.cozy)
                     .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                verticalArrangement = Arrangement.spacedBy(metrics.cozy)
             ) {
                 if (musicInfo?.extra != null) {
                     TechnicalInfoCard(musicInfo.extra)
@@ -566,14 +574,14 @@ fun MusicInfoExtra(
         {
             AlbumCover(
                 musicInfo?.music?.albumArtUri,
-                300.dp,
-                20.dp,
-                10.dp
+                LayoutConstraints.PanelHeight,
+                metrics.cozy,
+                metrics.compact
             )
         },
         {
             AdvancedLyrics(
-                modifier = Modifier.padding(vertical = 16.dp),
+                modifier = Modifier.padding(vertical = metrics.cozy),
                 lyrics = lyrics,
                 currentPosition = currentPosition,
                 onSeek = onSeek,
@@ -605,7 +613,9 @@ fun SeekBar(
     duration: Long,
     onSeek: (Long) -> Unit
 ) {
+    val metrics = LocalHmpMetrics.current
     val haptic = rememberHapticFeedback()
+    val typo = LocalHmpTypo.current
     var sliderPosition by remember { mutableFloatStateOf(0f) }
     var isSeeking by remember { mutableStateOf(false) }
 
@@ -620,7 +630,7 @@ fun SeekBar(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 24.dp)
+            .padding(horizontal = metrics.section)
     ) {
         Slider(
             value = sliderPosition,
@@ -637,7 +647,7 @@ fun SeekBar(
             },
             modifier = Modifier
                 .fillMaxWidth()
-                .height(8.dp),
+                .height(metrics.compact),
             enabled = true,
             colors = SliderDefaults.colors(
                 thumbColor = MaterialTheme.colorScheme.primary,
@@ -646,7 +656,7 @@ fun SeekBar(
             track = { sliderState ->
                 SliderDefaults.Track(
                     sliderState = sliderState,
-                    modifier = Modifier.height(4.dp),
+                    modifier = Modifier.height(metrics.micro),
                     thumbTrackGapSize = 0.dp,
                     trackInsideCornerSize = 0.dp,
                     drawStopIndicator = null
@@ -655,7 +665,7 @@ fun SeekBar(
             thumb = {
                 Box(
                     modifier = Modifier
-                        .size(4.dp)
+                        .size(metrics.micro)
                         .background(
                             color = Color.Transparent,
                         )
@@ -664,17 +674,17 @@ fun SeekBar(
         )
         Row(
             modifier = Modifier.fillMaxWidth()
-                .padding(8.dp),
+                .padding(metrics.compact),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Text(
                 text = formatTime(currentPosition),
-                style = MaterialTheme.typography.bodySmall,
+                style = typo.footnote,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Text(
                 text = formatTime(duration),
-                style = MaterialTheme.typography.bodySmall,
+                style = typo.footnote,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
@@ -701,6 +711,7 @@ fun PlaybackControlsButtons(
     onTimerClick: () -> Unit,
     onHeartMode: () -> Unit,
 ) {
+    val metrics = LocalHmpMetrics.current
     val haptic = rememberHapticFeedback()
     var showMoreMenu by remember { mutableStateOf(false) }
 
@@ -716,7 +727,7 @@ fun PlaybackControlsButtons(
         ) {
             IconButton(
                 onClick = onPrevious,
-                modifier = Modifier.size(72.dp)
+                modifier = Modifier.size(metrics.row)
             ) {
                 Icon(
                     painter = painterResource(Res.drawable.backward_end_fill),
@@ -727,7 +738,7 @@ fun PlaybackControlsButtons(
 
             IconButton(
                 onClick = onPlayPause,
-                modifier = Modifier.size(72.dp)
+                modifier = Modifier.size(metrics.row)
             ) {
                 Icon(
                     painter = painterResource(if (isPlaying) Res.drawable.pause else Res.drawable.play_fill),
@@ -738,7 +749,7 @@ fun PlaybackControlsButtons(
 
             IconButton(
                 onClick = onNext,
-                modifier = Modifier.size(72.dp)
+                modifier = Modifier.size(metrics.row)
             ) {
                 Icon(
                     painter = painterResource(Res.drawable.forward_end_fill),
@@ -748,12 +759,12 @@ fun PlaybackControlsButtons(
             }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(metrics.cozy))
 
         // 副行五键：播放模式 · 收藏 · 对话 · 播放列表 · 更多
         Row(
             modifier = Modifier.fillMaxWidth()
-                .padding(horizontal = 16.dp),
+                .padding(horizontal = metrics.cozy),
             horizontalArrangement = Arrangement.SpaceAround,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -823,7 +834,7 @@ fun PlaybackControlsButtons(
                     Box(
                         modifier = Modifier
                             .align(Alignment.TopEnd)
-                            .size(10.dp)
+                            .size(metrics.compact)
                             .background(MaterialTheme.colorScheme.primary, CircleShape)
                     )
                 }
@@ -877,8 +888,9 @@ private fun PlaylistTabContent(
     onPlayItem: (MusicInfo) -> Unit, onMoveToTop: (MusicInfo) -> Unit,
     onRemoveFromPlaylist: (MusicInfo) -> Unit, onClearPlaylist: () -> Unit
 ) {
+    val metrics = LocalHmpMetrics.current
     val haptic = rememberHapticFeedback()
-    Column(modifier = Modifier.fillMaxSize().padding(horizontal = 32.dp, vertical = 16.dp)) {
+    Column(modifier = Modifier.fillMaxSize().padding(horizontal = metrics.block, vertical = metrics.cozy)) {
         HMPCard(
             modifier = Modifier.fillMaxWidth().weight(1f),
             contentPadding = Modifier
@@ -897,7 +909,9 @@ private fun PlaylistTabContent(
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun SongDetailInfoTab(songDetailState: UiState<SongDetailData>, musicExtra: com.hmp.domain.music.MusicExtra?, userInfo: com.hmp.domain.music.UserInfo?) {
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 32.dp, vertical = 16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    val metrics = LocalHmpMetrics.current
+    val typo = LocalHmpTypo.current
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = metrics.block, vertical = metrics.cozy), verticalArrangement = Arrangement.spacedBy(metrics.cozy)) {
         TechnicalInfoCard(extra = musicExtra, modifier = Modifier.fillMaxWidth())
         if (songDetailState is UiState.Success) {
             val data = songDetailState.data
@@ -917,39 +931,46 @@ private fun SongDetailInfoTab(songDetailState: UiState<SongDetailData>, musicExt
             }
             if (userInfo != null) {
                 InfoCard(title = stringResource(Res.string.personal_stats)) {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) { StatCell(stringResource(Res.string.sort_play_count), (userInfo.playCount ?: 0).toString(), Modifier.weight(1f)); StatCell(stringResource(Res.string.skipped_count), (userInfo.skippedCount ?: 0).toString(), Modifier.weight(1f)); StatCell(stringResource(Res.string.playlist_count), (userInfo.inCustomPlaylistCount ?: 0).toString(), Modifier.weight(1f)) }
-                    Spacer(Modifier.height(8.dp))
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) { StatCell(stringResource(Res.string.user_rating), (userInfo.userRating ?: 0).toString(), Modifier.weight(1f)); StatCell(stringResource(Res.string.liked_status), if (userInfo.liked) "♥" else "♡", Modifier.weight(1f)) }
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(metrics.compact)) { StatCell(stringResource(Res.string.sort_play_count), (userInfo.playCount ?: 0).toString(), Modifier.weight(1f)); StatCell(stringResource(Res.string.skipped_count), (userInfo.skippedCount ?: 0).toString(), Modifier.weight(1f)); StatCell(stringResource(Res.string.playlist_count), (userInfo.inCustomPlaylistCount ?: 0).toString(), Modifier.weight(1f)) }
+                    Spacer(Modifier.height(metrics.compact))
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(metrics.compact)) { StatCell(stringResource(Res.string.user_rating), (userInfo.userRating ?: 0).toString(), Modifier.weight(1f)); StatCell(stringResource(Res.string.liked_status), if (userInfo.liked) "♥" else "♡", Modifier.weight(1f)) }
                 }
             }
             val validLabels = data.labels.filterNotNull().filter { it.label.name.isNotBlank() }
             if (validLabels.isNotEmpty()) {
-                InfoCard(title = stringResource(Res.string.labels)) { FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) { validLabels.forEach { label -> AssistChip(onClick = {}, label = { Text(label.label.name, style = MaterialTheme.typography.labelSmall) }, border = null) } } }
+                InfoCard(title = stringResource(Res.string.labels)) { FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(metrics.compact), verticalArrangement = Arrangement.spacedBy(metrics.micro)) { validLabels.forEach { label -> AssistChip(onClick = {}, label = { Text(label.label.name, style = typo.caption) }, border = null) } } }
             }
-        } else if (songDetailState is UiState.Loading) { Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp) } }
+        } else if (songDetailState is UiState.Loading) { Box(Modifier.fillMaxWidth().padding(metrics.section), contentAlignment = Alignment.Center) { CircularProgressIndicator(Modifier.size(metrics.section), strokeWidth = metrics.hair) } }
     }
 }
 
 @Composable
 private fun InfoCard(title: String, content: @Composable () -> Unit) {
+    val metrics = LocalHmpMetrics.current
+    val typo = LocalHmpTypo.current
     HMPCard(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(LocalHMPDimens.current.corner.sm),
-        contentPadding = Modifier.padding(16.dp)
+        shape = RoundedCornerShape(metrics.base),
+        contentPadding = Modifier.padding(metrics.cozy)
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
+        Column(verticalArrangement = Arrangement.spacedBy(metrics.compact)) {
+            Text(title, style = typo.body.medium(), color = MaterialTheme.colorScheme.onSurface)
             content()
         }
     }
 }
 
 @Composable
-private fun InfoRow(label: String, value: String) { Column { Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary); Spacer(Modifier.height(2.dp)); Text(value, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) } }
+private fun InfoRow(label: String, value: String) {
+    val metrics = LocalHmpMetrics.current
+    val typo = LocalHmpTypo.current
+    Column { Text(label, style = typo.footnote.medium(), color = MaterialTheme.colorScheme.primary); Spacer(Modifier.height(metrics.hair)); Text(value, style = typo.footnote, color = MaterialTheme.colorScheme.onSurfaceVariant) } }
 
 @Composable
 private fun StatCell(label: String, value: String, modifier: Modifier = Modifier) {
-    Surface(modifier, shape = RoundedCornerShape(10.dp), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f), tonalElevation = 0.dp) { Column(Modifier.padding(8.dp), horizontalAlignment = Alignment.CenterHorizontally) { Text(value, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface); Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) } }
+    val metrics = LocalHmpMetrics.current
+    val typo = LocalHmpTypo.current
+    Surface(modifier, shape = RoundedCornerShape(metrics.compact), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f), tonalElevation = 0.dp) { Column(Modifier.padding(metrics.compact), horizontalAlignment = Alignment.CenterHorizontally) { Text(value, style = typo.body.medium(), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface); Text(label, style = typo.caption, color = MaterialTheme.colorScheme.onSurfaceVariant) } }
 }
 
 @Composable
@@ -957,8 +978,10 @@ private fun PlayerTabBar(
     selectedTab: String, onTabSelected: (String) -> Unit,
     tabs: List<Pair<String, String>> = listOf("lyrics" to stringResource(Res.string.lyrics), "info" to stringResource(Res.string.song_detail_tab_intro), "playlist" to stringResource(Res.string.playlist)),
 ) {
+    val metrics = LocalHmpMetrics.current
     val haptic = rememberHapticFeedback()
-    Surface(shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.8f)) {
-        Row(Modifier.padding(4.dp)) { tabs.forEach { (id, label) -> Box(Modifier.clip(RoundedCornerShape(18.dp)).background(if (selectedTab == id) MaterialTheme.colorScheme.primary.copy(alpha = 0.2f) else Color.Transparent).clickable { haptic.performClick(); onTabSelected(id) }.padding(horizontal = 16.dp, vertical = 8.dp)) { Text(label, style = MaterialTheme.typography.labelMedium, color = if (selectedTab == id) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface) } } }
+    val typo = LocalHmpTypo.current
+    Surface(shape = RoundedCornerShape(metrics.cozy), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.8f)) {
+        Row(Modifier.padding(metrics.micro)) { tabs.forEach { (id, label) -> Box(Modifier.clip(RoundedCornerShape(metrics.cozy)).background(if (selectedTab == id) MaterialTheme.colorScheme.primary.copy(alpha = 0.2f) else Color.Transparent).clickable { haptic.performClick(); onTabSelected(id) }.padding(horizontal = metrics.cozy, vertical = metrics.compact)) { Text(label, style = typo.footnote.medium(), color = if (selectedTab == id) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface) } } }
     }
 }

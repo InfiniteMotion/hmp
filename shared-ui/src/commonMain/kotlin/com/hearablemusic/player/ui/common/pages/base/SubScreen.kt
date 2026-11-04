@@ -26,9 +26,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.hearablemusic.player.ui.common.components.base.BackButton
-import com.hearablemusic.player.ui.common.design.animation.AnimationTokens
+import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
 import com.hearablemusic.player.ui.common.layout.LocalWindowSizeInfo
 import com.hearablemusic.player.ui.common.layout.WindowWidthSizeClass
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
+import com.hearablemusic.player.ui.common.design.metrics.LayoutConstraints
+import com.hearablemusic.player.ui.common.design.animation.HmpMotion
 
 @Composable
 fun SubScreen(
@@ -37,10 +40,12 @@ fun SubScreen(
     trailingContent: @Composable (() -> Unit)? = null,
     content: @Composable () -> Unit
 ){
+    val metrics = LocalHmpMetrics.current
+    val typo = LocalHmpTypo.current
     val horizontalPadding = when (LocalWindowSizeInfo.current.widthSizeClass) {
-        WindowWidthSizeClass.Expanded -> 48.dp
-        WindowWidthSizeClass.Medium -> 32.dp
-        WindowWidthSizeClass.Compact -> 16.dp
+        WindowWidthSizeClass.Expanded -> metrics.bar
+        WindowWidthSizeClass.Medium -> metrics.block
+        WindowWidthSizeClass.Compact -> metrics.cozy
     }
     var visible by rememberSaveable { mutableStateOf(false) }
 
@@ -55,23 +60,17 @@ fun SubScreen(
     AnimatedVisibility(
         visible = visible,
         enter = fadeIn(
-            animationSpec = tween(
-                durationMillis = 300,
-                easing = AnimationTokens.EASE_OUT
-            )
+            animationSpec = HmpMotion.enter()
         ),
         exit = fadeOut(
-            animationSpec = tween(
-                durationMillis = 200,
-                easing = AnimationTokens.EASE_IN
-            )
+            animationSpec = HmpMotion.exit()
         )
     ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .navigationBarsPadding()
-                .padding(top = 16.dp),
+                .padding(top = metrics.cozy),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Box(
@@ -88,11 +87,11 @@ fun SubScreen(
                 currentTitle?.let {
                     Text(
                         text = it,
-                        style = MaterialTheme.typography.headlineLarge,
+                        style = typo.headline,
                         color = MaterialTheme.colorScheme.onBackground,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.sizeIn(maxWidth = 280.dp)
+                        modifier = Modifier.sizeIn(maxWidth = LayoutConstraints.PanelMaxWidth)
                             .align(Alignment.Center)
                     )
                 }
@@ -118,4 +117,3 @@ fun SubScreen(
         }
     }
 }
-

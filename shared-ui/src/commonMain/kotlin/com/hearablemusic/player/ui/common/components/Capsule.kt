@@ -21,15 +21,19 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import com.hmp.domain.music.MusicExtra
 import com.hmp.domain.music.MusicLabel
+import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
+import com.hearablemusic.player.ui.common.design.typography.medium
 import com.hearablemusic.player.ui.generated.resources.Res
 import com.hearablemusic.player.ui.generated.resources.*
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 
 @Composable
 fun Capsule(
     text: String,
-    style: TextStyle = MaterialTheme.typography.bodyMedium,
+    style: TextStyle = LocalHmpTypo.current.body,
     color: Color = MaterialTheme.colorScheme.primary,
 ){
+    val metrics = LocalHmpMetrics.current
     Text(
         text = text,
         style = style,
@@ -37,9 +41,9 @@ fun Capsule(
         modifier = Modifier
             .background(
                 color = color,
-                shape = RoundedCornerShape(16.dp)
+                shape = RoundedCornerShape(metrics.cozy)
             )
-            .padding(horizontal = 12.dp, vertical = 6.dp)
+            .padding(horizontal = metrics.base, vertical = metrics.micro)
     )
 }
 
@@ -49,16 +53,18 @@ fun LabelsCapsule(
     extra: MusicExtra?,
     labels: List<MusicLabel?>
 ){
+    val metrics = LocalHmpMetrics.current
+    val typo = LocalHmpTypo.current
     Column(
         modifier = Modifier.fillMaxSize()
-            .padding(vertical = 16.dp, horizontal = 16.dp),
+            .padding(vertical = metrics.cozy, horizontal = metrics.cozy),
         verticalArrangement = Arrangement.Center
     ) {
         val color = MaterialTheme.colorScheme.tertiary
-        var style = MaterialTheme.typography.labelMedium
+        var style = typo.footnote.medium()
 
         Column(
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.spacedBy(metrics.compact)
         ) {
             extra?.let { it1 ->
                 listOf(
@@ -71,14 +77,14 @@ fun LabelsCapsule(
                 }
             }
         }
-        Spacer(modifier = Modifier.height(16.dp))
-        style = MaterialTheme.typography.labelSmall
+        Spacer(modifier = Modifier.height(metrics.cozy))
+        style = typo.caption
         FlowRow(
             maxItemsInEachRow = 4,
             modifier = Modifier
                 .fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.spacedBy(metrics.compact),
+            horizontalArrangement = Arrangement.spacedBy(metrics.compact)
         ){
             labels.forEach {
                 it?.let {

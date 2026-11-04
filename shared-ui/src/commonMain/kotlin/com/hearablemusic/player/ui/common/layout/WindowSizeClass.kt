@@ -7,6 +7,7 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.unit.dp
+import com.hearablemusic.player.ui.common.design.metrics.LayoutConstraints
 
 /**
  * 窗口宽度尺寸分类，断点与 Material3 WindowSizeClass 规范一致。
@@ -72,13 +73,13 @@ fun rememberAppWindowSizeInfo(): AppWindowSizeInfo {
     return remember(widthDp, heightDp) {
         AppWindowSizeInfo(
             widthSizeClass = when {
-                widthDp >= 840.dp -> WindowWidthSizeClass.Expanded
-                widthDp >= 600.dp -> WindowWidthSizeClass.Medium
+                widthDp >= LayoutConstraints.WidthBreakpointExpanded -> WindowWidthSizeClass.Expanded
+                widthDp >= LayoutConstraints.WidthBreakpointMedium -> WindowWidthSizeClass.Medium
                 else -> WindowWidthSizeClass.Compact
             },
             heightSizeClass = when {
-                heightDp >= 900.dp -> WindowHeightSizeClass.Expanded
-                heightDp >= 480.dp -> WindowHeightSizeClass.Medium
+                heightDp >= LayoutConstraints.HeightBreakpointExpanded -> WindowHeightSizeClass.Expanded
+                heightDp >= LayoutConstraints.HeightBreakpointMedium -> WindowHeightSizeClass.Medium
                 else -> WindowHeightSizeClass.Compact
             },
             widthDp = widthDp.value,

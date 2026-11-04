@@ -29,7 +29,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
-import com.hearablemusic.player.ui.common.design.dimens.LocalHMPDimens
+import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
+import com.hearablemusic.player.ui.common.design.typography.medium
 import com.hearablemusic.player.ui.common.components.base.HMPCard
 import com.hearablemusic.player.ui.common.navigation.Routes as NavRoutes
 import com.hearablemusic.player.ui.common.util.HapticFeedbackHelper
@@ -39,6 +40,7 @@ import com.hearablemusic.player.ui.generated.resources.gearshape
 import com.hearablemusic.player.ui.generated.resources.list_bullet_circle
 import com.hearablemusic.player.ui.generated.resources.person_filled_viewfinder
 import org.jetbrains.compose.resources.painterResource
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 
 /**
  * 区域③：功能入口区 —— 横排等宽三卡（只保留图标 + 标题；标题 titleSmall）。
@@ -53,11 +55,12 @@ fun FeatureEntryRow(
     modifier: Modifier = Modifier,
     haptic: HapticFeedbackHelper = rememberHapticFeedback(),
 ) {
+    val metrics = LocalHmpMetrics.current
     Row(
         modifier = modifier
             .fillMaxWidth(),
         // 同级卡间距统一 20dp（与 HomeScreen 区域②的卡间 20dp 一致）
-        horizontalArrangement = Arrangement.spacedBy(20.dp),
+        horizontalArrangement = Arrangement.spacedBy(metrics.cozy),
     ) {
         FeatureEntryCard(
             modifier = Modifier.weight(1f),
@@ -97,11 +100,13 @@ private fun FeatureEntryCard(
     title: String,
     onClick: () -> Unit,
 ) {
+    val metrics = LocalHmpMetrics.current
+    val typo = LocalHmpTypo.current
     HMPCard(
         modifier = modifier
             .clickable(onClick = onClick)
             .aspectRatio(1.2f),
-        contentPadding = Modifier.padding(vertical = 16.dp, horizontal = 12.dp)
+        contentPadding = Modifier.padding(vertical = metrics.cozy, horizontal = metrics.base)
     ) {
         Column(
             modifier = Modifier.fillMaxSize(),
@@ -113,10 +118,10 @@ private fun FeatureEntryCard(
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary,
             )
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(metrics.compact))
             Text(
                 text = title,
-                style = MaterialTheme.typography.titleSmall,
+                style = typo.body.medium(),
                 color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 1,
                 overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,

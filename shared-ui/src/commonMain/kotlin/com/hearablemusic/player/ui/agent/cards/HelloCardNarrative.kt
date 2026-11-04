@@ -1,5 +1,6 @@
 package com.hearablemusic.player.ui.agent.cards
 
+import com.hearablemusic.player.ui.common.design.colors.HelloCardPalette
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -22,10 +23,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
+import com.hearablemusic.player.ui.common.design.typography.medium
 import com.hearablemusic.player.ui.common.text.asString
 import com.hearablemusic.player.ui.generated.resources.Res
 import com.hearablemusic.player.ui.generated.resources.card_narrative_avg_daily
@@ -33,6 +34,7 @@ import com.hmp.domain.agent.card.NarrativeContent
 import com.hmp.domain.agent.card.SlideCard
 import com.hmp.domain.agent.card.zhName
 import org.jetbrains.compose.resources.stringResource
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 
 
 
@@ -53,8 +55,10 @@ internal fun FamilyNarrativeCard(
     onCardClick: ((SlideCard) -> Unit)? = null,
     onLongClick: ((SlideCard) -> Unit)? = null,
 ) {
+    val metrics = LocalHmpMetrics.current
     val c = card.content as NarrativeContent
-    val clickMod = modifier.clip(RoundedCornerShape(25.dp)).let { m ->
+    val typo = LocalHmpTypo.current
+    val clickMod = modifier.clip(RoundedCornerShape(metrics.section)).let { m ->
         when {
             onLongClick != null -> m.pointerInput(card.cardId) {
                 detectTapGestures(
@@ -69,7 +73,7 @@ internal fun FamilyNarrativeCard(
 
     Card(
         modifier = clickMod,
-        shape = RoundedCornerShape(25.dp),
+        shape = RoundedCornerShape(metrics.section),
         colors = CardDefaults.cardColors(containerColor = Color.Transparent),
     ) {
         Box(
@@ -77,10 +81,10 @@ internal fun FamilyNarrativeCard(
                 .fillMaxSize()
                 .background(
                     brush = Brush.linearGradient(
-                        colors = listOf(Color(0xFF5E35B1).copy(alpha = 0.95f), Color(0xFF311B92).copy(alpha = 0.90f))
+                        colors = listOf(HelloCardPalette.Narrative.Start.copy(alpha = 0.95f), HelloCardPalette.Narrative.End.copy(alpha = 0.90f))
                     )
                 )
-                .padding(horizontal = 22.dp, vertical = 20.dp),
+                .padding(horizontal = metrics.section, vertical = metrics.cozy),
         ) {
             // `SpaceBetween` → `Center`：本卡是"顶部标签 + 一段正文 + 可选脚注"的三段式，
             // 但**中间那段并不存在**。SpaceBetween 会把首尾两段硬推到上下两端，
@@ -91,26 +95,25 @@ internal fun FamilyNarrativeCard(
                 modifier = Modifier.fillMaxSize(),
                 verticalArrangement = Arrangement.Center,
             ) {
-                Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(metrics.base)) {
                     // ① 顶部标签：时间维度 + 生成时间
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(metrics.compact),
                     ) {
                         Text(
                             text = "${c.timeRange.zhName()}听歌报告",
+                            style = typo.footnote.medium(),
                             color = Color.White.copy(alpha = 0.7f),
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Medium,
                         )
                         Text(
                             text = formatGeneratedAgo(c.generatedAt)?.asString().orEmpty(),
+                            style = typo.micro,
                             color = Color.White.copy(alpha = 0.45f),
-                            fontSize = 10.sp,
                             modifier = Modifier
-                                .clip(RoundedCornerShape(6.dp))
+                                .clip(RoundedCornerShape(metrics.micro))
                                 .background(Color.White.copy(alpha = 0.10f))
-                                .padding(horizontal = 6.dp, vertical = 2.dp),
+                                .padding(horizontal = metrics.micro, vertical = metrics.hair),
                         )
                     }
 
@@ -118,9 +121,8 @@ internal fun FamilyNarrativeCard(
                     // 字号/行高按横屏大卡上调：卡高可达 420dp，13sp 的正文在大卡里会显得"飘"。
                     Text(
                         text = c.narrative,
+                        style = typo.body,
                         color = Color.White,
-                        fontSize = 15.sp,
-                        lineHeight = 25.sp,
                         maxLines = 6,
                         overflow = TextOverflow.Ellipsis,
                     )
@@ -129,11 +131,11 @@ internal fun FamilyNarrativeCard(
                 // ③ 底部：日均听歌时长（有值才显示）
                 val avg = c.avgDailyMinutes
                 if (avg != null && avg > 0f) {
-                    Spacer(Modifier.height(18.dp))
+                    Spacer(Modifier.height(metrics.cozy))
                     Text(
                         text = stringResource(Res.string.card_narrative_avg_daily, formatAvgMinutes(avg).asString()),
+                        style = typo.caption,
                         color = Color.White.copy(alpha = 0.5f),
-                        fontSize = 11.sp,
                     )
                 }
             }

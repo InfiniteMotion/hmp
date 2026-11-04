@@ -29,6 +29,7 @@ import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeEffect
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 
 /**
  * 伙伴胶囊（任务书 M1-T2，设计总纲 5.2.1 三胶囊底栏的常驻锚点）。
@@ -62,8 +63,9 @@ fun CompanionCapsule(
     hazeState: HazeState? = null,
     radioActive: Boolean = false,
 ) {
+    val metrics = LocalHmpMetrics.current
     val haptic = rememberPlatformHaptics()
-    val capsuleShape = RoundedCornerShape(36.dp)
+    val capsuleShape = RoundedCornerShape(metrics.block)
     val container = if (hazeState != null) {
         MaterialTheme.colorScheme.surface.copy(alpha = hazeTintAlpha())
     } else {
@@ -74,7 +76,7 @@ fun CompanionCapsule(
         shape = capsuleShape,
         colors = CardDefaults.cardColors(containerColor = container),
         border = BorderStroke(
-            width = 0.5.dp,
+            width = metrics.stroke.hairline,
             color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.14f)
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
@@ -107,8 +109,8 @@ fun CompanionCapsule(
             // 内容区与导航/播放胶囊同构：8dp 内边距 + 48dp 内容盒 + 图标 24dp（全局恒定 48dp 体系）
             Box(
                 modifier = Modifier
-                    .padding(8.dp)
-                    .size(48.dp),
+                    .padding(metrics.compact)
+                    .size(metrics.bar),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
@@ -127,7 +129,7 @@ fun CompanionCapsule(
                     } else {
                         MaterialTheme.colorScheme.onSurface
                     },
-                    modifier = Modifier.size(24.dp)
+                    modifier = Modifier.size(metrics.section)
                 )
             }
         }

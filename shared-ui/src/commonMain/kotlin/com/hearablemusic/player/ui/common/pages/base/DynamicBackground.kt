@@ -1,5 +1,6 @@
 package com.hearablemusic.player.ui.common.pages.base
 
+import com.hearablemusic.player.ui.common.design.colors.ColorTokens
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -41,6 +42,7 @@ import com.hearablemusic.player.ui.generated.resources.unknown
 import org.jetbrains.compose.resources.painterResource
 import kotlin.math.abs
 import kotlin.math.roundToInt
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 
 /**
  * 动态背景风格枚举
@@ -139,6 +141,7 @@ fun FluidBackground(
     albumArtUri: String?,
     isDarkTheme: Boolean
 ) {
+    val metrics = LocalHmpMetrics.current
     // 外层容器必须裁切，否则模糊效果会溢出屏幕边界
     BoxWithConstraints(
         modifier = Modifier
@@ -149,7 +152,7 @@ fun FluidBackground(
         val maxPx = with(density) { maxOf(maxWidth, maxHeight).toPx() }
 
         // 背景底色 - 亮色模式改用极淡灰，增加层次感
-        val baseColor = if (isDarkTheme) Color(0xFF121212) else Color(0xFFF5F5F5)
+        val baseColor = if (isDarkTheme) ColorTokens.DarkBackground else ColorTokens.LightBackgroundAlt
         Box(modifier = Modifier.fillMaxSize().background(baseColor))
 
         // 动画控制
@@ -267,7 +270,7 @@ fun FluidBackground(
                             rotationZ = baseRotation // 底层独立旋转
                             alpha = imageAlpha
                         }
-                        .blur(40.dp) // 大幅降低模糊，保留轮廓
+                        .blur(metrics.block) // 大幅降低模糊，保留轮廓
                 )
 
                 // 图层2 (叠加层) - 流动层 (顶层)
@@ -287,7 +290,7 @@ fun FluidBackground(
                             rotationZ = rotation1 // 顶层顺时针
                             alpha = imageAlpha * 0.7f
                         }
-                        .blur(25.dp) // 极低模糊，清晰的流动纹理
+                        .blur(metrics.section) // 极低模糊，清晰的流动纹理
                 )
             }
         }
@@ -305,8 +308,9 @@ fun SpotsBackground(
     paletteColors: PaletteColors,
     isDarkTheme: Boolean
 ) {
+    val metrics = LocalHmpMetrics.current
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-        val baseBackgroundColor = if (isDarkTheme) Color(0xFF121212) else Color(0xFFFFFFFF)
+        val baseBackgroundColor = if (isDarkTheme) ColorTokens.DarkBackground else ColorTokens.LightBackground
         Box(modifier = Modifier.fillMaxSize().background(baseBackgroundColor))
 
         // ── 权重驱动：3-7 个光斑 ──────────────────────────────
@@ -398,7 +402,7 @@ fun SpotsBackground(
         }
 
         // ── 绘制：最重光斑先绘（底色），轻的光斑后绘（上层）──
-        Canvas(modifier = Modifier.fillMaxSize().blur(18.dp)) {
+        Canvas(modifier = Modifier.fillMaxSize().blur(metrics.cozy)) {
             val w = size.width; val h = size.height; val maxDim = maxOf(w, h)
             val drawOrder = (0 until bloomCount).sortedByDescending { weights[it] }
             for (i in drawOrder) {
@@ -436,8 +440,9 @@ fun BlurBackground(
     albumArtUri: String?,
     isDarkTheme: Boolean
 ) {
+    val metrics = LocalHmpMetrics.current
     Box(modifier = Modifier.fillMaxSize()) {
-        val baseColor = if (isDarkTheme) Color(0xFF121212) else Color(0xFFFFFFFF)
+        val baseColor = if (isDarkTheme) ColorTokens.DarkBackground else ColorTokens.LightBackground
         Box(modifier = Modifier.fillMaxSize().background(baseColor))
 
         val transition = rememberInfiniteTransition(label = "blurBackground")
@@ -463,7 +468,7 @@ fun BlurBackground(
                 .fillMaxSize()
                 .scale(scale)
                 .graphicsLayer { alpha = imageAlpha }
-                .blur(50.dp) // 适度模糊，保留更多轮廓
+                .blur(metrics.bar) // 适度模糊，保留更多轮廓
         )
     }
 }

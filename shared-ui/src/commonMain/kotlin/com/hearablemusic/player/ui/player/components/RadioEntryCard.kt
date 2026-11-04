@@ -22,13 +22,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.hmp.domain.agent.quota.TokenQuotaGate
 import com.hmp.domain.agent.runtime.MasterAgent
 import com.hmp.domain.agent.runtime.sub.radio.RadioState
 import com.hearablemusic.player.ui.common.components.base.HMPCard
+import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
+import com.hearablemusic.player.ui.common.design.typography.medium
 import com.hearablemusic.player.ui.common.dialogs.controller.DialogManager
 import com.hearablemusic.player.ui.generated.resources.Res
 import com.hearablemusic.player.ui.generated.resources.agent_radio_anchor_thought
@@ -54,6 +55,7 @@ import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 
 /**
  * 播放页的电台入口（替换原「生成推荐列表」）。
@@ -69,10 +71,12 @@ fun RadioEntryCard(
     onOpenConsole: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val metrics = LocalHmpMetrics.current
     val masterAgent: MasterAgent = koinInject()
     val quotaGate: TokenQuotaGate = koinInject()
     val dialogManager: DialogManager = koinInject()
     val scope = rememberCoroutineScope()
+    val typo = LocalHmpTypo.current
 
     val radioState by masterAgent.radioState.collectAsState()
     val card by masterAgent.radioCardState.collectAsState()
@@ -105,7 +109,7 @@ fun RadioEntryCard(
         } else {
             MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
         },
-        contentPadding = Modifier.padding(20.dp),
+        contentPadding = Modifier.padding(metrics.cozy),
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
             Row(
@@ -117,45 +121,44 @@ fun RadioEntryCard(
                     contentDescription = null,
                     tint = if (isActive) MaterialTheme.colorScheme.primary
                     else MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(20.dp),
+                    modifier = Modifier.size(metrics.cozy),
                 )
-                Spacer(Modifier.size(10.dp))
+                Spacer(Modifier.size(metrics.compact))
                 Text(
                     text = stringResource(Res.string.radio_card_idle),
-                    style = MaterialTheme.typography.titleSmall,
+                    style = typo.body.medium(),
                     color = MaterialTheme.colorScheme.onSurface,
-                    fontWeight = FontWeight.SemiBold,
                 )
                 Spacer(Modifier.weight(1f))
                 if (isActive) {
                     Text(
                         text = statusText,
-                        style = MaterialTheme.typography.labelSmall,
+                        style = typo.caption,
                         color = if (isPaused) MaterialTheme.colorScheme.onSurfaceVariant
                         else MaterialTheme.colorScheme.primary,
                     )
                 }
             }
 
-            Spacer(Modifier.height(14.dp))
+            Spacer(Modifier.height(metrics.base))
 
             when {
                 isBuilding -> {
                     Text(
                         text = stringResource(Res.string.radio_card_building),
-                        style = MaterialTheme.typography.titleMedium,
+                        style = typo.subtitle,
                         color = MaterialTheme.colorScheme.onSurface,
                     )
-                    Spacer(Modifier.height(10.dp))
+                    Spacer(Modifier.height(metrics.compact))
                     val building = radioState as? RadioState.BUILDING
                     LinearProgressIndicator(
                         progress = { ((building?.progressPercent ?: 0) / 100f).coerceIn(0f, 1f) },
-                        modifier = Modifier.fillMaxWidth().height(4.dp),
+                        modifier = Modifier.fillMaxWidth().height(metrics.micro),
                     )
-                    Spacer(Modifier.height(8.dp))
+                    Spacer(Modifier.height(metrics.compact))
                     Text(
                         text = building?.actionText ?: stringResource(Res.string.radio_card_enable_hint),
-                        style = MaterialTheme.typography.labelSmall,
+                        style = typo.caption,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
@@ -164,31 +167,31 @@ fun RadioEntryCard(
                     Text(
                         text = card.theme?.takeIf { it.isNotBlank() }
                             ?: stringResource(Res.string.agent_radio_auto_theme),
-                        style = MaterialTheme.typography.titleMedium,
+                        style = typo.subtitle,
                         color = MaterialTheme.colorScheme.onSurface,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
-                    Spacer(Modifier.height(4.dp))
+                    Spacer(Modifier.height(metrics.micro))
                     Text(
                         text = stringResource(
                             Res.string.agent_radio_status_line,
                             statusText,
                             card.upcomingCount,
                         ),
-                        style = MaterialTheme.typography.labelSmall,
+                        style = typo.caption,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     card.lastAdjust?.takeIf { it.isNotBlank() }?.let { thought ->
-                        Spacer(Modifier.height(10.dp))
+                        Spacer(Modifier.height(metrics.compact))
                         Text(
                             text = stringResource(Res.string.agent_radio_anchor_thought),
-                            style = MaterialTheme.typography.labelSmall,
+                            style = typo.caption,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                         Text(
                             text = thought,
-                            style = MaterialTheme.typography.bodySmall,
+                            style = typo.footnote,
                             color = MaterialTheme.colorScheme.onSurface,
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis,
@@ -199,25 +202,25 @@ fun RadioEntryCard(
                 else -> {
                     Text(
                         text = stringResource(Res.string.radio_entry_seed_title),
-                        style = MaterialTheme.typography.titleMedium,
+                        style = typo.subtitle,
                         color = MaterialTheme.colorScheme.onSurface,
                     )
-                    Spacer(Modifier.height(4.dp))
+                    Spacer(Modifier.height(metrics.micro))
                     Text(
                         text = stringResource(Res.string.radio_entry_seed_desc),
-                        style = MaterialTheme.typography.bodySmall,
+                        style = typo.footnote,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }
 
-            Spacer(Modifier.height(18.dp))
+            Spacer(Modifier.height(metrics.cozy))
 
             when {
                 isBuilding -> {
                     OutlinedButton(
                         onClick = { scope.launch { masterAgent.stopRadio() } },
-                        modifier = Modifier.fillMaxWidth().height(46.dp),
+                        modifier = Modifier.fillMaxWidth().height(metrics.bar),
                     ) {
                         Text(stringResource(Res.string.cancel))
                     }
@@ -226,12 +229,12 @@ fun RadioEntryCard(
                 isActive -> {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(metrics.compact),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Button(
                             onClick = onOpenConsole,
-                            modifier = Modifier.weight(1f).height(46.dp),
+                            modifier = Modifier.weight(1f).height(metrics.bar),
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = MaterialTheme.colorScheme.primary,
                             ),
@@ -240,7 +243,7 @@ fun RadioEntryCard(
                         }
                         TextButton(
                             onClick = onOpenConsole,
-                            modifier = Modifier.height(46.dp),
+                            modifier = Modifier.height(metrics.bar),
                         ) {
                             Text(
                                 text = stringResource(Res.string.radio_card_end_session),
@@ -254,7 +257,7 @@ fun RadioEntryCard(
                     Button(
                         onClick = ::start,
                         enabled = !quotaExhausted,
-                        modifier = Modifier.fillMaxWidth().height(46.dp),
+                        modifier = Modifier.fillMaxWidth().height(metrics.bar),
                     ) {
                         Text(
                             text = if (quotaExhausted) {

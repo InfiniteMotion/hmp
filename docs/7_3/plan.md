@@ -355,7 +355,7 @@
 | **三-1** | **导航注册真闸门**：补 2 条 serializer；把恒真断言换成"路由 ↔ entry ↔ serializer"遍历断言 | D8-01、D8-02、X-05 | `:shared-ui:testAndroidHostTest`（覆盖 commonTest）：删键/漏注册即红 | — |
 | **三-2**（**已完成 2026-11-02**） | `Lang.resolvePrompt` 未知键静默空串 → 告警 + 回落 | D8-04 | `:shared-ui:testAndroidHostTest` | — |
 | **三-3**（**已完成 2026-11-02**） | **i18n 覆盖率门禁**：键集合与占位符断言；androidMain 旧副本去留；未译率可见 | D8-06 | `:shared-ui:testAndroidHostTest`：删 `values-de` 一个键或改坏 `%1$s` 即红 | — |
-| **三-4**（**已完成 2026-11-03：基线+增量自定义门禁；存量审计见 `design-token-audit.md`，P0 色值已收口（38→23），P1/P2 分批；X-07 通用风格闸门仍待决策**） | 设计 token 硬约定 + 例外白名单（**只做增量守门**） | D8-03 | `./gradlew-lowmem checkDesignTokens`（探针：新增硬编码精确红）+ `compileAll` | X-07（通用 style gate） |
+| **三-4**（**已完成 2026-11-03：基线+增量自定义门禁；存量审计见 `design-token-audit.md`，P0+P1 色值已收口（38→0，均为原值搬家），字号/尺寸 P2 分批；X-07 通用风格闸门仍待决策**） | 设计 token 硬约定 + 例外白名单（**只做增量守门**） | D8-03 | `./gradlew-lowmem checkDesignTokens`（探针：新增硬编码精确红）+ `compileAll` | X-07（通用 style gate） |
 | **三-5** | iOS 平台层空壳：Live Activity 不在构建图、标签写入桥未注册、DMG 版本号硬编码 | D9-01、D9-02、D9-03 | 实机（macOS + Xcode）；D9-03 本机可跑打包后 `mdls` | — |
 | **三-6** | Android 壳层：deep-link 声明无处理、`allowBackup` 与备份面 | D9-04、D9-05 | 实机（Android）；静态核查可本机 | — |
 | **三-7** | Desktop 壳层：主题监听线程、单实例不聚焦（产品取舍） | D9-06、D9-07 | 实机（macOS/Windows） | — |

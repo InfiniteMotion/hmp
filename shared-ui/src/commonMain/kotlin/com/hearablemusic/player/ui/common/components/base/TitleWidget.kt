@@ -18,12 +18,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 
 @Composable
 fun TitleWidget(
     title: String,
     content: @Composable () -> Unit
 ) {
+    val metrics = LocalHmpMetrics.current
+    val typo = LocalHmpTypo.current
     HMPCard {
         // Header Section with enhanced visual hierarchy
         Row(
@@ -32,8 +36,8 @@ fun TitleWidget(
             // Enhanced accent indicator with gradient effect
             Box(
                 modifier = Modifier
-                    .width(6.dp)
-                    .height(28.dp)
+                    .width(metrics.micro)
+                    .height(metrics.section)
                     .background(
                         brush = Brush.verticalGradient(
                             colors = listOf(
@@ -41,15 +45,15 @@ fun TitleWidget(
                                 MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
                             )
                         ),
-                        shape = RoundedCornerShape(3.dp)
+                        shape = RoundedCornerShape(metrics.hair)
                     )
             )
 
-            Spacer(modifier = Modifier.width(16.dp))
+            Spacer(modifier = Modifier.width(metrics.cozy))
 
             Text(
                 text = title,
-                style = MaterialTheme.typography.titleLarge,
+                style = typo.headline,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier
@@ -59,7 +63,7 @@ fun TitleWidget(
         // Content Section with subtle top padding
         Box(
             modifier = Modifier.fillMaxWidth()
-                .padding(vertical = 16.dp)
+                .padding(vertical = metrics.cozy)
         ) {
             content()
         }

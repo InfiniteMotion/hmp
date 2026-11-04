@@ -29,11 +29,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.hmp.domain.agent.card.EnrichTrackingContent
 import com.hmp.domain.agent.card.SlideCard
+import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 
 
 
@@ -48,14 +49,16 @@ internal fun FamilyEnrichTrackingCard(
     onCardClick: ((SlideCard) -> Unit)? = null,
     onLongClick: ((SlideCard) -> Unit)? = null,
 ) {
+    val metrics = LocalHmpMetrics.current
     val c = card.content as EnrichTrackingContent
     val pct = if (c.currentUnitSize > 0) (c.processed * 100 / c.currentUnitSize) else 0
     val isRunning = c.active
     val artistLabel = c.currentArtist?.let { if (it == "MIXED_GROUP") stringResource(Res.string.card_enrich_mixed_group) else it }
     val chunkLabel = if (c.chunkTotal > 0) " · chunk ${c.chunkIndex}/${c.chunkTotal}" else ""
+    val typo = LocalHmpTypo.current
 
     // 点击手势统一处理（RadioStatus 同款）
-    val clickMod = modifier.clip(RoundedCornerShape(25.dp)).let { m ->
+    val clickMod = modifier.clip(RoundedCornerShape(metrics.section)).let { m ->
         when {
             onLongClick != null -> m.pointerInput(card.cardId) {
                 detectTapGestures(
@@ -70,7 +73,7 @@ internal fun FamilyEnrichTrackingCard(
 
     Card(
         modifier = clickMod,
-        shape = RoundedCornerShape(25.dp),
+        shape = RoundedCornerShape(metrics.section),
         colors = CardDefaults.cardColors(containerColor = Color.Transparent),
     ) {
         Box(
@@ -91,7 +94,7 @@ internal fun FamilyEnrichTrackingCard(
                         }
                     )
                 )
-                .padding(horizontal = 20.dp, vertical = 18.dp),
+                .padding(horizontal = metrics.cozy, vertical = metrics.cozy),
         ) {
             // 本卡是"信息块 + 进度块"两段式。用 SpaceBetween 在大卡里同样会把两块推到
             // 上下两端、中间空出一条 → 改为 Center 分组，两段之间只留固定间隔。
@@ -99,19 +102,18 @@ internal fun FamilyEnrichTrackingCard(
                 modifier = Modifier.fillMaxSize(),
                 verticalArrangement = Arrangement.Center,
             ) {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(metrics.compact)) {
                     // 标题
                     Text(
                         text = if (isRunning) stringResource(Res.string.card_enrich_running) else stringResource(Res.string.card_enrich_paused),
-                        style = MaterialTheme.typography.headlineSmall,
+                        style = typo.subtitle,
                         color = if (isRunning) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
-                        fontWeight = FontWeight.SemiBold,
                     )
                     // 歌手 + chunk
                     if (artistLabel != null) {
                         Text(
                             text = "$artistLabel$chunkLabel",
-                            style = MaterialTheme.typography.bodyLarge,
+                            style = typo.body,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
@@ -120,22 +122,22 @@ internal fun FamilyEnrichTrackingCard(
                     // 当前阶段
                     Text(
                         text = c.phase,
-                        style = MaterialTheme.typography.bodyMedium,
+                        style = typo.body,
                         color = if (isRunning) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
                     )
                 }
-                Spacer(Modifier.height(28.dp))
+                Spacer(Modifier.height(metrics.section))
                 Column {
                     LinearProgressIndicator(
                         progress = { pct / 100f },
-                        modifier = Modifier.fillMaxWidth().height(8.dp),
+                        modifier = Modifier.fillMaxWidth().height(metrics.compact),
                         color = if (isRunning) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
                         trackColor = MaterialTheme.colorScheme.surfaceVariant,
                     )
-                    Spacer(Modifier.height(8.dp))
+                    Spacer(Modifier.height(metrics.compact))
                     Text(
                         text = stringResource(Res.string.card_enrich_progress, c.processed, c.success, c.failed, pct),
-                        style = MaterialTheme.typography.bodySmall,
+                        style = typo.footnote,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }

@@ -198,7 +198,7 @@ class ThemeViewModel(
             LabeledPeak(p, hsl[1], hsl[2], hsl[0])
         }
 
-        fun ColorPeak.toColor() = Color(0xFF000000L or (r.toLong() shl 16) or (g.toLong() shl 8) or b.toLong())
+        fun ColorPeak.toColor() = Color(0xFF000000L or (r.toLong() shl 16) or (g.toLong() shl 8) or b.toLong()) // design-token-exception: ARGB 位掩码，不是设计色
 
         val totalW = detected.sumOf { it.weight.toDouble() }.toFloat()
         val peaks = detected.map { it.toColor() }
@@ -287,7 +287,7 @@ class ThemeViewModel(
             b += ((b - bgB) * 0.15f).toInt().coerceIn(1, 30) * if (b > bgB) 1 else -1
             r = r.coerceIn(0, 255); g = g.coerceIn(0, 255); b = b.coerceIn(0, 255)
         }
-        return Color(0xFF000000L or (r.toLong() shl 16) or (g.toLong() shl 8) or b.toLong())
+        return Color(0xFF000000L or (r.toLong() shl 16) or (g.toLong() shl 8) or b.toLong()) // design-token-exception: ARGB 位掩码，不是设计色
     }
 
     private fun hueDist(color: Color, refHue: Float): Float {

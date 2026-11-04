@@ -25,6 +25,7 @@ import com.hearablemusic.player.ui.common.util.rememberPlatformHaptics
 import com.hearablemusic.player.ui.platform.HapticEffect
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 
 /**
  * 垂直滚动条：轨道 + 拇指，与 [listState] 联动；支持拖动拇指滚动列表。
@@ -35,6 +36,7 @@ internal fun MusicListScrollbar(
     config: ScrollbarConfig,
     modifier: Modifier = Modifier,
 ) {
+    val metrics = LocalHmpMetrics.current
     val density = LocalDensity.current
     val widthPx = with(density) { config.width.toPx() }
     val thumbMinPx = with(density) { config.thumbMinHeight.toPx() }
@@ -54,7 +56,7 @@ internal fun MusicListScrollbar(
 
     Box(
         modifier = modifier
-            .width(config.width + 8.dp)
+            .width(config.width + metrics.compact)
             .fillMaxHeight()
             .pointerInput(listState) {
                 detectDragGestures { change, dragAmount ->

@@ -24,6 +24,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
+import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
+import com.hearablemusic.player.ui.common.design.typography.medium
 import com.hearablemusic.player.ui.common.pages.base.SubScreen
 import com.hearablemusic.player.ui.common.layout.LocalWindowSizeInfo
 import com.hearablemusic.player.ui.common.navigation.Routes
@@ -43,11 +45,13 @@ import com.hearablemusic.player.ui.generated.resources.title_settings
 import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 
 @Composable
 fun SettingScreen(
     navController: NavBackStack<NavKey>
 ) {
+    val metrics = LocalHmpMetrics.current
     SubScreen(
         onBackClick = { navController.removeLastOrNull() },
         title = stringResource(Res.string.title_settings)
@@ -58,15 +62,15 @@ fun SettingScreen(
             modifier = Modifier
                 .verticalScroll(rememberScrollState())
                 .fillMaxWidth()
-                .padding(24.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+                .padding(metrics.section),
+            verticalArrangement = Arrangement.spacedBy(metrics.cozy)
         ) {
             if (isLandscape) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    horizontalArrangement = Arrangement.spacedBy(metrics.cozy)
                 ) {
-                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(metrics.cozy)) {
                         SettingItem(
                             title = stringResource(Res.string.profile_settings),
                             description = stringResource(Res.string.profile_desc),
@@ -86,7 +90,7 @@ fun SettingScreen(
                             }
                         )
                     }
-                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(metrics.cozy)) {
                         SettingItem(
                             title = stringResource(Res.string.library_settings),
                             description = stringResource(Res.string.library_desc),
@@ -138,38 +142,40 @@ fun SettingItem(
     icon: DrawableResource,
     onClick: () -> Unit
 ) {
+    val metrics = LocalHmpMetrics.current
+    val typo = LocalHmpTypo.current
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
+            .clip(RoundedCornerShape(metrics.base))
             .clickable(onClick = onClick),
-        shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(metrics.base),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
         )
     ) {
         Row(
             modifier = Modifier
-                .padding(16.dp)
+                .padding(metrics.cozy)
                 .fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
                 painter = painterResource(icon),
                 contentDescription = null,
-                modifier = Modifier.size(32.dp),
+                modifier = Modifier.size(metrics.block),
                 tint = MaterialTheme.colorScheme.primary
             )
-            Spacer(modifier = Modifier.width(16.dp))
+            Spacer(modifier = Modifier.width(metrics.cozy))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = title,
-                    style = MaterialTheme.typography.titleMedium,
+                    style = typo.subtitle,
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
                     text = description,
-                    style = MaterialTheme.typography.labelMedium,
+                    style = typo.footnote.medium(),
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }

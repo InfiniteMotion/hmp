@@ -68,9 +68,13 @@ import androidx.compose.ui.graphics.Color.Companion.Transparent
 import androidx.compose.ui.unit.dp
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
-import com.hearablemusic.player.ui.common.design.animation.AnimationTokens
+import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
+import com.hearablemusic.player.ui.common.design.typography.medium
 import com.hearablemusic.player.ui.common.navigation.Routes
 import com.hearablemusic.player.ui.common.util.rememberHapticFeedback
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
+import com.hearablemusic.player.ui.common.design.metrics.LayoutConstraints
+import com.hearablemusic.player.ui.common.design.animation.HmpMotion
 
 @Composable
 fun PlayControlButtonOne(
@@ -81,6 +85,8 @@ fun PlayControlButtonOne(
     onOrderPlay: () -> Unit,
     onShufflePlay: () -> Unit
 ) {
+    val metrics = LocalHmpMetrics.current
+    val typo = LocalHmpTypo.current
     var expanded by remember { mutableStateOf(false) }
     val haptic = rememberHapticFeedback()
 
@@ -96,13 +102,13 @@ fun PlayControlButtonOne(
                     expanded = !expanded
                 },
                 modifier = Modifier
-                    .size(32.dp)
+                    .size(metrics.block)
             ) {
                 Icon(
                     painter = painterResource(Res.drawable.slider_vertical_3),
                     tint = MaterialTheme.colorScheme.onSurface,
                     contentDescription = "select Button",
-                    modifier = Modifier.size(24.dp),
+                    modifier = Modifier.size(metrics.section),
                 )
             }
             IconButton(
@@ -110,13 +116,13 @@ fun PlayControlButtonOne(
                     onOrderPlay()
                 },
                 modifier = Modifier
-                    .size(32.dp)
+                    .size(metrics.block)
             ) {
                 Icon(
                     painter = painterResource(Res.drawable.order_play),
                     tint = MaterialTheme.colorScheme.onSurface,
                     contentDescription = "order play Button",
-                    modifier = Modifier.size(24.dp),
+                    modifier = Modifier.size(metrics.section),
                 )
             }
             IconButton(
@@ -125,13 +131,13 @@ fun PlayControlButtonOne(
                     onShufflePlay()
                 },
                 modifier = Modifier
-                    .size(32.dp)
+                    .size(metrics.block)
             ) {
                 Icon(
                     painter = painterResource(Res.drawable.shuffle),
                     tint = MaterialTheme.colorScheme.onSurface,
                     contentDescription = "shuffle play Button",
-                    modifier = Modifier.size(24.dp),
+                    modifier = Modifier.size(metrics.section),
                 )
             }
             IconButton(
@@ -139,28 +145,28 @@ fun PlayControlButtonOne(
                     haptic.performLightClick()
                 },
                 modifier = Modifier
-                    .size(32.dp)
+                    .size(metrics.block)
             ) {
                 Icon(
                     painter = painterResource(Res.drawable.lightbulb),
                     tint = MaterialTheme.colorScheme.onSurface,
                     contentDescription = "self play Button",
-                    modifier = Modifier.size(24.dp),
+                    modifier = Modifier.size(metrics.section),
                 )
             }
         }
         // 可隐藏的内容块
         AnimatedVisibility(
             visible = expanded,
-            enter = expandVertically(animationSpec = tween(durationMillis = 300, easing = AnimationTokens.EASE_OUT)) +
-                    fadeIn(animationSpec = tween(durationMillis = 300, easing = AnimationTokens.EASE_OUT)),
-            exit = shrinkVertically(animationSpec = tween(durationMillis = 300, easing = AnimationTokens.EASE_IN)) +
-                    fadeOut(animationSpec = tween(durationMillis = 300, easing = AnimationTokens.EASE_IN))
+            enter = expandVertically(animationSpec = HmpMotion.enter()) +
+                    fadeIn(animationSpec = HmpMotion.enter()),
+            exit = shrinkVertically(animationSpec = HmpMotion.exit()) +
+                    fadeOut(animationSpec = HmpMotion.exit())
         ) {
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
+                    .padding(horizontal = metrics.cozy),
                 color = Transparent,
             ) {
                 val genres = listOf(
@@ -178,24 +184,24 @@ fun PlayControlButtonOne(
                     stringResource(Res.string.order_desc) to SortDirection.DESC
                 )
                 Column(
-                    modifier = Modifier.padding(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                    modifier = Modifier.padding(metrics.compact),
+                    verticalArrangement = Arrangement.spacedBy(metrics.base)
                 ) {
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(metrics.cozy))
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(metrics.compact)
                     ) {
                         Text(
                             text = stringResource(Res.string.sort),
-                            style = MaterialTheme.typography.titleMedium,
+                            style = typo.subtitle,
                             color = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.padding(end = 8.dp)
+                            modifier = Modifier.padding(end = metrics.compact)
                         )
                         FlowRow(
                             maxItemsInEachRow = 3,
-                            verticalArrangement = Arrangement.spacedBy(4.dp),
-                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            verticalArrangement = Arrangement.spacedBy(metrics.micro),
+                            horizontalArrangement = Arrangement.spacedBy(metrics.micro),
                         ) {
                             genres.forEach { (genre,eGenre) ->
                                 FilterChip(
@@ -204,7 +210,7 @@ fun PlayControlButtonOne(
                                         haptic.performLightClick()
                                         onFilterGenreChange(eGenre)
                                     },
-                                    label = { Text(text = genre, style = MaterialTheme.typography.titleSmall) },
+                                    label = { Text(text = genre, style = typo.body.medium()) },
                                     // 选中状态样式
                                     colors = FilterChipDefaults.filterChipColors(
                                         selectedContainerColor = MaterialTheme.colorScheme.primary,
@@ -215,16 +221,16 @@ fun PlayControlButtonOne(
                     }
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(metrics.compact)
                     ) {
                         Text(
                             text = stringResource(Res.string.order),
-                            style = MaterialTheme.typography.titleMedium,
+                            style = typo.subtitle,
                             color = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.padding(end = 8.dp)
+                            modifier = Modifier.padding(end = metrics.compact)
                         )
                         Row(
-                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            horizontalArrangement = Arrangement.spacedBy(metrics.micro),
                         ) {
                             orders.forEach{ (order,eOrder) ->
                                 FilterChip(
@@ -233,7 +239,7 @@ fun PlayControlButtonOne(
                                         haptic.performLightClick()
                                         onFilterOrderChange(eOrder)
                                     },
-                                    label = { Text(text = order, style = MaterialTheme.typography.titleSmall) },
+                                    label = { Text(text = order, style = typo.body.medium()) },
                                     // 选中状态样式
                                     colors = FilterChipDefaults.filterChipColors(
                                         selectedContainerColor = MaterialTheme.colorScheme.primary,
@@ -253,11 +259,12 @@ fun PlayControlButtonTwo(
     onShufflePlay: () -> Unit,
     onOrderPlay: () -> Unit
 ) {
+    val metrics = LocalHmpMetrics.current
     val haptic = rememberHapticFeedback()
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 24.dp),
+            .padding(vertical = metrics.section),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -270,29 +277,29 @@ fun PlayControlButtonTwo(
                         onShufflePlay()
                     },
             modifier = Modifier
-                .size(32.dp)
+                .size(metrics.block)
             ) {
             Icon(
                 painter = painterResource(Res.drawable.shuffle),
                 tint = MaterialTheme.colorScheme.onSurface,
                 contentDescription = "shuffle play Button",
-                modifier = Modifier.size(24.dp),
+                modifier = Modifier.size(metrics.section),
             )
             }
-            Spacer(modifier = Modifier.width(160.dp))
+            Spacer(modifier = Modifier.width(LayoutConstraints.CoverHeightSmall))
             IconButton(
                 onClick = {
                     haptic.performConfirm()
                     onOrderPlay()
                 },
                 modifier = Modifier
-                    .size(32.dp)
+                    .size(metrics.block)
             ) {
                 Icon(
                     painter = painterResource(Res.drawable.order_play),
                     tint = MaterialTheme.colorScheme.onSurface,
                     contentDescription = "order play Button",
-                    modifier = Modifier.size(24.dp),
+                    modifier = Modifier.size(metrics.section),
                 )
             }
         }
@@ -305,6 +312,7 @@ fun PlayControlButtonTwo(
 fun BackButton(
     onClick: () -> Unit
 ){
+    val metrics = LocalHmpMetrics.current
     val haptic = rememberHapticFeedback()
     FilledIconButton(
         onClick = {
@@ -312,7 +320,7 @@ fun BackButton(
             onClick()
         },
         modifier = Modifier
-            .size(32.dp), // Larger touch target
+            .size(metrics.block), // Larger touch target
         colors = IconButtonDefaults.filledIconButtonColors(
             containerColor = MaterialTheme.colorScheme.primary,
             contentColor = MaterialTheme.colorScheme.onPrimary
@@ -321,7 +329,7 @@ fun BackButton(
         Icon(
             painter = painterResource(Res.drawable.chevron_left),
             contentDescription = stringResource(Res.string.back_button_desc),
-            modifier = Modifier.size(24.dp)
+            modifier = Modifier.size(metrics.section)
         )
     }
 }
@@ -330,6 +338,7 @@ fun BackButton(
 fun SearchButton(
     navController: NavBackStack<NavKey>
 ){
+    val metrics = LocalHmpMetrics.current
     val haptic = rememberHapticFeedback()
     FilledIconButton(
         onClick = {
@@ -337,7 +346,7 @@ fun SearchButton(
             navController.add(Routes.Library.Search)
         },
         modifier = Modifier
-            .size(32.dp), // Larger touch target
+            .size(metrics.block), // Larger touch target
         colors = IconButtonDefaults.filledIconButtonColors(
             containerColor = MaterialTheme.colorScheme.primary,
             contentColor = MaterialTheme.colorScheme.onPrimary
@@ -346,20 +355,21 @@ fun SearchButton(
         Icon(
             painter = painterResource(Res.drawable.magnifyingglass),
             contentDescription = stringResource(Res.string.search_button_desc),
-            modifier = Modifier.size(16.dp)
+            modifier = Modifier.size(metrics.cozy)
         )
     }
 }
 
 @Composable
 fun NewPlaylistButton(onClick: () -> Unit) {
+    val metrics = LocalHmpMetrics.current
     val haptic = rememberHapticFeedback()
     FilledIconButton(
         onClick = {
             haptic.performClick()
             onClick()
         },
-        modifier = Modifier.size(32.dp),
+        modifier = Modifier.size(metrics.block),
         colors = IconButtonDefaults.filledIconButtonColors(
             containerColor = MaterialTheme.colorScheme.primary,
             contentColor = MaterialTheme.colorScheme.onPrimary
@@ -368,7 +378,7 @@ fun NewPlaylistButton(onClick: () -> Unit) {
         Icon(
             painter = painterResource(Res.drawable.plus),
             contentDescription = stringResource(Res.string.new_playlist_desc),
-            modifier = Modifier.size(16.dp)
+            modifier = Modifier.size(metrics.cozy)
         )
     }
 }

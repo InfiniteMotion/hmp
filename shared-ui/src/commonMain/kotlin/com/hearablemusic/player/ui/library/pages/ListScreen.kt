@@ -50,7 +50,8 @@ import coil3.compose.AsyncImage
 import com.hearablemusic.player.ui.common.components.Capsule
 import com.hearablemusic.player.ui.common.components.SharedLabelIcon
 import com.hearablemusic.player.ui.common.components.base.NewPlaylistButton
-import com.hearablemusic.player.ui.common.design.dimens.LocalHMPDimens
+import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
+import com.hearablemusic.player.ui.common.design.typography.medium
 import com.hearablemusic.player.ui.common.dialogs.viewmodel.DialogViewModel
 import com.hearablemusic.player.ui.common.layout.LocalWindowSizeInfo
 import com.hearablemusic.player.ui.common.layout.WindowWidthSizeClass
@@ -81,16 +82,18 @@ import com.hearablemusic.player.ui.generated.resources.title_playlist
 import com.hearablemusic.player.ui.generated.resources.user_custom_playlists
 import com.hearablemusic.player.ui.library.pages.components.ListGroupName
 import com.hearablemusic.player.ui.playlist.viewmodel.PlaylistViewModel
+import com.hearablemusic.player.ui.common.design.colors.ColorTokens
 import com.hmp.domain.enum.LabelName
 import com.hmp.domain.playlist.Playlist
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 
-/** HD 强调色板。 */
-private val HDGreen = Color(0xFF4E6E45)
-private val HDBlue = Color(0xFF002FA7)
-private val HDPurple = Color(0xFF6A0DAD)
-private val HDOrange = Color(0xFFFFBF00)
+/** HD 强调色板（统一定义在 ColorTokens）。 */
+private val HDGreen = ColorTokens.HDGreen
+private val HDBlue = ColorTokens.HDBlue
+private val HDPurple = ColorTokens.HDPurple
+private val HDOrange = ColorTokens.HDOrange
 
 @Composable
 fun ListScreen(
@@ -132,14 +135,15 @@ fun ListScreenContent(
     dialogViewModel: DialogViewModel,
     navController: NavBackStack<NavKey>
 ) {
+    val metrics = LocalHmpMetrics.current
     val haptic = rememberHapticFeedback()
     val sizeClass = LocalWindowSizeInfo.current.widthSizeClass
     val isLandscape = LocalWindowSizeInfo.current.isLandscape
-    val dimens = LocalHMPDimens.current
+    val typo = LocalHmpTypo.current
     val contentHorizontalPadding = when (sizeClass) {
-        WindowWidthSizeClass.Expanded -> 32.dp
-        WindowWidthSizeClass.Medium -> 24.dp
-        WindowWidthSizeClass.Compact -> 20.dp
+        WindowWidthSizeClass.Expanded -> metrics.block
+        WindowWidthSizeClass.Medium -> metrics.section
+        WindowWidthSizeClass.Compact -> metrics.cozy
     }
 
     // 与列表管理页一致：置顶优先，再按最近播放、更新时间
@@ -170,7 +174,7 @@ fun ListScreenContent(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(dimens.spacing.lg),
+            verticalArrangement = Arrangement.spacedBy(metrics.section),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             // 用户自定义播放列表
@@ -196,7 +200,7 @@ fun ListScreenContent(
                 LazyRow(
                     modifier = Modifier.fillMaxWidth(),
                     contentPadding = PaddingValues(horizontal = contentHorizontalPadding),
-                    horizontalArrangement = Arrangement.spacedBy(dimens.spacing.md)
+                    horizontalArrangement = Arrangement.spacedBy(metrics.cozy)
                 ) {
                     items(sortedUserPlaylists) { playlist ->
                         UserListCard(
@@ -225,7 +229,7 @@ fun ListScreenContent(
                     state = scenarioListState,
                     flingBehavior = scenarioFlingBehavior,
                     contentPadding = PaddingValues(horizontal = contentHorizontalPadding),
-                    horizontalArrangement = Arrangement.spacedBy(dimens.spacing.md)
+                    horizontalArrangement = Arrangement.spacedBy(metrics.cozy)
                 ) {
                     items(list) { label ->
                         ScenarioCard(
@@ -254,7 +258,7 @@ fun ListScreenContent(
                     state = genreListState,
                     flingBehavior = genreFlingBehavior,
                     contentPadding = PaddingValues(horizontal = contentHorizontalPadding),
-                    horizontalArrangement = Arrangement.spacedBy(dimens.spacing.md)
+                    horizontalArrangement = Arrangement.spacedBy(metrics.cozy)
                 ) {
                     items(list) { label ->
                         GenreCard(
@@ -275,12 +279,12 @@ fun ListScreenContent(
                 bannerNameS = stringResource(Res.string.banner_daily_CC),
                 themeColor = HDOrange
             ) { list ->
-                Box(modifier = Modifier.height(dimens.component.lg)) {
+                Box(modifier = Modifier.height(metrics.card)) {
                     LazyHorizontalGrid(
                         rows = GridCells.Fixed(2),
                         contentPadding = PaddingValues(horizontal = contentHorizontalPadding),
-                        horizontalArrangement = Arrangement.spacedBy(dimens.spacing.md),
-                        verticalArrangement = Arrangement.spacedBy(dimens.spacing.md),
+                        horizontalArrangement = Arrangement.spacedBy(metrics.cozy),
+                        verticalArrangement = Arrangement.spacedBy(metrics.cozy),
                         modifier = Modifier.fillMaxSize()
                     ) {
                         items(list) { label ->
@@ -304,8 +308,8 @@ fun ListScreenContent(
                 themeColor = HDPurple
             ) { list ->
                 FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(dimens.spacing.md),
-                    verticalArrangement = Arrangement.spacedBy(dimens.spacing.md),
+                    horizontalArrangement = Arrangement.spacedBy(metrics.cozy),
+                    verticalArrangement = Arrangement.spacedBy(metrics.cozy),
                     modifier = Modifier.fillMaxWidth()
                         .padding(horizontal = contentHorizontalPadding)
                 ) {
@@ -318,14 +322,14 @@ fun ListScreenContent(
                         ) {
                             Capsule(
                                 text = label.name,
-                                style = MaterialTheme.typography.labelLarge,
+                                style = typo.body.medium(),
                                 color = MaterialTheme.colorScheme.primary
                             )
                         }
                     }
                 }
             }
-            Spacer(modifier = Modifier.height(72.dp))
+            Spacer(modifier = Modifier.height(metrics.row))
         }
     }
 }
@@ -357,14 +361,15 @@ private fun GenreCard(
     label: LabelName,
     onClick: () -> Unit
 ) {
-    val dimens = LocalHMPDimens.current
+    val metrics = LocalHmpMetrics.current
+    val typo = LocalHmpTypo.current
     Card(
         modifier = Modifier
-            .width(dimens.component.md)
-            .height(dimens.component.sm)
+            .width(metrics.card)
+            .height(metrics.panel)
             .clickable(onClick = onClick),
-        shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+        shape = RoundedCornerShape(metrics.cozy),
+        elevation = CardDefaults.cardElevation(defaultElevation = metrics.micro)
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
             // 背景图
@@ -390,11 +395,11 @@ private fun GenreCard(
             // 文字
             Text(
                 text = label.name,
-                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                style = typo.subtitle.copy(fontWeight = FontWeight.Bold),
                 color = Color.White,
                 modifier = Modifier
                     .align(Alignment.BottomStart)
-                    .padding(dimens.spacing.md)
+                    .padding(metrics.cozy)
                 )
         }
     }
@@ -405,13 +410,13 @@ private fun MoodCard(
     label: LabelName,
     onClick: () -> Unit
 ) {
-    val dimens = LocalHMPDimens.current
+    val metrics = LocalHmpMetrics.current
     Card(
         modifier = Modifier
-            .size(dimens.component.sm)
+            .size(metrics.panel)
             .clickable(onClick = onClick),
-        shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+        shape = RoundedCornerShape(metrics.cozy),
+        elevation = CardDefaults.cardElevation(defaultElevation = metrics.micro)
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
             SharedLabelIcon(
@@ -434,14 +439,15 @@ private fun ScenarioCard(
     onClick: () -> Unit,
     sizeClass: WindowWidthSizeClass,
 ) {
-    val dimens = LocalHMPDimens.current
+    val metrics = LocalHmpMetrics.current
+    val typo = LocalHmpTypo.current
     Card(
         modifier = Modifier
-            .width(dimens.component.xl)
-            .height(dimens.component.md)
+            .width(metrics.hero)
+            .height(metrics.card)
             .clickable(onClick = onClick),
-        shape = RoundedCornerShape(20.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
+        shape = RoundedCornerShape(metrics.cozy),
+        elevation = CardDefaults.cardElevation(defaultElevation = metrics.micro)
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
             SharedLabelIcon(
@@ -466,17 +472,17 @@ private fun ScenarioCard(
             Column(
                 modifier = Modifier
                     .align(Alignment.BottomStart)
-                    .padding(dimens.spacing.md)
+                    .padding(metrics.cozy)
             ) {
                 Text(
                     text = label.name,
-                    style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
+                    style = typo.subtitle.copy(fontWeight = FontWeight.Bold),
                     color = Color.White
                 )
-                Spacer(modifier = Modifier.height(dimens.spacing.xs))
+                Spacer(modifier = Modifier.height(metrics.micro))
                 Text(
                     text = stringResource(Res.string.suitable_for_now),
-                    style = MaterialTheme.typography.bodySmall,
+                    style = typo.footnote,
                     color = Color.White.copy(alpha = 0.8f)
                 )
             }
@@ -491,14 +497,15 @@ fun UserListCard(
     modifier: Modifier = Modifier,
     sizeClass: WindowWidthSizeClass,
 ) {
-    val dimens = LocalHMPDimens.current
+    val metrics = LocalHmpMetrics.current
+    val typo = LocalHmpTypo.current
     Card(
         modifier = modifier
-            .width(dimens.component.xl)
-            .height(dimens.component.xxl)
+            .width(metrics.hero)
+            .height(metrics.hero)
             .clickable(onClick = onClick),
-        shape = RoundedCornerShape(20.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
+        shape = RoundedCornerShape(metrics.cozy),
+        elevation = CardDefaults.cardElevation(defaultElevation = metrics.micro)
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
             if (playlist.coverUri != null && playlist.coverUri!!.isNotBlank()) {
@@ -526,7 +533,7 @@ fun UserListCard(
                         painter = painterResource(Res.drawable.music_note_list),
                         contentDescription = null,
                         modifier = Modifier
-                            .size(dimens.component.sm),
+                            .size(metrics.panel),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                     )
                 }
@@ -548,11 +555,11 @@ fun UserListCard(
                 modifier = Modifier
                     .align(Alignment.BottomStart)
                     .fillMaxWidth()
-                    .padding(dimens.spacing.md)
+                    .padding(metrics.cozy)
             ) {
                 Text(
                     text = playlist.name,
-                    style = MaterialTheme.typography.headlineSmall.copy(
+                    style = typo.subtitle.copy(
                         fontWeight = FontWeight.Bold
                     ),
                     color = Color.White,
@@ -574,11 +581,11 @@ fun UserListCard(
                     if (parts.isNotEmpty()) {
                         Text(
                             text = parts.take(2).joinToString(" · "),
-                            style = MaterialTheme.typography.bodySmall,
+                            style = typo.footnote,
                             color = Color.White.copy(alpha = 0.8f),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.padding(top = dimens.spacing.xs)
+                            modifier = Modifier.padding(top = metrics.micro)
                         )
                     }
                 }

@@ -14,7 +14,11 @@ import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
 import com.hearablemusic.player.ui.common.design.theme.ThemeManager
-import com.hearablemusic.player.ui.common.design.typography.TypographyTokens
+import com.hearablemusic.player.ui.common.design.metrics.HMPMetricTokens
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
+import com.hearablemusic.player.ui.common.design.typography.HMPTypoTokens
+import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
+import com.hearablemusic.player.ui.common.design.typography.m3ComponentTypography
 import com.hearablemusic.player.ui.common.layout.LocalWindowSizeInfo
 import com.hearablemusic.player.ui.common.layout.rememberAppWindowSizeInfo
 import com.hearablemusic.player.ui.common.navigation.Routes
@@ -72,19 +76,26 @@ fun settingsPilotGraph(navController: NavBackStack<NavKey>) = entryProvider<NavK
  *
  * 壳职责（对齐 AppRoot 的裁剪版）：
  * 1. CompositionLocalProvider 提供应用级 ViewModelStoreOwner
- * 2. MaterialTheme + TypographyTokens（HarmonyOS Sans 字体族由 composeResources 注入）
+ * 2. MaterialTheme + 字阶内部投影（HarmonyOS Sans 字体族由 composeResources 注入，业务排版走 LocalHmpTypo）
  * 3. NavDisplay 承载设置模块导航
  */
 @Composable
 fun IosSettingsPilotRoot() {
     val storeOwner = remember { IosAppViewModelStoreOwner() }
     val windowSizeInfo = rememberAppWindowSizeInfo()
+    // 字阶 9 角色 + 统一尺寸刻度 12 档（共用同一档位判据，业务走两个 CompositionLocal）
+    val typo = HMPTypoTokens.rememberHmpTypo()
+    val metrics = HMPMetricTokens.rememberHmpMetrics()
     CompositionLocalProvider(LocalAppViewModelStoreOwner provides storeOwner) {
         MaterialTheme(
             colorScheme = ThemeManager.getLightColorScheme(),
-            typography = TypographyTokens.Typography
+            typography = m3ComponentTypography(typo)
         ) {
-            CompositionLocalProvider(LocalWindowSizeInfo provides windowSizeInfo) {
+            CompositionLocalProvider(
+                LocalWindowSizeInfo provides windowSizeInfo,
+                LocalHmpTypo provides typo,
+                LocalHmpMetrics provides metrics
+            ) {
                 val navController = rememberHmpNavBackStack(Routes.Settings.Setting)
                 NavDisplay(
                     backStack = navController,

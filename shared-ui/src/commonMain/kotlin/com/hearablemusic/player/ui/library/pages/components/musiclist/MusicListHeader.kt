@@ -37,19 +37,23 @@ import org.jetbrains.compose.resources.stringResource
 import androidx.compose.ui.unit.dp
 import com.hearablemusic.player.ui.generated.resources.Res
 import com.hearablemusic.player.ui.generated.resources.*
-import com.hearablemusic.player.ui.common.design.animation.AnimationTokens
+import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
+import com.hearablemusic.player.ui.common.design.typography.medium
 import com.hearablemusic.player.ui.common.util.rememberPlatformHaptics
 import com.hearablemusic.player.ui.platform.HapticEffect
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
+import com.hearablemusic.player.ui.common.design.metrics.HMPMetricTokens
+import com.hearablemusic.player.ui.common.design.animation.HmpMotion
 
 /** 头部/编辑栏统一高度与 padding，保证切换时无高度变化 */
-private val HeaderRowPadding = 12.dp
-private val HeaderRowVerticalPadding = 12.dp
-private val HeaderRowBottomPadding = 4.dp
+private val HeaderRowPadding = HMPMetricTokens.Compact.base
+private val HeaderRowVerticalPadding = HMPMetricTokens.Compact.base
+private val HeaderRowBottomPadding = HMPMetricTokens.Compact.micro
 /** 头部行内容高度（与 IconButton 一致），总高度 = VerticalPadding + ContentHeight + BottomPadding */
-private val HeaderRowContentHeight = 32.dp
+private val HeaderRowContentHeight = HMPMetricTokens.Compact.block
 private val HeaderBarTotalHeight = HeaderRowVerticalPadding + HeaderRowContentHeight + HeaderRowBottomPadding
 /** 数字 label 固定宽度，避免数量变化时布局偏移 */
-private val CountLabelWidth = 32.dp
+private val CountLabelWidth = HMPMetricTokens.Compact.block
 
 /**
  * 根据 [HeaderConfig] 渲染头部：None / Simple（顺序+随机）/ Full（排序筛选+播放）/ Custom。
@@ -101,6 +105,8 @@ private fun SimpleHeader(
     trailing: (@Composable () -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
+    val metrics = LocalHmpMetrics.current
+    val typo = LocalHmpTypo.current
     val haptic = rememberPlatformHaptics()
     Row(
         modifier = modifier
@@ -114,7 +120,7 @@ private fun SimpleHeader(
         if (listCount != null) {
             Text(
                 text = "$listCount",
-                style = MaterialTheme.typography.headlineSmall,
+                style = typo.subtitle,
                 color = MaterialTheme.colorScheme.onBackground,
                 modifier = Modifier.width(CountLabelWidth),
             )
@@ -125,12 +131,12 @@ private fun SimpleHeader(
                 haptic.perform(HapticEffect.VIRTUAL_KEY)
                 onOrderPlay()
             },
-            modifier = Modifier.size(32.dp),
+            modifier = Modifier.size(metrics.block),
         ) {
             Icon(
                 painter = painterResource(Res.drawable.order_play),
                 contentDescription = stringResource(Res.string.order_play_desc),
-                modifier = Modifier.size(24.dp),
+                modifier = Modifier.size(metrics.section),
                 tint = MaterialTheme.colorScheme.onSurface,
             )
         }
@@ -139,12 +145,12 @@ private fun SimpleHeader(
                 haptic.perform(HapticEffect.CONFIRM)
                 onShufflePlay()
             },
-            modifier = Modifier.size(32.dp),
+            modifier = Modifier.size(metrics.block),
         ) {
             Icon(
                 painter = painterResource(Res.drawable.shuffle),
                 contentDescription = stringResource(Res.string.shuffle_desc),
-                modifier = Modifier.size(24.dp),
+                modifier = Modifier.size(metrics.section),
                 tint = MaterialTheme.colorScheme.onSurface,
             )
         }
@@ -154,12 +160,12 @@ private fun SimpleHeader(
                     haptic.perform(HapticEffect.VIRTUAL_KEY)
                     onEditClick()
                 },
-                modifier = Modifier.size(32.dp),
+                modifier = Modifier.size(metrics.block),
             ) {
                 Icon(
                     painter = painterResource(Res.drawable.rectangle_on_rectangle),
                     contentDescription = stringResource(Res.string.edit_desc),
-                    modifier = Modifier.size(24.dp),
+                    modifier = Modifier.size(metrics.section),
                     tint = MaterialTheme.colorScheme.onSurface,
                 )
             }
@@ -181,6 +187,8 @@ private fun FullHeader(
     modifier: Modifier = Modifier,
     singleRowFilter: Boolean = false,
 ) {
+    val metrics = LocalHmpMetrics.current
+    val typo = LocalHmpTypo.current
     var expanded by remember { mutableStateOf(false) }
     val haptic = rememberPlatformHaptics()
     val transparent = Color.Transparent
@@ -198,7 +206,7 @@ private fun FullHeader(
             if (listCount != null) {
                 Text(
                     text = "$listCount",
-                    style = MaterialTheme.typography.headlineSmall,
+                    style = typo.subtitle,
                     color = MaterialTheme.colorScheme.onBackground,
                     modifier = Modifier.width(CountLabelWidth),
                 )
@@ -208,12 +216,12 @@ private fun FullHeader(
                     haptic.perform(HapticEffect.VIRTUAL_KEY)
                     expanded = !expanded
                 },
-                modifier = Modifier.size(32.dp),
+                modifier = Modifier.size(metrics.block),
             ) {
                 Icon(
                     painter = painterResource(Res.drawable.slider_vertical_3),
                     contentDescription = stringResource(Res.string.expand_sort_desc),
-                    modifier = Modifier.size(24.dp),
+                    modifier = Modifier.size(metrics.section),
                     tint = MaterialTheme.colorScheme.onSurface,
                 )
             }
@@ -222,12 +230,12 @@ private fun FullHeader(
                     haptic.perform(HapticEffect.VIRTUAL_KEY)
                     onOrderPlay()
                 },
-                modifier = Modifier.size(32.dp),
+                modifier = Modifier.size(metrics.block),
             ) {
                 Icon(
                     painter = painterResource(Res.drawable.order_play),
                     contentDescription = stringResource(Res.string.order_play_desc),
-                    modifier = Modifier.size(24.dp),
+                    modifier = Modifier.size(metrics.section),
                     tint = MaterialTheme.colorScheme.onSurface,
                 )
             }
@@ -236,12 +244,12 @@ private fun FullHeader(
                     haptic.perform(HapticEffect.CONFIRM)
                     onShufflePlay()
                 },
-                modifier = Modifier.size(32.dp),
+                modifier = Modifier.size(metrics.block),
             ) {
                 Icon(
                     painter = painterResource(Res.drawable.shuffle),
                     contentDescription = stringResource(Res.string.shuffle_desc),
-                    modifier = Modifier.size(24.dp),
+                    modifier = Modifier.size(metrics.section),
                     tint = MaterialTheme.colorScheme.onSurface,
                 )
             }
@@ -251,12 +259,12 @@ private fun FullHeader(
                         haptic.perform(HapticEffect.VIRTUAL_KEY)
                         onEditClick()
                     },
-                    modifier = Modifier.size(32.dp),
+                    modifier = Modifier.size(metrics.block),
                 ) {
                     Icon(
                         painter = painterResource(Res.drawable.rectangle_on_rectangle),
                         contentDescription = stringResource(Res.string.edit_desc),
-                        modifier = Modifier.size(24.dp),
+                        modifier = Modifier.size(metrics.section),
                         tint = MaterialTheme.colorScheme.onSurface,
                     )
                 }
@@ -264,15 +272,15 @@ private fun FullHeader(
         }
         AnimatedVisibility(
             visible = expanded,
-            enter = expandVertically(animationSpec = tween(durationMillis = 300, easing = AnimationTokens.EASE_OUT)) +
-                fadeIn(animationSpec = tween(durationMillis = 300, easing = AnimationTokens.EASE_OUT)),
-            exit = shrinkVertically(animationSpec = tween(durationMillis = 300, easing = AnimationTokens.EASE_IN)) +
-                fadeOut(animationSpec = tween(durationMillis = 300, easing = AnimationTokens.EASE_IN)),
+            enter = expandVertically(animationSpec = HmpMotion.enter()) +
+                fadeIn(animationSpec = HmpMotion.enter()),
+            exit = shrinkVertically(animationSpec = HmpMotion.exit()) +
+                fadeOut(animationSpec = HmpMotion.exit()),
         ) {
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 12.dp),
+                    .padding(horizontal = metrics.base),
                 color = transparent,
             ) {
                 val genres = listOf(
@@ -290,23 +298,23 @@ private fun FullHeader(
                     stringResource(Res.string.order_desc) to SortDirection.DESC,
                 )
                 Column(
-                    modifier = Modifier.padding(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.padding(metrics.compact),
+                    verticalArrangement = Arrangement.spacedBy(metrics.base),
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(metrics.compact),
                     ) {
                         Text(
                             text = stringResource(Res.string.sort),
-                            style = MaterialTheme.typography.titleMedium,
+                            style = typo.subtitle,
                             color = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.padding(end = 8.dp),
+                            modifier = Modifier.padding(end = metrics.compact),
                         )
                         FlowRow(
                             maxItemsInEachRow = 3,
-                            verticalArrangement = Arrangement.spacedBy(4.dp),
-                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            verticalArrangement = Arrangement.spacedBy(metrics.micro),
+                            horizontalArrangement = Arrangement.spacedBy(metrics.micro),
                         ) {
                             genres.forEach { (label, value) ->
                                 FilterChip(
@@ -318,7 +326,7 @@ private fun FullHeader(
                                     label = {
                                         Text(
                                             text = label,
-                                            style = MaterialTheme.typography.titleSmall,
+                                            style = typo.body.medium(),
                                         )
                                     },
                                     colors = FilterChipDefaults.filterChipColors(
@@ -331,15 +339,15 @@ private fun FullHeader(
                     }
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(metrics.compact),
                     ) {
                         Text(
                             text = stringResource(Res.string.order),
-                            style = MaterialTheme.typography.titleMedium,
+                            style = typo.subtitle,
                             color = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.padding(end = 8.dp),
+                            modifier = Modifier.padding(end = metrics.compact),
                         )
-                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(metrics.micro)) {
                             orders.forEach { (label, value) ->
                                 FilterChip(
                                     selected = selectedOrder == value,
@@ -350,7 +358,7 @@ private fun FullHeader(
                                     label = {
                                         Text(
                                             text = label,
-                                            style = MaterialTheme.typography.titleSmall,
+                                            style = typo.body.medium(),
                                         )
                                     },
                                     colors = FilterChipDefaults.filterChipColors(

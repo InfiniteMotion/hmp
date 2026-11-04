@@ -50,6 +50,7 @@ import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
 import com.hearablemusic.player.ui.common.pages.base.SubScreen
 import com.hearablemusic.player.ui.common.components.base.HMPTextField
+import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
 import com.hearablemusic.player.ui.common.layout.LocalWindowSizeInfo
 import com.hearablemusic.player.ui.generated.resources.Res
 import com.hearablemusic.player.ui.generated.resources.ai_quota_exhausted_hint
@@ -61,6 +62,13 @@ import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.painterResource
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
+import com.hearablemusic.player.ui.common.design.metrics.LayoutConstraints
+import com.hearablemusic.player.ui.common.design.animation.HmpMotion
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.expandIn
+import androidx.compose.animation.shrinkOut
 
 /**
  * M5-T1 ChatScreen —— 听歌伙伴对话页（确认卡片流宿主）。
@@ -121,6 +129,8 @@ private fun ChatScreenContent(
     onPlaylistPlayAll: () -> Unit,
     onBackClick: () -> Unit,
 ) {
+    val metrics = LocalHmpMetrics.current
+    val typo = LocalHmpTypo.current
     var inputFocused by remember { mutableStateOf(false) }
     val callbacks = CompanionCallbacks(
         onSongClick = onSongClick,
@@ -140,8 +150,8 @@ private fun ChatScreenContent(
         val window = LocalWindowSizeInfo.current
         val isWide = window.isExpanded || window.isMedium
         val maxContentWidth = when {
-            window.isLandscape -> 840.dp
-            isWide -> 640.dp
+            window.isLandscape -> LayoutConstraints.WidthBreakpointExpanded
+            isWide -> LayoutConstraints.ContentMaxWidthMedium
             else -> Dp.Unspecified
         }
         Column(
@@ -167,7 +177,9 @@ private fun ChatScreenContent(
 
         AnimatedVisibility(
             visible = state.pendingConfirm != null,
-            modifier = Modifier.padding(horizontal = 12.dp),
+            modifier = Modifier.padding(horizontal = metrics.base),
+            enter = fadeIn(HmpMotion.enter()) + expandIn(HmpMotion.enter()),
+            exit = fadeOut(HmpMotion.exit()) + shrinkOut(HmpMotion.exit()),
         ) {
             state.pendingConfirm?.let { p ->
                 ConfirmMatrixCard(
@@ -182,9 +194,9 @@ private fun ChatScreenContent(
         if (quotaBlocked) {
             Text(
                 text = stringResource(Res.string.ai_quota_exhausted_hint),
-                style = MaterialTheme.typography.labelSmall,
+                style = typo.caption,
                 color = MaterialTheme.colorScheme.error,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                modifier = Modifier.padding(horizontal = metrics.cozy, vertical = metrics.micro),
             )
         }
         // 底部输入栏（自绘紧凑输入框 + 圆形发送）
@@ -210,6 +222,7 @@ private fun ChatMessageList(
     inputFocused: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
+    val metrics = LocalHmpMetrics.current
     val listState = rememberLazyListState()
 
     // 新增任何消息（用户/伙伴）→ 自动滚到最底部显示最新一条
@@ -241,8 +254,8 @@ private fun ChatMessageList(
                     scrollScope.launch { listState.scrollToItem(messages.lastIndex) }
                 }
             },
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = metrics.base, vertical = metrics.base),
+        verticalArrangement = Arrangement.spacedBy(metrics.compact),
     ) {
         items(messages, key = { it.id }) { message ->
             CompanionBubble(message = message, callbacks = callbacks)
@@ -257,15 +270,17 @@ private fun ChatMessageList(
 
 @Composable
 private fun RunningHint(hint: UiText) {
+    val metrics = LocalHmpMetrics.current
+    val typo = LocalHmpTypo.current
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.padding(vertical = 4.dp),
+        modifier = Modifier.padding(vertical = metrics.micro),
     ) {
-        CircularProgressIndicator(modifier = Modifier.size(14.dp), strokeWidth = 2.dp)
-        Spacer(Modifier.width(8.dp))
+        CircularProgressIndicator(modifier = Modifier.size(metrics.base), strokeWidth = metrics.hair)
+        Spacer(Modifier.width(metrics.compact))
         Text(
             text = hint.asString(),
-            style = MaterialTheme.typography.bodySmall,
+            style = typo.footnote,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
@@ -280,12 +295,13 @@ private fun ChatInputBar(
     onSend: () -> Unit,
     onFocusChanged: (Boolean) -> Unit = {},
 ) {
+    val metrics = LocalHmpMetrics.current
     val canSend = input.isNotBlank() && !running && !quotaBlocked
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp)
-            .padding(top = 8.dp, bottom = 16.dp),
+            .padding(horizontal = metrics.base)
+            .padding(top = metrics.compact, bottom = metrics.cozy),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         HMPTextField(
@@ -296,11 +312,11 @@ private fun ChatInputBar(
             enabled = !running && !quotaBlocked,
             onFocusChanged = onFocusChanged,
         )
-        Spacer(Modifier.width(10.dp))
+        Spacer(Modifier.width(metrics.compact))
         FilledIconButton(
             onClick = onSend,
             enabled = canSend,
-            modifier = Modifier.size(42.dp),
+            modifier = Modifier.size(LayoutConstraints.ChatIconSize),
             colors = IconButtonDefaults.filledIconButtonColors(
                 containerColor = if (canSend) MaterialTheme.colorScheme.primary
                 else MaterialTheme.colorScheme.surfaceVariant,
@@ -311,7 +327,7 @@ private fun ChatInputBar(
             Icon(
                 painter = painterResource(Res.drawable.chevron_up),
                 contentDescription = stringResource(Res.string.agent_chat_send),
-                modifier = Modifier.size(20.dp),
+                modifier = Modifier.size(metrics.cozy),
             )
         }
     }

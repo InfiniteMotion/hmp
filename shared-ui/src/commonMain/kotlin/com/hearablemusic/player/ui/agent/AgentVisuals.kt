@@ -8,13 +8,14 @@ import com.hearablemusic.player.ui.generated.resources.agent_status_paused
 import com.hearablemusic.player.ui.generated.resources.agent_status_completed
 import com.hearablemusic.player.ui.generated.resources.agent_status_error
 
-import androidx.compose.ui.graphics.Color
 import com.hearablemusic.player.ui.generated.resources.Res
 import com.hearablemusic.player.ui.generated.resources.enrich
 import com.hearablemusic.player.ui.generated.resources.hello
 import com.hearablemusic.player.ui.generated.resources.master
 import com.hearablemusic.player.ui.generated.resources.radiowaves
+import androidx.compose.ui.graphics.Color
 import com.hmp.domain.agent.port.CapabilityState
+import com.hearablemusic.player.ui.common.design.colors.AgentStatusColors
 import org.jetbrains.compose.resources.DrawableResource
 
 /**
@@ -37,28 +38,6 @@ val AGENT_ICONS: Map<String, DrawableResource> = mapOf(
 
 /** 按 role 取图标；未知 role 返回 null（调用方用等高空白占位，不要让布局抖动）。 */
 fun agentIcon(role: String): DrawableResource? = AGENT_ICONS[role]
-
-/**
- * 状态色板（**低饱和**）。
- * Material 原色（#4CAF50 / #F44336 等）饱和度高、"工程感"重；
- * 这里只让颜色承担"区分状态"的职责，层级交给字号 / 字重 / 灰阶。
- */
-object AgentStatusColors {
-    val Idle = Color(0xFF9AA0A6)
-    val Building = Color(0xFFC08A2E)
-    val Running = Color(0xFF4F7F63)
-    val Paused = Color(0xFF5B7C99)
-    val Completed = Color(0xFF6F5F86)
-    val Error = Color(0xFFB5544A)
-
-    /**
-     * 日志级别 Warn（琥珀色）—— 与「状态色」是两套语义：
-     * 上面六色描述 capability 状态，本色描述日志条目级别（`Severity.Warn`）。
-     * 收在此处是因为二者都靠颜色传达"需要留意"的程度，散在页面里写死会各自漂移
-     * （F14-T3 ④ 就是看板日志弹窗内联 `Color(0xFFB26A00)` 的散点）。
-     */
-    val Warn = Color(0xFFB26A00)
-}
 
 fun agentStatusColor(status: CapabilityState.Status?): Color = when (status) {
     CapabilityState.Status.IDLE -> AgentStatusColors.Idle

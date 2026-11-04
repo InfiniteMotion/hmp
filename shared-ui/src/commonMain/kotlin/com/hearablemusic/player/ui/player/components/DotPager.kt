@@ -16,6 +16,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 
 @Composable
 fun DotPager(
@@ -23,6 +24,7 @@ fun DotPager(
     modifier: Modifier = Modifier,
     initialPage: Int = 0
 ) {
+    val metrics = LocalHmpMetrics.current
     val pageCount = pageContent.size
     // 基础滑动页
     val pagerState = rememberPagerState(
@@ -47,16 +49,16 @@ fun DotPager(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 8.dp),
+                    .padding(vertical = metrics.compact),
                 horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Row(
                     modifier = Modifier,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    horizontalArrangement = Arrangement.spacedBy(metrics.micro)
                 ) {
                     repeat(pageCount) { index ->
-                        val size = 6.dp
+                        val size = metrics.micro
                         val color = if (pagerState.currentPage == index)
                             MaterialTheme.colorScheme.onSurface
                         else
@@ -73,4 +75,3 @@ fun DotPager(
         }
     }
 }
-

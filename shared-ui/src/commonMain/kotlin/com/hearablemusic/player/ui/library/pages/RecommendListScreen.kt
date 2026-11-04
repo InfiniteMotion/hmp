@@ -59,6 +59,8 @@ import com.hmp.domain.agent.card.RecommendSource
 import com.hmp.domain.agent.card.TimePhase
 import com.hmp.domain.music.MusicRepository
 import com.hearablemusic.player.ui.common.components.base.BackButton
+import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
+import com.hearablemusic.player.ui.common.design.typography.medium
 import com.hearablemusic.player.ui.common.layout.LocalWindowSizeInfo
 import com.hearablemusic.player.ui.common.layout.WindowWidthSizeClass
 import com.hearablemusic.player.ui.common.navigation.Routes as NavRoutes
@@ -73,6 +75,7 @@ import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.painterResource
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 
 /**
  * G6 推荐列表二级页（每日推荐 / 私人推荐，同构）。
@@ -89,6 +92,7 @@ fun RecommendListScreen(
     navController: NavBackStack<NavKey>,
     playlistQueueViewModel: PlaylistQueueViewModel = activityViewModel(),
 ) {
+    val metrics = LocalHmpMetrics.current
     val masterAgent: MasterAgent = koinInject()
     val musicRepository: MusicRepository = koinInject()
     val themeViewModel: ThemeViewModel = koinViewModel()
@@ -198,14 +202,14 @@ fun RecommendListScreen(
                                 if (index != items.lastIndex) {
                                     Box(
                                         Modifier
-                                            .padding(start = 84.dp, end = 16.dp)
+                                            .padding(start = metrics.row, end = metrics.cozy)
                                             .fillMaxWidth()
-                                            .height(0.5.dp)
+                                            .height(metrics.stroke.hairline)
                                             .background(dividerColor)
                                     )
                                 }
                             }
-                            item { Spacer(Modifier.height(24.dp)) }
+                            item { Spacer(Modifier.height(metrics.section)) }
                         }
                     }
                 } else {
@@ -235,14 +239,14 @@ fun RecommendListScreen(
                             if (index != items.lastIndex) {
                                 Box(
                                     Modifier
-                                        .padding(start = 84.dp, end = 16.dp)
+                                        .padding(start = metrics.row, end = metrics.cozy)
                                         .fillMaxWidth()
-                                        .height(0.5.dp)
+                                        .height(metrics.stroke.hairline)
                                         .background(dividerColor)
                                 )
                             }
                         }
-                        item { Spacer(Modifier.height(24.dp)) }
+                        item { Spacer(Modifier.height(metrics.section)) }
                     }
                 }
             }
@@ -262,11 +266,13 @@ private fun RecommendHero(
     onBack: () -> Unit,
     onPlayAll: () -> Unit,
 ) {
+    val metrics = LocalHmpMetrics.current
+    val typo = LocalHmpTypo.current
     // 与 SubScreen 头部一致：Compact 16 / Medium 32 / Expanded 48
     val horizontalPadding = when (LocalWindowSizeInfo.current.widthSizeClass) {
-        WindowWidthSizeClass.Expanded -> 48.dp
-        WindowWidthSizeClass.Medium -> 32.dp
-        WindowWidthSizeClass.Compact -> 16.dp
+        WindowWidthSizeClass.Expanded -> metrics.bar
+        WindowWidthSizeClass.Medium -> metrics.block
+        WindowWidthSizeClass.Compact -> metrics.cozy
     }
 
     Box(modifier.fillMaxWidth()) {
@@ -300,7 +306,7 @@ private fun RecommendHero(
         Box(
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .padding(start = horizontalPadding, top = 16.dp),
+                .padding(start = horizontalPadding, top = metrics.cozy),
         ) {
             BackButton(onClick = onBack)
         }
@@ -309,45 +315,44 @@ private fun RecommendHero(
         Column(
             modifier = Modifier
                 .align(Alignment.BottomStart)
-                .padding(start = 20.dp, end = 20.dp, bottom = 20.dp),
+                .padding(start = metrics.cozy, end = metrics.cozy, bottom = metrics.cozy),
         ) {
             Text(
                 text = label,
-                style = MaterialTheme.typography.labelMedium,
+                style = typo.footnote.medium(),
                 color = ink.copy(alpha = 0.7f),
             )
-            Spacer(Modifier.height(6.dp))
+            Spacer(Modifier.height(metrics.micro))
             Text(
                 text = title,
-                style = MaterialTheme.typography.headlineMedium,
+                style = typo.headline,
                 fontWeight = FontWeight.Bold,
                 color = ink,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
             if (overview.isNotBlank()) {
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(metrics.compact))
                 Text(
                     text = overview,
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = typo.body,
                     color = ink.copy(alpha = 0.82f),
                     maxLines = 3,
                     overflow = TextOverflow.Ellipsis,
                 )
             }
-            Spacer(Modifier.height(18.dp))
+            Spacer(Modifier.height(metrics.cozy))
             Row(
                 modifier = Modifier
                     .clip(RoundedCornerShape(50))
                     .background(ink)
                     .clickable(onClick = onPlayAll)
-                    .padding(horizontal = 24.dp, vertical = 10.dp),
+                    .padding(horizontal = metrics.section, vertical = metrics.compact),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
                     text = stringResource(Res.string.play_all),
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.SemiBold,
+                    style = typo.body.medium(),
                     color = scrim,
                 )
             }
@@ -364,22 +369,24 @@ private fun LoadingState(ink: Color) {
 
 @Composable
 private fun EmptyState(source: RecommendSource, textColor: Color, iconColor: Color) {
-    Box(Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
+    val metrics = LocalHmpMetrics.current
+    val typo = LocalHmpTypo.current
+    Box(Modifier.fillMaxSize().padding(metrics.block), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Icon(
                 painter = painterResource(Res.drawable.music_note_list),
                 contentDescription = null,
                 tint = iconColor,
-                modifier = Modifier.size(48.dp),
+                modifier = Modifier.size(metrics.bar),
             )
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(metrics.base))
             Text(
                 text = if (source == RecommendSource.DAILY) {
                     stringResource(Res.string.reco_empty_daily)
                 } else {
                     stringResource(Res.string.reco_empty_private)
                 },
-                style = MaterialTheme.typography.bodyMedium,
+                style = typo.body,
                 color = textColor,
             )
         }
@@ -395,17 +402,19 @@ private fun RecommendRow(
     thumbBg: Color,
     onClick: () -> Unit,
 ) {
+    val metrics = LocalHmpMetrics.current
+    val typo = LocalHmpTypo.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .padding(horizontal = metrics.cozy, vertical = metrics.base),
         verticalAlignment = Alignment.Top,
     ) {
         Box(
             modifier = Modifier
-                .size(56.dp)
-                .clip(RoundedCornerShape(10.dp))
+                .size(metrics.bar)
+                .clip(RoundedCornerShape(metrics.compact))
                 .background(thumbBg),
         ) {
             if (item.musicInfo.music.albumArtUri.isNotBlank()) {
@@ -417,29 +426,28 @@ private fun RecommendRow(
                 )
             }
         }
-        Spacer(Modifier.width(12.dp))
+        Spacer(Modifier.width(metrics.base))
         Column(Modifier.weight(1f)) {
             Text(
                 text = item.musicInfo.music.title,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
+                style = typo.subtitle,
                 color = titleColor,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            Spacer(Modifier.height(2.dp))
+            Spacer(Modifier.height(metrics.hair))
             Text(
                 text = item.musicInfo.music.artist,
-                style = MaterialTheme.typography.bodySmall,
+                style = typo.footnote,
                 color = secondaryColor,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
             if (item.reason.isNotBlank()) {
-                Spacer(Modifier.height(6.dp))
+                Spacer(Modifier.height(metrics.micro))
                 Text(
                     text = item.reason,
-                    style = MaterialTheme.typography.bodySmall,
+                    style = typo.footnote,
                     color = tertiaryColor,
                     maxLines = 3,
                     overflow = TextOverflow.Ellipsis,

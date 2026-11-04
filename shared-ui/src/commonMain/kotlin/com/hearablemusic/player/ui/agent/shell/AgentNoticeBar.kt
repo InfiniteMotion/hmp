@@ -26,11 +26,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
 import com.hearablemusic.player.ui.common.layout.LocalWindowSizeInfo
 import com.hearablemusic.player.ui.common.util.rememberHapticFeedback
 import com.hearablemusic.player.ui.generated.resources.Res
 import kotlinx.coroutines.delay
 import org.jetbrains.compose.resources.stringResource
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
+import com.hearablemusic.player.ui.common.design.metrics.LayoutConstraints
+import com.hearablemusic.player.ui.common.design.animation.HmpMotion
 
 /**
  * R-T6 / M5-T3 AgentNoticeBar —— 伙伴通知侧条（总纲 5.4）。
@@ -56,36 +60,38 @@ fun AgentNoticeBar(
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val metrics = LocalHmpMetrics.current
+    val typo = LocalHmpTypo.current
     AnimatedVisibility(
         visible = notice != null,
         modifier = modifier,
-        enter = fadeIn(tween(220)) + slideInVertically(tween(220)) { it / 2 },
-        exit = fadeOut(tween(140)) + slideOutVertically(tween(140)) { it / 2 },
+        enter = fadeIn(HmpMotion.standard()) + slideInVertically(HmpMotion.standard()) { it / 2 },
+        exit = fadeOut(HmpMotion.micro()) + slideOutVertically(HmpMotion.micro()) { it / 2 },
     ) {
         notice?.let { n ->
-            val shape = RoundedCornerShape(36.dp)
+            val shape = RoundedCornerShape(metrics.block)
             val haptic = rememberHapticFeedback()
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 12.dp)
+                    .padding(horizontal = metrics.base)
                     .clip(shape)
                     .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.92f))
-                    .border(BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant), shape)
-                    .padding(horizontal = 16.dp, vertical = 10.dp),
+                    .border(BorderStroke(metrics.stroke.hairline, MaterialTheme.colorScheme.outlineVariant), shape)
+                    .padding(horizontal = metrics.cozy, vertical = metrics.compact),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
                 // F14-T1 自适应：通知条本身保持全宽（语义即横贯），只给**内部文字**限宽，
                 // 避免宽窗下一条短通知横跨整屏导致视线长距离扫读。Compact 下无约束。
                 val textMaxWidth = when {
-                    LocalWindowSizeInfo.current.isExpanded -> 520.dp
-                    LocalWindowSizeInfo.current.isMedium -> 520.dp
+                    LocalWindowSizeInfo.current.isExpanded -> LayoutConstraints.NoticeBarMaxWidth
+                    LocalWindowSizeInfo.current.isMedium -> LayoutConstraints.NoticeBarMaxWidth
                     else -> Dp.Unspecified
                 }
                 Text(
                     text = n.message,
-                    style = MaterialTheme.typography.bodySmall,
+                    style = typo.footnote,
                     color = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.widthIn(max = textMaxWidth).weight(1f, fill = false),
                 )

@@ -1,5 +1,6 @@
 package com.hearablemusic.player.ui.agent.cards
 
+import com.hearablemusic.player.ui.common.design.colors.HelloCardPalette
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -19,17 +20,17 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
 import com.hearablemusic.player.ui.common.text.asString
 import com.hearablemusic.player.ui.generated.resources.Res
 import com.hearablemusic.player.ui.generated.resources.card_greeting_phase
 import com.hmp.domain.agent.card.GreetingContent
 import com.hmp.domain.agent.card.SlideCard
 import org.jetbrains.compose.resources.stringResource
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 
 
 
@@ -44,8 +45,10 @@ internal fun FamilyGreetingCard(
     onCardClick: ((SlideCard) -> Unit)? = null,
     onLongClick: ((SlideCard) -> Unit)? = null,
 ) {
+    val metrics = LocalHmpMetrics.current
     val c = card.content as GreetingContent
-    val clickMod = modifier.clip(RoundedCornerShape(25.dp)).let { m ->
+    val typo = LocalHmpTypo.current
+    val clickMod = modifier.clip(RoundedCornerShape(metrics.section)).let { m ->
         when {
             onLongClick != null -> m.pointerInput(card.cardId) {
                 detectTapGestures(
@@ -60,7 +63,7 @@ internal fun FamilyGreetingCard(
 
     Card(
         modifier = clickMod,
-        shape = RoundedCornerShape(25.dp),
+        shape = RoundedCornerShape(metrics.section),
         colors = CardDefaults.cardColors(containerColor = Color.Transparent),
     ) {
         Box(
@@ -68,10 +71,10 @@ internal fun FamilyGreetingCard(
                 .fillMaxSize()
                 .background(
                     brush = Brush.linearGradient(
-                        colors = listOf(Color(0xFFFFB300).copy(alpha = 0.95f), Color(0xFFFF6F00).copy(alpha = 0.90f))
+                        colors = listOf(HelloCardPalette.Greeting.Start.copy(alpha = 0.95f), HelloCardPalette.Greeting.End.copy(alpha = 0.90f))
                     )
                 )
-                .padding(24.dp),
+                .padding(metrics.section),
             contentAlignment = Alignment.Center,
         ) {
             Column(
@@ -81,20 +84,18 @@ internal fun FamilyGreetingCard(
                 // 时段感知问候
                 Text(
                     text = stringResource(Res.string.card_greeting_phase, c.phase.label.asString()),
+                    style = typo.body,
                     color = Color.White.copy(alpha = 0.7f),
-                    fontSize = 15.sp,
-                    modifier = Modifier.padding(bottom = 10.dp),
+                    modifier = Modifier.padding(bottom = metrics.compact),
                 )
 
                 // 主文案（居中，根据内容长度自动适配）
                 Text(
                     text = c.text,
+                    style = typo.subtitle,
                     color = Color.White,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Medium,
                     textAlign = TextAlign.Center,
                     overflow = TextOverflow.Ellipsis,
-                    lineHeight = 27.sp,
                 )
             }
         }

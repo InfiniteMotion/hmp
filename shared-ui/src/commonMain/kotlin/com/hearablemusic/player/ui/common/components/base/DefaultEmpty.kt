@@ -16,8 +16,10 @@ import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
 import com.hearablemusic.player.ui.generated.resources.Res
 import com.hearablemusic.player.ui.generated.resources.*
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 
 @Composable
 fun DefaultEmpty(
@@ -25,29 +27,31 @@ fun DefaultEmpty(
     detail: String? = null,
     modifier: Modifier = Modifier
 ) {
+    val metrics = LocalHmpMetrics.current
+    val typo = LocalHmpTypo.current
     Column(
-        modifier = modifier.padding(16.dp),
+        modifier = modifier.padding(metrics.cozy),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
         Icon(
             painter = painterResource(Res.drawable.square),
             contentDescription = null,
-            modifier = Modifier.size(48.dp),
+            modifier = Modifier.size(metrics.bar),
             tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
         )
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(metrics.cozy))
         Text(
             text = message,
-            style = MaterialTheme.typography.bodyMedium,
+            style = typo.body,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center
         )
         if (detail != null) {
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(metrics.micro))
             Text(
                 text = detail,
-                style = MaterialTheme.typography.bodySmall,
+                style = typo.footnote,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center
             )

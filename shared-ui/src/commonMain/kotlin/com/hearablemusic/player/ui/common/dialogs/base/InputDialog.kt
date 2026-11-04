@@ -23,6 +23,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 
 @Composable
 fun InputDialog(
@@ -39,6 +40,7 @@ fun InputDialog(
     onConfirm: (String) -> Unit,
     onDismiss: () -> Unit
 ) {
+    val metrics = LocalHmpMetrics.current
     if (visible) {
         var inputValue by remember(initialValue) { mutableStateOf(initialValue) }
         
@@ -47,7 +49,7 @@ fun InputDialog(
             title = { Text(title) },
             text = {
                 Column(
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    verticalArrangement = Arrangement.spacedBy(metrics.compact)
                 ) {
                     OutlinedTextField(
                         value = inputValue,
@@ -58,7 +60,7 @@ fun InputDialog(
                         maxLines = maxLines,
                         keyboardOptions = keyboardOptions,
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp)
+                        shape = RoundedCornerShape(metrics.base)
                     )
                 }
             },

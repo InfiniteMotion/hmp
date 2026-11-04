@@ -39,6 +39,7 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.hmp.domain.playlist.Playlist
 import com.hearablemusic.player.ui.common.dialogs.base.ScrimDialog
+import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
 import com.hearablemusic.player.ui.common.util.HazeRenderSettings
 import com.hearablemusic.player.ui.common.util.LocalHazeRenderSettings
 import com.hearablemusic.player.ui.common.util.ProvideHazeRenderSettings
@@ -48,6 +49,8 @@ import com.hearablemusic.player.ui.common.util.hazeTintAlpha
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
+import com.hearablemusic.player.ui.common.design.metrics.LayoutConstraints
 
 @OptIn(ExperimentalHazeMaterialsApi::class)
 @Composable
@@ -59,14 +62,16 @@ fun PlaylistPickerDialog(
     hazeState: HazeState? = null,
     hazeRenderSettings: HazeRenderSettings? = null
 ) {
+    val metrics = LocalHmpMetrics.current
     val resolvedHazeRenderSettings = hazeRenderSettings ?: LocalHazeRenderSettings.current
+    val typo = LocalHmpTypo.current
     
     ProvideHazeRenderSettings(settings = resolvedHazeRenderSettings) {
         ScrimDialog(onDismissRequest = onDismiss) {
-            val dialogShape = RoundedCornerShape(28.dp)
+            val dialogShape = RoundedCornerShape(metrics.section)
             Card(
                 modifier = Modifier
-                    .padding(24.dp)
+                    .padding(metrics.section)
                     .clip(dialogShape)
                     .then(
                         if (hazeState != null) {
@@ -88,22 +93,22 @@ fun PlaylistPickerDialog(
             ) {
                 Column(
                     modifier = Modifier
-                        .padding(24.dp)
+                        .padding(metrics.section)
                         .fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                    verticalArrangement = Arrangement.spacedBy(metrics.cozy)
                 ) {
                     Text(
                         text = title,
-                        style = MaterialTheme.typography.headlineMedium,
+                        style = typo.headline,
                         color = MaterialTheme.colorScheme.onBackground
                     )
 
                     LazyColumn(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(300.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                            .height(LayoutConstraints.PanelHeight),
+                        verticalArrangement = Arrangement.spacedBy(metrics.compact)
                     ) {
                         items(playlists) { playlist ->
                             PlaylistItem(
@@ -126,19 +131,21 @@ fun PlaylistItem(
     playlist: Playlist,
     onClick: () -> Unit
 ) {
+    val metrics = LocalHmpMetrics.current
+    val typo = LocalHmpTypo.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
+            .clip(RoundedCornerShape(metrics.base))
             .clickable(onClick = onClick)
-            .padding(vertical = 8.dp, horizontal = 4.dp),
+            .padding(vertical = metrics.compact, horizontal = metrics.micro),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(16.dp)
+        horizontalArrangement = Arrangement.spacedBy(metrics.cozy)
     ) {
         Box(
             modifier = Modifier
-                .size(56.dp)
-                .clip(RoundedCornerShape(8.dp))
+                .size(metrics.bar)
+                .clip(RoundedCornerShape(metrics.compact))
         ) {
             if (playlist.coverUri != null && playlist.coverUri!!.isNotBlank()) {
                 AsyncImage(
@@ -157,7 +164,7 @@ fun PlaylistItem(
                     Icon(
                         painter = painterResource(Res.drawable.music_note_list),
                         contentDescription = null,
-                        modifier = Modifier.size(32.dp),
+                        modifier = Modifier.size(metrics.block),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                     )
                 }
@@ -166,7 +173,7 @@ fun PlaylistItem(
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = playlist.name,
-                style = MaterialTheme.typography.titleMedium,
+                style = typo.subtitle,
                 color = MaterialTheme.colorScheme.onBackground,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
@@ -186,11 +193,11 @@ fun PlaylistItem(
                 if (parts.isNotEmpty()) {
                     Text(
                         text = parts.take(2).joinToString(" · "),
-                        style = MaterialTheme.typography.bodySmall,
+                        style = typo.footnote,
                         color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.padding(top = 2.dp)
+                        modifier = Modifier.padding(top = metrics.hair)
                     )
                 }
             }
@@ -198,7 +205,7 @@ fun PlaylistItem(
         Icon(
             painter = painterResource(Res.drawable.chevron_right),
             contentDescription = null,
-            modifier = Modifier.size(20.dp),
+            modifier = Modifier.size(metrics.cozy),
             tint = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }

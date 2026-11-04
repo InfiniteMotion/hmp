@@ -52,6 +52,7 @@
 | `shared` 的 Domain / Agent | `./gradlew-lowmem.bat testCore` |
 | `shared-ui` 的 UI | `./gradlew-lowmem.bat testUi` |
 | 改了公共 API | `./gradlew-lowmem.bat compileAll`（查下游破坏，比全量测试快得多） |
+| 改了 UI 视觉 / 新增尺寸或色值 | `./gradlew-lowmem.bat checkDesignTokens`（**全量禁止**：业务裸 `.dp/.sp` / 硬编码色 / M3 typography / 动效裸值一律红；`storybook/` 豁免——不在构建图）。改守门规则先跑 `python scripts/check-design-tokens.py --self-test` |
 | 改了 `iosMain` / expect-actual 的 iOS 半边 | `./gradlew-lowmem.bat :shared:compileKotlinIosSimulatorArm64 :shared-ui:compileKotlinIosSimulatorArm64` —— **`compileAll` 不编译 iOS 目标**，它只挂 desktop/android |
 | 提交前 | `./gradlew-lowmem.bat testAll` |
 | 发版前 | `./gradlew-lowmem.bat preflight` |
@@ -68,7 +69,7 @@
 
 ```bash
 ./gradlew syncVersion              # release.toml → 所有派生点
-./gradlew preflight                # checkVersion + checkReleaseConsistency + testAll
+./gradlew preflight                # checkVersion + checkReleaseConsistency + checkDesignTokens + testAll
 ./gradlew release                  # Android + Desktop（macOS 上含 iOS），产物进 releases/
 ./gradlew releaseAndroid | releaseDesktop | releaseIos
 ./gradlew copyAndroidDebug | copyDesktopJar
@@ -256,7 +257,7 @@ HMP/
 
 **包名**：Android `com.hearablemusic.player` ／ Shared(KMP) `com.hmp` ／ iOS `com.hearablemusic.HMP`。
 
-**自定义 Gradle 任务共 27 个**（根 24 + `desktop/app` 的 `downloadFFmpeg`/`injectFFmpeg` + `shared` 的 `copyIconsToIos`），分布在 3 个构建脚本；`tasks --group release` 只显示 group=release 的 **10** 个。验证类 7（`testAll`/`testCore`/`testQuick`/`testUi`/`testUiDesktop`/`testDesktop`/`testAndroid`）、编译类 5（`compileAll`/`Core`/`Ui`/`Desktop`/`Android`；Android 侧不暴露 `compile*`，用 `assembleDebug` 代替）、发布类 10、清理类 2（`cleanReleases`、`cleanOrphans` 只列不删）、FFmpeg 2、iOS 图标 1（`copyIconsToIos` 源目录不存在，当前空转）。
+**自定义 Gradle 任务共 28 个**（根 25 + `desktop/app` 的 `downloadFFmpeg`/`injectFFmpeg` + `shared` 的 `copyIconsToIos`），分布在 3 个构建脚本；`tasks --group release` 只显示 group=release 的 **10** 个。验证类 8（`testAll`/`testCore`/`testQuick`/`testUi`/`testUiDesktop`/`testDesktop`/`testAndroid`/`checkDesignTokens`）、编译类 5（`compileAll`/`Core`/`Ui`/`Desktop`/`Android`；Android 侧不暴露 `compile*`，用 `assembleDebug` 代替）、发布类 10、清理类 2（`cleanReleases`、`cleanOrphans` 只列不删）、FFmpeg 2、iOS 图标 1（`copyIconsToIos` 源目录不存在，当前空转）。
 
 
 **分支策略**（权威定义见 [docs/spec/hmp-release.md](docs/spec/hmp-release.md) §4）：

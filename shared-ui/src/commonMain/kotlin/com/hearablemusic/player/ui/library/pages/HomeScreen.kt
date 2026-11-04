@@ -57,7 +57,7 @@ import com.hmp.domain.agent.card.RecommendListPayload
 import com.hmp.domain.agent.card.RecommendSource
 import com.hmp.domain.agent.runtime.MasterAgent
 import com.hmp.domain.music.MusicRepository
-import com.hearablemusic.player.ui.common.design.dimens.LocalHMPDimens
+import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
 import com.hearablemusic.player.ui.common.components.base.HMPCard
 import com.hearablemusic.player.ui.common.components.base.HMPTextField
 import com.hearablemusic.player.ui.common.layout.LocalWindowSizeInfo
@@ -78,12 +78,15 @@ import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
+import com.hearablemusic.player.ui.common.design.metrics.LayoutConstraints
 
 @Composable
 fun HomeScreen(
     playlistQueueViewModel: PlaylistQueueViewModel = activityViewModel(),
     navController: NavBackStack<NavKey>
 ) {
+    val metrics = LocalHmpMetrics.current
     val windowSize = LocalWindowSizeInfo.current
     val isLandscape = windowSize.isLandscape
     // 宽窗右栏"组间间距"分档依据：直接用窗口宽度数值（横屏两栏布局下宽普遍 900–1600dp，
@@ -103,6 +106,7 @@ fun HomeScreen(
     // 堆叠卡短按 → 按卡型分流（能播的播、能跳的跳、纯文案卡不响应）
     val musicRepository: MusicRepository = koinInject()
     val cardScope = rememberCoroutineScope()
+    val typo = LocalHmpTypo.current
 
     // G6：播放某个推荐列表（整组**追加到队列尾部**，播其中第一首）
     fun playRecommend(source: RecommendSource) {
@@ -164,8 +168,8 @@ fun HomeScreen(
                     Row(
                         modifier = Modifier.fillMaxSize()
                             // bottom 88dp 为悬浮播放条（MiniPlayerBar）让位，项目既有约定。
-                            .padding(start = 32.dp, end = 32.dp, top = 16.dp, bottom = 88.dp),
-                        horizontalArrangement = Arrangement.spacedBy(44.dp),
+                            .padding(start = metrics.block, end = metrics.block, top = metrics.cozy, bottom = metrics.row),
+                        horizontalArrangement = Arrangement.spacedBy(metrics.bar),
                         verticalAlignment = Alignment.Top,
                     ) {
                         // 左栏：横屏调参的卡片堆叠（露邻卡的 3D Coverflow 观感）
@@ -185,9 +189,9 @@ fun HomeScreen(
                         // 故窄窗（900×600 可用 496dp）留给两个组间的余量只有 ~19dp。
                         // 溢出会触发 verticalScroll，而滚动一出现垂直居中即失效，故必须留安全余量。
                         val groupGap = when {
-                            widthDp < 1100f -> 6.dp
-                            widthDp < 1300f -> 26.dp
-                            else -> 46.dp
+                            widthDp < 1100f -> metrics.micro
+                            widthDp < 1300f -> LayoutConstraints.CompactIconSize
+                            else -> metrics.bar
                         }
                         Box(
                             modifier = Modifier
@@ -209,22 +213,22 @@ fun HomeScreen(
                                 // 为你推荐
                                 Text(
                                     text = stringResource(Res.string.home_recommended),
-                                    style = MaterialTheme.typography.titleLarge,
+                                    style = typo.headline,
                                     color = MaterialTheme.colorScheme.onBackground
                                 )
                                 // 组内
-                                Spacer(modifier = Modifier.height(16.dp))
+                                Spacer(modifier = Modifier.height(metrics.cozy))
                                 // Row 高度直接决定 RadioCard 的边长（正方 + fillMaxHeight）
                                 Row(
-                                    modifier = Modifier.fillMaxWidth().height(180.dp),
-                                    horizontalArrangement = Arrangement.spacedBy(20.dp),
+                                    modifier = Modifier.fillMaxWidth().height(LayoutConstraints.CardHeight),
+                                    horizontalArrangement = Arrangement.spacedBy(metrics.cozy),
                                 ) {
                                     RadioCard(
                                         modifier = Modifier.fillMaxHeight(),
                                     )
                                     Column(
                                         modifier = Modifier.fillMaxHeight().weight(1f),
-                                        verticalArrangement = Arrangement.spacedBy(20.dp),
+                                        verticalArrangement = Arrangement.spacedBy(metrics.cozy),
                                     ) {
                                         RecommendEntryCard(
                                             modifier = Modifier.weight(1f).fillMaxWidth(),
@@ -251,13 +255,13 @@ fun HomeScreen(
                                 // 探索
                                 Text(
                                     text = stringResource(Res.string.home_explore),
-                                    style = MaterialTheme.typography.titleLarge,
+                                    style = typo.headline,
                                     color = MaterialTheme.colorScheme.onBackground
                                 )
-                                Spacer(modifier = Modifier.height(12.dp))
+                                Spacer(modifier = Modifier.height(metrics.base))
                                 FeatureEntryRow(navController = navController)
 
-                                Spacer(modifier = Modifier.height(24.dp))
+                                Spacer(modifier = Modifier.height(metrics.section))
                             }
                         }
                     }
@@ -265,7 +269,7 @@ fun HomeScreen(
                     // Compact / Medium 纵向布局
                     Column(
                         modifier = Modifier.verticalScroll(rememberScrollState())
-                            .padding(16.dp),
+                            .padding(metrics.cozy),
                     ) {
                         HomeSearchBar(onClick = { navController.add(NavRoutes.Library.Search) })
 
@@ -275,27 +279,27 @@ fun HomeScreen(
                         HelloSlideCardStack(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(vertical = 16.dp)
+                                .padding(vertical = metrics.cozy)
                                 .aspectRatio(10f / 9f),
                             onCardClick = onSlideCardClick,
                         )
                         Text(
                             text = stringResource(Res.string.home_recommended),
                             modifier = Modifier,
-                            style = MaterialTheme.typography.titleLarge,
+                            style = typo.headline,
                             color = MaterialTheme.colorScheme.onBackground
                         )
-                        Spacer(modifier = Modifier.height(16.dp))
+                        Spacer(modifier = Modifier.height(metrics.cozy))
                         Row(
-                            modifier = Modifier.fillMaxWidth().height(160.dp),
-                            horizontalArrangement = Arrangement.spacedBy(20.dp),
+                            modifier = Modifier.fillMaxWidth().height(LayoutConstraints.CoverHeightSmall),
+                            horizontalArrangement = Arrangement.spacedBy(metrics.cozy),
                         ) {
                             RadioCard(
                                 modifier = Modifier.fillMaxHeight(),
                             )
                             Column(
                                 modifier = Modifier.fillMaxSize(),
-                                verticalArrangement = Arrangement.spacedBy(20.dp),
+                                verticalArrangement = Arrangement.spacedBy(metrics.cozy),
                             ) {
                                 RecommendEntryCard(
                                     modifier = Modifier.weight(1f).fillMaxWidth(),
@@ -315,7 +319,7 @@ fun HomeScreen(
                                 )
                             }
                         }
-                        Spacer(modifier = Modifier.height(20.dp))
+                        Spacer(modifier = Modifier.height(metrics.cozy))
                         FeatureEntryRow(navController = navController)
                     }
                 }
@@ -333,6 +337,7 @@ private fun HomeSearchBar(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val metrics = LocalHmpMetrics.current
     HMPTextField(
         onClick = onClick,
         placeholder = stringResource(Res.string.search_placeholder),
@@ -341,7 +346,7 @@ private fun HomeSearchBar(
             Icon(
                 painter = painterResource(Res.drawable.magnifyingglass),
                 contentDescription = null,
-                modifier = Modifier.padding(end = 10.dp).size(18.dp),
+                modifier = Modifier.padding(end = metrics.compact).size(metrics.cozy),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
         },
@@ -351,7 +356,7 @@ private fun HomeSearchBar(
 /**
  * G6：区域②右侧推荐入口卡（每日 / 私人）。
  *
- * 容器对齐 TitleWidget / User·Setting 页卡片：透明底 + `outlineVariant` 50% 描边 + `dimens.corner.md` 圆角。
+ * 容器对齐 TitleWidget / User·Setting 页卡片：透明底 + `outlineVariant` 50% 描边 + `cozy` 档圆角。
  * 内容 = 标题 + 尾部播放按钮（无前置图标、无副文案、无指示箭头 —— 整卡可点，箭头冗余）。
  *
  * 三态：payload==null → 生成中（标题与播放按钮置灰，不可点）；已生成但空 → 不显示；否则正常。
@@ -366,9 +371,11 @@ private fun RecommendEntryCard(
     onPlay: () -> Unit,
     enabled: Boolean = true,
 ) {
+    val metrics = LocalHmpMetrics.current
     // 无数据（已生成但为空）→ 入口不显示
     if (payload != null && payload.items.isEmpty()) return
 
+    val typo = LocalHmpTypo.current
     val ready = payload != null && payload.items.isNotEmpty()
     val actionable = ready && enabled
     val title = when (source) {
@@ -376,11 +383,11 @@ private fun RecommendEntryCard(
         RecommendSource.PRIVATE -> stringResource(Res.string.home_private_reco)
     }
 
-    // 容器对齐 TitleWidget / User·Setting 页卡片：透明底 + outlineVariant 50% 描边 + dimens.corner.md
+    // 容器对齐 TitleWidget / User·Setting 页卡片：透明底 + outlineVariant 50% 描边 + cozy 档
     HMPCard(
         modifier = modifier
             .clickable(enabled = actionable) { onOpen() },
-        contentPadding = Modifier.padding(horizontal = 14.dp, vertical = 12.dp)
+        contentPadding = Modifier.padding(horizontal = metrics.base, vertical = metrics.base)
     ) {
         // 撑满卡片可用区并垂直居中：卡高由调用方决定（宽窗 70dp / Compact 70dp），
         // 内容只有一行标题 + 圆形按钮，居中后上下留白对称。
@@ -390,7 +397,7 @@ private fun RecommendEntryCard(
         ) {
             Text(
                 text = title,
-                style = MaterialTheme.typography.titleMedium,
+                style = typo.subtitle,
                 color = when {
                     !enabled -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
                     ready -> MaterialTheme.colorScheme.onSurface
@@ -400,7 +407,7 @@ private fun RecommendEntryCard(
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
             )
-            Spacer(Modifier.width(10.dp))
+            Spacer(Modifier.width(metrics.compact))
             if (enabled) {
                 FilledIconButton(
                     onClick = { if (actionable) onPlay() },
@@ -420,7 +427,7 @@ private fun RecommendEntryCard(
             } else {
                 Text(
                     text = stringResource(Res.string.home_reco_unavailable),
-                    style = MaterialTheme.typography.labelSmall,
+                    style = typo.caption,
                     color = MaterialTheme.colorScheme.error,
                 )
             }

@@ -11,12 +11,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.hearablemusic.player.ui.common.design.dimens.LocalHMPDimens
+import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
 import com.hearablemusic.player.ui.generated.resources.Res
 import com.hearablemusic.player.ui.generated.resources.db_too_new_body
 import com.hearablemusic.player.ui.generated.resources.db_too_new_title
 import com.hmp.data.database.DatabaseTooNew
 import org.jetbrains.compose.resources.stringResource
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 
 /**
  * 库版本高于本应用时的提示页（一-7 / D7-10）。
@@ -28,24 +29,25 @@ import org.jetbrains.compose.resources.stringResource
  */
 @Composable
 fun DatabaseTooNewScreen(state: DatabaseTooNew) {
-    val dimens = LocalHMPDimens.current
+    val metrics = LocalHmpMetrics.current
+    val typo = LocalHmpTypo.current
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(dimens.spacing.xl),
+            .padding(metrics.block),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(
             text = stringResource(Res.string.db_too_new_title),
-            style = MaterialTheme.typography.titleLarge,
+            style = typo.headline,
             color = MaterialTheme.colorScheme.onSurface,
             textAlign = TextAlign.Center,
         )
         Text(
-            modifier = Modifier.padding(top = dimens.spacing.sm),
+            modifier = Modifier.padding(top = metrics.compact),
             text = stringResource(Res.string.db_too_new_body, state.codeVersion, state.dbVersion),
-            style = MaterialTheme.typography.bodyMedium,
+            style = typo.body,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
         )

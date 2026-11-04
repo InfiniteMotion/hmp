@@ -1,5 +1,6 @@
 package com.hearablemusic.player.ui.agent.cards
 
+import com.hearablemusic.player.ui.common.design.colors.HelloCardPalette
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -28,11 +29,11 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
+import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
+import com.hearablemusic.player.ui.common.design.typography.medium
 import com.hearablemusic.player.ui.common.text.UiText
 import com.hearablemusic.player.ui.common.text.asString
 import com.hearablemusic.player.ui.generated.resources.Res
@@ -54,6 +55,7 @@ import org.koin.compose.koinInject
 
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 // ═══════════════════════════════════════════════════════════════════
 // 家族 B：单曲展示卡（RECOMMEND / FORGOTTEN 共用骨架）
 // ═══════════════════════════════════════════════════════════════════
@@ -65,7 +67,8 @@ internal fun FamilySingleTrackCard(
     onCardClick: ((SlideCard) -> Unit)? = null,
     onLongClick: ((SlideCard) -> Unit)? = null,
 ) {
-    val clickMod = modifier.clip(RoundedCornerShape(25.dp)).let { m ->
+    val metrics = LocalHmpMetrics.current
+    val clickMod = modifier.clip(RoundedCornerShape(metrics.section)).let { m ->
         when {
             onLongClick != null -> m.pointerInput(card.cardId) {
                 detectTapGestures(
@@ -78,6 +81,7 @@ internal fun FamilySingleTrackCard(
         }
     }
 
+    val typo = LocalHmpTypo.current
     val meta = buildSingleTrackMeta(card)
 
     // 异步查封面 + 艺术家（一次查询拿全）
@@ -94,7 +98,7 @@ internal fun FamilySingleTrackCard(
 
     Card(
         modifier = clickMod,
-        shape = RoundedCornerShape(25.dp),
+        shape = RoundedCornerShape(metrics.section),
         colors = CardDefaults.cardColors(containerColor = Color.Transparent),
     ) {
         Box(
@@ -105,7 +109,7 @@ internal fun FamilySingleTrackCard(
                         colors = listOf(meta.themeColor.copy(alpha = 0.95f), meta.themeColor.copy(alpha = 0.80f))
                     )
                 )
-                .padding(20.dp)
+                .padding(metrics.cozy)
         ) {
             // 主体：文字 Column（填满空间）
             Column(
@@ -115,9 +119,8 @@ internal fun FamilySingleTrackCard(
                 // 标签
                 Text(
                     text = meta.label.asString(),
+                    style = typo.footnote.medium(),
                     color = Color.White.copy(alpha = 0.65f),
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Medium,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -125,23 +128,22 @@ internal fun FamilySingleTrackCard(
                 // 歌曲名（加大字号，作为视觉焦点）
                 Text(
                     text = meta.title.asString(),
+                    style = typo.title,
                     color = Color.White,
-                    fontSize = 22.sp,
-                    fontWeight = FontWeight.Bold,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(top = 4.dp, end = 72.dp),
+                    modifier = Modifier.padding(top = metrics.micro, end = metrics.row),
                 )
 
                 // 艺术家（异步查回来就显示）
                 asyncArtist?.let { artist ->
                     Text(
                         text = artist,
+                        style = typo.footnote,
                         color = Color.White.copy(alpha = 0.75f),
-                        fontSize = 13.sp,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.padding(top = 2.dp),
+                        modifier = Modifier.padding(top = metrics.hair),
                     )
                 }
 
@@ -154,8 +156,8 @@ internal fun FamilySingleTrackCard(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 10.dp)
-                        .height(1.dp)
+                        .padding(vertical = metrics.compact)
+                        .height(metrics.stroke.thin)
                         .background(Color.White.copy(alpha = 0.2f))
                 )
 
@@ -172,9 +174,8 @@ internal fun FamilySingleTrackCard(
                     meta.subtitle?.let {
                         Text(
                             text = it.asString(),
+                            style = typo.footnote,
                             color = Color.White.copy(alpha = 0.82f),
-                            fontSize = 13.sp,
-                            lineHeight = 17.sp,
                             maxLines = 12,
                             overflow = TextOverflow.Ellipsis,
                         )
@@ -185,18 +186,18 @@ internal fun FamilySingleTrackCard(
                 meta.footer?.let { footerText ->
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        horizontalArrangement = Arrangement.spacedBy(metrics.micro),
                     ) {
                         Text(
                             text = footerText.asString(),
+                            style = typo.footnote,
                             color = Color.White.copy(alpha = 0.55f),
-                            fontSize = 12.sp,
                         )
                         if (meta.durationSec > 0) {
                             Text(
                                 text = "· ${formatDurationSec(meta.durationSec)}",
+                                style = typo.footnote,
                                 color = Color.White.copy(alpha = 0.4f),
-                                fontSize = 12.sp,
                             )
                         }
                     }
@@ -206,7 +207,7 @@ internal fun FamilySingleTrackCard(
             // 右上角小封面（64dp，装饰性）
             AsyncCoverForTrack(
                 coverUri = asyncCoverUri,
-                size = 64.dp,
+                size = metrics.row,
                 modifier = Modifier.align(Alignment.TopEnd),
             )
         }
@@ -240,7 +241,7 @@ private fun buildSingleTrackMeta(card: SlideCard): SingleTrackMeta {
                 UiText.Res(Res.string.card_single_ai_pick)
             },
             durationSec = c.durationSec,
-            themeColor = Color(0xFF7C4DFF),
+            themeColor = HelloCardPalette.SingleTrack.Recommend,
         )
 
         is ForgottenContent -> SingleTrackMeta(
@@ -250,7 +251,7 @@ private fun buildSingleTrackMeta(card: SlideCard): SingleTrackMeta {
             subtitle = c.emotionText?.let { UiText.Raw(it) },
             footer = UiText.Res(Res.string.card_total_plays, listOf(c.playCount)),
             durationSec = c.durationSec,
-            themeColor = Color(0xFF78909C),
+            themeColor = HelloCardPalette.SingleTrack.Forgotten,
         )
 
         else -> SingleTrackMeta(
@@ -273,10 +274,11 @@ private fun AsyncCoverForTrack(
     size: androidx.compose.ui.unit.Dp,
     modifier: Modifier = Modifier,
 ) {
+    val metrics = LocalHmpMetrics.current
     Box(
         modifier = modifier
             .size(size)
-            .clip(RoundedCornerShape(12.dp))
+            .clip(RoundedCornerShape(metrics.base))
             .background(Color.White.copy(alpha = 0.1f)),
         contentAlignment = Alignment.Center,
     ) {

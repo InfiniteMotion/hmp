@@ -34,9 +34,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.hearablemusic.player.ui.common.dialogs.base.ScrimDialog
+import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
 import com.hearablemusic.player.ui.common.util.HazeRenderSettings
 import com.hearablemusic.player.ui.common.util.LocalHazeRenderSettings
 import com.hearablemusic.player.ui.common.util.ProvideHazeRenderSettings
@@ -46,6 +46,7 @@ import com.hearablemusic.player.ui.common.dialogs.viewmodel.DialogViewModel
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 
 @OptIn(ExperimentalHazeMaterialsApi::class)
 @Composable
@@ -54,9 +55,11 @@ fun CreatePlaylistDialog(
     hazeState: HazeState? = null,
     hazeRenderSettings: HazeRenderSettings? = null
 ) {
+    val metrics = LocalHmpMetrics.current
     val state by dialogViewModel.createPlaylistState.collectAsState()
     val uiState = state ?: return
     val resolvedHazeRenderSettings = hazeRenderSettings ?: LocalHazeRenderSettings.current
+    val typo = LocalHmpTypo.current
 
     ProvideHazeRenderSettings(settings = resolvedHazeRenderSettings) {
         ScrimDialog(
@@ -66,11 +69,11 @@ fun CreatePlaylistDialog(
                 }
             }
         ) {
-            val dialogShape = RoundedCornerShape(24.dp)
+            val dialogShape = RoundedCornerShape(metrics.section)
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 24.dp)
+                    .padding(horizontal = metrics.section)
                     .clip(dialogShape)
                     .then(
                         if (hazeState != null) {
@@ -95,16 +98,16 @@ fun CreatePlaylistDialog(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(24.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                        .padding(metrics.section),
+                    verticalArrangement = Arrangement.spacedBy(metrics.cozy)
                 ) {
                     Text(
                         text = if (uiState.isEditing) stringResource(Res.string.edit_playlist) else stringResource(
                             Res.string.new_playlist_dialog_title
                         ),
-                        style = MaterialTheme.typography.headlineSmall,
+                        style = typo.subtitle,
                         color = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.padding(bottom = 4.dp)
+                        modifier = Modifier.padding(bottom = metrics.micro)
                     )
                     OutlinedTextField(
                         value = uiState.name,
@@ -145,7 +148,7 @@ fun CreatePlaylistDialog(
                     ) {
                         Text(
                             text = stringResource(Res.string.pin_playlist),
-                            style = MaterialTheme.typography.bodyMedium,
+                            style = typo.body,
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Switch(
@@ -162,13 +165,13 @@ fun CreatePlaylistDialog(
                         ) {
                             Text(
                                 text = stringResource(Res.string.selected_n_songs, uiState.selectedSongIds.size),
-                                style = MaterialTheme.typography.bodySmall,
+                                style = typo.footnote,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             TextButton(
                                 enabled = !uiState.isSubmitting,
                                 onClick = dialogViewModel::onCreatePlaylistAddSongsClick,
-                                modifier = Modifier.padding(horizontal = 4.dp)
+                                modifier = Modifier.padding(horizontal = metrics.micro)
                             ) {
                                 Text(
                                     text = stringResource(Res.string.add_songs_to_playlist),
@@ -180,9 +183,9 @@ fun CreatePlaylistDialog(
                     uiState.submitError?.let {
                         Text(
                             text = it,
-                            style = MaterialTheme.typography.bodySmall,
+                            style = typo.footnote,
                             color = MaterialTheme.colorScheme.error,
-                            modifier = Modifier.padding(top = 4.dp)
+                            modifier = Modifier.padding(top = metrics.micro)
                         )
                     }
 
@@ -194,11 +197,11 @@ fun CreatePlaylistDialog(
                         TextButton(
                             enabled = !uiState.isSubmitting,
                             onClick = dialogViewModel::dismissCreatePlaylistDialog,
-                            modifier = Modifier.padding(end = 8.dp)
+                            modifier = Modifier.padding(end = metrics.compact)
                         ) {
                             Text(
                                 text = stringResource(Res.string.cancel),
-                                style = MaterialTheme.typography.bodyMedium
+                                style = typo.body
                             )
                         }
                         TextButton(
@@ -210,8 +213,7 @@ fun CreatePlaylistDialog(
                                     Res.string.new_playlist
                                 ),
                                 color = MaterialTheme.colorScheme.primary,
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.SemiBold
+                                style = typo.body
                             )
                         }
                     }

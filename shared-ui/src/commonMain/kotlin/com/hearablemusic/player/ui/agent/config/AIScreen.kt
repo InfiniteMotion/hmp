@@ -80,7 +80,8 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
-import com.hearablemusic.player.ui.common.design.dimens.LocalHMPDimens
+import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
+import com.hearablemusic.player.ui.common.design.typography.medium
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -164,6 +165,8 @@ import org.jetbrains.compose.resources.getString
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
+import com.hearablemusic.player.ui.common.design.metrics.LayoutConstraints
 
 @Composable
 fun AIScreen(
@@ -253,6 +256,7 @@ private fun AIScreenContent(
     masterAgent: MasterAgent,
     onBackClick: () -> Unit
 ) {
+    val metrics = LocalHmpMetrics.current
     // 显示测试结果 Toast
     LaunchedEffect(apiTestResult) {
         apiTestResult?.let { result ->
@@ -275,8 +279,7 @@ private fun AIScreenContent(
         val window = LocalWindowSizeInfo.current
         val isWide = window.isExpanded || window.isMedium
         val isLandscape = window.isLandscape
-        val dimens = LocalHMPDimens.current
-        val formMaxWidth = if (isWide) 600.dp else Dp.Unspecified
+        val formMaxWidth = if (isWide) LayoutConstraints.WidthBreakpointMedium else Dp.Unspecified
         Box(
             modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.TopCenter,
@@ -286,8 +289,8 @@ private fun AIScreenContent(
         Row(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = dimens.spacing.xl, vertical = dimens.spacing.md),
-            horizontalArrangement = Arrangement.spacedBy(dimens.spacing.xl),
+                .padding(horizontal = metrics.block, vertical = metrics.cozy),
+            horizontalArrangement = Arrangement.spacedBy(metrics.block),
             verticalAlignment = Alignment.Top,
         ) {
             Column(
@@ -295,7 +298,7 @@ private fun AIScreenContent(
                     .weight(1f)
                     .fillMaxHeight()
                     .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(dimens.spacing.lg),
+                verticalArrangement = Arrangement.spacedBy(metrics.section),
             ) {
                 // 分区 1：AI 接入方式
                 SectionHeader(stringResource(Res.string.agent_ai_access_header))
@@ -326,7 +329,7 @@ private fun AIScreenContent(
                     .weight(1f)
                     .fillMaxHeight()
                     .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(dimens.spacing.lg),
+                verticalArrangement = Arrangement.spacedBy(metrics.section),
             ) {
                 // 分区 2：Agent 管理
                 SectionHeader(stringResource(Res.string.agent_ai_agent_mgmt_header))
@@ -349,8 +352,8 @@ private fun AIScreenContent(
                 .widthIn(max = formMaxWidth)
                 .fillMaxWidth()
                 .verticalScroll(rememberScrollState())
-                .padding(dimens.spacing.lg),
-            verticalArrangement = Arrangement.spacedBy(dimens.spacing.lg)
+                .padding(metrics.section),
+            verticalArrangement = Arrangement.spacedBy(metrics.section)
         ) {
             // ═══ 分区 1：AI 接入方式（折叠态只显示概要，展开才配细节）═══
             SectionHeader(stringResource(Res.string.agent_ai_access_header))
@@ -392,7 +395,7 @@ private fun AIScreenContent(
                 onClearAllMemory = onClearAllMemory
             )
 
-            Spacer(modifier = Modifier.height(64.dp))
+            Spacer(modifier = Modifier.height(metrics.row))
         }
         }
         }
@@ -447,10 +450,12 @@ private fun AiAccessSection(
     onTestConnection: (String, String) -> Unit,
     dialogManager: DialogManager,
 ) {
+    val metrics = LocalHmpMetrics.current
+    val typo = LocalHmpTypo.current
     var expanded by remember { mutableStateOf(false) }
     val summary = accessSummary(aiAccessMode, customConfig, freeQuota, freeAvailable)
 
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(metrics.base)) {
         // 概要行：始终可见，点击切换展开/折叠
         HMPCard(
             modifier = Modifier.clickable { expanded = !expanded }
@@ -463,22 +468,22 @@ private fun AiAccessSection(
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         summary.title,
-                        style = MaterialTheme.typography.bodyMedium,
+                        style = typo.body,
                         fontWeight = FontWeight.Medium,
                         color = MaterialTheme.colorScheme.onBackground
                     )
                     Text(
                         summary.detail,
-                        style = MaterialTheme.typography.bodySmall,
+                        style = typo.footnote,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                 }
-                Spacer(Modifier.width(8.dp))
+                Spacer(Modifier.width(metrics.compact))
                 Text(
                     if (expanded) stringResource(Res.string.agent_ai_collapse) else stringResource(Res.string.agent_ai_expand),
-                    style = MaterialTheme.typography.labelMedium,
+                    style = typo.footnote.medium(),
                     color = MaterialTheme.colorScheme.primary
                 )
             }
@@ -530,19 +535,21 @@ private fun FreeTrialContent(
     freeQuota: com.hmp.domain.agent.runtime.TokenSnapshot,
     freeAvailable: Boolean,
 ) {
+    val metrics = LocalHmpMetrics.current
+    val typo = LocalHmpTypo.current
     TitleWidget(title = stringResource(Res.string.ai_tab_free)) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(metrics.cozy),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(metrics.cozy)
         ) {
             // 免费入口的显示条件是「有没有可用的内置端点」，不是平台
             if (!freeAvailable) {
                 Text(
                     text = stringResource(Res.string.ai_free_unavailable),
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = typo.body,
                     color = MaterialTheme.colorScheme.error,
                     textAlign = TextAlign.Center
                 )
@@ -550,34 +557,34 @@ private fun FreeTrialContent(
                 val remaining = freeQuota.remaining
                 Text(
                     text = stringResource(Res.string.ai_free_remaining, fmtTokens(remaining)),
-                    style = MaterialTheme.typography.headlineMedium,
+                    style = typo.headline,
                     color = if (remaining > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
                 )
                 LinearProgressIndicator(
                     progress = { freeQuota.rate },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(4.dp)
-                        .clip(RoundedCornerShape(2.dp)),
+                        .height(metrics.micro)
+                        .clip(RoundedCornerShape(metrics.hair)),
                     color = if (remaining > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
                     trackColor = MaterialTheme.colorScheme.surfaceVariant
                 )
                 Text(
                     text = stringResource(Res.string.ai_free_used, fmtTokens(freeQuota.used), fmtTokens(freeQuota.quota)),
-                    style = MaterialTheme.typography.bodySmall,
+                    style = typo.footnote,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 if (remaining <= 0) {
                     Text(
                         text = stringResource(Res.string.ai_free_exhausted),
-                        style = MaterialTheme.typography.bodyMedium,
+                        style = typo.body,
                         color = MaterialTheme.colorScheme.error,
                         textAlign = TextAlign.Center
                     )
                 } else {
                     Text(
                         text = stringResource(Res.string.ai_free_hint),
-                        style = MaterialTheme.typography.bodySmall,
+                        style = typo.footnote,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center
                     )
@@ -607,6 +614,8 @@ private fun CustomConfigContent(
     onTestConnection: (String, String) -> Unit,
     dialogManager: DialogManager
 ) {
+    val metrics = LocalHmpMetrics.current
+    val typo = LocalHmpTypo.current
     val scope = rememberCoroutineScope()
     var endpointValue by rememberSaveable { mutableStateOf(customConfig.endpoint) }
     // D7-04：密钥不能走 rememberSaveable —— 它会把值写进 SavedStateHandle / Bundle，
@@ -630,8 +639,8 @@ private fun CustomConfigContent(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+                .padding(metrics.cozy),
+            verticalArrangement = Arrangement.spacedBy(metrics.base)
         ) {
             // D7-01：Android 换机 / 云备份恢复后，DataStore 里的密文回来了、KeyStore 密钥没回来，
             // 解密必然失败。以前这条路会直接抛到 viewModelScope 上（打开 AI 页即崩溃），
@@ -639,18 +648,18 @@ private fun CustomConfigContent(
             if (customConfig.keyNeedsRefill) {
                 Text(
                     text = stringResource(Res.string.ai_key_needs_refill),
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = typo.body,
                     color = MaterialTheme.colorScheme.error
                 )
             }
             // 预设快捷按钮
             Text(
                 text = stringResource(Res.string.ai_preset_quick_fill),
-                style = MaterialTheme.typography.bodyMedium,
+                style = typo.body,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(metrics.compact)
             ) {
                 AiPresetEndpoints.ALL.forEach { preset ->
                     Button(
@@ -661,7 +670,7 @@ private fun CustomConfigContent(
                         modifier = Modifier.weight(1f),
                         colors = ButtonDefaults.outlinedButtonColors()
                     ) {
-                        Text(preset.displayName, style = MaterialTheme.typography.labelMedium)
+                        Text(preset.displayName, style = typo.footnote.medium())
                     }
                 }
             }
@@ -676,13 +685,13 @@ private fun CustomConfigContent(
                 placeholder = { Text("https://api.example.com/v1") },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp)
+                shape = RoundedCornerShape(metrics.base)
             )
 
             // F12-T3：端点窗口前提声明（无法配置时探测，故显式告知用户前提是 ≥64K）
             Text(
                 stringResource(Res.string.agent_ai_endpoint_prereq),
-                style = MaterialTheme.typography.labelSmall,
+                style = typo.caption,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
@@ -700,7 +709,7 @@ private fun CustomConfigContent(
                     unfocusedIndicatorColor = Transparent,
                     disabledIndicatorColor = Transparent
                 ),
-                shape = RoundedCornerShape(15.dp),
+                shape = RoundedCornerShape(LayoutConstraints.ShadowElevation),
                 modifier = Modifier.fillMaxWidth()
             )
 
@@ -717,8 +726,8 @@ private fun CustomConfigContent(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 if (isTestingApi) {
-                    CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
-                    Spacer(Modifier.width(8.dp))
+                    CircularProgressIndicator(modifier = Modifier.size(metrics.cozy), strokeWidth = metrics.hair, color = MaterialTheme.colorScheme.onPrimary)
+                    Spacer(Modifier.width(metrics.compact))
                 }
                 Text(stringResource(Res.string.ai_fetch_models), color = MaterialTheme.colorScheme.onPrimary)
             }
@@ -743,7 +752,7 @@ private fun CustomConfigContent(
                             unfocusedIndicatorColor = Transparent,
                             disabledIndicatorColor = Transparent
                         ),
-                        shape = RoundedCornerShape(12.dp)
+                        shape = RoundedCornerShape(metrics.base)
                     )
                     ExposedDropdownMenu(
                         expanded = modelExpanded,
@@ -767,14 +776,14 @@ private fun CustomConfigContent(
                     label = { Text(stringResource(Res.string.model_name)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp)
+                    shape = RoundedCornerShape(metrics.base)
                 )
             }
 
             // 测试 + 保存按钮
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
+                horizontalArrangement = Arrangement.spacedBy(metrics.cozy)
             ) {
                 Button(
                     onClick = {
@@ -786,7 +795,7 @@ private fun CustomConfigContent(
                     modifier = Modifier.weight(1f)
                 ) {
                     if (isTestingApi) {
-                        CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
+                        CircularProgressIndicator(modifier = Modifier.size(metrics.cozy), strokeWidth = metrics.hair, color = MaterialTheme.colorScheme.onPrimary)
                     } else {
                         Text(stringResource(Res.string.test), color = MaterialTheme.colorScheme.onPrimary)
                     }
@@ -811,7 +820,7 @@ private fun CustomConfigContent(
             if (customConfig.isConfigured) {
                 Text(
                     text = stringResource(Res.string.configured),
-                    style = MaterialTheme.typography.bodySmall,
+                    style = typo.footnote,
                     color = MaterialTheme.colorScheme.primary
                 )
             }
@@ -828,6 +837,8 @@ private fun CustomConfigContent(
  */
 @Composable
 private fun TokenLimitsCard(vm: AiSettingsViewModel) {
+    val metrics = LocalHmpMetrics.current
+    val typo = LocalHmpTypo.current
     val config by vm.globalConfig.collectAsState()
     var enabled by remember(config) { mutableStateOf(config.tokenLimitsEnabled) }
     var globalLimit by remember(config) {
@@ -842,11 +853,11 @@ private fun TokenLimitsCard(vm: AiSettingsViewModel) {
     }
     var saved by remember { mutableStateOf(false) }
 
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(metrics.compact)) {
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         Text(
             text = stringResource(Res.string.agent_token_limits_title),
-            style = MaterialTheme.typography.titleMedium,
+            style = typo.subtitle,
             fontWeight = FontWeight.Bold,
         )
         Row(
@@ -856,7 +867,7 @@ private fun TokenLimitsCard(vm: AiSettingsViewModel) {
         ) {
             Text(
                 text = stringResource(Res.string.agent_token_limits_enable),
-                style = MaterialTheme.typography.bodyMedium,
+                style = typo.body,
             )
             Switch(checked = enabled, onCheckedChange = { enabled = it; saved = false })
         }
@@ -908,7 +919,7 @@ private fun TokenLimitsCard(vm: AiSettingsViewModel) {
         if (saved) {
             Text(
                 text = stringResource(Res.string.config_saved),
-                style = MaterialTheme.typography.bodySmall,
+                style = typo.footnote,
                 color = MaterialTheme.colorScheme.primary,
             )
         }
@@ -919,23 +930,25 @@ private fun TokenLimitsCard(vm: AiSettingsViewModel) {
 
 @Composable
 private fun PaidModeContent() {
+    val metrics = LocalHmpMetrics.current
+    val typo = LocalHmpTypo.current
     TitleWidget(title = stringResource(Res.string.ai_tab_paid)) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(32.dp),
+                .padding(metrics.block),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(metrics.cozy)
         ) {
             Text(
                 text = stringResource(Res.string.ai_paid_coming_soon),
-                style = MaterialTheme.typography.headlineSmall,
+                style = typo.subtitle,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center
             )
             Text(
                 text = stringResource(Res.string.ai_paid_description),
-                style = MaterialTheme.typography.bodyMedium,
+                style = typo.body,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center
             )
@@ -956,11 +969,13 @@ private data class AgentEntry(val role: String, val label: String)
 private fun ReplyLanguageSection(
     masterAgent: MasterAgent,
 ) {
+    val metrics = LocalHmpMetrics.current
+    val typo = LocalHmpTypo.current
     val scope = rememberCoroutineScope()
     val globalConfig = remember { masterAgent.getGlobalAgentConfig() }
     var replyLanguage by remember { mutableStateOf(globalConfig.replyLanguage) }
 
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(metrics.compact)) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.fillMaxWidth()
@@ -983,7 +998,7 @@ private fun ReplyLanguageSection(
         }
         Text(
             stringResource(Res.string.agent_ai_lang_follow_global_desc),
-            style = MaterialTheme.typography.bodySmall,
+            style = typo.footnote,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
@@ -994,21 +1009,23 @@ private fun ReplyLanguageSection(
 
 @Composable
 private fun VoiceSection() {
-    HMPCard(contentPadding = Modifier.padding(16.dp)) {
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    val metrics = LocalHmpMetrics.current
+    val typo = LocalHmpTypo.current
+    HMPCard(contentPadding = Modifier.padding(metrics.cozy)) {
+        Column(verticalArrangement = Arrangement.spacedBy(metrics.compact)) {
             Text(
                 text = stringResource(Res.string.agent_ai_voice_title),
-                style = MaterialTheme.typography.bodyMedium,
+                style = typo.body,
                 color = MaterialTheme.colorScheme.onSurface
             )
             Text(
                 text = stringResource(Res.string.agent_ai_voice_desc),
-                style = MaterialTheme.typography.bodySmall,
+                style = typo.footnote,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Text(
                 text = stringResource(Res.string.agent_ai_voice_locked),
-                style = MaterialTheme.typography.bodySmall,
+                style = typo.footnote,
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
             )
         }
@@ -1031,6 +1048,8 @@ private fun MemoryManagementSection(
     navController: NavBackStack<NavKey>,
     onClearAllMemory: () -> Unit
 ) {
+    val metrics = LocalHmpMetrics.current
+    val typo = LocalHmpTypo.current
     val scope = rememberCoroutineScope()
     var portraits by remember { mutableStateOf<List<PortraitDraft>>(emptyList()) }
     var showConfirmClear by remember { mutableStateOf(false) }
@@ -1042,8 +1061,8 @@ private fun MemoryManagementSection(
     }
     LaunchedEffect(Unit) { load() }
 
-    HMPCard(contentPadding = Modifier.padding(16.dp)) {
-        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    HMPCard(contentPadding = Modifier.padding(metrics.cozy)) {
+        Column(verticalArrangement = Arrangement.spacedBy(metrics.base)) {
             // 总开关：记忆功能（关闭后伙伴不再记住你，已记住内容被清空）
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -1053,12 +1072,12 @@ private fun MemoryManagementSection(
                 Column {
                     Text(
                         text = stringResource(Res.string.agent_ai_memory_feature),
-                        style = MaterialTheme.typography.bodyMedium,
+                        style = typo.body,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
                         text = stringResource(Res.string.agent_ai_memory_off_desc),
-                        style = MaterialTheme.typography.bodySmall,
+                        style = typo.footnote,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
@@ -1085,12 +1104,12 @@ private fun MemoryManagementSection(
             ) {
                 Text(
                     text = stringResource(Res.string.agent_ai_memory_about_you),
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = typo.body,
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
                     text = stringResource(Res.string.agent_ai_memory_count, portraits.size),
-                    style = MaterialTheme.typography.labelSmall,
+                    style = typo.caption,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
@@ -1098,7 +1117,7 @@ private fun MemoryManagementSection(
             if (portraits.isEmpty()) {
                 Text(
                     text = stringResource(Res.string.agent_ai_memory_empty),
-                    style = MaterialTheme.typography.bodySmall,
+                    style = typo.footnote,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             } else {
@@ -1112,14 +1131,14 @@ private fun MemoryManagementSection(
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 text = p.type.displayName + if (p.type.weakEvidence) stringResource(Res.string.agent_ai_memory_inferred) else "",
-                                style = MaterialTheme.typography.bodySmall,
+                                style = typo.footnote,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             val detail = p.slots.values.filter { it.isNotBlank() }.joinToString("、")
                             if (detail.isNotBlank()) {
                                 Text(
                                     text = detail,
-                                    style = MaterialTheme.typography.labelSmall,
+                                    style = typo.caption,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
@@ -1128,18 +1147,18 @@ private fun MemoryManagementSection(
                         }
                         Text(
                             text = stringResource(Res.string.agent_ai_memory_forget),
-                            style = MaterialTheme.typography.labelMedium,
+                            style = typo.footnote.medium(),
                             color = MaterialTheme.colorScheme.primary,
                             modifier = Modifier
                                 .clickable { scope.launch { masterAgent.forgetPortrait(p.type.id); load() } }
-                                .padding(8.dp)
+                                .padding(metrics.compact)
                         )
                     }
                 }
                 if (portraits.size > 6) {
                     Text(
                         text = stringResource(Res.string.agent_ai_memory_more, portraits.size - 6),
-                        style = MaterialTheme.typography.labelSmall,
+                        style = typo.caption,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
@@ -1156,12 +1175,12 @@ private fun MemoryManagementSection(
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = stringResource(Res.string.agent_ai_memory_reset),
-                        style = MaterialTheme.typography.bodyMedium,
+                        style = typo.body,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
                         text = stringResource(Res.string.agent_ai_memory_reset_desc),
-                        style = MaterialTheme.typography.bodySmall,
+                        style = typo.footnote,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
@@ -1181,34 +1200,34 @@ private fun MemoryManagementSection(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(8.dp))
+                    .clip(RoundedCornerShape(metrics.compact))
                     .clickable { navController.add(Routes.Settings.AuditLog) }
-                    .padding(vertical = 8.dp, horizontal = 4.dp),
+                    .padding(vertical = metrics.compact, horizontal = metrics.micro),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column {
                     Text(
                         text = stringResource(Res.string.agent_ai_memory_log_title),
-                        style = MaterialTheme.typography.bodyMedium,
+                        style = typo.body,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
                         text = stringResource(Res.string.agent_ai_memory_log_desc),
-                        style = MaterialTheme.typography.bodySmall,
+                        style = typo.footnote,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
                 Text(
                     text = stringResource(Res.string.agent_ai_memory_log_view),
-                    style = MaterialTheme.typography.labelMedium,
+                    style = typo.footnote.medium(),
                     color = MaterialTheme.colorScheme.primary
                 )
             }
             } else {
                 Text(
                     text = stringResource(Res.string.agent_ai_memory_disabled_note),
-                    style = MaterialTheme.typography.bodySmall,
+                    style = typo.footnote,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
@@ -1241,6 +1260,8 @@ private fun AgentQuickEntries(
     masterAgent: MasterAgent,
     onAgentClick: (String) -> Unit,
 ) {
+    val metrics = LocalHmpMetrics.current
+    val typo = LocalHmpTypo.current
     val agents = listOf(
         AgentEntry("master", "Master"),
         AgentEntry("radio", "Radio"),
@@ -1249,7 +1270,7 @@ private fun AgentQuickEntries(
     )
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        horizontalArrangement = Arrangement.spacedBy(metrics.compact)
     ) {
         agents.forEach { entry ->
             HMPCard(
@@ -1260,20 +1281,20 @@ private fun AgentQuickEntries(
                 Column(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                    verticalArrangement = Arrangement.spacedBy(metrics.micro)
                 ) {
                     val icon = agentIcon(entry.role)
                     if (icon != null) {
                         Icon(
                             painter = painterResource(icon),
                             contentDescription = null,
-                            modifier = Modifier.size(40.dp),
+                            modifier = Modifier.size(metrics.block),
                             tint = MaterialTheme.colorScheme.onBackground
                         )
                     }
                     Text(
                         entry.label,
-                        style = MaterialTheme.typography.labelSmall,
+                        style = typo.caption,
                         color = MaterialTheme.colorScheme.onBackground,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -1284,4 +1305,3 @@ private fun AgentQuickEntries(
         }
     }
 }
-

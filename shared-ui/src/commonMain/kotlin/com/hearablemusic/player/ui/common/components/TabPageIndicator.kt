@@ -18,6 +18,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
+import com.hearablemusic.player.ui.common.design.animation.HmpMotion
 
 @Composable
 fun TabPageIndicator(
@@ -27,9 +29,10 @@ fun TabPageIndicator(
     activeColor: Color = MaterialTheme.colorScheme.primary,
     inactiveColor: Color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.3f)
 ) {
+    val metrics = LocalHmpMetrics.current
     Row(
         modifier = modifier.fillMaxWidth()
-            .padding(top = 16.dp),
+            .padding(top = metrics.cozy),
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -37,19 +40,19 @@ fun TabPageIndicator(
             val isSelected = index == currentPage
             val barColor by animateColorAsState(
                 targetValue = if (isSelected) activeColor else inactiveColor,
-                animationSpec = tween(durationMillis = 200)
+                animationSpec = HmpMotion.micro()
             )
-            val barWidth = 32.dp
-            val barHeight = if (isSelected) 3.dp else 2.dp
+            val barWidth = metrics.block
+            val barHeight = if (isSelected) metrics.hair else metrics.hair
 
             Box(
                 modifier = Modifier
                     .width(barWidth)
                     .height(barHeight)
-                    .padding(horizontal = 4.dp)
+                    .padding(horizontal = metrics.micro)
                     .background(
                         color = barColor,
-                        shape = RoundedCornerShape(2.dp)
+                        shape = RoundedCornerShape(metrics.hair)
                     )
             )
         }

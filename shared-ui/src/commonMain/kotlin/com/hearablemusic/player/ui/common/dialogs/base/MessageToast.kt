@@ -1,7 +1,6 @@
 package com.hearablemusic.player.ui.common.dialogs.base
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -29,6 +28,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
 import com.hearablemusic.player.ui.common.util.HazeRenderSettings
 import com.hearablemusic.player.ui.common.util.LocalHazeRenderSettings
 import com.hearablemusic.player.ui.common.util.hazeStyleForIntensity
@@ -39,6 +39,9 @@ import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import kotlinx.coroutines.delay
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
+import com.hearablemusic.player.ui.common.design.metrics.LayoutConstraints
+import com.hearablemusic.player.ui.common.design.animation.HmpMotion
 
 @OptIn(ExperimentalHazeMaterialsApi::class)
 @Composable
@@ -50,6 +53,8 @@ fun MessageToast(
     hazeRenderSettings: HazeRenderSettings? = null,
     onDismiss: () -> Unit
 ) {
+    val metrics = LocalHmpMetrics.current
+    val typo = LocalHmpTypo.current
     val resolvedHazeRenderSettings = hazeRenderSettings ?: LocalHazeRenderSettings.current
     // 每次消息变化时，重新创建可见性状态
     var visible by remember(id) { mutableStateOf(false) }
@@ -78,25 +83,25 @@ fun MessageToast(
     ProvideHazeRenderSettings(settings = resolvedHazeRenderSettings) {
         AnimatedVisibility(
             visible = visible,
-            enter = fadeIn(animationSpec = tween(300)) + slideInVertically(
+            enter = fadeIn(animationSpec = HmpMotion.standard()) + slideInVertically(
                 initialOffsetY = { -100 }, // 固定的偏移量，使动画更明显
-                animationSpec = tween(300, easing = FastOutSlowInEasing)
+                animationSpec = HmpMotion.standard()
             ),
-            exit = fadeOut(animationSpec = tween(300)) + slideOutVertically(
+            exit = fadeOut(animationSpec = HmpMotion.standard()) + slideOutVertically(
                 targetOffsetY = { if (isExiting) -100 else 100 }, // 正常退出向上，被覆盖时向下
-                animationSpec = tween(300, easing = FastOutSlowInEasing)
+                animationSpec = HmpMotion.standard()
             )
         ) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 48.dp),
+                    .padding(top = metrics.bar),
                 contentAlignment = Alignment.TopCenter
             ) {
                 Box(
                     modifier = Modifier
-                        .width(150.dp) // 宽度缩减一半
-                        .clip(RoundedCornerShape(30.dp)) // 扩大圆角成胶囊形状
+                        .width(LayoutConstraints.ToastMaxWidth) // 宽度缩减一半
+                        .clip(RoundedCornerShape(metrics.block)) // 扩大圆角成胶囊形状
                         .then(
                             if (hazeState != null) {
                                 Modifier.hazeEffect(
@@ -114,12 +119,12 @@ fun MessageToast(
                         )
                         .border(
                             BorderStroke(
-                                width = 0.5.dp,
+                                width = metrics.stroke.hairline,
                                 color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.14f)
                             ),
-                            shape = RoundedCornerShape(30.dp)
+                            shape = RoundedCornerShape(metrics.block)
                         )
-                        .padding(horizontal = 16.dp, vertical = 12.dp)
+                        .padding(horizontal = metrics.cozy, vertical = metrics.base)
                 ) {
                     Box(
                         modifier = Modifier.fillMaxWidth(),
@@ -131,7 +136,7 @@ fun MessageToast(
                             message.split("\n").forEach { line ->
                                 Text(
                                     text = line,
-                                    style = MaterialTheme.typography.bodyLarge,
+                                    style = typo.body,
                                     color = MaterialTheme.colorScheme.onSurface,
                                     textAlign = TextAlign.Center
                                 )

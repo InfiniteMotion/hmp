@@ -54,7 +54,8 @@ import androidx.navigation3.runtime.NavKey
 import com.hearablemusic.player.ui.common.components.SegmentedControl
 import com.hearablemusic.player.ui.common.components.SegmentedOption
 import com.hearablemusic.player.ui.common.components.base.HMPCard
-import com.hearablemusic.player.ui.common.design.dimens.LocalHMPDimens
+import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
+import com.hearablemusic.player.ui.common.design.typography.medium
 import com.hearablemusic.player.ui.common.components.SectionHeader
 import com.hearablemusic.player.ui.common.navigation.Routes
 import com.hearablemusic.player.ui.common.pages.base.SubScreen
@@ -84,19 +85,20 @@ import com.hmp.domain.setting.model.RecentPlaybackEntry
 import com.hmp.domain.setting.model.TopPlayedEntry
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 
 @Composable
 fun UserUsageDataScreen(
     navController: NavBackStack<NavKey>,
     viewModel: UserUsageDataViewModel = koinViewModel()
 ) {
+    val metrics = LocalHmpMetrics.current
     val personality by viewModel.personality.collectAsState()
     val dimension by viewModel.dimension.collectAsState()
     val timeRange by viewModel.timeRange.collectAsState()
     val windowed by viewModel.windowed.collectAsState()
 
     val scrollState = rememberScrollState()
-    val dimens = LocalHMPDimens.current
     val haptic = rememberHapticFeedback()
 
     SubScreen(
@@ -107,25 +109,25 @@ fun UserUsageDataScreen(
             modifier = Modifier
                 .verticalScroll(scrollState)
                 .fillMaxWidth()
-                .padding(dimens.spacing.lg),
+                .padding(metrics.section),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             // ═══════════ 固定置顶：累计画像（永不随筛选变）═══════════
             personality?.let { bundle ->
                 PersonalitySection(bundle = bundle)
-                Spacer(modifier = Modifier.height(dimens.spacing.lg))
+                Spacer(modifier = Modifier.height(metrics.section))
             }
             // ═══════════ 筛选轴 ═══════════
             DimensionSelector(
                 selected = dimension,
                 onSelect = { viewModel.selectDimension(it) }
             )
-            Spacer(modifier = Modifier.height(dimens.spacing.sm))
+            Spacer(modifier = Modifier.height(metrics.compact))
             TimeRangeSwitcher(
                 selected = timeRange,
                 onSelect = { viewModel.selectTimeRange(it) }
             )
-            Spacer(modifier = Modifier.height(dimens.spacing.lg))
+            Spacer(modifier = Modifier.height(metrics.section))
 
             // ═══════════ 内容区（WindowedBundle 按维度分发）═══════════
             // 首帧与切维度/切时段时旧数据为空 —— 此前直接落到「暂无数据」再跳变（D5-14 补记的加载态）
@@ -148,7 +150,7 @@ fun UserUsageDataScreen(
                     if (windowed.hourlyDistribution.isNotEmpty()) {
                         Column(modifier = Modifier.fillMaxWidth()) {
                             SectionHeader(title = "时段分布（${timeRange.zhName()}）")
-                            Spacer(modifier = Modifier.height(dimens.spacing.sm))
+                            Spacer(modifier = Modifier.height(metrics.compact))
                             HourlyChart(rows = windowed.hourlyDistribution)
                         }
                     }
@@ -209,58 +211,58 @@ private fun OverviewWindowContent(
     windowed: WindowedBundle,
     rangeLabel: String,
 ) {
-    val dimens = LocalHMPDimens.current
+    val metrics = LocalHmpMetrics.current
+    val typo = LocalHmpTypo.current
     Column(
         modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(dimens.spacing.md)
+        verticalArrangement = Arrangement.spacedBy(metrics.cozy)
     ) {
         // 统计大数字 + 完播/跳过率
         windowed.analytics?.let { a ->
             HMPCard(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(dimens.corner.md),
+                shape = RoundedCornerShape(metrics.cozy),
                 containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f),
                 borderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.1f),
-                contentPadding = Modifier.padding(dimens.spacing.lg)
+                contentPadding = Modifier.padding(metrics.section)
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(dimens.spacing.sm)
+                    horizontalArrangement = Arrangement.spacedBy(metrics.compact)
                 ) {
                     Text(
                         text = stringResource(Res.string.usage_period),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
+                        style = typo.subtitle,
                         color = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.weight(1f)
                     )
                     if (rangeLabel.isNotBlank()) {
                         Text(
                             text = rangeLabel,
-                            style = MaterialTheme.typography.labelSmall,
+                            style = typo.caption,
                             color = MaterialTheme.colorScheme.primary,
                             modifier = Modifier
-                                .clip(RoundedCornerShape(dimens.corner.sm))
+                                .clip(RoundedCornerShape(metrics.base))
                                 .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f))
-                                .padding(horizontal = 8.dp, vertical = 2.dp)
+                                .padding(horizontal = metrics.compact, vertical = metrics.hair)
                         )
                     }
                 }
-                Spacer(modifier = Modifier.height(dimens.spacing.sm))
+                Spacer(modifier = Modifier.height(metrics.compact))
                 Text(
                     text = stringResource(Res.string.usage_listened_min, a.totalListeningMinutes),
-                    style = MaterialTheme.typography.headlineMedium,
+                    style = typo.headline,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
-                Spacer(modifier = Modifier.height(dimens.spacing.xs))
+                Spacer(modifier = Modifier.height(metrics.micro))
                 Text(
                     text = stringResource(Res.string.usage_play_skip, a.totalPlayCount, a.totalSkipCount),
-                    style = MaterialTheme.typography.bodySmall,
+                    style = typo.footnote,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                Spacer(modifier = Modifier.height(dimens.spacing.md))
-                Column(verticalArrangement = Arrangement.spacedBy(dimens.spacing.sm)) {
+                Spacer(modifier = Modifier.height(metrics.cozy))
+                Column(verticalArrangement = Arrangement.spacedBy(metrics.compact)) {
                     RateProgressRow(
                         label = stringResource(Res.string.completion_rate),
                         rate = a.completionRate,
@@ -276,12 +278,12 @@ private fun OverviewWindowContent(
                 }
                 // 播放来源饼图
                 if (windowed.sourceBreakdown.isNotEmpty()) {
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(metrics.base))
                     HorizontalDivider(
                         modifier = Modifier.fillMaxWidth(),
                         color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
                     )
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(metrics.base))
                     PlaySourcePieChart(entries = windowed.sourceBreakdown.entries.toList())
                 }
             }
@@ -300,7 +302,8 @@ private fun TasteWindowContent(
     windowed: WindowedBundle,
     rangeLabel: String,
 ) {
-    val dimens = LocalHMPDimens.current
+    val metrics = LocalHmpMetrics.current
+    val typo = LocalHmpTypo.current
     val hasAny = windowed.topGenres.isNotEmpty() ||
             windowed.topMoods.isNotEmpty() ||
             windowed.topScenarios.isNotEmpty()
@@ -310,58 +313,57 @@ private fun TasteWindowContent(
     }
     HMPCard(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(dimens.corner.md),
+        shape = RoundedCornerShape(metrics.cozy),
         containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f),
         borderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.1f),
-        contentPadding = Modifier.padding(dimens.spacing.lg)
+        contentPadding = Modifier.padding(metrics.section)
     ) {
         Text(
             text = stringResource(Res.string.usage_taste),
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.SemiBold,
+            style = typo.subtitle,
             color = MaterialTheme.colorScheme.onSurface
         )
         Text(
             text = rangeLabel,
-            style = MaterialTheme.typography.labelSmall,
+            style = typo.caption,
             color = MaterialTheme.colorScheme.primary,
             modifier = Modifier
-                .clip(RoundedCornerShape(dimens.corner.sm))
+                .clip(RoundedCornerShape(metrics.base))
                 .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f))
-                .padding(horizontal = 8.dp, vertical = 2.dp)
+                .padding(horizontal = metrics.compact, vertical = metrics.hair)
         )
-        Spacer(modifier = Modifier.height(dimens.spacing.sm))
+        Spacer(modifier = Modifier.height(metrics.compact))
 
         if (windowed.topGenres.isNotEmpty()) {
             Text(
                 text = stringResource(Res.string.usage_genre),
-                style = MaterialTheme.typography.labelMedium,
+                style = typo.footnote.medium(),
                 fontWeight = FontWeight.Medium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            Spacer(modifier = Modifier.height(dimens.spacing.xs))
+            Spacer(modifier = Modifier.height(metrics.micro))
             LabelStackedBarWithLegend(entries = windowed.topGenres)
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(metrics.base))
         }
         if (windowed.topMoods.isNotEmpty()) {
             Text(
                 text = stringResource(Res.string.usage_mood),
-                style = MaterialTheme.typography.labelMedium,
+                style = typo.footnote.medium(),
                 fontWeight = FontWeight.Medium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            Spacer(modifier = Modifier.height(dimens.spacing.xs))
+            Spacer(modifier = Modifier.height(metrics.micro))
             LabelStackedBarWithLegend(entries = windowed.topMoods)
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(metrics.base))
         }
         if (windowed.topScenarios.isNotEmpty()) {
             Text(
                 text = stringResource(Res.string.usage_scenario),
-                style = MaterialTheme.typography.labelMedium,
+                style = typo.footnote.medium(),
                 fontWeight = FontWeight.Medium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            Spacer(modifier = Modifier.height(dimens.spacing.xs))
+            Spacer(modifier = Modifier.height(metrics.micro))
             LabelStackedBarWithLegend(entries = windowed.topScenarios)
         }
     }
@@ -376,18 +378,18 @@ private fun RankingWindowContent(
     navController: NavBackStack<NavKey>,
     haptic: HapticFeedbackHelper,
 ) {
-    val dimens = LocalHMPDimens.current
+    val metrics = LocalHmpMetrics.current
     SectionHeader(title = stringResource(Res.string.usage_rank, rangeLabel))
-    Spacer(modifier = Modifier.height(dimens.spacing.sm))
+    Spacer(modifier = Modifier.height(metrics.compact))
     if (items.isEmpty()) {
         WindowedEmptyHint(windowed, Dimension.RANK)
     } else {
         HMPCard(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(dimens.corner.md),
+            shape = RoundedCornerShape(metrics.cozy),
             containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f),
             borderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.1f),
-            contentPadding = Modifier.padding(dimens.spacing.lg)
+            contentPadding = Modifier.padding(metrics.section)
         ) {
             items.forEachIndexed { index, entry ->
                 TopSongRow(
@@ -414,9 +416,9 @@ private fun RecentWindowContent(
     navController: NavBackStack<NavKey>,
     haptic: HapticFeedbackHelper,
 ) {
-    val dimens = LocalHMPDimens.current
+    val metrics = LocalHmpMetrics.current
     SectionHeader(title = stringResource(Res.string.usage_recent, rangeLabel))
-    Spacer(modifier = Modifier.height(dimens.spacing.sm))
+    Spacer(modifier = Modifier.height(metrics.compact))
     if (items.isEmpty()) {
         WindowedEmptyHint(windowed, Dimension.RECENT)
     } else {
@@ -445,24 +447,25 @@ private fun TopSongRow(
     playCount: Int,
     onClick: () -> Unit,
 ) {
-    val dimens = LocalHMPDimens.current
+    val metrics = LocalHmpMetrics.current
+    val typo = LocalHmpTypo.current
     HMPCard(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
-        shape = RoundedCornerShape(dimens.corner.sm),
+        shape = RoundedCornerShape(metrics.base),
         containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(
             alpha = if (rank in 1..3) 0.35f else 0.25f
         ),
         borderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.1f),
-        contentPadding = Modifier.padding(12.dp)
+        contentPadding = Modifier.padding(metrics.base)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(dimens.spacing.md),
+            horizontalArrangement = Arrangement.spacedBy(metrics.cozy),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
                 modifier = Modifier
-                    .size(dimens.icon.lg)
+                    .size(metrics.section)
                     .clip(CircleShape)
                     .background(
                         if (rank <= 3) MaterialTheme.colorScheme.primary.copy(alpha = 0.85f)
@@ -472,7 +475,7 @@ private fun TopSongRow(
             ) {
                 Text(
                     text = "$rank",
-                    style = MaterialTheme.typography.labelLarge,
+                    style = typo.body.medium(),
                     fontWeight = FontWeight.Bold,
                     color = if (rank <= 3)
                         MaterialTheme.colorScheme.onPrimary
@@ -483,15 +486,14 @@ private fun TopSongRow(
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = title,
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = if (rank <= 3) FontWeight.SemiBold else FontWeight.Normal,
+                    style = typo.body,
                     color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
                     text = artist,
-                    style = MaterialTheme.typography.bodySmall,
+                    style = typo.footnote,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
@@ -499,13 +501,12 @@ private fun TopSongRow(
             }
             Text(
                 text = "$playCount",
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.SemiBold,
+                style = typo.body.medium(),
                 color = MaterialTheme.colorScheme.onSurface
             )
         }
     }
-    Spacer(modifier = Modifier.height(dimens.spacing.xs))
+    Spacer(modifier = Modifier.height(metrics.micro))
 }
 
 /**
@@ -525,13 +526,14 @@ private fun WindowedEmptyHint(windowed: WindowedBundle, dimension: Dimension) {
 /** 空态提示（统一样式）。 */
 @Composable
 private fun EmptyHint(text: String) {
-    val dimens = LocalHMPDimens.current
+    val metrics = LocalHmpMetrics.current
+    val typo = LocalHmpTypo.current
     HMPCard(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(dimens.corner.md),
+        shape = RoundedCornerShape(metrics.cozy),
         containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f),
         borderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.1f),
-        contentPadding = Modifier.padding(vertical = dimens.spacing.xl)
+        contentPadding = Modifier.padding(vertical = metrics.block)
     ) {
         Box(
             modifier = Modifier.fillMaxWidth(),
@@ -539,7 +541,7 @@ private fun EmptyHint(text: String) {
         ) {
             Text(
                 text = text,
-                style = MaterialTheme.typography.bodyMedium,
+                style = typo.body,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
@@ -554,7 +556,8 @@ private fun RateProgressRow(
     valueLabel: String,
     isPositive: Boolean
 ) {
-    val dimens = LocalHMPDimens.current
+    val metrics = LocalHmpMetrics.current
+    val typo = LocalHmpTypo.current
     Column {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -562,23 +565,22 @@ private fun RateProgressRow(
         ) {
             Text(
                 text = label,
-                style = MaterialTheme.typography.bodySmall,
+                style = typo.footnote,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Text(
                 text = valueLabel,
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.SemiBold,
+                style = typo.body.medium(),
                 color = MaterialTheme.colorScheme.onSurface
             )
         }
-        Spacer(modifier = Modifier.height(4.dp))
+        Spacer(modifier = Modifier.height(metrics.micro))
         LinearProgressIndicator(
             progress = { rate.coerceIn(0f, 1f) },
             modifier = Modifier
                 .fillMaxWidth()
-                .height(6.dp)
-                .clip(RoundedCornerShape(3.dp)),
+                .height(metrics.micro)
+                .clip(RoundedCornerShape(metrics.hair)),
             color = if (isPositive) MaterialTheme.colorScheme.primary
             else MaterialTheme.colorScheme.outline,
             trackColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
@@ -589,7 +591,8 @@ private fun RateProgressRow(
 /** 播放来源：饼状图 + 图例 */
 @Composable
 private fun PlaySourcePieChart(entries: List<Map.Entry<String, Int>>) {
-    val dimens = LocalHMPDimens.current
+    val metrics = LocalHmpMetrics.current
+    val typo = LocalHmpTypo.current
     val total = entries.sumOf { it.value }.coerceAtLeast(1)
     val colors = listOf(
         MaterialTheme.colorScheme.primary,
@@ -604,8 +607,8 @@ private fun PlaySourcePieChart(entries: List<Map.Entry<String, Int>>) {
     ) {
         Canvas(
             modifier = Modifier
-                .size(dimens.component.md)
-                .padding(dimens.spacing.sm)
+                .size(metrics.card)
+                .padding(metrics.compact)
         ) {
             val side = size.minDimension
             val left = (size.width - side) / 2
@@ -626,25 +629,25 @@ private fun PlaySourcePieChart(entries: List<Map.Entry<String, Int>>) {
                 }
             }
         }
-        Spacer(modifier = Modifier.height(dimens.spacing.sm))
-        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Spacer(modifier = Modifier.height(metrics.compact))
+        Column(verticalArrangement = Arrangement.spacedBy(metrics.micro)) {
             entries.forEachIndexed { index, (source, count) ->
                 val pct = count.toFloat() / total
                 val color = colors[index % colors.size]
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(dimens.spacing.sm)
+                    horizontalArrangement = Arrangement.spacedBy(metrics.compact)
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(12.dp)
-                            .clip(RoundedCornerShape(4.dp))
+                            .size(metrics.base)
+                            .clip(RoundedCornerShape(metrics.micro))
                             .background(color)
                     )
                     Text(
                         text = source.ifEmpty { "—" },
-                        style = MaterialTheme.typography.labelMedium,
+                        style = typo.footnote.medium(),
                         color = MaterialTheme.colorScheme.onSurface,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -652,7 +655,7 @@ private fun PlaySourcePieChart(entries: List<Map.Entry<String, Int>>) {
                     )
                     Text(
                         text = "${(pct * 100).toInt()}%",
-                        style = MaterialTheme.typography.labelMedium,
+                        style = typo.footnote.medium(),
                         fontWeight = FontWeight.Medium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -667,7 +670,8 @@ private fun PlaySourcePieChart(entries: List<Map.Entry<String, Int>>) {
 private fun LabelStackedBarWithLegend(
     entries: List<LabelCountEntry>
 ) {
-    val dimens = LocalHMPDimens.current
+    val metrics = LocalHmpMetrics.current
+    val typo = LocalHmpTypo.current
     val total = entries.sumOf { it.count }.coerceAtLeast(1)
     val colors = listOf(
         MaterialTheme.colorScheme.primary,
@@ -679,8 +683,8 @@ private fun LabelStackedBarWithLegend(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(24.dp)
-            .clip(RoundedCornerShape(dimens.corner.sm))
+            .height(metrics.section)
+            .clip(RoundedCornerShape(metrics.base))
             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
     ) {
         if (total > 0) {
@@ -696,25 +700,25 @@ private fun LabelStackedBarWithLegend(
             }
         }
     }
-    Spacer(modifier = Modifier.height(dimens.spacing.sm))
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    Spacer(modifier = Modifier.height(metrics.compact))
+    Column(verticalArrangement = Arrangement.spacedBy(metrics.micro)) {
         entries.forEachIndexed { index, entry ->
             val pct = entry.count.toFloat() / total
             val color = colors[index % colors.size]
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(dimens.spacing.sm)
+                horizontalArrangement = Arrangement.spacedBy(metrics.compact)
             ) {
                 Box(
                     modifier = Modifier
-                        .size(12.dp)
-                        .clip(RoundedCornerShape(4.dp))
+                        .size(metrics.base)
+                        .clip(RoundedCornerShape(metrics.micro))
                         .background(color)
                 )
                 Text(
                     text = entry.labelDisplayName,
-                    style = MaterialTheme.typography.labelMedium,
+                    style = typo.footnote.medium(),
                     color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -722,7 +726,7 @@ private fun LabelStackedBarWithLegend(
                 )
                 Text(
                     text = "${(pct * 100).toInt()}%",
-                    style = MaterialTheme.typography.labelMedium,
+                    style = typo.footnote.medium(),
                     fontWeight = FontWeight.Medium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -751,24 +755,25 @@ private fun RecentPlaybackItem(
     isCompleted: Boolean,
     onClick: () -> Unit
 ) {
-    val dimens = LocalHMPDimens.current
+    val metrics = LocalHmpMetrics.current
+    val typo = LocalHmpTypo.current
     HMPCard(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
-        shape = RoundedCornerShape(dimens.corner.sm),
+        shape = RoundedCornerShape(metrics.base),
         containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
         borderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.1f),
-        contentPadding = Modifier.padding(12.dp)
+        contentPadding = Modifier.padding(metrics.base)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(dimens.spacing.md),
+            horizontalArrangement = Arrangement.spacedBy(metrics.cozy),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
                 modifier = Modifier
-                    .width(4.dp)
-                    .height(40.dp)
-                    .clip(RoundedCornerShape(2.dp))
+                    .width(metrics.micro)
+                    .height(metrics.block)
+                    .clip(RoundedCornerShape(metrics.hair))
                     .background(
                         if (isCompleted) MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
                         else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.8f)
@@ -777,7 +782,7 @@ private fun RecentPlaybackItem(
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = title,
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = typo.body,
                     fontWeight = FontWeight.Medium,
                     color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
@@ -785,54 +790,55 @@ private fun RecentPlaybackItem(
                 )
                 Text(
                     text = artist,
-                    style = MaterialTheme.typography.bodySmall,
+                    style = typo.footnote,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(metrics.micro))
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(dimens.spacing.md)
+                    horizontalArrangement = Arrangement.spacedBy(metrics.cozy)
                 ) {
                     Text(
                         text = formatDuration(playDuration),
-                        style = MaterialTheme.typography.labelSmall,
+                        style = typo.caption,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
                         text = formatTimestamp(playedAt),
-                        style = MaterialTheme.typography.labelSmall,
+                        style = typo.caption,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
             Box(
                 modifier = Modifier
-                    .clip(RoundedCornerShape(dimens.corner.sm))
+                    .clip(RoundedCornerShape(metrics.base))
                     .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
-                    .padding(horizontal = 8.dp, vertical = 4.dp)
+                    .padding(horizontal = metrics.compact, vertical = metrics.micro)
             ) {
                 Text(
                     text = stringResource(if (isCompleted) Res.string.completed else Res.string.incomplete),
-                    style = MaterialTheme.typography.labelSmall,
+                    style = typo.caption,
                     fontWeight = FontWeight.Medium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
     }
-    Spacer(modifier = Modifier.height(dimens.spacing.xs))
+    Spacer(modifier = Modifier.height(metrics.micro))
 }
 
 @Composable
 private fun UsageDataLoading() {
-    val dimens = LocalHMPDimens.current
+    val metrics = LocalHmpMetrics.current
+    val typo = LocalHmpTypo.current
     HMPCard(
-        modifier = Modifier.fillMaxWidth().height(dimens.component.lg),
-        shape = RoundedCornerShape(dimens.corner.lg),
+        modifier = Modifier.fillMaxWidth().height(metrics.card),
+        shape = RoundedCornerShape(metrics.section),
         containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f),
         borderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.1f),
-        contentPadding = Modifier.padding(24.dp)
+        contentPadding = Modifier.padding(metrics.section)
     ) {
         Column(
             verticalArrangement = Arrangement.Center,
@@ -841,13 +847,13 @@ private fun UsageDataLoading() {
             LinearProgressIndicator(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(4.dp)
-                    .clip(RoundedCornerShape(2.dp))
+                    .height(metrics.micro)
+                    .clip(RoundedCornerShape(metrics.hair))
             )
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(metrics.cozy))
             Text(
                 text = stringResource(Res.string.loading),
-                style = MaterialTheme.typography.bodyLarge,
+                style = typo.body,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
@@ -863,7 +869,8 @@ private fun UsageDataLoading() {
  */
 @Composable
 private fun PersonalitySection(bundle: PersonalityBundle) {
-    val dimens = LocalHMPDimens.current
+    val metrics = LocalHmpMetrics.current
+    val typo = LocalHmpTypo.current
     val card = bundle.card
     val narrativeState = bundle.narrative
     val primary = MaterialTheme.colorScheme.primary
@@ -872,7 +879,7 @@ private fun PersonalitySection(bundle: PersonalityBundle) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(dimens.corner.lg))
+            .clip(RoundedCornerShape(metrics.section))
             .background(
                 Brush.verticalGradient(
                     colors = listOf(
@@ -882,40 +889,39 @@ private fun PersonalitySection(bundle: PersonalityBundle) {
                 )
             )
             .padding(
-                horizontal = dimens.spacing.xl,
-                vertical = dimens.spacing.lg,
+                horizontal = metrics.block,
+                vertical = metrics.section,
             )
     ) {
         Column {
             // 左上角小圆点装饰 + 标题
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(dimens.spacing.sm)
+                horizontalArrangement = Arrangement.spacedBy(metrics.compact)
             ) {
                 Box(
                     modifier = Modifier
-                        .size(8.dp)
+                        .size(metrics.compact)
                         .clip(CircleShape)
                         .background(primary)
                 )
                 Text(
                     text = stringResource(Res.string.usage_agent_awareness),
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.SemiBold,
+                    style = typo.footnote.medium(),
                     color = primary,
                 )
             }
 
-            Spacer(modifier = Modifier.height(dimens.spacing.md))
+            Spacer(modifier = Modifier.height(metrics.cozy))
 
             // 叙事正文：LLM 生成的 narrativeState 优先，没有就展示 observation 小条目
             val hasLlmNarrative = !narrativeState?.text.isNullOrBlank()
             if (hasLlmNarrative) {
                 Text(
                     text = narrativeState.text,
-                    style = MaterialTheme.typography.bodyLarge,
+                    style = typo.body,
                     color = MaterialTheme.colorScheme.onSurface,
-                    lineHeight = MaterialTheme.typography.bodyLarge.fontSize * 1.6,
+                    lineHeight = typo.body.fontSize * 1.6,
                 )
             } else {
                 // 无 LLM：用 sentences 模板句做 observation 列表展示
@@ -928,23 +934,23 @@ private fun PersonalitySection(bundle: PersonalityBundle) {
                         ) {
                             Text(
                                 text = "·",
-                                style = MaterialTheme.typography.bodyMedium,
+                                style = typo.body,
                                 color = primary.copy(alpha = 0.6f),
                             )
-                            Spacer(modifier = Modifier.width(dimens.spacing.sm))
+                            Spacer(modifier = Modifier.width(metrics.compact))
                             Text(
                                 text = sentence,
-                                style = MaterialTheme.typography.bodyMedium,
+                                style = typo.body,
                                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f),
-                                lineHeight = MaterialTheme.typography.bodyMedium.fontSize * 1.5,
+                                lineHeight = typo.body.fontSize * 1.5,
                             )
                         }
-                        Spacer(modifier = Modifier.height(dimens.spacing.sm))
+                        Spacer(modifier = Modifier.height(metrics.compact))
                     }
                 } else {
                     Text(
                         text = stringResource(Res.string.usage_agent_awareness_empty),
-                        style = MaterialTheme.typography.bodyMedium,
+                        style = typo.body,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
                     )
                 }
@@ -984,39 +990,40 @@ private fun TimeRangeSwitcher(
 /** 报告叙事段（时间敏感）—— HelloReportNarrativeEntity 的 narrative 文本。 */
 @Composable
 private fun ReportNarrativeCard(text: String, rangeLabel: String) {
-    val dimens = LocalHMPDimens.current
+    val metrics = LocalHmpMetrics.current
+    val typo = LocalHmpTypo.current
     HMPCard(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(dimens.corner.md),
+        shape = RoundedCornerShape(metrics.cozy),
         containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.35f),
         borderColor = MaterialTheme.colorScheme.secondary.copy(alpha = 0.15f),
-        contentPadding = Modifier.padding(dimens.spacing.lg)
+        contentPadding = Modifier.padding(metrics.section)
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(dimens.spacing.sm)
+            horizontalArrangement = Arrangement.spacedBy(metrics.compact)
         ) {
             Box(
                 modifier = Modifier
-                    .width(4.dp)
-                    .height(24.dp)
-                    .clip(RoundedCornerShape(2.dp))
+                    .width(metrics.micro)
+                    .height(metrics.section)
+                    .clip(RoundedCornerShape(metrics.hair))
                     .background(MaterialTheme.colorScheme.secondary)
             )
             Text(
                 text = rangeLabel,
-                style = MaterialTheme.typography.labelSmall,
+                style = typo.caption,
                 fontWeight = FontWeight.Medium,
                 color = MaterialTheme.colorScheme.secondary
             )
         }
-        Spacer(modifier = Modifier.height(dimens.spacing.sm))
+        Spacer(modifier = Modifier.height(metrics.compact))
         Text(
             text = text,
-            style = MaterialTheme.typography.bodyLarge,
+            style = typo.body,
             fontWeight = FontWeight.Medium,
             color = MaterialTheme.colorScheme.onSecondaryContainer,
-            lineHeight = MaterialTheme.typography.bodyLarge.fontSize * 1.6
+            lineHeight = typo.body.fontSize * 1.6
         )
     }
 }
@@ -1024,7 +1031,8 @@ private fun ReportNarrativeCard(text: String, rangeLabel: String) {
 /** 时段分布柱图——24 小时 × 播放次数 + 伙伴解读。 */
 @Composable
 private fun HourlyChart(rows: List<HourlyDistributionRow>) {
-    val dimens = LocalHMPDimens.current
+    val metrics = LocalHmpMetrics.current
+    val typo = LocalHmpTypo.current
     val maxCount = rows.maxOfOrNull { it.playCount }?.takeIf { it > 0 } ?: 1
     val byHour = rows.associate { it.hour to it.playCount }
 
@@ -1039,29 +1047,28 @@ private fun HourlyChart(rows: List<HourlyDistributionRow>) {
 
     HMPCard(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(dimens.corner.md),
+        shape = RoundedCornerShape(metrics.cozy),
         containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f),
         borderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.1f),
-        contentPadding = Modifier.padding(dimens.spacing.lg)
+        contentPadding = Modifier.padding(metrics.section)
     ) {
         Text(
             text = stringResource(Res.string.usage_when),
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.SemiBold,
+            style = typo.subtitle,
             color = MaterialTheme.colorScheme.onSurface
         )
         desc?.let {
-            Spacer(modifier = Modifier.height(dimens.spacing.xs))
+            Spacer(modifier = Modifier.height(metrics.micro))
             Text(
                 text = it,
-                style = MaterialTheme.typography.bodyMedium,
+                style = typo.body,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
-        Spacer(modifier = Modifier.height(dimens.spacing.md))
+        Spacer(modifier = Modifier.height(metrics.cozy))
         Row(
-            modifier = Modifier.fillMaxWidth().height(80.dp),
-            horizontalArrangement = Arrangement.spacedBy(2.dp),
+            modifier = Modifier.fillMaxWidth().height(metrics.row),
+            horizontalArrangement = Arrangement.spacedBy(metrics.hair),
             verticalAlignment = Alignment.Bottom
         ) {
             (0..23).forEach { hour ->
@@ -1071,7 +1078,7 @@ private fun HourlyChart(rows: List<HourlyDistributionRow>) {
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxHeight()
-                        .clip(RoundedCornerShape(2.dp))
+                        .clip(RoundedCornerShape(metrics.hair))
                         .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)),
                     contentAlignment = Alignment.BottomCenter
                 ) {
@@ -1086,13 +1093,13 @@ private fun HourlyChart(rows: List<HourlyDistributionRow>) {
                 }
             }
         }
-        Spacer(modifier = Modifier.height(4.dp))
+        Spacer(modifier = Modifier.height(metrics.micro))
         // 时间标签（只标 0 / 6 / 12 / 18）
         Row(modifier = Modifier.fillMaxWidth()) {
             listOf(0, 6, 12, 18, 23).forEachIndexed { idx, hour ->
                 Text(
                     text = "$hour",
-                    style = MaterialTheme.typography.labelSmall,
+                    style = typo.caption,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.weight(1f),
                 )

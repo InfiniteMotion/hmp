@@ -48,6 +48,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.hearablemusic.player.ui.common.dialogs.base.ScrimDialog
+import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
+import com.hearablemusic.player.ui.common.design.typography.medium
 import com.hearablemusic.player.ui.library.pages.components.AlbumCover
 import com.hearablemusic.player.ui.common.util.HazeRenderSettings
 import com.hearablemusic.player.ui.common.util.LocalHazeRenderSettings
@@ -61,6 +63,8 @@ import com.hearablemusic.player.ui.common.navigation.RouteNavigator
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
+import com.hearablemusic.player.ui.common.design.metrics.LayoutConstraints
 
 // 音乐详情卡片弹窗 - 优化版UI布局
 @kotlin.OptIn(ExperimentalHazeMaterialsApi::class)
@@ -72,19 +76,21 @@ fun MusicDetailDialog(
     hazeState: HazeState? = null,
     hazeRenderSettings: HazeRenderSettings? = null
 ) {
+    val metrics = LocalHmpMetrics.current
     val haptic = rememberHapticFeedback()
     val musicDetailState by dialogViewModel.musicDetailState.collectAsState()
     val musicInfo = musicDetailState?.musicInfo
     val resolvedHazeRenderSettings = hazeRenderSettings ?: LocalHazeRenderSettings.current
+    val typo = LocalHmpTypo.current
     
     if (musicInfo == null || !musicDetailState!!.isVisible) return
 
     ProvideHazeRenderSettings(settings = resolvedHazeRenderSettings) {
         ScrimDialog(onDismissRequest = onDismiss) {
-            val dialogShape = RoundedCornerShape(28.dp)
+            val dialogShape = RoundedCornerShape(metrics.section)
             Card(
                 modifier = Modifier
-                    .padding(24.dp)
+                    .padding(metrics.section)
                     .clip(dialogShape)
                     .then(
                         if (hazeState != null) {
@@ -106,10 +112,10 @@ fun MusicDetailDialog(
             ) {
                 Column(
                     modifier = Modifier
-                        .padding(24.dp)
+                        .padding(metrics.section)
                         .fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                    verticalArrangement = Arrangement.spacedBy(metrics.cozy)
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -118,7 +124,7 @@ fun MusicDetailDialog(
                     ) {
                         Text(
                             text = musicInfo.music.title,
-                            style = MaterialTheme.typography.headlineMedium,
+                            style = typo.headline,
                             color = MaterialTheme.colorScheme.onBackground,
                             modifier = Modifier.weight(1f)
                         )
@@ -128,7 +134,7 @@ fun MusicDetailDialog(
                                 haptic.performClick()
                                 dialogViewModel.toggleFavorite()
                             },
-                            modifier = Modifier.size(32.dp)
+                            modifier = Modifier.size(metrics.block)
                         ) {
                             Icon(
                                 painter = painterResource(
@@ -144,14 +150,14 @@ fun MusicDetailDialog(
 
                     Row(
                         modifier = Modifier.fillMaxWidth()
-                            .heightIn(max = 130.dp),
+                            .heightIn(max = LayoutConstraints.ListMaxHeight),
                         horizontalArrangement = Arrangement.Center,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(120.dp)
-                                .clip(RoundedCornerShape(20.dp))
+                                .size(metrics.panel)
+                                .clip(RoundedCornerShape(metrics.cozy))
                                 .clickable {
                                     dialogViewModel.playMusic {
                                         dialogViewModel.dismissMusicDetailDialog()
@@ -161,17 +167,17 @@ fun MusicDetailDialog(
                         ) {
                             AlbumCover(
                                 uri = musicInfo.music.albumArtUri,
-                                size = 120.dp,
-                                corner = 20.dp,
-                                shadow = 10.dp
+                                size = metrics.panel,
+                                corner = metrics.cozy,
+                                shadow = metrics.compact
                             )
                         }
-                        Spacer(modifier = Modifier.width(16.dp))
+                        Spacer(modifier = Modifier.width(metrics.cozy))
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth(),
                             horizontalAlignment = Alignment.Start,
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                            verticalArrangement = Arrangement.spacedBy(metrics.compact)
                         ) {
                             // 艺术家信息
                             InfoRow(
@@ -209,7 +215,7 @@ fun MusicDetailDialog(
                             }
                         }
                     }
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(metrics.compact))
                     Column(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalAlignment = Alignment.Start,
@@ -221,7 +227,7 @@ fun MusicDetailDialog(
 
                         menuOptions.forEach { (icon, label, action) ->
                             MenuOption(iconRes = icon, label = label, onClick = action)
-                            Spacer(modifier = Modifier.height(8.dp))
+                            Spacer(modifier = Modifier.height(metrics.compact))
                         }
                     }
                 }
@@ -237,6 +243,8 @@ private fun InfoRow(
     value: String,
     onClick: (() -> Unit)? = null
 ) {
+    val metrics = LocalHmpMetrics.current
+    val typo = LocalHmpTypo.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -246,21 +254,21 @@ private fun InfoRow(
         Icon(
             painter = painterResource(iconRes),
             contentDescription = null,
-            modifier = Modifier.size(18.dp),
+            modifier = Modifier.size(metrics.cozy),
             tint = MaterialTheme.colorScheme.primary
         )
-        Spacer(modifier = Modifier.width(12.dp))
+        Spacer(modifier = Modifier.width(metrics.base))
         Column {
             Text(
                 text = label,
-                style = MaterialTheme.typography.labelMedium,
+                style = typo.footnote.medium(),
                 color = MaterialTheme.colorScheme.onBackground,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
             Text(
                 text = value,
-                style = MaterialTheme.typography.labelSmall,
+                style = typo.caption,
                 color = MaterialTheme.colorScheme.onBackground,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
@@ -276,24 +284,26 @@ fun MenuOption(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val metrics = LocalHmpMetrics.current
+    val typo = LocalHmpTypo.current
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(4.dp)
-            .clip(RoundedCornerShape(5.dp))
+            .padding(metrics.micro)
+            .clip(RoundedCornerShape(metrics.micro))
             .clickable { onClick() }
     ) {
         Icon(
             painter = painterResource(iconRes),
             contentDescription = label.asString(),
             modifier = Modifier
-                .size(18.dp),
+                .size(metrics.cozy),
             tint = MaterialTheme.colorScheme.primary
         )
-        Spacer(modifier = Modifier.width(16.dp))
+        Spacer(modifier = Modifier.width(metrics.cozy))
         Text(
             text = label.asString(),
-            style = MaterialTheme.typography.titleMedium,
+            style = typo.subtitle,
             color = MaterialTheme.colorScheme.onBackground,
         )
     }

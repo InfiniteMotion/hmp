@@ -21,9 +21,10 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.hearablemusic.player.ui.common.design.dimens.LocalHMPDimens
+import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 
 /**
  * HMP 基础搜索/输入框组件。
@@ -53,22 +54,23 @@ fun HMPTextField(
     onFocusChanged: (Boolean) -> Unit = {},
     singleLine: Boolean = true,
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
-    textStyle: TextStyle = MaterialTheme.typography.bodyMedium.copy(
+    textStyle: TextStyle = LocalHmpTypo.current.body.copy(
         color = MaterialTheme.colorScheme.onSurface
     ),
 ) {
-    val dimens = LocalHMPDimens.current
-    val shape = RoundedCornerShape(dimens.corner.md)
+    val metrics = LocalHmpMetrics.current
+    val typo = LocalHmpTypo.current
+    val shape = RoundedCornerShape(metrics.cozy)
     val bgColor = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.15f)
     val borderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
     val placeholderColor = MaterialTheme.colorScheme.onSurfaceVariant
-    val placeholderStyle = MaterialTheme.typography.bodySmall
+    val placeholderStyle = typo.footnote
 
     val innerBox = Modifier
-        .height(44.dp)
+        .height(metrics.bar)
         .background(bgColor, shape)
-        .border(1.dp, borderColor, shape)
-        .padding(horizontal = 14.dp)
+        .border(metrics.stroke.thin, borderColor, shape)
+        .padding(horizontal = metrics.base)
 
     Box(
         modifier = modifier

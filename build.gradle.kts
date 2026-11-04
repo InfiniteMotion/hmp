@@ -480,12 +480,32 @@ tasks.register("checkReleaseConsistency") {
     }
 }
 
+/**
+ * 三-4 / D8-03：设计 token 守门（2026-11-04 阶段 3 升级为全量禁止）。
+ *
+ * - 业务代码任何非 0 的裸 .dp/.sp 即失败：尺寸走 LocalHmpMetrics 12 档 /
+ *   HMPMetricTokens.Compact 静态基准 / LayoutConstraints 具名常量；
+ * - 排版 API（MaterialTheme.typography / m3ComponentTypography）全量禁止；
+ * - 色值同为全量禁止（`ColorTokens` / `AgentStatusColors` / `HelloCardPalette` 之外不得出现 hex）；
+ * - 例外行写 `// design-token-exception: <理由>`。
+ * 扫描范围：shared-ui 全源集 + desktop/app/src；token 定义文件白名单豁免。
+ */
+tasks.register<Exec>("checkDesignTokens") {
+    group = "verification"
+    description = "设计 token 全量守门：禁止业务裸 .dp/.sp、硬编码色、M3 typography 与动效裸值"
+    workingDir = projectDir
+    commandLine(
+        if (org.gradle.internal.os.OperatingSystem.current().isWindows) "python" else "python3",
+        "scripts/check-design-tokens.py",
+    )
+}
+
 tasks.register("preflight") {
     group = "release"
     description = "发布前预检：版本号校验 + 全量单元测试 + 当前平台可产出产物告知"
     notCompatibleWithConfigurationCache("release preflight")
 
-    dependsOn("checkVersion", "checkReleaseConsistency", "testAll")
+    dependsOn("checkVersion", "checkReleaseConsistency", "checkDesignTokens", "testAll")
 
     doLast {
         println("")

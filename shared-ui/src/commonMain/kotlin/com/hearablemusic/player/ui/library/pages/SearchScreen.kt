@@ -40,6 +40,7 @@ import androidx.compose.ui.unit.dp
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.compose.koinInject
 import com.hearablemusic.player.ui.agent.chat.ChatEntryBroker
+import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
 import com.hearablemusic.player.ui.common.navigation.Routes as NavRoutes
 import com.hearablemusic.player.ui.common.components.base.HMPTextField
 import com.hmp.domain.agent.funnel.CommandLexicon
@@ -70,6 +71,7 @@ import com.hearablemusic.player.ui.player.viewmodel.PlaylistQueueViewModel
 import com.hearablemusic.player.ui.library.viewmodel.SearchViewModel
 
 import com.hearablemusic.player.ui.common.pages.base.SubScreen
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 
 @Composable
 fun SearchScreen(
@@ -136,8 +138,10 @@ fun SearchScreenContent(
     onRetry: () -> Unit,
     onTalkToCompanion: (String) -> Unit,
 ) {
+    val metrics = LocalHmpMetrics.current
     val haptic = rememberHapticFeedback()
     val scope = rememberCoroutineScope()
+    val typo = LocalHmpTypo.current
     // 拒绝纪律：用户点「只是搜索」后，本次会话同类输入不再弹伙伴条带（总纲 5.3 厚度3）
     var showIntentStrip by rememberSaveable { mutableStateOf(true) }
     val isIntent = searchQuery.isNotEmpty() &&
@@ -149,8 +153,8 @@ fun SearchScreenContent(
     ) {
         Column(
             modifier = Modifier.fillMaxSize()
-                .padding(top = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(24.dp)
+                .padding(top = metrics.cozy),
+            verticalArrangement = Arrangement.spacedBy(metrics.section)
         ) {
             HMPTextField(
                 value = searchQuery,
@@ -158,13 +162,13 @@ fun SearchScreenContent(
                 placeholder = stringResource(Res.string.search_placeholder),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
+                    .padding(horizontal = metrics.cozy),
                 leadingContent = {
                     Icon(
                         painter = painterResource(Res.drawable.magnifyingglass),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         contentDescription = stringResource(Res.string.search),
-                        modifier = Modifier.padding(end = 10.dp).size(18.dp),
+                        modifier = Modifier.padding(end = metrics.compact).size(metrics.cozy),
                     )
                 },
                 keyboardOptions = KeyboardOptions(
@@ -177,13 +181,13 @@ fun SearchScreenContent(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp),
+                        .padding(horizontal = metrics.cozy),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(metrics.compact)
                 ) {
                     Text(
                         text = stringResource(Res.string.search_intent_hint),
-                        style = MaterialTheme.typography.bodySmall,
+                        style = typo.footnote,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.weight(1f)
                     )
@@ -205,19 +209,19 @@ fun SearchScreenContent(
                         painter = painterResource(Res.drawable.magnifyingglass),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         contentDescription = stringResource(Res.string.search),
-                        modifier = Modifier.size(64.dp)
+                        modifier = Modifier.size(metrics.row)
                     )
                     Text(
                         text = stringResource(Res.string.search_placeholder),
-                        style = MaterialTheme.typography.titleMedium,
+                        style = typo.subtitle,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(top = 16.dp)
+                        modifier = Modifier.padding(top = metrics.cozy)
                     )
                     Text(
                         text = stringResource(Res.string.search_hint),
-                        style = MaterialTheme.typography.bodyMedium,
+                        style = typo.body,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(top = 8.dp, start = 32.dp, end = 32.dp),
+                        modifier = Modifier.padding(top = metrics.compact, start = metrics.block, end = metrics.block),
                         textAlign = TextAlign.Center
                     )
                 }
@@ -233,7 +237,7 @@ fun SearchScreenContent(
                         ) {
                             Text(
                                 text = stringResource(Res.string.no_results_found),
-                                style = MaterialTheme.typography.bodyLarge,
+                                style = typo.body,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             TextButton(onClick = { onTalkToCompanion(searchQuery) }) {

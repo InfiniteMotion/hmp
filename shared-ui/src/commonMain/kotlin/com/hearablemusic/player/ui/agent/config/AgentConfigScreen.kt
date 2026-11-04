@@ -138,7 +138,8 @@ import androidx.navigation3.runtime.NavKey
 import com.hearablemusic.player.ui.common.components.SegmentedControl
 import com.hearablemusic.player.ui.common.components.SegmentedOption
 import com.hearablemusic.player.ui.common.components.base.HMPCard
-import com.hearablemusic.player.ui.common.design.dimens.LocalHMPDimens
+import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
+import com.hearablemusic.player.ui.common.design.typography.medium
 import com.hearablemusic.player.ui.common.layout.LocalWindowSizeInfo
 import com.hearablemusic.player.ui.common.pages.base.SubScreen
 import com.hearablemusic.player.ui.player.components.MiniPlayerSafeSpacer
@@ -151,6 +152,8 @@ import com.hmp.domain.setting.SettingsRepository
 import com.hmp.domain.setting.model.AiEndpointConfig
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
+import com.hearablemusic.player.ui.common.design.metrics.LayoutConstraints
 
 /**
  * 通用 Agent 配置页——按 agentRole 参数决定渲染哪个 Agent 的配置表单。
@@ -164,6 +167,7 @@ fun AgentConfigScreen(
     navController: NavBackStack<NavKey>,
     masterAgent: MasterAgent = koinInject(),
 ) {
+    val metrics = LocalHmpMetrics.current
     val scope = rememberCoroutineScope()
     val settingsRepo: SettingsRepository = koinInject()
 
@@ -381,16 +385,16 @@ fun AgentConfigScreen(
         onBackClick = { navController.removeLastOrNull() },
         title = agentLabelFor(agentRole) + stringResource(Res.string.agent_cfg_config_suffix),
     ) {
-        val dimens = LocalHMPDimens.current
+        val typo = LocalHmpTypo.current
         // F14-T1 自适应：竖屏/窄窗单栏限宽居中；横屏（手机横屏 / 平板、桌面宽窗）改双栏，
         // 左栏 = 短表单（身份/模型/端点/权限/专属参数），右栏 = System Prompt 编辑器，
         // 底部操作横贯两栏。Compact maxWidth = Dp.Unspecified → 单栏不加约束，与改造前逐像素一致。
         val window = LocalWindowSizeInfo.current
         val isWide = window.isExpanded || window.isMedium
         val isLandscape = window.isLandscape
-        val formMaxWidth = if (isWide) 600.dp else Dp.Unspecified
+        val formMaxWidth = if (isWide) LayoutConstraints.WidthBreakpointMedium else Dp.Unspecified
         // 双栏下「宽行」（多行 Prompt 编辑器）独占一栏，宽度即栏宽，不再另外限宽。
-        val wideRowMaxWidth = if (isWide && !isLandscape) 720.dp else Dp.Unspecified
+        val wideRowMaxWidth = if (isWide && !isLandscape) LayoutConstraints.ContentMaxWidthWide else Dp.Unspecified
         Box(
             modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.TopCenter,
@@ -400,8 +404,8 @@ fun AgentConfigScreen(
         Row(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 24.dp, vertical = dimens.spacing.lg),
-            horizontalArrangement = Arrangement.spacedBy(dimens.spacing.lg),
+                .padding(horizontal = metrics.section, vertical = metrics.section),
+            horizontalArrangement = Arrangement.spacedBy(metrics.section),
             verticalAlignment = Alignment.Top,
         ) {
             Column(
@@ -409,7 +413,7 @@ fun AgentConfigScreen(
                     .weight(0.85f)
                     .fillMaxHeight()
                     .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(dimens.spacing.md),
+                verticalArrangement = Arrangement.spacedBy(metrics.cozy),
             ) {
                 ConfigFormLeftColumn(
                     agentRole = agentRole,
@@ -475,7 +479,7 @@ fun AgentConfigScreen(
                         .weight(1f)
                         .fillMaxWidth()
                         .verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(dimens.spacing.md),
+                    verticalArrangement = Arrangement.spacedBy(metrics.cozy),
                 ) {
                     SystemPromptSection(
                         multiPrompt = multiPrompt,
@@ -498,10 +502,10 @@ fun AgentConfigScreen(
                         factoryPrompt = factoryPrompt,
                     )
                 }
-                Spacer(Modifier.height(dimens.spacing.md))
+                Spacer(Modifier.height(metrics.cozy))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(metrics.compact),
                 ) {
                     Button(onClick = reset, modifier = Modifier.weight(1f)) { Text(stringResource(Res.string.agent_cfg_restore_default)) }
                     Button(onClick = save, modifier = Modifier.weight(1f)) { Text(stringResource(Res.string.agent_cfg_save)) }
@@ -514,27 +518,27 @@ fun AgentConfigScreen(
                 .widthIn(max = formMaxWidth)
                 .verticalScroll(rememberScrollState())
                 .fillMaxWidth()
-                .padding(dimens.spacing.lg),
-            verticalArrangement = Arrangement.spacedBy(dimens.spacing.lg),
+                .padding(metrics.section),
+            verticalArrangement = Arrangement.spacedBy(metrics.section),
         ) {
             // ═══ ① 身份与启用 ═══
             HMPCard {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(modifier = Modifier.weight(1f)) {
-                        Text(agentLabelFor(agentRole), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                        Spacer(Modifier.height(4.dp))
-                        Text(agentDescFor(agentRole), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(agentLabelFor(agentRole), style = typo.subtitle, fontWeight = FontWeight.Bold)
+                        Spacer(Modifier.height(metrics.micro))
+                        Text(agentDescFor(agentRole), style = typo.footnote, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     Switch(checked = agentEnabled, onCheckedChange = { agentEnabled = it })
                 }
-                Spacer(Modifier.height(8.dp))
-                Text(stringResource(Res.string.agent_cfg_disabled_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.height(metrics.compact))
+                Text(stringResource(Res.string.agent_cfg_disabled_hint), style = typo.footnote, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
 
             // ═══ ② 模型与语言（所有 Agent 都有）═══
             HMPCard {
-                Text(stringResource(Res.string.agent_cfg_language), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                Spacer(Modifier.height(8.dp))
+                Text(stringResource(Res.string.agent_cfg_language), style = typo.subtitle, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(metrics.compact))
                 SegmentedControl(
                     modifier = Modifier.fillMaxWidth(),
                     options = listOf(
@@ -568,15 +572,15 @@ fun AgentConfigScreen(
                         }
                     },
                 )
-                Spacer(Modifier.height(4.dp))
+                Spacer(Modifier.height(metrics.micro))
                 Text(
                     stringResource(Res.string.agent_cfg_lang_desc),
-                    style = MaterialTheme.typography.bodySmall,
+                    style = typo.footnote,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                Spacer(Modifier.height(16.dp))
-                Text(stringResource(Res.string.agent_cfg_temperature), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(metrics.cozy))
+                Text(stringResource(Res.string.agent_cfg_temperature), style = typo.subtitle, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(metrics.compact))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Slider(
                         value = temperature,
@@ -584,15 +588,15 @@ fun AgentConfigScreen(
                         valueRange = 0f..2f,
                         modifier = Modifier.weight(1f),
                     )
-                    Spacer(Modifier.width(8.dp))
-                    Text(temperature.toString(), modifier = Modifier.width(48.dp))
+                    Spacer(Modifier.width(metrics.compact))
+                    Text(temperature.toString(), modifier = Modifier.width(metrics.bar))
                 }
             }
 
             // ═══ ③ AI 端点配置（所有 Agent 都有 —— per-Agent 独立 endpoint）═══
             HMPCard {
-                Text(stringResource(Res.string.agent_cfg_endpoint_config), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                Spacer(Modifier.height(8.dp))
+                Text(stringResource(Res.string.agent_cfg_endpoint_config), style = typo.subtitle, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(metrics.compact))
                 SegmentedControl(
                     modifier = Modifier.fillMaxWidth(),
                     options = listOf(
@@ -602,7 +606,7 @@ fun AgentConfigScreen(
                     selectedOption = if (useCustomEndpoint) "custom" else "global",
                     onOptionSelected = { useCustomEndpoint = it == "custom" },
                 )
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(metrics.compact))
                 if (useCustomEndpoint) {
                     OutlinedTextField(
                         value = customEndpoint,
@@ -611,7 +615,7 @@ fun AgentConfigScreen(
                         modifier = Modifier.fillMaxWidth(),
                         placeholder = { Text("https://api.deepseek.com/v1") },
                     )
-                    Spacer(Modifier.height(8.dp))
+                    Spacer(Modifier.height(metrics.compact))
                     OutlinedTextField(
                         value = customApiKey,
                         onValueChange = { customApiKey = it },
@@ -619,7 +623,7 @@ fun AgentConfigScreen(
                         modifier = Modifier.fillMaxWidth(),
                         placeholder = { Text("sk-...") },
                     )
-                    Spacer(Modifier.height(8.dp))
+                    Spacer(Modifier.height(metrics.compact))
                     OutlinedTextField(
                         value = customModel,
                         onValueChange = { customModel = it },
@@ -631,31 +635,31 @@ fun AgentConfigScreen(
                     // 全局默认只读预览（异步加载，加载完成前显示占位）
                     Text(
                         stringResource(Res.string.agent_cfg_following_global),
-                        style = MaterialTheme.typography.bodyMedium,
+                        style = typo.body,
                         fontWeight = FontWeight.Medium
                     )
-                    Spacer(Modifier.height(4.dp))
+                    Spacer(Modifier.height(metrics.micro))
                     Text(
                         if (!endpointLoaded) stringResource(Res.string.agent_cfg_loading)
                         else buildString {
                             append(stringResource(Res.string.agent_cfg_endpoint_value, if (globalEndpoint.endpoint.isNotBlank()) globalEndpoint.endpoint else stringResource(Res.string.agent_cfg_builtin)))
                             if (globalEndpoint.selectedModel.isNotBlank()) append(stringResource(Res.string.agent_cfg_model_value, globalEndpoint.selectedModel))
                         },
-                        style = MaterialTheme.typography.bodySmall,
+                        style = typo.footnote,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     if (endpointLoaded && !globalEndpoint.isConfigured) {
-                        Spacer(Modifier.height(4.dp))
+                        Spacer(Modifier.height(metrics.micro))
                         Text(
                             stringResource(Res.string.agent_cfg_global_unavailable),
-                            style = MaterialTheme.typography.bodySmall,
+                            style = typo.footnote,
                             color = MaterialTheme.colorScheme.error
                         )
                     }
-                    Spacer(Modifier.height(4.dp))
+                    Spacer(Modifier.height(metrics.micro))
                     Text(
                         stringResource(Res.string.agent_cfg_change_global_hint),
-                        style = MaterialTheme.typography.bodySmall,
+                        style = typo.footnote,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
@@ -663,14 +667,14 @@ fun AgentConfigScreen(
 
             // ═══ ④ 信任与权限（所有 Agent 各自持有 trustLevel）═══
             HMPCard {
-                Text(stringResource(Res.string.agent_cfg_trust_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                Spacer(Modifier.height(8.dp))
+                Text(stringResource(Res.string.agent_cfg_trust_title), style = typo.subtitle, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(metrics.compact))
                 Text(
                     stringResource(Res.string.agent_cfg_trust_desc),
-                    style = MaterialTheme.typography.bodySmall,
+                    style = typo.footnote,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(metrics.compact))
                 SegmentedControl(
                     modifier = Modifier.fillMaxWidth(),
                     options = listOf(
@@ -681,18 +685,18 @@ fun AgentConfigScreen(
                     selectedOption = trustLevel.toString(),
                     onOptionSelected = { trustLevel = it.toIntOrNull() ?: TrustLevel.SUGGEST },
                 )
-                Spacer(Modifier.height(4.dp))
+                Spacer(Modifier.height(metrics.micro))
                 Text(
                     stringResource(Res.string.agent_cfg_always_allow_count, policyConfig.alwaysAllow.size),
-                    style = MaterialTheme.typography.bodySmall,
+                    style = typo.footnote,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
                 // Master 专属：执行预算（并入本组 —— 同属"我可以自己做到什么程度"）
                 if (agentRole == "master") {
-                    Spacer(Modifier.height(16.dp))
-                    Text(stringResource(Res.string.agent_cfg_step_budget), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    Spacer(Modifier.height(8.dp))
+                    Spacer(Modifier.height(metrics.cozy))
+                    Text(stringResource(Res.string.agent_cfg_step_budget), style = typo.subtitle, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.height(metrics.compact))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Slider(
                             value = stepBudget.toFloat(),
@@ -701,8 +705,8 @@ fun AgentConfigScreen(
                             steps = 11,
                             modifier = Modifier.weight(1f),
                         )
-                        Spacer(Modifier.width(8.dp))
-                        Text(stringResource(Res.string.agent_cfg_step_budget_value, stepBudget), modifier = Modifier.width(48.dp))
+                        Spacer(Modifier.width(metrics.compact))
+                        Text(stringResource(Res.string.agent_cfg_step_budget_value, stepBudget), modifier = Modifier.width(metrics.bar))
                     }
                 }
             }
@@ -710,8 +714,8 @@ fun AgentConfigScreen(
             // ═══ ⑤ 专属参数（按 agent 能力差异化）═══
             if (agentRole == "hello") {
                 HMPCard {
-                    Text(stringResource(Res.string.agent_cfg_reco_params), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    Spacer(Modifier.height(12.dp))
+                    Text(stringResource(Res.string.agent_cfg_reco_params), style = typo.subtitle, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.height(metrics.base))
                     Text(stringResource(Res.string.agent_cfg_daily_count))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Slider(
@@ -723,7 +727,7 @@ fun AgentConfigScreen(
                         )
                         Text(stringResource(Res.string.agent_cfg_daily_count_value, dailyRecommendCount))
                     }
-                    Spacer(Modifier.height(8.dp))
+                    Spacer(Modifier.height(metrics.compact))
                     Text(stringResource(Res.string.agent_cfg_playlist_len))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Slider(
@@ -740,8 +744,8 @@ fun AgentConfigScreen(
 
             if (agentRole == "enrich") {
                 HMPCard {
-                    Text(stringResource(Res.string.agent_cfg_target_cov), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    Spacer(Modifier.height(8.dp))
+                    Text(stringResource(Res.string.agent_cfg_target_cov), style = typo.subtitle, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.height(metrics.compact))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Slider(
                             value = targetCoverage,
@@ -749,7 +753,7 @@ fun AgentConfigScreen(
                             valueRange = 0.5f..1f,
                             modifier = Modifier.weight(1f),
                         )
-                        Spacer(Modifier.width(8.dp))
+                        Spacer(Modifier.width(metrics.compact))
                         Text("${(targetCoverage * 100).toInt()}%")
                     }
                 }
@@ -757,8 +761,8 @@ fun AgentConfigScreen(
 
             if (agentRole == "radio") {
                 HMPCard {
-                    Text(stringResource(Res.string.agent_cfg_radio_params), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    Spacer(Modifier.height(12.dp))
+                    Text(stringResource(Res.string.agent_cfg_radio_params), style = typo.subtitle, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.height(metrics.base))
                     Text(stringResource(Res.string.agent_cfg_target_count))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Slider(
@@ -770,7 +774,7 @@ fun AgentConfigScreen(
                         )
                         Text(stringResource(Res.string.agent_cfg_count_tracks, targetCount))
                     }
-                    Spacer(Modifier.height(12.dp))
+                    Spacer(Modifier.height(metrics.base))
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -806,29 +810,28 @@ fun AgentConfigScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween,
                     ) {
-                        Text("System Prompt", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Text("System Prompt", style = typo.subtitle, fontWeight = FontWeight.Bold)
                         Text(
                             if (overriddenCount > 0) stringResource(Res.string.agent_cfg_customized_count, overriddenCount, helloEntries.size) else stringResource(Res.string.agent_cfg_all_default),
-                            style = MaterialTheme.typography.labelSmall,
+                            style = typo.caption,
                             color = if (overriddenCount > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
-                    Spacer(Modifier.height(4.dp))
+                    Spacer(Modifier.height(metrics.micro))
                     Text(
                         stringResource(Res.string.agent_cfg_hello_prompt_desc, effectiveLang),
-                        style = MaterialTheme.typography.bodySmall,
+                        style = typo.footnote,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
 
                     helloPromptGroups().forEach { (groupName, entries) ->
-                        Spacer(Modifier.height(14.dp))
+                        Spacer(Modifier.height(metrics.base))
                         Text(
                             groupName.asString(),
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.SemiBold,
+                            style = typo.footnote.medium(),
                             color = MaterialTheme.colorScheme.onSurface,
                         )
-                        Spacer(Modifier.height(6.dp))
+                        Spacer(Modifier.height(metrics.micro))
                         entries.forEach { entry ->
                             val isOpen = expandedPromptKey == entry.key
                             val edited = multiPromptTexts[entry.key].orEmpty()
@@ -841,15 +844,15 @@ fun AgentConfigScreen(
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .clip(RoundedCornerShape(8.dp))
+                                        .clip(RoundedCornerShape(metrics.compact))
                                         .clickable { expandedPromptKey = if (isOpen) null else entry.key }
-                                        .padding(vertical = 8.dp, horizontal = 4.dp),
+                                        .padding(vertical = metrics.compact, horizontal = metrics.micro),
                                     verticalAlignment = Alignment.CenterVertically,
                                 ) {
                                     Column(modifier = Modifier.weight(1f)) {
                                         Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Text(entry.label.asString(), style = MaterialTheme.typography.bodyMedium)
-                                            Spacer(Modifier.width(6.dp))
+                                            Text(entry.label.asString(), style = typo.body)
+                                            Spacer(Modifier.width(metrics.micro))
                                             val badge = when {
                                                 changed -> stringResource(Res.string.agent_cfg_status_unsaved)
                                                 overridden -> stringResource(Res.string.agent_cfg_status_overridden)
@@ -857,7 +860,7 @@ fun AgentConfigScreen(
                                             }
                                             Text(
                                                 badge,
-                                                style = MaterialTheme.typography.labelSmall,
+                                                style = typo.caption,
                                                 color = when {
                                                     changed -> MaterialTheme.colorScheme.error
                                                     overridden -> MaterialTheme.colorScheme.primary
@@ -867,19 +870,19 @@ fun AgentConfigScreen(
                                         }
                                         Text(
                                             entry.hint.asString(),
-                                            style = MaterialTheme.typography.labelSmall,
+                                            style = typo.caption,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         )
                                     }
                                     Text(
                                         if (isOpen) stringResource(Res.string.agent_ai_collapse) else stringResource(Res.string.agent_cfg_edit),
-                                        style = MaterialTheme.typography.labelMedium,
+                                        style = typo.footnote.medium(),
                                         color = MaterialTheme.colorScheme.primary,
                                     )
                                 }
 
                                 if (isOpen) {
-                                    Spacer(Modifier.height(4.dp))
+                                    Spacer(Modifier.height(metrics.micro))
                                     OutlinedTextField(
                                         value = edited,
                                         onValueChange = { new ->
@@ -889,13 +892,13 @@ fun AgentConfigScreen(
                                         modifier = Modifier
                                             .widthIn(max = wideRowMaxWidth)
                                             .fillMaxWidth()
-                                            .height(180.dp),
+                                            .height(LayoutConstraints.CardHeight),
                                         placeholder = { Text(stringResource(Res.string.agent_cfg_placeholder_default)) },
                                     )
-                                    Spacer(Modifier.height(4.dp))
+                                    Spacer(Modifier.height(metrics.micro))
                                     Row(
                                         modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(metrics.compact),
                                     ) {
                                         androidx.compose.material3.TextButton(onClick = {
                                             multiPromptTexts = multiPromptTexts + (entry.key to factory)
@@ -910,7 +913,7 @@ fun AgentConfigScreen(
                                         }
                                     }
                                 }
-                                Spacer(Modifier.height(4.dp))
+                                Spacer(Modifier.height(metrics.micro))
                             }
                         }
                     }
@@ -923,26 +926,26 @@ fun AgentConfigScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween,
                     ) {
-                        Text("System Prompt", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Text("System Prompt", style = typo.subtitle, fontWeight = FontWeight.Bold)
                         Text(
                             if (hasOverride) stringResource(Res.string.agent_cfg_status_overridden) else stringResource(Res.string.agent_cfg_status_default),
-                            style = MaterialTheme.typography.labelSmall,
+                            style = typo.caption,
                             color = if (hasOverride) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
-                    Spacer(Modifier.height(4.dp))
+                    Spacer(Modifier.height(metrics.micro))
                     Text(
                         stringResource(Res.string.agent_cfg_prompt_desc),
-                        style = MaterialTheme.typography.bodySmall,
+                        style = typo.footnote,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    Spacer(Modifier.height(8.dp))
+                    Spacer(Modifier.height(metrics.compact))
                     Text(
                         stringResource(Res.string.agent_cfg_effective_lang, effectiveLang),
-                        style = MaterialTheme.typography.bodySmall,
+                        style = typo.footnote,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    Spacer(Modifier.height(8.dp))
+                    Spacer(Modifier.height(metrics.compact))
 
                     OutlinedTextField(
                         value = systemPrompt,
@@ -950,7 +953,7 @@ fun AgentConfigScreen(
                         modifier = Modifier
                             .widthIn(max = wideRowMaxWidth)
                             .fillMaxWidth()
-                            .height(220.dp),
+                            .height(LayoutConstraints.PanelHeightLarge),
                         placeholder = { Text(stringResource(Res.string.agent_cfg_placeholder_default)) },
                     )
 
@@ -960,10 +963,10 @@ fun AgentConfigScreen(
                         if (requiredPlaceholders.isNotEmpty()) {
                             val userHas = requiredPlaceholders.filter { systemPrompt.contains("{{$it}}") }
                             val missing = requiredPlaceholders.filter { !systemPrompt.contains("{{$it}}") }
-                            Spacer(Modifier.height(4.dp))
+                            Spacer(Modifier.height(metrics.micro))
                             Text(
                                 stringResource(Res.string.agent_cfg_placeholders_needed, userHas.size, requiredPlaceholders.size),
-                                style = MaterialTheme.typography.bodySmall,
+                                style = typo.footnote,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             Text(
@@ -971,13 +974,13 @@ fun AgentConfigScreen(
                                     val ok = ph in userHas
                                     if (ok) "✓ {{$ph}}" else "✗ {{$ph}}"
                                 },
-                                style = MaterialTheme.typography.bodySmall,
+                                style = typo.footnote,
                                 color = if (missing.isNotEmpty()) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             if (missing.isNotEmpty()) {
                                 Text(
                                     stringResource(Res.string.agent_cfg_missing_placeholder, missing.joinToString(", ") { "{{$it}}" }),
-                                    style = MaterialTheme.typography.bodySmall,
+                                    style = typo.footnote,
                                     color = MaterialTheme.colorScheme.error
                                 )
                             }
@@ -985,10 +988,10 @@ fun AgentConfigScreen(
                     }
 
                     // 操作：恢复出厂默认 / 放弃改动
-                    Spacer(Modifier.height(8.dp))
+                    Spacer(Modifier.height(metrics.compact))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(metrics.compact),
                     ) {
                         val templateLang = when (preferredLang) {
                             "en" -> stringResource(Res.string.agent_ai_lang_en)
@@ -1013,13 +1016,13 @@ fun AgentConfigScreen(
             // ═══ ⑦ 底部操作（随内容滚动到底，不悬浮）═══
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(metrics.compact),
             ) {
                 Button(onClick = reset, modifier = Modifier.weight(1f)) { Text(stringResource(Res.string.agent_cfg_restore_default)) }
                 Button(onClick = save, modifier = Modifier.weight(1f)) { Text(stringResource(Res.string.agent_cfg_save)) }
             }
             // 给全局悬浮音乐胶囊预留底部空间
-            MiniPlayerSafeSpacer(height = 56.dp)
+            MiniPlayerSafeSpacer(height = metrics.bar)
         }
         }
         }
@@ -1069,24 +1072,26 @@ private fun ConfigFormLeftColumn(
     autoRenew: Boolean,
     onAutoRenewChange: (Boolean) -> Unit,
 ) {
+    val metrics = LocalHmpMetrics.current
+    val typo = LocalHmpTypo.current
     // ═══ ① 身份与启用 ═══
     HMPCard {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(modifier = Modifier.weight(1f)) {
-                Text(agentLabelFor(agentRole), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                Spacer(Modifier.height(4.dp))
-                Text(agentDescFor(agentRole), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(agentLabelFor(agentRole), style = typo.subtitle, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(metrics.micro))
+                Text(agentDescFor(agentRole), style = typo.footnote, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Switch(checked = agentEnabled, onCheckedChange = onAgentEnabledChange)
         }
-        Spacer(Modifier.height(8.dp))
-        Text(stringResource(Res.string.agent_cfg_disabled_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(Modifier.height(metrics.compact))
+        Text(stringResource(Res.string.agent_cfg_disabled_hint), style = typo.footnote, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 
     // ═══ ② 模型与语言 ═══
     HMPCard {
-        Text(stringResource(Res.string.agent_cfg_language), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-        Spacer(Modifier.height(8.dp))
+        Text(stringResource(Res.string.agent_cfg_language), style = typo.subtitle, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(metrics.compact))
         SegmentedControl(
             modifier = Modifier.fillMaxWidth(),
             options = listOf(
@@ -1098,15 +1103,15 @@ private fun ConfigFormLeftColumn(
             selectedOption = preferredLang,
             onOptionSelected = onPreferredLangSelected,
         )
-        Spacer(Modifier.height(4.dp))
+        Spacer(Modifier.height(metrics.micro))
         Text(
             stringResource(Res.string.agent_cfg_lang_desc),
-            style = MaterialTheme.typography.bodySmall,
+            style = typo.footnote,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
-        Spacer(Modifier.height(16.dp))
-        Text(stringResource(Res.string.agent_cfg_temperature), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(metrics.cozy))
+        Text(stringResource(Res.string.agent_cfg_temperature), style = typo.subtitle, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(metrics.compact))
         Row(verticalAlignment = Alignment.CenterVertically) {
             Slider(
                 value = temperature,
@@ -1114,15 +1119,15 @@ private fun ConfigFormLeftColumn(
                 valueRange = 0f..2f,
                 modifier = Modifier.weight(1f),
             )
-            Spacer(Modifier.width(8.dp))
-            Text(temperature.toString(), modifier = Modifier.width(48.dp))
+            Spacer(Modifier.width(metrics.compact))
+            Text(temperature.toString(), modifier = Modifier.width(metrics.bar))
         }
     }
 
     // ═══ ③ AI 端点配置 ═══
     HMPCard {
-        Text(stringResource(Res.string.agent_cfg_endpoint_config), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-        Spacer(Modifier.height(8.dp))
+        Text(stringResource(Res.string.agent_cfg_endpoint_config), style = typo.subtitle, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(metrics.compact))
         SegmentedControl(
             modifier = Modifier.fillMaxWidth(),
             options = listOf(
@@ -1132,7 +1137,7 @@ private fun ConfigFormLeftColumn(
             selectedOption = if (useCustomEndpoint) "custom" else "global",
             onOptionSelected = { onUseCustomEndpointChange(it == "custom") },
         )
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(metrics.compact))
         if (useCustomEndpoint) {
             OutlinedTextField(
                 value = customEndpoint,
@@ -1141,7 +1146,7 @@ private fun ConfigFormLeftColumn(
                 modifier = Modifier.fillMaxWidth(),
                 placeholder = { Text("https://api.deepseek.com/v1") },
             )
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(metrics.compact))
             OutlinedTextField(
                 value = customApiKey,
                 onValueChange = onCustomApiKeyChange,
@@ -1149,7 +1154,7 @@ private fun ConfigFormLeftColumn(
                 modifier = Modifier.fillMaxWidth(),
                 placeholder = { Text("sk-...") },
             )
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(metrics.compact))
             OutlinedTextField(
                 value = customModel,
                 onValueChange = onCustomModelChange,
@@ -1160,31 +1165,31 @@ private fun ConfigFormLeftColumn(
         } else {
             Text(
                 stringResource(Res.string.agent_cfg_following_global),
-                style = MaterialTheme.typography.bodyMedium,
+                style = typo.body,
                 fontWeight = FontWeight.Medium
             )
-            Spacer(Modifier.height(4.dp))
+            Spacer(Modifier.height(metrics.micro))
             Text(
                 if (!endpointLoaded) stringResource(Res.string.agent_cfg_loading)
                 else buildString {
                     append(stringResource(Res.string.agent_cfg_endpoint_value, if (globalEndpoint.endpoint.isNotBlank()) globalEndpoint.endpoint else stringResource(Res.string.agent_cfg_builtin)))
                     if (globalEndpoint.selectedModel.isNotBlank()) append(stringResource(Res.string.agent_cfg_model_value, globalEndpoint.selectedModel))
                 },
-                style = MaterialTheme.typography.bodySmall,
+                style = typo.footnote,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             if (endpointLoaded && !globalEndpoint.isConfigured) {
-                Spacer(Modifier.height(4.dp))
+                Spacer(Modifier.height(metrics.micro))
                 Text(
                     stringResource(Res.string.agent_cfg_global_unavailable),
-                    style = MaterialTheme.typography.bodySmall,
+                    style = typo.footnote,
                     color = MaterialTheme.colorScheme.error
                 )
             }
-            Spacer(Modifier.height(4.dp))
+            Spacer(Modifier.height(metrics.micro))
             Text(
                 stringResource(Res.string.agent_cfg_change_global_hint),
-                style = MaterialTheme.typography.bodySmall,
+                style = typo.footnote,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
@@ -1192,14 +1197,14 @@ private fun ConfigFormLeftColumn(
 
     // ═══ ④ 信任与权限 ═══
     HMPCard {
-        Text(stringResource(Res.string.agent_cfg_trust_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-        Spacer(Modifier.height(8.dp))
+        Text(stringResource(Res.string.agent_cfg_trust_title), style = typo.subtitle, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(metrics.compact))
         Text(
             stringResource(Res.string.agent_cfg_trust_desc),
-            style = MaterialTheme.typography.bodySmall,
+            style = typo.footnote,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(metrics.compact))
         SegmentedControl(
             modifier = Modifier.fillMaxWidth(),
             options = listOf(
@@ -1210,16 +1215,16 @@ private fun ConfigFormLeftColumn(
             selectedOption = trustLevel.toString(),
             onOptionSelected = { onTrustLevelChange(it.toIntOrNull() ?: TrustLevel.SUGGEST) },
         )
-        Spacer(Modifier.height(4.dp))
+        Spacer(Modifier.height(metrics.micro))
         Text(
             stringResource(Res.string.agent_cfg_always_allow_count, alwaysAllowCount),
-            style = MaterialTheme.typography.bodySmall,
+            style = typo.footnote,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         if (agentRole == "master") {
-            Spacer(Modifier.height(16.dp))
-            Text(stringResource(Res.string.agent_cfg_step_budget), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(metrics.cozy))
+            Text(stringResource(Res.string.agent_cfg_step_budget), style = typo.subtitle, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(metrics.compact))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Slider(
                     value = stepBudget.toFloat(),
@@ -1228,8 +1233,8 @@ private fun ConfigFormLeftColumn(
                     steps = 11,
                     modifier = Modifier.weight(1f),
                 )
-                Spacer(Modifier.width(8.dp))
-                Text(stringResource(Res.string.agent_cfg_step_budget_value, stepBudget), modifier = Modifier.width(48.dp))
+                Spacer(Modifier.width(metrics.compact))
+                Text(stringResource(Res.string.agent_cfg_step_budget_value, stepBudget), modifier = Modifier.width(metrics.bar))
             }
         }
     }
@@ -1237,8 +1242,8 @@ private fun ConfigFormLeftColumn(
     // ═══ ⑤ 专属参数 ═══
     when (agentRole) {
         "hello" -> HMPCard {
-            Text(stringResource(Res.string.agent_cfg_reco_params), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            Spacer(Modifier.height(12.dp))
+            Text(stringResource(Res.string.agent_cfg_reco_params), style = typo.subtitle, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(metrics.base))
             Text(stringResource(Res.string.agent_cfg_daily_count))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Slider(
@@ -1250,7 +1255,7 @@ private fun ConfigFormLeftColumn(
                 )
                 Text(stringResource(Res.string.agent_cfg_daily_count_value, dailyRecommendCount))
             }
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(metrics.compact))
             Text(stringResource(Res.string.agent_cfg_playlist_len))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Slider(
@@ -1265,8 +1270,8 @@ private fun ConfigFormLeftColumn(
         }
 
         "enrich" -> HMPCard {
-            Text(stringResource(Res.string.agent_cfg_target_cov), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            Spacer(Modifier.height(8.dp))
+            Text(stringResource(Res.string.agent_cfg_target_cov), style = typo.subtitle, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(metrics.compact))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Slider(
                     value = targetCoverage,
@@ -1274,14 +1279,14 @@ private fun ConfigFormLeftColumn(
                     valueRange = 0.5f..1f,
                     modifier = Modifier.weight(1f),
                 )
-                Spacer(Modifier.width(8.dp))
+                Spacer(Modifier.width(metrics.compact))
                 Text("${(targetCoverage * 100).toInt()}%")
             }
         }
 
         "radio" -> HMPCard {
-            Text(stringResource(Res.string.agent_cfg_radio_params), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            Spacer(Modifier.height(12.dp))
+            Text(stringResource(Res.string.agent_cfg_radio_params), style = typo.subtitle, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(metrics.base))
             Text(stringResource(Res.string.agent_cfg_target_count))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Slider(
@@ -1293,7 +1298,7 @@ private fun ConfigFormLeftColumn(
                 )
                 Text(stringResource(Res.string.agent_cfg_count_tracks, targetCount))
             }
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(metrics.base))
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -1334,6 +1339,8 @@ private fun SystemPromptSection(
     hasOverride: Boolean,
     factoryPrompt: String,
 ) {
+    val metrics = LocalHmpMetrics.current
+    val typo = LocalHmpTypo.current
     // 生效语言提示
     val effectiveLang = when (preferredLang) {
         "zh" -> stringResource(Res.string.agent_ai_lang_zh)
@@ -1357,29 +1364,28 @@ private fun SystemPromptSection(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                Text("System Prompt", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text("System Prompt", style = typo.subtitle, fontWeight = FontWeight.Bold)
                 Text(
                     if (overriddenCount > 0) stringResource(Res.string.agent_cfg_customized_count, overriddenCount, helloEntries.size) else stringResource(Res.string.agent_cfg_all_default),
-                    style = MaterialTheme.typography.labelSmall,
+                    style = typo.caption,
                     color = if (overriddenCount > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            Spacer(Modifier.height(4.dp))
+            Spacer(Modifier.height(metrics.micro))
             Text(
                 stringResource(Res.string.agent_cfg_hello_prompt_desc, effectiveLang),
-                style = MaterialTheme.typography.bodySmall,
+                style = typo.footnote,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
             helloPromptGroups().forEach { (groupName, entries) ->
-                Spacer(Modifier.height(14.dp))
+                Spacer(Modifier.height(metrics.base))
                 Text(
                     groupName.asString(),
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.SemiBold,
+                    style = typo.footnote.medium(),
                     color = MaterialTheme.colorScheme.onSurface,
                 )
-                Spacer(Modifier.height(6.dp))
+                Spacer(Modifier.height(metrics.micro))
                 entries.forEach { entry ->
                     val isOpen = expandedPromptKey == entry.key
                     val edited = multiPromptTexts[entry.key].orEmpty()
@@ -1392,15 +1398,15 @@ private fun SystemPromptSection(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clip(RoundedCornerShape(8.dp))
+                                .clip(RoundedCornerShape(metrics.compact))
                                 .clickable { onExpandedPromptKeyChange(if (isOpen) null else entry.key) }
-                                .padding(vertical = 8.dp, horizontal = 4.dp),
+                                .padding(vertical = metrics.compact, horizontal = metrics.micro),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text(entry.label.asString(), style = MaterialTheme.typography.bodyMedium)
-                                    Spacer(Modifier.width(6.dp))
+                                    Text(entry.label.asString(), style = typo.body)
+                                    Spacer(Modifier.width(metrics.micro))
                                     val badge = when {
                                         changed -> stringResource(Res.string.agent_cfg_status_unsaved)
                                         overridden -> stringResource(Res.string.agent_cfg_status_overridden)
@@ -1408,7 +1414,7 @@ private fun SystemPromptSection(
                                     }
                                     Text(
                                         badge,
-                                        style = MaterialTheme.typography.labelSmall,
+                                        style = typo.caption,
                                         color = when {
                                             changed -> MaterialTheme.colorScheme.error
                                             overridden -> MaterialTheme.colorScheme.primary
@@ -1418,19 +1424,19 @@ private fun SystemPromptSection(
                                 }
                                 Text(
                                     entry.hint.asString(),
-                                    style = MaterialTheme.typography.labelSmall,
+                                    style = typo.caption,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                             }
                             Text(
                                 if (isOpen) stringResource(Res.string.agent_ai_collapse) else stringResource(Res.string.agent_cfg_edit),
-                                style = MaterialTheme.typography.labelMedium,
+                                style = typo.footnote.medium(),
                                 color = MaterialTheme.colorScheme.primary,
                             )
                         }
 
                         if (isOpen) {
-                            Spacer(Modifier.height(4.dp))
+                            Spacer(Modifier.height(metrics.micro))
                             OutlinedTextField(
                                 value = edited,
                                 onValueChange = { new ->
@@ -1439,13 +1445,13 @@ private fun SystemPromptSection(
                                 },
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .height(180.dp),
+                                    .height(LayoutConstraints.CardHeight),
                                 placeholder = { Text(stringResource(Res.string.agent_cfg_placeholder_default)) },
                             )
-                            Spacer(Modifier.height(4.dp))
+                            Spacer(Modifier.height(metrics.micro))
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                horizontalArrangement = Arrangement.spacedBy(metrics.compact),
                             ) {
                                 androidx.compose.material3.TextButton(onClick = {
                                     onMultiPromptTextsChange(multiPromptTexts + (entry.key to factory))
@@ -1461,7 +1467,7 @@ private fun SystemPromptSection(
                                 }
                             }
                         }
-                        Spacer(Modifier.height(4.dp))
+                        Spacer(Modifier.height(metrics.micro))
                     }
                 }
             }
@@ -1474,33 +1480,33 @@ private fun SystemPromptSection(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                Text("System Prompt", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text("System Prompt", style = typo.subtitle, fontWeight = FontWeight.Bold)
                 Text(
                     if (hasOverride) stringResource(Res.string.agent_cfg_status_overridden) else stringResource(Res.string.agent_cfg_status_default),
-                    style = MaterialTheme.typography.labelSmall,
+                    style = typo.caption,
                     color = if (hasOverride) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            Spacer(Modifier.height(4.dp))
+            Spacer(Modifier.height(metrics.micro))
             Text(
                 stringResource(Res.string.agent_cfg_prompt_desc),
-                style = MaterialTheme.typography.bodySmall,
+                style = typo.footnote,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(metrics.compact))
             Text(
                 stringResource(Res.string.agent_cfg_effective_lang, effectiveLang),
-                style = MaterialTheme.typography.bodySmall,
+                style = typo.footnote,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(metrics.compact))
 
             OutlinedTextField(
                 value = systemPrompt,
                 onValueChange = onSystemPromptChange,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(220.dp),
+                    .height(LayoutConstraints.PanelHeightLarge),
                 placeholder = { Text(stringResource(Res.string.agent_cfg_placeholder_default)) },
             )
 
@@ -1510,10 +1516,10 @@ private fun SystemPromptSection(
                 if (requiredPlaceholders.isNotEmpty()) {
                     val userHas = requiredPlaceholders.filter { systemPrompt.contains("{{$it}}") }
                     val missing = requiredPlaceholders.filter { !systemPrompt.contains("{{$it}}") }
-                    Spacer(Modifier.height(4.dp))
+                    Spacer(Modifier.height(metrics.micro))
                     Text(
                         stringResource(Res.string.agent_cfg_placeholders_needed, userHas.size, requiredPlaceholders.size),
-                        style = MaterialTheme.typography.bodySmall,
+                        style = typo.footnote,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
@@ -1521,13 +1527,13 @@ private fun SystemPromptSection(
                             val ok = ph in userHas
                             if (ok) "✓ {{$ph}}" else "✗ {{$ph}}"
                         },
-                        style = MaterialTheme.typography.bodySmall,
+                        style = typo.footnote,
                         color = if (missing.isNotEmpty()) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     if (missing.isNotEmpty()) {
                         Text(
                             stringResource(Res.string.agent_cfg_missing_placeholder, missing.joinToString(", ") { "{{$it}}" }),
-                            style = MaterialTheme.typography.bodySmall,
+                            style = typo.footnote,
                             color = MaterialTheme.colorScheme.error
                         )
                     }
@@ -1535,10 +1541,10 @@ private fun SystemPromptSection(
             }
 
             // 操作：恢复出厂默认 / 放弃改动
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(metrics.compact))
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(metrics.compact),
             ) {
                 val templateLang = when (preferredLang) {
                     "en" -> stringResource(Res.string.agent_ai_lang_en)

@@ -35,15 +35,17 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.hmp.domain.music.MusicInfo
+import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
 import com.hearablemusic.player.ui.common.util.rememberPlatformHaptics
 import com.hearablemusic.player.ui.platform.HapticEffect
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
+import com.hearablemusic.player.ui.common.design.metrics.HMPMetricTokens
 
 /** 索引条上下留白 */
-private val IndexStripVerticalPadding = 72.dp
+private val IndexStripVerticalPadding = HMPMetricTokens.Compact.row
 
 /**
  * 索引条：全高度，上下各 [IndexStripVerticalPadding]。支持 Letter 模式（A–Z #）与 Anchor 模式（数值/时间锚点）。
@@ -58,6 +60,8 @@ internal fun MusicListIndexStrip(
     modifier: Modifier = Modifier,
     columns: Int = 1,
 ) {
+    val metrics = LocalHmpMetrics.current
+    val typo = LocalHmpTypo.current
     val scope = rememberCoroutineScope()
     var firstVisibleIndex by remember { mutableStateOf(listState.firstVisibleItemIndex) }
     LaunchedEffect(listState) {
@@ -104,7 +108,7 @@ internal fun MusicListIndexStrip(
 
         Box(
             modifier = modifier
-                .width(24.dp)
+                .width(metrics.section)
                 .fillMaxHeight()
                 .onSizeChanged { stripSize = it }
                 .pointerInput(anchorLabels, anchorToIndexMap, stripSize, verticalPaddingPx) {
@@ -145,7 +149,7 @@ internal fun MusicListIndexStrip(
                 modifier = Modifier
                     .fillMaxHeight()
                     .padding(vertical = IndexStripVerticalPadding)
-                    .width(24.dp),
+                    .width(metrics.section),
                 verticalArrangement = Arrangement.SpaceEvenly,
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
@@ -155,7 +159,7 @@ internal fun MusicListIndexStrip(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .size(20.dp)
+                            .size(metrics.cozy)
                             .clickable(
                                 indication = null,
                                 interactionSource = remember { MutableInteractionSource() },
@@ -175,7 +179,7 @@ internal fun MusicListIndexStrip(
                         if (isCurrent) {
                             Box(
                                 modifier = Modifier
-                                    .size(20.dp)
+                                    .size(metrics.cozy)
                                     .background(
                                         MaterialTheme.colorScheme.primary.copy(alpha = 0.2f),
                                         CircleShape,
@@ -184,7 +188,7 @@ internal fun MusicListIndexStrip(
                         }
                         Text(
                             text = label,
-                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
+                            style = typo.micro,
                             color = when {
                                 isCurrent -> MaterialTheme.colorScheme.primary
                                 else -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
@@ -231,7 +235,7 @@ internal fun MusicListIndexStrip(
 
         Box(
             modifier = modifier
-                .width(24.dp)
+                .width(metrics.section)
                 .fillMaxHeight()
                 .onSizeChanged { stripSize = it }
                 .pointerInput(letters, letterToIndexMap, stripSize, verticalPaddingPx) {
@@ -272,7 +276,7 @@ internal fun MusicListIndexStrip(
                 modifier = Modifier
                     .fillMaxHeight()
                     .padding(vertical = IndexStripVerticalPadding)
-                    .width(24.dp),
+                    .width(metrics.section),
                 verticalArrangement = Arrangement.SpaceEvenly,
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
@@ -282,7 +286,7 @@ internal fun MusicListIndexStrip(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .size(20.dp)
+                            .size(metrics.cozy)
                             .clickable(
                                 indication = null,
                                 interactionSource = remember { MutableInteractionSource() },
@@ -302,7 +306,7 @@ internal fun MusicListIndexStrip(
                         if (isCurrent) {
                             Box(
                                 modifier = Modifier
-                                    .size(20.dp)
+                                    .size(metrics.cozy)
                                     .background(
                                         MaterialTheme.colorScheme.primary.copy(alpha = 0.2f),
                                         CircleShape,
@@ -311,7 +315,7 @@ internal fun MusicListIndexStrip(
                         }
                         Text(
                             text = letter.toString(),
-                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                            style = typo.micro,
                             color = when {
                                 isCurrent -> MaterialTheme.colorScheme.primary
                                 else -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)

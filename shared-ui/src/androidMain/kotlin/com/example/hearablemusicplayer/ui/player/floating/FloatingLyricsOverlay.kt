@@ -46,6 +46,9 @@ import com.hmp.domain.lyrics.LrcParser
 import com.hmp.domain.lyrics.findCurrentLyricIndex
 import com.hmp.domain.lyrics.LyricsComponent
 import com.hmp.domain.setting.usecase.LyricsSettingsUseCase
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
+import com.hearablemusic.player.ui.common.design.metrics.LayoutConstraints
+import com.hearablemusic.player.ui.common.design.colors.ColorTokens
 
 @OptIn(UnstableApi::class)
 @Composable
@@ -56,6 +59,7 @@ fun FloatingLyricsOverlay(
     initialLayoutParams: WindowManager.LayoutParams,
     onClose: () -> Unit
 ) {
+    val metrics = LocalHmpMetrics.current
     val overlayView = LocalView.current
     val displayMetrics = overlayView.resources.displayMetrics
     val screenWidth = displayMetrics.widthPixels
@@ -89,15 +93,15 @@ fun FloatingLyricsOverlay(
 
     val currentLine = parsedLyrics.getOrNull(currentIndex)
 
-    val background = Color(0xE61A1A1A)
+    val background = ColorTokens.Shell.OverlayBackground
     val textColor = Color.White
     val dimTextColor = Color.White.copy(alpha = 0.4f)
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(background, RoundedCornerShape(16.dp))
-            .clip(RoundedCornerShape(16.dp))
+            .background(background, RoundedCornerShape(metrics.cozy))
+            .clip(RoundedCornerShape(metrics.cozy))
             .then(
                 if (!isLocked) Modifier.pointerInput(Unit) {
                     detectDragGestures(
@@ -116,16 +120,16 @@ fun FloatingLyricsOverlay(
     ) {
         // Top bar
         Row(
-            Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 4.dp),
+            Modifier.fillMaxWidth().padding(horizontal = metrics.compact, vertical = metrics.micro),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("⋮⋮", color = dimTextColor, fontSize = 12.sp)
+            Text("⋮⋮", color = dimTextColor, fontSize = LayoutConstraints.OverlayFontSizeBody)
             Spacer(Modifier.weight(1f))
-            IconButton(onClick = { isLocked = !isLocked }, Modifier.size(24.dp)) {
-                Text(if (isLocked) "🔒" else "🔓", fontSize = 10.sp)
+            IconButton(onClick = { isLocked = !isLocked }, Modifier.size(metrics.section)) {
+                Text(if (isLocked) "🔒" else "🔓", fontSize = LayoutConstraints.OverlayFontSizeSmall)
             }
-            IconButton(onClick = onClose, Modifier.size(24.dp)) {
-                Text("✕", color = dimTextColor, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+            IconButton(onClick = onClose, Modifier.size(metrics.section)) {
+                Text("✕", color = dimTextColor, fontSize = LayoutConstraints.OverlayFontSizeIcon, fontWeight = FontWeight.Bold)
             }
         }
 
@@ -133,7 +137,7 @@ fun FloatingLyricsOverlay(
         Box(
             Modifier
                 .fillMaxSize()
-                .padding(horizontal = 20.dp, vertical = 12.dp),
+                .padding(horizontal = metrics.cozy, vertical = metrics.base),
             contentAlignment = Alignment.Center
         ) {
             if (currentLine != null) {
@@ -149,7 +153,7 @@ fun FloatingLyricsOverlay(
                     )
                     if (resolvedConfig.displayMode != com.hmp.domain.config.DisplayMode.LANG1) {
                         currentLine.translatedText?.let { translated ->
-                            Spacer(Modifier.size(4.dp))
+                            Spacer(Modifier.size(metrics.micro))
                             Text(
                                 text = translated,
                                 color = dimTextColor,
@@ -162,7 +166,7 @@ fun FloatingLyricsOverlay(
                     }
                 }
             } else {
-                Text("♪", color = dimTextColor, fontSize = 24.sp)
+                Text("♪", color = dimTextColor, fontSize = LayoutConstraints.OverlayFontSizeNote)
             }
         }
 
@@ -171,9 +175,9 @@ fun FloatingLyricsOverlay(
             Box(
                 Modifier
                     .align(Alignment.BottomCenter)
-                    .padding(bottom = 6.dp)
+                    .padding(bottom = metrics.micro)
             ) {
-                Text("●", color = Color.White.copy(alpha = 0.15f), fontSize = 6.sp)
+                Text("●", color = Color.White.copy(alpha = 0.15f), fontSize = LayoutConstraints.OverlayFontSizeDot)
             }
         }
     }

@@ -31,6 +31,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.hmp.domain.music.MusicInfo
+import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
+import com.hearablemusic.player.ui.common.design.typography.medium
 import com.hearablemusic.player.ui.common.util.rememberHapticFeedback
 import com.hearablemusic.player.ui.generated.resources.Res
 import com.hearablemusic.player.ui.generated.resources.artist_placeholder
@@ -55,6 +57,8 @@ import com.hearablemusic.player.ui.common.util.hazeTintAlpha
 import com.hearablemusic.player.ui.library.pages.components.AlbumCover
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
+import com.hearablemusic.player.ui.common.design.metrics.LayoutConstraints
 
 /**
  * 悬浮迷你播放器组件
@@ -73,9 +77,11 @@ fun MiniPlayerBar(
     onPrev: () -> Unit,
     onOpenPlayer: () -> Unit
 ) {
+    val metrics = LocalHmpMetrics.current
+    val typo = LocalHmpTypo.current
     val haptic = rememberHapticFeedback()
     val normalizedProgress = progress.coerceIn(0f, 1f)
-    val barShape = RoundedCornerShape(36.dp)
+    val barShape = RoundedCornerShape(metrics.block)
     val musicTitle = musicInfo?.music?.title ?: stringResource(Res.string.music_title_placeholder)
     val artistName = musicInfo?.music?.artist ?: stringResource(Res.string.artist_placeholder)
     val albumArtUri = musicInfo?.music?.albumArtUri ?: ""
@@ -98,7 +104,7 @@ fun MiniPlayerBar(
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .padding(start = 24.dp, end = 24.dp, top = 8.dp, bottom = 16.dp)
+            .padding(start = metrics.section, end = metrics.section, top = metrics.compact, bottom = metrics.cozy)
             .clip(barShape)
             .then(
                 if (hazeState != null) {
@@ -127,7 +133,7 @@ fun MiniPlayerBar(
             }
         ),
         border = BorderStroke(
-            width = 0.5.dp,
+            width = metrics.stroke.hairline,
             color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.14f)
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
@@ -135,44 +141,44 @@ fun MiniPlayerBar(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 8.dp),
+                .padding(horizontal = metrics.compact, vertical = metrics.compact),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             // 专辑封面
             AlbumCover(
                 uri = albumArtUri,
-                size = 56.dp,
-                corner = 28.dp,
-                shadow = 5.dp,
+                size = metrics.bar,
+                corner = metrics.section,
+                shadow = metrics.micro,
                 modifier = Modifier.graphicsLayer {
                     rotationZ = coverRotation.value
                 }
             )
 
-            Spacer(modifier = Modifier.width(16.dp))
+            Spacer(modifier = Modifier.width(metrics.cozy))
 
             // 音乐信息
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = musicTitle,
-                    style = MaterialTheme.typography.titleSmall,
+                    style = typo.body.medium(),
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(metrics.compact))
                 Text(
                     text = artistName,
-                    style = MaterialTheme.typography.bodySmall,
+                    style = typo.footnote,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
             }
 
-            Spacer(modifier = Modifier.width(8.dp))
+            Spacer(modifier = Modifier.width(metrics.compact))
 
             // 控制按钮组
             Row(
@@ -185,13 +191,13 @@ fun MiniPlayerBar(
                         haptic.performLightClick()
                         onPrev()
                     },
-                    modifier = Modifier.size(40.dp)
+                    modifier = Modifier.size(metrics.block)
                 ) {
                     Icon(
                         painter = painterResource(Res.drawable.backward_end_fill),
                         contentDescription = stringResource(Res.string.previous),
                         tint = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.size(22.dp)
+                        modifier = Modifier.size(metrics.section)
                     )
                 }
 
@@ -201,7 +207,7 @@ fun MiniPlayerBar(
                         haptic.performLightClick()
                         onPlayPause()
                     },
-                    modifier = Modifier.size(44.dp)
+                    modifier = Modifier.size(metrics.bar)
                 ) {
                     Icon(
                         painter = if (isPlaying) {
@@ -211,7 +217,7 @@ fun MiniPlayerBar(
                         },
                         contentDescription = if (isPlaying) stringResource(Res.string.pause_desc) else stringResource(Res.string.play_desc),
                         tint = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.size(26.dp)
+                        modifier = Modifier.size(LayoutConstraints.CompactIconSize)
                     )
                 }
 
@@ -221,13 +227,13 @@ fun MiniPlayerBar(
                         haptic.performLightClick()
                         onNext()
                     },
-                    modifier = Modifier.size(40.dp)
+                    modifier = Modifier.size(metrics.block)
                 ) {
                     Icon(
                         painter = painterResource(Res.drawable.forward_end_fill),
                         contentDescription = stringResource(Res.string.next_desc),
                         tint = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.size(22.dp)
+                        modifier = Modifier.size(metrics.section)
                     )
                 }
             }

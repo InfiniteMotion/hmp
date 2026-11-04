@@ -37,6 +37,8 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.hearablemusic.player.ui.common.util.activityViewModel
+import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
+import com.hearablemusic.player.ui.common.design.typography.medium
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
 import coil3.compose.AsyncImage
@@ -71,6 +73,7 @@ import com.hearablemusic.player.ui.common.dialogs.viewmodel.DialogViewModel
 import com.hearablemusic.player.ui.playlist.viewmodel.PlaylistViewModel
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 
 @Composable
 fun PlaylistManageScreen(
@@ -78,6 +81,7 @@ fun PlaylistManageScreen(
     dialogViewModel: DialogViewModel = activityViewModel(),
     navController: NavBackStack<NavKey>
 ) {
+    val metrics = LocalHmpMetrics.current
     val userCustomPlaylistsState by playlistViewModel.userCustomPlaylistsState.collectAsState()
     val userCustomPlaylists = (userCustomPlaylistsState as? UiState.Success)?.data ?: emptyList()
     val haptic = rememberHapticFeedback()
@@ -162,7 +166,7 @@ fun PlaylistManageScreen(
                     haptic.performClick()
                     isEditMode = !isEditMode
                 },
-                modifier = Modifier.size(32.dp),
+                modifier = Modifier.size(metrics.block),
                 colors = IconButtonDefaults.filledIconButtonColors(
                     containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = MaterialTheme.colorScheme.onPrimary
@@ -171,7 +175,7 @@ fun PlaylistManageScreen(
                 Icon(
                     painter = painterResource(if (isEditMode) Res.drawable.ic_gallery_material_select_checkbox else Res.drawable.gearshape),
                     contentDescription = stringResource(Res.string.edit_list),
-                    modifier = Modifier.size(20.dp)
+                    modifier = Modifier.size(metrics.cozy)
                 )
             }
         }
@@ -179,12 +183,12 @@ fun PlaylistManageScreen(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(16.dp)
+                .padding(metrics.cozy)
         ) {
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
+                contentPadding = PaddingValues(vertical = metrics.compact),
+                verticalArrangement = Arrangement.spacedBy(metrics.micro)
             ) {
                 items(sortedList, key = { it.id }) { playlist ->
                     UserPlaylistRow(
@@ -218,8 +222,8 @@ fun PlaylistManageScreen(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .navigationBarsPadding()
-                    .padding(bottom = 96.dp)
-                    .size(48.dp),
+                    .padding(bottom = metrics.row)
+                    .size(metrics.bar),
                 colors = IconButtonDefaults.filledIconButtonColors(
                     containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = MaterialTheme.colorScheme.onPrimary
@@ -228,7 +232,7 @@ fun PlaylistManageScreen(
                 Icon(
                     painter = painterResource(Res.drawable.plus),
                     contentDescription = stringResource(Res.string.edit_list),
-                    modifier = Modifier.size(24.dp)
+                    modifier = Modifier.size(metrics.section)
                 )
             }
         }
@@ -244,20 +248,22 @@ private fun UserPlaylistRow(
     onRename: () -> Unit,
     onSetPinned: (Boolean) -> Unit
 ) {
+    val metrics = LocalHmpMetrics.current
+    val typo = LocalHmpTypo.current
     val haptic = rememberHapticFeedback()
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
+            .clip(RoundedCornerShape(metrics.base))
             .clickable(onClick = onClick)
-            .padding(vertical = 8.dp, horizontal = 4.dp),
+            .padding(vertical = metrics.compact, horizontal = metrics.micro),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(16.dp)
+        horizontalArrangement = Arrangement.spacedBy(metrics.cozy)
     ) {
         Box(
             modifier = Modifier
-                .size(56.dp)
-                .clip(RoundedCornerShape(8.dp))
+                .size(metrics.bar)
+                .clip(RoundedCornerShape(metrics.compact))
         ) {
             if (playlist.coverUri != null && playlist.coverUri!!.isNotBlank()) {
                 AsyncImage(
@@ -276,7 +282,7 @@ private fun UserPlaylistRow(
                     Icon(
                         painter = painterResource(Res.drawable.music_note_list),
                         contentDescription = null,
-                        modifier = Modifier.size(32.dp),
+                        modifier = Modifier.size(metrics.block),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                     )
                 }
@@ -285,7 +291,7 @@ private fun UserPlaylistRow(
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = playlist.name,
-                style = MaterialTheme.typography.titleMedium,
+                style = typo.subtitle,
                 color = MaterialTheme.colorScheme.onBackground,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
@@ -305,11 +311,11 @@ private fun UserPlaylistRow(
                 if (parts.isNotEmpty()) {
                     Text(
                         text = parts.take(2).joinToString(" · "),
-                        style = MaterialTheme.typography.bodySmall,
+                        style = typo.footnote,
                         color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.padding(top = 2.dp)
+                        modifier = Modifier.padding(top = metrics.hair)
                     )
                 }
             }
@@ -318,11 +324,11 @@ private fun UserPlaylistRow(
             Icon(
                 painter = painterResource(Res.drawable.chevron_right),
                 contentDescription = null,
-                modifier = Modifier.size(20.dp),
+                modifier = Modifier.size(metrics.cozy),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
         } else {
-            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(metrics.micro)) {
                 IconButton(
                     onClick = {
                         haptic.performClick()
@@ -336,12 +342,12 @@ private fun UserPlaylistRow(
                         contentDescription = stringResource(
                             if (playlist.isPinned) Res.string.unpin_playlist else Res.string.pin_playlist
                         ),
-                        modifier = Modifier.size(22.dp),
+                        modifier = Modifier.size(metrics.section),
                         tint = MaterialTheme.colorScheme.primary
                     )
                 }
                 TextButton(onClick = { haptic.performClick(); onRename() }) {
-                    Text(stringResource(Res.string.rename_playlist), style = MaterialTheme.typography.labelMedium)
+                    Text(stringResource(Res.string.rename_playlist), style = typo.footnote.medium())
                 }
                 IconButton(
                     onClick = { haptic.performClick(); onDelete() }
@@ -349,7 +355,7 @@ private fun UserPlaylistRow(
                     Icon(
                         painter = painterResource(Res.drawable.trash),
                         contentDescription = stringResource(Res.string.delete_playlist),
-                        modifier = Modifier.size(22.dp),
+                        modifier = Modifier.size(metrics.section),
                         tint = MaterialTheme.colorScheme.error
                     )
                 }

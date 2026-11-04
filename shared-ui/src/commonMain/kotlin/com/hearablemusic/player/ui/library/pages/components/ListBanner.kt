@@ -19,6 +19,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 
 /**
  * 列表页分组标题。
@@ -30,36 +32,38 @@ fun ListGroupName(
     themeColor: Color,
     trailing: @Composable (() -> Unit)? = null
 ) {
+    val metrics = LocalHmpMetrics.current
+    val typo = LocalHmpTypo.current
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(bottom = 16.dp)
+            .padding(bottom = metrics.cozy)
     ) {
         // 标题部分
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 8.dp),
+                .padding(start = metrics.cozy, end = metrics.cozy, top = metrics.cozy, bottom = metrics.compact),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = bannerNameF,
-                    style = MaterialTheme.typography.headlineMedium,
+                    style = typo.headline,
                     color = MaterialTheme.colorScheme.onBackground
                 )
-                Spacer(modifier = Modifier.width(10.dp))
+                Spacer(modifier = Modifier.width(metrics.compact))
                 Box(
                     modifier = Modifier
-                        .size(10.dp)
+                        .size(metrics.compact)
                         .clip(CircleShape)
                         .background(themeColor)
                 )
-                Spacer(modifier = Modifier.width(10.dp))
+                Spacer(modifier = Modifier.width(metrics.compact))
                 Text(
                     text = bannerNameS,
-                    style = MaterialTheme.typography.headlineMedium,
+                    style = typo.headline,
                     color = MaterialTheme.colorScheme.onBackground
                 )
             }

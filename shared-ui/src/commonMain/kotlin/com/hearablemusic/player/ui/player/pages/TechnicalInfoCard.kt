@@ -19,25 +19,28 @@ import androidx.compose.ui.graphics.Color.Companion.Transparent
 import androidx.compose.ui.unit.dp
 import com.hmp.domain.music.MusicExtra
 import com.hearablemusic.player.ui.common.components.base.HMPCard
-import com.hearablemusic.player.ui.common.design.dimens.LocalHMPDimens
+import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
+import com.hearablemusic.player.ui.common.design.typography.medium
 import com.hearablemusic.player.ui.generated.resources.Res
 import com.hearablemusic.player.ui.generated.resources.bitrate
 import com.hearablemusic.player.ui.generated.resources.file_size
 import com.hearablemusic.player.ui.generated.resources.format
 import com.hearablemusic.player.ui.generated.resources.sample_rate
 import org.jetbrains.compose.resources.stringResource
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 
 @Composable
 fun TechnicalInfoCard(
     extra: MusicExtra?,
     modifier: Modifier = Modifier
 ) {
+    val metrics = LocalHmpMetrics.current
     HMPCard(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(LocalHMPDimens.current.corner.sm),
-        contentPadding = Modifier.padding(16.dp)
+        shape = RoundedCornerShape(metrics.base),
+        contentPadding = Modifier.padding(metrics.cozy)
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(metrics.compact)) {
             // 第一行：比特率和采样率
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -72,18 +75,20 @@ private fun TechnicalInfoItem(
     label: String,
     value: String
 ) {
+    val metrics = LocalHmpMetrics.current
+    val typo = LocalHmpTypo.current
     Row (
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Text(
             text = label,
-            style = MaterialTheme.typography.labelMedium,
+            style = typo.footnote.medium(),
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
-        Spacer(modifier = Modifier.width(8.dp))
+        Spacer(modifier = Modifier.width(metrics.compact))
         Text(
             text = value,
-            style = MaterialTheme.typography.labelSmall,
+            style = typo.caption,
             color = MaterialTheme.colorScheme.onSurface
         )
     }

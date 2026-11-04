@@ -1,5 +1,6 @@
 package com.hearablemusic.player.ui.agent.cards
 
+import com.hearablemusic.player.ui.common.design.colors.HelloCardPalette
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -24,11 +25,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
+import com.hearablemusic.player.ui.common.design.typography.medium
 import com.hearablemusic.player.ui.common.text.UiText
 import com.hearablemusic.player.ui.common.text.asString
 import com.hearablemusic.player.ui.generated.resources.Res
@@ -45,6 +46,8 @@ import com.hearablemusic.player.ui.generated.resources.card_total_plays
 import com.hmp.domain.agent.card.AnniversaryContent
 import com.hmp.domain.agent.card.AnniversarySubtype
 import com.hmp.domain.agent.card.SlideCard
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
+import com.hearablemusic.player.ui.common.design.metrics.LayoutConstraints
 
 
 
@@ -63,7 +66,7 @@ private data class AnniversaryVisual(
 
 private fun AnniversaryContent.resolveVisual(): AnniversaryVisual = when (subtype) {
     AnniversarySubtype.FIRST_PLAY -> AnniversaryVisual(
-        themeColor = Color(0xFFFFA000),
+        themeColor = HelloCardPalette.Anniversary.FirstPlay,
         label = UiText.Res(Res.string.card_ann_years_ago_today, listOf(yearsAgo ?: 1)),
         badgeMain = UiText.Raw((yearsAgo ?: 1).toString()),
         badgeSub = UiText.Res(Res.string.card_ann_years_ago_short),
@@ -76,7 +79,7 @@ private fun AnniversaryContent.resolveVisual(): AnniversaryVisual = when (subtyp
         },
     )
     AnniversarySubtype.PLAYLIST_CREATE -> AnniversaryVisual(
-        themeColor = Color(0xFFAB47BC),
+        themeColor = HelloCardPalette.Anniversary.PlaylistCreate,
         label = UiText.Res(Res.string.card_ann_years_ago_playlist, listOf(yearsAgo ?: 1)),
         badgeMain = UiText.Res(Res.string.card_ann_playlist),
         badgeSub = null,
@@ -86,7 +89,7 @@ private fun AnniversaryContent.resolveVisual(): AnniversaryVisual = when (subtyp
         },
     )
     AnniversarySubtype.PLAY_MILESTONE -> AnniversaryVisual(
-        themeColor = Color(0xFF26A69A),
+        themeColor = HelloCardPalette.Anniversary.PlayMilestone,
         label = UiText.Res(Res.string.card_ann_milestone),
         badgeMain = UiText.Raw((milestoneValue ?: 100).toString()),
         badgeSub = UiText.Res(Res.string.card_ann_times_unit),
@@ -97,7 +100,7 @@ private fun AnniversaryContent.resolveVisual(): AnniversaryVisual = when (subtyp
         },
     )
     AnniversarySubtype.DURATION_MILESTONE -> AnniversaryVisual(
-        themeColor = Color(0xFF42A5F5),
+        themeColor = HelloCardPalette.Anniversary.DurationMilestone,
         label = UiText.Res(Res.string.card_ann_milestone),
         badgeMain = UiText.Raw("${milestoneValue ?: 10}h"),
         badgeSub = null,
@@ -116,10 +119,12 @@ internal fun FamilyAnniversaryCard(
     onCardClick: ((SlideCard) -> Unit)? = null,
     onLongClick: ((SlideCard) -> Unit)? = null,
 ) {
+    val metrics = LocalHmpMetrics.current
     val content = card.content as? AnniversaryContent ?: return
     val visual = content.resolveVisual()
+    val typo = LocalHmpTypo.current
 
-    val clickMod = modifier.clip(RoundedCornerShape(25.dp)).let { m ->
+    val clickMod = modifier.clip(RoundedCornerShape(metrics.section)).let { m ->
         when {
             onLongClick != null -> m.pointerInput(card.cardId) {
                 detectTapGestures(
@@ -134,7 +139,7 @@ internal fun FamilyAnniversaryCard(
 
     Card(
         modifier = clickMod,
-        shape = RoundedCornerShape(25.dp),
+        shape = RoundedCornerShape(metrics.section),
         colors = CardDefaults.cardColors(containerColor = Color.Transparent),
     ) {
         Box(
@@ -145,33 +150,33 @@ internal fun FamilyAnniversaryCard(
                         colors = listOf(visual.themeColor.copy(alpha = 0.95f), visual.themeColor.copy(alpha = 0.75f)),
                     )
                 )
-                .padding(20.dp)
+                .padding(metrics.cozy)
         ) {
             // 装饰性圆斑（右上角）
             Box(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
-                    .size(80.dp)
-                    .clip(RoundedCornerShape(40.dp))
+                    .size(metrics.row)
+                    .clip(RoundedCornerShape(metrics.block))
                     .background(Color.White.copy(alpha = 0.08f))
             )
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomStart)
-                    .size(50.dp)
-                    .clip(RoundedCornerShape(25.dp))
+                    .size(metrics.bar)
+                    .clip(RoundedCornerShape(metrics.section))
                     .background(Color.White.copy(alpha = 0.06f))
             )
 
             Row(
                 modifier = Modifier.fillMaxSize(),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(20.dp),
+                horizontalArrangement = Arrangement.spacedBy(metrics.cozy),
             ) {
                 // ═══ 左：徽章区（ANNIVERSARY 专属视觉焦点）═══
                 AnniversaryBadge(
                     visual = visual,
-                    size = 110.dp,
+                    size = LayoutConstraints.AnniversaryBadgeSize,
                 )
 
                 // ═══ 右：信息区 ═══
@@ -182,9 +187,8 @@ internal fun FamilyAnniversaryCard(
                     // 标签
                     Text(
                         text = visual.label.asString(),
+                        style = typo.footnote.medium(),
                         color = Color.White.copy(alpha = 0.65f),
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
@@ -192,30 +196,28 @@ internal fun FamilyAnniversaryCard(
                     // 主标题
                     Text(
                         text = content.trackTitle,
+                        style = typo.headline,
                         color = Color.White,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.SemiBold,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.padding(top = 2.dp),
+                        modifier = Modifier.padding(top = metrics.hair),
                     )
 
                     // 分割线
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(1.dp)
+                            .height(metrics.stroke.thin)
                             .background(Color.White.copy(alpha = 0.2f))
-                            .padding(vertical = 8.dp)
+                            .padding(vertical = metrics.compact)
                     )
 
                     // 情感文案（Llm 生成的那句话）
                     content.emotionText?.let {
                         Text(
                             text = it,
+                            style = typo.body,
                             color = Color.White.copy(alpha = 0.82f),
-                            fontSize = 14.sp,
-                            lineHeight = 18.sp,
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis,
                         )
@@ -223,14 +225,14 @@ internal fun FamilyAnniversaryCard(
 
                     // 底部数据点（多行垂直排列）
                     Column(
-                        modifier = Modifier.padding(top = 6.dp),
-                        verticalArrangement = Arrangement.spacedBy(2.dp),
+                        modifier = Modifier.padding(top = metrics.micro),
+                        verticalArrangement = Arrangement.spacedBy(metrics.hair),
                     ) {
                         visual.footerParts.forEach { part ->
                             Text(
                                 text = "· ${part.asString()}",
+                                style = typo.footnote,
                                 color = Color.White.copy(alpha = 0.55f),
-                                fontSize = 12.sp,
                                 maxLines = 1,
                             )
                         }
@@ -247,14 +249,16 @@ private fun AnniversaryBadge(
     visual: AnniversaryVisual,
     size: androidx.compose.ui.unit.Dp,
 ) {
+    val metrics = LocalHmpMetrics.current
     // 长度判断必须在解析之后：本地化后文本长度会变（如「歌单」→ "Playlist"）
     val badgeMainText = visual.badgeMain.asString()
     val badgeSubText = visual.badgeSub?.asString()
     val isSquareEmoji = badgeSubText == null && badgeMainText.length <= 2
+    val typo = LocalHmpTypo.current
     Box(
         modifier = Modifier
             .size(size)
-            .clip(if (isSquareEmoji) RoundedCornerShape(20.dp) else RoundedCornerShape(size / 2))
+            .clip(if (isSquareEmoji) RoundedCornerShape(metrics.cozy) else RoundedCornerShape(size / 2))
             .background(Color.White.copy(alpha = 0.18f)),
         contentAlignment = Alignment.Center,
     ) {
@@ -266,20 +270,18 @@ private fun AnniversaryBadge(
             ) {
                 Text(
                     text = badgeMainText,
-                    color = Color.White,
-                    fontSize = when (badgeMainText.length) {
-                        in 1..2 -> 26.sp
-                        3 -> 20.sp
-                        else -> 16.sp
+                    style = when (badgeMainText.length) {
+                        in 1..2 -> typo.display
+                        3 -> typo.title
+                        else -> typo.subtitle
                     },
-                    fontWeight = FontWeight.Bold,
+                    color = Color.White,
                     maxLines = 1,
                 )
                 Text(
                     text = badgeSubText,
+                    style = typo.caption,
                     color = Color.White.copy(alpha = 0.75f),
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Medium,
                     maxLines = 1,
                 )
             }
@@ -287,13 +289,12 @@ private fun AnniversaryBadge(
             // 单行徽章文本（如 "歌单" / "50h"）
             Text(
                 text = badgeMainText,
-                color = Color.White,
-                fontSize = when {
-                    badgeMainText.length <= 2 -> 22.sp
-                    badgeMainText.length <= 4 -> 18.sp
-                    else -> 16.sp
+                style = when {
+                    badgeMainText.length <= 2 -> typo.title
+                    badgeMainText.length <= 4 -> typo.headline
+                    else -> typo.subtitle
                 },
-                fontWeight = FontWeight.Bold,
+                color = Color.White,
                 textAlign = TextAlign.Center,
                 maxLines = 1,
             )

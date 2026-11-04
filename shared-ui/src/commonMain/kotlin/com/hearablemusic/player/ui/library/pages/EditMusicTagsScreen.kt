@@ -40,13 +40,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
 import com.hearablemusic.player.ui.common.dialogs.controller.DialogManager
+import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
 import com.hearablemusic.player.ui.common.pages.base.SubScreen
 import com.hearablemusic.player.ui.common.components.base.TitleWidget
 import com.hearablemusic.player.ui.common.util.decodeToImageBitmap
@@ -87,6 +87,7 @@ import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 
 @Composable
 fun EditMusicTagsScreen(
@@ -94,12 +95,14 @@ fun EditMusicTagsScreen(
     musicId: Long,
     viewModel: EditMusicTagsViewModel = koinViewModel()
 ) {
+    val metrics = LocalHmpMetrics.current
     val platformServices: PlatformServices = koinInject()
     val dialogManager: DialogManager = koinInject()
     val uiState by viewModel.uiState.collectAsState()
     val isSaving by viewModel.isSaving.collectAsState()
     val saveResult by viewModel.saveResult.collectAsState()
     val scope = rememberCoroutineScope()
+    val typo = LocalHmpTypo.current
 
     LaunchedEffect(musicId) {
         viewModel.loadTags(musicId)
@@ -156,8 +159,8 @@ fun EditMusicTagsScreen(
                 ) {
                     if (isSaving) {
                         CircularProgressIndicator(
-                            modifier = Modifier.size(18.dp),
-                            strokeWidth = 2.dp
+                            modifier = Modifier.size(metrics.cozy),
+                            strokeWidth = metrics.hair
                         )
                     } else {
                         Text(stringResource(Res.string.save))
@@ -170,8 +173,8 @@ fun EditMusicTagsScreen(
             modifier = Modifier
                 .verticalScroll(rememberScrollState())
                 .fillMaxWidth()
-                .padding(horizontal = 24.dp, vertical = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+                .padding(horizontal = metrics.section, vertical = metrics.cozy),
+            verticalArrangement = Arrangement.spacedBy(metrics.cozy)
         ) {
             when {
                 uiState.isLoading -> {
@@ -181,9 +184,9 @@ fun EditMusicTagsScreen(
                     Text(
                         text = uiState.error.orEmpty(),
                         color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodyLarge
+                        style = typo.body
                     )
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(metrics.compact))
                     Button(onClick = { viewModel.retry() }) {
                         Text(stringResource(Res.string.retry))
                     }
@@ -207,7 +210,7 @@ fun EditMusicTagsScreen(
                     )
 
                     TitleWidget(title = stringResource(Res.string.section_basic_info)) {
-                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Column(verticalArrangement = Arrangement.spacedBy(metrics.base)) {
                             OutlinedTextField(
                                 value = uiState.title,
                                 onValueChange = viewModel::onTitleChange,
@@ -236,8 +239,8 @@ fun EditMusicTagsScreen(
                     }
 
                     TitleWidget(title = stringResource(Res.string.section_detail_info)) {
-                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Column(verticalArrangement = Arrangement.spacedBy(metrics.base)) {
+                            Row(horizontalArrangement = Arrangement.spacedBy(metrics.base)) {
                                 OutlinedTextField(
                                     value = uiState.year,
                                     onValueChange = viewModel::onYearChange,
@@ -280,11 +283,11 @@ fun EditMusicTagsScreen(
                             if (!formPolicy.showUnsupportedHint) Res.string.edit_tags_hint
                             else Res.string.edit_tags_unsupported
                         ),
-                        style = MaterialTheme.typography.bodySmall,
+                        style = typo.footnote,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
 
-                    Spacer(modifier = Modifier.height(4.dp))
+                    Spacer(modifier = Modifier.height(metrics.micro))
                     if (formPolicy.showSaveAction) {
                         Button(
                             onClick = onSaveClick,
@@ -293,8 +296,8 @@ fun EditMusicTagsScreen(
                         ) {
                             if (isSaving) {
                                 CircularProgressIndicator(
-                                    modifier = Modifier.size(20.dp),
-                                    strokeWidth = 2.dp,
+                                    modifier = Modifier.size(metrics.cozy),
+                                    strokeWidth = metrics.hair,
                                     color = MaterialTheme.colorScheme.onPrimary
                                 )
                             } else {
@@ -302,7 +305,7 @@ fun EditMusicTagsScreen(
                             }
                         }
                     }
-                    MiniPlayerSafeSpacer(height = 56.dp)
+                    MiniPlayerSafeSpacer(height = metrics.bar)
                 }
             }
         }
@@ -320,9 +323,11 @@ private fun SongHeaderCard(
     onChooseCover: () -> Unit,
     onRemoveCover: () -> Unit
 ) {
+    val metrics = LocalHmpMetrics.current
+    val typo = LocalHmpTypo.current
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(metrics.cozy),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
         )
@@ -330,12 +335,12 @@ private fun SongHeaderCard(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+                .padding(metrics.cozy),
+            verticalArrangement = Arrangement.spacedBy(metrics.base)
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
+                horizontalArrangement = Arrangement.spacedBy(metrics.cozy)
             ) {
                 if (newCoverBytes != null && newCoverBytes.isNotEmpty()) {
                     val bitmap = remember(newCoverBytes) {
@@ -347,46 +352,45 @@ private fun SongHeaderCard(
                             contentDescription = stringResource(Res.string.tag_cover),
                             contentScale = ContentScale.Crop,
                             modifier = Modifier
-                                .size(96.dp)
-                                .clip(RoundedCornerShape(12.dp))
+                                .size(metrics.row)
+                                .clip(RoundedCornerShape(metrics.base))
                         )
                     } else {
                         AlbumCover(
                             uri = albumArtUri,
-                            size = 96.dp,
-                            corner = 12.dp,
-                            shadow = 4.dp
+                            size = metrics.row,
+                            corner = metrics.base,
+                            shadow = metrics.micro
                         )
                     }
                 } else {
                     AlbumCover(
                         uri = albumArtUri,
-                        size = 96.dp,
-                        corner = 12.dp,
-                        shadow = 4.dp
+                        size = metrics.row,
+                        corner = metrics.base,
+                        shadow = metrics.micro
                     )
                 }
                 Column(
                     modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                    verticalArrangement = Arrangement.spacedBy(metrics.micro)
                 ) {
                     Text(
                         text = title,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
+                        style = typo.subtitle,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                     Text(
                         text = artist,
-                        style = MaterialTheme.typography.bodyMedium,
+                        style = typo.body,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                     Text(
                         text = album,
-                        style = MaterialTheme.typography.bodySmall,
+                        style = typo.footnote,
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -394,7 +398,7 @@ private fun SongHeaderCard(
                 }
             }
             Row(
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                horizontalArrangement = Arrangement.spacedBy(metrics.base),
                 modifier = Modifier.align(Alignment.CenterHorizontally)
             ) {
                 OutlinedButton(onClick = onChooseCover) {
@@ -417,22 +421,24 @@ private fun LyricsSection(
     onLyricsChange: (String) -> Unit,
     enabled: Boolean
 ) {
+    val metrics = LocalHmpMetrics.current
+    val typo = LocalHmpTypo.current
     var expanded by rememberSaveable { mutableStateOf(false) }
 
     TitleWidget(title = stringResource(Res.string.tag_lyrics)) {
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(metrics.compact)) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(8.dp))
+                    .clip(RoundedCornerShape(metrics.compact))
                     .clickable { expanded = !expanded }
-                    .padding(vertical = 4.dp),
+                    .padding(vertical = metrics.micro),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(
                     text = if (lyrics.isNotBlank()) lyrics else stringResource(Res.string.no_lyrics),
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = typo.body,
                     color = if (lyrics.isNotBlank()) {
                         MaterialTheme.colorScheme.onSurfaceVariant
                     } else {
@@ -466,19 +472,21 @@ private fun LyricsSection(
 
 @Composable
 private fun UnsavedChangesHint() {
+    val metrics = LocalHmpMetrics.current
+    val typo = LocalHmpTypo.current
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        horizontalArrangement = Arrangement.spacedBy(metrics.compact)
     ) {
         Box(
             modifier = Modifier
-                .size(8.dp)
+                .size(metrics.compact)
                 .clip(CircleShape)
                 .background(MaterialTheme.colorScheme.primary)
         )
         Text(
             text = stringResource(Res.string.unsaved_changes),
-            style = MaterialTheme.typography.bodySmall,
+            style = typo.footnote,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }

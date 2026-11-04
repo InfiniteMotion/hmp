@@ -16,12 +16,12 @@ import com.hearablemusic.player.ui.generated.resources.cancel
 import com.hearablemusic.player.ui.generated.resources.clear
 import com.hearablemusic.player.ui.generated.resources.confirm
 
-import com.hearablemusic.player.ui.agent.AgentStatusColors
+import com.hearablemusic.player.ui.common.design.colors.AgentStatusColors
 import com.hearablemusic.player.ui.agent.agentDetailOf
 import com.hearablemusic.player.ui.agent.agentIcon
 import com.hearablemusic.player.ui.agent.agentStatusColor
 import com.hearablemusic.player.ui.agent.agentStatusLabel
-import com.hearablemusic.player.ui.common.design.dimens.LocalHMPDimens
+import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -76,7 +76,6 @@ import com.hearablemusic.player.ui.generated.resources.radiowaves
 import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -103,6 +102,8 @@ import com.hearablemusic.player.ui.common.navigation.Routes
 import com.hearablemusic.player.ui.common.pages.base.SubScreen
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
+import com.hearablemusic.player.ui.common.design.metrics.LayoutConstraints
 
 /**
  * Agent 看板 — 顶部 Token 总用量；下方每行两个 Agent 卡片、同行等高。
@@ -114,6 +115,7 @@ import org.koin.compose.koinInject
 fun AgentMonitorScreen(
     navController: NavBackStack<NavKey>,
 ) {
+    val metrics = LocalHmpMetrics.current
     val masterAgent: MasterAgent = koinInject()
     val ledgerDao: TokenLedgerDao = koinInject()
     val ledger = remember(ledgerDao) { TokenLedgerMaintenance(ledgerDao) }
@@ -145,9 +147,8 @@ fun AgentMonitorScreen(
         // 横屏（含手机横屏，宽 800–840 也落在 Medium）：三列 + 限宽 —— 横向有余量时两列会拉出超长卡。
         val window = LocalWindowSizeInfo.current
         val isExpanded = window.isExpanded
-        val dimens = LocalHMPDimens.current
         val columns = if (isExpanded || window.isLandscape) 3 else 2
-        val maxBoardWidth = if (isExpanded || window.isLandscape) 1080.dp else Dp.Unspecified
+        val maxBoardWidth = if (isExpanded || window.isLandscape) LayoutConstraints.BoardMaxWidth else Dp.Unspecified
 
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
         Column(
@@ -157,8 +158,8 @@ fun AgentMonitorScreen(
                 .fillMaxHeight()
                 .hazeSource(state = hazeState)
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = dimens.spacing.md, vertical = dimens.spacing.md),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+                .padding(horizontal = metrics.cozy, vertical = metrics.cozy),
+            verticalArrangement = Arrangement.spacedBy(metrics.base)
         ) {
             TokenMonitorCard(
                 masterAgent = masterAgent,
@@ -184,11 +185,11 @@ fun AgentMonitorScreen(
             )
             val groups = cards.chunked(columns)
 
-            Column(verticalArrangement = Arrangement.spacedBy(dimens.spacing.sm)) {
+            Column(verticalArrangement = Arrangement.spacedBy(metrics.compact)) {
                 groups.forEach { group ->
                     Row(
                         modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Max),
-                        horizontalArrangement = Arrangement.spacedBy(dimens.spacing.sm)
+                        horizontalArrangement = Arrangement.spacedBy(metrics.compact)
                     ) {
                         group.forEach { card ->
                             card(Modifier.weight(1f))
@@ -213,7 +214,9 @@ private fun TokenMonitorCard(
     onReload: () -> Unit,
     onClear: () -> Unit,
 ) {
+    val metrics = LocalHmpMetrics.current
     val snap by masterAgent.tokenUsage.collectAsState()
+    val typo = LocalHmpTypo.current
     val quotaGate: com.hmp.domain.agent.quota.TokenQuotaGate = koinInject()
     val mode by quotaGate.currentMode.collectAsState()
     val bucketUsage by quotaGate.bucketUsage.collectAsState()
@@ -225,7 +228,7 @@ private fun TokenMonitorCard(
     val earliestText = snapshot?.earliestMs?.let { localDateString(it) } ?: "—"
 
     HMPCard {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(modifier = Modifier.padding(metrics.cozy)) {
             // 标题 + 清空（仅在有记录时可用）+ 刷新
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -236,70 +239,69 @@ private fun TokenMonitorCard(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         stringResource(Res.string.clear),
-                        style = MaterialTheme.typography.labelSmall,
+                        style = typo.caption,
                         color = if (totalRows > 0) MaterialTheme.colorScheme.primary
                         else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
                         modifier = Modifier
-                            .clip(RoundedCornerShape(6.dp))
+                            .clip(RoundedCornerShape(metrics.micro))
                             .clickable(enabled = totalRows > 0) { showClearConfirm = true }
-                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                            .padding(horizontal = metrics.compact, vertical = metrics.micro)
                     )
-                    IconButton(onClick = onReload, modifier = Modifier.size(28.dp)) {
+                    IconButton(onClick = onReload, modifier = Modifier.size(metrics.section)) {
                         Text(
                             "↻",
-                            style = MaterialTheme.typography.titleMedium,
+                            style = typo.subtitle,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
             }
-            Spacer(Modifier.height(6.dp))
+            Spacer(Modifier.height(metrics.micro))
             // 窗口内总用量（近 30 天）——数字是这张卡的视觉焦点
             Text(
                 fmtTokens(total),
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.SemiBold,
+                style = typo.subtitle,
                 color = MaterialTheme.colorScheme.primary
             )
-            Spacer(Modifier.height(2.dp))
+            Spacer(Modifier.height(metrics.hair))
             Text(
                 stringResource(Res.string.agent_monitor_total_usage),
-                style = MaterialTheme.typography.labelSmall,
+                style = typo.caption,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             // 配额进度：只有真的存在上限时才画。
             // CUSTOM 且用户没开限额时 quota=0 —— 画一条 0% 的进度条 +「剩余 0」是在骗人。
             if (snap.quota > 0L) {
-                Spacer(Modifier.height(14.dp))
+                Spacer(Modifier.height(metrics.base))
                 SlimProgress(snap.rate)
-                Spacer(Modifier.height(6.dp))
+                Spacer(Modifier.height(metrics.micro))
                 Text(
                     stringResource(Res.string.agent_monitor_quota_line, snap.used, snap.remaining, (snap.rate * 100).toInt()),
-                    style = MaterialTheme.typography.labelSmall,
+                    style = typo.caption,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
 
             // 免费模式：四桶明细（哪桶用完了标红）。用户要能看出是谁把额度吃掉的。
             if (mode == com.hmp.domain.setting.model.AiAccessMode.FREE) {
-                Spacer(Modifier.height(12.dp))
+                Spacer(Modifier.height(metrics.base))
                 com.hmp.domain.agent.quota.QuotaBucket.entries.forEach { bucket ->
                     val used = bucketUsage[bucket] ?: 0L
                     val cap = com.hmp.domain.agent.quota.TokenQuotaGate.FREE_BUCKET_CAPS[bucket] ?: 0L
                     val drained = bucket in exhaustedBuckets
                     Row(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+                        modifier = Modifier.fillMaxWidth().padding(vertical = metrics.hair),
                         horizontalArrangement = Arrangement.SpaceBetween,
                     ) {
                         Text(
                             text = bucket.bucketId.replaceFirstChar { it.uppercase() },
-                            style = MaterialTheme.typography.labelSmall,
+                            style = typo.caption,
                             color = if (drained) MaterialTheme.colorScheme.error
                             else MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                         Text(
                             text = "${fmtTokens(used)} / ${fmtTokens(cap)}",
-                            style = MaterialTheme.typography.labelSmall,
+                            style = typo.caption,
                             color = if (drained) MaterialTheme.colorScheme.error
                             else MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -312,14 +314,14 @@ private fun TokenMonitorCard(
     // 清空确认：正文带「将删除多少条、自哪天起」，避免用户点一下就抹掉全部诊断数据。
     if (showClearConfirm) {
         ScrimDialog(onDismissRequest = { showClearConfirm = false }) {
-            HMPCard(modifier = Modifier.fillMaxWidth(0.92f), shape = RoundedCornerShape(24.dp)) {
-                Column(modifier = Modifier.padding(20.dp)) {
+            HMPCard(modifier = Modifier.fillMaxWidth(0.92f), shape = RoundedCornerShape(metrics.section)) {
+                Column(modifier = Modifier.padding(metrics.cozy)) {
                     Text(
                         stringResource(Res.string.agent_monitor_token_clear_confirm, totalRows.toString(), earliestText),
-                        style = MaterialTheme.typography.bodySmall,
+                        style = typo.footnote,
                         color = MaterialTheme.colorScheme.onSurface
                     )
-                    Spacer(Modifier.height(12.dp))
+                    Spacer(Modifier.height(metrics.base))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.End
@@ -355,33 +357,35 @@ private fun CardLogSection(
     buckets: List<String>,
     hazeState: HazeState,
 ) {
+    val metrics = LocalHmpMetrics.current
     val writer: MemLogWriter = memLogWriter
+    val typo = LocalHmpTypo.current
     val allLogs by writer.logs.collectAsState()
     val entries = allLogs.filter { it.agent in buckets }
     var showDetail by remember { mutableStateOf(false) }
 
-    Spacer(Modifier.height(10.dp))
+    Spacer(Modifier.height(metrics.compact))
     // 紧凑一行：左「📝 运行日志」/ 右「N 条 ›」，整体可点（› 暗示可展开）
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
+            .clip(RoundedCornerShape(metrics.compact))
             .clickable { showDetail = true }
-            .padding(horizontal = 8.dp, vertical = 6.dp),
+            .padding(horizontal = metrics.compact, vertical = metrics.micro),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
             Text(
                 stringResource(Res.string.agent_monitor_run_logs),
-                style = MaterialTheme.typography.labelSmall,
+                style = typo.caption,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1, overflow = TextOverflow.Ellipsis
             )
         }
         Text(
             stringResource(Res.string.agent_monitor_log_count, entries.size),
-            style = MaterialTheme.typography.labelSmall,
+            style = typo.caption,
             color = MaterialTheme.colorScheme.primary
         )
     }
@@ -403,6 +407,8 @@ private fun LogDetailDialog(
     hazeState: HazeState,
     onDismiss: () -> Unit,
 ) {
+    val metrics = LocalHmpMetrics.current
+    val typo = LocalHmpTypo.current
     ScrimDialog(onDismissRequest = onDismiss) {
         // 式样对齐 MusicDetailDialog：hazeEffect + surface 半透明底色 + 圆角 28dp + 无描边 + elevation 0。
         // HMPCard 是 Box+background（无 elevation 概念），天然满足 elevation 0；
@@ -411,42 +417,41 @@ private fun LogDetailDialog(
             modifier = Modifier
                 .fillMaxWidth(0.92f)
                 .hazeEffect(state = hazeState, style = hazeStyleForIntensity()),
-            shape = RoundedCornerShape(28.dp),
+            shape = RoundedCornerShape(metrics.section),
             borderColor = Color.Transparent,
             containerColor = MaterialTheme.colorScheme.surface.copy(alpha = hazeTintAlpha()),
         ) {
-            Column(modifier = Modifier.heightIn(max = 480.dp)) {
+            Column(modifier = Modifier.heightIn(max = LayoutConstraints.HeightBreakpointMedium)) {
                 Text(
                     title,
-                    style = MaterialTheme.typography.titleSmall.copy(letterSpacing = 0.4.sp),
-                    fontWeight = FontWeight.SemiBold,
+                    style = typo.body.copy(letterSpacing = 0.4.sp), // design-token-exception: 字距，非字号
                     color = MaterialTheme.colorScheme.onBackground
                 )
-                Spacer(Modifier.height(2.dp))
+                Spacer(Modifier.height(metrics.hair))
                 Text(
                     stringResource(Res.string.agent_monitor_log_meta, entries.size),
-                    style = MaterialTheme.typography.labelSmall,
+                    style = typo.caption,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                Spacer(Modifier.height(10.dp))
+                Spacer(Modifier.height(metrics.compact))
                 // 极浅分隔线：弹窗内只留这一条，起锚定作用
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(1.dp)
+                        .height(metrics.stroke.thin)
                         .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                 )
-                Spacer(Modifier.height(10.dp))
+                Spacer(Modifier.height(metrics.compact))
                 if (entries.isEmpty()) {
                     Text(
                         stringResource(Res.string.agent_monitor_no_logs),
-                        style = MaterialTheme.typography.bodySmall,
+                        style = typo.footnote,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 } else {
                     LazyColumn(
                         modifier = Modifier.fillMaxWidth().weight(1f),
-                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalArrangement = Arrangement.spacedBy(metrics.micro),
                     ) {
                         // 最新在上
                         items(entries.reversed()) { LogLine(it) }
@@ -459,6 +464,7 @@ private fun LogDetailDialog(
 
 @Composable
 private fun LogLine(entry: LogEntry) {
+    val typo = LocalHmpTypo.current
     val color = when (entry.severity) {
         Severity.Verbose, Severity.Debug -> MaterialTheme.colorScheme.onSurfaceVariant
         Severity.Info -> MaterialTheme.colorScheme.onSurface
@@ -468,13 +474,12 @@ private fun LogLine(entry: LogEntry) {
     Row(modifier = Modifier.fillMaxWidth()) {
         Text(
             "[${entry.tag}] ",
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.primary,
-            fontWeight = FontWeight.SemiBold
+            style = typo.caption,
+            color = MaterialTheme.colorScheme.primary
         )
         Text(
             entry.message,
-            style = MaterialTheme.typography.bodySmall,
+            style = typo.footnote,
             color = color,
             maxLines = 6,
             overflow = TextOverflow.Ellipsis
@@ -608,9 +613,10 @@ private fun HelloMonitorCard(
 /** 小标题：小字号 + 宽字距 + 次级灰，靠留白分区（不加竖色条 / 下划线）。 */
 @Composable
 private fun SectionLabel(text: String) {
+    val typo = LocalHmpTypo.current
     Text(
         text,
-        style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 0.6.sp),
+        style = typo.caption.copy(letterSpacing = 0.6.sp), // design-token-exception: 字距，非字号
         color = MaterialTheme.colorScheme.onSurfaceVariant
     )
 }
@@ -618,12 +624,12 @@ private fun SectionLabel(text: String) {
 /** 卡片标题：字距 + SemiBold（避开 Bold 的厚重感；纯英文标题可安全加字距），水平居中。 */
 @Composable
 private fun CardTitle(text: String) {
+    val typo = LocalHmpTypo.current
     Text(
         text,
         modifier = Modifier.fillMaxWidth(),
         textAlign = TextAlign.Center,
-        style = MaterialTheme.typography.titleSmall.copy(letterSpacing = 0.4.sp),
-        fontWeight = FontWeight.SemiBold,
+        style = typo.body.copy(letterSpacing = 0.4.sp), // design-token-exception: 字距，非字号
         color = MaterialTheme.colorScheme.onBackground,
         maxLines = 1, overflow = TextOverflow.Ellipsis
     )
@@ -636,9 +642,10 @@ private fun CardTitle(text: String) {
  */
 @Composable
 private fun CardRow(text: String?) {
+    val typo = LocalHmpTypo.current
     Text(
         text = text?.takeIf { it.isNotBlank() } ?: stringResource(Res.string.agent_monitor_no_data),
-        style = MaterialTheme.typography.labelSmall,
+        style = typo.caption,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         maxLines = 1, overflow = TextOverflow.Ellipsis
     )
@@ -652,6 +659,7 @@ private fun CardRow(text: String?) {
  */
 @Composable
 private fun CardIcon(icon: DrawableResource?) {
+    val metrics = LocalHmpMetrics.current
     Box(
         modifier = Modifier.fillMaxWidth(),
         contentAlignment = Alignment.Center
@@ -660,11 +668,11 @@ private fun CardIcon(icon: DrawableResource?) {
             Icon(
                 painter = painterResource(icon),
                 contentDescription = null,
-                modifier = Modifier.size(48.dp),
+                modifier = Modifier.size(metrics.bar),
                 tint = MaterialTheme.colorScheme.onBackground
             )
         } else {
-            Spacer(Modifier.size(48.dp))
+            Spacer(Modifier.size(metrics.bar))
         }
     }
 }
@@ -691,27 +699,29 @@ private fun AgentStatusCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val metrics = LocalHmpMetrics.current
+    val typo = LocalHmpTypo.current
     HMPCard(modifier.then(Modifier.clickable { onClick() })) {
         Column(modifier = Modifier.fillMaxHeight()) {
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(metrics.cozy))
             CardIcon(icon)
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(metrics.cozy))
             CardTitle(title)
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(metrics.cozy))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 StatusDot(status)
-                Spacer(Modifier.width(6.dp))
+                Spacer(Modifier.width(metrics.micro))
                 Text(
                     statusText,
-                    style = MaterialTheme.typography.labelSmall,
+                    style = typo.caption,
                     color = if (status == CapabilityState.Status.ERROR) AgentStatusColors.Error
                     else MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1, overflow = TextOverflow.Ellipsis
                 )
             }
-            Spacer(Modifier.height(4.dp))
+            Spacer(Modifier.height(metrics.micro))
             CardRow(detailText)
-            Spacer(Modifier.height(4.dp))
+            Spacer(Modifier.height(metrics.micro))
             CardRow(tokenText)
             CardLogSection(logBuckets, hazeState)
         }
@@ -721,12 +731,13 @@ private fun AgentStatusCard(
 /** 细进度条：4dp + 圆角，比默认方角更收敛。 */
 @Composable
 private fun SlimProgress(progress: Float) {
+    val metrics = LocalHmpMetrics.current
     LinearProgressIndicator(
         progress = { progress },
         modifier = Modifier
             .fillMaxWidth()
-            .height(4.dp)
-            .clip(RoundedCornerShape(2.dp))
+            .height(metrics.micro)
+            .clip(RoundedCornerShape(metrics.hair))
     )
 }
 
@@ -735,7 +746,7 @@ private fun SlimProgress(progress: Float) {
 private fun StatusDot(status: CapabilityState.Status?) {
     Box(
         modifier = Modifier
-            .size(7.dp)
+            .size(LayoutConstraints.StatusDotSize)
             .clip(CircleShape)
             .background(agentStatusColor(status))
     )

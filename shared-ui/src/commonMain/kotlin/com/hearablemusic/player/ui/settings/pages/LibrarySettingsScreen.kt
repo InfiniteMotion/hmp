@@ -42,6 +42,8 @@ import androidx.navigation3.runtime.NavKey
 import com.hearablemusic.player.ui.player.components.MiniPlayerSafeSpacer
 import com.hearablemusic.player.ui.common.components.base.TitleWidget
 import com.hearablemusic.player.ui.common.pages.base.SubScreen
+import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
+import com.hearablemusic.player.ui.common.design.typography.medium
 import com.hearablemusic.player.ui.common.layout.LocalWindowSizeInfo
 import com.hearablemusic.player.ui.library.viewmodel.FolderInfo
 import com.hearablemusic.player.ui.library.viewmodel.HiddenFolderInfo
@@ -90,12 +92,14 @@ import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 
 @Composable
 fun LibrarySettingsScreen(
     navController: NavBackStack<NavKey>,
     libraryViewModel: LibraryViewModel = activityViewModel()
 ) {
+    val metrics = LocalHmpMetrics.current
     val musicCount by libraryViewModel.musicCount.collectAsState(initial = 0)
     val analyzedCount by libraryViewModel.musicWithExtraCount.collectAsState(initial = 0)
     val scannedFolders by libraryViewModel.scannedFolders.collectAsState()
@@ -121,8 +125,8 @@ fun LibrarySettingsScreen(
             modifier = Modifier
                 .verticalScroll(rememberScrollState())
                 .fillMaxWidth()
-                .padding(24.dp),
-            verticalArrangement = Arrangement.spacedBy(24.dp)
+                .padding(metrics.section),
+            verticalArrangement = Arrangement.spacedBy(metrics.section)
         ) {
             if (!hasMusicReadAccess && musicCount == 0) {
                 PermissionNoticeBanner(onOpenSettings = platformServices.permission::openAppSettings)
@@ -130,9 +134,9 @@ fun LibrarySettingsScreen(
             if (isLandscape) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(24.dp)
+                    horizontalArrangement = Arrangement.spacedBy(metrics.section)
                 ) {
-                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(24.dp)) {
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(metrics.section)) {
             // 1. 音乐库统计
             LibraryStatsSection(
                 musicCount = musicCount,
@@ -146,7 +150,7 @@ fun LibrarySettingsScreen(
                 onFullRescan = libraryViewModel::fullRescan
             )
                     }
-                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(24.dp)) {
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(metrics.section)) {
                         LibraryManagementSection(
                             folders = scannedFolders, hiddenFolders = hiddenFolders,
                             onHideFolder = libraryViewModel::hideFolder, onUnhideFolder = libraryViewModel::restoreToLibrary
@@ -176,7 +180,7 @@ fun LibrarySettingsScreen(
                     onRemoveBlocked = libraryViewModel::removeBlockedDirectory
                 )
             }
-            MiniPlayerSafeSpacer(height = 56.dp)
+            MiniPlayerSafeSpacer(height = metrics.bar)
         }
     }
 }
@@ -188,24 +192,26 @@ private fun LibraryManagementSection(
     onHideFolder: (String) -> Unit,
     onUnhideFolder: (List<Long>) -> Unit
 ) {
+    val metrics = LocalHmpMetrics.current
     var folderToHide by remember { mutableStateOf<String?>(null) }
+    val typo = LocalHmpTypo.current
     TitleWidget(title = stringResource(Res.string.library_management)) {
         val isLandscape = LocalWindowSizeInfo.current.isLandscape
         Column(
-            modifier = Modifier.fillMaxWidth().padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            modifier = Modifier.fillMaxWidth().padding(metrics.cozy),
+            verticalArrangement = Arrangement.spacedBy(metrics.base)
         ) {
             Text(
                 text = stringResource(Res.string.scanned_folders),
-                style = MaterialTheme.typography.titleSmall,
+                style = typo.body.medium(),
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             if (folders.isEmpty()) {
                 Text(
                     text = stringResource(Res.string.no_scanned_folders),
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = typo.body,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.align(Alignment.CenterHorizontally).padding(16.dp)
+                    modifier = Modifier.align(Alignment.CenterHorizontally).padding(metrics.cozy)
                 )
             } else {
                 folders.forEach { folder ->
@@ -216,10 +222,10 @@ private fun LibraryManagementSection(
                 }
             }
             if (hiddenFolders.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(metrics.compact))
                 Text(
                     text = stringResource(Res.string.hidden_folders),
-                    style = MaterialTheme.typography.titleSmall,
+                    style = typo.body.medium(),
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 hiddenFolders.forEach { hidden ->
@@ -260,38 +266,40 @@ private fun FolderItem(
     folder: FolderInfo,
     onHideClick: () -> Unit
 ) {
+    val metrics = LocalHmpMetrics.current
+    val typo = LocalHmpTypo.current
     Surface(
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(metrics.base),
         modifier = Modifier.fillMaxWidth()
     ) {
         Row(
-            modifier = Modifier.padding(12.dp),
+            modifier = Modifier.padding(metrics.base),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+            horizontalArrangement = Arrangement.spacedBy(metrics.base)
         ) {
             Icon(
                 painter = painterResource(Res.drawable.rectangle_on_rectangle),
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.secondary,
-                modifier = Modifier.size(24.dp)
+                modifier = Modifier.size(metrics.section)
             )
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = folder.path,
-                    style = MaterialTheme.typography.bodySmall,
+                    style = typo.footnote,
                     color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
                     text = stringResource(Res.string.folder_songs_count, folder.songCount),
-                    style = MaterialTheme.typography.labelSmall,
+                    style = typo.caption,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
             TextButton(onClick = onHideClick) {
-                Text(stringResource(Res.string.hide_folder), style = MaterialTheme.typography.labelMedium)
+                Text(stringResource(Res.string.hide_folder), style = typo.footnote.medium())
             }
         }
     }
@@ -302,38 +310,40 @@ private fun HiddenFolderItem(
     hidden: HiddenFolderInfo,
     onUnhideClick: () -> Unit
 ) {
+    val metrics = LocalHmpMetrics.current
+    val typo = LocalHmpTypo.current
     Surface(
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(metrics.base),
         modifier = Modifier.fillMaxWidth()
     ) {
         Row(
-            modifier = Modifier.padding(12.dp),
+            modifier = Modifier.padding(metrics.base),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+            horizontalArrangement = Arrangement.spacedBy(metrics.base)
         ) {
             Icon(
                 painter = painterResource(Res.drawable.rectangle_on_rectangle),
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                modifier = Modifier.size(24.dp)
+                modifier = Modifier.size(metrics.section)
             )
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = hidden.path,
-                    style = MaterialTheme.typography.bodySmall,
+                    style = typo.footnote,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
                     text = stringResource(Res.string.folder_songs_count, hidden.songCount),
-                    style = MaterialTheme.typography.labelSmall,
+                    style = typo.caption,
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
                 )
             }
             TextButton(onClick = onUnhideClick) {
-                Text(stringResource(Res.string.unhide_folder), style = MaterialTheme.typography.labelMedium)
+                Text(stringResource(Res.string.unhide_folder), style = typo.footnote.medium())
             }
         }
     }
@@ -343,10 +353,11 @@ private fun LibraryStatsSection(
     musicCount: Int,
     analyzedCount: Int
 ) {
+    val metrics = LocalHmpMetrics.current
     TitleWidget(title = stringResource(Res.string.library_stats)) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(16.dp),
-            horizontalArrangement = Arrangement.spacedBy(16.dp)
+            modifier = Modifier.fillMaxWidth().padding(metrics.cozy),
+            horizontalArrangement = Arrangement.spacedBy(metrics.cozy)
         ) {
             StatsCard(
                 title = stringResource(Res.string.total_songs),
@@ -371,14 +382,16 @@ private fun StatsCard(
     icon: DrawableResource,
     modifier: Modifier = Modifier
 ) {
+    val metrics = LocalHmpMetrics.current
+    val typo = LocalHmpTypo.current
     Surface(
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(metrics.cozy),
         modifier = modifier
     ) {
         val isLandscape = LocalWindowSizeInfo.current.isLandscape
         Column(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.padding(metrics.cozy),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
@@ -386,18 +399,18 @@ private fun StatsCard(
                 painter = painterResource(icon),
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(24.dp)
+                modifier = Modifier.size(metrics.section)
             )
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(metrics.compact))
             Text(
                 text = value,
-                style = MaterialTheme.typography.displaySmall,
+                style = typo.title,
                 color = MaterialTheme.colorScheme.onSurface,
                 fontWeight = FontWeight.Bold
             )
             Text(
                 text = title,
-                style = MaterialTheme.typography.labelMedium,
+                style = typo.footnote.medium(),
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
@@ -410,17 +423,19 @@ private fun ScanOptionsSection(
     onIncrementalScan: () -> Unit,
     onFullRescan: () -> Unit
 ) {
+    val metrics = LocalHmpMetrics.current
     var showFullRescanDialog by remember { mutableStateOf(false) }
 
+    val typo = LocalHmpTypo.current
     TitleWidget(title = stringResource(Res.string.scan_options)) {
         val isLandscape = LocalWindowSizeInfo.current.isLandscape
         Column(
-            modifier = Modifier.fillMaxWidth().padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            modifier = Modifier.fillMaxWidth().padding(metrics.cozy),
+            verticalArrangement = Arrangement.spacedBy(metrics.cozy)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
+                horizontalArrangement = Arrangement.spacedBy(metrics.cozy)
             ) {
                 // 增量扫描选项
                 ScanOptionCard(
@@ -451,13 +466,13 @@ private fun ScanOptionsSection(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     CircularProgressIndicator(
-                        modifier = Modifier.size(24.dp),
-                        strokeWidth = 2.dp
+                        modifier = Modifier.size(metrics.section),
+                        strokeWidth = metrics.hair
                     )
-                    Spacer(modifier = Modifier.width(8.dp))
+                    Spacer(modifier = Modifier.width(metrics.compact))
                     Text(
                         text = stringResource(Res.string.scanning),
-                        style = MaterialTheme.typography.bodyMedium,
+                        style = typo.body,
                         color = MaterialTheme.colorScheme.primary
                     )
                 }
@@ -502,10 +517,12 @@ private fun ScanOptionCard(
     enabled: Boolean,
     isDestructive: Boolean = false
 ) {
+    val metrics = LocalHmpMetrics.current
+    val typo = LocalHmpTypo.current
     Card(
         modifier = modifier
             .clickable(enabled = enabled, onClick = onClick),
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(metrics.cozy),
         colors = CardDefaults.cardColors(
             MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
         ),
@@ -513,15 +530,15 @@ private fun ScanOptionCard(
         val isLandscape = LocalWindowSizeInfo.current.isLandscape
         Column(
             modifier = Modifier
-                .padding(16.dp)
+                .padding(metrics.cozy)
                 .fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.spacedBy(metrics.compact)
         ) {
             Icon(
                 painter = painterResource(icon),
                 contentDescription = null,
-                modifier = Modifier.size(32.dp),
+                modifier = Modifier.size(metrics.block),
                 tint = when {
                     !enabled -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
                     isDestructive -> MaterialTheme.colorScheme.error
@@ -531,15 +548,14 @@ private fun ScanOptionCard(
             
             Text(
                 text = title,
-                style = MaterialTheme.typography.titleMedium,
+                style = typo.subtitle,
                 color = if (isDestructive && enabled) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
-                fontWeight = FontWeight.SemiBold,
                 textAlign = TextAlign.Center
             )
             
             Text(
                 text = description,
-                style = MaterialTheme.typography.bodySmall,
+                style = typo.footnote,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
                 minLines = 3,
@@ -609,21 +625,23 @@ private fun DirectorySection(
     onAdd: (String) -> Unit,
     onRemove: (String) -> Unit
 ) {
+    val metrics = LocalHmpMetrics.current
     val platformServices: PlatformServices = koinInject()
     val mode = platformServices.filePicker.directorySelectionMode
     var showKnownFolderPicker by remember { mutableStateOf(false) }
+    val typo = LocalHmpTypo.current
 
     TitleWidget(title = title) {
         Column(
-            modifier = Modifier.fillMaxWidth().padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            modifier = Modifier.fillMaxWidth().padding(metrics.cozy),
+            verticalArrangement = Arrangement.spacedBy(metrics.base)
         ) {
             if (directories.isEmpty()) {
                 Text(
                     text = emptyText,
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = typo.body,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.align(Alignment.CenterHorizontally).padding(12.dp)
+                    modifier = Modifier.align(Alignment.CenterHorizontally).padding(metrics.base)
                 )
             } else {
                 directories.forEach { path ->
@@ -649,7 +667,7 @@ private fun DirectorySection(
 
             Text(
                 text = stringResource(Res.string.directory_rescan_hint),
-                style = MaterialTheme.typography.labelSmall,
+                style = typo.caption,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
@@ -666,14 +684,14 @@ private fun DirectorySection(
                     if (candidates.isEmpty()) {
                         Text(
                             text = stringResource(Res.string.no_scanned_folders),
-                            style = MaterialTheme.typography.bodyMedium,
+                            style = typo.body,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     } else {
                         candidates.forEach { path ->
                             Text(
                                 text = path,
-                                style = MaterialTheme.typography.bodyMedium,
+                                style = typo.body,
                                 color = MaterialTheme.colorScheme.onSurface,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
@@ -683,7 +701,7 @@ private fun DirectorySection(
                                         onAdd(path)
                                         showKnownFolderPicker = false
                                     }
-                                    .padding(vertical = 12.dp)
+                                    .padding(vertical = metrics.base)
                             )
                         }
                     }
@@ -700,18 +718,20 @@ private fun DirectorySection(
 
 @Composable
 private fun DirectoryItem(path: String, onRemoveClick: () -> Unit) {
+    val metrics = LocalHmpMetrics.current
+    val typo = LocalHmpTypo.current
     Surface(
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(metrics.base),
         modifier = Modifier.fillMaxWidth()
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = metrics.base, vertical = metrics.compact),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
                 text = path,
-                style = MaterialTheme.typography.bodyMedium,
+                style = typo.body,
                 color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -719,11 +739,11 @@ private fun DirectoryItem(path: String, onRemoveClick: () -> Unit) {
             )
             Text(
                 text = stringResource(Res.string.remove),
-                style = MaterialTheme.typography.labelMedium,
+                style = typo.footnote.medium(),
                 color = MaterialTheme.colorScheme.error,
                 modifier = Modifier
                     .clickable(onClick = onRemoveClick)
-                    .padding(start = 12.dp, top = 4.dp, bottom = 4.dp)
+                    .padding(start = metrics.base, top = metrics.micro, bottom = metrics.micro)
             )
         }
     }
@@ -736,9 +756,10 @@ private fun DirectoryItem(path: String, onRemoveClick: () -> Unit) {
  */
 @Composable
 private fun PermissionNoticeBanner(onOpenSettings: () -> Unit) {
+    val metrics = LocalHmpMetrics.current
     TitleWidget(title = stringResource(Res.string.library_permission_required)) {
         Column(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = metrics.cozy, vertical = metrics.compact),
             horizontalAlignment = Alignment.End
         ) {
             TextButton(

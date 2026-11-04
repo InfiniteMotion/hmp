@@ -55,6 +55,7 @@ import com.hearablemusic.player.ui.library.viewmodel.LibraryViewModel
 import com.hearablemusic.player.ui.player.viewmodel.PlaybackViewModel
 import com.hearablemusic.player.ui.player.viewmodel.PlaylistQueueViewModel
 import com.hearablemusic.player.ui.playlist.viewmodel.PlaylistViewModel
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 
 @Composable
 fun GalleryScreen(
@@ -141,6 +142,7 @@ fun GalleryScreenContent(
     dialogManager: DialogManager,
     navController: NavBackStack<NavKey>
 ) {
+    val metrics = LocalHmpMetrics.current
     val haptic = rememberHapticFeedback()
     val isLandscape = LocalWindowSizeInfo.current.isLandscape
     
@@ -218,7 +220,7 @@ fun GalleryScreenContent(
         ),
         list = ListConfig(
             enableLongPressToEnterEdit = true,
-            bottomSpacerHeight = 88.dp,
+            bottomSpacerHeight = metrics.row,
             columns = if (isLandscape) 2 else 1
         ),
         edit = EditConfig(enabled = true),

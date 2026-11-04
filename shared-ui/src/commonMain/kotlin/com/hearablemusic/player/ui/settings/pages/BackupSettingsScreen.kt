@@ -35,6 +35,7 @@ import androidx.navigation3.runtime.NavKey
 import com.hearablemusic.player.ui.common.components.base.TitleWidget
 import com.hearablemusic.player.ui.common.dialogs.controller.DialogManager
 import com.hearablemusic.player.ui.common.dialogs.viewmodel.DialogManagerViewModel
+import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
 import com.hearablemusic.player.ui.common.layout.LocalWindowSizeInfo
 import com.hearablemusic.player.ui.common.pages.base.SubScreen
 import com.hearablemusic.player.ui.common.util.activityViewModel
@@ -67,6 +68,7 @@ import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 
 @Composable
 fun BackupSettingsScreen(
@@ -74,6 +76,7 @@ fun BackupSettingsScreen(
     backupViewModel: BackupViewModel = koinViewModel(),
     dialogManagerViewModel: DialogManagerViewModel = activityViewModel()
 ) {
+    val metrics = LocalHmpMetrics.current
     val dialogManager = dialogManagerViewModel.dialogManager
     val localBackups by backupViewModel.localBackups.collectAsState()
 
@@ -86,15 +89,15 @@ fun BackupSettingsScreen(
             modifier = Modifier
                 .verticalScroll(rememberScrollState())
                 .fillMaxWidth()
-                .padding(24.dp),
-            verticalArrangement = Arrangement.spacedBy(24.dp)
+                .padding(metrics.section),
+            verticalArrangement = Arrangement.spacedBy(metrics.section)
         ) {
             if (isLandscape) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(24.dp)
+                    horizontalArrangement = Arrangement.spacedBy(metrics.section)
                 ) {
-                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(24.dp)) {
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(metrics.section)) {
                         ExportBackupSection(
                             onExportBackup = backupViewModel::exportBackup,
                             dialogManager = dialogManager
@@ -104,7 +107,7 @@ fun BackupSettingsScreen(
                             dialogManager = dialogManager
                         )
                     }
-                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(24.dp)) {
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(metrics.section)) {
                         ManageBackupsSection(
                             localBackups = localBackups,
                             onRestoreBackup = backupViewModel::restoreBackup,
@@ -136,7 +139,7 @@ fun BackupSettingsScreen(
                 dialogManager = dialogManager
             )
             } // else
-            MiniPlayerSafeSpacer(height = 56.dp)
+            MiniPlayerSafeSpacer(height = metrics.bar)
         }
     }
 }
@@ -146,18 +149,20 @@ private fun ExportBackupSection(
     onExportBackup: ((String) -> Unit, (String) -> Unit) -> Unit,
     dialogManager: DialogManager
 ) {
+    val metrics = LocalHmpMetrics.current
     val platformServices: PlatformServices = koinInject()
     val chooserTitle = stringResource(Res.string.export_backup)
+    val typo = LocalHmpTypo.current
 
     TitleWidget(title = stringResource(Res.string.export_backup)) {
         Column(
-            modifier = Modifier.fillMaxWidth().padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+            modifier = Modifier.fillMaxWidth().padding(metrics.cozy),
+            verticalArrangement = Arrangement.spacedBy(metrics.cozy),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
                 text = stringResource(Res.string.export_backup_desc),
-                style = MaterialTheme.typography.bodyMedium,
+                style = typo.body,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Start,
                 modifier = Modifier.fillMaxWidth()
@@ -168,7 +173,7 @@ private fun ExportBackupSection(
             // 不写这一句，用户会以为 API Key、歌词与音效也备进去了 —— 恢复后才发现"丢了"。
             Text(
                 text = stringResource(Res.string.backup_scope_note),
-                style = MaterialTheme.typography.labelSmall,
+                style = typo.caption,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Start,
                 modifier = Modifier.fillMaxWidth()
@@ -185,7 +190,7 @@ private fun ExportBackupSection(
                 }
             ) {
                 Icon(painter = painterResource(Res.drawable.externaldrive), contentDescription = null)
-                Spacer(modifier = Modifier.width(8.dp))
+                Spacer(modifier = Modifier.width(metrics.compact))
                 Text(stringResource(Res.string.export_backup))
             }
         }
@@ -197,6 +202,8 @@ private fun ImportBackupSection(
     onRestoreBackup: (String, () -> Unit, (String) -> Unit) -> Unit,
     dialogManager: DialogManager
 ) {
+    val metrics = LocalHmpMetrics.current
+    val typo = LocalHmpTypo.current
     val scope = rememberCoroutineScope()
     val platformServices: PlatformServices = koinInject()
     var showRestoreDialog by remember { mutableStateOf(false) }
@@ -204,13 +211,13 @@ private fun ImportBackupSection(
 
     TitleWidget(title = stringResource(Res.string.restore_backup)) {
         Column(
-            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            modifier = Modifier.fillMaxWidth().padding(metrics.cozy),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(metrics.cozy)
         ) {
             Text(
                 text = stringResource(Res.string.restore_backup_desc),
-                style = MaterialTheme.typography.bodyMedium,
+                style = typo.body,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Start,
                 modifier = Modifier.fillMaxWidth()
@@ -230,7 +237,7 @@ private fun ImportBackupSection(
                 }
             ) {
                 Icon(painter = painterResource(Res.drawable.ic_gallery_material_select_checkbox), contentDescription = null)
-                Spacer(modifier = Modifier.width(8.dp))
+                Spacer(modifier = Modifier.width(metrics.compact))
                 Text(stringResource(Res.string.restore_backup))
             }
         }
@@ -259,18 +266,20 @@ private fun ManageBackupsSection(
     onRefreshBackups: () -> Unit,
     dialogManager: DialogManager
 ) {
+    val metrics = LocalHmpMetrics.current
+    val typo = LocalHmpTypo.current
     val scope = rememberCoroutineScope()
     var showRestoreDialog by remember { mutableStateOf(false) }
     var selectedBackupFilePath by remember { mutableStateOf<String?>(null) }
 
     TitleWidget(title = stringResource(Res.string.local_backup)) {
         Column(
-            modifier = Modifier.fillMaxWidth().padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            modifier = Modifier.fillMaxWidth().padding(metrics.cozy),
+            verticalArrangement = Arrangement.spacedBy(metrics.compact)
         ) {
             Text(
                 text = stringResource(Res.string.local_backup_desc),
-                style = MaterialTheme.typography.bodyMedium,
+                style = typo.body,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Start,
                 modifier = Modifier.fillMaxWidth()
@@ -292,9 +301,9 @@ private fun ManageBackupsSection(
             if (localBackups.isEmpty()) {
                 Text(
                     text = stringResource(Res.string.no_local_backups),
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = typo.body,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.align(Alignment.CenterHorizontally).padding(16.dp)
+                    modifier = Modifier.align(Alignment.CenterHorizontally).padding(metrics.cozy)
                 )
             } else {
                 localBackups.forEach { filePath ->
@@ -332,6 +341,8 @@ private fun BackupItem(
     onRestore: () -> Unit,
     onDelete: () -> Unit
 ) {
+    val metrics = LocalHmpMetrics.current
+    val typo = LocalHmpTypo.current
     // commonMain 不使用平台文件 API：文件名取路径末段；
     // 备份命名固定为 hearable-backup-v{N}-yyyyMMdd-HHmmss.json，日期从文件名解析（与旧 File.lastModified() 展示一致）
     val fileName = filePath.substringAfterLast('/')
@@ -340,25 +351,25 @@ private fun BackupItem(
     } ?: ""
     Surface(
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(metrics.base),
         modifier = Modifier.fillMaxWidth()
     ) {
         Row(
-            modifier = Modifier.padding(12.dp),
+            modifier = Modifier.padding(metrics.base),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            horizontalArrangement = Arrangement.spacedBy(metrics.compact)
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = fileName,
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = typo.body,
                     color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
                     text = fileDate,
-                    style = MaterialTheme.typography.labelSmall,
+                    style = typo.caption,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }

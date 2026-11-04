@@ -18,18 +18,20 @@ import androidx.compose.ui.Modifier
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import androidx.compose.ui.unit.dp
+import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
 import com.hearablemusic.player.ui.generated.resources.Res
 import com.hearablemusic.player.ui.generated.resources.*
+import com.hearablemusic.player.ui.common.design.metrics.HMPMetricTokens
 
 /** 与 MusicListHeader 一致，保证编辑栏与头部高度一致（总高度 48.dp） */
-private val EditToolbarHorizontalPadding = 12.dp
-private val EditToolbarTopPadding = 12.dp
-private val EditToolbarBottomPadding = 4.dp
-private val EditToolbarTotalHeight = 48.dp
-private val EditToolbarButtonSize = 32.dp
-private val EditToolbarIconSize = 24.dp
+private val EditToolbarHorizontalPadding = HMPMetricTokens.Compact.base
+private val EditToolbarTopPadding = HMPMetricTokens.Compact.base
+private val EditToolbarBottomPadding = HMPMetricTokens.Compact.micro
+private val EditToolbarTotalHeight = HMPMetricTokens.Compact.bar
+private val EditToolbarButtonSize = HMPMetricTokens.Compact.block
+private val EditToolbarIconSize = HMPMetricTokens.Compact.section
 /** 数字 label 固定宽度，与头部一致 */
-private val EditToolbarCountLabelWidth = 28.dp
+private val EditToolbarCountLabelWidth = HMPMetricTokens.Compact.section
 
 /**
  * 编辑栏：左侧显示选中数量，右侧四个按钮（全选、添加、删除、确认）。高度与头部一致。
@@ -43,6 +45,7 @@ internal fun MusicListEditToolbar(
     onExitEditMode: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val typo = LocalHmpTypo.current
     val allSelected = state.selectedIds.size == allIds.size && allIds.isNotEmpty()
 
     Row(
@@ -57,7 +60,7 @@ internal fun MusicListEditToolbar(
         Box(modifier = Modifier.width(EditToolbarCountLabelWidth)) {
             Text(
                 text = config.selectedCountFormat(state.selectedIds.size),
-                style = MaterialTheme.typography.bodySmall,
+                style = typo.footnote,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
             )
         }

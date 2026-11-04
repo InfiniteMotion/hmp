@@ -27,7 +27,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import com.hearablemusic.player.ui.common.design.dimens.LocalHMPDimens
+import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
+import com.hearablemusic.player.ui.common.design.typography.medium
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.draw.clip
 import androidx.compose.material3.Card
@@ -71,6 +72,14 @@ import com.hearablemusic.player.ui.library.pages.components.musiclist.HeaderConf
 import com.hmp.domain.music.MusicInfo
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
+import com.hearablemusic.player.ui.common.design.metrics.HMPMetricTokens
+import com.hearablemusic.player.ui.common.design.metrics.LayoutConstraints
+import com.hearablemusic.player.ui.common.design.animation.HmpMotion
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.expandIn
+import androidx.compose.animation.shrinkOut
 
 /** 气泡内交互回调（由 ChatScreen 透穿，默认空实现便于快照渲染）。 */
 data class CompanionCallbacks(
@@ -108,19 +117,20 @@ fun CompanionBubble(
 /** 气泡容器：用户=primary 半透明底+primary 边框(右对齐尾)；伙伴=surfaceContainer 半透明底+outlineVariant 边框(左对齐尾)。 */
 @Composable
 private fun BubbleContainer(message: CompanionMessage, callbacks: CompanionCallbacks, user: Boolean) {
-    val shape = if (user) RoundedCornerShape(LocalHMPDimens.current.corner.md, 6.dp, LocalHMPDimens.current.corner.md, LocalHMPDimens.current.corner.md)
-    else RoundedCornerShape(6.dp, LocalHMPDimens.current.corner.md, LocalHMPDimens.current.corner.md, LocalHMPDimens.current.corner.md)
+    val metrics = LocalHmpMetrics.current
+    val shape = if (user) RoundedCornerShape(metrics.cozy, metrics.micro, metrics.cozy, metrics.cozy)
+    else RoundedCornerShape(metrics.micro, metrics.cozy, metrics.cozy, metrics.cozy)
     val bg = if (user) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
     else MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.15f)
-    val border = if (user) BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.6f))
-    else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+    val border = if (user) BorderStroke(metrics.stroke.thin, MaterialTheme.colorScheme.primary.copy(alpha = 0.6f))
+    else BorderStroke(metrics.stroke.thin, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
     val content = if (user) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
     Column(
         modifier = Modifier
-            .widthIn(max = 320.dp)
+            .widthIn(max = HMPMetricTokens.Compact.hero)
             .border(border, shape)
             .background(bg, shape)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .padding(horizontal = metrics.cozy, vertical = metrics.base),
     ) {
         CompositionLocalProvider(LocalContentColor provides content) {
             when (message.renderHint) {
@@ -148,12 +158,14 @@ fun ConfirmMatrixCard(
     callbacks: CompanionCallbacks = CompanionCallbacks(),
     modifier: Modifier = Modifier,
 ) {
+    val metrics = LocalHmpMetrics.current
+    val typo = LocalHmpTypo.current
     Card(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(metrics.cozy),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
     ) {
-        Column(modifier = Modifier.padding(14.dp)) {
+        Column(modifier = Modifier.padding(metrics.base)) {
             // 标题 + 全选提示
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -161,22 +173,22 @@ fun ConfirmMatrixCard(
             ) {
                 Box(
                     Modifier
-                        .size(8.dp)
-                        .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(4.dp))
+                        .size(metrics.compact)
+                        .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(metrics.micro))
                 )
-                Spacer(Modifier.width(8.dp))
+                Spacer(Modifier.width(metrics.compact))
                 Text(
                     text = stringResource(Res.string.agent_chat_confirm_prompt),
-                    style = MaterialTheme.typography.titleSmall,
+                    style = typo.body.medium(),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(metrics.compact))
             items.forEachIndexed { index, item ->
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 6.dp),
+                        .padding(vertical = metrics.micro),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     // 左侧：确认勾选框 + 工具名（可点击区域）
@@ -191,14 +203,14 @@ fun ConfirmMatrixCard(
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(20.dp)
+                                .size(metrics.cozy)
                                 .background(
                                     when {
                                         submitted && item.selected -> MaterialTheme.colorScheme.primary
                                         item.selected -> MaterialTheme.colorScheme.primary
                                         else -> MaterialTheme.colorScheme.surfaceVariant
                                     },
-                                    RoundedCornerShape(6.dp),
+                                    RoundedCornerShape(metrics.micro),
                                 ),
                         ) {
                             if (item.selected) {
@@ -207,14 +219,14 @@ fun ConfirmMatrixCard(
                                     color = MaterialTheme.colorScheme.onPrimary,
                                     textAlign = TextAlign.Center,
                                     modifier = Modifier.align(Alignment.Center),
-                                    style = MaterialTheme.typography.labelMedium,
+                                    style = typo.footnote.medium(),
                                 )
                             }
                         }
-                        Spacer(Modifier.width(10.dp))
+                        Spacer(Modifier.width(metrics.compact))
                         Text(
                             text = "${item.toolName} · ${item.argsSummary}",
-                            style = MaterialTheme.typography.bodyMedium,
+                            style = typo.body,
                             color = MaterialTheme.colorScheme.onSurface,
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis,
@@ -235,11 +247,11 @@ fun ConfirmMatrixCard(
                             Checkbox(
                                 checked = item.alwaysAllow,
                                 onCheckedChange = null,  // 整个 Row clickable，Checkbox 自身不消费点击
-                                modifier = Modifier.size(28.dp),
+                                modifier = Modifier.size(metrics.section),
                             )
                             Text(
                                 text = stringResource(Res.string.agent_chat_always_allow),
-                                style = MaterialTheme.typography.labelSmall,
+                                style = typo.caption,
                                 color = labelColor,
                             )
                         }
@@ -247,7 +259,7 @@ fun ConfirmMatrixCard(
                         // 已提交回执：如果勾了"总是允许"显示标记
                         Text(
                             text = stringResource(Res.string.agent_chat_always_allow_mark),
-                            style = MaterialTheme.typography.labelSmall,
+                            style = typo.caption,
                             color = MaterialTheme.colorScheme.tertiary,
                         )
                     }
@@ -256,12 +268,12 @@ fun ConfirmMatrixCard(
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 }
             }
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(metrics.base))
             if (submitted) {
                 receipt?.let {
                     Text(
                         text = it.asString(),
-                        style = MaterialTheme.typography.bodySmall,
+                        style = typo.footnote,
                         color = MaterialTheme.colorScheme.primary,
                     )
                 }
@@ -272,7 +284,7 @@ fun ConfirmMatrixCard(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     TextButton(onClick = callbacks.onSkipConfirm) { Text(stringResource(Res.string.agent_chat_skip)) }
-                    Spacer(Modifier.width(8.dp))
+                    Spacer(Modifier.width(metrics.compact))
                     OutlinedButton(onClick = callbacks.onSubmitConfirm) {
                         Text(stringResource(Res.string.agent_chat_do_it), color = MaterialTheme.colorScheme.primary)
                     }
@@ -284,17 +296,19 @@ fun ConfirmMatrixCard(
 
 @Composable
 private fun TextBubbleContent(message: CompanionMessage) {
+    val metrics = LocalHmpMetrics.current
+    val typo = LocalHmpTypo.current
     Text(
         // 资源型文案在组合期才解析（ViewModel 侧只带引用），随语言切换自动跟随
         text = message.textRes?.asString() ?: message.text,
-        style = MaterialTheme.typography.bodyLarge,
+        style = typo.body,
         color = LocalContentColor.current,
     )
     if (message.note.isNotBlank()) {
-        Spacer(Modifier.height(4.dp))
+        Spacer(Modifier.height(metrics.micro))
         Text(
             text = message.note,
-            style = MaterialTheme.typography.labelSmall,
+            style = typo.caption,
             color = MaterialTheme.colorScheme.tertiary,
         )
     }
@@ -302,26 +316,28 @@ private fun TextBubbleContent(message: CompanionMessage) {
 
 @Composable
 private fun SongBubbleContent(message: CompanionMessage, callbacks: CompanionCallbacks) {
+    val metrics = LocalHmpMetrics.current
     val song = message.song ?: return
+    val typo = LocalHmpTypo.current
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
         AlbumCover(
             uri = song.music.albumArtUri,
-            size = 48.dp,
-            corner = 10.dp,
-            shadow = 4.dp,
+            size = metrics.bar,
+            corner = metrics.compact,
+            shadow = metrics.micro,
         )
-        Spacer(Modifier.width(12.dp))
+        Spacer(Modifier.width(metrics.base))
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = song.music.title,
-                style = MaterialTheme.typography.titleSmall,
+                style = typo.body.medium(),
                 color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
                 text = song.music.artist,
-                style = MaterialTheme.typography.bodySmall,
+                style = typo.footnote,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -339,6 +355,8 @@ private fun SongBubbleContent(message: CompanionMessage, callbacks: CompanionCal
 
 @Composable
 private fun SongListBubbleContent(message: CompanionMessage, callbacks: CompanionCallbacks) {
+    val metrics = LocalHmpMetrics.current
+    val typo = LocalHmpTypo.current
     Column(modifier = Modifier.fillMaxWidth()) {
         val config = defaultMusicListConfig(
             callbacks = object : MusicListCallbacksAdapter() {
@@ -364,13 +382,13 @@ private fun SongListBubbleContent(message: CompanionMessage, callbacks: Companio
             config = config,
             modifier = Modifier.fillMaxWidth(),
         )
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(metrics.compact))
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .clickable(onClick = callbacks.onPlaylistPlayAll)
-                .padding(vertical = 10.dp),
+                .padding(vertical = metrics.compact),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.Center,
         ) {
@@ -378,12 +396,12 @@ private fun SongListBubbleContent(message: CompanionMessage, callbacks: Companio
                 painter = painterResource(Res.drawable.play_fill),
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(18.dp),
+                modifier = Modifier.size(metrics.cozy),
             )
-            Spacer(Modifier.width(6.dp))
+            Spacer(Modifier.width(metrics.micro))
             Text(
                 text = stringResource(Res.string.agent_chat_play_all),
-                style = MaterialTheme.typography.bodyMedium,
+                style = typo.body,
                 color = MaterialTheme.colorScheme.primary,
             )
         }
@@ -392,6 +410,8 @@ private fun SongListBubbleContent(message: CompanionMessage, callbacks: Companio
 
 @Composable
 private fun ExplainBubbleContent(message: CompanionMessage) {
+    val metrics = LocalHmpMetrics.current
+    val typo = LocalHmpTypo.current
     var expanded by remember { mutableStateOf(false) }
     Column(modifier = Modifier.fillMaxWidth()) {
         Row(
@@ -404,12 +424,12 @@ private fun ExplainBubbleContent(message: CompanionMessage) {
                 painter = painterResource(Res.drawable.lightbulb),
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.tertiary,
-                modifier = Modifier.size(18.dp),
+                modifier = Modifier.size(metrics.cozy),
             )
-            Spacer(Modifier.width(8.dp))
+            Spacer(Modifier.width(metrics.compact))
             Text(
                 text = stringResource(Res.string.agent_chat_my_plan),
-                style = MaterialTheme.typography.titleSmall,
+                style = typo.body.medium(),
                 color = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.weight(1f),
             )
@@ -417,17 +437,21 @@ private fun ExplainBubbleContent(message: CompanionMessage) {
                 painter = painterResource(Res.drawable.chevron_down),
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(16.dp),
+                modifier = Modifier.size(metrics.cozy),
             )
         }
-        AnimatedVisibility(visible = expanded) {
-            Column(modifier = Modifier.padding(top = 8.dp)) {
+        AnimatedVisibility(
+            visible = expanded,
+            enter = fadeIn(HmpMotion.enter()) + expandIn(HmpMotion.enter()),
+            exit = fadeOut(HmpMotion.exit()) + shrinkOut(HmpMotion.exit()),
+        ) {
+            Column(modifier = Modifier.padding(top = metrics.compact)) {
                 message.trail.forEachIndexed { i, step ->
                     Text(
                         text = "${i + 1}. $step",
-                        style = MaterialTheme.typography.bodySmall,
+                        style = typo.footnote,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(vertical = 2.dp),
+                        modifier = Modifier.padding(vertical = metrics.hair),
                     )
                 }
             }
@@ -435,4 +459,4 @@ private fun ExplainBubbleContent(message: CompanionMessage) {
     }
 }
 
-private fun Modifier.widthInMax(): Modifier = this.then(Modifier.width(280.dp))
+private fun Modifier.widthInMax(): Modifier = this.then(Modifier.width(LayoutConstraints.PanelMaxWidth))

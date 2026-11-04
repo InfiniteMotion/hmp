@@ -12,9 +12,10 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
-import com.hearablemusic.player.ui.common.design.animation.AnimationTokens
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
+import com.hearablemusic.player.ui.common.design.metrics.LayoutConstraints
+import com.hearablemusic.player.ui.common.design.animation.HmpMotion
 
 @Composable
 fun rememberPlayerScreenNestedScroll(
@@ -61,20 +62,14 @@ fun rememberPlayerScreenNestedScroll(
                         onDismiss()
                         haptic()
                         offsetY.animateTo(
-                            targetValue = with(density) { 1000.dp.toPx() },
-                            animationSpec = tween(
-                                durationMillis = 300,
-                                easing = AnimationTokens.EASE_IN
-                            )
+                            targetValue = with(density) { LayoutConstraints.NestedScrollTarget.toPx() },
+                            animationSpec = HmpMotion.exit()
                         )
                     } else {
                         haptic()
                         offsetY.animateTo(
                             targetValue = 0f,
-                            animationSpec = spring(
-                                dampingRatio = Spring.DampingRatioMediumBouncy,
-                                stiffness = Spring.StiffnessLow
-                            )
+                            animationSpec = HmpMotion.snappySpring()
                         )
                     }
                     return Velocity(0f, available.y)

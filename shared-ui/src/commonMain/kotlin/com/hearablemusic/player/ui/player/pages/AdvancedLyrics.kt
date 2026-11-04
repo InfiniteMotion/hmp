@@ -47,6 +47,7 @@ import com.hearablemusic.player.ui.generated.resources.Res
 import com.hearablemusic.player.ui.generated.resources.ic_gallery_search_things
 import com.hearablemusic.player.ui.generated.resources.no_lyrics
 import androidx.compose.ui.unit.sp
+import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
 import com.hearablemusic.player.ui.common.viewmodel.PaletteColors
 import com.hmp.domain.config.DisplayMode
 import com.hmp.domain.config.LyricsAlignment
@@ -57,6 +58,8 @@ import com.hmp.domain.lyrics.LyricsPresentationParams
 import com.hmp.domain.lyrics.LyricsTimingGenerator
 import com.hmp.domain.lyrics.findCurrentLyricIndex
 import kotlin.math.abs
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
+import com.hearablemusic.player.ui.common.design.metrics.LayoutConstraints
 
 /**
  * 高级歌词组件 - 「静谧辉光」旗舰默认呈现
@@ -135,7 +138,7 @@ fun AdvancedLyrics(
             state = scrollState,
             modifier = Modifier.fillMaxSize(),
             horizontalAlignment = lazyColumnHorizontalAlignment,
-            contentPadding = PaddingValues(vertical = with(density) { (containerHeightPx / 2).let { if (it > 0) it.toDp() else 300.dp } })
+            contentPadding = PaddingValues(vertical = with(density) { (containerHeightPx / 2).let { if (it > 0) it.toDp() else LayoutConstraints.PanelHeight } })
         ) {
             itemsIndexed(
                 items = timedLyrics,
@@ -221,6 +224,7 @@ private fun AdvancedLyricItem(
     alignment: LyricsAlignment = LyricsAlignment.CENTER,
     onClick: () -> Unit
 ) {
+    val metrics = LocalHmpMetrics.current
     // 距离层次：行距透明度曲线驱动 alpha；聚焦窗口外（distance >= 2）模糊
     val targetAlpha = LyricsPresentationParams.distanceAlpha(distance)
     val blurRadius = LyricsPresentationParams.blurRadiusDp(distance)
@@ -248,7 +252,7 @@ private fun AdvancedLyricItem(
 
     Surface(
         modifier = Modifier
-            .padding(horizontal = 32.dp, vertical = lineSpacing)
+            .padding(horizontal = metrics.block, vertical = lineSpacing)
             .then(
                 if (!isCurrent && blurRadius > 0f) {
                     Modifier.blur(blurRadius.dp)
@@ -259,12 +263,12 @@ private fun AdvancedLyricItem(
             .graphicsLayer {
                 alpha = animatedAlpha
             }
-            .clip(RoundedCornerShape(10.dp))
+            .clip(RoundedCornerShape(metrics.compact))
             .clickable { onClick() },
         color = Transparent,
     ) {
         Column(
-            modifier = Modifier.padding(horizontal = 16.dp),
+            modifier = Modifier.padding(horizontal = metrics.cozy),
             horizontalAlignment = horizontalAlignment,
         ) {
             when (displayMode) {
@@ -349,7 +353,7 @@ private fun AdvancedLyricItem(
                             fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal
                         )
 
-                        Spacer(modifier = Modifier.height(4.dp))
+                        Spacer(modifier = Modifier.height(metrics.micro))
                         LyricText(
                             text = translated,
                             isCurrent = isCurrent,
@@ -441,10 +445,12 @@ private fun LyricText(
  */
 @Composable
 private fun EmptyLyricsView(modifier: Modifier = Modifier) {
+    val metrics = LocalHmpMetrics.current
+    val typo = LocalHmpTypo.current
     Column(
         modifier = modifier
             .fillMaxSize()
-            .padding(24.dp),
+            .padding(metrics.section),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
@@ -452,12 +458,12 @@ private fun EmptyLyricsView(modifier: Modifier = Modifier) {
             painter = painterResource(Res.drawable.ic_gallery_search_things),
             contentDescription = null,
             tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-            modifier = Modifier.padding(bottom = 16.dp)
+            modifier = Modifier.padding(bottom = metrics.cozy)
         )
 
         Text(
             text = stringResource(Res.string.no_lyrics),
-            style = MaterialTheme.typography.bodyLarge,
+            style = typo.body,
             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
         )
     }

@@ -46,7 +46,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.hmp.domain.agent.runtime.MasterAgent
 import com.hmp.domain.agent.runtime.sub.radio.RadioState
-import com.hearablemusic.player.ui.common.design.dimens.LocalHMPDimens
+import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
+import com.hearablemusic.player.ui.common.design.typography.medium
 import com.hearablemusic.player.ui.common.components.base.HMPCard
 import com.hearablemusic.player.ui.common.util.HapticFeedbackHelper
 import com.hearablemusic.player.ui.common.util.rememberHapticFeedback
@@ -57,11 +58,12 @@ import com.hearablemusic.player.ui.generated.resources.stop
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.painterResource
 import org.koin.compose.koinInject
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 
 /**
  * 区域②左：1:1 收音机开关卡（控制为主）。
  *
- * 设计对齐 TitleWidget / User·Setting 页卡片：透明底 + `outlineVariant` 50% 描边 + `dimens.corner.md` 圆角
+ * 设计对齐 TitleWidget / User·Setting 页卡片：透明底 + `outlineVariant` 50% 描边 + `cozy` 档圆角
  * （运行中描边转主色 50%），无渐变/无 emoji；信息 = 状态标题 + 副文案 +（运行中）待播数。
  * 右上角一个纯圆形主色状态按钮（无文字），与整卡绑为一体（点击任意处都触发开关）、只反映状态。
  *
@@ -80,10 +82,12 @@ fun RadioCard(
     masterAgent: MasterAgent = koinInject(),
     haptic: HapticFeedbackHelper = rememberHapticFeedback(),
 ) {
+    val metrics = LocalHmpMetrics.current
     val scope = rememberCoroutineScope()
     val quotaGate: com.hmp.domain.agent.quota.TokenQuotaGate = koinInject()
     val dialogManager: com.hearablemusic.player.ui.common.dialogs.controller.DialogManager = koinInject()
     val quotaText = stringResource(Res.string.ai_quota_exhausted_hint)
+    val typo = LocalHmpTypo.current
 
     // ✅ 主路径：直接 collect MasterAgent 暴露的 radioState StateFlow
     val radioState by masterAgent.radioState.collectAsState()
@@ -150,7 +154,7 @@ fun RadioCard(
             .aspectRatio(1f)
             .clickable { toggle() },
         borderColor = borderColor,
-        contentPadding = Modifier.padding(14.dp)
+        contentPadding = Modifier.padding(metrics.base)
     ) {
         Column(
             modifier = Modifier.fillMaxSize(),
@@ -170,11 +174,11 @@ fun RadioCard(
                     } else {
                         MaterialTheme.colorScheme.onSurfaceVariant
                     },
-                    modifier = Modifier.size(24.dp),
+                    modifier = Modifier.size(metrics.section),
                 )
                 Box(
                     modifier = Modifier
-                        .size(36.dp)
+                        .size(metrics.block)
                         .clip(CircleShape)
                         .background(actionBg),
                     contentAlignment = Alignment.Center,
@@ -183,7 +187,7 @@ fun RadioCard(
                         painter = painterResource(actionIcon),
                         contentDescription = actionLabel,
                         tint = actionFg,
-                        modifier = Modifier.size(18.dp),
+                        modifier = Modifier.size(metrics.cozy),
                     )
                 }
             }
@@ -192,24 +196,24 @@ fun RadioCard(
             Column {
                 Text(
                     text = title,
-                    style = MaterialTheme.typography.titleMedium,
+                    style = typo.subtitle,
                     color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-                Spacer(Modifier.height(2.dp))
+                Spacer(Modifier.height(metrics.hair))
                 Text(
                     text = subtitle,
-                    style = MaterialTheme.typography.labelMedium,
+                    style = typo.footnote.medium(),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
                 if (isActive && card.upcomingCount > 0) {
-                    Spacer(Modifier.height(2.dp))
+                    Spacer(Modifier.height(metrics.hair))
                     Text(
                         text = stringResource(Res.string.radio_card_upcoming, card.upcomingCount),
-                        style = MaterialTheme.typography.labelSmall,
+                        style = typo.caption,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,

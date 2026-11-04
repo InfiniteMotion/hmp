@@ -12,6 +12,7 @@ import com.hmp.domain.music.SortDirection
 import com.hmp.domain.music.MusicInfo
 import com.hmp.data.util.stringToPinyinSortKey
 import androidx.compose.foundation.layout.PaddingValues
+import com.hearablemusic.player.ui.common.design.metrics.HMPMetricTokens
 
 /**
  * 增强版音乐列表的入口配置，驱动头部、单项形态、编辑模式、索引跳转、滚动条与当前播放等行为。
@@ -26,7 +27,7 @@ data class MusicListConfig(
     val scrollbar: ScrollbarConfig,
     val currentPlaying: CurrentPlayingConfig,
     val callbacks: MusicListCallbacks,
-    val contentPadding: PaddingValues = PaddingValues(horizontal = 12.dp),
+    val contentPadding: PaddingValues = PaddingValues(horizontal = HMPMetricTokens.Compact.base),
     val emptyContent: (@Composable () -> Unit)? = null,
     val loadingContent: (@Composable () -> Unit)? = null,
 )
@@ -118,7 +119,7 @@ data class GalleryItemOptions(
  */
 data class ListConfig(
     val key: (Int, MusicInfo) -> Any = { i, m -> "${m.music.id}_$i" },
-    val bottomSpacerHeight: Dp = 88.dp,
+    val bottomSpacerHeight: Dp = HMPMetricTokens.Compact.row,
     val enableLongPressToEnterEdit: Boolean = false,
     val columns: Int = 1,
 )
@@ -512,9 +513,9 @@ private fun computeDateStylePositionAnchors(
  */
 data class ScrollbarConfig(
     val enabled: Boolean = false,
-    val width: Dp = 4.dp,
-    val thumbMinHeight: Dp = 24.dp,
-    val cornerRadius: Dp = 2.dp,
+    val width: Dp = HMPMetricTokens.Compact.micro,
+    val thumbMinHeight: Dp = HMPMetricTokens.Compact.section,
+    val cornerRadius: Dp = HMPMetricTokens.Compact.hair,
     val trackColor: Color? = null,
     val thumbColor: Color? = null,
 )

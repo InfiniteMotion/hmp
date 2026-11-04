@@ -34,7 +34,6 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
-import com.hearablemusic.player.ui.common.design.dimens.LocalHMPDimens
 import com.hearablemusic.player.ui.common.text.UiText
 import com.hearablemusic.player.ui.common.text.asString
 import com.hearablemusic.player.ui.common.text.asUiText
@@ -54,6 +53,7 @@ import com.hearablemusic.player.ui.generated.resources.tab_user
 import com.hmp.domain.music.MusicInfo
 import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.painterResource
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 
 private data class SidebarTabItem(
     val label: UiText,
@@ -82,14 +82,14 @@ fun FusionSidebar(
     onOpenPlayer: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val dimens = LocalHMPDimens.current
+    val metrics = LocalHmpMetrics.current
     val haptic = rememberHapticFeedback()
 
     Column(
         modifier = modifier
-            .width(80.dp)
+            .width(metrics.row)
             .fillMaxHeight()
-            .padding(vertical = dimens.spacing.md),
+            .padding(vertical = metrics.cozy),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.SpaceEvenly
     ) {
@@ -103,8 +103,8 @@ fun FusionSidebar(
 
             Box(
                 modifier = Modifier
-                    .size(48.dp)
-                    .clip(RoundedCornerShape(dimens.corner.sm))
+                    .size(metrics.bar)
+                    .clip(RoundedCornerShape(metrics.base))
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null
@@ -120,7 +120,7 @@ fun FusionSidebar(
                     ),
                     contentDescription = tab.label.asString(),
                     tint = iconTint,
-                    modifier = Modifier.size(dimens.icon.md)
+                    modifier = Modifier.size(metrics.section)
                 )
             }
         }
@@ -144,7 +144,7 @@ fun FusionSidebar(
 
         Box(
             modifier = Modifier
-                .size(40.dp)
+                .size(metrics.block)
                 .clip(CircleShape)
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },

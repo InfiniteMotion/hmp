@@ -31,7 +31,7 @@ import com.hmp.data.database.AppDatabaseGuard
 import com.hmp.data.database.hmpDatabasePath
 import com.hmp.desktop.player.DesktopMusicController
 import com.hearablemusic.player.ui.AppRoot
-import com.hearablemusic.player.ui.common.design.theme.ThemeExtensionManager
+import com.hearablemusic.player.ui.common.design.theme.HearableMusicPlayerTheme
 import com.hearablemusic.player.ui.common.layout.LocalTitleBarInset
 import com.hearablemusic.player.ui.common.pages.IntroScreen
 import com.hearablemusic.player.ui.common.util.LocalAppViewModelStoreOwner
@@ -55,6 +55,8 @@ import com.hmp.initKermit
 import co.touchlab.kermit.Severity
 import com.hmp.log.HmpLog
 import com.hmp.log.LogTag
+import com.hearablemusic.player.ui.common.design.metrics.HMPMetricTokens
+import com.hearablemusic.player.ui.common.design.metrics.LayoutConstraints
 
 /**
  * 退出前先把播放会话与进度落完（一-3 / D5-07）。
@@ -150,7 +152,7 @@ fun main() {
         prewarmLatch.await()
         stamp("pre-warm completed, entering composition")
         val state = rememberWindowState(
-            size = DpSize(1200.dp, 800.dp),
+            size = DpSize(LayoutConstraints.WindowInitialWidth, LayoutConstraints.WindowInitialHeight),
             position = WindowPosition(Alignment.Center)
         )
 
@@ -243,18 +245,15 @@ fun main() {
             }
 
             // Clip entire window content to rounded corners.
-            val cornerRadius = 20.dp
-            val tColorScheme = System.currentTimeMillis()
-            val staticColorScheme = ThemeExtensionManager.getColorScheme(appIsDark)
-            stamp("ThemeExtensionManager.getColorScheme() done (took ${System.currentTimeMillis() - tColorScheme}ms)")
-            MaterialTheme(colorScheme = staticColorScheme) {
-                val timedMT = remember { stamp("MaterialTheme scope entered (first composition)"); 0 }
+            val cornerRadius = HMPMetricTokens.Compact.cozy
+            HearableMusicPlayerTheme(darkTheme = appIsDark) {
+                val timedMT = remember { stamp("Theme scope entered (first composition)"); 0 }
                 val shape = RoundedCornerShape(cornerRadius)
                 Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .clip(shape)
-                    .border(2.dp, MaterialTheme.colorScheme.outlineVariant, shape)
+                    .border(HMPMetricTokens.Compact.hair, MaterialTheme.colorScheme.outlineVariant, shape)
                     .background(MaterialTheme.colorScheme.background)
             ) {
                 Box(modifier = Modifier.fillMaxSize()) {

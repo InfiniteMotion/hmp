@@ -30,6 +30,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.hearablemusic.player.ui.common.util.HapticFeedbackHelper
+import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
 import com.hearablemusic.player.ui.common.util.rememberHapticFeedback
 import com.hearablemusic.player.ui.generated.resources.Res
 import com.hearablemusic.player.ui.generated.resources.chevron_right
@@ -37,6 +38,7 @@ import com.hearablemusic.player.ui.generated.resources.play_fill
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.painterResource
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 
 /**
  * 通用歌单入口卡。
@@ -61,7 +63,9 @@ fun PlaylistEntryCard(
     modifier: Modifier = Modifier,
     haptic: HapticFeedbackHelper = rememberHapticFeedback(),
 ) {
+    val metrics = LocalHmpMetrics.current
     val scope = rememberCoroutineScope()
+    val typo = LocalHmpTypo.current
     val isEmpty = count == 0
 
     Card(
@@ -70,12 +74,12 @@ fun PlaylistEntryCard(
                 haptic.performClick()
                 scope.launch { onClickPlay() }
             },
-        shape = RoundedCornerShape(18.dp),
+        shape = RoundedCornerShape(metrics.cozy),
         colors = CardDefaults.cardColors(
             containerColor = if (isEmpty) MaterialTheme.colorScheme.surface.copy(alpha = 0.5f)
                              else MaterialTheme.colorScheme.surface
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = if (isEmpty) 2.dp else 4.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = if (isEmpty) metrics.hair else metrics.micro),
     ) {
         Box(
             modifier = Modifier
@@ -90,12 +94,12 @@ fun PlaylistEntryCard(
                         )
                     )
                 )
-                .padding(horizontal = 16.dp),
+                .padding(horizontal = metrics.cozy),
         ) {
             Row(
                 modifier = Modifier.fillMaxSize(),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                horizontalArrangement = Arrangement.spacedBy(metrics.base),
             ) {
                 // 左侧 icon
                 if (icon != null) {
@@ -114,7 +118,7 @@ fun PlaylistEntryCard(
                 ) {
                     Text(
                         text = if (isEmpty) stringResource(Res.string.no_data_available) else title,
-                        style = MaterialTheme.typography.titleMedium,
+                        style = typo.subtitle,
                         color = if (isEmpty) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                                else MaterialTheme.colorScheme.onSurface,
                         fontWeight = FontWeight.Bold,
@@ -123,13 +127,13 @@ fun PlaylistEntryCard(
                         subtitle?.let {
                             Text(
                                 text = it,
-                                style = MaterialTheme.typography.bodySmall,
+                                style = typo.footnote,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
                         Text(
                             text = stringResource(Res.string.songs_count, count),
-                            style = MaterialTheme.typography.labelSmall,
+                            style = typo.caption,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }

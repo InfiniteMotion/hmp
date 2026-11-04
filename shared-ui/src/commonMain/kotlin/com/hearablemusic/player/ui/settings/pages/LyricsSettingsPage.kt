@@ -39,7 +39,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.hearablemusic.player.ui.common.components.base.TitleWidget
-import com.hearablemusic.player.ui.common.design.dimens.LocalHMPDimens
+import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
 import com.hearablemusic.player.ui.common.pages.base.SubScreen
 import com.hearablemusic.player.ui.generated.resources.Res
 import com.hearablemusic.player.ui.generated.resources.align_center
@@ -77,6 +77,7 @@ import com.hmp.domain.setting.usecase.LyricsSettingsUseCase
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 
 /**
  * 设置页可见的歌词组件。
@@ -93,8 +94,9 @@ fun LyricsSettingsPage(
     lyricsSettingsUseCase: LyricsSettingsUseCase,
     onBack: () -> Unit
 ) {
+    val metrics = LocalHmpMetrics.current
     val scope = rememberCoroutineScope()
-    val dimens = LocalHMPDimens.current
+    val typo = LocalHmpTypo.current
     val platformServices: PlatformServices = koinInject()
 
     var selectedTab by remember { mutableStateOf(LyricsComponent.PLAYER) }
@@ -168,8 +170,8 @@ fun LyricsSettingsPage(
             modifier = Modifier
                 .verticalScroll(rememberScrollState())
                 .fillMaxWidth()
-                .padding(dimens.spacing.lg),
-            verticalArrangement = Arrangement.spacedBy(dimens.spacing.lg)
+                .padding(metrics.section),
+            verticalArrangement = Arrangement.spacedBy(metrics.section)
         ) {
             // 组件切换
             TitleWidget(title = stringResource(Res.string.lyrics_component)) {
@@ -189,18 +191,18 @@ fun LyricsSettingsPage(
                 TitleWidget(title = stringResource(Res.string.floating_lyrics)) {
                     Surface(
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp),
+                        shape = RoundedCornerShape(metrics.base),
                         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.1f))
+                        border = BorderStroke(metrics.stroke.thin, MaterialTheme.colorScheme.outline.copy(alpha = 0.1f))
                     ) {
                         Row(
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = metrics.cozy, vertical = metrics.base),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Text(
                                 stringResource(Res.string.enable_floating_lyrics),
-                                style = MaterialTheme.typography.bodyLarge,
+                                style = typo.body,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Switch(
@@ -226,7 +228,7 @@ fun LyricsSettingsPage(
                             selected = config.displayMode.name == key,
                             onClick = { updateCurrent(config.copy(displayMode = DisplayMode.valueOf(key))) },
                             shape = SegmentedButtonDefaults.itemShape(idx, 3)
-                        ) { Text(label, fontSize = 13.sp) }
+                        ) { Text(label, style = typo.footnote) }
                     }
                 }
             }
@@ -239,7 +241,7 @@ fun LyricsSettingsPage(
                             selected = config.alignment.name == key,
                             onClick = { updateCurrent(config.copy(alignment = LyricsAlignment.valueOf(key))) },
                             shape = SegmentedButtonDefaults.itemShape(idx, 3)
-                        ) { Text(label, fontSize = 13.sp) }
+                        ) { Text(label, style = typo.footnote) }
                     }
                 }
             }
@@ -247,8 +249,8 @@ fun LyricsSettingsPage(
             // 文本设置
             TitleWidget(title = stringResource(Res.string.text_settings)) {
                 Column(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = dimens.spacing.md),
-                    verticalArrangement = Arrangement.spacedBy(dimens.spacing.sm)
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = metrics.cozy),
+                    verticalArrangement = Arrangement.spacedBy(metrics.compact)
                 ) {
                     NumericRow(stringResource(Res.string.original_text_size), config.originalTextSize, 10..28) {
                         updateCurrent(config.copy(originalTextSize = it))
@@ -264,18 +266,18 @@ fun LyricsSettingsPage(
                     }
                     Surface(
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp),
+                        shape = RoundedCornerShape(metrics.base),
                         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.1f))
+                        border = BorderStroke(metrics.stroke.thin, MaterialTheme.colorScheme.outline.copy(alpha = 0.1f))
                     ) {
                         Row(
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = metrics.cozy, vertical = metrics.base),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Text(
                                 stringResource(Res.string.karaoke_lyrics),
-                                style = MaterialTheme.typography.bodyLarge,
+                                style = typo.body,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Switch(
@@ -296,21 +298,21 @@ fun LyricsSettingsPage(
                 val linkOptions = listOf(null to stringResource(Res.string.independent_config)) +
                     LyricsComponent.entries.filter { it != selectedTab }.map { it.key to stringResource(Res.string.follow_component, tabLabels[it]!!) }
                 Column(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = dimens.spacing.sm),
-                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = metrics.compact),
+                    verticalArrangement = Arrangement.spacedBy(metrics.hair)
                 ) {
                     linkOptions.forEach { (key, label) ->
                         Surface(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clickable { updateCurrent(config.copy(linkedTo = key)) },
-                            shape = RoundedCornerShape(12.dp),
+                            shape = RoundedCornerShape(metrics.base),
                             color = if (config.linkedTo == key)
                                 MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
                             else Color.Transparent
                         ) {
                             Row(
-                                modifier = Modifier.padding(vertical = 10.dp, horizontal = 4.dp),
+                                modifier = Modifier.padding(vertical = metrics.compact, horizontal = metrics.micro),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 RadioButton(
@@ -320,10 +322,10 @@ fun LyricsSettingsPage(
                                         selectedColor = MaterialTheme.colorScheme.primary
                                     )
                                 )
-                                Spacer(Modifier.width(8.dp))
+                                Spacer(Modifier.width(metrics.compact))
                                 Text(
                                     label,
-                                    style = MaterialTheme.typography.bodyLarge,
+                                    style = typo.body,
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
                             }
@@ -352,7 +354,7 @@ fun LyricsSettingsPage(
                 )
             }
 
-            MiniPlayerSafeSpacer(height = 56.dp)
+            MiniPlayerSafeSpacer(height = metrics.bar)
         }
     }
 }
@@ -364,40 +366,42 @@ private fun NumericRow(
     range: IntRange,
     onChange: (Int) -> Unit
 ) {
+    val metrics = LocalHmpMetrics.current
+    val typo = LocalHmpTypo.current
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(metrics.base),
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.1f))
+        border = BorderStroke(metrics.stroke.thin, MaterialTheme.colorScheme.outline.copy(alpha = 0.1f))
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp, horizontal = 16.dp),
+            modifier = Modifier.fillMaxWidth().padding(vertical = metrics.micro, horizontal = metrics.cozy),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Text(
                 label,
-                style = MaterialTheme.typography.bodyMedium,
+                style = typo.body,
                 color = MaterialTheme.colorScheme.onSurface
             )
             Row(verticalAlignment = Alignment.CenterVertically) {
                 TextButton(
                     onClick = { if (value > range.first) onChange(value - 1) },
-                    modifier = Modifier.size(36.dp)
+                    modifier = Modifier.size(metrics.block)
                 ) {
-                    Text("−", fontSize = 20.sp, color = MaterialTheme.colorScheme.onSurface)
+                    Text("−", fontSize = 20.sp, color = MaterialTheme.colorScheme.onSurface) // design-token-exception: 加减号字形尺寸，属图形符号非文字排版
                 }
                 Text(
                     "$value",
-                    style = MaterialTheme.typography.titleMedium,
+                    style = typo.subtitle,
                     fontWeight = FontWeight.Medium,
-                    modifier = Modifier.padding(horizontal = 8.dp)
+                    modifier = Modifier.padding(horizontal = metrics.compact)
                 )
                 TextButton(
                     onClick = { if (value < range.last) onChange(value + 1) },
-                    modifier = Modifier.size(36.dp)
+                    modifier = Modifier.size(metrics.block)
                 ) {
-                    Text("+", fontSize = 20.sp, color = MaterialTheme.colorScheme.onSurface)
+                    Text("+", fontSize = 20.sp, color = MaterialTheme.colorScheme.onSurface) // design-token-exception: 加减号字形尺寸，属图形符号非文字排版
                 }
             }
         }

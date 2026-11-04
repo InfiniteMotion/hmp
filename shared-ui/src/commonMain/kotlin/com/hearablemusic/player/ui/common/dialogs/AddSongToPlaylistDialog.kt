@@ -26,6 +26,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.hmp.domain.music.MusicInfo
+import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
 import com.hearablemusic.player.ui.common.dialogs.base.ScrimDialog
 import com.hearablemusic.player.ui.library.pages.components.musiclist.EditConfig
 import com.hearablemusic.player.ui.library.pages.components.musiclist.FullItemOptions
@@ -35,6 +36,8 @@ import com.hearablemusic.player.ui.library.pages.components.musiclist.ItemVarian
 import com.hearablemusic.player.ui.library.pages.components.musiclist.MusicList
 import com.hearablemusic.player.ui.library.pages.components.musiclist.MusicListCallbacksAdapter
 import com.hearablemusic.player.ui.library.pages.components.musiclist.defaultMusicListConfig
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
+import com.hearablemusic.player.ui.common.design.metrics.LayoutConstraints
 
 @Composable
 fun AddSongToPlaylistDialog(
@@ -43,38 +46,40 @@ fun AddSongToPlaylistDialog(
     onAdd: (musicId: Long, path: String) -> Unit,
     onDismiss: () -> Unit
 ) {
+    val metrics = LocalHmpMetrics.current
+    val typo = LocalHmpTypo.current
     val toShow = allMusic.filter { it.music.id !in currentInPlaylistIds }
     ScrimDialog(onDismissRequest = onDismiss) {
         Card(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(24.dp),
+            shape = RoundedCornerShape(metrics.section),
             colors = CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f)
             ),
-            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+            elevation = CardDefaults.cardElevation(defaultElevation = metrics.compact)
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(20.dp)
+                    .padding(metrics.cozy)
             ) {
                 Text(
                     text = stringResource(Res.string.add_songs_to_playlist),
-                    style = MaterialTheme.typography.headlineSmall,
+                    style = typo.subtitle,
                     color = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.padding(bottom = 16.dp)
+                    modifier = Modifier.padding(bottom = metrics.cozy)
                 )
 
                 if (toShow.isEmpty()) {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(200.dp),
+                            .height(metrics.card),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
                             text = stringResource(Res.string.no_songs_available),
-                            style = MaterialTheme.typography.bodyMedium,
+                            style = typo.body,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
@@ -99,7 +104,7 @@ fun AddSongToPlaylistDialog(
                     MusicList(
                         musicInfoList = toShow,
                         config = config,
-                        modifier = Modifier.fillMaxWidth().heightIn(max = 400.dp),
+                        modifier = Modifier.fillMaxWidth().heightIn(max = LayoutConstraints.DialogMaxHeight),
                         isPlaying = false,
                     )
                 }
@@ -107,7 +112,7 @@ fun AddSongToPlaylistDialog(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 16.dp),
+                        .padding(top = metrics.cozy),
                     horizontalArrangement = Arrangement.End
                 ) {
                     TextButton(onClick = onDismiss) {

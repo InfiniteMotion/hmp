@@ -39,6 +39,8 @@ import androidx.compose.ui.unit.dp
 import com.hearablemusic.player.ui.common.components.SegmentedControl
 import com.hearablemusic.player.ui.common.components.SegmentedOption
 import com.hearablemusic.player.ui.common.dialogs.base.ScrimDialog
+import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
+import com.hearablemusic.player.ui.common.design.typography.medium
 import com.hearablemusic.player.ui.common.util.HazeRenderSettings
 import com.hearablemusic.player.ui.common.util.LocalHazeRenderSettings
 import com.hearablemusic.player.ui.common.util.ProvideHazeRenderSettings
@@ -48,6 +50,7 @@ import com.hearablemusic.player.ui.common.util.rememberHapticFeedback
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 
 @OptIn(ExperimentalHazeMaterialsApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -57,8 +60,10 @@ fun TimerDialog(
     hazeState: HazeState? = null,
     hazeRenderSettings: HazeRenderSettings? = null
 ) {
+    val metrics = LocalHmpMetrics.current
     val haptic = rememberHapticFeedback()
     val resolvedHazeRenderSettings = hazeRenderSettings ?: LocalHazeRenderSettings.current
+    val typo = LocalHmpTypo.current
     
     // State
     var selectedOption by remember { mutableStateOf("0") }
@@ -74,10 +79,10 @@ fun TimerDialog(
 
     ProvideHazeRenderSettings(settings = resolvedHazeRenderSettings) {
         ScrimDialog(onDismissRequest = onDismiss) {
-            val dialogShape = RoundedCornerShape(28.dp)
+            val dialogShape = RoundedCornerShape(metrics.section)
             Card(
                 modifier = Modifier
-                    .padding(24.dp)
+                    .padding(metrics.section)
                     .clip(dialogShape)
                     .then(
                         if (hazeState != null) {
@@ -99,14 +104,14 @@ fun TimerDialog(
             ) {
                 Column(
                     modifier = Modifier
-                        .padding(24.dp)
+                        .padding(metrics.section)
                         .fillMaxWidth()
                 ) {
                     Text(
                         text = stringResource(Res.string.sleep_timer),
-                        style = MaterialTheme.typography.headlineLarge,
+                        style = typo.title,
                         color = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.padding(bottom = 24.dp)
+                        modifier = Modifier.padding(bottom = metrics.section)
                     )
 
                     // Segmented Control
@@ -123,13 +128,13 @@ fun TimerDialog(
                         }
                     )
 
-                    Spacer(modifier = Modifier.height(24.dp))
+                    Spacer(modifier = Modifier.height(metrics.section))
 
                     // Custom Input
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                        horizontalArrangement = Arrangement.spacedBy(metrics.cozy)
                     ) {
                         OutlinedTextField(
                             value = customMinutesInput,
@@ -146,11 +151,11 @@ fun TimerDialog(
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(12.dp)
+                            shape = RoundedCornerShape(metrics.base)
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(32.dp))
+                    Spacer(modifier = Modifier.height(metrics.block))
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -161,14 +166,14 @@ fun TimerDialog(
                                 haptic.performClick()
                                 onDismiss()
                             },
-                            shape = RoundedCornerShape(12.dp)
+                            shape = RoundedCornerShape(metrics.base)
                         ) {
                             Text(
                                 text = stringResource(Res.string.cancel),
-                                style = MaterialTheme.typography.labelLarge
+                                style = typo.body.medium()
                             )
                         }
-                        Spacer(modifier = Modifier.width(8.dp))
+                        Spacer(modifier = Modifier.width(metrics.compact))
                         TextButton(
                             onClick = {
                                 haptic.performConfirm()
@@ -180,11 +185,11 @@ fun TimerDialog(
                                 }
                                 onConfirm(minutes)
                             },
-                            shape = RoundedCornerShape(12.dp)
+                            shape = RoundedCornerShape(metrics.base)
                         ) {
                             Text(
                                 text = stringResource(Res.string.ok),
-                                style = MaterialTheme.typography.labelLarge
+                                style = typo.body.medium()
                             )
                         }
                     }

@@ -61,6 +61,8 @@ import androidx.compose.ui.unit.dp
 import com.hmp.domain.agent.runtime.MasterAgent
 import com.hmp.domain.agent.runtime.sub.radio.RadioState
 import com.hmp.domain.agent.runtime.sub.shared.RadioTrack
+import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
+import com.hearablemusic.player.ui.common.design.typography.medium
 import com.hearablemusic.player.ui.common.dialogs.base.ScrimDialog
 import com.hearablemusic.player.ui.common.util.HazeRenderSettings
 import com.hearablemusic.player.ui.common.util.LocalHazeRenderSettings
@@ -79,6 +81,9 @@ import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import org.jetbrains.compose.resources.painterResource
 import org.koin.compose.koinInject
 import kotlin.math.roundToInt
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
+import com.hearablemusic.player.ui.common.design.metrics.LayoutConstraints
+import com.hearablemusic.player.ui.common.design.animation.HmpMotion
 
 /**
  * 节目单在控制台里**只列前 N 首**。
@@ -130,9 +135,11 @@ fun RadioConsole(
     hazeRenderSettings: HazeRenderSettings? = null,
     masterAgent: MasterAgent = koinInject(),
 ) {
+    val metrics = LocalHmpMetrics.current
     if (!visible) return
 
     val haptic = rememberPlatformHaptics()
+    val typo = LocalHmpTypo.current
     val radioState by masterAgent.radioState.collectAsState()
     val card by masterAgent.radioCardState.collectAsState()
     val playlist by masterAgent.radioPlaylist.collectAsState()
@@ -156,12 +163,12 @@ fun RadioConsole(
             // 大小自适应：**不固定尺寸**。宽度沿用项目弹窗惯例（24dp 边距内铺满）；
             // 高度随内容伸缩，封顶到"可用高度"之后由内部列表滚动（封顶值取自实测可用空间，不是写死数）。
             BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-                val maxPanelHeight = (maxHeight - 48.dp).coerceAtLeast(240.dp)
-                val dialogShape = RoundedCornerShape(28.dp)
+                val maxPanelHeight = (maxHeight - metrics.bar).coerceAtLeast(LayoutConstraints.DialogMaxWidth)
+                val dialogShape = RoundedCornerShape(metrics.section)
                 Card(
                     modifier = modifier
                         .align(Alignment.Center)
-                        .padding(24.dp)
+                        .padding(metrics.section)
                         .fillMaxWidth()
                         .heightIn(max = maxPanelHeight)
                         .clip(dialogShape)
@@ -195,38 +202,38 @@ fun RadioConsole(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 24.dp)
-                            .padding(top = 24.dp, bottom = 16.dp),
+                            .padding(horizontal = metrics.section)
+                            .padding(top = metrics.section, bottom = metrics.cozy),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Icon(
                             painter = painterResource(Res.drawable.radiowaves),
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(18.dp),
+                            modifier = Modifier.size(metrics.cozy),
                         )
-                        Spacer(modifier = Modifier.width(12.dp))
+                        Spacer(modifier = Modifier.width(metrics.base))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 text = card.theme?.takeIf { it.isNotBlank() } ?: stringResource(Res.string.agent_radio_auto_theme),
-                                style = MaterialTheme.typography.headlineMedium,
+                                style = typo.headline,
                                 color = MaterialTheme.colorScheme.onBackground,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                             )
                             Text(
                                 text = stringResource(Res.string.agent_radio_status_line, stateText, card.upcomingCount),
-                                style = MaterialTheme.typography.labelSmall,
+                                style = typo.caption,
                                 color = MaterialTheme.colorScheme.onBackground,
                             )
                         }
                         // 唯一刻意保留的偏离：满屏面板下，24dp 外缝太薄，单靠点外关闭不好按
                         Text(
                             text = stringResource(Res.string.agent_radio_collapse),
-                            style = MaterialTheme.typography.labelMedium,
+                            style = typo.footnote.medium(),
                             color = MaterialTheme.colorScheme.primary,
                             modifier = Modifier
-                                .clip(RoundedCornerShape(5.dp))
+                                .clip(RoundedCornerShape(metrics.micro))
                                 .clickable(
                                     interactionSource = remember { MutableInteractionSource() },
                                     indication = null,
@@ -234,7 +241,7 @@ fun RadioConsole(
                                     haptic.perform(HapticEffect.TICK)
                                     onDismiss()
                                 }
-                                .padding(horizontal = 8.dp, vertical = 6.dp),
+                                .padding(horizontal = metrics.compact, vertical = metrics.micro),
                         )
                     }
 
@@ -245,18 +252,18 @@ fun RadioConsole(
                             .weight(1f, fill = false)
                             .fillMaxWidth()
                             .verticalScroll(rememberScrollState())
-                            .padding(horizontal = 24.dp),
+                            .padding(horizontal = metrics.section),
                     ) {
                         // ② 在播（ANCHOR）
                         now?.let { track ->
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 if (nowCoverUri != null) {
-                                    AlbumCover(uri = nowCoverUri, size = 48.dp, corner = 12.dp, shadow = 6.dp)
+                                    AlbumCover(uri = nowCoverUri, size = metrics.bar, corner = metrics.base, shadow = metrics.micro)
                                 } else {
                                     Box(
                                         modifier = Modifier
-                                            .size(48.dp)
-                                            .clip(RoundedCornerShape(12.dp))
+                                            .size(metrics.bar)
+                                            .clip(RoundedCornerShape(metrics.base))
                                             .background(MaterialTheme.colorScheme.surfaceVariant),
                                         contentAlignment = Alignment.Center,
                                     ) {
@@ -264,15 +271,15 @@ fun RadioConsole(
                                             painter = painterResource(Res.drawable.radiowaves),
                                             contentDescription = null,
                                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            modifier = Modifier.size(18.dp),
+                                            modifier = Modifier.size(metrics.cozy),
                                         )
                                     }
                                 }
-                                Spacer(modifier = Modifier.width(16.dp))
+                                Spacer(modifier = Modifier.width(metrics.cozy))
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(
                                         text = track.title,
-                                        style = MaterialTheme.typography.titleMedium,
+                                        style = typo.subtitle,
                                         color = MaterialTheme.colorScheme.onBackground,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis,
@@ -280,7 +287,7 @@ fun RadioConsole(
                                     if (track.artist.isNotBlank()) {
                                         Text(
                                             text = track.artist,
-                                            style = MaterialTheme.typography.labelSmall,
+                                            style = typo.caption,
                                             color = MaterialTheme.colorScheme.onBackground,
                                             maxLines = 1,
                                             overflow = TextOverflow.Ellipsis,
@@ -289,7 +296,7 @@ fun RadioConsole(
                                     if (track.why.isNotBlank()) {
                                         Text(
                                             text = track.why,
-                                            style = MaterialTheme.typography.labelSmall,
+                                            style = typo.caption,
                                             color = MaterialTheme.colorScheme.primary,
                                             maxLines = 2,
                                             overflow = TextOverflow.Ellipsis,
@@ -299,7 +306,7 @@ fun RadioConsole(
                             }
                         }
 
-                        Spacer(modifier = Modifier.height(16.dp))
+                        Spacer(modifier = Modifier.height(metrics.cozy))
 
                         // ③ 节目单（主角：主播为这段收听排的东西；只列前 5 首，点任一可跳到那首）
                         Text(
@@ -309,32 +316,32 @@ fun RadioConsole(
                                     stringResource(Res.string.agent_radio_upcoming_preview, upcoming.size, UPCOMING_PREVIEW)
                                 else -> stringResource(Res.string.agent_radio_upcoming_full, upcoming.size)
                             },
-                            style = MaterialTheme.typography.labelMedium,
+                            style = typo.footnote.medium(),
                             color = MaterialTheme.colorScheme.onBackground,
                         )
-                        Spacer(modifier = Modifier.height(4.dp))
+                        Spacer(modifier = Modifier.height(metrics.micro))
                         preview.forEachIndexed { index, track ->
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .clip(RoundedCornerShape(8.dp))
+                                    .clip(RoundedCornerShape(metrics.compact))
                                     .clickable(
                                         interactionSource = remember { MutableInteractionSource() },
                                         indication = null,
                                     ) { onPlayTrack(track.musicId) }
-                                    .padding(vertical = 6.dp),
+                                    .padding(vertical = metrics.micro),
                                 horizontalArrangement = Arrangement.Start,
                             ) {
                                 Text(
                                     text = "${index + 1}",
-                                    style = MaterialTheme.typography.labelSmall,
+                                    style = typo.caption,
                                     color = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.width(18.dp),
+                                    modifier = Modifier.width(metrics.cozy),
                                 )
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(
                                         text = track.title,
-                                        style = MaterialTheme.typography.titleMedium,
+                                        style = typo.subtitle,
                                         color = MaterialTheme.colorScheme.onBackground,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis,
@@ -342,7 +349,7 @@ fun RadioConsole(
                                     if (track.why.isNotBlank()) {
                                         Text(
                                             text = track.why,
-                                            style = MaterialTheme.typography.labelSmall,
+                                            style = typo.caption,
                                             color = MaterialTheme.colorScheme.onBackground,
                                             maxLines = 2,
                                             overflow = TextOverflow.Ellipsis,
@@ -354,21 +361,21 @@ fun RadioConsole(
 
                         // ④ 主播思路（最近一轮）
                         card.lastAdjust?.takeIf { it.isNotBlank() }?.let { intent ->
-                            Spacer(modifier = Modifier.height(16.dp))
+                            Spacer(modifier = Modifier.height(metrics.cozy))
                             Text(
                                 text = stringResource(Res.string.agent_radio_anchor_thought),
-                                style = MaterialTheme.typography.labelMedium,
+                                style = typo.footnote.medium(),
                                 color = MaterialTheme.colorScheme.onBackground,
                             )
-                            Spacer(modifier = Modifier.height(4.dp))
+                            Spacer(modifier = Modifier.height(metrics.micro))
                             Text(
                                 text = intent,
-                                style = MaterialTheme.typography.labelSmall,
+                                style = typo.caption,
                                 color = MaterialTheme.colorScheme.onBackground,
                             )
                         }
 
-                        Spacer(modifier = Modifier.height(20.dp))
+                        Spacer(modifier = Modifier.height(metrics.cozy))
                     }
 
                     // ⑤ 吸底：结束这一档（滑动收档）
@@ -403,13 +410,15 @@ private fun EndSessionSlider(
     onDragStart: () -> Unit,
     onEnd: () -> Unit,
 ) {
+    val metrics = LocalHmpMetrics.current
+    val typo = LocalHmpTypo.current
     var dragOffset by remember { mutableFloatStateOf(0f) }
     var trackWidth by remember { mutableIntStateOf(0) }
     val animatedOffset by animateFloatAsState(
         dragOffset,
-        animationSpec = spring(dampingRatio = 0.6f, stiffness = 600f),
+        animationSpec = HmpMotion.crispSpring(),
     )
-    val knobSize = 48.dp
+    val knobSize = metrics.bar
     val maxTravel = (trackWidth - 48).coerceAtLeast(1).toFloat()
     val fireThreshold = maxTravel * 0.92f
     val dangerColor = MaterialTheme.colorScheme.error
@@ -417,14 +426,14 @@ private fun EndSessionSlider(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 24.dp)
-            .padding(bottom = 24.dp),
+            .padding(horizontal = metrics.section)
+            .padding(bottom = metrics.section),
     ) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(knobSize)
-                .clip(RoundedCornerShape(24.dp))
+                .clip(RoundedCornerShape(metrics.section))
                 .background(dangerColor.copy(alpha = 0.08f))
                 .onSizeChanged { trackWidth = it.width }
                 .then(
@@ -446,7 +455,7 @@ private fun EndSessionSlider(
         ) {
             Text(
                 text = stringResource(Res.string.agent_radio_swipe_end),
-                style = MaterialTheme.typography.labelMedium,
+                style = typo.footnote.medium(),
                 color = dangerColor.copy(alpha = 0.75f),
             )
             Box(
@@ -460,15 +469,15 @@ private fun EndSessionSlider(
             ) {
                 Text(
                     text = "→",
-                    style = MaterialTheme.typography.titleMedium,
+                    style = typo.subtitle,
                     color = Color.White,
                 )
             }
         }
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(metrics.compact))
         Text(
             text = stringResource(Res.string.agent_radio_end_hint),
-            style = MaterialTheme.typography.labelSmall,
+            style = typo.caption,
             color = MaterialTheme.colorScheme.onBackground,
         )
     }

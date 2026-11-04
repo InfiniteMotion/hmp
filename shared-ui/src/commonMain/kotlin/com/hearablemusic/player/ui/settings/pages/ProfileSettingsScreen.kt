@@ -41,7 +41,7 @@ import com.hearablemusic.player.ui.common.components.Avatar
 import com.hearablemusic.player.ui.common.components.base.TitleWidget
 import com.hearablemusic.player.ui.common.dialogs.controller.DialogManager
 import com.hearablemusic.player.ui.common.dialogs.viewmodel.DialogManagerViewModel
-import com.hearablemusic.player.ui.common.design.dimens.LocalHMPDimens
+import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
 import com.hearablemusic.player.ui.common.layout.LocalWindowSizeInfo
 import com.hearablemusic.player.ui.common.pages.base.SubScreen
 import com.hearablemusic.player.ui.common.util.activityViewModel
@@ -64,6 +64,8 @@ import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.getString
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
+import com.hearablemusic.player.ui.common.design.metrics.LayoutConstraints
 
 @Composable
 fun ProfileSettingsScreen(
@@ -71,6 +73,7 @@ fun ProfileSettingsScreen(
     settingsViewModel: SettingsViewModel = activityViewModel(),
     dialogManagerViewModel: DialogManagerViewModel = activityViewModel()
 ) {
+    val metrics = LocalHmpMetrics.current
     val dialogManager = dialogManagerViewModel.dialogManager
     val avatarUri by settingsViewModel.avatarUri.collectAsState("")
     val userName by settingsViewModel.userName.collectAsState("")
@@ -80,18 +83,17 @@ fun ProfileSettingsScreen(
         title = stringResource(Res.string.profile_settings)
     ) {
         val isLandscape = LocalWindowSizeInfo.current.isLandscape
-        val dimens = LocalHMPDimens.current
         Column(
             modifier = Modifier
                 .verticalScroll(rememberScrollState())
                 .fillMaxWidth()
-                .padding(dimens.spacing.lg),
-            verticalArrangement = Arrangement.spacedBy(dimens.spacing.lg)
+                .padding(metrics.section),
+            verticalArrangement = Arrangement.spacedBy(metrics.section)
         ) {
             if (isLandscape) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(dimens.spacing.lg)
+                    horizontalArrangement = Arrangement.spacedBy(metrics.section)
                 ) {
                     Box(Modifier.weight(1f)) {
                         UpdateAvatar(
@@ -118,7 +120,7 @@ fun ProfileSettingsScreen(
                     updateUserName = settingsViewModel::saveUserName
                 )
             }
-            MiniPlayerSafeSpacer(height = 56.dp)
+            MiniPlayerSafeSpacer(height = metrics.bar)
         }
     }
 }
@@ -129,7 +131,7 @@ private fun UpdateAvatar(
     updateAvatar: (String) -> Unit,
     dialogManager: DialogManager
 ){
-    val dimens = LocalHMPDimens.current
+    val metrics = LocalHmpMetrics.current
     val scope = rememberCoroutineScope()
     val platformServices: PlatformServices = koinInject()
     TitleWidget(
@@ -138,7 +140,7 @@ private fun UpdateAvatar(
         Column (
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(dimens.spacing.md),
+                .padding(metrics.cozy),
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
@@ -148,24 +150,24 @@ private fun UpdateAvatar(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Spacer(modifier = Modifier.height(dimens.spacing.md))
+                Spacer(modifier = Modifier.height(metrics.cozy))
                 // 如果 uriImg 有值（用户刚选了新图），优先显示预览
                 // 否则显示当前的 avatarUri
                 val displayUri = if (uriImg.value.isNotEmpty()) uriImg.value else avatarUri
-                Avatar(dimens.component.md.value.toInt(), displayUri)
-                Spacer(modifier = Modifier.height(dimens.spacing.md))
+                Avatar(metrics.card.value.toInt(), displayUri)
+                Spacer(modifier = Modifier.height(metrics.cozy))
             }
 
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(dimens.spacing.md),
+                    .padding(metrics.cozy),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
                 if (uriImg.value == "") {
                     Button(
-                        modifier = Modifier.width(300.dp),
+                        modifier = Modifier.width(LayoutConstraints.PanelHeight),
                         onClick = {
                             // 打开图片选择器（复制到 filesDir/user_avatar.jpg 由平台实现完成）
                             platformServices.filePicker.pickImage { path ->
@@ -180,10 +182,10 @@ private fun UpdateAvatar(
                         model = uriImg.value,
                         contentDescription = stringResource(Res.string.user_avatar_desc),
                         modifier = Modifier
-                            .size(dimens.component.xs)
-                            .clip(RoundedCornerShape(dimens.corner.sm))
+                            .size(metrics.bar)
+                            .clip(RoundedCornerShape(metrics.base))
                     )
-                    Spacer(modifier = Modifier.width(dimens.spacing.xl))
+                    Spacer(modifier = Modifier.width(metrics.block))
                     Button(
                         onClick = {
                             updateAvatar(uriImg.value)
@@ -211,23 +213,23 @@ private fun UpdateUserName(
     userName: String?,
     updateUserName: (String) -> Unit,
 ){
-    val dimens = LocalHMPDimens.current
+    val metrics = LocalHmpMetrics.current
+    val typo = LocalHmpTypo.current
     TitleWidget(
         title = stringResource(Res.string.user_name),
     ) {
         Column (
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(dimens.spacing.md),
+                .padding(metrics.cozy),
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             var name by rememberSaveable { mutableStateOf("") }
             Text(
                 text = userName?:stringResource(Res.string.user_name),
-                style = MaterialTheme.typography.displayLarge,
-                fontSize = dimens.type.xl,
-                modifier = Modifier.padding(dimens.spacing.md),
+                style = typo.displayL,
+                modifier = Modifier.padding(metrics.cozy),
                 color = MaterialTheme.colorScheme.onBackground
             )
             Row(
@@ -249,16 +251,16 @@ private fun UpdateUserName(
                         unfocusedIndicatorColor = Transparent, // 未聚焦时下划线颜色
                         disabledIndicatorColor = Transparent // 禁用时下划线颜色
                     ),
-                    shape = RoundedCornerShape(dimens.corner.lg),
-                    modifier = Modifier.width(300.dp)
-                        .padding(vertical = dimens.spacing.md)
+                    shape = RoundedCornerShape(metrics.section),
+                    modifier = Modifier.width(LayoutConstraints.PanelHeight)
+                        .padding(vertical = metrics.cozy)
                 )
             }
 
-            Spacer(modifier = Modifier.height(dimens.spacing.md))
+            Spacer(modifier = Modifier.height(metrics.cozy))
 
             Button(
-                modifier = Modifier.width(200.dp),
+                modifier = Modifier.width(metrics.card),
                 onClick = {
                     updateUserName(name)
                 }

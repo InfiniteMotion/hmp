@@ -42,6 +42,7 @@ import com.hearablemusic.player.ui.settings.viewmodel.LyricsSettingsViewModel
 import com.hearablemusic.player.ui.common.viewmodel.ThemeViewModel
 import com.hmp.domain.music.MusicInfo
 import dev.chrisbanes.haze.rememberHazeState
+import com.hearablemusic.player.ui.common.design.metrics.LayoutConstraints
 
 // 播放器主界面
 @Composable
@@ -55,7 +56,7 @@ fun PlayerScreen(
     navController: NavBackStack<NavKey>
 ) {
     val density = LocalDensity.current
-    val dismissThreshold = with(density) { 220.dp.toPx() }
+    val dismissThreshold = with(density) { LayoutConstraints.PanelHeightLarge.toPx() }
     val offsetY = remember { Animatable(0f) }
     val scope = rememberCoroutineScope()
     val haptic = rememberHapticFeedback()
@@ -193,4 +194,3 @@ fun PlayerScreen(
         )
     }
 }
-

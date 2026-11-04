@@ -1,4 +1,5 @@
 package com.hearablemusic.player.ui.agent.cards
+import com.hearablemusic.player.ui.common.design.colors.HelloCardPalette
 import com.hearablemusic.player.ui.generated.resources.card_discover_footnote
 import com.hearablemusic.player.ui.generated.resources.card_discover_title
 import com.hearablemusic.player.ui.generated.resources.card_unknown_artist
@@ -32,11 +33,11 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
+import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
+import com.hearablemusic.player.ui.common.design.typography.medium
 import com.hearablemusic.player.ui.generated.resources.Res
 import com.hearablemusic.player.ui.generated.resources.unknown
 import com.hmp.domain.agent.card.DiscoverContent
@@ -44,6 +45,7 @@ import com.hmp.domain.agent.card.SlideCard
 import com.hmp.domain.music.MusicRepository
 import org.jetbrains.compose.resources.painterResource
 import org.koin.compose.koinInject
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 
 
 
@@ -58,8 +60,10 @@ internal fun FamilyDiscoverCard(
     onCardClick: ((SlideCard) -> Unit)? = null,
     onLongClick: ((SlideCard) -> Unit)? = null,
 ) {
+    val metrics = LocalHmpMetrics.current
     val c = card.content as DiscoverContent
-    val clickMod = modifier.clip(RoundedCornerShape(25.dp)).let { m ->
+    val typo = LocalHmpTypo.current
+    val clickMod = modifier.clip(RoundedCornerShape(metrics.section)).let { m ->
         when {
             onLongClick != null -> m.pointerInput(card.cardId) {
                 detectTapGestures(
@@ -89,7 +93,7 @@ internal fun FamilyDiscoverCard(
 
     Card(
         modifier = clickMod,
-        shape = RoundedCornerShape(25.dp),
+        shape = RoundedCornerShape(metrics.section),
         colors = CardDefaults.cardColors(containerColor = Color.Transparent),
     ) {
         Box(
@@ -97,10 +101,10 @@ internal fun FamilyDiscoverCard(
                 .fillMaxSize()
                 .background(
                     brush = Brush.linearGradient(
-                        colors = listOf(Color(0xFF00ACC1).copy(alpha = 0.95f), Color(0xFF006064).copy(alpha = 0.90f))
+                        colors = listOf(HelloCardPalette.Discover.Start.copy(alpha = 0.95f), HelloCardPalette.Discover.End.copy(alpha = 0.90f))
                     )
                 )
-                .padding(20.dp)
+                .padding(metrics.cozy)
         ) {
             Column(
                 modifier = Modifier.fillMaxSize(),
@@ -109,19 +113,18 @@ internal fun FamilyDiscoverCard(
                 // ① 主题标签
                 Text(
                     text = stringResource(Res.string.card_discover_title, c.target),
+                    style = typo.subtitle,
                     color = Color.White,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.SemiBold,
                 )
 
                 // ② 推荐理由
                 Text(
                     text = c.reason,
+                    style = typo.footnote,
                     color = Color.White.copy(alpha = 0.72f),
-                    fontSize = 12.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(top = 2.dp, bottom = 8.dp),
+                    modifier = Modifier.padding(top = metrics.hair, bottom = metrics.compact),
                 )
 
                 // ③ 曲目预览列表（最多 3 首，紧凑布局）
@@ -133,14 +136,14 @@ internal fun FamilyDiscoverCard(
 
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        modifier = Modifier.fillMaxWidth().padding(vertical = metrics.hair),
+                        horizontalArrangement = Arrangement.spacedBy(metrics.compact),
                     ) {
                         // 封面（48×48dp，圆角 10dp）
                         Box(
                             modifier = Modifier
-                                .size(48.dp)
-                                .clip(RoundedCornerShape(10.dp))
+                                .size(metrics.bar)
+                                .clip(RoundedCornerShape(metrics.compact))
                                 .background(Color.White.copy(alpha = 0.14f)),
                             contentAlignment = Alignment.Center,
                         ) {
@@ -165,16 +168,15 @@ internal fun FamilyDiscoverCard(
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 text = title.ifBlank { stringResource(Res.string.card_unknown_track) },
+                                style = typo.body.medium(),
                                 color = Color.White,
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Medium,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                             )
                             Text(
                                 text = artist.ifBlank { stringResource(Res.string.card_unknown_artist) },
+                                style = typo.caption,
                                 color = Color.White.copy(alpha = 0.55f),
-                                fontSize = 11.sp,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                             )
@@ -183,8 +185,8 @@ internal fun FamilyDiscoverCard(
                         // 时长
                         Text(
                             text = if (dur > 0) formatDurationSec(dur) else "",
+                            style = typo.caption,
                             color = Color.White.copy(alpha = 0.5f),
-                            fontSize = 11.sp,
                         )
                     }
                 }
@@ -192,9 +194,9 @@ internal fun FamilyDiscoverCard(
                 // ④ 底部总量
                 Text(
                     text = stringResource(Res.string.card_discover_footnote, c.trackIds.size),
+                    style = typo.footnote,
                     color = Color.White.copy(alpha = 0.5f),
-                    fontSize = 12.sp,
-                    modifier = Modifier.padding(top = 8.dp),
+                    modifier = Modifier.padding(top = metrics.compact),
                 )
             }
         }

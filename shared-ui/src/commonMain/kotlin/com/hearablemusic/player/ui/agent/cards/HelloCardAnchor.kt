@@ -1,4 +1,5 @@
 package com.hearablemusic.player.ui.agent.cards
+import com.hearablemusic.player.ui.common.design.colors.HelloCardPalette
 import com.hearablemusic.player.ui.generated.resources.card_anchor_not_playing
 import com.hearablemusic.player.ui.generated.resources.card_unknown
 import org.jetbrains.compose.resources.stringResource
@@ -34,8 +35,8 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
+import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
 import com.hearablemusic.player.ui.generated.resources.Res
 import com.hearablemusic.player.ui.generated.resources.none
 import com.hearablemusic.player.ui.platform.PlaybackController
@@ -53,6 +54,7 @@ import org.koin.compose.koinInject
 
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 // ═══════════════════════════════════════════════════════════════════
 // ANCHOR / RADIO_STATUS 独立构建函数（UI 层直接调用，不走 agent）
 // ═══════════════════════════════════════════════════════════════════
@@ -108,14 +110,16 @@ internal fun FamilyAnchorCard(
     onLongClick: ((SlideCard) -> Unit)? = null,
     isCurrentPage: Boolean = true,
 ) {
+    val metrics = LocalHmpMetrics.current
     val c = card.content as AnchorContent
+    val typo = LocalHmpTypo.current
 
     // 取封面主色做背景渐变（切歌时平滑过渡）
     val themeVM: com.hearablemusic.player.ui.common.viewmodel.ThemeViewModel =
         org.koin.compose.viewmodel.koinViewModel()
     val palette by themeVM.paletteColors.collectAsState()
-    val defaultPrimary = Color(0xFF3D5AFE)
-    val defaultBg = Color(0xFF1A237E)
+    val defaultPrimary = HelloCardPalette.CoverFallback.Primary
+    val defaultBg = HelloCardPalette.CoverFallback.Background
     val primaryAnimated by androidx.compose.animation.animateColorAsState(
         targetValue = if (palette.background != defaultBg) palette.primary else defaultPrimary,
         label = "anchor-primary",
@@ -139,7 +143,7 @@ internal fun FamilyAnchorCard(
         }
     }
 
-    val clickMod = modifier.clip(RoundedCornerShape(25.dp)).let { m ->
+    val clickMod = modifier.clip(RoundedCornerShape(metrics.section)).let { m ->
         when {
             onLongClick != null -> m.pointerInput(card.cardId) {
                 detectTapGestures(
@@ -154,7 +158,7 @@ internal fun FamilyAnchorCard(
 
     Card(
         modifier = clickMod,
-        shape = RoundedCornerShape(25.dp),
+        shape = RoundedCornerShape(metrics.section),
         colors = CardDefaults.cardColors(containerColor = Color.Transparent),
     ) {
         Box(
@@ -168,7 +172,7 @@ internal fun FamilyAnchorCard(
                         )
                     )
                 )
-                .padding(16.dp)
+                .padding(metrics.cozy)
         ) {
             Row(
                 modifier = Modifier.fillMaxSize(),
@@ -182,55 +186,54 @@ internal fun FamilyAnchorCard(
                             model = c.albumArtUri,
                             contentDescription = null,
                             contentScale = ContentScale.Crop,
-                            modifier = Modifier.clip(RoundedCornerShape(25.dp))
+                            modifier = Modifier.clip(RoundedCornerShape(metrics.section))
                         )
 
                         else -> Image(
                             painter = painterResource(Res.drawable.none),
                             contentDescription = null,
                             contentScale = ContentScale.Crop,
-                            modifier = Modifier.clip(RoundedCornerShape(25.dp))
+                            modifier = Modifier.clip(RoundedCornerShape(metrics.section))
                         )
                     }
                 }
 
                 // 右侧：歌名 + 艺术家 + 当前歌词 + 元数据
                 Column(
-                    modifier = Modifier.weight(1f).padding(8.dp)
+                    modifier = Modifier.weight(1f).padding(metrics.compact)
                 ) {
                     Text(
                         text = c.trackTitle ?: stringResource(Res.string.card_anchor_not_playing),
+                        style = typo.footnote.copy(fontWeight = FontWeight.Bold),
                         color = Color.White,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
                     )
-                    Spacer(Modifier.height(4.dp))
+                    Spacer(Modifier.height(metrics.micro))
                     Text(
                         text = c.artistName ?: stringResource(Res.string.card_unknown),
+                        style = typo.caption,
                         color = Color.White.copy(alpha = 0.75f),
-                        fontSize = 11.sp,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
                     )
                     // 当前行歌词（有歌词才显示）
                     currentLyric?.let { lyric ->
-                        Spacer(Modifier.height(8.dp))
+                        Spacer(Modifier.height(metrics.compact))
                         Text(
                             text = lyric,
+                            style = typo.micro,
                             color = Color.White.copy(alpha = 0.65f),
-                            fontSize = 10.sp,
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis,
                         )
                     }
-                    Spacer(Modifier.height(16.dp))
+                    Spacer(Modifier.height(metrics.cozy))
                     if (c.durationSec > 0) {
                         Column {
                             LinearProgressIndicator(
                                 progress = { c.progressPercent / 100f },
-                                modifier = Modifier.fillMaxWidth().height(3.dp),
+                                modifier = Modifier.fillMaxWidth().height(metrics.hair),
                                 color = Color.White.copy(alpha = 0.8f),
                                 trackColor = Color.White.copy(alpha = 0.15f),
                             )
@@ -240,13 +243,13 @@ internal fun FamilyAnchorCard(
                             ) {
                                 Text(
                                     text = formatDurationSec((c.progressPercent * c.durationSec / 100f).toInt()),
+                                    style = typo.micro,
                                     color = Color.White.copy(alpha = 0.45f),
-                                    fontSize = 8.sp,
                                 )
                                 Text(
                                     text = formatDurationSec(c.durationSec),
+                                    style = typo.micro,
                                     color = Color.White.copy(alpha = 0.45f),
-                                    fontSize = 8.sp,
                                 )
                             }
                         }

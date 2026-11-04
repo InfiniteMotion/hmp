@@ -30,6 +30,7 @@ import com.hearablemusic.player.ui.generated.resources.scan_complete_desc
 import com.hearablemusic.player.ui.generated.resources.scan_music_title
 import com.hearablemusic.player.ui.generated.resources.scanning_desc
 import com.hearablemusic.player.ui.common.dialogs.base.ScrimDialog
+import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
 import com.hearablemusic.player.ui.common.util.HazeRenderSettings
 import com.hearablemusic.player.ui.common.util.LocalHazeRenderSettings
 import com.hearablemusic.player.ui.common.util.ProvideHazeRenderSettings
@@ -39,6 +40,7 @@ import com.hearablemusic.player.ui.library.viewmodel.LibraryViewModel
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 
 @OptIn(ExperimentalHazeMaterialsApi::class)
 @Composable
@@ -48,19 +50,21 @@ fun MusicScanDialog(
     hazeState: HazeState? = null,
     hazeRenderSettings: HazeRenderSettings? = null
 ) {
+    val metrics = LocalHmpMetrics.current
     val isLoading by libraryViewModel.isScanning.collectAsState(initial = false)
     val musicCount by libraryViewModel.musicCount.collectAsState(initial = 0)
     val resolvedHazeRenderSettings = hazeRenderSettings ?: LocalHazeRenderSettings.current
+    val typo = LocalHmpTypo.current
 
     ProvideHazeRenderSettings(settings = resolvedHazeRenderSettings) {
         ScrimDialog(
             onDismissRequest = onDismiss,
             enableScrimDismiss = !isLoading,
         ) {
-            val dialogShape = RoundedCornerShape(28.dp)
+            val dialogShape = RoundedCornerShape(metrics.section)
             Card(
                 modifier = Modifier
-                    .padding(24.dp)
+                    .padding(metrics.section)
                     .clip(dialogShape)
                     .then(
                         if (hazeState != null) {
@@ -82,15 +86,15 @@ fun MusicScanDialog(
             ) {
                 Column(
                     modifier = Modifier
-                        .padding(24.dp)
+                        .padding(metrics.section)
                         .fillMaxWidth()
                 ) {
                     Text(
                         text = stringResource(Res.string.scan_music_title),
-                        style = MaterialTheme.typography.headlineSmall.copy(
+                        style = typo.subtitle.copy(
                             fontWeight = FontWeight.Bold
                         ),
-                        modifier = Modifier.padding(bottom = 16.dp)
+                        modifier = Modifier.padding(bottom = metrics.cozy)
                     )
 
                     if (isLoading) {
@@ -100,14 +104,14 @@ fun MusicScanDialog(
                         ) {
                             Text(
                                 text = stringResource(Res.string.scanning_desc),
-                                style = MaterialTheme.typography.bodyMedium
+                                style = typo.body
                             )
-                            Spacer(modifier = Modifier.height(24.dp))
+                            Spacer(modifier = Modifier.height(metrics.section))
                             CircularProgressIndicator(
-                                modifier = Modifier.size(48.dp),
+                                modifier = Modifier.size(metrics.bar),
                                 color = MaterialTheme.colorScheme.primary
                             )
-                            Spacer(modifier = Modifier.height(24.dp))
+                            Spacer(modifier = Modifier.height(metrics.section))
                         }
                     } else {
                         Column(
@@ -116,9 +120,9 @@ fun MusicScanDialog(
                         ) {
                             Text(
                                 text = stringResource(Res.string.scan_complete_desc, musicCount),
-                                style = MaterialTheme.typography.bodyMedium
+                                style = typo.body
                             )
-                            Spacer(modifier = Modifier.height(24.dp))
+                            Spacer(modifier = Modifier.height(metrics.section))
                         }
                     }
 
@@ -129,7 +133,7 @@ fun MusicScanDialog(
                         ) {
                             TextButton(
                                 onClick = onDismiss,
-                                shape = RoundedCornerShape(12.dp)
+                                shape = RoundedCornerShape(metrics.base)
                             ) {
                                 Text(stringResource(Res.string.ok))
                             }

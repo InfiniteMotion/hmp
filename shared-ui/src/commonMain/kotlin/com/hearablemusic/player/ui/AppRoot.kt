@@ -61,13 +61,14 @@ import com.hearablemusic.player.ui.agent.shell.AgentNotice
 import com.hearablemusic.player.ui.agent.shell.RadioConsole
 import com.hearablemusic.player.ui.agent.shell.RadioConsoleController
 import com.hearablemusic.player.ui.common.components.TabPageIndicator
-import com.hearablemusic.player.ui.common.design.animation.AnimationTokens
 import com.hmp.data.database.AppDatabaseGuard
 import com.hearablemusic.player.ui.common.pages.DatabaseTooNewScreen
-import com.hearablemusic.player.ui.common.design.dimens.LocalHMPDimens
-import com.hearablemusic.player.ui.common.design.dimens.rememberHMPDimens
+import com.hearablemusic.player.ui.common.design.metrics.HMPMetricTokens
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 import com.hearablemusic.player.ui.common.design.theme.ThemeExtensionManager
-import com.hearablemusic.player.ui.common.design.typography.TypographyTokens
+import com.hearablemusic.player.ui.common.design.typography.HMPTypoTokens
+import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
+import com.hearablemusic.player.ui.common.design.typography.m3ComponentTypography
 import com.hearablemusic.player.ui.common.dialogs.CreatePlaylistDialog
 import com.hearablemusic.player.ui.common.dialogs.MusicDetailDialog
 import com.hearablemusic.player.ui.common.dialogs.MusicPickerDialog
@@ -116,6 +117,8 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
+import com.hearablemusic.player.ui.common.design.metrics.LayoutConstraints
+import com.hearablemusic.player.ui.common.design.animation.HmpMotion
 
 /**
  * 新 UI 共享层应用壳。
@@ -318,22 +321,23 @@ fun AppRoot(darkTheme: Boolean) {
 
     val windowSizeInfo = rememberAppWindowSizeInfo()
 
-    // 应用主题(根据播放状态切换)；typography 必须显式传自定义字体配置
-    // （HarmonyOS Sans 家族 + 自定义字重字号），缺省会回退 M3 默认字体
+    // 应用主题(根据播放状态切换)：typography = 字阶 9 角色（TypeScale，随窗口档缩放）的
+    // internal 投影，仅喂 M3 组件内部文字（Button/TextField/Dialog 等）；业务排版走 LocalHmpTypo。
+    // 投影零字重覆盖（槽位字重全随角色默认），见 hmp-design.md §3.2 / taskbook D8-03 阶段 2。
+    val typo = HMPTypoTokens.rememberHmpTypo()
+    val metrics = HMPMetricTokens.rememberHmpMetrics()
     MaterialTheme(
         colorScheme = colorScheme,
-        typography = TypographyTokens.Typography
+        typography = m3ComponentTypography(typo)
     ) {
         ProvideHazeRenderSettings(
             settings = hazeRenderSettings
         ) {
             CompositionLocalProvider(
-                LocalWindowSizeInfo provides windowSizeInfo
+                LocalWindowSizeInfo provides windowSizeInfo,
+                LocalHmpTypo provides typo,
+                LocalHmpMetrics provides metrics
             ) {
-                val dimens = rememberHMPDimens()
-                CompositionLocalProvider(
-                    LocalHMPDimens provides dimens
-                ) {
                     CompositionLocalProvider(
                         LocalTabHeaderContent provides tabHeader
                     ) {
@@ -378,10 +382,10 @@ fun AppRoot(darkTheme: Boolean) {
                                 AnimatedVisibility(
                                     visible = isPlaying && currentMusic != null,
                                     enter = fadeIn(
-                                        animationSpec = tween(durationMillis = 800, easing = AnimationTokens.EASE_IN_OUT)
+                                        animationSpec = HmpMotion.page()
                                     ),
                                     exit = fadeOut(
-                                        animationSpec = tween(durationMillis = 800, easing = AnimationTokens.EASE_IN_OUT)
+                                        animationSpec = HmpMotion.page()
                                     )
                                 ) {
                                     DynamicBackground(
@@ -418,77 +422,41 @@ fun AppRoot(darkTheme: Boolean) {
                                             ),
                                             transitionSpec = {
                                                 fadeIn(
-                                                    animationSpec = tween(
-                                                        durationMillis = AnimationTokens.TRANSITION,
-                                                        easing = AnimationTokens.EASE_IN_OUT
-                                                    )
+                                                    animationSpec = HmpMotion.emphasis()
                                                 ) + scaleIn(
                                                     initialScale = 0.95f,
-                                                    animationSpec = tween(
-                                                        durationMillis = AnimationTokens.TRANSITION,
-                                                        easing = AnimationTokens.EASE_IN_OUT
-                                                    )
+                                                    animationSpec = HmpMotion.emphasis()
                                                 ) togetherWith fadeOut(
-                                                    animationSpec = tween(
-                                                        durationMillis = AnimationTokens.TRANSITION,
-                                                        easing = AnimationTokens.EASE_IN_OUT
-                                                    )
+                                                    animationSpec = HmpMotion.emphasis()
                                                 ) + scaleOut(
                                                     targetScale = 1.05f,
-                                                    animationSpec = tween(
-                                                        durationMillis = AnimationTokens.TRANSITION,
-                                                        easing = AnimationTokens.EASE_IN_OUT
-                                                    )
+                                                    animationSpec = HmpMotion.emphasis()
                                                 )
                                             },
                                             popTransitionSpec = {
                                                 fadeIn(
-                                                    animationSpec = tween(
-                                                        durationMillis = AnimationTokens.TRANSITION,
-                                                        easing = AnimationTokens.EASE_IN_OUT
-                                                    )
+                                                    animationSpec = HmpMotion.emphasis()
                                                 ) + scaleIn(
                                                     initialScale = 0.95f,
-                                                    animationSpec = tween(
-                                                        durationMillis = AnimationTokens.TRANSITION,
-                                                        easing = AnimationTokens.EASE_IN_OUT
-                                                    )
+                                                    animationSpec = HmpMotion.emphasis()
                                                 ) togetherWith fadeOut(
-                                                    animationSpec = tween(
-                                                        durationMillis = AnimationTokens.TRANSITION,
-                                                        easing = AnimationTokens.EASE_IN_OUT
-                                                    )
+                                                    animationSpec = HmpMotion.emphasis()
                                                 ) + scaleOut(
                                                     targetScale = 1.05f,
-                                                    animationSpec = tween(
-                                                        durationMillis = AnimationTokens.TRANSITION,
-                                                        easing = AnimationTokens.EASE_IN_OUT
-                                                    )
+                                                    animationSpec = HmpMotion.emphasis()
                                                 )
                                             },
                                             predictivePopTransitionSpec = {
                                                 fadeIn(
-                                                    animationSpec = tween(
-                                                        durationMillis = AnimationTokens.TRANSITION,
-                                                        easing = AnimationTokens.EASE_IN_OUT
-                                                    )
+                                                    animationSpec = HmpMotion.emphasis()
                                                 ) + scaleIn(
                                                     initialScale = 0.95f,
-                                                    animationSpec = tween(
-                                                        durationMillis = AnimationTokens.TRANSITION,
-                                                        easing = AnimationTokens.EASE_IN_OUT
-                                                    )
+                                                    animationSpec = HmpMotion.emphasis()
                                                 ) togetherWith fadeOut(
-                                                    animationSpec = tween(
-                                                        durationMillis = AnimationTokens.TRANSITION,
-                                                        easing = AnimationTokens.EASE_IN_OUT
-                                                    )
+                                                    animationSpec = HmpMotion.emphasis()
                                                 ) + scaleOut(
                                                     targetScale = 1.05f,
-                                                    animationSpec = tween(
-                                                        durationMillis = AnimationTokens.TRANSITION,
-                                                        easing = AnimationTokens.EASE_IN_OUT
-                                                    )
+                                                    animationSpec = HmpMotion.emphasis()
                                                 )
                                             },
                                             entryProvider = navigationGraph(
@@ -502,22 +470,22 @@ fun AppRoot(darkTheme: Boolean) {
                                         AnimatedVisibility(
                                             visible = isInTabs && !windowSizeInfo.useFusionSidebar && !windowSizeInfo.isLandscape && pagerState.currentPage > 0,
                                             enter = fadeIn(
-                                                animationSpec = tween(300, easing = AnimationTokens.EASE_OUT)
+                                                animationSpec = HmpMotion.enter()
                                             ) + scaleIn(
                                                 initialScale = 0.8f,
-                                                animationSpec = tween(300, easing = AnimationTokens.EASE_OUT)
+                                                animationSpec = HmpMotion.enter()
                                             ) + slideInVertically(
                                                 initialOffsetY = { -it },
-                                                animationSpec = tween(300, easing = AnimationTokens.EASE_OUT)
+                                                animationSpec = HmpMotion.enter()
                                             ),
                                             exit = fadeOut(
-                                                animationSpec = tween(250, easing = AnimationTokens.EASE_IN)
+                                                animationSpec = HmpMotion.exit()
                                             ) + scaleOut(
                                                 targetScale = 0.9f,
-                                                animationSpec = tween(250, easing = AnimationTokens.EASE_IN)
+                                                animationSpec = HmpMotion.exit()
                                             ) + slideOutVertically(
                                                 targetOffsetY = { -it / 2 },
-                                                animationSpec = tween(250, easing = AnimationTokens.EASE_IN)
+                                                animationSpec = HmpMotion.exit()
                                             )
                                         ) {
                                             Box(
@@ -572,11 +540,11 @@ fun AppRoot(darkTheme: Boolean) {
                                     visible = navController.none { it is Routes.Player.Player || it is Routes.Player.Lyrics || it is Routes.Companion.Chat },
                                     enter = slideInVertically(
                                         initialOffsetY = { it },
-                                        animationSpec = tween(durationMillis = AnimationTokens.TRANSITION, easing = AnimationTokens.EASE_IN_OUT)
+                                        animationSpec = HmpMotion.emphasis()
                                     ),
                                     exit = slideOutVertically(
                                         targetOffsetY = { it },
-                                        animationSpec = tween(durationMillis = AnimationTokens.TRANSITION, easing = AnimationTokens.EASE_IN_OUT)
+                                        animationSpec = HmpMotion.emphasis()
                                     ),
                                     modifier = Modifier
                                         .align(Alignment.BottomCenter)
@@ -587,7 +555,7 @@ fun AppRoot(darkTheme: Boolean) {
                                         AgentNoticeBar(
                                             notice = currentNotice,
                                             onDismiss = { currentNotice = null },
-                                            modifier = Modifier.padding(bottom = 4.dp),
+                                            modifier = Modifier.padding(bottom = metrics.micro),
                                         )
                                         Box {
                                             BottomFusionBar(
@@ -620,8 +588,8 @@ fun AppRoot(darkTheme: Boolean) {
                                             showNavText = windowSizeInfo.isLandscape,
                                             showNavCapsule = bfbIsOnTabPage,
                                             maxWidth = when (windowSizeInfo.widthSizeClass) {
-                                                WindowWidthSizeClass.Compact -> 480.dp
-                                                WindowWidthSizeClass.Medium -> 640.dp
+                                                WindowWidthSizeClass.Compact -> LayoutConstraints.HeightBreakpointMedium
+                                                WindowWidthSizeClass.Medium -> LayoutConstraints.ContentMaxWidthMedium
                                                 WindowWidthSizeClass.Expanded -> null
                                             },
                                             onPlayPause = {
@@ -708,12 +676,12 @@ fun AppRoot(darkTheme: Boolean) {
                                             Column {
                                                 androidx.compose.material3.Text(
                                                     text = step.title,
-                                                    style = MaterialTheme.typography.titleMedium
+                                                    style = typo.subtitle
                                                 )
                                                 if (chain.steps.size > 1) {
                                                     androidx.compose.material3.Text(
                                                         text = "（${chain.stepIndex + 1}/${chain.steps.size}）",
-                                                        style = MaterialTheme.typography.labelSmall,
+                                                        style = typo.caption,
                                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                                     )
                                                 }
@@ -722,7 +690,7 @@ fun AppRoot(darkTheme: Boolean) {
                                         text = {
                                             androidx.compose.material3.Text(
                                                 text = step.message,
-                                                style = MaterialTheme.typography.bodyMedium
+                                                style = typo.body
                                             )
                                         },
                                         confirmButton = {
@@ -786,7 +754,6 @@ fun AppRoot(darkTheme: Boolean) {
                             )
                         }
                     } // CompositionLocalProvider LocalTabHeaderContent
-                } // CompositionLocalProvider HMPDimens
             } // CompositionLocalProvider
         }
     }

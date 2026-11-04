@@ -19,8 +19,10 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
 import com.hearablemusic.player.ui.common.components.base.SearchButton
+import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
 import com.hearablemusic.player.ui.common.layout.LocalWindowSizeInfo
 import com.hearablemusic.player.ui.common.layout.WindowWidthSizeClass
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 
 
 val LocalTabHeaderContent = staticCompositionLocalOf<(@Composable () -> Unit)?> { null }
@@ -34,11 +36,13 @@ fun TabScreen(
     showHeader: Boolean = true,
     content: @Composable () -> Unit
 ) {
+    val metrics = LocalHmpMetrics.current
+    val typo = LocalHmpTypo.current
     val isLandscape = LocalWindowSizeInfo.current.isLandscape
     val horizontalPadding = when (LocalWindowSizeInfo.current.widthSizeClass) {
-        WindowWidthSizeClass.Expanded -> 32.dp
-        WindowWidthSizeClass.Medium -> 24.dp
-        WindowWidthSizeClass.Compact -> 16.dp
+        WindowWidthSizeClass.Expanded -> metrics.block
+        WindowWidthSizeClass.Medium -> metrics.section
+        WindowWidthSizeClass.Compact -> metrics.cozy
     }
     Box(
         modifier = Modifier
@@ -53,24 +57,24 @@ fun TabScreen(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(start = horizontalPadding, end = horizontalPadding, top = 16.dp, bottom = 16.dp),
+                    .padding(start = horizontalPadding, end = horizontalPadding, top = metrics.cozy, bottom = metrics.cozy),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 if (title != null) {
                     Row(
                         modifier = Modifier.fillMaxWidth()
-                            .padding(top = 16.dp),
+                            .padding(top = metrics.cozy),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
                             text = title,
-                            style = MaterialTheme.typography.displayLarge,
+                            style = typo.title,
                             color = MaterialTheme.colorScheme.onBackground
                         )
                         Spacer(modifier = Modifier.weight(1f))
                         if (trailing != null) trailing()
                         if (hasSearchBotton && navController != null) {
-                            Spacer(modifier = Modifier.width(8.dp))
+                            Spacer(modifier = Modifier.width(metrics.compact))
                             SearchButton(navController)
                         }
                     }
@@ -83,7 +87,7 @@ fun TabScreen(
                     ) {
                         if (trailing != null) trailing()
                         if (hasSearchBotton && navController != null) {
-                            if (trailing != null) Spacer(modifier = Modifier.width(8.dp))
+                            if (trailing != null) Spacer(modifier = Modifier.width(metrics.compact))
                             SearchButton(navController)
                         }
                     }

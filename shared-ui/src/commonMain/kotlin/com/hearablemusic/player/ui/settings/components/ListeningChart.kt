@@ -20,7 +20,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import com.hearablemusic.player.ui.common.design.dimens.LocalHMPDimens
+import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 
 /**
  * 听歌密度热力图（D5-08 重做）。
@@ -37,7 +38,8 @@ import com.hearablemusic.player.ui.common.design.dimens.LocalHMPDimens
 fun ListeningChart(
     grid: HeatmapGrid,
 ) {
-    val dimens = LocalHMPDimens.current
+    val metrics = LocalHmpMetrics.current
+    val typo = LocalHmpTypo.current
     val weeks = grid.rows
     if (weeks.isEmpty()) return
 
@@ -45,12 +47,12 @@ fun ListeningChart(
     val maxValue = weeks.flatten().filter { it.date != null }.maxOfOrNull { it.minutes }?.coerceAtLeast(1) ?: 1
     val scrollState = rememberScrollState()
     val cell = CELL_DP.dp
-    val gap = dimens.spacing.xs
+    val gap = metrics.micro
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = dimens.spacing.md),
+            .padding(horizontal = metrics.cozy),
         horizontalArrangement = Arrangement.spacedBy(gap)
     ) {
         // 左侧星期标签（行序 = ISO 1..7 = 周一至周日）
@@ -59,7 +61,7 @@ fun ListeningChart(
                 Box(modifier = Modifier.size(width = cell, height = cell), contentAlignment = Alignment.Center) {
                     Text(
                         text = label,
-                        fontSize = dimens.type.xs,
+                        style = typo.caption,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
@@ -77,7 +79,7 @@ fun ListeningChart(
                         Box(
                             modifier = Modifier
                                 .size(cell)
-                                .clip(RoundedCornerShape(dimens.corner.xs))
+                                .clip(RoundedCornerShape(metrics.micro))
                                 .background(
                                     when {
                                         // 窗口外的补齐格不上色：它不是"那天没听歌"

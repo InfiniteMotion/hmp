@@ -23,6 +23,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import com.hmp.domain.music.MusicInfo
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
+import com.hearablemusic.player.ui.common.design.animation.HmpMotion
 
 /**
  * 增强版音乐列表根组件。根据 [config] 渲染头部、编辑栏、列表内容；内部持有 [LazyListState] 与 [MusicListState]。
@@ -40,6 +42,7 @@ fun MusicList(
     listState: LazyListState = rememberLazyListState(),
     isPlaying: Boolean = false,
 ) {
+    val metrics = LocalHmpMetrics.current
     val state = rememberMusicListState()
     val density = LocalDensity.current
     val currentIndex = config.currentPlaying.index
@@ -65,7 +68,7 @@ fun MusicList(
         AnimatedContent(
             targetState = showEditToolbar,
             transitionSpec = {
-                fadeIn(animationSpec = tween(200)) togetherWith fadeOut(animationSpec = tween(200))
+                fadeIn(animationSpec = HmpMotion.micro()) togetherWith fadeOut(animationSpec = HmpMotion.micro())
             },
             label = "editMode",
         ) { isEdit ->
@@ -95,10 +98,10 @@ fun MusicList(
             }
         }
         if (config.header !is HeaderConfig.None) {
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(metrics.base))
         }
         // 索引条宽度，与 MusicListIndexStrip 一致，用于为列表预留右侧空间
-        val indexStripWidth = 24.dp
+        val indexStripWidth = metrics.section
         val showIndexStrip = config.indexJump.enabled && musicInfoList.size > 10
         val showScrollbar = config.scrollbar.enabled && !showIndexStrip
 
@@ -159,6 +162,7 @@ fun FixedMusicList(
     modifier: Modifier = Modifier,
     isPlaying: Boolean = false,
 ) {
+    val metrics = LocalHmpMetrics.current
     val state = rememberMusicListState()
     val currentIndex = config.currentPlaying.index
     val isCurrentPlaying: (Int) -> Boolean = { index -> currentIndex == index }
@@ -168,7 +172,7 @@ fun FixedMusicList(
         AnimatedContent(
             targetState = showEditToolbar,
             transitionSpec = {
-                fadeIn(animationSpec = tween(200)) togetherWith fadeOut(animationSpec = tween(200))
+                fadeIn(animationSpec = HmpMotion.micro()) togetherWith fadeOut(animationSpec = HmpMotion.micro())
             },
             label = "editMode",
         ) { isEdit ->
@@ -197,7 +201,7 @@ fun FixedMusicList(
                 )
             }
         }
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(metrics.base))
         Box(modifier = Modifier.fillMaxWidth()) {
             FixedMusicListContent(
                 musicInfoList = musicInfoList,

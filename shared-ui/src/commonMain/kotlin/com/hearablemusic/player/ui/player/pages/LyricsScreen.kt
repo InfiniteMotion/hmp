@@ -47,6 +47,8 @@ import com.hmp.domain.config.DisplayMode
 import com.hmp.domain.config.LyricsAlignment
 import com.hearablemusic.player.ui.common.components.SegmentedOption
 import com.hearablemusic.player.ui.common.components.VerticalSegmentedControl
+import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
+import com.hearablemusic.player.ui.common.design.typography.medium
 import com.hearablemusic.player.ui.common.layout.LocalWindowSizeInfo
 import com.hearablemusic.player.ui.common.util.activityViewModel
 import com.hearablemusic.player.ui.common.util.nowEpochMillis
@@ -83,6 +85,9 @@ import kotlinx.coroutines.delay
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
+import com.hearablemusic.player.ui.common.design.metrics.LayoutConstraints
+import com.hearablemusic.player.ui.common.design.animation.HmpMotion
 
 /**
  * 独立歌词页面
@@ -95,6 +100,7 @@ fun LyricsScreen(
     lyricsSettingsViewModel: LyricsSettingsViewModel = koinViewModel(),
     onNavigateToSettings: () -> Unit = {}
 ) {
+    val metrics = LocalHmpMetrics.current
     val lyrics by playlistQueueViewModel.currentMusicLyrics.collectAsState()
     val currentPosition by playbackViewModel.currentPosition.collectAsState()
     val duration by playbackViewModel.duration.collectAsState()
@@ -178,7 +184,7 @@ fun LyricsScreen(
         ) {
             // 歌词展示区域
             AdvancedLyrics(
-                modifier = if(!isSettingsPanelVisible) Modifier.weight(1f) else Modifier.padding(bottom = if (isLandscape) 200.dp else 320.dp),
+                modifier = if(!isSettingsPanelVisible) Modifier.weight(1f) else Modifier.padding(bottom = if (isLandscape) metrics.card else metrics.hero),
                 lyrics = lyrics,
                 currentPosition = currentPosition,
                 onSeek = {
@@ -202,10 +208,10 @@ fun LyricsScreen(
             visible = isSettingsPanelVisible,
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .then(if (isLandscape) Modifier.widthIn(max = 480.dp) else Modifier.fillMaxWidth())
-                .padding(bottom = if (isLandscape) 40.dp else 120.dp),
-            enter = fadeIn() + slideInVertically { it },
-            exit = fadeOut() + slideOutVertically { it }
+                .then(if (isLandscape) Modifier.widthIn(max = LayoutConstraints.HeightBreakpointMedium) else Modifier.fillMaxWidth())
+                .padding(bottom = if (isLandscape) metrics.block else metrics.panel),
+            enter = fadeIn(HmpMotion.enter()) + slideInVertically(HmpMotion.enter()) { it },
+            exit = fadeOut(HmpMotion.exit()) + slideOutVertically(HmpMotion.exit()) { it }
         ) {
             LyricsSettingsPanel(
                 originalTextSize = originalTextSize,
@@ -231,10 +237,10 @@ fun LyricsScreen(
             modifier = Modifier
                 .align(Alignment.BottomEnd)
                 .navigationBarsPadding()
-                .padding(bottom = 80.dp)
-                .padding(16.dp),
-            enter = fadeIn(),
-            exit = fadeOut()
+                .padding(bottom = metrics.row)
+                .padding(metrics.cozy),
+            enter = fadeIn(HmpMotion.enter()),
+            exit = fadeOut(HmpMotion.exit())
         ) {
             IconButton(
                 onClick = {
@@ -242,13 +248,13 @@ fun LyricsScreen(
                     isSettingsPanelVisible = !isSettingsPanelVisible
                     lastInteractionTime = nowEpochMillis()
                 },
-                modifier = Modifier.size(32.dp),
+                modifier = Modifier.size(metrics.block),
             ) {
                 Icon(
                     painter = painterResource(Res.drawable.ic_gallery_search_things),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     contentDescription = stringResource(Res.string.back),
-                    modifier = Modifier.size(28.dp),
+                    modifier = Modifier.size(metrics.section),
                 )
             }
         }
@@ -276,21 +282,23 @@ private fun LyricsSettingsPanel(
     onAlignmentChange: (LyricsAlignment) -> Unit,
     onNavigateToSettings: () -> Unit = {}
 ) {
+    val metrics = LocalHmpMetrics.current
+    val typo = LocalHmpTypo.current
     val haptic = rememberHapticFeedback()
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(24.dp))
+            .clip(RoundedCornerShape(metrics.section))
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 12.dp, horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+                .padding(vertical = metrics.base, horizontal = metrics.cozy),
+            verticalArrangement = Arrangement.spacedBy(metrics.compact)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(metrics.compact)
             ) {
         VerticalSegmentedControl(
             modifier = Modifier.weight(1f),
@@ -369,7 +377,7 @@ private fun LyricsSettingsPanel(
             ) {
                 Text(
                     stringResource(Res.string.more_settings),
-                    style = MaterialTheme.typography.labelMedium,
+                    style = typo.footnote.medium(),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center
                 )
@@ -379,19 +387,19 @@ private fun LyricsSettingsPanel(
             // 逐字显示开关
             Surface(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
+                shape = RoundedCornerShape(metrics.cozy),
                 color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
             ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                        .padding(horizontal = metrics.cozy, vertical = metrics.compact),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text(
                         text = stringResource(Res.string.karaoke_lyrics),
-                        style = MaterialTheme.typography.labelLarge,
+                        style = typo.body.medium(),
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Switch(
@@ -421,26 +429,28 @@ private fun SizeControl(
     maxValue: Int,
     onValueChange: (Int) -> Unit
 ) {
+    val metrics = LocalHmpMetrics.current
+    val typo = LocalHmpTypo.current
     val haptic = rememberHapticFeedback()
     Column(
         modifier = modifier
-            .border(width = 1.dp, color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f), shape = RoundedCornerShape(16.dp)),
+            .border(width = metrics.stroke.thin, color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f), shape = RoundedCornerShape(metrics.cozy)),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
         ) {
         Column(
-            modifier = Modifier.padding(8.dp),
+            modifier = Modifier.padding(metrics.compact),
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Box(
                 modifier = Modifier
-                    .size(24.dp) // 按钮整体尺寸
-                    .clip(RoundedCornerShape(6.dp)) // 圆角设为尺寸的一半，形成正圆
+                    .size(metrics.section) // 按钮整体尺寸
+                    .clip(RoundedCornerShape(metrics.micro)) // 圆角设为尺寸的一半，形成正圆
                     .border(
-                        width = 1.dp,
+                        width = metrics.stroke.thin,
                         color = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
-                        shape = RoundedCornerShape(6.dp) // 边框圆角与外层保持一致
+                        shape = RoundedCornerShape(metrics.micro) // 边框圆角与外层保持一致
                     )
                     .clickable(
                         onClick = {
@@ -457,28 +467,28 @@ private fun SizeControl(
                     painter = painterResource(Res.drawable.plus),
                     contentDescription = stringResource(Res.string.increase),
                     tint = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.size(16.dp) // 图标尺寸适配按钮
+                    modifier = Modifier.size(metrics.cozy) // 图标尺寸适配按钮
                 )
             }
             Column (
-                modifier = Modifier.padding(8.dp),
+                modifier = Modifier.padding(metrics.compact),
                 verticalArrangement = Arrangement.Center,
                 horizontalAlignment = Alignment.CenterHorizontally
             ){
                 Text(
                     text = label.toCharArray().joinToString("\n"),
-                    style = MaterialTheme.typography.labelLarge,
+                    style = typo.body.medium(),
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
             Box(
                 modifier = Modifier
-                    .size(24.dp) // 按钮整体尺寸
-                    .clip(RoundedCornerShape(6.dp)) // 圆角设为尺寸的一半，形成正圆
+                    .size(metrics.section) // 按钮整体尺寸
+                    .clip(RoundedCornerShape(metrics.micro)) // 圆角设为尺寸的一半，形成正圆
                     .border(
-                        width = 1.dp,
+                        width = metrics.stroke.thin,
                         color = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
-                        shape = RoundedCornerShape(6.dp) // 边框圆角与外层保持一致
+                        shape = RoundedCornerShape(metrics.micro) // 边框圆角与外层保持一致
                     )
                     .clickable(
                         onClick = {
@@ -495,7 +505,7 @@ private fun SizeControl(
                     painter = painterResource(Res.drawable.minus),
                     contentDescription = stringResource(Res.string.decrease),
                     tint = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.size(16.dp) // 图标尺寸适配按钮
+                    modifier = Modifier.size(metrics.cozy) // 图标尺寸适配按钮
                 )
             }
         }

@@ -39,6 +39,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.hmp.domain.music.MusicInfo
 import com.hearablemusic.player.ui.common.dialogs.base.ScrimDialog
+import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
 import com.hearablemusic.player.ui.common.util.HazeRenderSettings
 import com.hearablemusic.player.ui.common.util.ProvideHazeRenderSettings
 import com.hearablemusic.player.ui.common.util.hazeStyleForIntensity
@@ -46,6 +47,8 @@ import com.hearablemusic.player.ui.common.util.hazeTintAlpha
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
+import com.hearablemusic.player.ui.common.design.metrics.LayoutConstraints
 
 @OptIn(ExperimentalHazeMaterialsApi::class)
 @Composable
@@ -58,15 +61,17 @@ fun MusicPickerDialog(
     hazeState: HazeState? = null,
     hazeRenderSettings: HazeRenderSettings = HazeRenderSettings()
 ) {
+    val metrics = LocalHmpMetrics.current
     var currentSelectedIds by remember(selectedIds) { mutableStateOf(selectedIds) }
+    val typo = LocalHmpTypo.current
 
     ProvideHazeRenderSettings(settings = hazeRenderSettings) {
         ScrimDialog(onDismissRequest = onDismiss) {
-            val dialogShape = RoundedCornerShape(24.dp)
+            val dialogShape = RoundedCornerShape(metrics.section)
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 24.dp)
+                    .padding(horizontal = metrics.section)
                     .clip(dialogShape)
                     .then(
                         if (hazeState != null) {
@@ -91,32 +96,32 @@ fun MusicPickerDialog(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(20.dp)
+                        .padding(metrics.cozy)
                 ) {
                     Text(
                         text = title,
-                        style = MaterialTheme.typography.headlineSmall,
+                        style = typo.subtitle,
                         color = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.padding(bottom = 16.dp)
+                        modifier = Modifier.padding(bottom = metrics.cozy)
                     )
                     Text(
                         text = stringResource(Res.string.selected_n_songs, currentSelectedIds.size),
-                        style = MaterialTheme.typography.bodySmall,
+                        style = typo.footnote,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(bottom = 12.dp)
+                        modifier = Modifier.padding(bottom = metrics.base)
                     )
 
                     if (allMusic.isEmpty()) {
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(200.dp),
+                                .height(metrics.card),
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.Center
                         ) {
                             Text(
                                 text = stringResource(Res.string.no_songs_available),
-                                style = MaterialTheme.typography.bodyMedium,
+                                style = typo.body,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
@@ -124,8 +129,8 @@ fun MusicPickerDialog(
                         LazyColumn(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .heightIn(max = 420.dp),
-                            verticalArrangement = Arrangement.spacedBy(2.dp)
+                                .heightIn(max = LayoutConstraints.DialogMaxHeightLarge),
+                            verticalArrangement = Arrangement.spacedBy(metrics.hair)
                         ) {
                             items(allMusic, key = { it.music.id }) { musicInfo ->
                                 val songId = musicInfo.music.id
@@ -140,7 +145,7 @@ fun MusicPickerDialog(
                                                 currentSelectedIds + songId
                                             }
                                         }
-                                        .padding(vertical = 6.dp, horizontal = 4.dp),
+                                        .padding(vertical = metrics.micro, horizontal = metrics.micro),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Checkbox(
@@ -155,19 +160,19 @@ fun MusicPickerDialog(
                                     )
                                     Column(
                                         modifier = Modifier
-                                            .padding(start = 8.dp)
+                                            .padding(start = metrics.compact)
                                             .weight(1f)
                                     ) {
                                         Text(
                                             text = musicInfo.music.title,
-                                            style = MaterialTheme.typography.bodyMedium,
+                                            style = typo.body,
                                             color = MaterialTheme.colorScheme.onSurface,
                                             maxLines = 1,
                                             overflow = TextOverflow.Ellipsis
                                         )
                                         Text(
                                             text = musicInfo.music.artist,
-                                            style = MaterialTheme.typography.bodySmall,
+                                            style = typo.footnote,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                                             maxLines = 1,
                                             overflow = TextOverflow.Ellipsis
@@ -181,13 +186,13 @@ fun MusicPickerDialog(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(top = 16.dp),
+                            .padding(top = metrics.cozy),
                         horizontalArrangement = Arrangement.End
                     ) {
                         TextButton(onClick = onDismiss) {
                             Text(stringResource(Res.string.cancel))
                         }
-                        Spacer(modifier = Modifier.width(8.dp))
+                        Spacer(modifier = Modifier.width(metrics.compact))
                         TextButton(onClick = { onConfirm(currentSelectedIds) }) {
                             Text(stringResource(Res.string.confirm))
                         }

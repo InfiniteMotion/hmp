@@ -1,4 +1,5 @@
 package com.hearablemusic.player.ui.agent.cards
+import com.hearablemusic.player.ui.common.design.colors.HelloCardPalette
 import com.hearablemusic.player.ui.generated.resources.card_radio_candidate
 import com.hearablemusic.player.ui.generated.resources.card_radio_continuing
 import com.hearablemusic.player.ui.generated.resources.card_radio_enrich_optimizing
@@ -43,11 +44,11 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
+import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
+import com.hearablemusic.player.ui.common.design.typography.medium
 import com.hearablemusic.player.ui.generated.resources.Res
 import com.hearablemusic.player.ui.generated.resources.unknown
 import com.hmp.domain.agent.card.RadioStatusContent
@@ -63,6 +64,7 @@ import org.koin.compose.koinInject
 
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 /**
  * 主播按语的机械标签黑名单 —— 这些是**上游下发的内部标记**（非自然语言），不上 UI。
  * 属数据约定值（与 `RadioSubAgent` 的 `why` 字段同源），**不参与本地化**。
@@ -195,8 +197,10 @@ internal fun FamilyRadioStatusCard(
     onCardClick: ((SlideCard) -> Unit)? = null,
     onLongClick: ((SlideCard) -> Unit)? = null,
 ) {
+    val metrics = LocalHmpMetrics.current
     val c = card.content as RadioStatusContent
-    val clickMod = modifier.clip(RoundedCornerShape(25.dp)).let { m ->
+    val typo = LocalHmpTypo.current
+    val clickMod = modifier.clip(RoundedCornerShape(metrics.section)).let { m ->
         when {
             onLongClick != null -> m.pointerInput(card.cardId) {
                 detectTapGestures(
@@ -221,8 +225,8 @@ internal fun FamilyRadioStatusCard(
     val themeVM: com.hearablemusic.player.ui.common.viewmodel.ThemeViewModel =
         org.koin.compose.viewmodel.koinViewModel()
     val palette by themeVM.paletteColors.collectAsState()
-    val defaultPrimary = Color(0xFF3D5AFE)
-    val defaultBg = Color(0xFF1A237E)
+    val defaultPrimary = HelloCardPalette.CoverFallback.Primary
+    val defaultBg = HelloCardPalette.CoverFallback.Background
     val primaryAnimated by androidx.compose.animation.animateColorAsState(
         targetValue = if (palette.background != defaultBg) palette.primary else defaultPrimary,
         label = "radio-primary",
@@ -234,7 +238,7 @@ internal fun FamilyRadioStatusCard(
 
     Card(
         modifier = clickMod,
-        shape = RoundedCornerShape(25.dp),
+        shape = RoundedCornerShape(metrics.section),
         colors = CardDefaults.cardColors(containerColor = Color.Transparent),
     ) {
         Box(
@@ -248,7 +252,7 @@ internal fun FamilyRadioStatusCard(
                         )
                     )
                 )
-                .padding(horizontal = 20.dp, vertical = 18.dp),
+                .padding(horizontal = metrics.cozy, vertical = metrics.cozy),
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
                 // —— 顶部主题栏（横跨全宽）——
@@ -257,13 +261,12 @@ internal fun FamilyRadioStatusCard(
                 } ?: stringResource(Res.string.card_radio_title_default)
                 Text(
                     text = "$titleMain · ${c.actionText}",
+                    style = typo.body,
                     color = Color.White,
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.SemiBold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-                Spacer(Modifier.height(12.dp))
+                Spacer(Modifier.height(metrics.base))
 
                 // —— 始终左右分栏（BUILDING/PLAYING/PAUSED 统一结构）——
                 Row(
@@ -278,7 +281,7 @@ internal fun FamilyRadioStatusCard(
                         // 圆形封面
                         Box(
                             modifier = Modifier
-                                .size(120.dp)
+                                .size(metrics.panel)
                                 .clip(androidx.compose.foundation.shape.CircleShape)
                                 .background(Color.White.copy(alpha = 0.1f)),
                             contentAlignment = Alignment.Center,
@@ -299,13 +302,12 @@ internal fun FamilyRadioStatusCard(
                                 )
                             }
                         }
-                        Spacer(Modifier.height(10.dp))
+                        Spacer(Modifier.height(metrics.compact))
                         c.nowPlayingTitle?.let {
                             Text(
                                 text = it,
+                                style = typo.body.medium(),
                                 color = Color.White,
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Medium,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                             )
@@ -313,15 +315,15 @@ internal fun FamilyRadioStatusCard(
                         c.nowPlayingArtist?.let {
                             Text(
                                 text = it,
+                                style = typo.footnote,
                                 color = Color.White.copy(alpha = 0.7f),
-                                fontSize = 12.sp,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                             )
                         }
                     }
 
-                    Spacer(Modifier.width(16.dp))
+                    Spacer(Modifier.width(metrics.cozy))
 
                     // ══ 右半：Radio 专属状态区（BUILDING 显示 loading，PLAYING/PAUSED 显示按语/队列动态/短时消息） ══
                     Column(
@@ -333,24 +335,22 @@ internal fun FamilyRadioStatusCard(
                             // —— BUILDING：右半显示 loading 进度 ——
                             LinearProgressIndicator(
                                 progress = { c.progressPercent!! / 100f },
-                                modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)),
+                                modifier = Modifier.fillMaxWidth().height(metrics.micro).clip(RoundedCornerShape(metrics.hair)),
                                 color = Color.White.copy(alpha = 0.9f),
                                 trackColor = Color.White.copy(alpha = 0.15f),
                             )
-                            Spacer(Modifier.height(10.dp))
+                            Spacer(Modifier.height(metrics.compact))
                             Text(
                                 text = c.actionText,
+                                style = typo.footnote.medium(),
                                 color = Color.White.copy(alpha = 0.8f),
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Medium,
-                                lineHeight = 18.sp,
                             )
                             c.nowPlayingTitle?.let {
-                                Spacer(Modifier.height(6.dp))
+                                Spacer(Modifier.height(metrics.micro))
                                 Text(
                                     text = stringResource(Res.string.card_radio_candidate, it),
+                                    style = typo.caption,
                                     color = Color.White.copy(alpha = 0.55f),
-                                    fontSize = 11.sp,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
                                 )
@@ -362,36 +362,34 @@ internal fun FamilyRadioStatusCard(
                             c.nowPlayingWhy?.let { why ->
                                 Text(
                                     text = stringResource(Res.string.card_radio_why, why),
+                                    style = typo.body.medium(),
                                     color = Color.White,
-                                    fontSize = 15.sp,
-                                    fontWeight = FontWeight.Medium,
-                                    lineHeight = 20.sp,
                                     maxLines = 4,
                                     overflow = TextOverflow.Ellipsis,
                                 )
-                                Spacer(Modifier.height(10.dp))
+                                Spacer(Modifier.height(metrics.compact))
                             }
 
                             // 队列动态：待播数与下一首分行（下一首本地推断兜底）
                             if (radioCard.upcomingCount > 0) {
                                 Text(
                                     text = stringResource(Res.string.card_radio_upcoming, radioCard.upcomingCount),
+                                    style = typo.footnote,
                                     color = Color.White.copy(alpha = 0.7f),
-                                    fontSize = 12.sp,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
                                 )
-                                Spacer(Modifier.height(4.dp))
+                                Spacer(Modifier.height(metrics.micro))
                             }
                             (radioCard.nextTitle ?: c.nextTrackTitle)?.let {
                                 Text(
                                     text = stringResource(Res.string.card_radio_next, it),
+                                    style = typo.footnote,
                                     color = Color.White.copy(alpha = 0.85f),
-                                    fontSize = 12.sp,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
                                 )
-                                Spacer(Modifier.height(8.dp))
+                                Spacer(Modifier.height(metrics.compact))
                             }
 
                             // 短时消息（4s 自动退场）——垂直居中布局，不再用 weight 撑底
@@ -408,12 +406,12 @@ internal fun FamilyRadioStatusCard(
                                 }
                                 Text(
                                     text = msgText,
+                                    style = typo.caption,
                                     color = Color.White.copy(alpha = 0.8f),
-                                    fontSize = 11.sp,
                                     modifier = Modifier
-                                        .clip(RoundedCornerShape(8.dp))
+                                        .clip(RoundedCornerShape(metrics.compact))
                                         .background(Color.White.copy(alpha = 0.12f))
-                                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                                        .padding(horizontal = metrics.compact, vertical = metrics.micro),
                                 )
                             }
                         }

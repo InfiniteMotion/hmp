@@ -16,6 +16,7 @@ import com.hearablemusic.player.ui.generated.resources.album_art_desc
 import com.hearablemusic.player.ui.generated.resources.none
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
+import com.hearablemusic.player.ui.common.design.animation.HmpMotion
 
 @Composable
 fun AlbumCover(
@@ -25,7 +26,7 @@ fun AlbumCover(
     shadow: Dp,
     modifier: Modifier = Modifier,
 ) {
-    Crossfade(targetState = uri, label = "AlbumArtCrossroad") {
+    Crossfade(targetState = uri, animationSpec = HmpMotion.standard(), label = "AlbumArtCrossroad") {
         AsyncImage(
             model = it,
             contentDescription = stringResource(Res.string.album_art_desc),

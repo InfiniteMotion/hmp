@@ -64,6 +64,8 @@ import androidx.compose.ui.unit.dp
 import com.hearablemusic.player.ui.common.text.UiText
 import com.hearablemusic.player.ui.common.text.asString
 import com.hearablemusic.player.ui.common.text.asUiText
+import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
+import com.hearablemusic.player.ui.common.design.typography.medium
 import com.hearablemusic.player.ui.common.util.hazeStyleForIntensity
 import com.hearablemusic.player.ui.common.util.hazeTintAlpha
 import com.hearablemusic.player.ui.common.util.rememberPlatformHaptics
@@ -96,6 +98,9 @@ import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import kotlin.math.pow
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
+import com.hearablemusic.player.ui.common.design.metrics.HMPMetricTokens
+import com.hearablemusic.player.ui.common.design.animation.HmpMotion
 
 /** 底部融合栏状态 */
 enum class FusionBarState {
@@ -189,11 +194,11 @@ fun BottomFusionBar(
 
     val transitionSpec: AnimatedContentTransitionScope<FusionBarState>.() -> ContentTransform = {
         (
-            fadeIn(animationSpec = tween(200)) +
-            scaleIn(initialScale = 0.92f, animationSpec = spring(dampingRatio = 0.7f, stiffness = 400f))
+            fadeIn(animationSpec = HmpMotion.micro()) +
+            scaleIn(initialScale = 0.92f, animationSpec = HmpMotion.snappySpring())
         ).togetherWith(
-            fadeOut(animationSpec = tween(150)) +
-            scaleOut(targetScale = 0.92f, animationSpec = tween(150))
+            fadeOut(animationSpec = HmpMotion.micro()) +
+            scaleOut(targetScale = 0.92f, animationSpec = HmpMotion.micro())
         ).using(SizeTransform(clip = false))
     }
 
@@ -201,9 +206,9 @@ fun BottomFusionBar(
         modifier = modifier
             .fillMaxWidth()
             .then(if (maxWidth != null) Modifier.widthIn(max = maxWidth) else Modifier)
-            .padding(horizontal = 12.dp) // 宽度压缩（设计总纲 2.2.1：外边距 16→12dp）
-            .padding(bottom = 20.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally), // 压缩：间距 12→8dp
+            .padding(horizontal = HMPMetricTokens.Compact.base) // 宽度压缩（设计总纲 2.2.1：外边距 16→12dp）
+            .padding(bottom = HMPMetricTokens.Compact.cozy),
+        horizontalArrangement = Arrangement.spacedBy(HMPMetricTokens.Compact.compact, Alignment.CenterHorizontally), // 压缩：间距 12→8dp
         verticalAlignment = Alignment.CenterVertically
     ) {
         // ── 伙伴胶囊（常驻锚点：点按=门面；长按=电台开启时唤起控制台，否则直接进对话页）──
@@ -228,7 +233,7 @@ fun BottomFusionBar(
         )
 
         // ── 左侧胶囊：导航 ──
-        val capsuleShape = RoundedCornerShape(36.dp)
+        val capsuleShape = RoundedCornerShape(HMPMetricTokens.Compact.block)
         Card(
             shape = capsuleShape,
             colors = CardDefaults.cardColors(
@@ -239,7 +244,7 @@ fun BottomFusionBar(
                 }
             ),
             border = BorderStroke(
-                width = 0.5.dp,
+                width = HMPMetricTokens.Compact.stroke.hairline,
                 color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.14f)
             ),
             elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
@@ -267,8 +272,8 @@ fun BottomFusionBar(
         ) {
             AnimatedVisibility(
                 visible = showNavCapsule,
-                enter = expandHorizontally(animationSpec = tween(300)) + fadeIn(animationSpec = tween(300)),
-                exit = shrinkHorizontally(animationSpec = tween(300)) + fadeOut(animationSpec = tween(300)),
+                enter = expandHorizontally(animationSpec = HmpMotion.standard()) + fadeIn(animationSpec = HmpMotion.standard()),
+                exit = shrinkHorizontally(animationSpec = HmpMotion.standard()) + fadeOut(animationSpec = HmpMotion.standard()),
             ) {
             AnimatedContent(
                 targetState = fusionState,
@@ -299,7 +304,7 @@ fun BottomFusionBar(
                     }
                 ),
                 border = BorderStroke(
-                    width = 0.5.dp,
+                    width = HMPMetricTokens.Compact.stroke.hairline,
                     color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.14f)
                 ),
                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
@@ -375,11 +380,13 @@ private fun NavigationExpandedContent(
     haptic: HapticService,
     showNavText: Boolean = true
 ) {
+    val metrics = LocalHmpMetrics.current
+    val typo = LocalHmpTypo.current
     Row(
         modifier = Modifier
-            .padding(8.dp) // 与其他胶囊一致的围绕 padding：总高 8+48+8=64dp，与其他胶囊严格等高
-            .height(48.dp), // 内容区恒定 48dp，图标 24dp 垂直居中（上下各 12dp 空隙）
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+            .padding(metrics.compact) // 与其他胶囊一致的围绕 padding：总高 8+48+8=64dp，与其他胶囊严格等高
+            .height(metrics.bar), // 内容区恒定 48dp，图标 24dp 垂直居中（上下各 12dp 空隙）
+        horizontalArrangement = Arrangement.spacedBy(metrics.compact),
         verticalAlignment = Alignment.CenterVertically
     ) {
         bottomTabs.forEachIndexed { index, tab ->
@@ -400,21 +407,20 @@ private fun NavigationExpandedContent(
                         onTabSelected(index)
                     }
                     .fillMaxHeight() // 点击区占满 48dp 行高（原 vertical padding 由行高接管）
-                    .padding(horizontal = 10.dp),
+                    .padding(horizontal = metrics.compact),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(
                     painter = painterResource(if (isSelected) tab.selectedIcon else tab.unselectedIcon),
                     contentDescription = tab.label.asString(),
                     tint = contentColor,
-                    modifier = Modifier.size(24.dp) // 宽度压缩：图标 28→24dp
+                    modifier = Modifier.size(metrics.section) // 宽度压缩：图标 28→24dp
                 )
                 if (showNavText) {
-                    Spacer(modifier = Modifier.width(6.dp))
+                    Spacer(modifier = Modifier.width(metrics.micro))
                     Text(
                         text = tab.label.asString(),
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                        style = typo.body.medium(),
                         color = contentColor
                     )
                 }
@@ -427,6 +433,7 @@ private fun NavigationExpandedContent(
 
 @Composable
 private fun NavigationCollapsedContent(tabIndex: Int) {
+    val metrics = LocalHmpMetrics.current
     // 门面页（tabIndex < 0，第 0 页无对应 Tab）：显示「音乐库」图标且不高亮（常态 onSurface）；
     // 其余页：显示当前 Tab 选中图标并高亮（primary）
     val isFacePage = tabIndex < 0
@@ -447,15 +454,15 @@ private fun NavigationCollapsedContent(tabIndex: Int) {
     }
     Box(
         modifier = Modifier
-            .padding(8.dp)
-            .size(48.dp), // 全局 48dp 体系：折叠图标区恒定
+            .padding(metrics.compact)
+            .size(metrics.bar), // 全局 48dp 体系：折叠图标区恒定
         contentAlignment = Alignment.Center
     ) {
         Icon(
             painter = painterResource(iconRes),
             contentDescription = iconDesc.asString(),
             tint = tint,
-            modifier = Modifier.size(24.dp)
+            modifier = Modifier.size(metrics.section)
         )
     }
 }
@@ -467,6 +474,7 @@ private fun PlaybackCollapsedContent(
     musicInfo: MusicInfo,
     isPlaying: Boolean
 ) {
+    val metrics = LocalHmpMetrics.current
     val coverRotation = remember { Animatable(0f) }
 
     LaunchedEffect(isPlaying) {
@@ -485,15 +493,15 @@ private fun PlaybackCollapsedContent(
 
     Box(
         modifier = Modifier
-            .padding(8.dp)
+            .padding(metrics.compact)
             .clip(CircleShape),
         contentAlignment = Alignment.Center
     ) {
         AlbumCover(
             uri = musicInfo.music.albumArtUri,
-            size = 48.dp, // 全局恒定 48dp 体系：播放折叠封面与其余胶囊一致
-            corner = 24.dp,
-            shadow = 3.dp,
+            size = metrics.bar, // 全局恒定 48dp 体系：播放折叠封面与其余胶囊一致
+            corner = metrics.section,
+            shadow = metrics.hair,
             modifier = Modifier.graphicsLayer {
                 rotationZ = coverRotation.value
             }
@@ -514,10 +522,12 @@ private fun PlaybackExpandedContent(
     onResetTimer: () -> Unit,
     haptic: HapticService
 ) {
+    val metrics = LocalHmpMetrics.current
+    val typo = LocalHmpTypo.current
     val coverRotation = remember { Animatable(0f) }
     var dragOffset by remember { mutableFloatStateOf(0f) }
     var capsuleWidth by remember { mutableIntStateOf(0) }
-    val animatedOffset by animateFloatAsState(dragOffset, animationSpec = spring(dampingRatio = 0.6f, stiffness = 600f))
+    val animatedOffset by animateFloatAsState(dragOffset, animationSpec = HmpMotion.crispSpring())
     val thresholdPx = (capsuleWidth * 0.25f).coerceAtLeast(1f)
     val thresholdReached = kotlin.math.abs(animatedOffset) >= thresholdPx
     val primaryColor = MaterialTheme.colorScheme.primary
@@ -539,7 +549,7 @@ private fun PlaybackExpandedContent(
     Box(
         modifier = Modifier
             .onSizeChanged { capsuleWidth = it.width }
-            .clip(RoundedCornerShape(36.dp))
+            .clip(RoundedCornerShape(metrics.block))
             .pointerInput(thresholdPx) {
                 var wasPastThreshold = false
                 detectHorizontalDragGestures(
@@ -612,7 +622,7 @@ private fun PlaybackExpandedContent(
         // 主内容层
         Row(
             modifier = Modifier
-                .padding(8.dp),
+                .padding(metrics.compact),
             verticalAlignment = Alignment.CenterVertically
         ) {
             // 封面 + 播放暂停叠加
@@ -630,9 +640,9 @@ private fun PlaybackExpandedContent(
             ) {
                 AlbumCover(
                     uri = musicInfo.music.albumArtUri,
-                    size = 48.dp, // 播放展开（三胶囊共存）紧凑体系：封面统一 48dp，与伙伴/导航协调
-                    corner = 24.dp,
-                    shadow = 4.dp,
+                    size = metrics.bar, // 播放展开（三胶囊共存）紧凑体系：封面统一 48dp，与伙伴/导航协调
+                    corner = metrics.section,
+                    shadow = metrics.micro,
                     modifier = Modifier.graphicsLayer {
                         rotationZ = coverRotation.value
                     }
@@ -643,17 +653,17 @@ private fun PlaybackExpandedContent(
                     ),
                     contentDescription = if (isPlaying) stringResource(Res.string.pause_desc) else stringResource(Res.string.play_desc),
                     tint = Color.White,
-                    modifier = Modifier.size(24.dp) // 宽度压缩：控制图标 28→24dp
+                    modifier = Modifier.size(metrics.section) // 宽度压缩：控制图标 28→24dp
                 )
             }
 
-            Spacer(modifier = Modifier.width(12.dp))
+            Spacer(modifier = Modifier.width(metrics.base))
 
             // 歌名 + 歌手（点击进入播放器）
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier
-                    .padding(horizontal = 12.dp) // 宽度压缩：歌名列左右留白 16→12dp
+                    .padding(horizontal = metrics.base) // 宽度压缩：歌名列左右留白 16→12dp
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null
@@ -664,16 +674,16 @@ private fun PlaybackExpandedContent(
             ) {
                 Text(
                     text = musicInfo.music.title,
-                    style = MaterialTheme.typography.titleMedium,
+                    style = typo.subtitle,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                Spacer(modifier = Modifier.height(2.dp))
+                Spacer(modifier = Modifier.height(metrics.hair))
                 Text(
                     text = musicInfo.music.artist,
-                    style = MaterialTheme.typography.bodySmall,
+                    style = typo.footnote,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis

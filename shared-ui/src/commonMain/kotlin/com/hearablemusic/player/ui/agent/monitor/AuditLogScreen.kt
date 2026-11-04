@@ -41,7 +41,8 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import com.hearablemusic.player.ui.common.components.base.DefaultEmpty
-import com.hearablemusic.player.ui.common.design.dimens.LocalHMPDimens
+import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
+import com.hearablemusic.player.ui.common.design.typography.medium
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -62,6 +63,8 @@ import com.hearablemusic.player.ui.common.layout.LocalWindowSizeInfo
 import com.hearablemusic.player.ui.common.pages.base.SubScreen
 import com.hearablemusic.player.ui.common.util.formatEpochMillis
 import org.koin.compose.koinInject
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
+import com.hearablemusic.player.ui.common.design.metrics.LayoutConstraints
 
 /**
  * M6-T4：Agent 操作审计日志页面。
@@ -73,6 +76,7 @@ import org.koin.compose.koinInject
 fun AuditLogScreen(
     navController: NavBackStack<NavKey>,
 ) {
+    val metrics = LocalHmpMetrics.current
     val dao: AgentAuditLogDao = koinInject()
     val viewModel = remember { AuditLogViewModel(dao) }
 
@@ -89,8 +93,7 @@ fun AuditLogScreen(
         val window = LocalWindowSizeInfo.current
         val isWide = window.isExpanded || window.isMedium
         val isLandscape = window.isLandscape
-        val dimens = LocalHMPDimens.current
-        val listMaxWidth = if (isWide) 640.dp else Dp.Unspecified
+        val listMaxWidth = if (isWide) LayoutConstraints.ContentMaxWidthMedium else Dp.Unspecified
         Box(
             modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.TopCenter,
@@ -99,14 +102,14 @@ fun AuditLogScreen(
         Row(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = dimens.spacing.xl, vertical = dimens.spacing.md),
-            horizontalArrangement = Arrangement.spacedBy(dimens.spacing.lg),
+                .padding(horizontal = metrics.block, vertical = metrics.cozy),
+            horizontalArrangement = Arrangement.spacedBy(metrics.section),
         ) {
             // 左：筛选 rail（竖排）
             FilterRail(
                 currentFilter = currentFilter,
                 onFilterSelected = { viewModel.applyFilter(it) },
-                modifier = Modifier.width(160.dp).fillMaxHeight(),
+                modifier = Modifier.width(LayoutConstraints.CoverHeightSmall).fillMaxHeight(),
             )
             // 右：列表吃满剩余宽度
             Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
@@ -117,9 +120,9 @@ fun AuditLogScreen(
                         modifier = Modifier.fillMaxSize(),
                     )
                 } else {
-                    LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    LazyColumn(verticalArrangement = Arrangement.spacedBy(metrics.compact)) {
                         items(logs, key = { it.id }) { log -> AuditLogRow(log) }
-                        item { Spacer(Modifier.height(32.dp)) }
+                        item { Spacer(Modifier.height(metrics.block)) }
                     }
                 }
             }
@@ -130,7 +133,7 @@ fun AuditLogScreen(
                 .widthIn(max = listMaxWidth)
                 .fillMaxWidth()
                 .fillMaxSize()
-                .padding(horizontal = dimens.spacing.lg, vertical = dimens.spacing.sm),
+                .padding(horizontal = metrics.section, vertical = metrics.compact),
         ) {
             // 筛选 Tab
             FilterRow(
@@ -138,7 +141,7 @@ fun AuditLogScreen(
                 onFilterSelected = { viewModel.applyFilter(it) }
             )
 
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(metrics.compact))
 
             if (logs.isEmpty()) {
                 DefaultEmpty(
@@ -148,12 +151,12 @@ fun AuditLogScreen(
                 )
             } else {
                 LazyColumn(
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(metrics.compact),
                 ) {
                     items(logs, key = { it.id }) { log ->
                         AuditLogRow(log)
                     }
-                    item { Spacer(Modifier.height(32.dp)) }
+                    item { Spacer(Modifier.height(metrics.block)) }
                 }
             }
         }
@@ -179,12 +182,13 @@ private fun FilterRow(
     currentFilter: AuditLogViewModel.Filter,
     onFilterSelected: (AuditLogViewModel.Filter) -> Unit,
 ) {
+    val metrics = LocalHmpMetrics.current
     val scroll = rememberScrollState()
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .horizontalScroll(scroll),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(metrics.compact),
     ) {
         filterTabs.forEach { tab ->
             val selected = when (currentFilter) {
@@ -218,9 +222,10 @@ private fun FilterRail(
     onFilterSelected: (AuditLogViewModel.Filter) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val metrics = LocalHmpMetrics.current
     Column(
         modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(metrics.compact),
     ) {
         filterTabs.forEach { tab ->
             val selected = when (currentFilter) {
@@ -252,14 +257,16 @@ private fun FilterRail(
 
 @Composable
 private fun AuditLogRow(log: AgentAuditLog) {
+    val metrics = LocalHmpMetrics.current
+    val typo = LocalHmpTypo.current
     var expanded by remember { mutableStateOf(false) }
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
+            .clip(RoundedCornerShape(metrics.base))
             .clickable { expanded = !expanded },
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(metrics.base),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
         ),
@@ -267,59 +274,59 @@ private fun AuditLogRow(log: AgentAuditLog) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(12.dp),
+                .padding(metrics.base),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(modifier = Modifier.weight(1f)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
                             text = log.tool,
-                            style = MaterialTheme.typography.titleSmall,
+                            style = typo.body.medium(),
                             fontWeight = FontWeight.Medium,
                             color = MaterialTheme.colorScheme.onSurface,
                         )
-                        Spacer(Modifier.width(8.dp))
+                        Spacer(Modifier.width(metrics.compact))
                         OutcomeBadge(outcome = log.outcome)
                     }
-                    Spacer(Modifier.height(4.dp))
+                    Spacer(Modifier.height(metrics.micro))
                     Text(
                         text = formatTimestamp(log.createdAt),
-                        style = MaterialTheme.typography.labelSmall,
+                        style = typo.caption,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
                 Text(
                     text = if (expanded) "▲" else "▼",
-                    style = MaterialTheme.typography.bodySmall,
+                    style = typo.footnote,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
 
             if (expanded) {
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(metrics.compact))
                 Text(
                     text = log.reason ?: stringResource(Res.string.agent_audit_no_detail),
-                    style = MaterialTheme.typography.bodySmall,
+                    style = typo.footnote,
                     color = MaterialTheme.colorScheme.onSurface,
                 )
                 log.argsHash?.let { argsHash ->
-                    Spacer(Modifier.height(4.dp))
+                    Spacer(Modifier.height(metrics.micro))
                     Text(
                         text = stringResource(Res.string.agent_audit_args_hash, argsHash),
-                        style = MaterialTheme.typography.labelSmall,
+                        style = typo.caption,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
                 log.taskId?.let { taskId ->
                     Text(
                         text = stringResource(Res.string.agent_audit_task_id, taskId),
-                        style = MaterialTheme.typography.labelSmall,
+                        style = typo.caption,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
                 Text(
                     text = stringResource(Res.string.agent_audit_record_id, log.id),
-                    style = MaterialTheme.typography.labelSmall,
+                    style = typo.caption,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
@@ -329,6 +336,8 @@ private fun AuditLogRow(log: AgentAuditLog) {
 
 @Composable
 private fun OutcomeBadge(outcome: String) {
+    val metrics = LocalHmpMetrics.current
+    val typo = LocalHmpTypo.current
     val (bg, fg) = when (outcome) {
         "success", "allowed_silent", "allowed_notify" ->
             MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) to MaterialTheme.colorScheme.primary
@@ -343,13 +352,13 @@ private fun OutcomeBadge(outcome: String) {
     }
     Box(
         modifier = Modifier
-            .clip(RoundedCornerShape(4.dp))
+            .clip(RoundedCornerShape(metrics.micro))
             .background(bg)
-            .padding(horizontal = 6.dp, vertical = 2.dp),
+            .padding(horizontal = metrics.micro, vertical = metrics.hair),
     ) {
         Text(
             text = outcome,
-            style = MaterialTheme.typography.labelSmall,
+            style = typo.caption,
             color = fg,
         )
     }

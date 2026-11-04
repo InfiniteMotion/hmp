@@ -17,25 +17,27 @@ import com.hearablemusic.player.ui.generated.resources.back
 import com.hearablemusic.player.ui.generated.resources.chevron_down
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 
 @Composable
 fun PlayerHeader(onBackClick: () -> Unit) {
+    val metrics = LocalHmpMetrics.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .statusBarsPadding()
-            .padding(bottom = 16.dp),
+            .padding(bottom = metrics.cozy),
         horizontalArrangement = Arrangement.Center
     ) {
         IconButton(
             onClick = onBackClick,
-            modifier = Modifier.size(32.dp),
+            modifier = Modifier.size(metrics.block),
         ) {
             Icon(
                 painter = painterResource(Res.drawable.chevron_down),
                 tint = MaterialTheme.colorScheme.onSurface,
                 contentDescription = stringResource(Res.string.back),
-                modifier = Modifier.size(24.dp),
+                modifier = Modifier.size(metrics.section),
             )
         }
     }

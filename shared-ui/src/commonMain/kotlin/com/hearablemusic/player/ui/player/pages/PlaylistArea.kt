@@ -27,6 +27,7 @@ import androidx.compose.ui.platform.LocalDensity
 import org.jetbrains.compose.resources.stringResource
 import androidx.compose.ui.unit.dp
 import com.hmp.domain.music.MusicInfo
+import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
 import com.hearablemusic.player.ui.generated.resources.Res
 import com.hearablemusic.player.ui.generated.resources.clear
 import com.hearablemusic.player.ui.library.pages.components.musiclist.CurrentPlayingConfig
@@ -41,6 +42,9 @@ import com.hearablemusic.player.ui.library.pages.components.musiclist.defaultMus
 import com.hearablemusic.player.ui.common.util.rememberHapticFeedback
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
+import com.hearablemusic.player.ui.common.design.metrics.LayoutConstraints
+import com.hearablemusic.player.ui.common.design.animation.HmpMotion
 
 /**
  * 播放器内嵌的播放列表区域：使用新版 musiclist，外观与行为与原来一致。
@@ -57,6 +61,8 @@ fun PlaylistArea(
     onMoveToTop: (MusicInfo) -> Unit,
     onRemoveFromPlaylist: (MusicInfo) -> Unit,
 ) {
+    val metrics = LocalHmpMetrics.current
+    val typo = LocalHmpTypo.current
     val haptic = rememberHapticFeedback()
     val density = LocalDensity.current
     val scope = rememberCoroutineScope()
@@ -64,14 +70,11 @@ fun PlaylistArea(
     LaunchedEffect(expanded) {
         if (expanded) {
             delay(320)
-            val playlistHeightPx = with(density) { 560.dp.toPx() }
+            val playlistHeightPx = with(density) { LayoutConstraints.PlaylistSheetHeight.toPx() }
             val targetScroll = (scrollState.value + playlistHeightPx).toInt()
             scrollState.animateScrollTo(
                 value = targetScroll.coerceAtMost(scrollState.maxValue),
-                animationSpec = tween(
-                    durationMillis = 400,
-                    easing = FastOutSlowInEasing,
-                ),
+                animationSpec = HmpMotion.emphasis(),
             )
         }
     }
@@ -106,19 +109,19 @@ fun PlaylistArea(
             index = currentIndex.takeIf { it in playlist.indices },
             autoScrollToCurrent = true,
         ),
-        contentPadding = PaddingValues(horizontal = 16.dp),
+        contentPadding = PaddingValues(horizontal = metrics.cozy),
     )
 
     AnimatedVisibility(
         visible = expanded,
-        enter = expandVertically() + fadeIn(),
-        exit = shrinkVertically() + fadeOut(),
+        enter = expandVertically(HmpMotion.enter()) + fadeIn(HmpMotion.enter()),
+        exit = shrinkVertically(HmpMotion.exit()) + fadeOut(HmpMotion.exit()),
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(start = 16.dp, end = 32.dp, top = 12.dp, bottom = 4.dp),
+                    .padding(start = metrics.cozy, end = metrics.block, top = metrics.base, bottom = metrics.micro),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -130,13 +133,13 @@ fun PlaylistArea(
                 ) {
                     Text(
                         text = stringResource(Res.string.clear),
-                        style = MaterialTheme.typography.bodySmall,
+                        style = typo.footnote,
                         color = MaterialTheme.colorScheme.primary,
                     )
                 }
                 Text(
                     text = "${currentIndex + 1}/${playlist.size}",
-                    style = MaterialTheme.typography.bodySmall,
+                    style = typo.footnote,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                 )
             }
@@ -145,7 +148,7 @@ fun PlaylistArea(
                 config = config,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(500.dp),
+                    .height(LayoutConstraints.PlaylistAreaHeight),
                 isPlaying = true,
             )
         }

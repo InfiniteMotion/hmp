@@ -23,7 +23,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.hearablemusic.player.ui.common.components.base.HMPCard
-import com.hearablemusic.player.ui.common.design.dimens.LocalHMPDimens
+import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
+import com.hearablemusic.player.ui.common.design.typography.medium
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 
 // ==================== 增强版 Segmented Control 组件 ====================
 
@@ -39,24 +41,25 @@ fun SegmentedControl(
     onOptionSelected: (String) -> Unit,
     showIcons: Boolean = false
 ) {
-    val dimens = LocalHMPDimens.current
+    val metrics = LocalHmpMetrics.current
+    val typo = LocalHmpTypo.current
     HMPCard(
-        modifier = modifier.height(52.dp),
-        shape = RoundedCornerShape(dimens.corner.sm),
+        modifier = modifier.height(metrics.bar),
+        shape = RoundedCornerShape(metrics.base),
         borderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
-        contentPadding = Modifier.padding(4.dp)
+        contentPadding = Modifier.padding(metrics.micro)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(2.dp)
+            horizontalArrangement = Arrangement.spacedBy(metrics.hair)
         ) {
             options.forEach { option ->
                 val isSelected = option.id == selectedOption
                 Surface(
                     modifier = Modifier
-                        .height(44.dp)
+                        .height(metrics.bar)
                         .weight(1f),
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(metrics.base),
                     color = if (isSelected) {
                         MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
                     } else {
@@ -66,7 +69,7 @@ fun SegmentedControl(
                 ) {
                     Row(
                         modifier = Modifier
-                            .padding(horizontal = 8.dp),
+                            .padding(horizontal = metrics.compact),
                         horizontalArrangement = Arrangement.Center,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -74,18 +77,18 @@ fun SegmentedControl(
                             Icon(
                                 painter = option.icon,
                                 contentDescription = null,
-                                modifier = Modifier.size(18.dp),
+                                modifier = Modifier.size(metrics.cozy),
                                 tint = if (isSelected) {
                                     MaterialTheme.colorScheme.primary
                                 } else {
                                     MaterialTheme.colorScheme.onSurfaceVariant
                                 }
                             )
-                            Spacer(Modifier.width(6.dp))
+                            Spacer(Modifier.width(metrics.micro))
                         }
                         Text(
                             text = option.label,
-                            style = MaterialTheme.typography.labelLarge,
+                            style = typo.body.medium(),
                             color = if (isSelected) {
                                 MaterialTheme.colorScheme.primary
                             } else {
@@ -116,16 +119,16 @@ fun VerticalSegmentedControl(
     onOptionSelected: (String) -> Unit,
     itemHeight: Int = 44 // 每个选项的高度
 ) {
-    val dimens = LocalHMPDimens.current
+    val metrics = LocalHmpMetrics.current
     HMPCard(
         modifier = modifier,
-        shape = RoundedCornerShape(dimens.corner.sm),
+        shape = RoundedCornerShape(metrics.base),
         borderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
-        contentPadding = Modifier.padding(4.dp)
+        contentPadding = Modifier.padding(metrics.micro)
     ) {
         Column(
             modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(2.dp)
+            verticalArrangement = Arrangement.spacedBy(metrics.hair)
         ) {
             options.forEach { option ->
                 val isSelected = option.id == selectedOption
@@ -133,7 +136,7 @@ fun VerticalSegmentedControl(
                     modifier = Modifier
                         .height(itemHeight.dp)
                         .fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(metrics.base),
                     color = if (isSelected) {
                         MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
                     } else {
@@ -143,7 +146,7 @@ fun VerticalSegmentedControl(
                 ) {
                     Row(
                         modifier = Modifier
-                            .padding(horizontal = 12.dp),
+                            .padding(horizontal = metrics.base),
                         horizontalArrangement = Arrangement.Center,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -151,7 +154,7 @@ fun VerticalSegmentedControl(
                             Icon(
                                 painter = it,
                                 contentDescription = null,
-                                modifier = Modifier.size(18.dp),
+                                modifier = Modifier.size(metrics.cozy),
                                 tint = if (isSelected) {
                                     MaterialTheme.colorScheme.primary
                                 } else {

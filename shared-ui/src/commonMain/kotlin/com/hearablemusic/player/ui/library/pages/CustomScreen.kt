@@ -35,6 +35,8 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
 import com.hearablemusic.player.ui.common.components.base.TitleWidget
+import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
+import com.hearablemusic.player.ui.common.design.typography.medium
 import com.hearablemusic.player.ui.common.pages.base.SubScreen
 import com.hearablemusic.player.ui.common.util.activityViewModel
 import com.hearablemusic.player.ui.common.layout.LocalWindowSizeInfo
@@ -89,6 +91,8 @@ import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.rememberHazeState
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
+import com.hearablemusic.player.ui.common.design.metrics.LayoutConstraints
 
 @Composable
 fun CustomScreen(
@@ -140,6 +144,7 @@ fun CustomScreenContent(
     setHazeNoiseFactor: (Float) -> Unit,
     setHazeTintAlpha: (Float) -> Unit
 ) {
+    val metrics = LocalHmpMetrics.current
     SubScreen(
         onBackClick = onBackClick,
         title = stringResource(Res.string.theme_customization)
@@ -148,19 +153,19 @@ fun CustomScreenContent(
         Column(
             modifier = Modifier.verticalScroll(rememberScrollState())
                 .fillMaxWidth()
-                .padding(24.dp),
-            verticalArrangement = Arrangement.spacedBy(24.dp)
+                .padding(metrics.section),
+            verticalArrangement = Arrangement.spacedBy(metrics.section)
         ) {
             if (isLandscape) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(24.dp)
+                    horizontalArrangement = Arrangement.spacedBy(metrics.section)
                 ) {
-                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(24.dp)) {
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(metrics.section)) {
                         SetThemeMode(customMode = customMode, setCustomMode = setCustomMode)
                         SetBackgroundStyle(backgroundStyle = backgroundStyle, setBackgroundStyle = setBackgroundStyle)
                     }
-                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(24.dp)) {
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(metrics.section)) {
                         SetHazeIntensity(
                             hazeMode = hazeMode, hazeMaterialPreset = hazeMaterialPreset,
                             hazeBlurRadius = hazeBlurRadius, hazeNoiseFactor = hazeNoiseFactor,
@@ -176,7 +181,7 @@ fun CustomScreenContent(
                 SetBackgroundStyle(backgroundStyle = backgroundStyle, setBackgroundStyle = setBackgroundStyle)
                 SetHazeIntensity(hazeMode = hazeMode, hazeMaterialPreset = hazeMaterialPreset, hazeBlurRadius = hazeBlurRadius, hazeNoiseFactor = hazeNoiseFactor, hazeTintAlpha = hazeTintAlpha, setHazeMode = setHazeMode, applyHazeMaterialPreset = applyHazeMaterialPreset, setHazeBlurRadius = setHazeBlurRadius, setHazeNoiseFactor = setHazeNoiseFactor, setHazeTintAlpha = setHazeTintAlpha)
             }
-            Spacer(modifier = Modifier.height(64.dp))
+            Spacer(modifier = Modifier.height(metrics.row))
         }
     }
 }
@@ -195,7 +200,9 @@ fun SetHazeIntensity(
     setHazeNoiseFactor: (Float) -> Unit,
     setHazeTintAlpha: (Float) -> Unit
 ) {
+    val metrics = LocalHmpMetrics.current
     val hazeState = rememberHazeState()
+    val typo = LocalHmpTypo.current
     val selectedPreset = hazeMaterialPresetFromValue(hazeMaterialPreset)
     val activeIntensity = selectedPreset.intensity
     val percent = (activeIntensity * 100).toInt()
@@ -206,12 +213,12 @@ fun SetHazeIntensity(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+                .padding(horizontal = metrics.cozy, vertical = metrics.compact),
+            verticalArrangement = Arrangement.spacedBy(metrics.compact)
         ) {
             Text(
                 text = stringResource(Res.string.haze_intensity_desc),
-                style = MaterialTheme.typography.bodySmall,
+                style = typo.footnote,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
@@ -238,10 +245,10 @@ fun SetHazeIntensity(
             if (hazeMode == HAZE_MODE_PRESET) {
                 Text(
                     text = stringResource(Res.string.haze_preset_list_title),
-                    style = MaterialTheme.typography.labelLarge,
+                    style = typo.body.medium(),
                     color = MaterialTheme.colorScheme.onSurface
                 )
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(metrics.compact)) {
                     HazeMaterialPreset.entries.forEach { preset ->
                         HazeSelectionOption(
                             title = stringResource(preset.labelResId()),
@@ -257,13 +264,13 @@ fun SetHazeIntensity(
             } else {
                 Text(
                     text = stringResource(Res.string.haze_custom_params_title),
-                    style = MaterialTheme.typography.labelLarge,
+                    style = typo.body.medium(),
                     color = MaterialTheme.colorScheme.onSurface
                 )
 
                 Text(
                     text = stringResource(Res.string.haze_blur_radius_label, hazeBlurRadius),
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = typo.body,
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Slider(
@@ -277,7 +284,7 @@ fun SetHazeIntensity(
                 val noisePercent = (hazeNoiseFactor * 100).toInt()
                 Text(
                     text = stringResource(Res.string.haze_noise_factor_label, noisePercent),
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = typo.body,
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Slider(
@@ -291,7 +298,7 @@ fun SetHazeIntensity(
                 val tintPercent = (hazeTintAlpha * 100).toInt()
                 Text(
                     text = stringResource(Res.string.haze_tint_alpha_label, tintPercent),
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = typo.body,
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Slider(
@@ -306,7 +313,7 @@ fun SetHazeIntensity(
             if (hazeMode == HAZE_MODE_PRESET) {
                 Text(
                     text = stringResource(Res.string.haze_intensity_value, percent),
-                    style = MaterialTheme.typography.labelLarge,
+                    style = typo.body.medium(),
                     color = MaterialTheme.colorScheme.onSurface
                 )
             }
@@ -314,8 +321,8 @@ fun SetHazeIntensity(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(130.dp)
-                    .clip(RoundedCornerShape(16.dp))
+                    .height(LayoutConstraints.ListMaxHeight)
+                    .clip(RoundedCornerShape(metrics.cozy))
                     .background(
                         Brush.linearGradient(
                             listOf(
@@ -331,8 +338,8 @@ fun SetHazeIntensity(
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 14.dp)
-                        .clip(RoundedCornerShape(16.dp))
+                        .padding(horizontal = metrics.base)
+                        .clip(RoundedCornerShape(metrics.cozy))
                         .hazeEffect(
                             state = hazeState,
                             style = hazeStyleForIntensity()
@@ -342,15 +349,15 @@ fun SetHazeIntensity(
                     )
                 ) {
                     Column(
-                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp)
+                        modifier = Modifier.padding(horizontal = metrics.base, vertical = metrics.base)
                     ) {
                         Text(
                             text = stringResource(Res.string.haze_intensity_preview_title),
-                            style = MaterialTheme.typography.titleSmall
+                            style = typo.body.medium()
                         )
                         Text(
                             text = stringResource(Res.string.haze_intensity_preview_subtitle),
-                            style = MaterialTheme.typography.bodySmall,
+                            style = typo.footnote,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
@@ -367,37 +374,39 @@ private fun HazeSelectionOption(
     isSelected: Boolean,
     onClick: () -> Unit
 ) {
+    val metrics = LocalHmpMetrics.current
+    val typo = LocalHmpTypo.current
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick),
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(metrics.base),
         colors = CardDefaults.cardColors(
             containerColor = Transparent
         ),
-        border = if (isSelected) BorderStroke(1.dp, MaterialTheme.colorScheme.primary) else null
+        border = if (isSelected) BorderStroke(metrics.stroke.thin, MaterialTheme.colorScheme.primary) else null
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(14.dp),
+                .padding(metrics.base),
             verticalAlignment = Alignment.CenterVertically
         ) {
             RadioButton(
                 selected = isSelected,
                 onClick = null
             )
-            Spacer(modifier = Modifier.width(12.dp))
+            Spacer(modifier = Modifier.width(metrics.base))
             Column {
                 Text(
                     text = title,
-                    style = MaterialTheme.typography.bodyLarge,
+                    style = typo.body,
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 if (!description.isNullOrBlank()) {
                     Text(
                         text = description,
-                        style = MaterialTheme.typography.bodySmall,
+                        style = typo.footnote,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
@@ -421,13 +430,14 @@ fun SetThemeMode(
     customMode: String,
     setCustomMode: (String) -> Unit
 ){
+    val metrics = LocalHmpMetrics.current
     TitleWidget(
         title = stringResource(Res.string.set_theme_mode),
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(metrics.cozy),
             horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -466,19 +476,21 @@ fun ThemeModeButton(
     isSelected: Boolean,
     onClick: () -> Unit
 ){
+    val metrics = LocalHmpMetrics.current
+    val typo = LocalHmpTypo.current
     Button(
         onClick = onClick,
-        shape = RoundedCornerShape(80.dp),
+        shape = RoundedCornerShape(metrics.row),
         colors = ButtonDefaults.buttonColors(
             containerColor = Transparent,
         ),
-        border = if(isSelected) BorderStroke(2.dp, color = MaterialTheme.colorScheme.primary) else null,
+        border = if(isSelected) BorderStroke(metrics.hair, color = MaterialTheme.colorScheme.primary) else null,
         modifier = Modifier
-            .width(96.dp)
+            .width(metrics.row)
     ) {
         Text(
             text = text,
-            style = MaterialTheme.typography.bodyLarge,
+            style = typo.body,
             color = MaterialTheme.colorScheme.onSurface
         )
     }
@@ -489,6 +501,7 @@ fun SetBackgroundStyle(
     backgroundStyle: String,
     setBackgroundStyle: (String) -> Unit
 ) {
+    val metrics = LocalHmpMetrics.current
     TitleWidget(
         title = stringResource(Res.string.set_background_style),
     ) {
@@ -496,8 +509,8 @@ fun SetBackgroundStyle(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+                .padding(horizontal = metrics.cozy, vertical = metrics.compact),
+            verticalArrangement = Arrangement.spacedBy(metrics.compact)
         ) {
             val haptic = rememberHapticFeedback()
             
@@ -541,36 +554,38 @@ fun BackgroundStyleOption(
     isSelected: Boolean,
     onClick: () -> Unit
 ) {
+    val metrics = LocalHmpMetrics.current
+    val typo = LocalHmpTypo.current
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick),
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(metrics.base),
         colors = CardDefaults.cardColors(
             containerColor = Transparent
         ),
-        border = if (isSelected) BorderStroke(1.dp, MaterialTheme.colorScheme.primary) else null
+        border = if (isSelected) BorderStroke(metrics.stroke.thin, MaterialTheme.colorScheme.primary) else null
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(metrics.cozy),
             verticalAlignment = Alignment.CenterVertically
         ) {
             RadioButton(
                 selected = isSelected,
                 onClick = null // Handled by Card clickable
             )
-            Spacer(modifier = Modifier.width(16.dp))
+            Spacer(modifier = Modifier.width(metrics.cozy))
             Column {
                 Text(
                     text = title,
-                    style = MaterialTheme.typography.titleMedium,
+                    style = typo.subtitle,
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
                     text = description,
-                    style = MaterialTheme.typography.bodySmall,
+                    style = typo.footnote,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }

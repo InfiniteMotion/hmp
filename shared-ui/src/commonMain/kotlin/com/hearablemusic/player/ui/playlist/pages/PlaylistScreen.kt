@@ -52,6 +52,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.hearablemusic.player.ui.common.util.commonFormat
 import com.hearablemusic.player.ui.common.util.activityViewModel
+import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
 import com.hmp.domain.music.MusicInfo
@@ -90,6 +91,9 @@ import com.hearablemusic.player.ui.playlist.viewmodel.PlaylistViewModel
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
+import com.hearablemusic.player.ui.common.design.metrics.LayoutConstraints
+import com.hearablemusic.player.ui.common.design.animation.HmpMotion
 
 @Composable
 fun PlaylistScreen(
@@ -203,6 +207,7 @@ fun PlaylistScreenContent(
     onReorder: (List<Long>) -> Unit,
     onAddSongsClick: (() -> Unit)? = null
 ) {
+    val metrics = LocalHmpMetrics.current
     val haptic = rememberHapticFeedback()
     val userCustomPlaylistsState by playlistViewModel.userCustomPlaylistsState.collectAsState()
     val userCustomPlaylists = (userCustomPlaylistsState as? UiState.Success)?.data ?: emptyList()
@@ -217,7 +222,7 @@ fun PlaylistScreenContent(
     var isListEditMode by remember { mutableStateOf(false) }
     val musicListState = rememberLazyListState()
     val density = LocalDensity.current
-    val maxHeaderCollapsePx = with(density) { 160.dp.toPx() }
+    val maxHeaderCollapsePx = with(density) { LayoutConstraints.CoverHeightSmall.toPx() }
     val headerExpandDamping = 0.80f
     var headerCollapseOffsetPx by remember(selectedPlaylistId, playlistName) { mutableFloatStateOf(0f) }
     val isMusicListAtTop by remember {
@@ -327,7 +332,7 @@ fun PlaylistScreenContent(
                             playlistViewModel.loadUserCustomPlaylists()
                         }
                     },
-                    modifier = Modifier.size(32.dp),
+                    modifier = Modifier.size(metrics.block),
                     colors = IconButtonDefaults.filledIconButtonColors(
                         containerColor = MaterialTheme.colorScheme.primary,
                         contentColor = MaterialTheme.colorScheme.onPrimary
@@ -336,7 +341,7 @@ fun PlaylistScreenContent(
                     Icon(
                         painter = painterResource(Res.drawable.gearshape),
                         contentDescription = stringResource(Res.string.edit_list),
-                        modifier = Modifier.size(20.dp)
+                        modifier = Modifier.size(metrics.cozy)
                     )
                 }
             }
@@ -351,8 +356,8 @@ fun PlaylistScreenContent(
             if (isCustomPlaylist && playlistMeta != null) {
                 AnimatedVisibility(
                     visible = !shouldCollapseHeader,
-                    enter = expandVertically(animationSpec = tween(220)) + fadeIn(animationSpec = tween(180)),
-                    exit = shrinkVertically(animationSpec = tween(220)) + fadeOut(animationSpec = tween(150))
+                    enter = expandVertically(animationSpec = HmpMotion.standard()) + fadeIn(animationSpec = HmpMotion.micro()),
+                    exit = shrinkVertically(animationSpec = HmpMotion.standard()) + fadeOut(animationSpec = HmpMotion.micro())
                 ) {
                     PlaylistHeader(
                         meta = playlistMeta
@@ -440,12 +445,12 @@ fun PlaylistScreenContent(
                                 haptic.performClick()
                                 addSongsClick()
                             },
-                            modifier = Modifier.size(32.dp),
+                            modifier = Modifier.size(metrics.block),
                         ) {
                             Icon(
                                 painter = painterResource(Res.drawable.plus),
                                 contentDescription = stringResource(Res.string.add_songs_to_playlist),
-                                modifier = Modifier.size(24.dp),
+                                modifier = Modifier.size(metrics.section),
                                 tint = MaterialTheme.colorScheme.onSurface,
                             )
                         }
@@ -477,21 +482,23 @@ private fun PlaylistStatItem(
     value: String,
     modifier: Modifier = Modifier
 ) {
+    val metrics = LocalHmpMetrics.current
+    val typo = LocalHmpTypo.current
     Column(
         modifier = modifier,
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterVertically)
+        verticalArrangement = Arrangement.spacedBy(metrics.micro, Alignment.CenterVertically)
     ) {
         Text(
             text = value,
-            style = MaterialTheme.typography.titleMedium.copy(
-                fontWeight = FontWeight.ExtraBold,
+            style = typo.subtitle.copy(
+                fontWeight = FontWeight.Bold,
             ),
             color = MaterialTheme.colorScheme.onSurface
         )
         Text(
             text = label,
-            style = MaterialTheme.typography.labelSmall,
+            style = typo.caption,
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
@@ -503,10 +510,12 @@ private fun PlaylistStatItem(
 private fun PlaylistHeader(
     meta: Playlist
 ) {
+    val metrics = LocalHmpMetrics.current
+    val typo = LocalHmpTypo.current
     Card(
         modifier = Modifier
             .fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
+        shape = RoundedCornerShape(metrics.section),
         colors = CardDefaults.cardColors(
             containerColor = Transparent
         ),
@@ -515,7 +524,7 @@ private fun PlaylistHeader(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(20.dp),
+                .padding(metrics.cozy),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             // Cover Image
@@ -527,12 +536,12 @@ private fun PlaylistHeader(
                 AlbumCover(
                     uri = meta.coverUri,
                     size = HEADER_COVER_SIZE_DP.dp,
-                    corner = 25.dp,
-                    shadow = 15.dp,
+                    corner = metrics.section,
+                    shadow = LayoutConstraints.ShadowElevation,
                 )
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(metrics.cozy))
 
             // Stats Row
             val lastPlayedAt = meta.lastPlayedAt
@@ -564,24 +573,23 @@ private fun PlaylistHeader(
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(metrics.cozy))
 
             // Description
             val description = meta.description
             if (!description.isNullOrBlank()) {
                 Text(
                     text = description,
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = typo.body,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 8.dp),
+                        .padding(horizontal = metrics.compact),
                     textAlign = TextAlign.Center
                 )
             }
         }
     }
 }
-

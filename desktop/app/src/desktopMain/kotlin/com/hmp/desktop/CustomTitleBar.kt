@@ -31,12 +31,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.hearablemusic.player.ui.common.design.animation.AnimationTokens
+import com.hearablemusic.player.ui.common.design.metrics.HMPMetricTokens
+import com.hearablemusic.player.ui.common.design.metrics.LayoutConstraints
+import com.hearablemusic.player.ui.common.design.colors.ColorTokens
+import com.hearablemusic.player.ui.common.design.animation.HmpMotion
 
 /**
  * 标题栏高度。Main.kt 将它 provides 给 LocalTitleBarInset，内容区为悬浮标题栏让位。
  */
-internal val TITLE_BAR_HEIGHT = 40.dp
+internal val TITLE_BAR_HEIGHT = HMPMetricTokens.Compact.block
 
 /**
  * Custom window title bar for undecorated desktop window.
@@ -60,7 +63,7 @@ fun CustomTitleBar(
     // 背景透明度：与下方动态背景完全相同的动画机制
     val bgAlpha by animateFloatAsState(
         targetValue = if (isPlaying) 0f else 1f,
-        animationSpec = tween(800, easing = AnimationTokens.EASE_IN_OUT)
+        animationSpec = HmpMotion.page()
     )
 
     Box(
@@ -85,15 +88,15 @@ fun CustomTitleBar(
             val titleColor by animateColorAsState(
                 targetValue = if (isPlaying) MaterialTheme.colorScheme.primary.copy(alpha = 0.55f)
                                else MaterialTheme.colorScheme.primary,
-                animationSpec = tween(800, easing = AnimationTokens.EASE_IN_OUT)
+                animationSpec = HmpMotion.page()
             )
             Text(
                 text = "HMP",
-                modifier = Modifier.padding(start = 16.dp),
+                modifier = Modifier.padding(start = HMPMetricTokens.Compact.cozy),
                 color = titleColor,
-                fontSize = 13.sp,
+                fontSize = LayoutConstraints.TitleBarFontSize,
                 fontWeight = FontWeight.SemiBold,
-                letterSpacing = 0.5.sp
+                letterSpacing = LayoutConstraints.TitleBarLetterSpacing
             )
 
         // Center: Draggable area — uses java.awt.MouseInfo for screen-absolute
@@ -178,8 +181,8 @@ private fun WindowControlButton(
     val pressedAlpha = if (isTransparent) 0.12f else 0.06f
 
     val bgColor = when {
-        isClose && isHovered -> Color(0xFFC42B1C)
-        isClose && isPressed -> Color(0xFFB22419)
+        isClose && isHovered -> ColorTokens.Shell.CloseButtonHover
+        isClose && isPressed -> ColorTokens.Shell.CloseButtonPressed
         isHovered -> if (isDarkTheme) Color.White.copy(alpha = hoverAlpha) else Color.Black.copy(alpha = hoverAlpha * 0.6f)
         isPressed -> if (isDarkTheme) Color.White.copy(alpha = pressedAlpha) else Color.Black.copy(alpha = pressedAlpha)
         else -> Color.Transparent
@@ -193,7 +196,7 @@ private fun WindowControlButton(
 
     Box(
         modifier = Modifier
-            .size(46.dp, TITLE_BAR_HEIGHT)
+            .size(HMPMetricTokens.Compact.bar, TITLE_BAR_HEIGHT)
             .hoverable(interactionSource)
             .clickable(
                 interactionSource = interactionSource,
@@ -206,7 +209,7 @@ private fun WindowControlButton(
         Text(
             text = symbol,
             color = textColor,
-            fontSize = 11.sp,
+            fontSize = LayoutConstraints.TitleBarButtonFontSize,
             textAlign = TextAlign.Center,
             fontWeight = FontWeight.Normal
         )

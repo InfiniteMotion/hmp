@@ -42,7 +42,8 @@ import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
 import com.hearablemusic.player.ui.common.components.Avatar
 import com.hearablemusic.player.ui.common.components.base.HMPCard
-import com.hearablemusic.player.ui.common.design.dimens.LocalHMPDimens
+import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
+import com.hearablemusic.player.ui.common.design.typography.medium
 import com.hearablemusic.player.ui.player.components.MiniPlayerSafeSpacer
 import com.hearablemusic.player.ui.common.layout.LocalWindowSizeInfo
 import com.hearablemusic.player.ui.common.layout.WindowWidthSizeClass
@@ -89,6 +90,7 @@ import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.compose.koinInject
 import kotlin.math.abs
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 
 internal data class SettingsEntry(
     val title: UiText,
@@ -121,13 +123,14 @@ private fun SettingsListCard(
     navController: NavBackStack<NavKey>,
     modifier: Modifier = Modifier,
 ) {
+    val metrics = LocalHmpMetrics.current
     val haptic = rememberHapticFeedback()
-    val dimens = LocalHMPDimens.current
+    val typo = LocalHmpTypo.current
     val playbackController: PlaybackController = koinInject()
     val entries = visibleSettingsEntries(playbackController.audioEffectsSupported)
     HMPCard(
         modifier = modifier,
-        contentPadding = Modifier.padding(vertical = dimens.spacing.sm)
+        contentPadding = Modifier.padding(vertical = metrics.compact)
     ) {
         entries.forEachIndexed { index, (title, icon, route) ->
                 if (index > 0) {
@@ -142,26 +145,26 @@ private fun SettingsListCard(
                             haptic.performClick()
                             navController.add(route)
                         }
-                        .padding(horizontal = dimens.spacing.lg, vertical = dimens.spacing.lg),
+                        .padding(horizontal = metrics.section, vertical = metrics.section),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Icon(
                         painter = painterResource(icon),
                         contentDescription = null,
-                        modifier = Modifier.size(dimens.icon.md),
+                        modifier = Modifier.size(metrics.section),
                         tint = MaterialTheme.colorScheme.primary
                     )
                     Spacer(modifier = Modifier.weight(1f))
                     Text(
                         text = title.asString(),
-                        style = MaterialTheme.typography.bodyLarge,
+                        style = typo.body,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Spacer(modifier = Modifier.weight(1f))
                     Icon(
                         painter = painterResource(Res.drawable.chevron_right),
                         contentDescription = null,
-                        modifier = Modifier.size(dimens.icon.sm),
+                        modifier = Modifier.size(metrics.cozy),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
@@ -211,14 +214,15 @@ fun UserScreenContent(
     rangeLabel: String,
     navController: NavBackStack<NavKey>
 ) {
+    val metrics = LocalHmpMetrics.current
     TabScreen{
         val sizeClass = LocalWindowSizeInfo.current.widthSizeClass
         val isLandscape = LocalWindowSizeInfo.current.isLandscape
-        val dimens = LocalHMPDimens.current
+        val typo = LocalHmpTypo.current
         val horizontalPadding = when (sizeClass) {
-            WindowWidthSizeClass.Expanded -> 48.dp
-            WindowWidthSizeClass.Medium -> 32.dp
-            WindowWidthSizeClass.Compact -> 16.dp
+            WindowWidthSizeClass.Expanded -> metrics.bar
+            WindowWidthSizeClass.Medium -> metrics.block
+            WindowWidthSizeClass.Compact -> metrics.cozy
         }
         // D5-08：窗口是连续日历日、缺听歌的日子补零、列按真实星期对齐 —— 全在纯函数里做
         val heatmapGrid = remember(listeningData) {
@@ -237,13 +241,13 @@ fun UserScreenContent(
                         haptic.performClick()
                         navController.add(Routes.Settings.ProfileSettings)
                     },
-                contentPadding = Modifier.padding(dimens.spacing.md)
+                contentPadding = Modifier.padding(metrics.cozy)
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
                 ){
-                    Avatar(aSize = dimens.component.sm.value.toInt(), imageUri = avatarUri)
+                    Avatar(aSize = metrics.panel.value.toInt(), imageUri = avatarUri)
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
@@ -252,8 +256,7 @@ fun UserScreenContent(
                         userName?.let {
                             Text(
                                 text = it,
-                                style = MaterialTheme.typography.displayMedium,
-                                fontSize = dimens.type.xl,
+                                style = typo.displayL,
                                 color = MaterialTheme.colorScheme.onBackground
                             )
                         }
@@ -264,20 +267,20 @@ fun UserScreenContent(
 
         if (isLandscape) {
             Column(
-                modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(top = dimens.spacing.lg),
+                modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(top = metrics.section),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = dimens.spacing.xl)
+                        .padding(horizontal = metrics.block)
                         .height(IntrinsicSize.Min),
-                    horizontalArrangement = Arrangement.spacedBy(dimens.spacing.lg)
+                    horizontalArrangement = Arrangement.spacedBy(metrics.section)
                 ) {
                     Column(
                         modifier = Modifier.weight(1f).fillMaxHeight(),
                     ) {
-                        Column(verticalArrangement = Arrangement.spacedBy(dimens.spacing.lg)) {
+                        Column(verticalArrangement = Arrangement.spacedBy(metrics.section)) {
                             profileCard()
                             SettingsListCard(navController = navController)
                         }
@@ -293,7 +296,7 @@ fun UserScreenContent(
                                     haptic.performClick()
                                     navController.add(Routes.UserData.UserUsageData)
                                 },
-                            contentPadding = Modifier.padding(dimens.spacing.lg)
+                            contentPadding = Modifier.padding(metrics.section)
                         ) {
                             Column(
                                 verticalArrangement = Arrangement.SpaceEvenly,
@@ -305,21 +308,19 @@ fun UserScreenContent(
                                 ) {
                                     Text(
                                         text = stringResource(Res.string.listening_insights),
-                                        style = MaterialTheme.typography.titleMedium,
-                                        fontSize = dimens.type.md,
-                                        fontWeight = FontWeight.SemiBold,
+                                        style = typo.subtitle,
                                         color = MaterialTheme.colorScheme.onSurface
                                     )
                                     // D5-09：这三个数字是窗口值，标签必须说清是哪个窗口
                                     Text(
                                         text = rangeLabel,
-                                        style = MaterialTheme.typography.labelSmall,
+                                        style = typo.caption,
                                         color = MaterialTheme.colorScheme.primary,
                                     )
                                 }
 
                                 windowed.analytics?.let { a ->
-                                    Column(verticalArrangement = Arrangement.spacedBy(dimens.spacing.sm)) {
+                                    Column(verticalArrangement = Arrangement.spacedBy(metrics.compact)) {
                                         Row(
                                             modifier = Modifier.fillMaxWidth(),
                                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -328,15 +329,12 @@ fun UserScreenContent(
                                             Column(horizontalAlignment = Alignment.Start) {
                                                 Text(
                                                     text = stringResource(Res.string.total_listening_minutes),
-                                                    style = MaterialTheme.typography.labelMedium,
-                                                    fontSize = dimens.type.xs,
+                                                    style = typo.caption,
                                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                                 )
                                                 Text(
                                                     text = "${a.totalListeningMinutes}",
-                                                    style = MaterialTheme.typography.headlineLarge,
-                                                    fontSize = dimens.type.xl,
-                                                    fontWeight = FontWeight.Bold,
+                                                    style = typo.displayL,
                                                     color = MaterialTheme.colorScheme.onSurface
                                                 )
                                             }
@@ -344,7 +342,7 @@ fun UserScreenContent(
 
                                         Row(
                                             modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.spacedBy(dimens.spacing.sm)
+                                            horizontalArrangement = Arrangement.spacedBy(metrics.compact)
                                         ) {
                                             InsightPill(Modifier.weight(1f), stringResource(Res.string.sort_play_count), "${a.totalPlayCount}")
                                             InsightPill(Modifier.weight(1f), stringResource(Res.string.skipped_count), "${a.totalSkipCount}")
@@ -357,7 +355,7 @@ fun UserScreenContent(
                         }
                     }
                 }
-                Spacer(modifier = Modifier.height(48.dp))
+                Spacer(modifier = Modifier.height(metrics.bar))
             }
         } else {
             Column(
@@ -367,7 +365,7 @@ fun UserScreenContent(
                 Column(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = horizontalPadding),
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(dimens.spacing.lg)
+                    verticalArrangement = Arrangement.spacedBy(metrics.section)
                 ) {
                     profileCard()
 
@@ -377,34 +375,33 @@ fun UserScreenContent(
                                 haptic.performClick()
                                 navController.add(Routes.UserData.UserUsageData)
                             },
-                        contentPadding = Modifier.padding(vertical = dimens.spacing.md)
+                        contentPadding = Modifier.padding(vertical = metrics.cozy)
                     ) {
                         Row(
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = dimens.spacing.md),
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = metrics.cozy),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
                                 text = stringResource(Res.string.title_user_usage_data),
-                                style = MaterialTheme.typography.titleMedium,
-                                fontSize = dimens.type.md,
+                                style = typo.subtitle,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Icon(
                                 painter = painterResource(Res.drawable.square_fill_grid_2x2),
                                 contentDescription = null,
-                                modifier = Modifier.size(dimens.icon.sm),
+                                modifier = Modifier.size(metrics.cozy),
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
-                        Spacer(modifier = Modifier.height(dimens.spacing.sm))
+                        Spacer(modifier = Modifier.height(metrics.compact))
                         ListeningChart(grid = heatmapGrid)
                     }
 
                 SettingsListCard(navController = navController)
             }
             // 给全局悬浮音乐胶囊预留底部空间
-            MiniPlayerSafeSpacer(height = 56.dp)
+            MiniPlayerSafeSpacer(height = metrics.bar)
         }
         }
     }
@@ -412,31 +409,29 @@ fun UserScreenContent(
 
 @Composable
 private fun InsightPill(modifier: Modifier, label: String, value: String) {
-    val dimens = LocalHMPDimens.current
+    val metrics = LocalHmpMetrics.current
+    val typo = LocalHmpTypo.current
     Card(
         modifier = modifier,
-        shape = RoundedCornerShape(dimens.corner.sm),
+        shape = RoundedCornerShape(metrics.base),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f)
         ),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.1f)),
+        border = BorderStroke(metrics.stroke.thin, MaterialTheme.colorScheme.outline.copy(alpha = 0.1f)),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = dimens.spacing.md, vertical = dimens.spacing.sm),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = metrics.cozy, vertical = metrics.compact),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
                 text = value,
-                style = MaterialTheme.typography.titleSmall,
-                fontSize = dimens.type.sm,
-                fontWeight = FontWeight.Bold,
+                style = typo.footnote.medium(),
                 color = MaterialTheme.colorScheme.onSurface
             )
             Text(
                 text = label,
-                style = MaterialTheme.typography.labelSmall,
-                fontSize = dimens.type.xs,
+                style = typo.caption,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis

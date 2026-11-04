@@ -6,6 +6,8 @@ import com.hmp.data.network.OpenAiCompatibleAdapter
 import com.hmp.data.network.OpenAiLlmTransport
 import com.hmp.data.network.createHttpClient
 import com.hmp.data.network.createJson
+import com.hmp.data.util.PlatformSecureSecrets
+import com.hmp.data.util.SecureSecrets
 import com.hmp.domain.agent.config.EngineDefaults
 import com.hmp.domain.agent.port.LibraryMutatedNotifier
 import com.hmp.domain.agent.port.LlmTransport
@@ -65,6 +67,12 @@ const val AGENT_RADIO = "radio"
  */
 val sharedModule = module {
     single { createJson() }
+
+    // 密钥读写门面（D7-01）：commonMain 的 object，三端共用同一实现。
+    // 必须显式注册 —— SettingsRepositoryImpl 的构造参数带默认值，但 Koin singleOf
+    // 仍会尝试从图解析它，缺注册 = 启动期 NoDefinitionFoundException
+    // （图校验测试把默认值参数当可缺省，拦不住，AGENTS.md 已知地雷 4）。
+    single<SecureSecrets> { PlatformSecureSecrets }
 
     // 观测面总线：三端播放控制器往里报事实（TrackSettled / Pause），agent 侧订阅。
     // 必须单例 —— 控制器与 MasterAgent 看到的是同一个实例，否则事件收不到。

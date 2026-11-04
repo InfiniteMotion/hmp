@@ -42,24 +42,28 @@ import com.hmp.domain.music.MusicInfo
 import com.hearablemusic.player.ui.generated.resources.Res
 import com.hearablemusic.player.ui.generated.resources.*
 import com.hearablemusic.player.ui.library.pages.components.AlbumCover
+import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
 import com.hearablemusic.player.ui.common.util.rememberPlatformHaptics
 import com.hearablemusic.player.ui.platform.HapticEffect
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
+import com.hearablemusic.player.ui.common.design.metrics.HMPMetricTokens
+import com.hearablemusic.player.ui.common.design.metrics.LayoutConstraints
 
-private val DefaultFullHeight = 80.dp
-private val DefaultCompactHeight = 64.dp
-private val DefaultGalleryHeight = 80.dp
+private val DefaultFullHeight = HMPMetricTokens.Compact.row
+private val DefaultCompactHeight = HMPMetricTokens.Compact.row
+private val DefaultGalleryHeight = HMPMetricTokens.Compact.row
 
 /** 圆环形自定义复选框尺寸 */
-private val RingCheckboxSize = 14.dp
+private val RingCheckboxSize = HMPMetricTokens.Compact.base
 /** 序号/复选框位固定宽度，保证三位数完整显示；序号与复选框共用此宽度避免切换时错位 */
-private val IndexSlotWidth = 28.dp
+private val IndexSlotWidth = HMPMetricTokens.Compact.section
 /** 有序号或复选框时的左侧 padding（进一步缩小） */
-private val RowStartPaddingWithSlot = 4.dp
+private val RowStartPaddingWithSlot = HMPMetricTokens.Compact.micro
 /** 无序号且无复选框时的左侧 padding */
-private val RowStartPaddingDefault = 10.dp
+private val RowStartPaddingDefault = HMPMetricTokens.Compact.compact
 /** 更多按钮缩小左右占位（固定宽度，小于默认 48.dp） */
-private val MoreButtonWidth = 32.dp
-private val RingCheckboxStrokeWidth = 1.5.dp
+private val MoreButtonWidth = HMPMetricTokens.Compact.block
+private val RingCheckboxStrokeWidth = LayoutConstraints.RingCheckboxStroke
 
 /**
  * 圆环形复选框：未选为空心圆环，选中为圆环+实心圆心。
@@ -121,6 +125,8 @@ internal fun MusicListItem(
     isEditMode: Boolean,
     modifier: Modifier = Modifier,
 ) {
+    val metrics = LocalHmpMetrics.current
+    val typo = LocalHmpTypo.current
     val haptic = rememberPlatformHaptics()
     val height = itemConfig.itemHeight ?: when (itemConfig.variant) {
         ItemVariant.Full -> DefaultFullHeight
@@ -161,8 +167,8 @@ internal fun MusicListItem(
     val rowVisualModifier = Modifier
         .fillMaxWidth()
         .height(height)
-        .clip(RoundedCornerShape(12.dp))
-        .padding(vertical = 4.dp)
+        .clip(RoundedCornerShape(metrics.base))
+        .padding(vertical = metrics.micro)
     val rowModifier = rowVisualModifier.then(rowClickModifier)
 
     // 编辑模式且启用复选框时，复选框取代序号位；否则有序号则显示序号
@@ -172,14 +178,14 @@ internal fun MusicListItem(
     Row(
         modifier = modifier.then(rowModifier).padding(
             start = if (showIndexSlot) RowStartPaddingWithSlot else RowStartPaddingDefault,
-            end = 6.dp,
+            end = metrics.micro,
         ),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(metrics.compact),
     ) {
         if (showIndexSlot) {
             Box(
-                modifier = Modifier.size(width = IndexSlotWidth, height = 24.dp),
+                modifier = Modifier.size(width = IndexSlotWidth, height = metrics.section),
                 contentAlignment = Alignment.Center,
             ) {
                 if (showIndexAsCheckbox) {
@@ -190,7 +196,7 @@ internal fun MusicListItem(
                 } else {
                     Text(
                         text = itemConfig.indexFormat(index),
-                        style = MaterialTheme.typography.labelSmall,
+                        style = typo.caption,
                         color = if (isCurrentPlaying) MaterialTheme.colorScheme.primary
                         else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                     )
@@ -237,6 +243,8 @@ private fun FullRow(
     callbacks: MusicListCallbacks,
     modifier: Modifier = Modifier,
 ) {
+    val metrics = LocalHmpMetrics.current
+    val typo = LocalHmpTypo.current
     val opts = options ?: FullItemOptions()
     var menuExpanded by remember { mutableStateOf(false) }
     val haptic = rememberPlatformHaptics()
@@ -246,34 +254,34 @@ private fun FullRow(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(vertical = 8.dp),
+            .padding(vertical = metrics.compact),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(16.dp),
+        horizontalArrangement = Arrangement.spacedBy(metrics.cozy),
     ) {
         AlbumCover(
             uri = musicInfo.music.albumArtUri,
-            size = 56.dp,
-            corner = 10.dp,
-            shadow = 3.dp
+            size = metrics.bar,
+            corner = metrics.compact,
+            shadow = metrics.hair
         )
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = musicInfo.music.title,
-                style = MaterialTheme.typography.headlineSmall,
+                style = typo.subtitle,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 color = MaterialTheme.colorScheme.onBackground,
             )
             Text(
                 text = musicInfo.music.artist,
-                style = MaterialTheme.typography.labelSmall,
+                style = typo.caption,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 color = MaterialTheme.colorScheme.onBackground,
             )
             Text(
                 text = musicInfo.music.album,
-                style = MaterialTheme.typography.labelSmall,
+                style = typo.caption,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 color = MaterialTheme.colorScheme.onBackground,
@@ -306,7 +314,7 @@ private fun FullRow(
                 if (opts.extraMenuItems.isEmpty() && !opts.showAddToPlaylistInMenu) {
                     IconButton(
                         onClick = { haptic.perform(HapticEffect.TICK); callbacks.onMenuClick(musicInfo) },
-                        modifier = Modifier.size(width = MoreButtonWidth, height = 48.dp),
+                        modifier = Modifier.size(width = MoreButtonWidth, height = metrics.bar),
                     ) {
                         Icon(
                             painter = painterResource(Res.drawable.dot_grid_1x2),
@@ -318,7 +326,7 @@ private fun FullRow(
                     Box {
                         IconButton(
                             onClick = { haptic.perform(HapticEffect.TICK); menuExpanded = true },
-                            modifier = Modifier.size(width = MoreButtonWidth, height = 48.dp),
+                            modifier = Modifier.size(width = MoreButtonWidth, height = metrics.bar),
                         ) {
                             Icon(
                                 painter = painterResource(Res.drawable.dot_grid_1x2),
@@ -371,6 +379,8 @@ private fun CompactRow(
     callbacks: MusicListCallbacks,
     modifier: Modifier = Modifier,
 ) {
+    val metrics = LocalHmpMetrics.current
+    val typo = LocalHmpTypo.current
     val opts = options ?: CompactItemOptions()
     val haptic = rememberPlatformHaptics()
     val actionTint = if (isCurrentPlaying) MaterialTheme.colorScheme.primary
@@ -379,16 +389,16 @@ private fun CompactRow(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(vertical = 8.dp, horizontal = 8.dp),
+            .padding(vertical = metrics.compact, horizontal = metrics.compact),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        horizontalArrangement = Arrangement.spacedBy(metrics.base),
     ) {
         AsyncImage(
             model = musicInfo.music.albumArtUri,
             contentDescription = stringResource(Res.string.album_art),
             modifier = Modifier
-                .size(48.dp)
-                .clip(RoundedCornerShape(8.dp)),
+                .size(metrics.bar)
+                .clip(RoundedCornerShape(metrics.compact)),
             contentScale = ContentScale.Crop,
             placeholder = painterResource(Res.drawable.none),
             error = painterResource(Res.drawable.none),
@@ -396,14 +406,14 @@ private fun CompactRow(
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = musicInfo.music.title,
-                style = MaterialTheme.typography.bodyMedium,
+                style = typo.body,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 color = MaterialTheme.colorScheme.onSurface,
             )
             Text(
                 text = musicInfo.music.artist,
-                style = MaterialTheme.typography.bodySmall,
+                style = typo.footnote,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
@@ -413,12 +423,12 @@ private fun CompactRow(
             if (opts.showPinButton) {
                 IconButton(
                     onClick = { haptic.perform(HapticEffect.CONFIRM); callbacks.onPinToTop(musicInfo) },
-                    modifier = Modifier.size(40.dp),
+                    modifier = Modifier.size(metrics.block),
                 ) {
                     Icon(
                         painter = painterResource(Res.drawable.chevron_up_circle),
                         contentDescription = stringResource(Res.string.pin_to_top),
-                        modifier = Modifier.size(20.dp),
+                        modifier = Modifier.size(metrics.cozy),
                         tint = actionTint,
                     )
                 }
@@ -426,12 +436,12 @@ private fun CompactRow(
             if (opts.showRemoveButton) {
                 IconButton(
                     onClick = { haptic.perform(HapticEffect.TICK); callbacks.onRemove(musicInfo) },
-                    modifier = Modifier.size(40.dp),
+                    modifier = Modifier.size(metrics.block),
                 ) {
                     Icon(
                         painter = painterResource(Res.drawable.trash),
                         contentDescription = stringResource(Res.string.remove),
-                        modifier = Modifier.size(20.dp),
+                        modifier = Modifier.size(metrics.cozy),
                         tint = actionTint,
                     )
                 }
@@ -440,12 +450,12 @@ private fun CompactRow(
                 if (opts.extraMenuItems.isEmpty() && !opts.showAddToPlaylistInMenu) {
                     IconButton(
                         onClick = { haptic.perform(HapticEffect.TICK); callbacks.onMenuClick(musicInfo) },
-                        modifier = Modifier.size(width = MoreButtonWidth, height = 40.dp),
+                        modifier = Modifier.size(width = MoreButtonWidth, height = metrics.block),
                     ) {
                         Icon(
                             painter = painterResource(Res.drawable.dot_grid_1x2),
                             contentDescription = stringResource(Res.string.more),
-                            modifier = Modifier.size(20.dp),
+                            modifier = Modifier.size(metrics.cozy),
                             tint = actionTint,
                         )
                     }
@@ -454,12 +464,12 @@ private fun CompactRow(
                     Box {
                         IconButton(
                             onClick = { haptic.perform(HapticEffect.TICK); menuExpanded = true },
-                            modifier = Modifier.size(width = MoreButtonWidth, height = 40.dp),
+                            modifier = Modifier.size(width = MoreButtonWidth, height = metrics.block),
                         ) {
                             Icon(
                                 painter = painterResource(Res.drawable.dot_grid_1x2),
                                 contentDescription = stringResource(Res.string.more),
-                                modifier = Modifier.size(20.dp),
+                                modifier = Modifier.size(metrics.cozy),
                                 tint = actionTint,
                             )
                         }
@@ -508,6 +518,8 @@ private fun GalleryRow(
     callbacks: MusicListCallbacks,
     modifier: Modifier = Modifier,
 ) {
+    val metrics = LocalHmpMetrics.current
+    val typo = LocalHmpTypo.current
     val opts = options ?: GalleryItemOptions()
     val haptic = rememberPlatformHaptics()
     val actionTint = if (isCurrentPlaying) MaterialTheme.colorScheme.primary
@@ -516,39 +528,39 @@ private fun GalleryRow(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(vertical = 8.dp),
+            .padding(vertical = metrics.compact),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(16.dp),
+        horizontalArrangement = Arrangement.spacedBy(metrics.cozy),
     ) {
         Row(
             modifier = Modifier.weight(1f),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(metrics.cozy),
         ) {
         AlbumCover(
             uri = musicInfo.music.albumArtUri,
-            size = 56.dp,
-            corner = 10.dp,
-            shadow = 3.dp,
+            size = metrics.bar,
+            corner = metrics.compact,
+            shadow = metrics.hair,
         )
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = musicInfo.music.title,
-                style = MaterialTheme.typography.headlineSmall,
+                style = typo.subtitle,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 color = MaterialTheme.colorScheme.onBackground,
             )
             Text(
                 text = musicInfo.music.artist,
-                style = MaterialTheme.typography.labelSmall,
+                style = typo.caption,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 color = MaterialTheme.colorScheme.onBackground,
             )
             Text(
                 text = musicInfo.music.album,
-                style = MaterialTheme.typography.labelSmall,
+                style = typo.caption,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 color = MaterialTheme.colorScheme.onBackground,
@@ -559,12 +571,12 @@ private fun GalleryRow(
             if (opts.showPinButton) {
                 IconButton(
                     onClick = { haptic.perform(HapticEffect.CONFIRM); callbacks.onPinToTop(musicInfo) },
-                    modifier = Modifier.size(40.dp),
+                    modifier = Modifier.size(metrics.block),
                 ) {
                     Icon(
                         painter = painterResource(Res.drawable.chevron_up_circle),
                         contentDescription = stringResource(Res.string.pin_to_top),
-                        modifier = Modifier.size(20.dp),
+                        modifier = Modifier.size(metrics.cozy),
                         tint = actionTint,
                     )
                 }
@@ -572,12 +584,12 @@ private fun GalleryRow(
             if (opts.showRemoveButton) {
                 IconButton(
                     onClick = { haptic.perform(HapticEffect.TICK); callbacks.onRemove(musicInfo) },
-                    modifier = Modifier.size(40.dp),
+                    modifier = Modifier.size(metrics.block),
                 ) {
                     Icon(
                         painter = painterResource(Res.drawable.trash),
                         contentDescription = stringResource(Res.string.remove),
-                        modifier = Modifier.size(20.dp),
+                        modifier = Modifier.size(metrics.cozy),
                         tint = actionTint,
                     )
                 }
@@ -586,12 +598,12 @@ private fun GalleryRow(
                 if (opts.extraMenuItems.isEmpty() && !opts.showAddToPlaylistInMenu) {
                     IconButton(
                         onClick = { haptic.perform(HapticEffect.TICK); callbacks.onMenuClick(musicInfo) },
-                        modifier = Modifier.size(width = MoreButtonWidth, height = 48.dp),
+                        modifier = Modifier.size(width = MoreButtonWidth, height = metrics.bar),
                     ) {
                         Icon(
                             painter = painterResource(Res.drawable.dot_grid_1x2),
                             contentDescription = stringResource(Res.string.more),
-                            modifier = Modifier.size(24.dp),
+                            modifier = Modifier.size(metrics.section),
                             tint = actionTint,
                         )
                     }
@@ -600,12 +612,12 @@ private fun GalleryRow(
                     Box {
                         IconButton(
                             onClick = { haptic.perform(HapticEffect.TICK); menuExpanded = true },
-                            modifier = Modifier.size(width = MoreButtonWidth, height = 48.dp),
+                            modifier = Modifier.size(width = MoreButtonWidth, height = metrics.bar),
                         ) {
                             Icon(
                                 painter = painterResource(Res.drawable.dot_grid_1x2),
                                 contentDescription = stringResource(Res.string.more),
-                                modifier = Modifier.size(24.dp),
+                                modifier = Modifier.size(metrics.section),
                                 tint = actionTint,
                             )
                         }
