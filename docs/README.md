@@ -14,11 +14,8 @@
 | 技术架构、模块划分、开发流程 | 根目录 [DEVELOP.md](../DEVELOP.md) |
 | 给 AI 协作者的项目速查（**唯一真源**） | 根目录 [AGENTS.md](../AGENTS.md) |
 | 版本号规范 / 发版流程 / 分支策略 / CI 与产物现状 | [spec/hmp-release.md](spec/hmp-release.md) |
-| 架构实现审查（2026-09-28 / 09-30，**历史证据，非施工入口**） | [7_3/review-7.3-architecture.md](archive/7_x/7_3/review-7.3-architecture.md) / [7_3/review-7.3-code.md](archive/7_x/7_3/review-7.3-code.md) |
 | 代码风格门禁（ktlint）落地方案（**方案有效，待启动**） | [ktlint-integration.md](ktlint-integration.md) |
-| 历史版本的开发方案（已完成，备查） | 本目录 `archive/5_x/`、`archive/6_x/`（两层：<家族>/<版本>） |
-| **7.3 期（架构加固，收口不发行）的域分片与施工条目** | [`archive/7_x/7_3/`](archive/7_x/7_3/domain-baseline.md) → `archive/7_x/7_3/domain/` + `archive/7_x/7_3/taskbook/` |
-| 已收口版本线的设计资料与推进计划 | [`archive/7_x/`](archive/7_x/)（`7_1` 共享 UI 提取线 / `7_2` Agent 体系） |
+| 历史版本的开发方案（已完成，备查） | 本目录 `archive/`（两层：<家族>/<版本>；`7_1` 共享 UI 提取线 / `7_2` Agent 体系 / `7_3` 架构加固期） |
 | 日志门面与 Tag 规范 | [spec/hmp-log.md](spec/hmp-log.md) |
 
 ***
@@ -36,11 +33,6 @@
 | **AGENTS** | [../AGENTS.md](../AGENTS.md) | **AI 协作者须知的唯一真源**：硬约束 / 常用命令 / 模块拓扑 / 跨平台机制 / 三端引擎差异 / Agent 子系统 / 已知地雷 / 版本与分支策略。跨工具（Claude Code、Codex、Cursor、Qoder）都读它 |
 | **CLAUDE** | [../CLAUDE.md](../CLAUDE.md) | Claude Code 入口指针：`@AGENTS.md` 导入 + Claude 专属差异（Skill 清单、`.claude/settings.local.json`）。**不承载正文**，改动一律落到 `AGENTS.md` |
 | **spec/hmp-release** | [spec/hmp-release.md](spec/hmp-release.md) | 版本号格式（MAJOR.MINOR.PATCH）、何时升级哪一位、真源分层与发版检查清单、CI/CD 流水线现状与已知问题（原独立的 `ci-pipeline-diagnosis.md` 已并入本文件） |
-| **领域施工基线（2026-09-30，已归档）** | [7_3/domain-baseline.md](archive/7_x/7_3/domain-baseline.md) | 7.3 期（架构加固）的工作分解入口：覆盖论证、九域（D1–D9）定义、三批施工顺序、编号与判据规则。域分片在 [7_3/domain/](archive/7_x/7_3/domain/D1.md)，共 109 条发现。**2026-11-05 随 7.3 收口归档（不发行）**，残余任务归口下一阶段规划 |
-| **v7.3 施工计划（已归档）** | [7_3/plan.md](archive/7_x/7_3/plan.md) | 施工顺序的真源（四批共 34 个工作包、8 条决策记录、51 条刻意不做、里程碑）。**2026-11-05 收口改判**：v7.3 不发行，M4 发版准备移交下一阶段发行 checklist |
-| **v10 迁移设计（已归档，施工完毕）** | [7_3/v10-migration.md](archive/7_x/7_3/v10-migration.md) | `version 9→10` 迁移设计：新增索引、唯一索引、删列、迁移门禁与降级守卫。schema 增量的历史真源 |
-| **施工条目 taskbook（已归档）** | [7_3/taskbook/](archive/7_x/7_3/taskbook/README.md) | 可拆成动作的执行条目，固定四段「现状 → 动作 → 判据 → 验证方式」。**为空**（条目直接落域章节，未按基线翻译） |
-| **架构实现审查（2026-09-28，已归档）** | [7_3/review-7.3-architecture.md](archive/7_x/7_3/review-7.3-architecture.md) | 全仓 5 路分片审查 + 主审逐条复跑。**历史证据**：TODO §六 R39–R56 的出处，非施工入口 |
 | **ktlint 融入开发流程** | [ktlint-integration.md](ktlint-integration.md) | 代码风格门禁方案（**移出 v7.3 待办，方案有效待启动**——7.3 收口后「工作区收口」前置已满足，下一阶段计划引入）：`.editorconfig` 成品、包装脚本、三道闸门、存量收敛顺序；含全仓实测数据 |
 | **spec/hmp-design** | [spec/hmp-design.md](spec/hmp-design.md) | 设计系统：色彩 / 字体 / 间距 / 组件规范（2026-09-28 已按统一格式重写并改正 8 处与代码不符的现状描述；token 强制与白名单仍按 TODO **R49** 做） |
 | **room-kmp-setup** | [room-kmp-setup.md](room-kmp-setup.md) | Room KMP 跨平台数据库配置经验总结 |
@@ -71,7 +63,7 @@
 ## 📂 版本线资料：归档区 `archive/`（当前无活跃版本线）
 
 `docs/` 顶层只放两类东西：**长期规范**（`spec/`）与**当前版本线的工作目录**（顶层那个 `7_<minor>/`）。版本线一收口，整个目录搬进 `archive/7_x/7_<minor>/`。
-**当前状态**：7.3 期（架构加固）已于 2026-11-05 收口且不发行，目录已归档；**活跃区暂空**，下一阶段规划（UDF 改造 / ktlint 引入 / 设计校准）待建目录（暂记 `7_4/`）。
+**当前状态**：7.3 期（架构加固）已于 2026-11-05 收口且不发行，目录已归档；**活跃区已开新线** `7_4/`——7.3 残余任务台账已建（[7_4/residuals-7.3.md](7_4/residuals-7.3.md)），7.4 期正式规划（UDF 改造 / ktlint 引入 / 设计校准）待建。
 
 ```
 docs/
@@ -80,6 +72,8 @@ docs/
 │   ├── hmp-log.md                  日志门面与 Tag 层级
 │   └── hmp-design.md               设计系统（色彩 / 字体 / 间距 / 组件）
 ├── ktlint-integration.md          ktlint 落地方案（方案有效待启动，见上表）
+├── 7_4/                           7.4 期工作目录（活跃线）
+│   └── residuals-7.3.md           7.3 残余任务台账（实机池 / CI 发版链 / 各域未结项 + 主线归口映射）
 ├── room-kmp-setup.md / google-play-publish-guide.md / ideas.md
 ├── README.md                      本索引
 └── archive/                       已收口的版本线，两层：<家族>/<版本>
@@ -136,11 +130,11 @@ docs/
 - **查架构与实现细节**：DEVELOP
 - **AI 协作者 / 新成员速查**：AGENTS（`CLAUDE.md` 只是它的入口指针）
 - **了解 Agent 体系设计**：`archive/7_x/7_2/design/README.md`
-- **查 7.3 期（架构加固）做了什么**：`archive/7_x/7_3/plan.md`（施工顺序 §三–§五、收口改判注记 §二/§六/§十一）→ 域章节 `archive/7_x/7_3/domain/D{n}.md` / `X.md`（各条目带「施工结果」）。该线已收口归档，**不再更新**；残余任务与下一阶段工作流（UDF / ktlint / 设计校准）见下一阶段规划文档（待建）
+- **查 7.3 期（架构加固）做了什么**：`archive/7_x/7_3/plan.md`（施工顺序 §三–§五、收口改判注记 §二/§六/§十一）→ 域章节 `archive/7_x/7_3/domain/D{n}.md` / `X.md`（各条目带「施工结果」）。该线已收口归档，**不再更新**；**未结项的活跃清单**见 [7_4/residuals-7.3.md](7_4/residuals-7.3.md)，7.4 期主线（UDF / ktlint / 设计校准）的正式规划待建
 
 ***
 
-*文档索引最后更新：2026-11-05（`7_3/` 随阶段收口整体归档进 `archive/7_x/7_3/` —— 收口不发行；活跃区暂空，下一阶段规划待建）*
+*文档索引最后更新：2026-11-05（`7_3/` 整体归档；`7_4/` 活跃线开启 —— 残余台账已建，正式规划待建）*
 
 ***
 

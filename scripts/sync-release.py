@@ -597,13 +597,17 @@ def cmd_mark_void(a):
     if "cl-void" in seg:
         raise Fail(f"changelog.html 的 v{v} 已标过未发布")
     seg = seg.replace('    <div class="cl-entry">', '    <div class="cl-entry cl-entry--void">', 1)
-    seg = seg.replace("      </div>\n", '        <span class="cl-void">未发布</span>\n      </div>\n', 1) \
+    nl = eol_of(t)
+    seg = seg.replace(f"      </div>{nl}", f'        <span class="cl-void">未发布</span>{nl}      </div>{nl}', 1) \
         if "cl-head" not in seg else seg
-    # 徽章插在 cl-head 内最后一个 span 之后
-    spans = list(re.finditer(r"[^\n]*<span [^\n]*</span>\n", seg))
+    # 徽章插在 cl-head 内最后一个 span 之后。行尾用 \r?\n 兼容 CRLF 工作树 ——
+    # 此前只认 \n，CRLF 下 spans 恒为空、徽章静默漏插而命令仍报成功（2026-11-05 实测踩中）。
+    spans = list(re.finditer(r"[^\n]*<span [^\n]*</span>\r?\n", seg))
     if spans:
         k = spans[-1].end()
-        seg = seg[:k] + '        <span class="cl-void">未发布</span>\n' + seg[k:]
+        seg = seg[:k] + f'        <span class="cl-void">未发布</span>{nl}' + seg[k:]
+    if '<span class="cl-void">未发布</span>' not in seg:
+        raise Fail("徽章插入未命中（结构或行尾与预期不符），已中止，changelog.html 未写")
     t = t[:i] + seg + t[j:]
     write(CHANGELOG, t)
     print(f"site/changelog.html：v{v} 已加「未发布」徽章")

@@ -4,7 +4,7 @@
 
 **本文件是 AI 协作者须知的唯一真源。** `CLAUDE.md` 只是指向这里的指针，不要往那边抄内容。
 
-- 最新发布版本：**v7.2.2**（2026-09-28 发布）。产物：macOS arm64 DMG / Windows x86_64 MSI / Linux x86_64 DEB / Android APK+AAB + `SHA256SUMS.txt`；iOS 仅本机 Archive，不在 CI。
+- 最新发布版本：**v7.2.3**（2026-10-07 发布）。产物：macOS arm64 DMG / Windows x86_64 MSI / Linux x86_64 DEB / Android APK+AAB + `SHA256SUMS.txt`；iOS 仅本机 Archive，不在 CI。v7.3.0（架构加固期）已收口**不发行**：无 tag 无包，残余归口下一阶段（UDF / ktlint / 设计校准）。
 - **产品边界**：纯本地。不做在线/云同步、不引入账号、不做社交；只保留用户自填 API 的 AI 推荐。改动前如果会突破这条线，停下问用户。
 
 ---
@@ -296,7 +296,7 @@ HMP/
 | **AI 协作者须知（本文件）** | [AGENTS.md](AGENTS.md) |
 | 版本号规范 / 真源分层 / 发版清单 / CI 与产物现状 | [docs/spec/hmp-release.md](docs/spec/hmp-release.md) |
 | **发版工序与判据（agent 执行发版照它走）** | [skills/release-prep/SKILL.md](skills/release-prep/SKILL.md) |
-| **7.3 期（架构加固）施工基线 —— 已归档**：2026-11-05 收口且**不发行**，残余归口下一阶段规划（UDF / ktlint / 设计校准，文档待建） | [docs/archive/7_x/7_3/domain-baseline.md](docs/archive/7_x/7_3/domain-baseline.md) → `docs/archive/7_x/7_3/domain/D{1..9}.md` / [X.md](docs/archive/7_x/7_3/domain/X.md)、[docs/archive/7_x/7_3/v10-migration.md](docs/archive/7_x/7_3/v10-migration.md)、施工条目 `docs/archive/7_x/7_3/taskbook/`。各条目的「施工结果」与收口改判注记（plan §二/§六/§十一）都在归档内，**只进不改** |
+| **7.3 期（架构加固）施工基线 —— 已归档**：2026-11-05 收口且**不发行**，残余活跃清单已重建为 [docs/7_4/residuals-7.3.md](docs/7_4/residuals-7.3.md)（实机池 / CI 发版链 / 各域未结项 / 主线归口；归档内「待验」标记以它为准销账） | [docs/archive/7_x/7_3/domain-baseline.md](docs/archive/7_x/7_3/domain-baseline.md) → `docs/archive/7_x/7_3/domain/D{1..9}.md` / [X.md](docs/archive/7_x/7_3/domain/X.md)、[docs/archive/7_x/7_3/v10-migration.md](docs/archive/7_x/7_3/v10-migration.md)、施工条目 `docs/archive/7_x/7_3/taskbook/`。各条目的「施工结果」与收口改判注记（plan §二/§六/§十一）都在归档内，**只进不改** |
 | **7.3 期施工计划（已归档）** | [docs/archive/7_x/7_3/plan.md](docs/archive/7_x/7_3/plan.md)（34 个工作包 / 判据落点 / 验收定义 / **8 条决策记录** / 里程碑） |
 | 架构实现审查（2026-09-28，**历史证据，非施工入口**） | [docs/archive/7_x/7_3/review-7.3-architecture.md](docs/archive/7_x/7_3/review-7.3-architecture.md)（TODO §六 R39–R56 出处）、[review-7.3-code.md](docs/archive/7_x/7_3/review-7.3-code.md) |
 | 设计系统（色彩/字体/间距/组件） | [docs/spec/hmp-design.md](docs/spec/hmp-design.md) |
