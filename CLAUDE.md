@@ -25,4 +25,4 @@
 
 ### 历史说明
 
-本文件原为唯一的项目速查（约 370 行）。2026-09-29 迁至 `AGENTS.md` 以覆盖跨工具场景（Codex / Cursor / Qoder 等按 `agents.md` 规范只读 `AGENTS.md`，读不到 `CLAUDE.md`）。迁移同时修正了原文里已核实的失真：最新版本号（v7.2.1 → **v7.2.2**）、`compileSdk`/`targetSdk`（36 → **37**）、shared-ui 单测任务（不存在的 `testDebugUnitTest` → **`testAndroidHostTest`**）、shared-ui 测试源集实况、Swift 文件数（17 → **22**）。其余仍待订正项见 `TODO.md` 的 **R54 / R36** 与 `docs/7_3/review-7.3-architecture.md` §四。
+本文件原为唯一的项目速查（约 370 行）。2026-09-29 迁至 `AGENTS.md` 以覆盖跨工具场景（Codex / Cursor / Qoder 等按 `agents.md` 规范只读 `AGENTS.md`，读不到 `CLAUDE.md`）。迁移同时修正了原文里已核实的失真：最新版本号（v7.2.1 → **v7.2.2**）、`compileSdk`/`targetSdk`（36 → **37**）、shared-ui 单测任务（不存在的 `testDebugUnitTest` → **`testAndroidHostTest`**）、shared-ui 测试源集实况、Swift 文件数（17 → **22**）。其余仍待订正项见 `TODO.md` 的 **R54 / R36** 与 `docs/archive/7_x/7_3/review-7.3-architecture.md` §四。

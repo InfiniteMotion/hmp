@@ -1,6 +1,6 @@
 <resources>
     <!-- 仅保留唯一经 R.string 消费的键；其余文案一律走 composeResources。
          消费者：AndroidPlatformServices.shareMusic / shareText（chooser 标题）。
-         见 docs/7_3/domain/D8.md D8-06：旧平行副本已收敛为单键桥。 -->
+         见 docs/archive/7_x/7_3/domain/D8.md D8-06：旧平行副本已收敛为单键桥。 -->
     <string name="share_music">Musik teilen</string>
 </resources>

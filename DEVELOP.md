@@ -44,7 +44,7 @@
 - **desktop/app**: Desktop应用入口模块，包含窗口管理、系统托盘和应用生命周期
 - **desktop/core-player**: Desktop播放核心模块，包含FFmpeg音频引擎和播放控制逻辑
 - **ios**: iOS 应用模块，原生壳（原生层：AppDelegate / 播放引擎 / MediaSession / Live Activity / 桥，共 22 个 Swift 文件 = HMP 18 + HMPNowPlaying 4）+ 共享 Compose UI
-- **storybook**: 组件展示与文档模块 (Kotlin/Wasm) —— **已移出构建**（`380f225` 起不在 `settings.gradle.kts` 中），源码保留。**2026-09-30 决议（`docs/7_3/plan.md` §九 决策 6）：原地保留，定位为「设计沙盒」** —— 不恢复 `include`、不在任何构建图内、不保证可编译、无 CI 覆盖
+- **storybook**: 组件展示与文档模块 (Kotlin/Wasm) —— **已移出构建**（`380f225` 起不在 `settings.gradle.kts` 中），源码保留。**2026-09-30 决议（`docs/archive/7_x/7_3/plan.md` §九 决策 6）：原地保留，定位为「设计沙盒」** —— 不恢复 `include`、不在任何构建图内、不保证可编译、无 CI 覆盖
 
 ### 模块间依赖关系
 
@@ -255,11 +255,10 @@ Hearable Music Player/
 │   ├── Podfile                       # CocoaPods配置
 │   └── HMP.xcworkspace              # Xcode工作空间
 ├── docs/                             # 项目文档
-│   ├── 7_3/                          # 当前版本线（v7.3.0）的工作目录
 │   ├── spec/                         # 长期规范：hmp-release / hmp-log / hmp-design
 │   ├── archive/                      # 已收口版本线，两层：<家族>/<版本>
 │   │   ├── 5_x/{5_9,5_10}/  6_x/{6_1,6_12}/
-│   │   └── 7_x/{7_1,7_2}/            # 7_1 共享 UI 提取线；7_2 Agent 线（design/ + taskbook/）
+│   │   └── 7_x/{7_1,7_2,7_3}/        # 7_1 共享 UI 提取线；7_2 Agent 线；7_3 架构加固期（收口不发行）
 │   └── README.md                     # 文档索引（含目录与命名约定、搬家清单）
 ├── gradle/
 │   └── wrapper/
@@ -499,7 +498,7 @@ date = "2026-09-28"
 > 注：`android:app` / `android:core-player` **不暴露 `compile*` 任务**（AGP 内置 Kotlin），故 `compileAndroid` 用 `assembleDebug`。
 > `cleanOrphans` **只打印清单、不自动删除** —— 删除属破坏性操作，需人工确认。
 > `run` 不再依赖 `injectFFmpeg`：它通过 **`-Dhmp.ffmpeg.path` 直接指向 `build/ffmpeg/`**（`desktop/app/build.gradle.kts:312`），开发时二进制就位即可。
-> **`shared-ui` 的测试在两个源集**：`androidHostTest`（历史主力，需 Android SDK）与 `desktopTest`（`src/desktopTest/` 目录 2026-10-08 才建出来 —— 在此之前 `build.gradle.kts` 声明了该源集却没有目录，`:shared-ui:desktopTest` 一直 `NO-SOURCE` 空过）。`commonTest` 的用例会同时进这两个目标，所以 `testUi` / `testAll` 现在**两个都挂**；无 Android SDK 的环境用 `testUiDesktop`（它有真用例了）。详见 `AGENTS.md` §八 第 1 条与 `docs/7_3/domain/X.md` X-09。
+> **`shared-ui` 的测试在两个源集**：`androidHostTest`（历史主力，需 Android SDK）与 `desktopTest`（`src/desktopTest/` 目录 2026-10-08 才建出来 —— 在此之前 `build.gradle.kts` 声明了该源集却没有目录，`:shared-ui:desktopTest` 一直 `NO-SOURCE` 空过）。`commonTest` 的用例会同时进这两个目标，所以 `testUi` / `testAll` 现在**两个都挂**；无 Android SDK 的环境用 `testUiDesktop`（它有真用例了）。详见 `AGENTS.md` §八 第 1 条与 `docs/archive/7_x/7_3/domain/X.md` X-09。
 > ⚠️ `maybeDepends` 在错误的 `HMP_BUILD_TARGET` 下会**静默丢依赖**：`export HMP_BUILD_TARGET=desktop` 后跑 `./gradlew testAndroid` 必绿且零工作（TODO **R52**）。
 
 #### 构建内存分档

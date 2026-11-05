@@ -118,7 +118,7 @@ abstract class MusicRepositoryBase(
      * 封面落盘（D2-17）。Desktop 注入 `FileCoverArtWriter`；
      * Android 传 null —— 它的封面是 `content://media/external/audio/albumart/<albumId>`，由 MediaStore 供给，
      * 本来就不经过我们的缓存；iOS 传 null 是**待办**（Swift 侧的 extractor 目前自己决定文件名，
-     * 要改成"抽出字节、文件名交给这唯一一份规则"，见 `docs/7_3/domain/D2.md` D2-16 / D2-17 施工结果）。
+     * 要改成"抽出字节、文件名交给这唯一一份规则"，见 `docs/archive/7_x/7_3/domain/D2.md` D2-16 / D2-17 施工结果）。
      */
     protected val coverArtWriter: CoverArtWriter? = null,
     protected val transactionRunner: TransactionRunner,

@@ -10,7 +10,11 @@
 > 4 项 A 级 + B3 已在 `release/7.2.0` 修完（含回归用例），以下是当时判定「不该拖住发版」的余项。
 > **2026-09-28 改列 v7.2.2**：这批原本标着 v7.2.1，但 v7.2.1 实际只发了发版通道与桌面打包修复（PR #41/#42，已发布 2026-09-25），本节一条没动；版本号不复用，故整体顺延。**编号不连续**：本节是 R1–R17 + R23–R26，R20–R22、R27–R30 归 §四 清理线。
 > **2026-09-28 再顺延 v7.3.0**：v7.2.2 已发布（2026-09-28，只发 `release.toml` 发版链路本身），本节仍一条未动。与 §六（架构实现审查 R39–R56）同批做，其中 **R1/R2/R26 必须与 R39 同批**——三者都要开 v10 迁移，分开做就是两次 schema 变更。
-> **2026-09-30 归口**：v7.3.0 的施工分解真源已切到 [docs/7_3/domain-baseline.md](docs/7_3/domain-baseline.md)（九域 + 横切线，109 条发现），本节与 §六 的 R 条目改作**证据台账**。开工前读 §六 开头的「台账口径」与文末对照表/决议。
+> **2026-09-30 归口**：v7.3.0 的施工分解真源已切到 [docs/archive/7_x/7_3/domain-baseline.md](docs/archive/7_x/7_3/domain-baseline.md)（九域 + 横切线，109 条发现），本节与 §六 的 R 条目改作**证据台账**。开工前读 §六 开头的「台账口径」与文末对照表/决议。
+> **2026-11-05 收口**：**v7.3 不发行**（用户决议）—— 改判为开发阶段快照，`release.toml` 维持 7.2.3，不产生 7.3.0 版本号。
+> 施工面已收口（commit `5092954`）；本文件 §一 / §六 里所有未勾选的 R 条目自此整体**转出 v7.3**，
+> 归口到下一阶段规划（UDF 单向数据流改造、ktlint 引入、设计校准；规划文档 `docs/` 下待建）。
+> 本文件相应章节降级为**历史证据台账**，未完成条目不再逐条维护 —— 以下勾选状态停留在 7.3 收口日。
 
 ### 数据与备份安全（优先级最高）
 
@@ -87,10 +91,10 @@
 
 ## 六、v7.3.0：架构实现审查的遗留（R39–R56，2026-09-28）
 
-> 出处：[review-7.3-architecture.md](docs/7_3/review-7.3-architecture.md)（5 路分片并行审 + 主审对全部 S1 逐条重跑证据；含误报否决记录与「刻意不做」清单）。
+> 出处：[review-7.3-architecture.md](docs/archive/7_x/7_3/review-7.3-architecture.md)（5 路分片并行审 + 主审对全部 S1 逐条重跑证据；含误报否决记录与「刻意不做」清单）。
 
 > **⚖️ 台账口径（2026-09-30 归口，动本节之前先读这段）**
-> - **v7.3.0 的工作分解真源是** [docs/7_3/domain-baseline.md](docs/7_3/domain-baseline.md) → `docs/7_3/domain/D{1..9}.md` + `domain/X.md` + [v10-migration.md](docs/7_3/v10-migration.md)；可执行条目落 `docs/7_3/taskbook/`。
+> - **v7.3.0 的工作分解真源是** [docs/archive/7_x/7_3/domain-baseline.md](docs/archive/7_x/7_3/domain-baseline.md) → `docs/archive/7_x/7_3/domain/D{1..9}.md` + `domain/X.md` + [v10-migration.md](docs/archive/7_x/7_3/v10-migration.md)；可执行条目落 `docs/archive/7_x/7_3/taskbook/`。
 > - **施工顺序以 `domain-baseline.md` §三 / §八 的批次为准**：批一数据面（D2/D3/D5/D7，schema 需求统一收口 v10）→ 批二运行时（D1/D4/D6）→ 批三平台界面（D8/D9），横切线 X 单列。本节原来的"先闸门 → 再 S1 → 后结构"是**上一轮审查的排序，已不作施工顺序**（原文见下方删除线，留档备查）。
 > - **本节 R 条目保留为 2026-09-24 / 09-28 两轮审查的证据台账**：`file:line` 与判据仍是取证记录，但**不作为施工分解来源**（新基线明确声明不继承其编号与分类）。开工前按下表找到落点；**旧条目不得因"新基线没提"而被自动视为已处置**。
 > - ~~**顺序是硬约束**：先闸门批（R44→R43→R41 闸门段→R47 闸门段→R56），再 S1 批（R39/R40/R42/R45/R46），结构批（R48–R53）放最后。闸门未绿之前动结构，等于在没有安全网的地方重构。~~（**已被 baseline §三 批次取代**，原文留档）
@@ -105,7 +109,7 @@
 
 ### S1 · 数据与安全
 
-- [x] ~~**R39** 备份与恢复整条路径**无事务**（用户可触发的数据丢失）~~ **已结案（2026-10-08，一-2 A 批）**：新增领域端口 `TransactionRunner`（`domain/backup/TransactionRunner.kt`）+ Room 实现 `RoomTransactionRunner`（写连接 `deferredTransaction`），导入的 Room 侧三条 restore 收进单个事务；`catch (CancellationException)` 复排在 `catch (Exception)` 之前；导入前先落 `pre-restore-*.json` 安全副本，副本写不出来就整段放弃。判据走过了红→绿：把 runner 临时改成直通 → `BackupRestoreTransactionTest` 2/2 红（不是恒绿，Fake 没有持久化所以判据不能建在 Fake 上）；恢复不再翻倍见 `D5-13`。**残留两条**：① 设置那条走 DataStore（文件），进不了 Room 事务，只能排在事务块最后把不对称窗口缩到"DataStore 自己写失败"；② UI 失败文案带副本路径归一-6（`BackupViewModel` 现在只有一个结果槽）。细节见 `docs/7_3/domain/D7.md` D7-02 施工结果。
+- [x] ~~**R39** 备份与恢复整条路径**无事务**（用户可触发的数据丢失）~~ **已结案（2026-10-08，一-2 A 批）**：新增领域端口 `TransactionRunner`（`domain/backup/TransactionRunner.kt`）+ Room 实现 `RoomTransactionRunner`（写连接 `deferredTransaction`），导入的 Room 侧三条 restore 收进单个事务；`catch (CancellationException)` 复排在 `catch (Exception)` 之前；导入前先落 `pre-restore-*.json` 安全副本，副本写不出来就整段放弃。判据走过了红→绿：把 runner 临时改成直通 → `BackupRestoreTransactionTest` 2/2 红（不是恒绿，Fake 没有持久化所以判据不能建在 Fake 上）；恢复不再翻倍见 `D5-13`。**残留两条**：① 设置那条走 DataStore（文件），进不了 Room 事务，只能排在事务块最后把不对称窗口缩到"DataStore 自己写失败"；② UI 失败文案带副本路径归一-6（`BackupViewModel` 现在只有一个结果槽）。细节见 `docs/archive/7_x/7_3/domain/D7.md` D7-02 施工结果。
 - [ ] **R40** iOS 的扫描目录设置整体是空壳：`SettingsRepositoryImpl.ios.kt:189-190` = `flowOf(ScanDirectoryConfig())` + 空函数体的 save；`DeviceMusicScanner.ios.kt:28-42` 写死扫 Documents；`MusicRepositoryImpl.ios.kt:174-176` 构造时不接 `settingsRepository`（Android/Desktop 都真消费）→ 实装，或先在 iOS 撤下入口并共享侧按平台隐藏。**判据**：iOS 改扫描目录→重启→扫描结果随之变化，或该入口在 iOS 不可见
 - [ ] **R42** 歌词设置双存储、写入端无消费端：播放页读的 `LyricsSettingsUseCase.kt:85-105` 全标 `@Deprecated`（legacy 扁平键），设置页写的是新 per-component JSON，而全仓唯一新模型消费者是 Android 悬浮歌词（`FloatingLyricsOverlay.kt:72`）→ 用户在设置页改字号/行距，播放页静默不生效 → 读写收敛同一模型，legacy 键一次性迁移后删。**判据**：一条 VM 级用例断言"设置页改值后播放页取到同一值"。**注意路径**：真身在 `domain/setting/usecase/`，不在 `domain/lyrics/`
 - [ ] **R10 追加两条**（iOS 密钥，既有项扩账）：① `ios/HMP/project.yml:43` 开着 `UIFileSharingEnabled: true`，而密钥就在 `Documents/.keys`（`SecureStorageHelper.ios.kt:17-25`）→ 关文件共享或把密钥彻底移出 Documents；② 算法实际是 `xor`（`:57-70`）却把密钥文件命名为 `.aes_key`，属误导性命名，换 Keychain 时一并纠正。另记：三端密文互不可解，跨端恢复被 `runCatching` 静默吞（`SettingsRepositoryImpl.desktop.kt:239`）
@@ -127,7 +131,7 @@
 
 ### 与新基线的对照表（2026-09-30 归口时逐条核）
 
-> 口径：左列旧条目 → 右列 `docs/7_3/` 中的落点。**"未见对应"= 在 `docs/7_3/**` 全域检索该条目的特征符号（`ReActLoop` / `stepBudget` / `ToolRegistryView` / `LocalWindowSizeInfo` / `getMusicIdListByType` / `plurals` / `提示注入` / `泰语` / `podspec` / `convention plugin` / `oracle` 等）0 命中**，**不等于问题不存在**，须逐条复核后再决定立案或结案。
+> 口径：左列旧条目 → 右列 `docs/archive/7_x/7_3/` 中的落点。**"未见对应"= 在 `docs/archive/7_x/7_3/**` 全域检索该条目的特征符号（`ReActLoop` / `stepBudget` / `ToolRegistryView` / `LocalWindowSizeInfo` / `getMusicIdListByType` / `plurals` / `提示注入` / `泰语` / `podspec` / `convention plugin` / `oracle` 等）0 命中**，**不等于问题不存在**，须逐条复核后再决定立案或结案。
 
 | 旧条目 | 新基线落点 | 状态 |
 |---|---|---|
@@ -156,7 +160,7 @@
 | R44 CI 不编译、不测试、不编 iOS | X-01 已改判为"按当前环境实现" | ✅ 已定调 ① |
 | R3 `ReActLoop` 无 `try/finally` | D6 §4 横查**不构成反驳**；R3 前半与熔断顺序为真缺陷 | ✅ 已定调 ②，待立案 |
 | R13 i18n 三件事 | **已立案 D8-06** | ✅ 已处置 ③ |
-| R5 设置项 `stepBudget` 无效 · R6 Hello `stateFlow` 不更新 · R7 提示注入 · R8 写路径不过闸 · R9 WARN 日志泄露曲库 · R11 首轮阻塞主线程 · R12 `musicLabel` 聚合 · R16 撤销链路 · R17 产品决策 · R20 死抽象 · R21 注释口径漂移 · R22 大文件拆分 · R24 断点两套 · R25 `plurals` · R27 静默截断 · R28 测试盲区 · R31 CI 测试挂死 · R36 版本号散文核对 · R37 发布后核对 · R38 iOS 脚本改写验证 · R46 `podspec` 入库 · R51 构建拓扑平铺 | —（另注：R31 的新证据见 `docs/7_3/taskbook/README.md` §四：Robolectric 全仓只存在于 `:android:core-player`） | ❓ 未见对应，须逐条复核 |
+| R5 设置项 `stepBudget` 无效 · R6 Hello `stateFlow` 不更新 · R7 提示注入 · R8 写路径不过闸 · R9 WARN 日志泄露曲库 · R11 首轮阻塞主线程 · R12 `musicLabel` 聚合 · R16 撤销链路 · R17 产品决策 · R20 死抽象 · R21 注释口径漂移 · R22 大文件拆分 · R24 断点两套 · R25 `plurals` · R27 静默截断 · R28 测试盲区 · R31 CI 测试挂死 · R36 版本号散文核对 · R37 发布后核对 · R38 iOS 脚本改写验证 · R46 `podspec` 入库 · R51 构建拓扑平铺 | —（另注：R31 的新证据见 `docs/archive/7_x/7_3/taskbook/README.md` §四：Robolectric 全仓只存在于 `:android:core-player`） | ❓ 未见对应，须逐条复核 |
 
 ### 归口时发现的三个问题与决议（2026-09-30）
 
@@ -180,7 +184,7 @@
 - **遗留**：R3 里"下一轮看不到已执行 → **可能**重复执行写工具"是**推理不是实测** —— 最终答复文本（`role="agent"`）是存下来的，若模型在文本里说了"已加进歌单"就仍有信号。要坐实需一条用例：同一会话两轮，第一轮执行写工具后取消/熔断，看第二轮是否重复执行。
 
 **③ i18n —— 决议：同意立案，已落 `D8-06`。**
-- 已在 [docs/7_3/domain/D8.md](docs/7_3/domain/D8.md) 追加 **D8-06**（androidMain 旧平行副本 / 无键集合校验 / 泰语 258 行未译），并把该文件 §4「i18n 无键漂移」的"结构性保证"措辞订正为"实测齐平但无机制保证"、§6 语种条注明"覆盖承诺"不含翻译质量。证据与口径见 D8-06 全文，此处不重复；域发现总数随之 **108 → 109**。
+- 已在 [docs/archive/7_x/7_3/domain/D8.md](docs/archive/7_x/7_3/domain/D8.md) 追加 **D8-06**（androidMain 旧平行副本 / 无键集合校验 / 泰语 258 行未译），并把该文件 §4「i18n 无键漂移」的"结构性保证"措辞订正为"实测齐平但无机制保证"、§6 语种条注明"覆盖承诺"不含翻译质量。证据与口径见 D8-06 全文，此处不重复；域发现总数随之 **108 → 109**。
 
 ---
 
@@ -189,7 +193,7 @@
 - ⏸ **F10** 语音会话（`RealtimeVoiceTransport`）—— 方向 B 里唯一真正新增的传输层，需真实端点验证，与主线解耦、未开工；端点不可用即整体延期，v1 完整性不依赖语音
 - ⏸ **R50** 无任何静态闸门（无 detekt / ktlint / `.editorconfig` / `core.hooksPath`）—— **2026-11-05 用户决议：移出 v7.3 待办**。
   - **为什么移出**：方案 `docs/ktlint-integration.md`（261 行）本身是完整的，但它的前置 T0 是"工作区收口 + 分支线合并"，而这条前置在整个 7.3 期间反复被别的施工重置；同时格式化落在 446 文件上，与功能 diff 混在一起没法 review。这不是"做不做"的问题，是"什么时候做才不亏"的问题。
-  - **现状不再重复取证**：`DEVELOP.md:406` 已如实写明"没有任何机械化风格闸门"，X-07 的取证段与判据原样保留在 `docs/7_3/domain/X.md`。
+  - **现状不再重复取证**：`DEVELOP.md:406` 已如实写明"没有任何机械化风格闸门"，X-07 的取证段与判据原样保留在 `docs/archive/7_x/7_3/domain/X.md`。
   - **重新启动的条件（三条同时满足）**：① `git status` 干净且只剩一条活跃开发线；② 本版发版完成（`release.toml` 与 tag 不再重复）；③ 确认只做**增量守门**（存量 107 处不在此版清理）。
   - **恢复入口**：`docs/ktlint-integration.md` §7 的 T1/T3/T4/T5/T6（跳过 T2 全量格式化），规则集与那 10 处 `SEEK_TO` / `SHUFFLE_ON` 命名仍需一句话确认。
 

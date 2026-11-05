@@ -11,7 +11,7 @@ import kotlin.test.assertTrue
  * 桌面壳的单实例锁（`SingleInstanceGuard`）。
  *
  * 这是 desktop/app 里少数能在本机闭环的行为 —— 其余（无边框窗口、托盘、主题监听线程、
- * 退出时序）都要实机走查，见 `docs/7_3/domain/D9.md` §五。
+ * 退出时序）都要实机走查，见 `docs/archive/7_x/7_3/domain/D9.md` §五。
  *
  * ⚠️ 全程把 `user.home` 指到临时目录：真路径是 `~/.hmp/hmp.lock`，
  * 直接在开发者 home 里加锁会和在跑的应用抢锁，还会留下脏文件。

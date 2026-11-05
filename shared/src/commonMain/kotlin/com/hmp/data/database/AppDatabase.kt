@@ -289,7 +289,7 @@ abstract class AppDatabase : RoomDatabase() {
         }
 
         /**
-         * v9 → v10（批一收口，`docs/7_3/v10-migration.md`）：13 条索引 + 删 `playlist_item.songUrl` 列。
+         * v9 → v10（批一收口，`docs/archive/7_x/7_3/v10-migration.md`）：13 条索引 + 删 `playlist_item.songUrl` 列。
          *
          * 步骤顺序是**功能性的**，不是风格：唯一索引必须在存量去重之后才建得起来（决策 1 / 决策 2，
          * 见 `plan.md` §九）。删列没有原生语法，走「建新表(带外键) → 搬数据 → 删旧 → 改名」，

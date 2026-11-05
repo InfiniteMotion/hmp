@@ -277,7 +277,7 @@ LayoutConstraints.kt  对象外常量（§5.5）：断点 / 窗口限宽 / 几�
 ### 5.8 业务禁令与守门
 
 - 业务代码禁止裸 `.dp/.sp`；尺寸一律走 `LocalHmpMetrics` 的 12 档或组件预设，对象外走 `LayoutConstraints` 具名常量。
-- 守门为**尺寸全量禁止**，扫 `shared-ui/src/**` + `desktop/app/src/**`，白名单 = 五类 token 文件 + `LayoutConstraints.kt`；`storybook/` 不在扫描范围（不在构建图，去留归 `docs/7_3/domain/X.md` X-08）。
+- 守门为**尺寸全量禁止**，扫 `shared-ui/src/**` + `desktop/app/src/**`，白名单 = 五类 token 文件 + `LayoutConstraints.kt`；`storybook/` 不在扫描范围（不在构建图，去留归 `docs/archive/7_x/7_3/domain/X.md` X-08）。
 - **禁令与存量同阶段闭环**：不收完不开禁令，不留「禁令已开、存量未清」的提交。
 
 ## 6. 动效
@@ -446,7 +446,7 @@ LayoutConstraints.kt  对象外常量（§5.5）：断点 / 窗口限宽 / 几�
 - 色值：三-4 P0/P1（38 → 0）+ 壳层色收编；
 - 动效：D8-07 五阶段（4 档 + 3 缓动 + 2 弹簧、`AnimationTokens.kt` 删除）。
 
-逐阶段验证数字、修过的缺陷、如实记，全部在 `docs/7_3/domain/D8.md`。
+逐阶段验证数字、修过的缺陷、如实记，全部在 `docs/archive/7_x/7_3/domain/D8.md`。
 
 ### 9.4 维护规则
 
@@ -469,7 +469,7 @@ LayoutConstraints.kt  对象外常量（§5.5）：断点 / 窗口限宽 / 几�
 | D-6 | 亮 / 暗的 `surfaceVariant` / `onSurface` / `onSurfaceVariant` / 分割线在 app token 中**未定义**（走 M3 默认）；动效 token 无调用点（按钮反馈实为 M3 ripple） | `.../design/colors/ColorTokens.kt:5-29`、`.../design/theme/ThemeManager.kt:13-39` 对照 `storybook/.../StorybookTheme.kt:141-200` | R49 |
 | D-7 | 桌面快捷键与原文不符：无 Ctrl+F 搜索、无方向键调音量；实为 Space / ← / → / L / C / Esc | `shared-ui/.../player/pages/PlayerScreen.kt:183-190`；`AppRoot.kt:337-350` | 文档订正 |
 | D-8 | 「对话框必用毛玻璃」有例外：`AddSongToPlaylistDialog` 无 `hazeEffect`（7/8 个有） | `shared-ui/.../common/dialogs/` 下 `hazeEffect` 命中 7 个文件 | R49 |
-| **R49** | **设计 token 曾长期「自愿制」**：硬编码 hex 53 处 / 13 文件、`fontSize` 43 处 / 9 文件、`RoundedCornerShape(N.dp)` 148 处、动效毫秒 56 处、`.dp` 1444 处 / 91 文件 vs `dimens.*` 仅 209 处 / 24 文件、336 个 `@Composable` 只有 81 个带 `modifier: Modifier`。2026-09-28 复测：hex 50/14、`fontSize` 63/11、`RoundedCornerShape` 149、`.dp` 1454/89 | 审查口径 `docs/7_3/review-7.3-architecture.md:95`、`TODO.md:115` | R49 |
+| **R49** | **设计 token 曾长期「自愿制」**：硬编码 hex 53 处 / 13 文件、`fontSize` 43 处 / 9 文件、`RoundedCornerShape(N.dp)` 148 处、动效毫秒 56 处、`.dp` 1444 处 / 91 文件 vs `dimens.*` 仅 209 处 / 24 文件、336 个 `@Composable` 只有 81 个带 `modifier: Modifier`。2026-09-28 复测：hex 50/14、`fontSize` 63/11、`RoundedCornerShape` 149、`.dp` 1454/89 | 审查口径 `docs/archive/7_x/7_3/review-7.3-architecture.md:95`、`TODO.md:115` | R49 |
 
 ## 11. 修订记录
 
@@ -479,4 +479,4 @@ LayoutConstraints.kt  对象外常量（§5.5）：断点 / 窗口限宽 / 几�
 - 2026-11-04：新增尺寸体系（D8-03 续），12 档 × 三窗口档、对象外集中 `LayoutConstraints`、守门升级为全量禁止。
 - 2026-11-04：守门扩到色值与动效，新增 `ColorTokens.Shell`，移除基线机制与 `design-token-baseline.json`；清理零消费语义层（`EffectMetrics` / `StrokeMetrics.bold`）。
 - 2026-11-04：新增动效体系（D8-07），4 档 + 3 缓动 + 2 弹簧 + 场景工厂，`AnimationTokens.kt` 与 `AnimationDirection` 删除。
-- 2026-11-04：**整篇重排**——章节按「总纲 → 五类 token → 应用层 → 落地 → 附录」重组，每类 token 统一为「真源 / 架构 / 档位 / 规则 / 禁令」五段式；修订记录压成摘要，施工细节见 `docs/7_3/domain/D8.md`。**章节编号已变更**，旧引用（如 `§6.1` 布局、`§10` 尺寸）按新结构重定位。
+- 2026-11-04：**整篇重排**——章节按「总纲 → 五类 token → 应用层 → 落地 → 附录」重组，每类 token 统一为「真源 / 架构 / 档位 / 规则 / 禁令」五段式；修订记录压成摘要，施工细节见 `docs/archive/7_x/7_3/domain/D8.md`。**章节编号已变更**，旧引用（如 `§6.1` 布局、`§10` 尺寸）按新结构重定位。

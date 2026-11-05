@@ -12,12 +12,12 @@
 ## 一、硬约束（先读这段，违反代价最高）
 
 1. **版本只改根目录 `release.toml`。** `gradle.properties`、iOS 三处（`project.yml` / `Info.plist` / `project.pbxproj`）、`site/js/config.js`、`site/index.html` JSON-LD、`shared-ios/.../Anchor.kt`、ROADMAP 与站点 changelog 条目**全部是 `scripts/sync-release.py` 的产物，禁止手改**。改完跑 `./gradlew syncVersion`。
-2. **文档与代码冲突时以代码为准。** 本仓库的文档叙述与实物之间没有断言关系（只有版本派生点有）。`docs/7_3/review-7.3-architecture.md` §四 记录了 14 条已确认失真。
+2. **文档与代码冲突时以代码为准。** 本仓库的文档叙述与实物之间没有断言关系（只有版本派生点有）。`docs/archive/7_x/7_3/review-7.3-architecture.md` §四 记录了 14 条已确认失真。
 3. **行号坐标会过期。** 审查报告里的 `file.kt:123` 是当日工作树坐标，动手前先按符号名 grep。
 4. **不要自己 `push` / 建 PR / 合并。** 发版前半程见 `skills/release-prep/SKILL.md`，其 ⑧ 步明确把这几件事交回用户。
 5. **CI 既不跑单元测试、也不编译 iOS。** 唯一守门人是本机 `preflight`。这条决定了：你改完代码没有任何机器反馈，必须自己跑对任务（见下节）。
    > **2026-09-30 决议改向**：编译与测试是必要的，方针改为「**当前环境能跑就都跑**」——Linux runner 跑得到的编译/测试一律纳入 CI，iOS 编译只在 macOS runner 可用时跑、缺环境不阻塞合入。落地清单见 `TODO.md` §六 决议 ①（**该决议已暂缓，用户 2026-09-30：「CI 先放着」**）。**在本条落地之前，现状仍然成立**——别等 CI，自己跑。
-6. **归档 `docs/archive/**` 只进不改**；`docs/7_3/review-7.3-architecture.md` 是带日期的审查证据，不要重写它的结论与行号。
+6. **归档 `docs/archive/**` 只进不改**；`docs/archive/7_x/7_3/review-7.3-architecture.md` 是带日期的审查证据，不要重写它的结论与行号。
 
 ---
 
@@ -195,7 +195,7 @@ HMP/
 - **`music.isDeleted` 有两个成因**（一-2 B 批起）：用户主动移除、以及"这次扫描没见到这个文件"。可见性过滤仍只看 `isDeleted`，
   但**用户意图记在 `userInfo.removedByUser`**，扫描只读它、永不写它 —— 因此设置页的「已移除」列表（`getDeletedMusicIdsGroupedByFolder` → `MusicDao.getRemovedMusicIdAndPath`）只列用户移除的那些，
   缺文件的曲目不在里面。想恢复可见性走 `RestoreToLibraryUseCase`（同时清两位置）。
-- **Room 2.8.3 KMP**：`AppDatabase` **version = 10**，`exportSchema = true`，18 实体 / 19 DAO。schema json 在 `shared/schemas/com.hmp.data.database.AppDatabase/1..10.json`。迁移是手写的 `MIGRATION_1_2 … MIGRATION_9_10`，统一收在 `AppDatabase.ALL_MIGRATIONS` 一个常量里，三端 `DatabaseBuilder.{android,desktop,ios}.kt` 都 `addMigrations(*AppDatabase.ALL_MIGRATIONS)` —— **不再有逐端手抄的名单**（2026-10-08 批 0 收口，漏一端曾是单端升级崩溃的来源）。v10 = 批一收口的一次迁移（13 条索引 + 删 `playlist_item.songUrl` + 后补的 `userInfo.removedByUser`；未发布期间并批，不再另开 v11），需求与判据的唯一真源是 `docs/7_3/v10-migration.md`。
+- **Room 2.8.3 KMP**：`AppDatabase` **version = 10**，`exportSchema = true`，18 实体 / 19 DAO。schema json 在 `shared/schemas/com.hmp.data.database.AppDatabase/1..10.json`。迁移是手写的 `MIGRATION_1_2 … MIGRATION_9_10`，统一收在 `AppDatabase.ALL_MIGRATIONS` 一个常量里，三端 `DatabaseBuilder.{android,desktop,ios}.kt` 都 `addMigrations(*AppDatabase.ALL_MIGRATIONS)` —— **不再有逐端手抄的名单**（2026-10-08 批 0 收口，漏一端曾是单端升级崩溃的来源）。v10 = 批一收口的一次迁移（13 条索引 + 删 `playlist_item.songUrl` + 后补的 `userInfo.removedByUser`；未发布期间并批，不再另开 v11），需求与判据的唯一真源是 `docs/archive/7_x/7_3/v10-migration.md`。
 - **迁移链的门禁**：`AppDatabaseMigrationTest` 跑逐环 + `1→10` 全链 + 链连续性；故意写坏一条 DDL 会红。新增版本必须**同时**改 `@Database.version` + 追加 `MIGRATION_{n-1}_{n}` 与 `ALL_MIGRATIONS` + 重导 schema json + 同步测试里的 `latestSchemaVersion`，少一处都有断言红（v10 施工时实测过这条红法）。
 - **三端都去掉了 destructive 兜底**（A4）：新增实体/字段忘了写迁移 = 线上硬失败，不是静默重建。
 - **降级有守卫，但没有 Room 回调**（一-7）：`AppDatabaseGuard` 在 build 之前探 `PRAGMA user_version`，库比代码新时记 error 日志 + 抛 `DatabaseTooNewException`，三端启动路径先 `probe` 挂状态、`AppRoot` 在解析任何 DAO 之前分流到提示页。别改回 `RoomDatabase.Callback`：Room 的版本校验发生在建连接过程中，`onOpen` 到不了，挂了等于没挂。代码版本读的是 `AppDatabase.CODE_SCHEMA_VERSION`（Room 不把注解版本暴露成常量），**bump 版本要同时改 `@Database.version` 与它**，迁移测试断言三者一致。
@@ -224,7 +224,7 @@ HMP/
 以下都在 [TODO](TODO.md) §六 R39–R56 / §一 挂了账，但**不知道就会踩**：
 
 1. **`shared-ui` 的测试在两个源集，都要挂。** `androidHostTest`（94 例）+ `desktopTest`（42 例，2026-10-08 才把 `src/desktopTest/` 目录建出来；`build.gradle.kts` 早先就声明了该源集、一直缺目录 → `:shared-ui:desktopTest` 长期 NO-SOURCE 静默绿）。`commonTest` 的用例会同时进这两个目标。`testAll`/`testUi` 现已同时挂两者；无 Android SDK 时可用 `testUiDesktop`（现在有真内容）。同类坑已一并处理：`desktop/app` 的 `desktopTest` 源集也是只声明没有目录，现已建出并放 `SingleInstanceGuardTest`（单实例锁 4 例）。**教训**：`maybeDepends`/`dependsOn` 挂了某个 test 任务不等于它有内容 —— 判据是 `<模块>/build/test-results/<任务>/TEST-*.xml` 里有没有用例。
-   - **`PlaylistViewModel` 在 `shared-ui` 的测试源集里构造不出来**：它的 `init` 会调 `initializeDefaultPlaylists()`，那里解析 compose 资源名 `getString(Res.string.heart)`，而该源集没接 Robolectric —— 实跑报 `Method getSystem in android.content.res.Resources not mocked`。要写 VM 级判据，先按 `docs/7_3/domain/D3.md` D3-06 的退路把规则抽成纯函数（`userVisiblePlaylists`），或给该源集配资源解析。
+   - **`PlaylistViewModel` 在 `shared-ui` 的测试源集里构造不出来**：它的 `init` 会调 `initializeDefaultPlaylists()`，那里解析 compose 资源名 `getString(Res.string.heart)`，而该源集没接 Robolectric —— 实跑报 `Method getSystem in android.content.res.Resources not mocked`。要写 VM 级判据，先按 `docs/archive/7_x/7_3/domain/D3.md` D3-06 的退路把规则抽成纯函数（`userVisiblePlaylists`），或给该源集配资源解析。
 2. **`maybeDepends` 在错目标下静默丢依赖。** `export HMP_BUILD_TARGET=desktop` 后跑 `./gradlew testAndroid` **必绿且零工作**（R52）。
 
 3. **新增 NavKey 要同时动三处**：`Routes.kt` 声明、`HmpNavBackStack.kt` 的 `subclass` 注册、`NavigationGraph.kt` 的 `entry<>`。漏 serializer 过去**无编译期报错**，只在该 key 参与保存/恢复时运行期崩（"进页面转一圈就崩"），而 `RoutesTest` 那条手写 22 条 `is NavKey` 断言是恒真的、不把关。2026-10-08（三-1）起这道关由 `shared-ui/src/androidHostTest/.../NavRegistrationGateTest.kt` 守着：反射遍历每个 NavKey 做多态往返 + `entry` 覆盖比对，漏一处即红，新增路由自动进闸门。4 个 Tab key（`Main.Home/Gallery/List/User`）没有 `entry<>`，由 `MainShell` 的 HorizontalPager 承载 —— 它们在那个测试里是显式豁免名单，别当漏注册去补。
@@ -241,7 +241,7 @@ HMP/
 11. **iOS 密钥不是加密**：`SecureStorageHelper.ios.kt` 的 `simpleEncrypt` 实为 XOR，密钥文件却叫 `.aes_key`，且落在 `Documents/.keys`（与密文同目录），而 `project.yml` 开着 `UIFileSharingEnabled: true` → 沙箱可经"文件"App 直接拷出（R10）。Desktop 用硬编码 keystore 口令。三端密文互不可解。
 12. **`androidMain` / `iosMain` 的实现测试覆盖为 0。** 107 个平台源集文件里 12 个 `*Impl*`，只有 2 个有同名测试（都在 `shared/src/desktopTest`）。`shared/src` 下只有 `commonTest` 与 `desktopTest` 两个测试源集，**没有 androidHostTest、没有 iosTest**。
 13. **`shared_ios.podspec` 是被 track 的生成物**，Windows 会把 `spec.resources` 写成反斜杠路径，`.gitattributes` 没有 `*.podspec` 规则（R46）。
-14. **没有任何静态闸门**：无 ktlint、无 detekt、无 `.editorconfig`、无 `core.hooksPath`。`DEVELOP.md:406` 现已如实写明这一点（方案仍在 `docs/ktlint-integration.md`，2026-11-05 已移出 v7.3 待办）。**2026-09-30 订正**：本条原称"`DEVELOP.md:396-400` 声称使用 ktlint 属失真"，该指控已随 DEVELOP 改写而失效——现在失真的是旧说法本身（独立复核见 `docs/7_3/domain/X.md` X-07 附加 doc-truth）。新代码靠自觉保持一致性。
+14. **没有任何静态闸门**：无 ktlint、无 detekt、无 `.editorconfig`、无 `core.hooksPath`。`DEVELOP.md:406` 现已如实写明这一点（方案仍在 `docs/ktlint-integration.md`，2026-11-05 已移出 v7.3 待办）。**2026-09-30 订正**：本条原称"`DEVELOP.md:396-400` 声称使用 ktlint 属失真"，该指控已随 DEVELOP 改写而失效——现在失真的是旧说法本身（独立复核见 `docs/archive/7_x/7_3/domain/X.md` X-07 附加 doc-truth）。新代码靠自觉保持一致性。
 15. **设计 token 是自愿制**：`.dp` 字面量 1444 处 vs `dimens.*` 仅 209 处；硬编码 hex 色 53 处；卡片两套并存（`HMPCard` vs 裸 `Card(`/`Surface(`）；336 个 `@Composable` 只有 81 个带 `modifier: Modifier`（R49）。
 16. **`iosMain` 以前根本没有编译器看过**：2026-10-12 第一次把 `:shared:compileKotlinIosSimulatorArm64` 跑起来，发现 iOS 目标**从 一-3 C1 起就一直编不过**（`DateFormats.ios.kt` 里 `import platform.Foundation.NSDate` 抄了两遍、`NSDate(timeIntervalSince1970 = …)` 这个构造参数不存在、`NSTimeZone.localTimeZone` 少了括号，另有 一-7 带进来的 `DatabaseBuilder.ios.kt` 重复 `@OptIn`），已在 2026-10-12 修掉。教训不是"这几处写错了"，而是：**Foundation 的类方法与属性在 K/N 里是分类(category)扩展，必须单独 import**（`dateWithTimeIntervalSince1970` / `localTimeZone` / `timeIntervalSince1970` 都是），写 iosMain 时不能凭 JVM 直觉。改完 iosMain 一定要单跑那两个 iOS 编译任务（见 §二 表最后一行）。
 17. **`LabelCategory` / `LabelName` 各有一套同名枚举**（domain 的 `com.hmp.domain.enum.*` 与 DAO 实体的 `com.hmp.data.database.myenum.*`），互转靠 mapper。把两套混进同一个 `mapOf` 时 **Kotlin 会把键类型推成 `Any`，编译照过、查找永远不命中、`?: 默认值` 静默接管** —— 2026-10-12 就靠新判据查出 `labelCategoryWeight` 五项里四项的键用了 DAO 枚举，导致"按类别加权"从来没生效过。写这类权重/映射表前先确认键到底是哪一套枚举。
@@ -296,9 +296,9 @@ HMP/
 | **AI 协作者须知（本文件）** | [AGENTS.md](AGENTS.md) |
 | 版本号规范 / 真源分层 / 发版清单 / CI 与产物现状 | [docs/spec/hmp-release.md](docs/spec/hmp-release.md) |
 | **发版工序与判据（agent 执行发版照它走）** | [skills/release-prep/SKILL.md](skills/release-prep/SKILL.md) |
-| **v7.3.0 施工基线（九域 + 横切线，唯一工作分解入口）** | [docs/7_3/domain-baseline.md](docs/7_3/domain-baseline.md) → `docs/7_3/domain/D{1..9}.md` / [X.md](docs/7_3/domain/X.md)、[docs/7_3/v10-migration.md](docs/7_3/v10-migration.md)、施工条目 `docs/7_3/taskbook/` |
-| **v7.3.0 施工计划（顺序真源，已评审）** | [docs/7_3/plan.md](docs/7_3/plan.md)（34 个工作包 / 判据落点 / 验收定义 / **8 条决策记录** / 里程碑） |
-| 架构实现审查（2026-09-28，**历史证据，非施工入口**） | [docs/7_3/review-7.3-architecture.md](docs/7_3/review-7.3-architecture.md)（TODO §六 R39–R56 出处）、[review-7.3-code.md](docs/7_3/review-7.3-code.md) |
+| **7.3 期（架构加固）施工基线 —— 已归档**：2026-11-05 收口且**不发行**，残余归口下一阶段规划（UDF / ktlint / 设计校准，文档待建） | [docs/archive/7_x/7_3/domain-baseline.md](docs/archive/7_x/7_3/domain-baseline.md) → `docs/archive/7_x/7_3/domain/D{1..9}.md` / [X.md](docs/archive/7_x/7_3/domain/X.md)、[docs/archive/7_x/7_3/v10-migration.md](docs/archive/7_x/7_3/v10-migration.md)、施工条目 `docs/archive/7_x/7_3/taskbook/`。各条目的「施工结果」与收口改判注记（plan §二/§六/§十一）都在归档内，**只进不改** |
+| **7.3 期施工计划（已归档）** | [docs/archive/7_x/7_3/plan.md](docs/archive/7_x/7_3/plan.md)（34 个工作包 / 判据落点 / 验收定义 / **8 条决策记录** / 里程碑） |
+| 架构实现审查（2026-09-28，**历史证据，非施工入口**） | [docs/archive/7_x/7_3/review-7.3-architecture.md](docs/archive/7_x/7_3/review-7.3-architecture.md)（TODO §六 R39–R56 出处）、[review-7.3-code.md](docs/archive/7_x/7_3/review-7.3-code.md) |
 | 设计系统（色彩/字体/间距/组件） | [docs/spec/hmp-design.md](docs/spec/hmp-design.md) |
 | 日志门面 `HmpLog` / `LogTag` 规范 | [docs/spec/hmp-log.md](docs/spec/hmp-log.md) |
 | Room KMP 跨平台配置 | [docs/room-kmp-setup.md](docs/room-kmp-setup.md) |
