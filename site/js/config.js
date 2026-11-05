@@ -7,7 +7,7 @@
 window.SITE = {
   name: 'Hearable Music Player',
   shortName: 'HMP',
-  version: '7.2.3',
+  version: '7.4.0',
   released: '2026-10-07',
   author: 'WLYB',
   year: 2026,
