@@ -3,8 +3,8 @@
 > **范围决议（用户，2026-11-05）**：7.4 期**只做 ktlint**。UDF 单向数据流改造、设计校准、CI 编译测试（X-01）与 7.3 其余残余均不在本阶段施工，继续留在 [residuals-7.3.md](residuals-7.3.md) 台账。
 > **施工依据**：[`../ktlint-integration.md`](../ktlint-integration.md)（ktlint CLI 1.8.0 + JDK 21 全仓实测，261 行）。本文件只记 **7.4 的改判与顺序**，不复制方案正文；两者冲突处以本文件为准。
 > **权威口径**：`AGENTS.md` → `ROADMAP.md` → 本文件。归档 `docs/archive/**` 只进不改。
-> **建账**：2026-11-05。当前分支 `feature/architecture-hardening`；工作区有 `A docs/7_4/residuals-7.3.md` 一笔未提交（T0 前置，见 §五 #0）。
-> **施工状态（2026-11-05）**：配置 / 双端包装脚本 / CI lint 闸门 / T2 全量格式化 / 28 处人工处置**均已落地**，`./ktlint check` = **0 处**（POSIX 与 Windows 双端一致）。格式化后的编译与分层测试验证进行中。全部改动**尚未提交**（用户决议：T0 收口先不考虑）。
+> **建账**：2026-11-05。分支 `feature/architecture-hardening`；工作区干净。
+> **状态（2026-11-05）：7.4 已收口。** 配置 / 双端包装脚本 / CI lint 闸门 / T2 全量格式化 / 28 处人工处置全部落地，`./ktlint check` = 0 处（POSIX 与 Windows 双端一致），格式化后 `compileAll testCore testUi` = BUILD SUCCESSFUL。两笔提交：`0d88404`（`style`，整个 ktlint 合为一笔的机械提交）+ `ac4165e`（`chore`，`.git-blame-ignore-revs`）；本地 `blame.ignoreRevsFile` 已配置并验证生效。**仅剩**：首个 PR 验证 lint job 与 Verdict 判定（需人工 push / 开 PR，`AGENTS.md` 禁止工具代做）。
 
 ---
 
@@ -78,9 +78,9 @@
 | 闸门有效 | PR 上人为改一处缩进 → `lint` job 红、Verdict 判「不允许合入」 |
 | 追溯保护 | `.git-blame-ignore-revs` 指向格式化提交 SHA，`git blame` 不落在机械提交上 |
 
-**2026-11-05 实测进度**：配置生效 — 已完成（9,183 处）；格式化收敛 — 已完成（T2 后 `check` = 0 处，POSIX 与 Windows 双端一致）；未破坏代码 — **已完成**（`gradlew-smart.bat compileAll testCore testUi` → `BUILD SUCCESSFUL in 5m 47s`，144 tasks / 49 executed / 95 up-to-date）；闸门有效 — 待 CI 首跑；追溯保护 — 待提交后补（需要格式化提交的 SHA，而用户决议 T0 收口先不考虑，故暂无 SHA）。全量机械 diff 为 555 文件 / 12,306 插入 + 10,510 删除。
+**2026-11-05 终验结果**：配置生效（9,183 处）、格式化收敛（T2 后 `check` = 0 处，POSIX 与 Windows 双端一致）、未破坏代码（`compileAll testCore testUi` → `BUILD SUCCESSFUL in 5m 47s`，144 tasks / 49 executed）、追溯保护（`.git-blame-ignore-revs` 指向 `0d88404`，`git blame` 实测不再落到格式化提交）**均已完成**。全量机械 diff 为 555 文件 / 12,306 插入 + 10,510 删除。**唯一未闭环**：闸门有效，待首个 PR 的 CI 首跑。
 
-**收尾待办（均不阻塞代码正确性）**：① 提交这批改动（用户决议先不考虑）；② 用提交 2 的 SHA 生成 `.git-blame-ignore-revs`；③ 首个 PR 上验证 `lint` job 与 Verdict 判定；④ 可选的手写 pre-commit hook（须在全量格式化之后装，已满足）。
+**收尾状态**：两笔提交 `0d88404` + `ac4165e` 已完成，工作区干净。剩余事项：① 首个 PR 上验证 `lint` job 与 Verdict 判定（需人工 push / 开 PR，`AGENTS.md` 禁止工具代做）；② 可选的手写 pre-commit hook **决定不装** —— `./ktlint check` 与 CI 闸门已覆盖，方案 §4.2 本就把 hook 定位为冗余兜底，且 Windows 上 ktlint 自带安装器会段错误。
 
 ---
 
@@ -126,10 +126,11 @@
 
 UDF 单向数据流改造（R15 / R48）、设计校准、X-01 CI 编译测试、实机池、其余 7.3 残余（台账 §三–§六）全部**不进 7.4 施工**，仍由 [residuals-7.3.md](residuals-7.3.md) 持有。
 
-其中两条与 ktlint 的边界：
+与 ktlint 的边界：
 
-- R21 注释口径漂移随提交 2 顺手修（属格式化批，不是独立立项）；
-- CI 里只加 `lint` job（跑 ktlint CLI），**不加 Gradle 编译 / 测试 job** —— 那是 X-01 的领地。
+- R21 注释口径漂移已在格式化批顺手修（`ToolNames.kt` 「共 29 个」→ 30）；
+- CI 里只加 `lint` job（跑 ktlint CLI），**不加 Gradle 编译 / 测试 job** —— 那是 X-01 的领地；
+- **注释清理不做**（2026-11-05 用户决议）：讨论过 AI 遗留垃圾注释的清理与「全删注释」的影响后，决定**保持现状** —— 不清理存量、不加注释门禁、不改注释规约。盘点结论留档：全仓 14,203 行注释（12.2%，含 KDoc 10,280 行，是「为什么」的主要载体）；7 处 `// design-token-exception` 是 `checkDesignTokens` 的例外协议，删注释会让 `preflight` 变红，因此全删不可行。
 
 ---
 

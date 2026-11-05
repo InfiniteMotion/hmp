@@ -14,7 +14,7 @@
 | R15 / R48（agent 区 VM 化） | **UDF**（不在 7.4） | [已核 11-05] `AgentConfigScreen.kt` 1681 行、`MasterAgent.kt` 1812 行；Screen 层基线（21 VM / 31 Screen 缺口）以 UDF 规划为准 |
 | `PlaylistViewModel` 测试构造坑 | **UDF**（不在 7.4） | [已核 11-05] `PlaylistViewModel.kt:127-128` init 路径 `getString(Res.string.heart)`，测试源集无 Robolectric 构造不出——写 VM 级判据前先按 D3-06 退路抽纯函数 |
 | R21（注释口径漂移） | **ktlint 格式化批** | [已核 11-05] `ToolNames.kt:57` 仍写「共 29 个」；随 [plan.md](plan.md) §五 提交 2 顺手修，避免单独制造 diff |
-| R50（静态闸门） | **ktlint（7.4 已落地）** | `./ktlint check` = 0 处、格式化后 `compileAll testCore testUi` 为 BUILD SUCCESSFUL；规则集照单全收、`SEEK_TO` 走 `@Suppress`（用户 11-05 确认），处置明细见 [plan.md](plan.md) §六。剩余：CI 首跑验收 / `.git-blame-ignore-revs`（需提交 SHA）/ 工作区改动待提交 |
+| R50（静态闸门） | **ktlint（7.4 已落地）** | `./ktlint check` = 0 处、格式化后 `compileAll testCore testUi` 为 BUILD SUCCESSFUL；规则集照单全收、`SEEK_TO` 走 `@Suppress`（用户 11-05 确认），处置明细见 [plan.md](plan.md) §六。已提交 `0d88404` + `ac4165e`，blame 忽略已生效；仅剩首个 PR 的 CI 首跑验收 |
 
 **排序约束（2026-11-05 已裁定）**：7.4 只做 ktlint，本阶段无功能性 diff，churn 混批风险归零 → 全量格式化纳入本阶段收口动作；UDF 不在 7.4，先后问题不复存在。依据见 [plan.md](plan.md) §二.1。
 

@@ -414,7 +414,7 @@ open HMP.xcworkspace
 
 包装脚本自动下载并校验 ktlint CLI 1.8.0 的 jar 到 `tools/ktlint/`（已 gitignore，版本与 SHA256 写在脚本顶部）；规则集由仓库根 `.editorconfig` 单一定义，Android Studio 的 Reformat Code 与 CI 的 lint job 共用它，不需要装 IDE 插件。CI 侧是 `pr-check.yml` 的 `lint` job（对所有非 draft PR 生效，只 check 不 `-F`）。
 
-**当前状态（2026-11-05）**：全量格式化已完成，`./ktlint check` 为 **0 处**（POSIX / Windows 双端一致）；格式化后 `compileAll testCore testUi` 为 `BUILD SUCCESSFUL`，格式化未破坏代码。工作区改动尚未提交（用户决议：T0 收口先不考虑）；`.git-blame-ignore-revs` 与 CI 首跑验收待提交后补，详见 [docs/7_4/plan.md](docs/7_4/plan.md) §四。
+**当前状态（2026-11-05，7.4 已收口）**：全量格式化完成，`./ktlint check` 为 **0 处**（POSIX / Windows 双端一致）；格式化后 `compileAll testCore testUi` 为 `BUILD SUCCESSFUL`。改动提交为 `0d88404`（机械提交）与 `ac4165e`（`.git-blame-ignore-revs`）；本地已设 `blame.ignoreRevsFile`，`git blame` 不再落到格式化提交。仅剩首个 PR 验证 `lint` job 与 Verdict 判定（需人工开 PR）。详见 [docs/7_4/plan.md](docs/7_4/plan.md) §四。
 
 ### 测试流程
 

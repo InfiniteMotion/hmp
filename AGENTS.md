@@ -4,7 +4,7 @@
 
 **本文件是 AI 协作者须知的唯一真源。** `CLAUDE.md` 只是指向这里的指针，不要往那边抄内容。
 
-- 最新发布版本：**v7.2.3**（2026-10-07 发布）。产物：macOS arm64 DMG / Windows x86_64 MSI / Linux x86_64 DEB / Android APK+AAB + `SHA256SUMS.txt`；iOS 仅本机 Archive，不在 CI。v7.3.0（架构加固期）已收口**不发行**：无 tag 无包，残余归口下一阶段。**7.4 期范围已定为仅引入 ktlint**（正式规划见 `docs/7_4/plan.md`），UDF 与设计校准延后。
+- 最新发布版本：**v7.2.3**（2026-10-07 发布）。产物：macOS arm64 DMG / Windows x86_64 MSI / Linux x86_64 DEB / Android APK+AAB + `SHA256SUMS.txt`；iOS 仅本机 Archive，不在 CI。v7.3.0（架构加固期）已收口**不发行**：无 tag 无包，残余归口下一阶段。**7.4 期仅引入 ktlint，已收口**（`./ktlint check` = 0 处；规划见 `docs/7_4/plan.md`），UDF 与设计校准延后。
 - **产品边界**：纯本地。不做在线/云同步、不引入账号、不做社交；只保留用户自填 API 的 AI 推荐。改动前如果会突破这条线，停下问用户。
 
 ---
