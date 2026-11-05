@@ -179,6 +179,62 @@ class AgentToolsTest {
         assertEquals(1, fx.playlistRepo.playlists.size)
     }
 
+    // ---------- playlist 名称校验：Agent 与 UI 共用口径（D3-05④ / D3-12）----------
+
+    @Test
+    fun createPlaylist_rejectsDuplicateName() = runTest {
+        val fx = Fixture()
+        assertTrue(fx.registry.executeTool(ToolNames.PLAYLIST_CREATE, jsonArgs("name" to "跑步歌单")).success)
+
+        val dup = fx.registry.executeTool(ToolNames.PLAYLIST_CREATE, jsonArgs("name" to "跑步歌单"))
+        assertFalse(dup.success, "重名应失败，实际: ${dup.summary}")
+        assertTrue(dup.summary.contains("已存在同名歌单"))
+        assertEquals(1, fx.playlistRepo.playlists.size, "重名不应落库")
+    }
+
+    @Test
+    fun createPlaylist_rejectsBlankAndOverlongName() = runTest {
+        val fx = Fixture()
+        val blank = fx.registry.executeTool(ToolNames.PLAYLIST_CREATE, jsonArgs("name" to "   "))
+        assertFalse(blank.success)
+        assertTrue(blank.summary.contains("不能为空"))
+
+        val overlong = fx.registry.executeTool(ToolNames.PLAYLIST_CREATE, jsonArgs("name" to "名".repeat(31)))
+        assertFalse(overlong.success)
+        assertTrue(overlong.summary.contains("30"))
+
+        assertEquals(0, fx.playlistRepo.playlists.size, "空名/超长名都不应落库")
+    }
+
+    @Test
+    fun renamePlaylist_rejectsDuplicate_butAllowsOwnName() = runTest {
+        val fx = Fixture()
+        val a = fx.playlistRepo.createPlaylist("歌单A")
+        val b = fx.playlistRepo.createPlaylist("歌单B")
+
+        val dup = fx.registry.executeTool(
+            ToolNames.PLAYLIST_RENAME,
+            jsonArgs("playlist_id" to b, "new_name" to "歌单A"),
+        )
+        assertFalse(dup.success, "改成别人的名字应失败，实际: ${dup.summary}")
+        assertEquals("歌单B", fx.playlistRepo.playlists[b]?.name, "失败时不应改名")
+
+        // excludeId 生效：改成自己原名不算重名
+        val same = fx.registry.executeTool(
+            ToolNames.PLAYLIST_RENAME,
+            jsonArgs("playlist_id" to b, "new_name" to "歌单B"),
+        )
+        assertTrue(same.success, "改成自己原名不该被判重名: ${same.summary}")
+
+        val renamed = fx.registry.executeTool(
+            ToolNames.PLAYLIST_RENAME,
+            jsonArgs("playlist_id" to b, "new_name" to "歌单C"),
+        )
+        assertTrue(renamed.success)
+        assertEquals("歌单C", fx.playlistRepo.playlists[b]?.name)
+        assertEquals("歌单A", fx.playlistRepo.playlists[a]?.name)
+    }
+
     // ---------- addToPlaylist ----------
     @Test
     fun addToPlaylist_success_playlistMissing_musicMissing() = runTest {

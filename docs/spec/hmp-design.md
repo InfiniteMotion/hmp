@@ -2,7 +2,7 @@
 
 > **约束**：三端只有一套 UI（`shared-ui` 的 `commonMain` → `AppRoot`）与一套 token（颜色 / 字体 / 尺寸 / 动效 / 毛玻璃）；改外观一律改 `shared-ui`，平台壳不得自绘第二套视觉。
 > **适用范围**：`shared-ui` 的 `commonMain` 与三端 actual、Android / iOS / Desktop 壳层的视觉改动、新增组件与页面 ｜ **最后核对**：2026-11-04（五类 token 全部落地后整篇重排）
-> **判据**：① 业务代码零硬编码——裸 `.dp/.sp`、`Color(0x…)`、`MaterialTheme.typography`、动效裸时长 / 裸弹簧一律红，机械守门 = `./gradlew-lowmem checkDesignTokens`；确属例外的行写 `// design-token-exception: <理由>` ② `grep -c "BottomTabItem(" shared-ui/.../agent/shell/BottomFusionBar.kt` = **3**，且 `tabIndexForPage(page) = page - 1`（门面页无 Tab）③ 布局分支只经 `AppWindowSizeInfo`（`useFusionSidebar = isLandscape && heightSizeClass == Compact`），不得另设断点 ④ 毛玻璃只经 `hazeEffect(state, hazeStyleForIntensity())`，强度 / 模糊 / 噪点取自 `LocalHazeRenderSettings`
+> **判据**：① 业务代码零硬编码——裸 `.dp/.sp`、`Color(0x…)`、`MaterialTheme.typography`、动效裸时长 / 裸弹簧一律红，机械守门 = `./gradlew-smart checkDesignTokens`；确属例外的行写 `// design-token-exception: <理由>` ② `grep -c "BottomTabItem(" shared-ui/.../agent/shell/BottomFusionBar.kt` = **3**，且 `tabIndexForPage(page) = page - 1`（门面页无 Tab）③ 布局分支只经 `AppWindowSizeInfo`（`useFusionSidebar = isLandscape && heightSizeClass == Compact`），不得另设断点 ④ 毛玻璃只经 `hazeEffect(state, hazeStyleForIntensity())`，强度 / 模糊 / 噪点取自 `LocalHazeRenderSettings`
 
 ## 0. 文档地图
 
@@ -420,7 +420,7 @@ LayoutConstraints.kt  对象外常量（§5.5）：断点 / 窗口限宽 / 几�
 
 ### 9.1 守门脚本
 
-`./gradlew-lowmem checkDesignTokens`（`scripts/check-design-tokens.py`），四项全量禁令：
+`./gradlew-smart checkDesignTokens`（`scripts/check-design-tokens.py`），四项全量禁令：
 
 | 门 | 判定 | 扫描范围 |
 |---|---|---|

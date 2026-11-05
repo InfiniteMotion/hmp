@@ -211,7 +211,9 @@ class DesktopMusicController(
 
     private suspend fun loadPlaylistFromSettings() {
         try {
-            val playlistId = currentPlayListId.filterNotNull().first()
+            // 「没有当前歌单」是首次启动的正常态，不是失败：先取值再判空，避免 filterNotNull().first()
+            // 抛 NoSuchElementException 把正常态计进 restoreFailures（D1-08 信号可信度）。
+            val playlistId = currentPlayListId.first() ?: return
             val currentMusicId = currentPlaybackUseCase.getCurrentMusicId().first()
             val list = managePlaylistUseCase.getMusicInfoInPlaylist(playlistId).first()
             _currentPlaylist.value = list

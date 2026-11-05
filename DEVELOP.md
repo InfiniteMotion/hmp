@@ -405,7 +405,7 @@ open HMP.xcworkspace
 
 项目遵循 Kotlin 官方代码风格指南，但**目前没有任何机械化风格闸门**：仓库里**不存在** `.editorconfig`、`ktlint.gradle`，也没有 detekt / spotless，`.git/hooks` 下无 `core.hooksPath` 配置。全仓 `*.kts/toml/yml/properties` 里 grep `ktlint|detekt|spotless` 零命中。
 
-方案与落地步骤写在 [docs/ktlint-integration.md](docs/ktlint-integration.md)（**暂缓**，等 agent 分支线合并后启动；该文档的 CI 前提已失效，见 TODO **R50**）。在那之前，新代码靠人工保持一致。
+方案与落地步骤写在 [docs/ktlint-integration.md](docs/ktlint-integration.md)（**2026-11-05 已移出 v7.3 待办**，见 TODO **R50**；方案本身有效，卡的是「工作区收口」这个前置）。在那之前，新代码靠人工保持一致。
 
 ### 测试流程
 
@@ -415,7 +415,7 @@ open HMP.xcworkspace
 
 - **测试框架是 `kotlin.test`**（`commonTest` 里 316 处引用，`org.junit` 零命中）；Android/Desktop 侧另用 MockK 1.13.13 与 Robolectric 4.14.1
 - 测试覆盖 Repository、Use Cases、ViewModel 与 Agent 运行时
-- ⚠️ **不要用裸 `./gradlew test`**：本项目的口径是自定义聚合任务，且本机必须走低内存包装脚本 —— `./gradlew-lowmem.bat testAll`（或按改动范围选 `testCore` / `testUi`，见「日常开发选任务」）
+- ⚠️ **不要用裸 `./gradlew test`**：本项目的口径是自定义聚合任务，且本机必须走智能包装脚本 —— `./gradlew-smart.bat testAll`（或按改动范围选 `testCore` / `testUi`，见「日常开发选任务」）
 - ⚠️ 分布不均：`:shared` 有 `commonTest`（94 文件）+ `desktopTest`（14 文件，**唯一的 DB / Repository 集成测试**），但**没有 `androidHostTest`、没有 `iosTest`** → `androidMain` / `iosMain` 的实现零测试覆盖（TODO **R47**）
 - 报告落在被依赖的底层任务目录：`<模块>/build/reports/tests/<任务名>/index.html`
 
@@ -470,7 +470,7 @@ date = "2026-09-28"
 1. **确定版本类型**：按变更内容决定升级 MAJOR / MINOR / PATCH，得到新版本号
 2. **切发版分支**：从 `master` 拉出**三段式**的 `release/X.Y.Z`，把对应开发线 `feature/<line>` 合进来
 3. **只改 `release.toml`**：换 `version`（`date` 可留空，发布当天补），然后 `./gradlew syncVersion` —— 派生点由脚本写，**不要手改 `gradle.properties`、不要手写 ROADMAP 条目**
-4. **本机预检（唯一守门人，CI 不跑单测）**：`./gradlew-lowmem.bat preflight`（= `checkVersion` + `checkReleaseConsistency` + `testAll`）
+4. **本机预检（唯一守门人，CI 不跑单测）**：`./gradlew-smart.bat preflight`（= `checkVersion` + `checkReleaseConsistency` + `testAll`）
 5. **本机构建产物**：`./gradlew release`（输出到 `releases/`，含 Android + Desktop；macOS 上额外含 iOS）
    - `./gradlew releaseAndroid` — 仅 Android（APK + AAB）
    - `./gradlew releaseDesktop` — 仅 Desktop（**DMG / MSI / DEB**）
@@ -502,32 +502,41 @@ date = "2026-09-28"
 > **`shared-ui` 的测试在两个源集**：`androidHostTest`（历史主力，需 Android SDK）与 `desktopTest`（`src/desktopTest/` 目录 2026-10-08 才建出来 —— 在此之前 `build.gradle.kts` 声明了该源集却没有目录，`:shared-ui:desktopTest` 一直 `NO-SOURCE` 空过）。`commonTest` 的用例会同时进这两个目标，所以 `testUi` / `testAll` 现在**两个都挂**；无 Android SDK 的环境用 `testUiDesktop`（它有真用例了）。详见 `AGENTS.md` §八 第 1 条与 `docs/7_3/domain/X.md` X-09。
 > ⚠️ `maybeDepends` 在错误的 `HMP_BUILD_TARGET` 下会**静默丢依赖**：`export HMP_BUILD_TARGET=desktop` 后跑 `./gradlew testAndroid` 必绿且零工作（TODO **R52**）。
 
-#### 低内存构建
+#### 构建内存分档
 
-本机 Android Studio 常驻占内存，默认 `-Xmx4096m` + `parallel=true` 会让 Gradle/Kotlin daemon 被 OS 静默杀死（日志停在 "Reusing configuration cache."，报 `daemon disappeared`，无 hs_err）。
+`gradlew-smart` 每次构建前探测**当前可用物理内存**，自动选择堆档，不需要手动判断：
+
+| 档 | 可用内存 | 行为 |
+|---|---|---|
+| `high` | ≥ 10 GB | 复用 daemon / parallel / 继承 `gradle.properties` 的 4096m |
+| `balanced` | 6–10 GB | 3072m / parallel / workers=4 |
+| `low` | 3–6 GB | 2048m / 串行 / workers=2 / Kotlin in-process |
+| `rescue` | < 3 GB | 1024m / `--no-daemon` / workers=1 / in-process |
 
 **用包装脚本代替 `gradlew`**：
 
 ```bash
-./gradlew-lowmem.bat testCore   # Windows
-./gradlew-lowmem testCore       # macOS / Linux / Git Bash
+./gradlew-smart.bat testCore   # Windows
+./gradlew-smart testCore       # macOS / Linux / Git Bash
 ```
 
-> `org.gradle.jvmargs` / `parallel` / `workers.max` 是 Gradle **启动期属性**，无法在 `build.gradle.kts` 里条件化覆盖 —— 只能用包装脚本在命令行层面覆盖。这是引入 `gradlew-lowmem` 的原因。
+> `org.gradle.jvmargs` / `parallel` / `workers.max` 是 Gradle **启动期属性**，无法在 `build.gradle.kts` 里条件化覆盖 —— 只能用包装脚本在命令行层面覆盖。这是引入 `gradlew-smart` 的原因。
 >
-> **实测关键参数**（2026-09-15）：daemon 堆必须压到 **`1024m`**，Kotlin 编译器走 **`in-process`**。
-> `1536m`/`2048m` 能编译但会在 fork 测试 JVM 时被 OS 杀掉；已固化进包装脚本。
+> 内存紧张时脚本自动落到 `rescue` 档（1024m + Kotlin `in-process`）：这组参数是实测唯一能连 fork 出来的测试 JVM 一起跑通的组合（`1536m`/`2048m` 能编译但 fork 测试时会被 OS 杀掉）。
+> 需要固定档位时用 `HMP_MEM_PROFILE=high|balanced|low|rescue` 覆盖自动判断。
+>
+> 手工指定档位的典型场景：明明内存充足但想复现「低内存下的构建失败」——`set HMP_MEM_PROFILE=rescue`。
 
 #### 日常开发选任务
 
 | 改动范围 | 建议命令 |
 |---|---|
-| `shared` 的 Domain / Agent | `./gradlew-lowmem.bat testCore` |
-| `shared-ui` 的 UI | `./gradlew-lowmem.bat testUi` |
-| `shared-ui` 的 UI（无 Android SDK） | `./gradlew-lowmem.bat testUiDesktop` |
-| 改了公共 API | `./gradlew-lowmem.bat compileAll`（快速定位下游编译破坏） |
-| 提交前 | `./gradlew-lowmem.bat testAll` |
-| 发版前 | `./gradlew-lowmem.bat preflight`（CI 不跑单测，这是唯一守门人） |
+| `shared` 的 Domain / Agent | `./gradlew-smart.bat testCore` |
+| `shared-ui` 的 UI | `./gradlew-smart.bat testUi` |
+| `shared-ui` 的 UI（无 Android SDK） | `./gradlew-smart.bat testUiDesktop` |
+| 改了公共 API | `./gradlew-smart.bat compileAll`（快速定位下游编译破坏） |
+| 提交前 | `./gradlew-smart.bat testAll` |
+| 发版前 | `./gradlew-smart.bat preflight`（CI 不跑单测，这是唯一守门人） |
 
 其余数百个任务（`assemble*` / `bundle*` / `link*` / `compile*` / `package*` 等）均由 Gradle 与各插件自动生成，非本项目编写。
 

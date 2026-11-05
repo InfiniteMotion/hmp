@@ -9,9 +9,33 @@ import com.hmp.domain.agent.tool.spec.LongParam
 import com.hmp.domain.agent.tool.spec.LongListParam
 
 import com.hmp.domain.agent.port.ToolPermissionLevel
+import com.hmp.domain.playlist.PLAYLIST_NAME_MAX_LENGTH
+import com.hmp.domain.playlist.PlaylistNameError
 import com.hmp.domain.playlist.SystemPlaylists
+import com.hmp.domain.playlist.validatePlaylistName
 
 import kotlinx.coroutines.flow.first
+
+/**
+ * 歌单名校验（D3-05④ / D3-12）：直接转调 domain 的 `validatePlaylistName`，
+ * 与 UI 用的是同一份实现（不再各抄一遍判重），这里只把错误码翻成给模型看的中文。
+ *
+ * 返回 null 表示通过。
+ */
+private suspend fun checkPlaylistName(
+    deps: ToolDependencies,
+    raw: String,
+    excludeId: Long? = null,
+): String? {
+    // 判重逻辑不在这里重写一遍：domain 的 validatePlaylistName 是唯一实现（D3-05④ / D3-12），
+    // 这里只负责把错误码翻成给模型看的一句话。
+    return when (validatePlaylistName(raw, deps.playlistRepository, excludeId)) {
+        PlaylistNameError.EMPTY -> "歌单名不能为空"
+        PlaylistNameError.TOO_LONG -> "歌单名不能超过 ${PLAYLIST_NAME_MAX_LENGTH} 个字"
+        PlaylistNameError.DUPLICATE -> "已存在同名歌单，请换一个名字"
+        null -> null
+    }
+}
 
 // ---------------- playlist_list (read/silent) ----------------
 
@@ -78,8 +102,9 @@ class PlaylistCreateTool(
 
     override suspend fun run(args: ToolArgs): ToolResult {
         val name = args.requireString("name")
-        val id = deps.playlistRepository.createPlaylist(name)
-        return ToolResult.success("已创建播放列表「$name」(id=$id)")
+        checkPlaylistName(deps, name)?.let { return ToolResult.failure(it) }
+        val id = deps.playlistRepository.createPlaylist(name.trim())
+        return ToolResult.success("已创建播放列表「${name.trim()}」(id=$id)")
     }
 }
 
@@ -101,8 +126,9 @@ class PlaylistRenameTool(
         val newName = args.requireString("new_name")
         val meta = deps.playlistRepository.getPlaylistMeta(playlistId)
             ?: return ToolResult.failure("播放列表 $playlistId 不存在")
-        deps.playlistRepository.renamePlaylist(playlistId, newName)
-        return ToolResult.success("播放列表「${meta.name}」已重命名为「$newName」")
+        checkPlaylistName(deps, newName, excludeId = playlistId)?.let { return ToolResult.failure(it) }
+        deps.playlistRepository.renamePlaylist(playlistId, newName.trim())
+        return ToolResult.success("播放列表「${meta.name}」已重命名为「${newName.trim()}」")
     }
 }
 

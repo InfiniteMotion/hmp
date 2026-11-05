@@ -542,8 +542,6 @@ interface MusicListCallbacks {
     fun onAddToPlaylist(musicInfo: MusicInfo) {}
     fun onMenuClick(musicInfo: MusicInfo) {}
     fun onRemoveFromPlaylist(musicInfo: MusicInfo) {}
-    fun onMoveUp(index: Int) {}
-    fun onMoveDown(index: Int) {}
     fun onPinToTop(musicInfo: MusicInfo) {}
     fun onRemove(musicInfo: MusicInfo) {}
     fun onEnterEditMode() {}

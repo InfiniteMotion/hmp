@@ -263,7 +263,17 @@ fun parseArgs(arguments: JsonObject, params: List<ToolParam>): ToolArgs {
                     throw ToolParamError("参数 '${p.name}' 取值 $v 超出范围 [${p.min ?: "-∞"}, ${p.max ?: "+∞"}]")
                 }
             }
-            else -> Unit // Bool / List 类型经访问器二次校验
+            is LongListParam -> {
+                // D3-12：maxItems 过去只写进给模型的 schema，运行时不校验（`else -> Unit` 兜底），
+                // 于是模型多传几项也照收。这里补上真正的边界。
+                val arr = raw as? JsonArray
+                    ?: throw ToolParamError("参数 '${p.name}' 应为整数数组")
+                val max = p.maxItems
+                if (max != null && arr.size > max) {
+                    throw ToolParamError("参数 '${p.name}' 最多 $max 项，实际 ${arr.size} 项")
+                }
+            }
+            else -> Unit // Bool 类型经访问器二次校验
         }
     }
 

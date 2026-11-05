@@ -74,7 +74,6 @@ class DefaultPlaylistGuardTest {
         override suspend fun removePlaylistById(id: Long) { deleteCalls += id }
         override suspend fun getAllPlaylists(): List<Playlist> = emptyList()
         override suspend fun renamePlaylist(id: Long, newName: String) = Unit
-        override suspend fun updatePlaylistCover(id: Long, coverUri: String?) = Unit
         override suspend fun updatePlaylistDescription(id: Long, description: String?) = Unit
         override suspend fun setPlaylistPinned(id: Long, isPinned: Boolean) = Unit
         override suspend fun incrementPlaylistPlayCount(id: Long) = Unit

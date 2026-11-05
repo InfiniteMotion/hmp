@@ -2,7 +2,6 @@ package com.hmp.data.mapper
 
 import com.hmp.data.database.Music as MusicEntity
 import com.hmp.data.database.MusicExtra as MusicExtraEntity
-import com.hmp.data.database.MusicInfo as MusicInfoEntity
 import com.hmp.data.database.MusicLabel as MusicLabelEntity
 import com.hmp.data.database.UserInfo as UserInfoEntity
 import com.hmp.data.database.ListeningDuration as ListeningDurationEntity
@@ -11,16 +10,24 @@ import com.hmp.data.database.myenum.LabelCategory as DataLabelCategory
 import com.hmp.data.database.myenum.LabelName as DataLabelName
 import com.hmp.domain.enum.LabelCategory as DomainLabelCategory
 import com.hmp.domain.enum.LabelName as DomainLabelName
-import com.hmp.domain.music.Music
-import com.hmp.domain.music.MusicExtra
-import com.hmp.domain.music.MusicInfo
 import com.hmp.domain.music.MusicLabel
-import com.hmp.domain.music.UserInfo
 import com.hmp.domain.setting.model.ListeningDuration
 import com.hmp.domain.setting.model.PlaybackHistory as PlaybackHistoryDomain
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
+/**
+ * 曲目图（`music` / `musicExtra` / `userInfo`）的映射测试 —— **只测 `entity → domain`**。
+ *
+ * 这里原先还有 4 条反向用例（`music_toEntity_mapsAllFields`、两个 `*_roundTrip`、
+ * `musicExtra_toEntity_mapsAllFields`）。它们在 2026-11-05 随 D2-04 一起删了：
+ * 反向的四个 `toEntity` 本身已删除，留下测它们的用例等于给死码发绿灯。
+ *
+ * **不要因为"字段没覆盖全"就把反向映射加回来。** 为什么只有单程、为什么领域模型不带
+ * `isDeleted`，见 `MusicMapper.kt` 文件头与 `MusicModels.kt` 里各模型的 KDoc。
+ * 真要防"复活已软删曲目"，那条防线在 `PlaylistRepositoryImplTest`
+ * （`resetPlaylistItems_neverResurrectsSoftDeletedTracks`，真 Room）与编译期（反向映射不存在）。
+ */
 class MusicMapperTest {
 
     @Test
@@ -42,43 +49,6 @@ class MusicMapperTest {
         assertEquals(180000L, domain.duration)
         assertEquals("/path/to/song.mp3", domain.path)
         assertEquals("/path/to/art.jpg", domain.albumArtUri)
-    }
-
-    @Test
-    fun music_toEntity_mapsAllFields() {
-        val domain = Music(
-            id = 2,
-            title = "Domain Song",
-            artist = "Domain Artist",
-            album = "Domain Album",
-            duration = 240000L,
-            path = "/domain/path.flac",
-            albumArtUri = "/domain/art.png"
-        )
-        val entity = domain.toEntity()
-        assertEquals(2L, entity.id)
-        assertEquals("Domain Song", entity.title)
-        assertEquals("Domain Artist", entity.artist)
-        assertEquals("Domain Album", entity.album)
-        assertEquals(240000L, entity.duration)
-        assertEquals("/domain/path.flac", entity.path)
-        assertEquals("/domain/art.png", entity.albumArtUri)
-    }
-
-    @Test
-    fun musicEntity_toDomain_roundTrip_preservesData() {
-        val original = Music(
-            id = 10,
-            title = "Round Trip",
-            artist = "Artist",
-            album = "Album",
-            duration = 300000L,
-            path = "/path",
-            albumArtUri = "/art"
-        )
-        val entity = original.toEntity()
-        val restored = entity.toDomain()
-        assertEquals(original, restored)
     }
 
     @Test
@@ -115,17 +85,6 @@ class MusicMapperTest {
     }
 
     @Test
-    fun musicExtra_toEntity_mapsAllFields() {
-        val domain = MusicExtra(
-            id = 5,
-            isGetExtraInfo = false
-        )
-        val entity = domain.toEntity()
-        assertEquals(5L, entity.id)
-        assertEquals(false, entity.isGetExtraInfo)
-    }
-
-    @Test
     fun userInfoEntity_toDomain_mapsFields() {
         val entity = UserInfoEntity(
             id = 1,
@@ -146,18 +105,6 @@ class MusicMapperTest {
         assertEquals(3, domain.skippedCount)
         assertEquals(5, domain.userRating)
         assertEquals(2, domain.inCustomPlaylistCount)
-    }
-
-    @Test
-    fun userInfo_toEntity_roundTrip() {
-        val original = com.hmp.domain.music.UserInfo(
-            id = 10,
-            liked = true,
-            playCount = 100
-        )
-        val entity = original.toEntity()
-        val restored = entity.toDomain()
-        assertEquals(original, restored)
     }
 
     @Test

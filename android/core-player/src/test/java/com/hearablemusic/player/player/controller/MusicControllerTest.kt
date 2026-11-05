@@ -7,9 +7,13 @@ import com.hmp.domain.setting.SettingsRepository
 import com.hmp.domain.setting.usecase.CurrentPlaybackUseCase
 import com.hmp.domain.setting.usecase.PlaybackHistoryUseCase
 import com.hmp.domain.setting.usecase.TimerUseCase
+import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.setMain
@@ -226,5 +230,57 @@ class MusicControllerTest {
     @Test
     fun isMusicLoaded_noPlayControl_returnsNull() {
         assertNull(controller.isMusicLoaded("/test.mp3"))
+    }
+
+    // ===== 启动恢复失败计数（D1-08）=====
+    //
+    // init 块里 loadPlaylistFromSettings() / restoreLastPosition() 会在构造时立即跑完，
+    // 所以计数断言必须用「构造前就 stub 好」的实例，不能复用 setup 里那个。
+
+    private fun buildController(
+        playlistIdFlow: Flow<Long?> = flowOf(null),
+        positionFlow: Flow<Long> = flowOf(0L),
+        managePlaylist: ManagePlaylistUseCase = mockk(relaxed = true),
+    ): MusicController {
+        val settings = mockk<SettingsRepository>(relaxed = true)
+        every { settings.currentPlaylistId } returns playlistIdFlow
+        every { settings.likedPlaylistId } returns flowOf(null)
+        every { settings.recentPlaylistId } returns flowOf(null)
+        every { settings.currentPosition } returns positionFlow
+
+        val playback = mockk<CurrentPlaybackUseCase>(relaxed = true)
+        every { playback.getCurrentMusicId() } returns flowOf(null)
+
+        return MusicController(
+            context = context,
+            currentPlaybackUseCase = playback,
+            playbackHistoryUseCase = mockk(relaxed = true),
+            timerUseCase = mockk(relaxed = true),
+            managePlaylistUseCase = managePlaylist,
+            settingsRepository = settings,
+        )
+    }
+
+    @Test
+    fun restoreFailures_noCurrentPlaylist_isNotCounted() {
+        // 首次启动没有当前歌单是正常态，不该被 filterNotNull().first() 的
+        // NoSuchElementException 计成一次恢复失败。
+        val fresh = buildController(playlistIdFlow = flowOf(null))
+        assertEquals(0, fresh.restoreFailures.value)
+    }
+
+    @Test
+    fun restoreFailures_positionThrows_isCounted() {
+        val fresh = buildController(positionFlow = flow { error("boom: currentPosition") })
+        assertEquals(1, fresh.restoreFailures.value)
+    }
+
+    @Test
+    fun restoreFailures_playlistThrows_isCounted() {
+        val managePlaylist = mockk<ManagePlaylistUseCase>(relaxed = true)
+        every { managePlaylist.getMusicInfoInPlaylist(any()) } returns flow { error("boom: playlist") }
+
+        val fresh = buildController(playlistIdFlow = flowOf(1L), managePlaylist = managePlaylist)
+        assertEquals(1, fresh.restoreFailures.value)
     }
 }

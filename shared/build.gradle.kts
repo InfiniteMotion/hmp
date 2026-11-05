@@ -11,6 +11,10 @@ kotlin {
     android {
         namespace = "com.hmp.shared"
         compileSdk { version = release(37) }
+        // 单元测试（host test）：AGP 9 KMP 库插件默认关闭，需 withHostTest 显式 opt-in（X-06）；
+        // 源集目录随之从 androidUnitTest 改名为 androidHostTest。与 :shared-ui 同款写法。
+        withHostTest {
+        }
     }
 
     jvm("desktop")
@@ -77,6 +81,16 @@ kotlin {
                 implementation(libs.koin.test)
             }
         }
+        // androidHostTest 源集无预生成访问器，用 getByName（AGP 9 KMP）。
+        // 只进这个源集：commonTest 加 Android 专属依赖会污染 iOS 测试的元数据解析（room-testing 踩过）。
+        getByName("androidHostTest").dependencies {
+            implementation(libs.junit)
+            implementation(libs.kotlinx.coroutines.test)
+            // Android 侧仓库实现要跑 Room：host test 上必须 Robolectric 提供 Android 运行时
+            implementation(libs.robolectric)
+            implementation(libs.androidx.room.testing)
+        }
+
         commonTest.dependencies {
             implementation(kotlin("test"))
             implementation(libs.kotlinx.coroutines.test)

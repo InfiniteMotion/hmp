@@ -15,7 +15,6 @@ interface PlaylistRepository {
     suspend fun getAllPlaylists(): List<Playlist>
     suspend fun getPlaylistMeta(id: Long): Playlist?
     suspend fun renamePlaylist(id: Long, newName: String)
-    suspend fun updatePlaylistCover(id: Long, coverUri: String?)
     suspend fun updatePlaylistDescription(id: Long, description: String?)
     suspend fun setPlaylistPinned(id: Long, isPinned: Boolean)
     suspend fun incrementPlaylistPlayCount(id: Long)

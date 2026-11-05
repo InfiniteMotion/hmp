@@ -11,6 +11,9 @@ import com.hmp.domain.enum.LabelName
 import com.hmp.domain.music.usecase.GetAllMusicUseCase
 import com.hmp.domain.music.usecase.MusicLabelUseCase
 import com.hmp.domain.playlist.Playlist
+import com.hmp.domain.playlist.PlaylistNameError
+import com.hmp.domain.playlist.PlaylistNameException
+import com.hmp.domain.playlist.SystemPlaylists
 import com.hmp.domain.playlist.usecase.ManagePlaylistUseCase
 import com.hearablemusic.player.ui.playlist.userVisiblePlaylists
 import com.hmp.domain.setting.SettingsRepository
@@ -20,10 +23,8 @@ import com.hearablemusic.player.ui.common.util.UiState
 import com.hearablemusic.player.ui.common.util.nowEpochMillis
 import com.hearablemusic.player.ui.startup.DefaultPlaylistGuard
 import com.hearablemusic.player.ui.generated.resources.Res
-import com.hearablemusic.player.ui.generated.resources.default_list
 import com.hearablemusic.player.ui.generated.resources.default_playlist
 import com.hearablemusic.player.ui.generated.resources.heart
-import com.hearablemusic.player.ui.generated.resources.heart_list
 import com.hearablemusic.player.ui.generated.resources.recently_played
 import org.jetbrains.compose.resources.getString
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -105,6 +106,15 @@ class PlaylistViewModel(
     private val _userCustomPlaylistsState = MutableStateFlow<UiState<List<Playlist>>>(UiState.Idle)
     val userCustomPlaylistsState: StateFlow<UiState<List<Playlist>>> = _userCustomPlaylistsState
 
+    /**
+     * 系统歌单 id（当前 / 心动 / 最近），供管理页按 id 排除（D3-17①）。
+     *
+     * 单独暴露而不是在 VM 里再算一份"管理页专用列表"：两个列表状态迟早会不同步，
+     * 而管理页要的只是"同一份数据减去几个 id"，那是纯函数 [manageablePlaylists] 的事。
+     */
+    private val _systemPlaylistIds = MutableStateFlow<Set<Long>>(emptySet())
+    val systemPlaylistIds: StateFlow<Set<Long>> = _systemPlaylistIds.asStateFlow()
+
     private val _allMusicForAddPickerState = MutableStateFlow<UiState<List<MusicInfo>>>(UiState.Idle)
     val allMusicForAddPickerState: StateFlow<UiState<List<MusicInfo>>> = _allMusicForAddPickerState
 
@@ -133,7 +143,12 @@ class PlaylistViewModel(
                     _userCustomPlaylistsState.value = UiState.Error(it.message ?: "Failed to load playlists")
                 }
                 .collect { all ->
-                    // 口径只有一份：见 `UserPlaylistVisibility.kt`（D3-06）
+                    // 口径只有一份：见 `UserPlaylistVisibility.kt`（D3-06 / D3-17①）
+                    _systemPlaylistIds.value = SystemPlaylists.ids(
+                        currentId = settingsRepository.getCurrentPlaylistId(),
+                        likedId = settingsRepository.getLikedPlaylistId(),
+                        recentId = settingsRepository.getRecentPlaylistId(),
+                    )
                     val playlists = userVisiblePlaylists(all)
                     _userCustomPlaylistsState.value = if (playlists.isEmpty()) {
                         UiState.Empty
@@ -187,20 +202,34 @@ class PlaylistViewModel(
 
     fun createPlaylistAsync(name: String, onCreated: (Long) -> Unit) {
         viewModelScope.launch {
-            val id = managePlaylistUseCase.createPlaylist(name)
+            val id = runCatching { managePlaylistUseCase.createPlaylist(name) }.getOrNull() ?: return@launch
             loadUserCustomPlaylists()
             onCreated(id)
         }
     }
 
-    fun renamePlaylist(id: Long, newName: String) {
+    /**
+     * 改名。
+     *
+     * 名称规则现在由 `ManagePlaylistUseCase` 强制（D3-05④）—— 这个入口过去只判"非空"，
+     * 于是同一个应用里"弹窗改名"会拦住超长名与重名，而管理页的行内改名能绕过。
+     * 被拒时通过 [onResult] 把错误码交回界面翻译，**不改**本地名称状态。
+     */
+    fun renamePlaylist(id: Long, newName: String, onResult: (PlaylistNameError?) -> Unit = {}) {
         viewModelScope.launch {
-            managePlaylistUseCase.renamePlaylist(id, newName)
+            val rejected = runCatching { managePlaylistUseCase.renamePlaylist(id, newName) }
+                .exceptionOrNull()
+                .let { (it as? PlaylistNameException)?.error }
+            if (rejected != null) {
+                onResult(rejected)
+                return@launch
+            }
             if (_selectedPlaylistId.value == id) {
-                _selectedPlaylistName.value = newName
+                _selectedPlaylistName.value = newName.trim()
                 refreshSelectedPlaylistMeta()
             }
             loadUserCustomPlaylists()
+            onResult(null)
         }
     }
 
@@ -304,14 +333,6 @@ class PlaylistViewModel(
         }
     }
 
-    fun updatePlaylistCover(id: Long, coverUri: String?) {
-        viewModelScope.launch {
-            managePlaylistUseCase.updatePlaylistCover(id, coverUri)
-            if (id == _selectedPlaylistId.value) refreshSelectedPlaylistMeta()
-            loadUserCustomPlaylists()
-        }
-    }
-
     fun updatePlaylistDescription(id: Long, description: String?) {
         viewModelScope.launch {
             managePlaylistUseCase.updatePlaylistDescription(id, description)
@@ -348,40 +369,18 @@ class PlaylistViewModel(
         }
     }
 
+    /**
+     * 按 [LabelName] 枚举名（`"ROCK"` / `"POP"` …）加载标签页。
+     *
+     * `label` 的唯一来源是 `Routes.Playlist.Playlist(label.name)`（`ListScreen` 的标签卡片）；
+     * 系统歌单（默认 / 心动 / 最近播放）走的是 `Routes.Playlist.CustomPlaylist(id)` → [loadPlaylistById]。
+     * 所以这里**不按歌单名反查 id** —— 那三个中文资源键分支从未命中，属 D3-16 记录的死代码，已删除。
+     */
     fun getSelectedPlaylist(label: String) {
         currentPlaylistJob?.cancel()
         _selectedPlaylistName.value = label
         _selectedPlaylistState.value = UiState.Loading
         viewModelScope.launch {
-            val id = when (label) {
-                getString(Res.string.default_list) -> settingsRepository.getCurrentPlaylistId()
-                getString(Res.string.heart_list) -> settingsRepository.getLikedPlaylistId()
-                getString(Res.string.recently_played) -> settingsRepository.getRecentPlaylistId()
-                else -> null
-            }
-            if (id != null) {
-                _selectedPlaylistId.value = id
-                val currentId = settingsRepository.getCurrentPlaylistId()
-                val likedId = settingsRepository.getLikedPlaylistId()
-                val recentId = settingsRepository.getRecentPlaylistId()
-                _isCustomPlaylist.value = id != currentId && id != likedId && id != recentId
-                _selectedPlaylistMeta.value = managePlaylistUseCase.getPlaylistMeta(id)
-
-                managePlaylistUseCase.getMusicInfoInPlaylist(id)
-                    .catch {
-                        _selectedPlaylistState.value = UiState.Error(it.message ?: "Failed to load playlist")
-                    }
-                    .collect {
-                        if (_selectedPlaylistId.value == id) {
-                            _selectedPlaylistState.value = if (it.isEmpty()) {
-                                UiState.Empty
-                            } else {
-                                UiState.Success(it)
-                            }
-                        }
-                    }
-                return@launch
-            }
             _selectedPlaylistId.value = null
             _selectedPlaylistMeta.value = null
             _isCustomPlaylist.value = false

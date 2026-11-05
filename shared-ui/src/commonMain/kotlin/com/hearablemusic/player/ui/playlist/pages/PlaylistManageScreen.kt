@@ -43,6 +43,7 @@ import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
 import coil3.compose.AsyncImage
 import com.hmp.domain.playlist.Playlist
+import com.hmp.domain.playlist.PlaylistNameError
 import com.hearablemusic.player.ui.generated.resources.Res
 import com.hearablemusic.player.ui.generated.resources.cancel
 import com.hearablemusic.player.ui.generated.resources.chevron_right
@@ -53,10 +54,14 @@ import com.hearablemusic.player.ui.generated.resources.gearshape
 import com.hearablemusic.player.ui.generated.resources.ic_gallery_material_select_checkbox
 import com.hearablemusic.player.ui.generated.resources.minutes_format
 import com.hearablemusic.player.ui.generated.resources.music_note_list
+import com.hearablemusic.player.ui.generated.resources.no_playlists_available
 import com.hearablemusic.player.ui.generated.resources.ok
 import com.hearablemusic.player.ui.generated.resources.pin_playlist
 import com.hearablemusic.player.ui.generated.resources.play_count_display
+import com.hearablemusic.player.ui.generated.resources.playlist_name_empty
+import com.hearablemusic.player.ui.generated.resources.playlist_name_exists
 import com.hearablemusic.player.ui.generated.resources.playlist_name_hint
+import com.hearablemusic.player.ui.generated.resources.playlist_name_too_long
 import com.hearablemusic.player.ui.generated.resources.plus
 import com.hearablemusic.player.ui.generated.resources.rename_playlist
 import com.hearablemusic.player.ui.generated.resources.songs_count
@@ -70,6 +75,7 @@ import com.hearablemusic.player.ui.common.navigation.Routes
 import com.hearablemusic.player.ui.common.util.UiState
 import com.hearablemusic.player.ui.common.util.rememberHapticFeedback
 import com.hearablemusic.player.ui.common.dialogs.viewmodel.DialogViewModel
+import com.hearablemusic.player.ui.playlist.manageablePlaylists
 import com.hearablemusic.player.ui.playlist.viewmodel.PlaylistViewModel
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
@@ -83,7 +89,15 @@ fun PlaylistManageScreen(
 ) {
     val metrics = LocalHmpMetrics.current
     val userCustomPlaylistsState by playlistViewModel.userCustomPlaylistsState.collectAsState()
-    val userCustomPlaylists = (userCustomPlaylistsState as? UiState.Success)?.data ?: emptyList()
+    val systemPlaylistIds by playlistViewModel.systemPlaylistIds.collectAsState()
+    // D3-17①（用户决议）：管理页只列用户自建歌单，三个系统歌单不出现 ——
+    // 它们既不能删（UseCase 会拒），也不该改名（名字会与 Res.string.heart 脱钩，自愈只认 id）。
+    val userCustomPlaylists = remember(userCustomPlaylistsState, systemPlaylistIds) {
+        manageablePlaylists(
+            (userCustomPlaylistsState as? UiState.Success)?.data ?: emptyList(),
+            systemPlaylistIds,
+        )
+    }
     val haptic = rememberHapticFeedback()
     var isEditMode by remember { mutableStateOf(false) }
     var playlistToDelete by remember { mutableStateOf<Playlist?>(null) }
@@ -124,25 +138,40 @@ fun PlaylistManageScreen(
 
     if (playlistToRename != null) {
         val p = playlistToRename!!
+        // 名称规则由 UseCase 强制（D3-05④），这里只做"把错误码翻成文案"——
+        // 过去这个对话框只判非空，能改出超长名和大小写重名。
+        var renameError by remember { mutableStateOf<PlaylistNameError?>(null) }
         AlertDialog(
-            onDismissRequest = { playlistToRename = null; renameValue = "" },
+            onDismissRequest = { playlistToRename = null; renameValue = ""; renameError = null },
             title = { Text(stringResource(Res.string.rename_playlist)) },
             text = {
                 OutlinedTextField(
                     value = renameValue,
-                    onValueChange = { renameValue = it },
+                    onValueChange = {
+                        renameValue = it
+                        if (renameError != null) renameError = null
+                    },
                     label = { Text(stringResource(Res.string.playlist_name_hint)) },
-                    singleLine = true
+                    singleLine = true,
+                    isError = renameError != null,
+                    supportingText = if (renameError == null) {
+                        null
+                    } else {
+                        { Text(playlistNameErrorText(renameError!!), color = MaterialTheme.colorScheme.error) }
+                    }
                 )
             },
             confirmButton = {
                 TextButton(
                     onClick = {
-                        val name = renameValue.trim()
-                        if (name.isNotEmpty()) {
-                            playlistViewModel.renamePlaylist(p.id, name)
-                            playlistToRename = null
-                            renameValue = ""
+                        // 不用先判空：空名由同一套规则判，界面只负责显示（否则又多一份口径）
+                        playlistViewModel.renamePlaylist(p.id, renameValue) { error ->
+                            if (error == null) {
+                                playlistToRename = null
+                                renameValue = ""
+                            } else {
+                                renameError = error
+                            }
                         }
                     }
                 ) {
@@ -150,7 +179,7 @@ fun PlaylistManageScreen(
                 }
             },
             dismissButton = {
-                TextButton(onClick = { playlistToRename = null; renameValue = "" }) {
+                TextButton(onClick = { playlistToRename = null; renameValue = ""; renameError = null }) {
                     Text(stringResource(Res.string.cancel))
                 }
             }
@@ -185,6 +214,19 @@ fun PlaylistManageScreen(
                 .fillMaxSize()
                 .padding(metrics.cozy)
         ) {
+            // 系统歌单不再列出后，只有系统歌单时这里会空 —— 给一句提示，别让页面看起来像坏了
+            if (sortedList.isEmpty()) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = stringResource(Res.string.no_playlists_available),
+                        style = LocalHmpTypo.current.body,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(vertical = metrics.compact),
@@ -362,4 +404,12 @@ private fun UserPlaylistRow(
             }
         }
     }
+}
+
+/** 名称错误码 → 本地化文案。规则在 domain，文案在 UI（D3-05④）。 */
+@Composable
+private fun playlistNameErrorText(error: PlaylistNameError): String = when (error) {
+    PlaylistNameError.EMPTY -> stringResource(Res.string.playlist_name_empty)
+    PlaylistNameError.TOO_LONG -> stringResource(Res.string.playlist_name_too_long)
+    PlaylistNameError.DUPLICATE -> stringResource(Res.string.playlist_name_exists)
 }

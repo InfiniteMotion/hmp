@@ -1,7 +1,7 @@
 # ktlint 融入开发流程 · 设计方案
 
-> **状态**：**暂缓 —— 等 agent 分支线合并后再启动**（2026-09-15 定稿，同日经决定延后）
-> **启动条件**：`feature/agent-build` 线并入 `master`、工作区无未提交改动。方案内容与分支无关，只是 §5.1 的「先收口分支」被提升为启动门槛，见 §7 的 T0。
+> **状态**：**移出 v7.3 待办 —— 2026-11-05 用户决议**（方案有效，等时机；重启条件见 `TODO.md` §七 R50 与 `docs/7_3/domain/X.md` X-07）
+> **原定启动条件**：`feature/agent-build` 线并入 `master`、工作区无未提交改动 —— 这条前置在 7.3 期间反复被别的施工重置，故整体顺延，不再占本版排期。
 > **前置**：本方案是 [`build-tasks-plan.md`](archive/7_x/7_2/design/build-tasks-plan.md) 的配套项 —— 那份解决「构建任务」，这份解决「代码风格门禁」。
 > **实测依据**：ktlint CLI 1.8.0 + JDK 21，全部数据来自本仓库真实运行（见 §8 与 §2–§5 各表的实测标注）。
 
@@ -107,7 +107,7 @@ ij_kotlin_packages_to_use_import_on_demand = com.hearablemusic.player.ui.generat
 
 **必须把坑编码进脚本，而不是让人记住。**
 
-与项目现有的 `gradlew-lowmem.bat` / `gradlew-lowmem` 成对同构，新增 `ktlint.bat` / `ktlint`：
+与项目现有的 `gradlew-smart.bat` / `gradlew-smart` 成对同构，新增 `ktlint.bat` / `ktlint`：
 
 | 子命令 | 行为 |
 |---|---|

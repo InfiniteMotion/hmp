@@ -96,12 +96,75 @@
 - **动作**：跨平台逻辑尽量进 `commonTest`；平台特定路径在 `androidHostTest` / 本机 iOS 运行期验。
 - **判据**：谁验——androidMain 改完跑 `:android:app:testDebugUnitTest` / `:android:core-player:testDebugUnitTest`；iosMain 改完需 macOS + Xcode 运行（无自动）。属「部分」。
 
+- **施工结果（2026-11-05，android 半边开启）**：`shared` 第一次有了 `androidHostTest` 源集。
+  - **先砍掉一个假 expect**：`stringToPinyinSortKey` 的三端实现**逐字相同**（iOS 只多一行注释），而它依赖的
+    `PinyinLookupTable` 本来就在 commonMain —— 这个 `expect` 从第一天起就没有平台差异。合并进 commonMain 普通函数，
+    删掉 3 个 `actual` 文件与 `expect` 声明；新增 `commonTest` **5 例**（ASCII 小写、汉字折叠为纯拉丁、标点丢弃、
+    全丢弃回落、空串），一次覆盖 desktop / android / iOS 三个目标。
+    断言只钉"折叠后的形状"，不硬编码具体拼音 —— 表是从 Unihan 生成的，硬编码会把测试绑死在数据文件上。
+  - **开启源集**：`shared/build.gradle.kts` 的 `android { withHostTest { } }`（AGP 9 KMP 库插件默认关闭，
+    源集目录随之从 `androidUnitTest` 改名 `androidHostTest`，与 `:shared-ui` 同款）；依赖只进该源集
+    （`junit` / `kotlinx-coroutines-test` / `robolectric` / `room-testing`），**不进 commonTest** ——
+    `room-testing` 与 `koin-test` 都踩过"污染 iOS 测试元数据解析"。根 `build.gradle.kts` 的 `testAll`
+    同步挂上 `:shared:testAndroidHostTest`。
+  - **第一批用例 10 例**：`DateFormatsAndroidTest` 6 例（`DateFormats.android` 53 行此前零测试；只断言与时区无关的
+    不变量 —— 日期字符串往返、当天跨度 23–25h、`MM-dd` 是本地日期后缀、小时/ISO 周几范围、距次日 0 点在 (0, 25h]，
+    这样在 UTC / UTC+8 / 有夏令时的时区都成立），不需要 Robolectric；`SettingsRepositoryAndroidTest` 4 例
+    （Robolectric + DataStore 键名往返：liked / recent / current 互不串键、重复写入覆盖）。
+  - **如实记 1（原计划要搬的那份不搬了）**：`PlaylistRepositoryImpl.{android,desktop}` 逐行 diff 后**只差时间源与
+    import 别名**，搬它的 17 例等于用同一套 DAO 再测一遍，收益接近 0。真正分歧在三份实现之间：
+    `SettingsRepositoryImpl` 差 **298 行**、`MusicRepositoryImpl` 差 **321 行**、`BackupFileRepositoryImpl` 差 **67 行**
+    —— 这才是该测的地方，所以第一批选了 Settings。Playlist 那三份的正确处置是**下沉成公共基类**（D3-14），不是补测试。
+  - **如实记 2（用例里写进注释了）**：Robolectric 在同一测试类内复用 Application，`preferencesDataStore` 的实例与
+    落盘文件跨用例保留 —— 首版 `assertNull("首次启动为空")` 因此红了两次。现在每条用例用不同值并断言"写进去的就是读出来的"，
+    残留骗不过去；但**「首次启动默认值」这一层仍未测**，要测得先让 `SettingsRepositoryImpl` 能注入独立 DataStore。
+  - **仍未覆盖**：`MusicRepositoryImpl.android`（338 行）、`MusicTagEditor.android`（190 行，依赖 MediaStore/文件标签）、
+    `BackupFileRepositoryImpl.android`（140 行，依赖 SAF）、`SecureStorageHelper.android`（Keystore，Robolectric 支持有限）；
+    `iosMain` 仍是 0，需 macOS。
+
+- **施工结果（2026-11-05，第二批 14 例）**：上一批留下"仍未覆盖"四个文件，本批收掉三个的一半以上。
+  - **`BackupFileRepositoryAndroidTest` 7 例**：D7-05 的路径守卫（越界拒读拒删、`..` 逃逸拒绝、越界文件原样无伤）
+    在 **Android 份实现**上重钉一遍 —— 它与 desktop 是照抄关系，抄丢一笔守卫就是安全洞而不是功能 bug；
+    另有存读往返（落点必须是 `filesDir/backups`）、列表过滤（`isBackupFileName`）与排序（新的在前）、
+    导入三态（复制进目录并可见 / 已在目录内幂等 / 来源缺失不留半成品）。
+  - **`MusicTagEditorAndroidTest` 4 例**（复用 desktop 的最小 WAV 夹具，jaudiotagger 对 `.wav` 支持完整标签与封面，
+    桌面 6 例已证明）：文本标签写读一致、缺文件走 `Result.failure` 不许抛、**只读文件必须给
+    `NeedsStorageAccessException`**（分区存储的核心分支，且文件内容不许被半途改坏）、PNG 封面字节可读回。
+    未测：SAF `writeTags(Uri)` 重载（Robolectric 模拟 SAF 授权流成本超出收益）、"未 init"分支
+    （`appContext` 是 object 静态位无重置入口，用例顺序不保证，4 行分支风险可接受）。
+  - **`MusicRepositoryScanAndroidTest` 3 例**：`MusicRepositoryImpl.android` 真正只属于 Android 的那段
+    （MediaStore 查询 → 白名单/5 秒下限 → 标签解析 → 三表落库）第一次有了机器反馈。
+    手法是注册假 MediaStore provider（`ShadowContentResolver.registerProviderInternal("media", …)`），
+    从公共入口 `loadMusicFromDevice()` 打进去，断言落在**数据库行**上。三条：白名单 + 5 秒下限
+    （D2-09，钉住"1 分钟下限不会回来"的 Kotlin 侧语义）、MediaStore 行 → 三表映射
+    （albumArtUri 由 albumId 拼、MIME→format、SIZE→fileSize、userInfo 默认行）、重扫保留已有 `musicExtra.date`
+    与 `isGetExtraInfo`（用户资产不被扫描冲掉）。
+    探针边界（测试 KDoc 里也写了）：假 provider **不执行 selection**，所以"60 秒下限写回 SQL"这种回归
+    这条测不到，钉的是 Kotlin 侧闸门；SQL 目录过滤与 jaudiotagger→MediaMetadataRetriever 回退链仍无判据。
+  - **环境坑两枚，留给后来人**：
+    ① `BundledSQLiteDriver` 的 JVM 原生库（`sqliteJni.dll`）**不随 android 变体的单测 classpath 分发**
+    （那批 natives 只打进 desktop 用的 `-jvm` 构件），androidHostTest 里建库直接 `UnsatisfiedLinkError`。
+    解法是**不设驱动**：Room 在 Android 目标默认走框架驱动，Robolectric 在 JVM 上原生模拟
+    `android.database.sqlite`，测试跑的仍是真 SQL；
+    ② Robolectric 4.14.1 注册假 provider 的可用 API 是 `ShadowContentResolver.registerProviderInternal`，
+    旧文档常引用的 `registerProvider` 已不在公开面上。
+  - **剩余**：`SecureStorageHelper.android`（`AndroidKeyStore` provider 在 JVM/Robolectric 上不存在，
+    `encrypt`/`decrypt` 起不来 —— 要测得先把"取密钥"抽象成可注入接口，属结构调整，不在补测试批次里做）；
+    `iosMain` 仍为 0，需 macOS（§五）。
+
 ### X-07 · 静态风格闸门缺失（亲验）
 - **现状**：无 `.editorconfig`（Glob `**/.editorconfig` 无命中）；`*.gradle.kts` grep `id("...detekt"|"...ktlint")` 无匹配；`docs/ktlint-integration.md` 标题即「暂缓 —— 等 agent 分支线合并后再启动」。当前 `DEVELOP.md:406-408` 已如实写「目前没有任何机械化风格闸门」，并指向该暂缓方案。
 - **影响**：代码风格靠人工，存量不一致累积。
 - **动作**：二选一——启动 `docs/ktlint-integration.md` 方案接 CI，或明确永久不做。
 - **判据**：谁验——CI `lint` job 人为改缩进变红（方案 T5）；当前未做。
 - **附加 doc-truth（亲验）**：`AGENTS.md` §八.14 称「`DEVELOP.md:396-400` 声称使用 ktlint 检查是失真的」，但当前 `DEVELOP.md:406` 实际写「没有任何机械化风格闸门」——**AGENTS 该条已过时**（doc-vs-doc 失真，双方行号均亲验）。建议修 AGENTS.md 该条。
+
+- **2026-11-05 决议：移出 v7.3 待办**（用户决定，记于 `TODO.md` §七 R50）。
+  - **不是"判定不做"**：方案 `docs/ktlint-integration.md` 261 行仍然有效，实测数据（三档 37,155 / 17,803 / 7,521；关 4 条规则 80 处；残留 107 处）也仍然成立。
+  - **移出的理由是时机**：方案 T0 要求"工作区收口 + 分支线合并"，而整个 7.3 期间工作区反复处于几十项未提交的状态（当前 68 项）；格式化会落在 446 个文件上，与功能 diff 混在一起无法 review。这与「做不做」无关，是「什么时候做才不亏」。
+  - **重启条件（三条同时满足）**：`git status` 干净且只剩一条活跃开发线；本版发版完成（`release.toml` 与 tag 不再重复）；确认只做**增量守门**（存量 107 处不清理）。
+  - **恢复入口**：`docs/ktlint-integration.md` §7 的 T1 / T3 / T4 / T5 / T6（跳过 T2 全量格式化）。仍需一句话确认的两处：规则集（ktlint `intellij_idea` 是否够，不引 detekt）、`PlaybackCommandPort.kt` 那 10 处 `SEEK_TO` / `SHUFFLE_ON` 是改名还是 `@Suppress`。
+  - 本条**不再作为 v7.3 的剩余项统计**（`plan.md` 的 X 线计数已同步）。
 
 ### X-08 · storybook 孤儿模块（亲验）
 - **现状**：`settings.gradle.kts:36-65` 三个 `buildTarget` 分支均未 `include(":storybook")`；`storybook/build.gradle.kts` 存在但不在构建图。`build.gradle.kts:302-315` 注释说明原 `releaseStorybook` 任务因模块移出构建导致依赖无法解析、连 `./gradlew release` 失败，故已移除任务、保留源码与构建脚本。
@@ -140,6 +203,19 @@
 - **影响**：iOS pod 版本漂移无单源核对。
 - **动作**：评估把 iOS pod 版本收敛或加核对脚本。
 - **判据**：待验——读 `ios/HMP/project.yml` 与 Podfile 确认 pod 版本是否另有单源（Glob `ios/HMP/Podfile` 当前无命中，需确认 pod 声明位置）。
+
+- **收口（2026-11-05，判据落成"正面确认"）**：判据要求的那次核对做完了，结论是**没有漂移面可守**。
+  - **Podfile 在 `ios/Podfile`**（原 Glob 口径漏了它）。里面**没有任何第三方带版本 pod**：唯一 pod 是
+    `pod 'shared_ios', :path => '../shared-ios'` —— 本地路径 podspec（`shared-ios/shared_ios.podspec`），
+    `spec.version = '1.0.0'` 是占位符，全仓没有任何消费方（不进 app 版本串、不进 Info.plist、
+    `sync-release.py` 不碰它）。"pod 版本漂移"这个担忧的前提（存在需要同步的外部版本号）不成立。
+  - **app 版本的单源链是完整的**：`release.toml` → `scripts/sync-release.py:259-274` →
+    `project.yml` 的 `CFBundleShortVersionString` / `MARKETING_VERSION` + `pbxproj`，这正是 X-03/X-版本
+    已 fail-fast 守护的那条链，无需新增守护。
+  - **一条观察记录（不动代码）**：`Podfile platform :ios, '26.3'` 与 `podspec ios.deployment_target '16.0'`、
+    `project.yml deploymentTarget.iOS "26.3"` 三者并存。当前 project.yml 定在 26.3，podspec 的 16.0 只是
+    更宽松的下界，无害；但若将来有人把 project.yml 降到 26.3 以下，Podfile 那行会**静默托住** Pods 工程的
+    最低系统。改这三处任一都需要 macOS 实机验证打包，不在本机动作面内 —— 记录在此，改版部署目标时先看这行。
 
 ---
 

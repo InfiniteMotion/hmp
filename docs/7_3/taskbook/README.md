@@ -36,7 +36,7 @@
 
 > 两个操作提醒：
 > - `shared-ui` 的测试任务是 **`testAndroidHostTest`**，不存在 `testDebugUnitTest`。
-> - 本机跑测试一律用 `./gradlew-lowmem`（1G 堆 + in-process）；裸 `gradlew` 在本机会被 OS 静默杀掉 daemon。
+> - 本机跑测试一律用 `./gradlew-smart`（1G 堆 + in-process）；裸 `gradlew` 在本机会被 OS 静默杀掉 daemon。
 
 ## 五、测试报告的位置
 

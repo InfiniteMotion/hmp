@@ -114,7 +114,13 @@ tasks.register("testAll") {
     // KMP 侧（shared / shared-ui 恒在构建中）
     // :shared-ui:desktopTest 2026-10-08 起有真内容（src/desktopTest 目录补齐，放桌面装配图的 DI 校验），
     // 所以重新挂回来。此前它因目录不存在被摘掉（X-09）—— 那时挂着是 NO-SOURCE 静默绿，现在是实际用例。
-    dependsOn(":shared:desktopTest", ":shared-ui:desktopTest", ":shared-ui:testAndroidHostTest")
+    // :shared:testAndroidHostTest 2026-11-05 起有真内容（X-06：androidMain 平台实现此前零覆盖）
+    dependsOn(
+        ":shared:desktopTest",
+        ":shared:testAndroidHostTest",
+        ":shared-ui:desktopTest",
+        ":shared-ui:testAndroidHostTest",
+    )
 
     // 平台侧（按目标存在性过滤，见文件顶部 maybeDepends 说明）
     maybeDepends(":android:app:testDebugUnitTest")

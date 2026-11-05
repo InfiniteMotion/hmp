@@ -122,9 +122,9 @@ interface PlaylistItemDao {
     /**
      * 重算派生列（`songCount` / `totalDurationMs`）：只统计未软删条目。
      *
-     * 封面不在这里动 —— 它由 [fillCoverFromFirstItemIfAbsent] 单独管（D3-07）：
-     * 计数与时长是纯派生值，每次都要跟着条目变；封面可能是用户手动设的，
-     * 每次条目变动就覆写等于"设完封面再加一首歌就被抹掉"。
+     * 封面不在这里动 —— 它由 [fillCoverFromFirstItem] 单独管（D3-07）：
+     * 两者都是派生值，但取值来源不同（一个聚合、一个取首行），合成一条 SQL 只会让
+     * "封面怎么算"藏在一段更长的 UPDATE 里。分开写，改任何一边都不必读另一边。
      */
     @Query(
         """
@@ -146,12 +146,14 @@ interface PlaylistItemDao {
     suspend fun refreshStats(playlistId: Long, updatedAt: Long)
 
     /**
-     * D3-07：仅在歌单**还没有封面**时回填首曲封面。
+     * 封面 = 当前第一首（未软删、`itemOrder` 最小）的专辑图（D3-07，用户 2026-11-05 决议）。
      *
-     * 旧写法是无条件覆写，于是 `updatePlaylistCover` 设进去的自定义封面，
-     * 会在下一次加/删/排时被首曲专辑图悄悄换掉 —— 而这条覆写是四家入口共用的
-     * （`addSongAndRefresh` / `removeSongAndRefresh` / `replaceItemsAndRefresh` / `reorderAndRefresh`），
-     * 所以没有任何一个调用点能让用户保住自己选的图。
+     * 历史：这里曾是"无条件覆写"，后来为了保住手动封面改成"仅空值回填"。但手动封面从来没有
+     * UI 入口（设置封面的 API 零调用方，已随之删除），那道 `WHERE coverUri IS NULL` 实际保护的是一个
+     * 谁也设不了的值，代价却是**删掉首曲后封面不跟着换**、清空歌单后仍挂着旧图。
+     * 既然产品口径定为"歌单长什么样由第一首决定"，就去掉条件，让这一列成为纯派生值。
+     *
+     * 歌单为空时子查询返回 NULL，封面随之清空 —— 这是正确结果，不是副作用。
      */
     @Query(
         """
@@ -163,10 +165,10 @@ interface PlaylistItemDao {
                 ORDER BY pi.itemOrder ASC LIMIT 1
             ),
             updatedAt = :updatedAt
-        WHERE id = :playlistId AND (coverUri IS NULL OR coverUri = '')
+        WHERE id = :playlistId
         """
     )
-    suspend fun fillCoverFromFirstItemIfAbsent(playlistId: Long, updatedAt: Long)
+    suspend fun fillCoverFromFirstItem(playlistId: Long, updatedAt: Long)
 
     /**
      * D3-08：**曲目可见性变了**（软删 / 恢复）之后重算受影响歌单的派生列。
@@ -175,6 +177,9 @@ interface PlaylistItemDao {
      * 而"曲目从曲库被移除"是软删 `music.isDeleted`，根本不碰 `playlist_item` —— 于是详情页头部
      * 继续显示"10 首 / 45 分钟"，列表实际只剩 9 首（取消软删时反向也错）。
      * 可见性判断跟着 [refreshStats] 用的同一份 `music.isDeleted`，所以这里只补触发点。
+     *
+     * 封面也在这里一起算（D3-07）：它同样是派生值，而"曲目被移出曲库"正是首曲可能更换的场景之一。
+     * 只在增删排四个事务里刷新封面、漏掉软删这条，会让"封面永远等于第一首"这句话变成半真。
      */
     @Query(
         """
@@ -189,6 +194,12 @@ interface PlaylistItemDao {
                 INNER JOIN music m ON m.id = pi.songId
                 WHERE pi.playlistId = playlist.id AND m.isDeleted = 0
             ),
+            coverUri = (
+                SELECT m.albumArtUri FROM playlist_item pi
+                INNER JOIN music m ON m.id = pi.songId
+                WHERE pi.playlistId = playlist.id AND m.isDeleted = 0
+                ORDER BY pi.itemOrder ASC LIMIT 1
+            ),
             updatedAt = :updatedAt
         WHERE id IN (SELECT DISTINCT playlistId FROM playlist_item WHERE songId IN (:songIds))
         """
@@ -200,7 +211,7 @@ interface PlaylistItemDao {
     suspend fun addSongAndRefresh(playlistId: Long, songId: Long, updatedAt: Long) {
         insertWithNextOrder(playlistId, songId)
         refreshStats(playlistId, updatedAt)
-        fillCoverFromFirstItemIfAbsent(playlistId, updatedAt)
+        fillCoverFromFirstItem(playlistId, updatedAt)
     }
 
     /** 移曲 + 重算派生列，一个事务（旧写法分三条语句，中途失败会留下"条目已删但计数没改"）。 */
@@ -208,20 +219,32 @@ interface PlaylistItemDao {
     suspend fun removeSongAndRefresh(playlistId: Long, songId: Long, updatedAt: Long) {
         deleteItemByIds(songId, playlistId)
         refreshStats(playlistId, updatedAt)
-        fillCoverFromFirstItemIfAbsent(playlistId, updatedAt)
+        fillCoverFromFirstItem(playlistId, updatedAt)
     }
 
-    /** 整表替换 + 重算派生列，一个事务。 */
+    /**
+     * 整表替换 + 重算派生列，一个事务。
+     *
+     * 入参是 `songId` 列表，**不是** `List<MusicInfo>`（D2-04，2026-11-05）。
+     * 旧签名收一整棵实体图（music + extra + userInfo），函数体却只读 `musicInfo.music.id` ——
+     * 于是三端仓库都被迫先 `map { it.toEntity() }` 造一批实体来喂它。那批实体一个字节都没落过库
+     * （`music` 表只由扫描器与各 update 语句写），但它是全仓唯一一条"domain → entity"的通道；
+     * 而 `Music.toEntity()` 不搬运 `isDeleted`，造出来的行恒为 `isDeleted = false`。
+     * 今天没出事，纯靠"造完就丢"这个巧合 —— 只要有人把这里改成 `musicDao.insertAll(...)`，
+     * 已软删的曲目就会被整批复活，且没有任何编译期信号。
+     *
+     * 收窄成 id 列表之后，这条通道**结构上不存在**：条目写入只认 id，`isDeleted` 没有可丢的地方。
+     */
     @Transaction
-    suspend fun replaceItemsAndRefresh(playlistId: Long, musicList: List<MusicInfo>, updatedAt: Long) {
+    suspend fun replaceItemsAndRefresh(playlistId: Long, songIds: List<Long>, updatedAt: Long) {
         deletePlaylistItem(playlistId)
         insertPlaylist(
-            musicList.mapIndexed { index, musicInfo ->
-                PlaylistItem(playlistId = playlistId, songId = musicInfo.music.id, itemOrder = index)
+            songIds.mapIndexed { index, songId ->
+                PlaylistItem(playlistId = playlistId, songId = songId, itemOrder = index)
             }
         )
         refreshStats(playlistId, updatedAt)
-        fillCoverFromFirstItemIfAbsent(playlistId, updatedAt)
+        fillCoverFromFirstItem(playlistId, updatedAt)
     }
 
     /**
@@ -251,7 +274,7 @@ interface PlaylistItemDao {
             updateItemOrder(playlistId, songId, orderedSongIds.size + offset)
         }
         refreshStats(playlistId, updatedAt)
-        fillCoverFromFirstItemIfAbsent(playlistId, updatedAt)
+        fillCoverFromFirstItem(playlistId, updatedAt)
         return true
     }
     /**

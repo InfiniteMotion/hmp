@@ -4,6 +4,7 @@ import com.hmp.domain.agent.port.ToolPermissionLevel
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.int
 import kotlin.test.Test
@@ -41,6 +42,27 @@ class ToolSpecTest {
         assertFailsWith<ToolParamError> {
             parseArgs(buildJsonObject { put("x", JsonPrimitive("")) }, params)
         }
+    }
+
+    @Test
+    fun `long list respects maxItems at runtime`() {
+        // D3-12：maxItems 此前只写进 schema，运行时照收。现在应真正拦截。
+        val params = listOf(LongListParam(name = "music_ids", maxItems = 3))
+        val ok = parseArgs(
+            buildJsonObject {
+                put("music_ids", buildJsonArray { add(JsonPrimitive(1)); add(JsonPrimitive(2)); add(JsonPrimitive(3)) })
+            }, params
+        )
+        assertEquals(listOf(1L, 2L, 3L), ok.requireLongList("music_ids"))
+
+        val err = assertFailsWith<ToolParamError> {
+            parseArgs(
+                buildJsonObject {
+                    put("music_ids", buildJsonArray { add(JsonPrimitive(1)); add(JsonPrimitive(2)); add(JsonPrimitive(3)); add(JsonPrimitive(4)) })
+                }, params
+            )
+        }
+        assertTrue(err.message!!.contains("最多 3 项"), "错误信息应说明上限")
     }
 
     @Test

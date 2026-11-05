@@ -3,7 +3,6 @@ package com.hmp.data.mapper
 import com.hmp.data.database.Playlist as PlaylistEntity
 import com.hmp.data.database.PlaylistItem as PlaylistItemEntity
 import com.hmp.domain.playlist.Playlist
-import com.hmp.domain.playlist.PlaylistItem
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -97,38 +96,8 @@ class PlaylistMapperTest {
         assertEquals(3, domain.itemOrder)
     }
 
-    @Test
-    fun playlistItem_toEntity_mapsWithItemOrder() {
-        val domain = PlaylistItem(
-            songId = 50,
-            playlistId = 2,
-            itemOrder = 7
-        )
-        val entity = domain.toEntity()
-        assertEquals(50L, entity.songId)
-        assertEquals(2L, entity.playlistId)
-        assertEquals(7, entity.itemOrder)
-    }
-
-    @Test
-    fun playlistItem_toEntity_defaultItemOrder() {
-        val domain = PlaylistItem(
-            songId = 1,
-            playlistId = 1
-        )
-        val entity = domain.toEntity()
-        assertEquals(0, entity.itemOrder)
-    }
-
-    @Test
-    /** D3-02 的往返判据：`itemOrder` 必须在 mapper 双向都不被丢。 */
-    fun playlistItem_roundTrip_keepsItemOrder() {
-        val original = PlaylistItem(
-            songId = 99,
-            playlistId = 5,
-            itemOrder = 3
-        )
-        val restored = original.toEntity().toDomain()
-        assertEquals(original, restored)
-    }
+    // 原有 playlistItem 的三条反向用例（toEntity mapsWithItemOrder / defaultItemOrder / roundTrip_keepsItemOrder）
+    // 已随 `PlaylistItem.toEntity()` 一起删除（2026-11-05）：该 mapper 全仓零生产调用，是清死码时删掉的。
+    // "itemOrder 双向不丢"的判据由真 Room 的 PlaylistRepositoryImplTest.exportAndRestore_keepsUserOrder 承担，
+    // 它比 mapper 往返测试更接近真实故障面（导出查询的 ORDER BY、恢复时的重编号都在那里）。
 }

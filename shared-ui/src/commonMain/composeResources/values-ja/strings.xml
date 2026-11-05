@@ -356,8 +356,6 @@
     <string name="year">年</string>
     <string name="favorite">お気に入り</string>
     <string name="heart">ハート</string>
-    <string name="heart_list">ハートリスト</string>
-    <string name="default_list">デフォルトリスト</string>
     <string name="labels">ラベル</string>
     <string name="early">前半</string>
     <string name="end">後半</string>

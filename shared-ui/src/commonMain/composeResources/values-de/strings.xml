@@ -272,7 +272,6 @@
     <string name="song_detail_empty">Keine Titelinformationen verfügbar</string>
     <string name="playlist_name_too_long">Playlist-Name darf 30 Zeichen nicht überschreiten</string>
     <string name="avatar_change_cancelled">Avatar-Änderung abgebrochen!</string>
-    <string name="default_list">Standardliste</string>
     <string name="translated_text">Übersetzt</string>
     <string name="ai_free_used">Verwendet: %1$s / %2$s</string>
     <string name="order">Reihenfolge</string>
@@ -356,7 +355,6 @@
     <string name="song_detail_tab_lyrics">Songtexte</string>
     <string name="export_backup_desc">Daten in eine Backup-Datei exportieren</string>
     <string name="total_songs">Titel gesamt</string>
-    <string name="heart_list">Favoritenliste</string>
     <string name="lyrics_settings_desc">Songtextanzeige anpassen</string>
     <string name="user_avatar_desc">Benutzer-Avatar</string>
     <string name="surround_sound">Surround-Sound</string>

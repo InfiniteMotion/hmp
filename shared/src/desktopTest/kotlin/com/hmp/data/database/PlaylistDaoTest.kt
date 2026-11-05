@@ -87,13 +87,6 @@ class PlaylistDaoTest {
     }
 
     @Test
-    fun updateCover() = runTest {
-        val id = playlistDao.insert(Playlist(name = "Test"))
-        playlistDao.updateCover(id, "cover.jpg", 1000L)
-        assertEquals("cover.jpg", playlistDao.getPlaylistById(id)?.coverUri)
-    }
-
-    @Test
     fun incrementPlayCount() = runTest {
         val id = playlistDao.insert(Playlist(name = "Test", playCount = 0))
         playlistDao.incrementPlayCount(id)
@@ -264,8 +257,8 @@ class PlaylistDaoTest {
         with(playlistDao.getPlaylistById(playlistId)!!) {
             assertEquals(1, songCount, "移曲后计数要跟降")
             assertEquals(100L, totalDurationMs)
-            // D3-07 起的语义：封面只在"还没有封面"时回填，此后不再跟着首曲漂
-            assertEquals("cover-1", coverUri, "已有封面的歌单不被首曲覆写")
+            // D3-07（2026-11-05 决议）：封面是派生值，首曲变了就跟着换
+            assertEquals("cover-2", coverUri, "移走首曲后封面应换成新的第一首")
         }
 
         // 软删的曲目不计入（与旧实现的 getPlaylistById 过滤同语义）

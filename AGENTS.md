@@ -36,31 +36,40 @@
 
 单端构建用环境变量 `HMP_BUILD_TARGET`（`android` / `desktop` / `all`，默认 `all`）只纳入对应模块，见 `settings.gradle.kts`。
 
-### 测试 —— 本机必须用低内存包装脚本
+### 测试 —— 本机用智能包装脚本
 
-本机 Android Studio 常驻占内存，默认 `-Xmx4096m + parallel` 会让 Gradle/Kotlin daemon 被 OS 静默杀死（报 `daemon disappeared`，典型停在 `> Task :shared:desktopTest`）。**用包装脚本代替 `gradlew`**：
+`gradlew-smart` 按**当前可用物理内存**自动选堆档，不需要手动判断：
+
+| 档 | 可用内存 | 行为 |
+|---|---|---|
+| `high` | ≥ 10 GB | 复用 daemon / parallel / 继承 `gradle.properties` 的 4096m |
+| `balanced` | 6–10 GB | 3072m / parallel / workers=4 |
+| `low` | 3–6 GB | 2048m / 串行 / workers=2 / Kotlin in-process |
+| `rescue` | < 3 GB | 1024m / `--no-daemon` / workers=1 / in-process |
 
 ```bash
-./gradlew-lowmem.bat testCore        # Windows
-./gradlew-lowmem testCore            # macOS / Linux / Git Bash
+./gradlew-smart.bat testCore        # Windows
+./gradlew-smart testCore            # macOS / Linux / Git Bash
 ```
 
-已固化的关键参数：Gradle daemon 堆 `-Xmx1024m` + Kotlin 编译器 `-Dkotlin.compiler.execution.strategy=in-process`。用 `1536m`/`2048m` 时编译能过但一 fork 测试 JVM 就被杀。`org.gradle.jvmargs` 是启动期属性，无法在 `build.gradle.kts` 里条件化覆盖，只能靠包装脚本。
+为什么不能裸跑 `gradlew`：`org.gradle.jvmargs` / `parallel` / `workers.max` 是 Gradle **启动期属性**，无法在 `build.gradle.kts` 里条件化覆盖，只能靠包装脚本在命令行层面决定。内存极度紧张时脚本会自动落到 `rescue` 档（1024m + Kotlin `in-process`），这组参数是实测唯一能连测试 JVM 一起跑通的值（`1536m`/`2048m` 能编译但 fork 测试时会被 OS 杀）。
+
+需要固定档位时用环境变量覆盖自动判断：`set HMP_MEM_PROFILE=rescue`（bash: `HMP_MEM_PROFILE=rescue ./gradlew-smart ...`）。
 
 | 改动范围 | 跑什么 |
 |---|---|
-| `shared` 的 Domain / Agent | `./gradlew-lowmem.bat testCore` |
-| `shared-ui` 的 UI | `./gradlew-lowmem.bat testUi` |
-| 改了公共 API | `./gradlew-lowmem.bat compileAll`（查下游破坏，比全量测试快得多） |
-| 改了 UI 视觉 / 新增尺寸或色值 | `./gradlew-lowmem.bat checkDesignTokens`（**全量禁止**：业务裸 `.dp/.sp` / 硬编码色 / M3 typography / 动效裸值一律红；`storybook/` 豁免——不在构建图）。改守门规则先跑 `python scripts/check-design-tokens.py --self-test` |
-| 改了 `iosMain` / expect-actual 的 iOS 半边 | `./gradlew-lowmem.bat :shared:compileKotlinIosSimulatorArm64 :shared-ui:compileKotlinIosSimulatorArm64` —— **`compileAll` 不编译 iOS 目标**，它只挂 desktop/android |
-| 提交前 | `./gradlew-lowmem.bat testAll` |
-| 发版前 | `./gradlew-lowmem.bat preflight` |
+| `shared` 的 Domain / Agent | `./gradlew-smart.bat testCore` |
+| `shared-ui` 的 UI | `./gradlew-smart.bat testUi` |
+| 改了公共 API | `./gradlew-smart.bat compileAll`（查下游破坏，比全量测试快得多） |
+| 改了 UI 视觉 / 新增尺寸或色值 | `./gradlew-smart.bat checkDesignTokens`（**全量禁止**：业务裸 `.dp/.sp` / 硬编码色 / M3 typography / 动效裸值一律红；`storybook/` 豁免——不在构建图）。改守门规则先跑 `python scripts/check-design-tokens.py --self-test` |
+| 改了 `iosMain` / expect-actual 的 iOS 半边 | `./gradlew-smart.bat :shared:compileKotlinIosSimulatorArm64 :shared-ui:compileKotlinIosSimulatorArm64` —— **`compileAll` 不编译 iOS 目标**，它只挂 desktop/android |
+| 提交前 | `./gradlew-smart.bat testAll` |
+| 发版前 | `./gradlew-smart.bat preflight` |
 
 **跑 `shared-ui` 的测试要用 `testAndroidHostTest`，不是 `testDebugUnitTest`（该任务不存在）。**
 
 ```bash
-./gradlew-lowmem.bat :shared-ui:testAndroidHostTest --tests "com.hearablemusic.player.ui.common.navigation.RoutesTest"
+./gradlew-smart.bat :shared-ui:testAndroidHostTest --tests "com.hearablemusic.player.ui.common.navigation.RoutesTest"
 ```
 
 测试报告落在**被依赖的底层任务**目录（聚合任务不自己出报告）：`<模块>/build/reports/tests/<任务名>/index.html` 人看，`<模块>/build/test-results/<任务名>/TEST-*.xml` 机器读。任务 UP-TO-DATE 时沿用旧报告，要刷新加 `--rerun`。
@@ -232,7 +241,7 @@ HMP/
 11. **iOS 密钥不是加密**：`SecureStorageHelper.ios.kt` 的 `simpleEncrypt` 实为 XOR，密钥文件却叫 `.aes_key`，且落在 `Documents/.keys`（与密文同目录），而 `project.yml` 开着 `UIFileSharingEnabled: true` → 沙箱可经"文件"App 直接拷出（R10）。Desktop 用硬编码 keystore 口令。三端密文互不可解。
 12. **`androidMain` / `iosMain` 的实现测试覆盖为 0。** 107 个平台源集文件里 12 个 `*Impl*`，只有 2 个有同名测试（都在 `shared/src/desktopTest`）。`shared/src` 下只有 `commonTest` 与 `desktopTest` 两个测试源集，**没有 androidHostTest、没有 iosTest**。
 13. **`shared_ios.podspec` 是被 track 的生成物**，Windows 会把 `spec.resources` 写成反斜杠路径，`.gitattributes` 没有 `*.podspec` 规则（R46）。
-14. **没有任何静态闸门**：无 ktlint、无 detekt、无 `.editorconfig`、无 `core.hooksPath`。`DEVELOP.md:406` 现已如实写明这一点（方案仍在 `docs/ktlint-integration.md`，暂缓）。**2026-09-30 订正**：本条原称"`DEVELOP.md:396-400` 声称使用 ktlint 属失真"，该指控已随 DEVELOP 改写而失效——现在失真的是旧说法本身（独立复核见 `docs/7_3/domain/X.md` X-07 附加 doc-truth）。新代码靠自觉保持一致性。
+14. **没有任何静态闸门**：无 ktlint、无 detekt、无 `.editorconfig`、无 `core.hooksPath`。`DEVELOP.md:406` 现已如实写明这一点（方案仍在 `docs/ktlint-integration.md`，2026-11-05 已移出 v7.3 待办）。**2026-09-30 订正**：本条原称"`DEVELOP.md:396-400` 声称使用 ktlint 属失真"，该指控已随 DEVELOP 改写而失效——现在失真的是旧说法本身（独立复核见 `docs/7_3/domain/X.md` X-07 附加 doc-truth）。新代码靠自觉保持一致性。
 15. **设计 token 是自愿制**：`.dp` 字面量 1444 处 vs `dimens.*` 仅 209 处；硬编码 hex 色 53 处；卡片两套并存（`HMPCard` vs 裸 `Card(`/`Surface(`）；336 个 `@Composable` 只有 81 个带 `modifier: Modifier`（R49）。
 16. **`iosMain` 以前根本没有编译器看过**：2026-10-12 第一次把 `:shared:compileKotlinIosSimulatorArm64` 跑起来，发现 iOS 目标**从 一-3 C1 起就一直编不过**（`DateFormats.ios.kt` 里 `import platform.Foundation.NSDate` 抄了两遍、`NSDate(timeIntervalSince1970 = …)` 这个构造参数不存在、`NSTimeZone.localTimeZone` 少了括号，另有 一-7 带进来的 `DatabaseBuilder.ios.kt` 重复 `@OptIn`），已在 2026-10-12 修掉。教训不是"这几处写错了"，而是：**Foundation 的类方法与属性在 K/N 里是分类(category)扩展，必须单独 import**（`dateWithTimeIntervalSince1970` / `localTimeZone` / `timeIntervalSince1970` 都是），写 iosMain 时不能凭 JVM 直觉。改完 iosMain 一定要单跑那两个 iOS 编译任务（见 §二 表最后一行）。
 17. **`LabelCategory` / `LabelName` 各有一套同名枚举**（domain 的 `com.hmp.domain.enum.*` 与 DAO 实体的 `com.hmp.data.database.myenum.*`），互转靠 mapper。把两套混进同一个 `mapOf` 时 **Kotlin 会把键类型推成 `Any`，编译照过、查找永远不命中、`?: 默认值` 静默接管** —— 2026-10-12 就靠新判据查出 `labelCategoryWeight` 五项里四项的键用了 DAO 枚举，导致"按类别加权"从来没生效过。写这类权重/映射表前先确认键到底是哪一套枚举。
@@ -270,7 +279,7 @@ HMP/
 > ② **`release` 分支名必须三段式**（`release/7.2.2`，不是 `release/7.2`）：同一段逻辑把 `${HEAD_REF#release/}` 与 `sync-release.py version` 做**全等比较**，两段式会被硬拦。
 > **无长期存活的 develop-\* 分支**：按平台拆的 `develop-android` / `develop-site` / `develop-ios` 三分支模式（v6.0 起提出）**从未落地，任何时候都不存在**。
 
-**发版链**：开发线 `feature/<线>` 合入三段式的 `release/X.Y.Z` → 改 `release.toml` → `./gradlew syncVersion` → **本机** `./gradlew-lowmem.bat preflight` → 开 PR 跑 Pre-release Check → 合并触发 `release.yml` 自动发布。
+**发版链**：开发线 `feature/<线>` 合入三段式的 `release/X.Y.Z` → 改 `release.toml` → `./gradlew syncVersion` → **本机** `./gradlew-smart.bat preflight` → 开 PR 跑 Pre-release Check → 合并触发 `release.yml` 自动发布。
 
 **CI 两个 workflow 都不含版本字面量与文案**，一律调脚本：`pr-check.yml`（合入前答"能不能合"：`version` 只在 `release/*` 跑、`ffmpeg-assets` 校 SHA256 与 Mach-O/ELF/PE 真实架构、`release-info` 对所有非 draft PR 跑 `sync --check` + 预渲染 Notes、`preflight` 汇总结论表）+ `release.yml`（合并后答"怎么发"：validate → 四端并行 → 齐全断言 + SHA256SUMS → tag + Release → 部署 `site/`；`workflow_dispatch` 勾 `dry_run` 会在不发布的前提下跑完构建与断言并把正文打进日志）。
 

@@ -40,14 +40,12 @@ fun PlaylistItemEntity.toDomain(): PlaylistItem = PlaylistItem(
 )
 
 /**
- * `itemOrder` 由领域模型自己带上（一-4 / D3-02）。
+ * 条目映射只有 `entity → domain` 单程。**没有** `PlaylistItem.toEntity()`，这是清过死码的决议不是遗漏
+ * （2026-11-05）：全仓没有生产调用 —— `restoreFromSnapshot` 是**手写** `PlaylistItem(songId=…, playlistId=…, itemOrder=…)`
+ * （重编号语义本来就在那里，见三端仓库实现），别把泛型 mapper 加回来。
  *
- * 旧签名是 `toEntity(itemOrder: Int = 0)` —— 顺序由调用方临时给，领域模型里没有它的位置，
- * 于是"导出时把顺序丢掉"这件事在类型上就是合法的。默认值那个 0 尤其危险：
+ * `itemOrder` 由领域模型自己带上（一-4 / D3-02）—— 这条不变的判据如今由
+ * `PlaylistRepositoryImplTest.exportAndRestore_keepsUserOrder`（真 Room）钉住：导出带序、恢复重编不丢相对顺序。
+ * 旧签名曾是 `toEntity(itemOrder: Int = 0)`，顺序由调用方临时给；默认值那个 0 尤其危险——
  * 一个歌单里第二首起全是 0，就撞 v10 的 `UNIQUE(playlistId, itemOrder)`。
  */
-fun PlaylistItem.toEntity(): PlaylistItemEntity = PlaylistItemEntity(
-    songId = songId,
-    playlistId = playlistId,
-    itemOrder = itemOrder
-)

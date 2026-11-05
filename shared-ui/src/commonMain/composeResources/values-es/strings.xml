@@ -356,8 +356,6 @@
     <string name="year">Año</string>
     <string name="favorite">Favorito</string>
     <string name="heart">Me gusta</string>
-    <string name="heart_list">Lista de favoritos</string>
-    <string name="default_list">Lista predeterminada</string>
     <string name="labels">Etiquetas</string>
     <string name="early">Inicio</string>
     <string name="end">Fin</string>

@@ -62,9 +62,6 @@ interface PlaylistDao {
     @Query("UPDATE playlist SET name = :newName, updatedAt = :updatedAt WHERE id = :id")
     suspend fun renamePlaylist(id: Long, newName: String, updatedAt: Long)
 
-    @Query("UPDATE playlist SET coverUri = :coverUri, updatedAt = :updatedAt WHERE id = :id")
-    suspend fun updateCover(id: Long, coverUri: String?, updatedAt: Long)
-
     @Query("UPDATE playlist SET description = :description, updatedAt = :updatedAt WHERE id = :id")
     suspend fun updateDescription(id: Long, description: String?, updatedAt: Long)
 

@@ -1,0 +1,104 @@
+#!/usr/bin/env sh
+#
+# HMP Gradle wrapper: picks a heap profile from free physical memory.
+#
+#   high     free >= 10 GB   reuse daemon / parallel / inherit gradle.properties
+#   balanced free 6-10 GB    3072m / parallel / workers=4
+#   low      free 3-6 GB     2048m / serial / workers=2 / kotlin in-process
+#   rescue   free < 3 GB     1024m / --no-daemon / workers=1 / in-process
+#
+# Usage:
+#   ./gradlew-smart testUi
+#   HMP_MEM_PROFILE=high ./gradlew-smart testUi
+#
+# Keep this file LF-only (the .bat is the one that must be CRLF).
+set -e
+DIRNAME=$(dirname "$0")
+
+free_gb() {
+    # Linux: MemAvailable is the right number. Git Bash (MSYS) exposes a
+    # stripped /proc/meminfo with only MemTotal/MemFree, so fall back to it.
+    if [ -r /proc/meminfo ]; then
+        kb=$(awk '/^MemAvailable:/ {print $2; exit}' /proc/meminfo 2>/dev/null || true)
+        if [ -z "$kb" ]; then
+            kb=$(awk '/^MemFree:/ {print $2; exit}' /proc/meminfo 2>/dev/null || true)
+        fi
+        if [ -n "$kb" ]; then
+            echo $((kb / 1048576))
+            return 0
+        fi
+    fi
+    # Windows fallback (MSYS_NO_PATHCONV keeps /value from being rewritten)
+    if command -v wmic >/dev/null 2>&1; then
+        kb=$(MSYS_NO_PATHCONV=1 wmic OS get FreePhysicalMemory //value 2>/dev/null | tr -d '\r' | sed -n 's/^FreePhysicalMemory=//p' | head -1)
+        if [ -n "$kb" ]; then
+            echo $((kb / 1048576))
+            return 0
+        fi
+    fi
+    # macOS
+    if command -v vm_stat >/dev/null 2>&1; then
+        page=$(vm_stat 2>/dev/null | sed -n 's/.*page size of \([0-9]*\) bytes.*/\1/p' | head -1)
+        freep=$(vm_stat 2>/dev/null | sed -n 's/^Pages free:[[:space:]]*\([0-9]*\)\.*.*/\1/p' | head -1)
+        inact=$(vm_stat 2>/dev/null | sed -n 's/^Pages inactive:[[:space:]]*\([0-9]*\)\.*.*/\1/p' | head -1)
+        if [ -n "$page" ] && [ -n "$freep" ] && [ -n "$inact" ]; then
+            echo $(( (freep + inact) * page / 1073741824 ))
+            return 0
+        fi
+    fi
+    return 1
+}
+
+pick_profile() {
+    FREE_GB=$(free_gb || true)
+    if [ -z "$FREE_GB" ]; then
+        PROFILE=rescue
+    elif [ "$FREE_GB" -ge 10 ]; then
+        PROFILE=high
+    elif [ "$FREE_GB" -ge 6 ]; then
+        PROFILE=balanced
+    elif [ "$FREE_GB" -ge 3 ]; then
+        PROFILE=low
+    else
+        PROFILE=rescue
+    fi
+}
+
+PROFILE=$(printf '%s' "${HMP_MEM_PROFILE:-}" | tr '[:upper:]' '[:lower:]')
+case "$PROFILE" in
+    high|balanced|low|rescue) ;;
+    "")
+        pick_profile
+        ;;
+    *)
+        echo "[gradle-profile] unknown HMP_MEM_PROFILE=\"$PROFILE\", auto-selecting" >&2
+        pick_profile
+        ;;
+esac
+
+case "$PROFILE" in
+    high)
+        echo "[gradle-profile] profile=high free=${FREE_GB:-?}GB -- reuse daemon, parallel, heap from gradle.properties" >&2
+        exec "$DIRNAME/gradlew" "$@" --console=plain
+        ;;
+    balanced)
+        echo "[gradle-profile] profile=balanced free=${FREE_GB:-?}GB -- reuse daemon, parallel, workers=4, heap 3072m" >&2
+        exec "$DIRNAME/gradlew" "$@" --console=plain \
+            -Dorg.gradle.parallel=true -Dorg.gradle.workers.max=4 \
+            "-Dorg.gradle.jvmargs=-Xmx3072m -XX:MaxMetaspaceSize=768m -Dfile.encoding=UTF-8"
+        ;;
+    low)
+        echo "[gradle-profile] profile=low free=${FREE_GB:-?}GB -- no-daemon, serial, workers=2, kotlin in-process, heap 2048m" >&2
+        exec "$DIRNAME/gradlew" "$@" --no-daemon --console=plain \
+            -Dorg.gradle.parallel=false -Dorg.gradle.workers.max=2 \
+            -Dkotlin.compiler.execution.strategy=in-process \
+            "-Dorg.gradle.jvmargs=-Xmx2048m -XX:MaxMetaspaceSize=512m -Dfile.encoding=UTF-8"
+        ;;
+    rescue)
+        echo "[gradle-profile] profile=rescue free=${FREE_GB:-?}GB -- no-daemon, serial, workers=1, kotlin in-process, heap 1024m" >&2
+        exec "$DIRNAME/gradlew" "$@" --no-daemon --console=plain \
+            -Dorg.gradle.parallel=false -Dorg.gradle.workers.max=1 \
+            -Dkotlin.compiler.execution.strategy=in-process \
+            "-Dorg.gradle.jvmargs=-Xmx1024m -XX:MaxMetaspaceSize=384m -Dfile.encoding=UTF-8"
+        ;;
+esac

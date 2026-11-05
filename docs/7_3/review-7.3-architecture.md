@@ -157,7 +157,7 @@
 
 - **iOS 全部运行期结论都欠实机验证**：R40 的空壳是否有 SwiftUI 旁路、Keychain 迁移是否平滑、`TagWriterBridge` 未注册是否导致 iOS 改标签必失败（`MusicTagEditor.ios.kt:16-18` 需注册，Swift 侧只注册了 Parser/Artwork 两桥，`AppDelegate.swift:21-22`）、R46 的 podspec 路径、R53 的 pbxproj 改写 —— 全部依赖 macOS。**低成本入口**：`:shared:compileKotlinIosArm64` + `:shared:iosSimulatorArm64Test`（见 R44，零新代码）。与既有 **R38** 同批做。
 - **`project.yml` 与 `pbxproj` 双源并存**：未见 `xcodegen generate` 的再生流程，其中一个可能是死文件。判据要先问清再生方式，否则改哪个都对。
-- **本机 preflight 与低内存互斥**：`gradle.properties:9,13`（4G + parallel）会杀 daemon，实际只有 `gradlew-lowmem`（1G + in-process）跑得动，而 `CLAUDE.md:334` 教的是前者 → "跑不动"会被当成"跳过"且不留痕迹。这是 R44 闸门必须进 CI 的核心理由。
+- **本机 preflight 与低内存互斥**：`gradle.properties:9,13`（4G + parallel）会杀 daemon，实际只有 `gradlew-smart`（1G + in-process）跑得动，而 `CLAUDE.md:334` 教的是前者 → "跑不动"会被当成"跳过"且不留痕迹。这是 R44 闸门必须进 CI 的核心理由。
 - **迁移覆盖**：DB 已 `version=9`，迁移测试只到 7（既有 **R1/R2**），而 A4 之后已无 destructive 兜底 → R1/R2 随 v7.2.2 变成线上风险，v7.3.0 必须与 R39 同批（都要开 v10 迁移）。
 
 ---

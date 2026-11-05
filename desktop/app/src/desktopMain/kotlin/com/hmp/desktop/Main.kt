@@ -57,6 +57,7 @@ import com.hmp.log.HmpLog
 import com.hmp.log.LogTag
 import com.hearablemusic.player.ui.common.design.metrics.HMPMetricTokens
 import com.hearablemusic.player.ui.common.design.metrics.LayoutConstraints
+import kotlinx.coroutines.awaitCancellation
 
 /**
  * 退出前先把播放会话与进度落完（一-3 / D5-07）。
@@ -232,7 +233,7 @@ fun main() {
             LaunchedEffect(Unit) {
                 stamp("Deferred platform theme setup — entering")
                 val awtWindow = java.awt.Window.getWindows().firstOrNull()
-                if (isMacOS) {
+                val disposeThemeWatcher = if (isMacOS) {
                     watchMacOSTheme { isDark -> systemIsDark = isDark }
                 } else {
                     if (awtWindow != null) {
@@ -242,6 +243,13 @@ fun main() {
                     DwmHelper.watchSystemTheme { isDark -> systemIsDark = isDark }
                 }
                 stamp("Deferred platform theme setup — done")
+                // D9-06：两处 watcher 都返回 dispose（interrupt 轮询线程），原实现把返回值丢了，
+                // 窗口销毁后线程仍每 2s 读一次系统主题。挂起到组合销毁，再在 finally 里释放。
+                try {
+                    awaitCancellation()
+                } finally {
+                    disposeThemeWatcher()
+                }
             }
 
             // Clip entire window content to rounded corners.

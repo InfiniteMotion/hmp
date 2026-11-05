@@ -2,8 +2,11 @@ package com.hmp.domain.playlist.usecase
 
 import com.hmp.domain.music.MusicInfo
 import com.hmp.domain.playlist.Playlist
+import com.hmp.domain.playlist.PlaylistNameError
+import com.hmp.domain.playlist.PlaylistNameException
 import com.hmp.domain.playlist.PlaylistRepository
 import com.hmp.domain.playlist.SystemPlaylists
+import com.hmp.domain.playlist.validatePlaylistName
 import com.hmp.domain.setting.SettingsRepository
 import kotlinx.coroutines.flow.Flow
 
@@ -16,11 +19,26 @@ class ManagePlaylistUseCase(
     private val settingsRepository: SettingsRepository
 ) {
     /**
-     * 创建播放列表
+     * 创建播放列表。
+     *
+     * 名称规则在这里**强制**执行（D3-05④）：UI 有三个创建/改名入口，Agent 还有两个工具，
+     * 把规则留给每个入口自己记得调，就是过去"只有弹窗校验"的由来。失败抛 [PlaylistNameException]。
      */
     suspend fun createPlaylist(name: String): Long {
-        return playlistRepository.createPlaylist(name)
+        validateName(name)?.let { throw PlaylistNameException(it) }
+        return playlistRepository.createPlaylist(name.trim())
     }
+
+    /**
+     * 校验歌单名（空 / 超长 / 重名）—— 转调 domain 唯一实现 [validatePlaylistName]（D3-05④ / D3-12）。
+     *
+     * 重名用**大小写不敏感**比较（`normalizePlaylistName`）：DB 的 `UNIQUE(playlist.name)` 区分大小写，
+     * 但用户视角「Rock」与「rock」是同一个名字，这里比索引严一档（保持旧 UI 行为）。
+     *
+     * @param excludeId 重命名时传自己的 id；否则「改成原名」会被判成重名。
+     */
+    suspend fun validateName(raw: String, excludeId: Long? = null): PlaylistNameError? =
+        validatePlaylistName(raw, playlistRepository, excludeId)
 
     /**
      * 按名查歌单（没有则 null）。
@@ -74,14 +92,14 @@ class ManagePlaylistUseCase(
     }
 
     /**
-     * 重命名播放列表
+     * 重命名播放列表。
+     *
+     * 与管理页的行内重命名共用同一套规则（D3-05④）：那条路径过去只判"非空"，
+     * 能改出超长名与大小写重名（DB 的唯一索引区分大小写，`Rock` / `rock` 都能进）。
      */
     suspend fun renamePlaylist(id: Long, newName: String) {
-        playlistRepository.renamePlaylist(id, newName)
-    }
-
-    suspend fun updatePlaylistCover(id: Long, coverUri: String?) {
-        playlistRepository.updatePlaylistCover(id, coverUri)
+        validateName(newName, excludeId = id)?.let { throw PlaylistNameException(it) }
+        playlistRepository.renamePlaylist(id, newName.trim())
     }
 
     suspend fun updatePlaylistDescription(id: Long, description: String?) {

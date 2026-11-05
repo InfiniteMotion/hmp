@@ -3,6 +3,18 @@ package com.hmp.domain.music
 import com.hmp.domain.enum.LabelCategory
 import com.hmp.domain.enum.LabelName
 
+/**
+ * 一首曲目的**可见**信息。
+ *
+ * **不带 `isDeleted`，这是决议不是遗漏**（D2-04，2026-11-05）：软删除状态只存在于数据层
+ * （`music` / `musicExtra` / `userInfo` 三表各有该列），领域层永远只见到活着的行 ——
+ * 所有 DAO 查询都带 `isDeleted = 0`。要问"这首歌还在不在曲库里"，读侧用
+ * `MusicDao` 的查询（含软删行的口径是 `getAllIds()` / `getDeletedMusicIdAndPath()`），
+ * 不要在领域模型上加一个字段再靠它推断。
+ *
+ * 与之配套：本类型**没有** `toEntity()`。别加回来 —— 整行回写会把 `isDeleted` 冲刷成 `false`，
+ * 把用户删掉的曲目静默复活。写路径只有扫描器整行写与各 `update` 定点写两处。详见 `MusicMapper.kt` 文件头。
+ */
 data class Music(
     val id: Long,
     val title: String,
@@ -13,6 +25,7 @@ data class Music(
     val albumArtUri: String,
 )
 
+/** 曲目技术信息与富化文案。同样不承载 `isDeleted`（D2-04），同样没有 `toEntity()`。 */
 data class MusicExtra(
     val id: Long,
     val lyrics: String? = null,
@@ -53,6 +66,15 @@ data class MusicExtraTexts(
     val relevantMusic: String? = null,
 )
 
+/**
+ * 曲目 + 技术信息 + 用户数据的聚合视图。
+ *
+ * 同样不承载 `isDeleted`、同样没有 `toEntity()`（D2-04）。构造它的唯一来源是
+ * `MusicInfoEntity.toDomain()`；它的消费方（歌单、队列、播放器）拿到的都是可见曲目。
+ *
+ * 历史提醒：三端 `PlaylistRepositoryImpl.resetPlaylistItems` 曾经 `map { it.toEntity() }`
+ * 只是为了给 DAO 一个 id 容器，实体图全被丢弃 —— 那一处已收窄成 `List<Long>`。
+ */
 data class MusicInfo(
     val music: Music,
     val extra: MusicExtra?,
@@ -89,6 +111,13 @@ data class EditableMusicTags(
             lyrics != null || albumArt != null
 }
 
+/**
+ * 曲目的用户侧数据（收藏 / 播放统计 / 评分）。
+ *
+ * 不承载 `isDeleted`、没有 `toEntity()`（D2-04 决议）。注意 `userInfo.isDeleted` 与
+ * `music.isDeleted` 是两个成因位（D2-02）：前者区分"用户主动隐藏"，后者是"扫描没见到"。
+ * 领域层两者都看不到 —— 需要区分时读 `MusicDao.getRemovedMusicIdAndPath()`。
+ */
 data class UserInfo(
     val id: Long,
     val liked: Boolean = false,

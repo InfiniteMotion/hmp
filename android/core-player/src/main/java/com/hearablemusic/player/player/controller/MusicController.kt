@@ -255,6 +255,10 @@ class MusicController(
     private val _duration = MutableStateFlow(0L)
     val duration: StateFlow<Long> = _duration.asStateFlow()
 
+    /** 启动恢复失败次数（D1-08）：过去是空 catch，失败了没有任何痕迹。 */
+    private val _restoreFailures = MutableStateFlow(0)
+    val restoreFailures: StateFlow<Int> = _restoreFailures.asStateFlow()
+
     private var progressJob: Job? = null
 
     private var playStartTime: Long = 0L
@@ -339,19 +343,23 @@ class MusicController(
             // 如果服务已经绑定，尝试seek到该位置
             playControl?.seekTo(lastPos)
         } catch (e: Exception) {
+            _restoreFailures.value += 1
             HmpLog.w(LogTag.PlayerService, e) { "启动恢复失败 stage=lastPosition" }
         }
     }
 
     private suspend fun loadPlaylistFromSettings() {
         try {
-            val playlistId = currentPlayListId.filterNotNull().first()
+            // 「没有当前歌单」是首次启动的正常态，不是失败：先取值再判空，避免 filterNotNull().first()
+            // 抛 NoSuchElementException 把正常态计进 restoreFailures（D1-08 信号可信度）。
+            val playlistId = currentPlayListId.first() ?: return
             val currentMusicId = currentPlaybackUseCase.getCurrentMusicId().first()
             val list = managePlaylistUseCase.getMusicInfoInPlaylist(playlistId).first()
             _currentPlaylist.value = list
             _playbackMode.value = PlaybackMode.SEQUENTIAL
             _currentIndex.value = list.indexOfFirst { it.music.id == currentMusicId }.takeIf { it >= 0 } ?: 0
         } catch (e: Exception) {
+            _restoreFailures.value += 1
             HmpLog.w(LogTag.PlayerService, e) { "启动恢复失败 stage=playlist" }
         }
     }

@@ -49,14 +49,6 @@ class FakePlaylistRepository : PlaylistRepository {
         }
     }
 
-    override suspend fun updatePlaylistCover(id: Long, coverUri: String?) {
-        val index = playlists.indexOfFirst { it.id == id }
-        if (index >= 0) {
-            playlists[index] = playlists[index].copy(coverUri = coverUri)
-            updateFlow()
-        }
-    }
-
     override suspend fun updatePlaylistDescription(id: Long, description: String?) {
         val index = playlists.indexOfFirst { it.id == id }
         if (index >= 0) {

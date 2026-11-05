@@ -11,6 +11,7 @@ import com.hmp.domain.music.UserInfo
 import com.hmp.domain.music.usecase.GetAllMusicUseCase
 import com.hmp.domain.music.usecase.RemoveFromLibraryUseCase
 import com.hmp.domain.playlist.Playlist
+import com.hmp.domain.playlist.PlaylistNameError
 import com.hmp.domain.playlist.usecase.ManagePlaylistUseCase
 import com.hmp.domain.setting.SettingsRepository
 import com.hearablemusic.player.ui.common.navigation.Routes
@@ -99,7 +100,6 @@ class DialogViewModel(
     val isLiked: StateFlow<Boolean> = _isLiked
 
     private var onPlaylistCreated: ((Long) -> Unit)? = null
-    private var existingPlaylistNames: Set<String> = emptySet()
     private var onMusicPickerConfirm: ((Set<Long>) -> Unit)? = null
     private var onPlaylistPickerConfirm: ((Playlist) -> Unit)? = null
     private var pendingCreatePlaylistStateForPicker: CreatePlaylistDialogState? = null
@@ -406,9 +406,6 @@ class DialogViewModel(
         onPlaylistCreated = onCreated
         _activeDialog.value = DialogUiState.CreatePlaylist(CreatePlaylistDialogState())
         viewModelScope.launch {
-            existingPlaylistNames = managePlaylistUseCase.getAllPlaylists()
-                .map { it.name.trim().lowercase() }
-                .toSet()
             updateCreatePlaylistName("")
         }
     }
@@ -419,12 +416,6 @@ class DialogViewModel(
     ) {
         onPlaylistCreated = onUpdated
         viewModelScope.launch {
-            val allPlaylists = managePlaylistUseCase.getAllPlaylists()
-            existingPlaylistNames = allPlaylists
-                .filter { it.id != playlist.id }
-                .map { it.name.trim().lowercase() }
-                .toSet()
-
             _activeDialog.value = DialogUiState.CreatePlaylist(
                 CreatePlaylistDialogState(
                     name = playlist.name,
@@ -586,7 +577,7 @@ class DialogViewModel(
     fun submitCreatePlaylist() {
         val current = (_activeDialog.value as? DialogUiState.CreatePlaylist)?.state ?: return
         viewModelScope.launch {
-            val validationError = validatePlaylistName(current.name)
+            val validationError = validatePlaylistName(current.name, current.editingPlaylistId)
             if (validationError != null) {
                 updateCreatePlaylistState { it.copy(nameError = validationError) }
                 return@launch
@@ -649,18 +640,19 @@ class DialogViewModel(
         _activeDialog.value = DialogUiState.CreatePlaylist(transform(current))
     }
 
-    private suspend fun validatePlaylistName(input: String): String? {
-        val trimmed = input.trim()
-        if (trimmed.isEmpty()) {
-            return getString(Res.string.playlist_name_empty)
+    /**
+     * 名称校验的**展示层**：规则与 Agent 共用 `ManagePlaylistUseCase.validateName`，
+     * 这里只把错误码翻成本地化文案（D3-05④ / D3-12）。
+     *
+     * @param excludeId 重命名时传自己的 id，否则「改成原名」会被判成重名。
+     */
+    private suspend fun validatePlaylistName(input: String, excludeId: Long? = null): String? {
+        return when (managePlaylistUseCase.validateName(input, excludeId)) {
+            PlaylistNameError.EMPTY -> getString(Res.string.playlist_name_empty)
+            PlaylistNameError.TOO_LONG -> getString(Res.string.playlist_name_too_long)
+            PlaylistNameError.DUPLICATE -> getString(Res.string.playlist_name_exists)
+            null -> null
         }
-        if (trimmed.length > 30) {
-            return getString(Res.string.playlist_name_too_long)
-        }
-        if (existingPlaylistNames.contains(trimmed.lowercase())) {
-            return getString(Res.string.playlist_name_exists)
-        }
-        return null
     }
 
     private suspend fun addSelectedSongsToPlaylist(

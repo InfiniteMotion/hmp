@@ -416,18 +416,6 @@ fun PlaylistScreenContent(
                         )
                     }
                 }
-                override fun onMoveUp(index: Int) {
-                    if (index <= 0 || index >= playlist.size) return
-                    val ids = playlist.map { it.music.id }.toMutableList()
-                    ids[index] = ids[index - 1].also { ids[index - 1] = ids[index] }
-                    onReorder(ids)
-                }
-                override fun onMoveDown(index: Int) {
-                    if (index < 0 || index >= playlist.size - 1) return
-                    val ids = playlist.map { it.music.id }.toMutableList()
-                    ids[index] = ids[index + 1].also { ids[index + 1] = ids[index] }
-                    onReorder(ids)
-                }
                 override fun onPinToTop(musicInfo: MusicInfo) {
                     val ids = listOf(musicInfo.music.id) + playlist.map { it.music.id }.filter { it != musicInfo.music.id }
                     onReorder(ids)

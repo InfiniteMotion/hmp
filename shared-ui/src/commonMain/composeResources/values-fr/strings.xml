@@ -256,7 +256,6 @@
     <string name="song_detail_empty">Aucune information sur le morceau disponible</string>
     <string name="playlist_name_too_long">Le nom de la playlist ne peut pas dépasser 30 caractères</string>
     <string name="avatar_change_cancelled">Changement d\'avatar annulé !</string>
-    <string name="default_list">Liste par défaut</string>
     <string name="translated_text">Traduit</string>
     <string name="ai_free_used">Utilisé : %1$s / %2$s</string>
     <string name="order">Ordre</string>
@@ -266,7 +265,6 @@
     <string name="export_backup_desc">Exporter vos données vers un fichier de sauvegarde</string>
     <string name="completion_rate">Taux de complétion</string>
     <string name="total_songs">Morceaux au total</string>
-    <string name="heart_list">Liste des favoris</string>
     <string name="lyrics_settings_desc">Personnaliser l\'affichage des paroles</string>
     <string name="user_avatar_desc">Avatar utilisateur</string>
     <string name="surround_sound">Son surround</string>

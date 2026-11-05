@@ -2,6 +2,7 @@ package com.hearablemusic.player.ui.playlist
 
 import com.hmp.domain.playlist.Playlist
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
@@ -35,5 +36,23 @@ class UserPlaylistVisibilityTest {
             Playlist(id = 3L, name = "A", songCount = 0),
         )
         assertEquals(listOf(5L, 3L), userVisiblePlaylists(all).map { it.id })
+    }
+
+    /** D3-17①（用户 2026-11-05 决议）：管理页不列系统歌单，列表页仍要能看见它们。 */
+    @Test
+    fun managePageDropsSystemPlaylists_listPageKeepsThem() {
+        val all = listOf(
+            Playlist(id = 1L, name = "默认播放列表", songCount = 2),
+            Playlist(id = 2L, name = "心动", songCount = 30),
+            Playlist(id = 3L, name = "最近播放", songCount = 50),
+            Playlist(id = 4L, name = "我的跑步歌单", songCount = 0),
+        )
+        val systemIds = setOf(1L, 2L, 3L)
+
+        assertEquals(listOf(4L), manageablePlaylists(all, systemIds).map { it.id })
+        // 列表页口径不变：三个系统歌单都还在
+        assertEquals(listOf(1L, 2L, 3L, 4L), userVisiblePlaylists(all).map { it.id })
+        // 空歌单照旧留在管理页（D3-06 不能被这条改回去）
+        assertTrue(manageablePlaylists(all, emptySet()).any { it.id == 4L })
     }
 }

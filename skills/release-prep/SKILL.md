@@ -62,10 +62,10 @@ python scripts/sync-release.py notes | tee /tmp/notes.md       # 正确性：读
 
 ### ⑦ 本机全量测试（CI 不跑单测，这是唯一守门人）
 ```bash
-./gradlew-lowmem.bat preflight    # Windows；macOS/Linux/Git Bash 用 ./gradlew-lowmem
+./gradlew-smart.bat preflight    # Windows；macOS/Linux/Git Bash 用 ./gradlew-smart
 # = checkVersion + checkReleaseConsistency + testAll
 ```
-不要用裸 `./gradlew preflight`：默认 `-Xmx4096m + parallel` 会让 daemon 被 OS 静默杀死，
+不要用裸 `./gradlew preflight`：它绕过包装脚本的内存分档，内存紧张时 daemon 会被 OS 静默杀死，
 **"跑不动"会被当成"跳过"且不留痕迹**（口径见 `AGENTS.md` §二）。
 
 ### ⑧ 交给用户

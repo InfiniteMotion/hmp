@@ -4,6 +4,8 @@ import com.hmp.data.database.AppDatabase
 import com.hmp.data.database.Music
 import com.hmp.data.database.MusicExtra
 import com.hmp.data.database.UserInfo
+import com.hmp.domain.music.Music as DomainMusic
+import com.hmp.domain.music.MusicInfo as DomainMusicInfo
 import com.hmp.test.db.createTestDatabase
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
@@ -47,6 +49,16 @@ class PlaylistRepositoryImplTest {
         db.userInfoDao().insert(UserInfo(id = id))
     }
 
+    /** 造一个"从界面上看得到"的领域曲目，喂给 `resetPlaylistItems` 用。 */
+    private fun domainMusicInfo(id: Long) = DomainMusicInfo(
+        music = DomainMusic(
+            id = id, title = "Song$id", artist = "A", album = "B",
+            duration = 100000L, path = "/$id.mp3", albumArtUri = ""
+        ),
+        extra = null,
+        userInfo = null
+    )
+
     @Test fun createPlaylist_returnsId() = runTest { assertTrue(repo.createPlaylist("P") > 0) }
 
     @Test fun createAndGetAll() = runTest {
@@ -68,11 +80,6 @@ class PlaylistRepositoryImplTest {
     @Test fun rename() = runTest {
         val id = repo.createPlaylist("Old"); repo.renamePlaylist(id, "New")
         assertEquals("New", repo.getPlaylistMeta(id)?.name)
-    }
-
-    @Test fun updateCover() = runTest {
-        val id = repo.createPlaylist("P"); repo.updatePlaylistCover(id, "c.jpg")
-        assertEquals("c.jpg", repo.getPlaylistMeta(id)?.coverUri)
     }
 
     @Test fun updateDescription() = runTest {
@@ -166,28 +173,61 @@ class PlaylistRepositoryImplTest {
     }
 
     /**
-     * D3-07：手动设过的封面，不能在下一次加/删/排时被首曲专辑图抹掉。
+     * D2-04：整表替换**不得**复活已软删的曲目。
      *
-     * 这条之所以以前"看起来没事"：`updatePlaylistCover` 全仓没有 UI 调用方，
-     * 覆写只在没人走过的路上发生。API 齐备 + 入口缺失 + 被后台逻辑静默抹掉，
-     * 三件一起放着，接上 UI 的那天就会变成"设完封面一加歌就没了"。
+     * 诚实说明探针状态：这条是**回归护栏，不是修前会红的探针**。修前它同样绿，
+     * 因为旧签名 `replaceItemsAndRefresh(playlistId, List<MusicInfo>)` 也只读 `.music.id`，
+     * 造出来的实体全被丢掉。它守的是那个**靠巧合成立**的安全前提 ——
+     * 一旦有人"顺手"在这里补一句 `musicDao.insertAll(...)` 让封面/时长算得更方便，
+     * `Music.toEntity()` 当年的行为（`isDeleted` 恒为 false）会让整批曲目当场复活，
+     * 既没有编译错误，也没有别的测试会红。
+     *
+     * 施工上真正的判据是编译期：签名收窄成 `List<Long>` 后，"把实体写回 music 表"
+     * 在类型层面就写不出来了。这条测试留下来钉住可观察行为本身。
      */
-    @Test fun customCover_survivesItemChanges() = runTest {
+    @Test fun resetPlaylistItems_neverResurrectsSoftDeletedTracks() = runTest {
+        val pid = repo.createPlaylist("P")
+        listOf(1L, 2L, 3L).forEach { insertMusic(it); repo.addToPlaylist(pid, it) }
+        db.musicDao().markDeletedByIds(listOf(2L))
+        assertEquals(listOf(2L), db.musicDao().getDeletedMusicIdAndPath().map { it.id })
+
+        // 入参故意带上已被软删的那首 —— 这正是"播放队列整体写回歌单"会给出的形状：
+        // 队列是在软删之前取到的，里面还留着这首歌。
+        repo.resetPlaylistItems(pid, listOf(1L, 2L, 3L).map { domainMusicInfo(it) })
+
+        assertEquals(
+            listOf(2L), db.musicDao().getDeletedMusicIdAndPath().map { it.id },
+            "软删状态不能被一次替换冲刷成 false"
+        )
+        assertEquals(listOf(1L, 3L), db.musicDao().getAllActiveIds(), "可见集合应保持不变")
+        assertEquals(2, repo.getPlaylistMeta(pid)?.songCount, "软删的那首仍占条目位，但不该算进 songCount")
+    }
+
+    /**
+     * D3-07（用户 2026-11-05 决议）：封面是**纯派生值** —— 永远等于当前第一首的专辑图。
+     *
+     * 这条测试原先断言的是相反的事（"手动封面不能被覆写"）。那个语义的前提是
+     * `updatePlaylistCover` 有 UI 入口，而它实际上零调用方；为一个设不了的值牺牲
+     * "删掉首曲后封面跟着换"并不划算，于是改成跟随首曲，`updatePlaylistCover` 整条链删除。
+     */
+    @Test fun cover_followsFirstItem() = runTest {
         val pid = repo.createPlaylist("P")
         insertMusicWithCover(1L, "cover-1")
         repo.addToPlaylist(pid, 1L)
-        assertEquals("cover-1", repo.getPlaylistMeta(pid)?.coverUri, "空歌单的第一首封面应回填")
+        assertEquals("cover-1", repo.getPlaylistMeta(pid)?.coverUri, "第一首的封面应回填")
 
-        repo.updatePlaylistCover(pid, "custom.jpg")
         insertMusicWithCover(2L, "cover-2")
         repo.addToPlaylist(pid, 2L)
-        assertEquals("custom.jpg", repo.getPlaylistMeta(pid)?.coverUri, "加曲不得覆写已有封面")
+        assertEquals("cover-1", repo.getPlaylistMeta(pid)?.coverUri, "首曲没变，封面也不该变")
 
         repo.reorderPlaylistItems(pid, listOf(2L, 1L))
-        assertEquals("custom.jpg", repo.getPlaylistMeta(pid)?.coverUri, "重排不得覆写已有封面")
+        assertEquals("cover-2", repo.getPlaylistMeta(pid)?.coverUri, "首曲换了，封面要跟着换")
 
         repo.removeItemFromPlaylist(2L, pid)
-        assertEquals("custom.jpg", repo.getPlaylistMeta(pid)?.coverUri, "移曲不得覆写已有封面")
+        assertEquals("cover-1", repo.getPlaylistMeta(pid)?.coverUri, "删掉首曲后应回到新的第一首")
+
+        repo.removeItemFromPlaylist(1L, pid)
+        assertNull(repo.getPlaylistMeta(pid)?.coverUri, "歌单空了，封面应为空而不是挂着旧图")
     }
 
     @Test fun incrementPlayCount() = runTest {

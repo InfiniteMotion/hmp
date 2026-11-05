@@ -2,7 +2,7 @@
 
 > **约束**：版本号与对外发布文案只准改仓库根 `release.toml` 一处；9 个派生点一律由 `./gradlew syncVersion` 写、由 `python scripts/sync-release.py sync --check` 核，**手改任何派生点即一次发版事故**。
 > **适用范围**：改 `release.toml` 或任一派生点；改 `.github/workflows/release.yml` / `pr-check.yml`；改根 `build.gradle.kts` 的 `checkVersion` / `checkReleaseConsistency` / `syncVersion` / `preflight`；改 `scripts/sync-release.py`；增减平台产物或站点下载键；动 versionCode 公式 ｜ **最后核对**：2026-09-28（按 `python scripts/sync-release.py inspect` / `sync --check` 与源码逐条对照，未跑 gradle）
-> **判据**：① `python scripts/sync-release.py sync --check` rc=0（9 个派生点全一致，本地与 CI 同一把尺）② `./gradlew checkVersion`（三段式、versionCode 自洽且严格递增、不与已有 tag 重名；免 gradle 形态见 §3）③ `grep -nE '[0-9]+\.[0-9]+\.[0-9]+' .github/workflows/release.yml | grep -v '#'` 期望 0 行（工作流不得含版本字面量或文案）④ `python scripts/sync-release.py notes` 输出人读一遍（`--check` 只证明"抄对了"，不证明"写得对"）⑤ `./gradlew-lowmem preflight`（本机唯一守门人；`gradle.properties` 是 4G + parallel，直接 `./gradlew preflight` 会杀 daemon）
+> **判据**：① `python scripts/sync-release.py sync --check` rc=0（9 个派生点全一致，本地与 CI 同一把尺）② `./gradlew checkVersion`（三段式、versionCode 自洽且严格递增、不与已有 tag 重名；免 gradle 形态见 §3）③ `grep -nE '[0-9]+\.[0-9]+\.[0-9]+' .github/workflows/release.yml | grep -v '#'` 期望 0 行（工作流不得含版本字面量或文案）④ `python scripts/sync-release.py notes` 输出人读一遍（`--check` 只证明"抄对了"，不证明"写得对"）⑤ `./gradlew-smart preflight`（本机唯一守门人；`gradle.properties` 是 4G + parallel，直接 `./gradlew preflight` 会杀 daemon）
 
 ## 1. 版本号格式
 
@@ -77,9 +77,9 @@ git merge feature/agent-build
 #    ⚠️ 以上一律不要手改；核对：python scripts/sync-release.py sync --check（CI 的 validate 跑同一把尺）
 # 4. 本机构建验证 —— CI 已不跑单元测试，这一步是唯一守门人，别跳；
 #    本机 gradle.properties 是 4G + parallel，直接 ./gradlew preflight 会杀 daemon，
-#    实际形态是仓库根的包装脚本 ./gradlew-lowmem preflight（1G + in-process；Windows cmd 用 gradlew-lowmem.bat）
-./gradlew-lowmem preflight
-./gradlew-lowmem :android:app:assembleRelease
+#    实际形态是仓库根的包装脚本 ./gradlew-smart preflight（1G + in-process；Windows cmd 用 gradlew-smart.bat）
+./gradlew-smart preflight
+./gradlew-smart :android:app:assembleRelease
 # 5. 提交版本 bump（release.toml 与 9 个派生点必须同批提交）；6. 推送并创建 PR 到 master
 git add -A && git commit -m "bump: vX.Y.0"
 git push origin release/X.Y.0
@@ -141,7 +141,7 @@ Actions → Release → Run workflow，选分支，可勾 `Dry run`（仅构建�
 
 - 第三项的理由：SHA256 只能证明「下载的和配的对得上」，证明不了架构 —— 上游曾出现 `macos/amd64` 链接实为 arm64 单架构二进制，SHA256 全绿而 Intel 版 DMG 无法运行；故预检解包解析 Mach-O / ELF / PE 头部，与 `build.gradle.kts` 的 map key 对照。
 - **feature PR 刻意不跑版本号检查**：`checkVersion` 要求 `versionCode` 相对上一 tag 严格递增，功能 PR 不 bump 必红。
-- 本地复现：`./gradlew checkVersion checkReleaseConsistency`（或本机形态 `./gradlew-lowmem …`）与 `python3 .github/scripts/check-ffmpeg-assets.py`（需出网 + `GITHUB_TOKEN`）。
+- 本地复现：`./gradlew checkVersion checkReleaseConsistency`（或本机形态 `./gradlew-smart …`）与 `python3 .github/scripts/check-ffmpeg-assets.py`（需出网 + `GITHUB_TOKEN`）。
 
 ### 触发条件
 
@@ -204,7 +204,7 @@ macOS 目前只有 Apple Silicon 产物：上游 FFmpeg 9.0 **未提供真正的
 
 | 编号 | 与代码不符处 | 证据（file:line） | 归属 |
 |---|---|---|---|
-| **D-1** | CI 不跑单测、`preflight` 是唯一守门人，但其低内存形态此前只活在 `CLAUDE.md` 的注释里。2026-09-29 已统一：`AGENTS.md` §二 与本 Skill 的 ⑦ 步都改教 `./gradlew-lowmem(.bat) preflight`。**残留**：`preflight` 自身仍依赖那个在 runner 上挂死的 `testAll`，且低内存参数是为特定本机固化的，换机器不保证 | `AGENTS.md` §二；`skills/release-prep/SKILL.md` ⑦；对照 `gradle.properties:9,13`、`build.gradle.kts:459` | **R31** |
+| **D-1** | CI 不跑单测、`preflight` 是唯一守门人，但其低内存形态此前只活在 `CLAUDE.md` 的注释里。2026-09-29 已统一：`AGENTS.md` §二 与本 Skill 的 ⑦ 步都改教 `./gradlew-smart(.bat) preflight`。**残留**：`preflight` 自身仍依赖那个在 runner 上挂死的 `testAll`，且低内存参数是为特定本机固化的，换机器不保证 | `AGENTS.md` §二；`skills/release-prep/SKILL.md` ⑦；对照 `gradle.properties:9,13`、`build.gradle.kts:459` | **R31** |
 | **D-2** | 写与核共用同一套正则，属自比、**无独立 oracle**：锚点位移类错误能同时骗过 `--check`；`config.js` 取首个 `version:`、`pbxproj` 全量替换 `MARKETING_VERSION` | `scripts/sync-release.py:219`（`sub1`）、`:240`、`:269-274`、`:441-442`（`--check` 复用 `all_steps`） | **R53** |
 | **D-3** | 桌面端版本兜底与静默缺件：`packageVersion` / `msiPackageVersion` 缺属性回落 `"1.0.0"`、`dmgPackageVersion = "1"` 硬编码；`copyToReleases` 找不到产物只 `println` 不失败；桌面 job 自身不跑 `checkVersion` | `desktop/app/build.gradle.kts:332,357,369`；`build.gradle.kts:41-50`；`release.yml:79,133,172,224` | **R45** |
 | **D-4** | iOS 三处由脚本改写，但**从未在 macOS 上验证**（本机只能做源码级核对），改动可能被 Xcode 工程重载写回 | `scripts/sync-release.py:260-274`；`TODO.md:85` | **R38** |
@@ -215,4 +215,4 @@ macOS 目前只有 Apple Silicon 产物：上游 FFmpeg 9.0 **未提供真正的
 ## 修订记录
 
 - 2026-09-28：按三份规范统一格式**精简重写**（667 → 218 行）。删去 §0 速查表（21 条）、§9 常见错误与后果（12 条）、§10 的 9 行详表与「本节自身的判据」及文末「适用范围」散文段，改为文末 7 行「偏差登记」；删去 §0 末粘贴的 `inspect` / `sync --check` / `assets` 实测输出、各节「约束 / 判据 / 检查」三段式骨架、§5 末尾对 §7 CI 步骤的整段复述；`date` 告警等不再两处重复。
-- 2026-09-28：**无内容删除** —— 事实逐条保留（含就地写明的 `gradlew-lowmem` 低内存形态，取自仓库根既有包装脚本）。§1–§8 编号与标题主体未动；新增的「偏差登记」「修订记录」置于文末；§3 示例值保留但已紧邻标注「当前真值见 `release.toml`」。
+- 2026-09-28：**无内容删除** —— 事实逐条保留（含就地写明的 `gradlew-smart` 低内存形态，取自仓库根既有包装脚本）。§1–§8 编号与标题主体未动；新增的「偏差登记」「修订记录」置于文末；§3 示例值保留但已紧邻标注「当前真值见 `release.toml`」。

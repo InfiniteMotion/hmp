@@ -394,8 +394,6 @@
     <string name="year">年份</string>
     <string name="favorite">收藏</string>
     <string name="heart">心动</string>
-    <string name="heart_list">心动列表</string>
-    <string name="default_list">默认列表</string>
     <string name="labels">标签</string>
     <string name="early">早</string>
     <string name="end">末</string>

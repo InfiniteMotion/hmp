@@ -181,7 +181,6 @@ class FakeAgentPlaylistRepository : PlaylistRepository {
     override suspend fun getAllPlaylists(): List<Playlist> = playlists.values.toList()
     override suspend fun getPlaylistMeta(id: Long): Playlist? = playlists[id]
     override suspend fun renamePlaylist(id: Long, newName: String) { playlists[id]?.let { playlists[id] = it.copy(name = newName) } }
-    override suspend fun updatePlaylistCover(id: Long, coverUri: String?) { playlists[id]?.let { playlists[id] = it.copy(coverUri = coverUri) } }
     override suspend fun updatePlaylistDescription(id: Long, description: String?) { playlists[id]?.let { playlists[id] = it.copy(description = description) } }
     override suspend fun setPlaylistPinned(id: Long, isPinned: Boolean) { playlists[id]?.let { playlists[id] = it.copy(isPinned = isPinned) } }
     override suspend fun incrementPlaylistPlayCount(id: Long) { playlists[id]?.let { playlists[id] = it.copy(playCount = it.playCount + 1) } }

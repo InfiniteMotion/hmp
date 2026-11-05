@@ -356,8 +356,6 @@
     <string name="year">Год</string>
     <string name="favorite">Избранное</string>
     <string name="heart">Сердце</string>
-    <string name="heart_list">Список сердца</string>
-    <string name="default_list">Список по умолчанию</string>
     <string name="labels">Метки</string>
     <string name="early">Начало</string>
     <string name="end">Конец</string>

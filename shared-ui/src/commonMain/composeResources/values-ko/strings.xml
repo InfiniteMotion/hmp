@@ -356,8 +356,6 @@
     <string name="year">연도</string>
     <string name="favorite">즐겨찾기</string>
     <string name="heart">하트</string>
-    <string name="heart_list">하트 목록</string>
-    <string name="default_list">기본 목록</string>
     <string name="labels">라벨</string>
     <string name="early">초기</string>
     <string name="end">말기</string>

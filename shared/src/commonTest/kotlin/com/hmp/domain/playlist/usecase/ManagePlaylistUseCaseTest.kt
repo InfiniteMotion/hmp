@@ -2,6 +2,9 @@ package com.hmp.domain.playlist.usecase
 
 import com.hmp.domain.music.Music
 import com.hmp.domain.music.MusicInfo
+import com.hmp.domain.playlist.PLAYLIST_NAME_MAX_LENGTH
+import com.hmp.domain.playlist.PlaylistNameError
+import com.hmp.domain.playlist.PlaylistNameException
 import com.hmp.test.fakes.FakeMusicRepository
 import com.hmp.test.fakes.FakePlaylistRepository
 import com.hmp.test.fakes.FakeSettingsRepository
@@ -11,6 +14,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
+import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -112,14 +116,6 @@ class ManagePlaylistUseCaseTest {
     }
 
     @Test
-    fun updatePlaylistCover_updatesCover() = runTest {
-        val id = useCase.createPlaylist("With Cover")
-        useCase.updatePlaylistCover(id, "cover.jpg")
-        val meta = useCase.getPlaylistMeta(id)
-        assertEquals("cover.jpg", meta?.coverUri)
-    }
-
-    @Test
     fun updatePlaylistDescription_updatesDescription() = runTest {
         val id = useCase.createPlaylist("With Desc")
         useCase.updatePlaylistDescription(id, "My description")
@@ -158,5 +154,40 @@ class ManagePlaylistUseCaseTest {
     fun getPlaylistMeta_nonExisting_returnsNull() = runTest {
         val meta = useCase.getPlaylistMeta(999)
         assertNull(meta)
+    }
+
+    // ---------- D3-05④：名称规则在 UseCase 强制，不靠每个 UI 入口自觉 ----------
+
+    @Test
+    fun createPlaylist_rejectsBlankOverlongAndDuplicate() = runTest {
+        assertEquals(PlaylistNameError.EMPTY, assertFailsWith<PlaylistNameException> {
+            useCase.createPlaylist("   ")
+        }.error)
+        assertEquals(PlaylistNameError.TOO_LONG, assertFailsWith<PlaylistNameException> {
+            useCase.createPlaylist("名".repeat(PLAYLIST_NAME_MAX_LENGTH + 1))
+        }.error)
+
+        useCase.createPlaylist("Rock")
+        // 大小写不同也算重名：DB 的唯一索引区分大小写，用户视角不区分
+        assertEquals(PlaylistNameError.DUPLICATE, assertFailsWith<PlaylistNameException> {
+            useCase.createPlaylist("rock")
+        }.error)
+
+        assertEquals(1, useCase.getAllPlaylists().size, "被拒的创建不应落库")
+    }
+
+    @Test
+    fun renamePlaylist_rejectsDuplicateButAllowsItsOwnName() = runTest {
+        useCase.createPlaylist("Rock")
+        val id = useCase.createPlaylist("Jazz")
+
+        assertEquals(PlaylistNameError.DUPLICATE, assertFailsWith<PlaylistNameException> {
+            useCase.renamePlaylist(id, " rock ")
+        }.error)
+        assertEquals("Jazz", useCase.getPlaylistMeta(id)?.name, "改名失败不应落库")
+
+        // 改成自己原本的名字不是重名（excludeId 生效）
+        useCase.renamePlaylist(id, "Jazz")
+        assertEquals("Jazz", useCase.getPlaylistMeta(id)?.name)
     }
 }

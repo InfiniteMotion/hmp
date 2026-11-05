@@ -100,7 +100,7 @@
 - [ ] **R44** 合入前闸门**不编译、不测试**：`pr-check.yml` 四个 job 只跑 `checkVersion checkReleaseConsistency`（`:65`），`release.yml` validate 同样，三个 build job 全是打包，**CI 里没有 iOS job** → pr-check 加 `HMP_BUILD_TARGET=desktop ./gradlew compileAll` + `:android:app:assembleDebug`；再加一个 macOS 编译 job。**关键省力点**：`shared/build.gradle.kts:86-91` 的 KSP iOS target 已配齐，`:shared:compileKotlinIosArm64` 是**零新代码**的 iOS 闸门；`commonTest` 依赖（`:77-83`）全是完整 KMP 构件，故 `:shared:iosSimulatorArm64Test` 能直接跑现有 commonTest。**判据**：故意提交一个语法错的 PR 会红。**与 R31 的分工**：R31 管"测试在 runner 上挂死"，本条管"编译这道闸门根本没建"；本条先行，且必须按 R31 的教训给 job 加挂钟超时
 - [ ] **R43** DI 装配无图校验：`checkModules|verify()` 全仓 **0 命中**，12 个 module 文件、131 `single` + 3 `viewModel` 对 495 处 `inject/get`；三端启动校验强度不同（Android 只 eager 解 MasterAgent、Desktop 只解控制器、iOS 纯懒）→"进页面才崩"在 iOS 成立 → `:shared:desktopTest` 接 `koin-test` 的 `checkModules`。**判据**：删掉任意一条 `single`，测试红
 - [ ] **R41** 在用的 NavKey 未注册 nav3 serializer：`Routes.kt` 有 **30** 个 NavKey，`HmpNavBackStack.kt` 的 `SerializersModule` 只有 **28** 条 `subclass(`，文件内 `grep Agent` 零命中 → `Routes.AI.AgentConfig`（跳转 `AIScreen.kt:318,358`、entry `NavigationGraph.kt:173`）与 `Routes.Settings.AgentMonitor`（entry `:113`）都漏注册，而该文件注释 `:20-22` 自陈"漏注册无编译期报错，仅在该 key 参与保存/恢复时运行时报错"。现有 `RoutesTest.kt:215-246` 手写 22 条 `is NavKey` 断言是**恒真闸门** → 补注册 + 把测试改成"遍历 NavKey 集合 ⊖ 白名单 ⇒ 必须有 serializer 且必须有 entry"。**判据**：加一条路由而不写 `entry` / 不注册，测试红
-- [ ] **R47** 三端镜像内容漂移零防护：32/29 两种正则口径下的 expect 声明都**文件级 1:1:1 配对无孤儿**（23 个 expect 宿主文件，android/desktop/ios 各 23 个 actual 宿主文件），问题是**整文件镜像**——`PlaylistRepositoryImpl.{desktop,ios}` 逐行 diff≈0、`SettingsRepositoryImpl.{desktop,ios}` 各 ~500 行、`getRoomDatabase`/`createJson` 三端各写一份迁移列表（漏一端就是单端升级崩溃）；平台源集 `.kt` 共 **107** 个（shared 20/20/23、shared-ui 15/13/16），其中 `*Impl*.kt` **12** 个只有 **2** 个有同名测试（都在 desktopTest），`shared/src` 无 androidHostTest / 无 iosTest → androidMain、iosMain 覆盖 **0**。已发生样本：`17d9d61`（A3 `enabled` 不落盘，修复需 3×4 行同步）→ `commonTest` 加源集扫描断言（每个 expect 名在三端各有含 `actual` 的同名文件）+ 把"三端刻意差异"收成 commonMain 白名单常量。**判据**：某端删掉一个 actual 文件即红；白名单外的"三端逐字相同"被识别为可下沉候选。**真正的下沉**（Settings/Playlist/Backup 抽 base）单列，见审查报告「刻意不做」
+- [ ] **R47** 三端镜像内容漂移零防护：32/29 两种正则口径下的 expect 声明都**文件级 1:1:1 配对无孤儿**（23 个 expect 宿主文件，android/desktop/ios 各 23 个 actual 宿主文件），问题是**整文件镜像**——`PlaylistRepositoryImpl.{desktop,ios}` 逐行 diff≈0、`SettingsRepositoryImpl.{desktop,ios}` 各 ~500 行、`getRoomDatabase`/`createJson` 三端各写一份迁移列表（漏一端就是单端升级崩溃）；平台源集 `.kt` 共 **107** 个（shared 20/20/23、shared-ui 15/13/16），其中 `*Impl*.kt` **12** 个只有 **2** 个有同名测试（都在 desktopTest），`shared/src` 无 androidHostTest / 无 iosTest → androidMain、iosMain 覆盖 **0**。已发生样本：`17d9d61`（A3 `enabled` 不落盘，修复需 3×4 行同步）→ `commonTest` 加源集扫描断言（每个 expect 名在三端各有含 `actual` 的同名文件）+ 把"三端刻意差异"收成 commonMain 白名单常量。**判据**：某端删掉一个 actual 文件即红；白名单外的"三端逐字相同"被识别为可下沉候选。 **2026-11-05 进展**：已下沉第一例 —— `stringToPinyinSortKey` 三端逐字相同，合进 commonMain 并删 3 个 actual（判据落在 `PinyinSortKeyTest` 5 例）；`shared` 的 `androidHostTest` 也已开启（X-06，10 例）。**自动闸门仍未做**：白名单比对与"逐字相同"检测都还没有脚本。**真正的下沉**（Settings/Playlist/Backup 抽 base）单列，见审查报告「刻意不做」
 - [ ] **R56** 依赖矩阵无人守：Coil2 与 Coil3 并存（`shared-ui:70-73`）、coroutines 主库 1.10.1 vs 测试 1.9.0、`koin-compose` 别名**只存在于注释里**（活雷）、alpha/beta 进生产、`android/app:7` 与 `core-player:5` 绕过 alias 硬编码版本、KSP 在两模块 apply 却零 processor → 加一条 catalog 使用率与一致性断言。**判据**：定义未用 / 使用未定义 / 同库多版本即红
 
 ### S1 · 数据与安全
@@ -119,7 +119,6 @@
 
 - [ ] **R48** UI 状态归属分裂：主流走 VM（20 VM / 29 屏），但 **agent 区整块裸奔**——`AgentConfigScreen.kt`(1658 行) 0 VM、17 处 `remember{mutableState}`，保存/校验/提示词覆盖判定全在 composable 的 `save` lambda 里并直接改写 `masterAgent` 活实例（`:161,167,173-243,256-306`）；`AppRoot.kt` 内 8 `koinInject` / 7 `LaunchedEffect` / 4 `scope` / 16 `collectAsState` → 本条是 **R15** 的具体化并扩到整个 agent 区。**判据**：agent 区每屏有 VM，composable 内 0 挂起调用
 - [ ] **R49** 设计 token 是"自愿制"：硬编码 hex 色 **53 处/13 文件**（扣 token 文件 37 处/12 文件）、`fontSize` 字面量 **43 处/9 文件**、`RoundedCornerShape(N.dp)` **148**、动效毫秒 **56**、`.dp` 字面量 **1444 处/91 文件** vs `dimens.*` 仅 209 处/24 文件（14%）；卡片两套并存（`HMPCard` 28 站 vs 裸 `Card(/Surface(` 57 站）；**336 个 `@Composable` 只有 81 个带 `modifier: Modifier`（24%）**。另 `docs/spec/hmp-design.md` 有三处与代码冲突（§6.1 说 4 底部 Tab 实为 3；§6.2 的 Expanded→NavigationRail 实为 `isLandscape && height==Compact`；§3.1/§4.2/§9 称 iOS=SwiftUI/SF Pro，实际 iOS 跑同一套 `AppRoot`）→ 先在文档落**硬约定 + 例外白名单**（含 Modifier），再加机械检查。**判据**：新文件里出现 `Color(0x` 或裸 dp 即被拦
-- [ ] **R50** 无任何静态闸门：无 detekt、无 ktlint、无 `.editorconfig`、无 `core.hooksPath`（`.git/hooks` 只有 10 字节空 `post-checkout`/`post-commit`），而 `DEVELOP.md:396-400` 声称"使用 ktlint 检查"并列出三样都不存在的文件；`docs/ktlint-integration.md`(261 行) 通篇是待办方案且前提已失效（§20/§147 假设的 `ci.yml` 不存在，T7 要 CI 跑测试而 CI 恰好不跑 = R31）→ 按该文档 §7 的 T0–T7 走，但**只做增量守门**。**卡点**：KMP 源集、`build/` KSP 生成码排除（只有 `!` 否定 glob 有效）、Windows CRLF（35 个文件纯行尾重写）、`.editorconfig` 段头空格会**静默失效**、`installGitPreCommitHook` 在 Windows 段错误。**判据**：故意在新文件写违规格式即红，存量文件不被卷入
 - [ ] **R51** 构建拓扑平铺：1582 行 build 脚本 / 无 convention plugin；root `build.gradle.kts` 540 行里发版链 **285 行（53%）**、`checkVersion` 自带 git shim 62 行、24 个自定义 task 中 **11 个** `notCompatibleWithConfigurationCache`（全仓 13）。实测重复只集中在 **3 段**：android JVM21+proguard 逐字 2 份（`android/app:73-83` vs `core-player:29-38`）、desktop targets+测试源集 4 份、`settings.gradle.kts:5-15` vs `22-32` 的仓库声明镜像 2 份 → 只值得抽这 ~60 行，其余发版 task 外迁脚本。**判据**：抽取后 `tasks --all` 与产物清单不变。**代价先写清**：build-logic 里失去 `libs.` 访问器；且抽象会掩盖"iOS target 集刻意不一致"（`shared:26-36` vs `shared-ios:27-41`）这类有意差异
 - [ ] **R52** 三套构建图互不一致：`settings.gradle.kts:38-56` 用 `HMP_BUILD_TARGET` 条件 include，立论注释靠"configure-on-demand 下不配置该模块"，但 `gradle.properties:15-16` 已停用 COD → desktop 分支仍全量配置 `:android:core-player`，CI 能过只因 runner 预装 Android SDK；`build.gradle.kts:34-37` 的 `maybeDepends` 在错目标下静默丢依赖 → 本地(无 env)/CI(有 env)/IDE 三图取并集校验，或收敛成单一全图 + 任务级过滤。**最小可复现场景（当判据用）**：`export HMP_BUILD_TARGET=desktop` 后跑 `./gradlew testAndroid` **必绿**，而该任务实际零工作
 - [ ] **R53** 发版真源链路的结构边界：① `sync-release.py` **写与核共用同一套正则** → 锚点位移类错误能同时骗过 `--check`，无独立 oracle；② `site/js/config.js` 取**首个** `version:`、`pbxproj` 全量替换 `MARKETING_VERSION`、ROADMAP 生成块内手改被无警告覆盖；③ 真源集不全：iOS build number 恒 `1`（`project.yml:51`）、部署目标三源（26.3 / 16.0 / 文档）、三套包名空间、`dmgPackageVersion="1"` → 引入独立 oracle（从产物侧读回真实版本比对），并决定 `pbxproj`/`Info.plist` 是否收敛成一份 `.xcconfig`（与 **R38** 同批）。**判据**：故意把某个派生点的锚点位移，核对会报错而不是静默通过
@@ -144,12 +143,12 @@
 | R43 DI 无图校验 | X-04 | ✅ 已重现 |
 | R45 版本号静默回落 | X-03、D9-03 | ✅ 已重现 |
 | R49 设计 token 自愿制 | D8-03 | ✅ 已重现 |
-| R50 无静态闸门 | X-07 | ✅ 已重现 |
+| R50 无静态闸门 | X-07 | ⏸ 移出 v7.3（2026-11-05 决议，见 §七） |
 | R52 三套构建图不一致 | X-09、X-10 | ✅ 已重现 |
 | R55 `storybook` 孤儿模块 | X-08 | ✅ 已重现 |
 | R30 Android 版本兜底 | X-03 | ✅ 已重现 |
 | R29 发版前实机核验 | 各域 §5「验证缺口」 | ◐ 部分 |
-| R47 三端镜像漂移 | D3-14（仅 Playlist Impl 一节） | ◐ 部分 |
+| R47 三端镜像漂移 | D3-14（Playlist Impl 已于 2026-11-05 整体上收 commonMain，镜像不存在了；Music/Settings 是"基类+真实平台代码"，本就不是镜像） | ✅ 已收口 |
 | R48 / R15 agent 区无 VM | D6 矩阵第 5 行（记为"待验\*"，**未立案**） | ◐ 部分 |
 | R53 发版真源结构边界 | D9-03、X-02、X-03（"独立 oracle"未落） | ◐ 部分 |
 | R54 文档真值失真 | X-07 附加 doc-truth | ◐ 部分 |
@@ -188,6 +187,11 @@
 ## 七、挂起（不排期，可整体延后）
 
 - ⏸ **F10** 语音会话（`RealtimeVoiceTransport`）—— 方向 B 里唯一真正新增的传输层，需真实端点验证，与主线解耦、未开工；端点不可用即整体延期，v1 完整性不依赖语音
+- ⏸ **R50** 无任何静态闸门（无 detekt / ktlint / `.editorconfig` / `core.hooksPath`）—— **2026-11-05 用户决议：移出 v7.3 待办**。
+  - **为什么移出**：方案 `docs/ktlint-integration.md`（261 行）本身是完整的，但它的前置 T0 是"工作区收口 + 分支线合并"，而这条前置在整个 7.3 期间反复被别的施工重置；同时格式化落在 446 文件上，与功能 diff 混在一起没法 review。这不是"做不做"的问题，是"什么时候做才不亏"的问题。
+  - **现状不再重复取证**：`DEVELOP.md:406` 已如实写明"没有任何机械化风格闸门"，X-07 的取证段与判据原样保留在 `docs/7_3/domain/X.md`。
+  - **重新启动的条件（三条同时满足）**：① `git status` 干净且只剩一条活跃开发线；② 本版发版完成（`release.toml` 与 tag 不再重复）；③ 确认只做**增量守门**（存量 107 处不在此版清理）。
+  - **恢复入口**：`docs/ktlint-integration.md` §7 的 T1/T3/T4/T5/T6（跳过 T2 全量格式化），规则集与那 10 处 `SEEK_TO` / `SHUFFLE_ON` 命名仍需一句话确认。
 
 ***
 

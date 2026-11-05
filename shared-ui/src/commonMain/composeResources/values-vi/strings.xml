@@ -356,8 +356,6 @@
     <string name="year">Năm</string>
     <string name="favorite">Yêu thích</string>
     <string name="heart">Yêu thích</string>
-    <string name="heart_list">Danh sách yêu thích</string>
-    <string name="default_list">Danh sách mặc định</string>
     <string name="labels">Nhãn</string>
     <string name="early">Đầu</string>
     <string name="end">Kết thúc</string>
