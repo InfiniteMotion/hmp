@@ -33,8 +33,12 @@ fun parentPathOf(path: String, separators: String = "/"): String? {
     if (index < 0) return null
     val parent = path.substring(0, index)
     return when {
-        parent.isEmpty() -> separators.substring(0, 1)                       // "/a.mp3" → "/"
-        parent.length == 2 && parent[1] == ':' -> parent + separators[0]      // "C:\a.mp3" → "C:\"
+        parent.isEmpty() -> separators.substring(0, 1)
+
+        // "/a.mp3" → "/"
+        parent.length == 2 && parent[1] == ':' -> parent + separators[0]
+
+        // "C:\a.mp3" → "C:\"
         else -> parent
     }
 }

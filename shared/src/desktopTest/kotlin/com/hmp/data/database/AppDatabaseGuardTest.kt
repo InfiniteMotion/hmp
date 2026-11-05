@@ -1,7 +1,7 @@
 package com.hmp.data.database
 
-import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import androidx.sqlite.SQLiteConnection
+import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import androidx.sqlite.execSQL
 import java.io.File
 import java.util.concurrent.atomic.AtomicInteger
@@ -10,9 +10,9 @@ import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
-import kotlin.test.assertFalse
 
 /**
  * 一-7 / D7-10 判据：库版本高于代码时要**拦得住、说得出、看得见**，而不是崩在启动路上。
@@ -29,8 +29,7 @@ class AppDatabaseGuardTest {
         val fileCounter = AtomicInteger()
     }
 
-    private fun newTempDbPath(label: String): String =
-        File("build", "guard_test_${label}_${fileCounter.incrementAndGet()}.db").absolutePath.also { createdFiles += it }
+    private fun newTempDbPath(label: String): String = File("build", "guard_test_${label}_${fileCounter.incrementAndGet()}.db").absolutePath.also { createdFiles += it }
 
     @BeforeTest
     fun setup() {
@@ -46,6 +45,7 @@ class AppDatabaseGuardTest {
     private val createdFiles = mutableListOf<String>()
 
     /** 临时库文件（与迁移测试同法：唯一文件名，避免 Windows 上互相继承旧库）。 */
+
     /** 建一个临时库文件并把 `user_version` 写成指定值（模拟"新设备的库被拷回旧安装"）。 */
     private fun dbFileWithUserVersion(version: Int): String {
         val path = newTempDbPath("v$version")

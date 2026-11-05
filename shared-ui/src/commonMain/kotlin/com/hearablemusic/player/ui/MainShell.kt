@@ -26,7 +26,7 @@ import com.hearablemusic.player.ui.settings.pages.UserScreen
 @Composable
 fun MainShell(
     navController: NavBackStack<NavKey>,
-    pagerState: PagerState
+    pagerState: PagerState,
 ) {
     val haptic = rememberHapticFeedback()
     var previousPage by remember { mutableIntStateOf(pagerState.currentPage) }
@@ -40,20 +40,23 @@ fun MainShell(
 
     HorizontalPager(
         state = pagerState,
-        beyondViewportPageCount = 3
+        beyondViewportPageCount = 3,
     ) { page ->
         when (page) {
             0 -> HomeScreen(
-                navController = navController
+                navController = navController,
             )
+
             1 -> GalleryScreen(
-                navController = navController
+                navController = navController,
             )
+
             2 -> ListScreen(
-                navController = navController
+                navController = navController,
             )
+
             3 -> UserScreen(
-                navController = navController
+                navController = navController,
             )
         }
     }

@@ -164,13 +164,13 @@ class TypeScaleTest {
     @Test
     fun m3ComponentTypography_zeroWeightOverride() {
         // 投影零字重覆盖：每个槽位字重 = 其角色默认（规范修订：M3 槽位不再是业务 API）
-        assertEquals(FontWeight.Bold, m3.headlineLarge.fontWeight)     // title 默认
-        assertEquals(FontWeight.Medium, m3.headlineMedium.fontWeight)  // headline 默认
-        assertEquals(FontWeight.Medium, m3.titleLarge.fontWeight)      // headline 默认
-        assertEquals(FontWeight.Normal, m3.titleSmall.fontWeight)      // body 默认
-        assertEquals(FontWeight.Normal, m3.bodyLarge.fontWeight)       // body 默认
-        assertEquals(FontWeight.Normal, m3.labelLarge.fontWeight)      // body 默认
-        assertEquals(FontWeight.Medium, m3.labelSmall.fontWeight)      // caption 默认
+        assertEquals(FontWeight.Bold, m3.headlineLarge.fontWeight) // title 默认
+        assertEquals(FontWeight.Medium, m3.headlineMedium.fontWeight) // headline 默认
+        assertEquals(FontWeight.Medium, m3.titleLarge.fontWeight) // headline 默认
+        assertEquals(FontWeight.Normal, m3.titleSmall.fontWeight) // body 默认
+        assertEquals(FontWeight.Normal, m3.bodyLarge.fontWeight) // body 默认
+        assertEquals(FontWeight.Normal, m3.labelLarge.fontWeight) // body 默认
+        assertEquals(FontWeight.Medium, m3.labelSmall.fontWeight) // caption 默认
     }
 
     @Test

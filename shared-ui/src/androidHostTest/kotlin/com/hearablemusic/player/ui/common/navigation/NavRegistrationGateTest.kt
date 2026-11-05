@@ -4,11 +4,11 @@ import androidx.navigation3.runtime.NavKey
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import java.io.File
 import kotlin.reflect.KClass
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
-import java.io.File
 
 /**
  * 导航注册闸门（D8-01 / D8-02 / X-05）。
@@ -76,21 +76,20 @@ class NavRegistrationGateTest {
      * 权威路由集合：从编译产物反射，而不是在测试里手抄一份名单。
      * 返回 `相对 Routes 的点分路径 => KClass`，路径与两处源文件里的写法（`Main.Tabs`）对齐。
      */
-    private fun declaredNavKeys(): Map<String, KClass<out NavKey>> =
-        navKeyTypes(Routes::class)
-            .associateBy {
-                it.qualifiedName?.removePrefix(ROUTES_QUALIFIED_PREFIX)
-                    ?: error("${it.qualifiedName} 没有 qualifiedName")
-            }
-            .also {
-                // 反射取空 = 闸门自己失效，这种绿不能算数（宁可红在这里）
-                assertTrue(it.isNotEmpty(), "没从 Routes 反射出任何 NavKey —— 闸门失效，检查 Routes 结构")
-                assertTrue(
-                    it.values.any { type -> type.objectInstance == null },
-                    "反射只取到 object 路由、没取到任何带参数的 data class 路由 —— 遍历漏了，" +
-                        "而漏掉的恰好是最容易忘记注册的那批",
-                )
-            }
+    private fun declaredNavKeys(): Map<String, KClass<out NavKey>> = navKeyTypes(Routes::class)
+        .associateBy {
+            it.qualifiedName?.removePrefix(ROUTES_QUALIFIED_PREFIX)
+                ?: error("${it.qualifiedName} 没有 qualifiedName")
+        }
+        .also {
+            // 反射取空 = 闸门自己失效，这种绿不能算数（宁可红在这里）
+            assertTrue(it.isNotEmpty(), "没从 Routes 反射出任何 NavKey —— 闸门失效，检查 Routes 结构")
+            assertTrue(
+                it.values.any { type -> type.objectInstance == null },
+                "反射只取到 object 路由、没取到任何带参数的 data class 路由 —— 遍历漏了，" +
+                    "而漏掉的恰好是最容易忘记注册的那批",
+            )
+        }
 
     /**
      * 递归收集所有实现 NavKey 的嵌套类。
@@ -99,15 +98,14 @@ class NavRegistrationGateTest {
      * `$$serializer` 类，那样会把带参数的路由整批判成非叶子并跳过 —— 实测漏掉 7 条，
      * 其中就有本次要补注册的 `Routes.AI.AgentConfig`。所以自身命中也要收，命中后继续下钻。
      */
-    private fun navKeyTypes(owner: KClass<*>): List<KClass<out NavKey>> =
-        owner.nestedClasses.flatMap { nested ->
-            val self = if (NavKey::class.java.isAssignableFrom(nested.java)) {
-                listOf(nested as KClass<out NavKey>)
-            } else {
-                emptyList()
-            }
-            self + navKeyTypes(nested)
+    private fun navKeyTypes(owner: KClass<*>): List<KClass<out NavKey>> = owner.nestedClasses.flatMap { nested ->
+        val self = if (NavKey::class.java.isAssignableFrom(nested.java)) {
+            listOf(nested as KClass<out NavKey>)
+        } else {
+            emptyList()
         }
+        self + navKeyTypes(nested)
+    }
 
     /** object 路由取单例；带参数的 data class 路由用主构造器灌测试值。 */
     private fun instantiate(type: KClass<out NavKey>): NavKey {
@@ -121,19 +119,17 @@ class NavRegistrationGateTest {
     }
 
     /** 返回类型显式写成 `Any?`：让 `when` 的分支结果 upcast，否则 `toTypedArray()` 会摊到交叉类型上。 */
-    private fun testValueFor(type: KClass<*>, parameterType: Class<*>): Any? =
-        when (parameterType) {
-            Long::class.javaPrimitiveType -> 0L
-            Int::class.javaPrimitiveType -> 0
-            String::class.java -> "gate"
-            else -> error("${type.qualifiedName} 的参数类型 $parameterType 不在闸门支持列表里，请扩展 testValueFor()")
-        }
+    private fun testValueFor(type: KClass<*>, parameterType: Class<*>): Any? = when (parameterType) {
+        Long::class.javaPrimitiveType -> 0L
+        Int::class.javaPrimitiveType -> 0
+        String::class.java -> "gate"
+        else -> error("${type.qualifiedName} 的参数类型 $parameterType 不在闸门支持列表里，请扩展 testValueFor()")
+    }
 
-    private fun sourceOf(relativePath: String): File =
-        sequenceOf(relativePath, "shared-ui/$relativePath")
-            .map(::File)
-            .firstOrNull { it.isFile }
-            ?: error("找不到 $relativePath —— 闸门要读源文件，测试工作目录应为 shared-ui/ 或仓库根")
+    private fun sourceOf(relativePath: String): File = sequenceOf(relativePath, "shared-ui/$relativePath")
+        .map(::File)
+        .firstOrNull { it.isFile }
+        ?: error("找不到 $relativePath —— 闸门要读源文件，测试工作目录应为 shared-ui/ 或仓库根")
 
     private companion object {
         const val ROUTES_QUALIFIED_PREFIX = "com.hearablemusic.player.ui.common.navigation.Routes."

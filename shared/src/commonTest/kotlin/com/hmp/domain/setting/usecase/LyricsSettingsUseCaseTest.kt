@@ -17,7 +17,10 @@ class LyricsSettingsUseCaseTest {
 
     private val settingsRepository = FakeSettingsRepository()
     private val useCase = LyricsSettingsUseCase(settingsRepository)
-    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+    private val json = Json {
+        ignoreUnknownKeys = true
+        encodeDefaults = true
+    }
 
     // ===== getComponentConfig =====
 
@@ -35,7 +38,7 @@ class LyricsSettingsUseCaseTest {
             currentTimeTextSize = 22,
             lineSpacing = 10,
             displayMode = DisplayMode.LANG1,
-            alignment = LyricsAlignment.LEFT
+            alignment = LyricsAlignment.LEFT,
         )
         val jsonStr = json.encodeToString(LyricsComponentConfig.serializer(), custom)
         settingsRepository.saveLyricsPlayerConfig(jsonStr)
@@ -205,8 +208,8 @@ class LyricsSettingsUseCaseTest {
         settingsRepository.saveLyricsPlayerConfig(
             json.encodeToString(
                 LyricsComponentConfig.serializer(),
-                LyricsComponentConfig(originalTextSize = 20, lineSpacing = 11, karaokeEnabled = false)
-            )
+                LyricsComponentConfig(originalTextSize = 20, lineSpacing = 11, karaokeEnabled = false),
+            ),
         )
 
         val effective = useCase.configFlow(LyricsComponent.PLAYER).first()
@@ -224,11 +227,11 @@ class LyricsSettingsUseCaseTest {
         settingsRepository.saveLyricsPlayerConfig(
             json.encodeToString(
                 LyricsComponentConfig.serializer(),
-                LyricsComponentConfig(linkedTo = LyricsComponent.FULLSCREEN.key)
-            )
+                LyricsComponentConfig(linkedTo = LyricsComponent.FULLSCREEN.key),
+            ),
         )
         settingsRepository.saveLyricsFullscreenConfig(
-            json.encodeToString(LyricsComponentConfig.serializer(), LyricsComponentConfig(originalTextSize = 26))
+            json.encodeToString(LyricsComponentConfig.serializer(), LyricsComponentConfig(originalTextSize = 26)),
         )
 
         assertEquals(26, useCase.configFlow(LyricsComponent.PLAYER).first().originalTextSize)
@@ -243,7 +246,7 @@ class LyricsSettingsUseCaseTest {
             linkedTo = LyricsComponent.FLOATING.key,
         )
         settingsRepository.saveLyricsFullscreenConfig(
-            json.encodeToString(LyricsComponentConfig.serializer(), initial)
+            json.encodeToString(LyricsComponentConfig.serializer(), initial),
         )
 
         useCase.updateComponentConfig(LyricsComponent.FULLSCREEN) { it.copy(originalTextSize = 30) }
@@ -258,10 +261,10 @@ class LyricsSettingsUseCaseTest {
     @Test
     fun resetComponentToDefault_onlyResetsThatComponent() = runTest {
         settingsRepository.saveLyricsPlayerConfig(
-            json.encodeToString(LyricsComponentConfig.serializer(), LyricsComponentConfig(originalTextSize = 20))
+            json.encodeToString(LyricsComponentConfig.serializer(), LyricsComponentConfig(originalTextSize = 20)),
         )
         settingsRepository.saveLyricsFullscreenConfig(
-            json.encodeToString(LyricsComponentConfig.serializer(), LyricsComponentConfig(originalTextSize = 24))
+            json.encodeToString(LyricsComponentConfig.serializer(), LyricsComponentConfig(originalTextSize = 24)),
         )
 
         useCase.resetComponentToDefault(LyricsComponent.FULLSCREEN)

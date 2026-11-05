@@ -32,7 +32,7 @@ class RecommendationViewModel(
         val failed: Int = 0,
         val currentMusicTitle: String = "",
         val isProcessing: Boolean = false,
-        val isPaused: Boolean = false
+        val isPaused: Boolean = false,
     ) {
         val progressPercent: Float
             get() = if (totalCount > 0) processedCount.toFloat() / totalCount else 0f

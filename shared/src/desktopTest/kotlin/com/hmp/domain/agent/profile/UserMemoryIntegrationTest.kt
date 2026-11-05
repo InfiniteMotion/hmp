@@ -1,3 +1,6 @@
+// 测试函数名刻意用 P1_ / P2_ 场景前缀加下划线表达用例分组，故豁免 function-naming。
+@file:Suppress("ktlint:standard:function-naming")
+
 package com.hmp.domain.agent.profile
 
 import com.hmp.data.database.RoomTransactionRunner
@@ -77,7 +80,7 @@ class UserMemoryIntegrationTest {
                 ),
                 extra = null,
                 userInfo = null,
-            )
+            ),
         )
     }
 
@@ -217,7 +220,7 @@ class UserMemoryIntegrationTest {
                 confidence = 0.99,
                 createdAt = now,
                 updatedAt = now,
-            )
+            ),
         )
         repeat(3) { i -> addTrack(id = i.toLong() + 1, artist = "A$i") }
         agent.refreshFromLibrary()
@@ -569,7 +572,7 @@ class UserMemoryIntegrationTest {
                     createdAt = now,
                     updatedAt = now,
                 )
-            }
+            },
         )
 
         val counting = CountingEvidenceDao(real)
@@ -577,7 +580,7 @@ class UserMemoryIntegrationTest {
 
         assertTrue(
             counting.writes in 1..2,
-            "批量后写语句应为常数（新增一批 + 合并一批），实际 ${counting.writes} 次"
+            "批量后写语句应为常数（新增一批 + 合并一批），实际 ${counting.writes} 次",
         )
     }
 
@@ -604,8 +607,7 @@ class UserMemoryIntegrationTest {
     }
 
     /** 只数写语句，其余方法原样转发给真 DAO（Kotlin 接口委托，不引 mock 库）。 */
-    private class CountingEvidenceDao(private val real: com.hmp.data.database.UserProfileEvidenceDao) :
-        com.hmp.data.database.UserProfileEvidenceDao by real {
+    private class CountingEvidenceDao(private val real: com.hmp.data.database.UserProfileEvidenceDao) : com.hmp.data.database.UserProfileEvidenceDao by real {
         var writes = 0
 
         override suspend fun insert(evidence: UserProfileEvidenceEntity): Long {
@@ -640,8 +642,6 @@ class UserMemoryIntegrationTest {
     private class FailOnWritePortraitDao(
         private val real: com.hmp.data.database.UserProfilePortraitDao,
     ) : com.hmp.data.database.UserProfilePortraitDao by real {
-        override suspend fun upsertAll(portraits: List<UserProfilePortraitEntity>) {
-            throw IllegalStateException("侧写落库失败（测试注入）")
-        }
+        override suspend fun upsertAll(portraits: List<UserProfilePortraitEntity>): Unit = throw IllegalStateException("侧写落库失败（测试注入）")
     }
 }

@@ -84,17 +84,16 @@ object PortraitComposer {
      *   不靠"跨了几个会话"，所以**直接 L3**，也不随时间衰减。
      * - **行为 / 对话**：同一事实跨会话出现 ≥ N 次 → L2；持续 ≥ M 周且近期仍在续期 → L3。
      */
-    private fun tierOf(type: PortraitType, rows: List<ProfileEvidence>, nowMs: Long): PortraitTier {
-        return when (type.maturity) {
-            PortraitMaturity.LIBRARY -> PortraitTier.L3
-            PortraitMaturity.BEHAVIOR, PortraitMaturity.DIALOGUE -> {
-                val pastPromotionWindow = rows.any { row ->
-                    row.distinctSessions >= ProfileConfig.PROMOTE_MIN_SESSIONS &&
-                        weeksBetween(row.createdAt, nowMs) >= ProfileConfig.PROMOTE_MIN_WEEKS
-                }
-                val recentlyRenewed = rows.any { weeksBetween(it.updatedAt, nowMs) < 1L }
-                if (pastPromotionWindow && recentlyRenewed) PortraitTier.L3 else PortraitTier.L2
+    private fun tierOf(type: PortraitType, rows: List<ProfileEvidence>, nowMs: Long): PortraitTier = when (type.maturity) {
+        PortraitMaturity.LIBRARY -> PortraitTier.L3
+
+        PortraitMaturity.BEHAVIOR, PortraitMaturity.DIALOGUE -> {
+            val pastPromotionWindow = rows.any { row ->
+                row.distinctSessions >= ProfileConfig.PROMOTE_MIN_SESSIONS &&
+                    weeksBetween(row.createdAt, nowMs) >= ProfileConfig.PROMOTE_MIN_WEEKS
             }
+            val recentlyRenewed = rows.any { weeksBetween(it.updatedAt, nowMs) < 1L }
+            if (pastPromotionWindow && recentlyRenewed) PortraitTier.L3 else PortraitTier.L2
         }
     }
 
@@ -130,11 +129,12 @@ object PortraitComposer {
         max: Int = ProfileConfig.CONTEXT_MAX_PORTRAITS,
     ): List<PortraitDraft> = portraits
         .filter { it.factualOnly || it.confidence >= ProfileConfig.CONTEXT_CONFIDENCE_FLOOR }
-        .sortedWith(compareByDescending<PortraitDraft> { it.tier == PortraitTier.L3 }
-            .thenByDescending { it.confidence }
-            .thenBy { it.type.ordinal })
+        .sortedWith(
+            compareByDescending<PortraitDraft> { it.tier == PortraitTier.L3 }
+                .thenByDescending { it.confidence }
+                .thenBy { it.type.ordinal },
+        )
         .take(max)
 
-    private fun weeksBetween(fromMs: Long, toMs: Long): Long =
-        if (fromMs <= 0L) 0L else ((toMs - fromMs) / (7L * 24 * 3600 * 1000)).coerceAtLeast(0L)
+    private fun weeksBetween(fromMs: Long, toMs: Long): Long = if (fromMs <= 0L) 0L else ((toMs - fromMs) / (7L * 24 * 3600 * 1000)).coerceAtLeast(0L)
 }

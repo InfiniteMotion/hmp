@@ -3,11 +3,11 @@ package com.hearablemusic.player.player.keepalive
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import com.hearablemusic.player.player.service.MusicPlayService
 import com.hmp.domain.agent.port.AgentKeepAlivePort
 import com.hmp.domain.agent.port.KeepAliveReason
 import com.hmp.log.HmpLog
 import com.hmp.log.LogTag
-import com.hearablemusic.player.player.service.MusicPlayService
 
 /**
  * Android 侧 agent 保活实现（F11-L2）。

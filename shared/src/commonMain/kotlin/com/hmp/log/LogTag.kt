@@ -86,7 +86,7 @@ enum class LogTag(val v: String) {
     LibraryArtwork("Library.Artwork"),
 
     // ── Media 域：系统媒体集成 ──────────────────────────────────────────
+
     /** iOS Live Activity / 锁屏 Now Playing */
     MediaNowPlaying("Media.NowPlaying"),
-    ;
 }

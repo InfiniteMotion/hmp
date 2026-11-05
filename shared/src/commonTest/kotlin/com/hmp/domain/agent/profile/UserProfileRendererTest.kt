@@ -80,8 +80,8 @@ class UserProfileRendererTest {
                         tier = PortraitTier.L2,
                         sources = setOf(ProfileSources.T0_BEHAVIOR),
                     ),
-                )
-            )
+                ),
+            ),
         )
         listOf(
             "library_portrait", "habits_portrait", "time_portrait",
@@ -103,9 +103,9 @@ class UserProfileRendererTest {
                     libraryPortrait(
                         pathGroups = "/Users/xi/Music,..,~/secret,爵士",
                         pathStructure = LibraryModeler.PATH_ORGANIZED,
-                    )
-                )
-            )
+                    ),
+                ),
+            ),
         )
         assertFalse(text.contains("/Users"), "绝对路径不得进上下文")
         assertFalse(text.contains("~"), "波浪号家目录不得进上下文")
@@ -127,7 +127,7 @@ class UserProfileRendererTest {
     @Test
     fun render_dropsShapeOnlyNote_whenContentStageArrived() {
         val withContent = libraryPortrait(
-            extra = mapOf(PortraitType.GENRE_BREADTH to "BROAD")
+            extra = mapOf(PortraitType.GENRE_BREADTH to "BROAD"),
         )
         val text = assertNotNull(UserProfileRenderer.render(listOf(withContent)))
         assertFalse(text.contains("我还在认识你的曲库"), "标签已就绪就不该再说不认识")
@@ -145,9 +145,9 @@ class UserProfileRendererTest {
                         mapOf(PortraitType.COMPLETION_RATE to "HIGH"),
                         tier = PortraitTier.L2,
                         sources = setOf(ProfileSources.T0_BEHAVIOR),
-                    )
-                )
-            )
+                    ),
+                ),
+            ),
         )
         assertTrue(text.contains("很少中途跳歌"))
         assertFalse(text.contains("你是一个"), "不得下人格断言")

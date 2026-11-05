@@ -59,10 +59,11 @@ fun AnimationPage(onBack: () -> Unit) {
         // 持续时间
         ComponentShowcase(
             title = Strings.duration(lang),
-            description = if (lang == AppLanguage.ZH)
+            description = if (lang == AppLanguage.ZH) {
                 "四档动画持续时间，对应不同交互场景"
-            else
-                "Four animation duration tiers for different interaction scenarios",
+            } else {
+                "Four animation duration tiers for different interaction scenarios"
+            },
         ) {
             val durations = listOf(
                 "MICRO_INTERACTION" to 200,
@@ -120,10 +121,11 @@ fun AnimationPage(onBack: () -> Unit) {
         // 缓动函数
         ComponentShowcase(
             title = Strings.easing(lang),
-            description = if (lang == AppLanguage.ZH)
+            description = if (lang == AppLanguage.ZH) {
                 "三组缓动函数，控制动画的加速和减速节奏"
-            else
-                "Three easing curves controlling animation acceleration and deceleration",
+            } else {
+                "Three easing curves controlling animation acceleration and deceleration"
+            },
         ) {
             val easings = listOf(
                 "EASE_IN_OUT" to CubicBezierEasing(0.4f, 0.0f, 0.2f, 1.0f),
@@ -169,10 +171,11 @@ fun AnimationPage(onBack: () -> Unit) {
         // Spring 配置
         ComponentShowcase(
             title = Strings.springConfig(lang),
-            description = if (lang == AppLanguage.ZH)
+            description = if (lang == AppLanguage.ZH) {
                 "Spring 弹簧动画配置，用于物理感交互反馈"
-            else
-                "Spring animation configs for physics-based interaction feedback",
+            } else {
+                "Spring animation configs for physics-based interaction feedback"
+            },
         ) {
             val springs = listOf(
                 "SPRING_MEDIUM" to spring<Float>(dampingRatio = DampingRatioMediumBouncy, stiffness = StiffnessMediumLow),
@@ -224,10 +227,11 @@ fun AnimationPage(onBack: () -> Unit) {
         // 动态背景说明
         ComponentShowcase(
             title = if (lang == AppLanguage.ZH) "动态背景" else "Dynamic Background",
-            description = if (lang == AppLanguage.ZH)
+            description = if (lang == AppLanguage.ZH) {
                 "三种动态背景风格，用于沉浸式页面体验"
-            else
-                "Three dynamic background styles for immersive page experiences",
+            } else {
+                "Three dynamic background styles for immersive page experiences"
+            },
         ) {
             val bgStyles = listOf(
                 if (lang == AppLanguage.ZH) "FLUID" to "流体渐变，平滑色彩过渡" else "FLUID" to "Fluid gradient with smooth color transitions",

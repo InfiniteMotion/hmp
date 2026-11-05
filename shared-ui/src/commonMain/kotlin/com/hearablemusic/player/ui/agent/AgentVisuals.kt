@@ -1,22 +1,21 @@
 package com.hearablemusic.player.ui.agent
-import org.jetbrains.compose.resources.stringResource
 import androidx.compose.runtime.Composable
-import com.hearablemusic.player.ui.generated.resources.agent_status_idle
+import androidx.compose.ui.graphics.Color
+import com.hearablemusic.player.ui.common.design.colors.AgentStatusColors
+import com.hearablemusic.player.ui.generated.resources.Res
 import com.hearablemusic.player.ui.generated.resources.agent_status_building
-import com.hearablemusic.player.ui.generated.resources.agent_status_running
-import com.hearablemusic.player.ui.generated.resources.agent_status_paused
 import com.hearablemusic.player.ui.generated.resources.agent_status_completed
 import com.hearablemusic.player.ui.generated.resources.agent_status_error
-
-import com.hearablemusic.player.ui.generated.resources.Res
+import com.hearablemusic.player.ui.generated.resources.agent_status_idle
+import com.hearablemusic.player.ui.generated.resources.agent_status_paused
+import com.hearablemusic.player.ui.generated.resources.agent_status_running
 import com.hearablemusic.player.ui.generated.resources.enrich
 import com.hearablemusic.player.ui.generated.resources.hello
 import com.hearablemusic.player.ui.generated.resources.master
 import com.hearablemusic.player.ui.generated.resources.radiowaves
-import androidx.compose.ui.graphics.Color
 import com.hmp.domain.agent.port.CapabilityState
-import com.hearablemusic.player.ui.common.design.colors.AgentStatusColors
 import org.jetbrains.compose.resources.DrawableResource
+import org.jetbrains.compose.resources.stringResource
 
 /**
  * Agent 视觉令牌（看板 AgentMonitorScreen 与设置页 AIScreen **共用同一份**）。
@@ -67,5 +66,4 @@ fun agentStatusLabel(state: CapabilityState?): String = state?.let { s ->
  * 与状态文案相同时视为**无增量**（例如 Hello 的 detail 就是「运行中」，状态行已写）→ 返回 null。
  */
 @Composable
-fun agentDetailOf(state: CapabilityState?): String? =
-    state?.detail?.takeIf { it.isNotBlank() && it != agentStatusLabel(state) }
+fun agentDetailOf(state: CapabilityState?): String? = state?.detail?.takeIf { it.isNotBlank() && it != agentStatusLabel(state) }

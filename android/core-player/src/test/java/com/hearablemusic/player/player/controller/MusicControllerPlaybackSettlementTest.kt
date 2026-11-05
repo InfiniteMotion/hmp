@@ -94,7 +94,7 @@ class MusicControllerPlaybackSettlementTest {
             "playDuration=$written 不是会话累计实听（元数据时长是 200000）",
             written in 4_000L..30_000L,
         )
-    }    private fun track(id: Long, durationMs: Long) = MusicInfo(
+    } private fun track(id: Long, durationMs: Long) = MusicInfo(
         music = Music(
             id = id,
             title = "song-$id",

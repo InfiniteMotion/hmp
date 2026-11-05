@@ -43,6 +43,7 @@ interface SettingsRepository {
     suspend fun saveIsLoadMusic(isLoadMusic: Boolean)
 
     // Scan Directory Config
+
     /**
      * 自定义扫描目录与屏蔽目录。
      *
@@ -62,7 +63,7 @@ interface SettingsRepository {
     // Playback State
     val currentMusicId: Flow<Long?>
     suspend fun saveCurrentMusicId(id: Long)
-    
+
     val currentPosition: Flow<Long>
     suspend fun saveCurrentPosition(position: Long)
 
@@ -108,6 +109,7 @@ interface SettingsRepository {
     suspend fun saveGlobalAgentConfig(config: com.hmp.domain.agent.runtime.GlobalAgentConfig)
 
     // Free Trial Quota
+
     /** 内置 Key 是否可用（免费体验 / 付费模式共用同一套内置配置）。UI 用它决定免费入口显不显示。 */
     suspend fun isBuiltInAiConfigured(): Boolean
 
@@ -153,43 +155,55 @@ interface SettingsRepository {
     // 这里只剩测试在引用；下次清理按 D7-07 的方式连同三端 Impl 一起删 —— 别再往这里加消费者。
     @Deprecated("Use lyricsPlayerConfig instead")
     val lyricsOriginalTextSize: Flow<Int>
+
     @Deprecated("Use lyricsPlayerConfig instead")
     suspend fun saveLyricsOriginalTextSize(size: Int)
+
     @Deprecated("Use lyricsPlayerConfig instead")
     suspend fun getLyricsOriginalTextSize(): Int
 
     @Deprecated("Use lyricsPlayerConfig instead")
     val lyricsTranslatedTextSize: Flow<Int>
+
     @Deprecated("Use lyricsPlayerConfig instead")
     suspend fun saveLyricsTranslatedTextSize(size: Int)
+
     @Deprecated("Use lyricsPlayerConfig instead")
     suspend fun getLyricsTranslatedTextSize(): Int
 
     @Deprecated("Use lyricsPlayerConfig instead")
     val lyricsCurrentTimeTextSize: Flow<Int>
+
     @Deprecated("Use lyricsPlayerConfig instead")
     suspend fun saveLyricsCurrentTimeTextSize(size: Int)
+
     @Deprecated("Use lyricsPlayerConfig instead")
     suspend fun getLyricsCurrentTimeTextSize(): Int
 
     @Deprecated("Use lyricsPlayerConfig instead")
     val lyricsLineSpacing: Flow<Int>
+
     @Deprecated("Use lyricsPlayerConfig instead")
     suspend fun saveLyricsLineSpacing(spacing: Int)
+
     @Deprecated("Use lyricsPlayerConfig instead")
     suspend fun getLyricsLineSpacing(): Int
 
     @Deprecated("Use lyricsPlayerConfig instead")
     val lyricsDisplayMode: Flow<DisplayMode>
+
     @Deprecated("Use lyricsPlayerConfig instead")
     suspend fun saveLyricsDisplayMode(mode: DisplayMode)
+
     @Deprecated("Use lyricsPlayerConfig instead")
     suspend fun getLyricsDisplayMode(): DisplayMode
 
     @Deprecated("Use lyricsPlayerConfig instead")
     val lyricsAlignment: Flow<LyricsAlignment>
+
     @Deprecated("Use lyricsPlayerConfig instead")
     suspend fun saveLyricsAlignment(alignment: LyricsAlignment)
+
     @Deprecated("Use lyricsPlayerConfig instead")
     suspend fun getLyricsAlignment(): LyricsAlignment
 

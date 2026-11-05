@@ -57,9 +57,11 @@ object ContextAssembler {
     }
 
     /** 认识进度（总纲 2.2：伙伴的阅历）。 */
-    fun buildRecognitionProgress(knownCount: Int, totalCount: Int): String =
-        if (totalCount == 0) "曲库为空，我还在等你导入音乐。"
-        else "我已经认识了你的 $knownCount / $totalCount 首歌。"
+    fun buildRecognitionProgress(knownCount: Int, totalCount: Int): String = if (totalCount == 0) {
+        "曲库为空，我还在等你导入音乐。"
+    } else {
+        "我已经认识了你的 $knownCount / $totalCount 首歌。"
+    }
 
     /** 时段（总纲 3.4 层 1「语境包：时段」）。取本地小时 0..23。 */
     fun buildTimeOfDay(hourOfDay: Int): String = when (hourOfDay) {
@@ -84,7 +86,9 @@ object ContextAssembler {
         val progress = if (durationMs > 0) {
             val pct = (currentPositionMs * 100 / durationMs).coerceIn(0, 100)
             "，已播放约 $pct%"
-        } else ""
+        } else {
+            ""
+        }
         return "当前$state：$currentTitle · $currentArtist$progress。"
     }
 

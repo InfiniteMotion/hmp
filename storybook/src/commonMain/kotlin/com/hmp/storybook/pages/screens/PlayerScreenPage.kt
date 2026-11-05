@@ -62,18 +62,20 @@ fun PlayerScreenPage(onBack: () -> Unit) {
 
     StorybookPage(
         title = Strings.playerScreen(lang),
-        description = if (lang == AppLanguage.ZH)
+        description = if (lang == AppLanguage.ZH) {
             "HMP 播放器页面，PlayerHeader 居中返回按钮，MusicInfo displayMedium 标题，SeekBar 4.dp 轨道，PlaybackControls 72.dp 主按钮，DotPager 三页切换"
-        else
-            "HMP Player screen with centered PlayerHeader, displayMedium MusicInfo, 4.dp SeekBar track, 72.dp PlaybackControls, DotPager with 3 pages",
+        } else {
+            "HMP Player screen with centered PlayerHeader, displayMedium MusicInfo, 4.dp SeekBar track, 72.dp PlaybackControls, DotPager with 3 pages"
+        },
         onBack = onBack,
     ) {
         ComponentShowcase(
             title = if (lang == AppLanguage.ZH) "播放器预览" else "Player Preview",
-            description = if (lang == AppLanguage.ZH)
+            description = if (lang == AppLanguage.ZH) {
                 "PlayerHeader(居中返回 32.dp) + MusicInfo(displayMedium) + SeekBar(4.dp) + PlaybackControls(72.dp) + DotPager(3页)"
-            else
-                "PlayerHeader(centered back 32.dp) + MusicInfo(displayMedium) + SeekBar(4.dp) + PlaybackControls(72.dp) + DotPager(3 pages)",
+            } else {
+                "PlayerHeader(centered back 32.dp) + MusicInfo(displayMedium) + SeekBar(4.dp) + PlaybackControls(72.dp) + DotPager(3 pages)"
+            },
         ) {
             PhoneFramePreview {
                 PlayerScreenContent(lang)
@@ -95,8 +97,8 @@ private fun PlayerScreenContent(lang: AppLanguage) {
                     colors = listOf(
                         MaterialTheme.colorScheme.background,
                         MaterialTheme.colorScheme.surfaceContainerLowest,
-                    )
-                )
+                    ),
+                ),
             )
             .padding(20.dp),
     ) {
@@ -144,8 +146,11 @@ private fun PlayerScreenContent(lang: AppLanguage) {
                             .width(if (selected) 24.dp else 8.dp)
                             .clip(RoundedCornerShape(2.dp))
                             .background(
-                                if (selected) MaterialTheme.colorScheme.primary
-                                else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f),
+                                if (selected) {
+                                    MaterialTheme.colorScheme.primary
+                                } else {
+                                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
+                                },
                             ),
                     )
                 }
@@ -196,6 +201,7 @@ private fun PlayerScreenContent(lang: AppLanguage) {
                         )
                     }
                 }
+
                 1 -> {
                     // 封面页
                     Box(
@@ -205,7 +211,7 @@ private fun PlayerScreenContent(lang: AppLanguage) {
                             .background(
                                 Brush.linearGradient(
                                     colors = listOf(HDBlue, Color(0xFF6C63FF), Color(0xFFE040FB)),
-                                )
+                                ),
                             ),
                         contentAlignment = Alignment.Center,
                     ) {
@@ -217,6 +223,7 @@ private fun PlayerScreenContent(lang: AppLanguage) {
                         )
                     }
                 }
+
                 2 -> {
                     // 歌词页
                     Column(

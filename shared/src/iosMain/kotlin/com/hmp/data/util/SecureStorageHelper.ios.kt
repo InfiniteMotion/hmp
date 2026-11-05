@@ -5,18 +5,22 @@ import kotlinx.cinterop.readBytes
 import platform.Foundation.NSDocumentDirectory
 import platform.Foundation.NSFileManager
 import platform.Foundation.NSString
-import platform.Foundation.NSUserDomainMask
 import platform.Foundation.NSUTF8StringEncoding
+import platform.Foundation.NSUserDomainMask
 import platform.Foundation.dataUsingEncoding
-import kotlin.random.Random
 import kotlin.io.encoding.Base64
 import kotlin.io.encoding.ExperimentalEncodingApi
+import kotlin.random.Random
 
 @OptIn(ExperimentalForeignApi::class, ExperimentalEncodingApi::class)
 actual object SecureStorageHelper {
     private val keysDir: String by lazy {
         val docs = NSFileManager.defaultManager.URLForDirectory(
-            NSDocumentDirectory, NSUserDomainMask, null, false, null
+            NSDocumentDirectory,
+            NSUserDomainMask,
+            null,
+            false,
+            null,
         )!!
         val dir = "${docs.path}/.keys"
         if (!NSFileManager.defaultManager.fileExistsAtPath(dir)) {

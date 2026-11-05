@@ -29,7 +29,6 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.first
 
 /**
  * R-T3 真实端口适配器：把 shared-ui 已有的 [PlaybackController] 桥接到 :shared 的 agent 端口。
@@ -91,52 +90,76 @@ class ControllerPlaybackCommandPort(
         val prevTitle = controller.currentPlayingMusic.value?.music?.title
         val result = when (command) {
             is PlaybackCommand.PLAY -> {
-                controller.playOrResume(); true to "已播放"
+                controller.playOrResume()
+                true to "已播放"
             }
+
             is PlaybackCommand.PAUSE -> {
-                controller.pauseMusic(); true to "已暂停"
+                controller.pauseMusic()
+                true to "已暂停"
             }
+
             is PlaybackCommand.NEXT -> {
                 pendingTrackChange = true
-                controller.playNext(); true to "已切到下一首"
+                controller.playNext()
+                true to "已切到下一首"
             }
+
             is PlaybackCommand.PREVIOUS -> {
                 pendingTrackChange = true
-                controller.playPrevious(); true to "已回到上一首"
+                controller.playPrevious()
+                true to "已回到上一首"
             }
+
             is PlaybackCommand.SEEK_TO -> {
-                controller.seekTo(command.positionMs); true to "已跳转"
+                controller.seekTo(command.positionMs)
+                true to "已跳转"
             }
+
             is PlaybackCommand.PLAY_BY_ID -> {
                 val music = musicRepository.getMusicInfoById(command.musicId).first()
                 if (music == null) {
                     false to "未找到该曲目"
                 } else {
                     pendingTrackChange = true
-                    controller.playWith(music); true to "已开始播放「${music.music.title}」"
+                    controller.playWith(music)
+                    true to "已开始播放「${music.music.title}」"
                 }
             }
+
             is PlaybackCommand.SHUFFLE_ON -> setMode(PlaybackMode.SHUFFLE)
+
             is PlaybackCommand.SHUFFLE_OFF -> setMode(PlaybackMode.SEQUENTIAL)
+
             is PlaybackCommand.REPEAT_ONE_ON -> setMode(PlaybackMode.REPEAT_ONE)
-            is PlaybackCommand.REPEAT_ALL_ON -> setMode(PlaybackMode.SEQUENTIAL) // 全部循环无对应，退回顺序
+
+            is PlaybackCommand.REPEAT_ALL_ON -> setMode(PlaybackMode.SEQUENTIAL)
+
+            // 全部循环无对应，退回顺序
             is PlaybackCommand.REPEAT_OFF -> setMode(PlaybackMode.SEQUENTIAL)
+
             is PlaybackCommand.ADD_TO_QUEUE -> {
                 val music = musicRepository.getMusicInfoById(command.musicId).first()
-                if (music == null) false to "未找到该曲目"
-                else {
-                    controller.addToPlaylist(music); true to "已追加到队列"
+                if (music == null) {
+                    false to "未找到该曲目"
+                } else {
+                    controller.addToPlaylist(music)
+                    true to "已追加到队列"
                 }
             }
+
             is PlaybackCommand.SKIP_ALL -> {
                 pendingTrackChange = true
-                controller.clearPlaylist(); true to "播放队列已清空"
+                controller.clearPlaylist()
+                true to "播放队列已清空"
             }
+
             is PlaybackCommand.REPLACE_QUEUE -> {
                 val appended = replaceQueueWith(command.musicIds)
                 val wanted = command.musicIds.size
                 if (appended < wanted) {
-                    HmpLog.w(LogTag.AgentPort) { "🔌 REPLACE_QUEUE 未全量入队：请求 $wanted 首，实际追加 $appended 首（部分 id 解析失败被丢弃）"
+                    HmpLog.w(LogTag.AgentPort) {
+                        "🔌 REPLACE_QUEUE 未全量入队：请求 $wanted 首，实际追加 $appended 首（部分 id 解析失败被丢弃）"
                     }
                 }
                 (appended >= wanted) to "播放队列已替换 ($appended/$wanted 首)"
@@ -171,7 +194,9 @@ class ControllerPlaybackCommandPort(
         is PlaybackCommand.NEXT,
         is PlaybackCommand.PREVIOUS,
         is PlaybackCommand.PLAY_BY_ID,
-        is PlaybackCommand.SKIP_ALL -> true
+        is PlaybackCommand.SKIP_ALL,
+        -> true
+
         else -> false
     }
 
@@ -228,7 +253,7 @@ class ControllerPlaybackCommandPort(
         val appended = musicIds
             .filter { it != currentId }
             .mapNotNull { idToMusic[it] }
-        appended.forEach { controller.addToPlaylist(it) }   // 真正的追加：不动索引、不触发播放
+        appended.forEach { controller.addToPlaylist(it) } // 真正的追加：不动索引、不触发播放
         // 返回实际追加数：解析不到的 id 会被静默丢弃（真机 22:57「列表好像没换上」的
         // 排查盲区 —— 此前端口报的是请求数，丢弃多少完全不可见）
         return appended.size

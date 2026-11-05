@@ -3,10 +3,10 @@ package com.hmp.domain.backup
 import com.hmp.domain.backup.usecase.ExportUserDataBackupUseCase
 import com.hmp.domain.backup.usecase.ImportUserDataBackupUseCase
 import com.hmp.domain.enum.LabelName
-import com.hmp.domain.setting.model.ListeningDuration
-import com.hmp.domain.setting.model.PlaybackHistory
 import com.hmp.domain.playlist.Playlist
 import com.hmp.domain.playlist.PlaylistItem
+import com.hmp.domain.setting.model.ListeningDuration
+import com.hmp.domain.setting.model.PlaybackHistory
 import com.hmp.test.fakes.FakeBackupFileRepository
 import com.hmp.test.fakes.FakeMusicRepository
 import com.hmp.test.fakes.FakePlaylistRepository
@@ -44,7 +44,7 @@ class BackupSnapshotRoundTripTest {
         ),
         playlists = PlaylistsSnapshot(
             playlists = listOf(
-                Playlist(id = 9, name = "通勤", songCount = 2, totalDurationMs = 480_000L, isPinned = true)
+                Playlist(id = 9, name = "通勤", songCount = 2, totalDurationMs = 480_000L, isPinned = true),
             ),
             playlistItems = listOf(
                 PlaylistItem(songId = 42, playlistId = 9, itemOrder = 0),
@@ -54,7 +54,7 @@ class BackupSnapshotRoundTripTest {
         listeningStats = ListeningStatsSnapshot(
             listeningDurations = listOf(ListeningDuration(date = "2026-10-20", duration = 1_800_000L)),
             playbackHistories = listOf(
-                PlaybackHistory(id = 1, musicId = 42, playedAt = 1_700_000_000_000L, playDuration = 210_000L, isCompleted = true)
+                PlaybackHistory(id = 1, musicId = 42, playedAt = 1_700_000_000_000L, playDuration = 210_000L, isCompleted = true),
             ),
         ),
     )
@@ -86,7 +86,7 @@ class BackupSnapshotRoundTripTest {
         val import = ImportUserDataBackupUseCase(settings, music, playlists, backupRepo, export, runner)
 
         val path = backupRepo.saveBackup(
-            nonEmptySnapshot().copy(version = UserBackupSnapshot.CURRENT_VERSION + 1)
+            nonEmptySnapshot().copy(version = UserBackupSnapshot.CURRENT_VERSION + 1),
         ).getOrThrow()
         backupRepo.savedFileNames.clear()
 

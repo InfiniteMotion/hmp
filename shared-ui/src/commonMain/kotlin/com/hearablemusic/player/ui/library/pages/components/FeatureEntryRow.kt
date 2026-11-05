@@ -1,9 +1,4 @@
 package com.hearablemusic.player.ui.library.pages.components
-import org.jetbrains.compose.resources.stringResource
-import com.hearablemusic.player.ui.generated.resources.feature_agent_config
-import com.hearablemusic.player.ui.generated.resources.feature_agent_monitor
-import com.hearablemusic.player.ui.generated.resources.feature_chat
-
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -29,18 +24,22 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
+import com.hearablemusic.player.ui.common.components.base.HMPCard
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
 import com.hearablemusic.player.ui.common.design.typography.medium
-import com.hearablemusic.player.ui.common.components.base.HMPCard
-import com.hearablemusic.player.ui.common.navigation.Routes as NavRoutes
 import com.hearablemusic.player.ui.common.util.HapticFeedbackHelper
 import com.hearablemusic.player.ui.common.util.rememberHapticFeedback
 import com.hearablemusic.player.ui.generated.resources.Res
+import com.hearablemusic.player.ui.generated.resources.feature_agent_config
+import com.hearablemusic.player.ui.generated.resources.feature_agent_monitor
+import com.hearablemusic.player.ui.generated.resources.feature_chat
 import com.hearablemusic.player.ui.generated.resources.gearshape
 import com.hearablemusic.player.ui.generated.resources.list_bullet_circle
 import com.hearablemusic.player.ui.generated.resources.person_filled_viewfinder
 import org.jetbrains.compose.resources.painterResource
-import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
+import org.jetbrains.compose.resources.stringResource
+import com.hearablemusic.player.ui.common.navigation.Routes as NavRoutes
 
 /**
  * 区域③：功能入口区 —— 横排等宽三卡（只保留图标 + 标题；标题 titleSmall）。
@@ -69,7 +68,7 @@ fun FeatureEntryRow(
             onClick = {
                 haptic.performClick()
                 navController.add(NavRoutes.Companion.Chat)
-            }
+            },
         )
         FeatureEntryCard(
             modifier = Modifier.weight(1f),
@@ -78,7 +77,7 @@ fun FeatureEntryRow(
             onClick = {
                 haptic.performClick()
                 navController.add(NavRoutes.AI.AI)
-            }
+            },
         )
         FeatureEntryCard(
             modifier = Modifier.weight(1f),
@@ -87,7 +86,7 @@ fun FeatureEntryRow(
             onClick = {
                 haptic.performClick()
                 navController.add(NavRoutes.Settings.AgentMonitor)
-            }
+            },
         )
     }
 }
@@ -106,7 +105,7 @@ private fun FeatureEntryCard(
         modifier = modifier
             .clickable(onClick = onClick)
             .aspectRatio(1.2f),
-        contentPadding = Modifier.padding(vertical = metrics.cozy, horizontal = metrics.base)
+        contentPadding = Modifier.padding(vertical = metrics.cozy, horizontal = metrics.base),
     ) {
         Column(
             modifier = Modifier.fillMaxSize(),

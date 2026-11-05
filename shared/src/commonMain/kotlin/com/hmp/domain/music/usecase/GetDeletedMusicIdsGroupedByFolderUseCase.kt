@@ -7,10 +7,8 @@ import com.hmp.domain.music.MusicRepository
  * 返回 (文件夹路径, 该文件夹下已删除歌曲的 id 列表)。
  */
 class GetDeletedMusicIdsGroupedByFolderUseCase(
-    
-    private val musicRepository: MusicRepository
+
+    private val musicRepository: MusicRepository,
 ) {
-    suspend operator fun invoke(): List<Pair<String, List<Long>>> {
-        return musicRepository.getDeletedMusicIdsGroupedByFolder()
-    }
+    suspend operator fun invoke(): List<Pair<String, List<Long>>> = musicRepository.getDeletedMusicIdsGroupedByFolder()
 }

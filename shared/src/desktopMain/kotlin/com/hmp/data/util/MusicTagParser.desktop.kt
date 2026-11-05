@@ -43,7 +43,7 @@ actual object MusicTagParser {
                 lyrics = tag?.getFirst(FieldKey.LYRICS)
                     ?: tag?.getFirst("UNSYNCEDLYRICS")
                     ?: tag?.getFirst("USLT"),
-                albumArt = artwork
+                albumArt = artwork,
             )
         } catch (_: Exception) {
             null

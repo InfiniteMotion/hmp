@@ -1,11 +1,9 @@
 package com.hearablemusic.player.ui.agent.chat
-import com.hearablemusic.player.ui.common.text.UiText
-import com.hearablemusic.player.ui.common.text.asString
-import com.hearablemusic.player.ui.generated.resources.agent_chat_input_placeholder
-import com.hearablemusic.player.ui.generated.resources.agent_chat_send
-import com.hearablemusic.player.ui.generated.resources.agent_chat_title
-
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandIn
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -48,27 +46,28 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
-import com.hearablemusic.player.ui.common.pages.base.SubScreen
 import com.hearablemusic.player.ui.common.components.base.HMPTextField
+import com.hearablemusic.player.ui.common.design.animation.HmpMotion
+import com.hearablemusic.player.ui.common.design.metrics.LayoutConstraints
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
 import com.hearablemusic.player.ui.common.layout.LocalWindowSizeInfo
+import com.hearablemusic.player.ui.common.pages.base.SubScreen
+import com.hearablemusic.player.ui.common.text.UiText
+import com.hearablemusic.player.ui.common.text.asString
 import com.hearablemusic.player.ui.generated.resources.Res
+import com.hearablemusic.player.ui.generated.resources.agent_chat_input_placeholder
+import com.hearablemusic.player.ui.generated.resources.agent_chat_send
+import com.hearablemusic.player.ui.generated.resources.agent_chat_title
 import com.hearablemusic.player.ui.generated.resources.ai_quota_exhausted_hint
-import org.jetbrains.compose.resources.stringResource
 import com.hearablemusic.player.ui.generated.resources.chevron_up
 import com.hearablemusic.player.ui.platform.PlaybackController
 import com.hmp.domain.music.MusicInfo
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.painterResource
+import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
-import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
-import com.hearablemusic.player.ui.common.design.metrics.LayoutConstraints
-import com.hearablemusic.player.ui.common.design.animation.HmpMotion
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.expandIn
-import androidx.compose.animation.shrinkOut
 
 /**
  * M5-T1 ChatScreen —— 听歌伙伴对话页（确认卡片流宿主）。
@@ -160,55 +159,55 @@ private fun ChatScreenContent(
                 .imePadding(),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-        Column(
-            modifier = Modifier
-                .widthIn(max = maxContentWidth)
-                .fillMaxWidth()
-                .weight(1f),
-        ) {
-        ChatMessageList(
-            messages = state.messages,
-            running = state.running,
-            runningHint = state.runningHint,
-            callbacks = callbacks,
-            inputFocused = inputFocused,
-            modifier = Modifier.weight(1f),
-        )
-
-        AnimatedVisibility(
-            visible = state.pendingConfirm != null,
-            modifier = Modifier.padding(horizontal = metrics.base),
-            enter = fadeIn(HmpMotion.enter()) + expandIn(HmpMotion.enter()),
-            exit = fadeOut(HmpMotion.exit()) + shrinkOut(HmpMotion.exit()),
-        ) {
-            state.pendingConfirm?.let { p ->
-                ConfirmMatrixCard(
-                    items = p.items,
-                    submitted = p.submitted,
+            Column(
+                modifier = Modifier
+                    .widthIn(max = maxContentWidth)
+                    .fillMaxWidth()
+                    .weight(1f),
+            ) {
+                ChatMessageList(
+                    messages = state.messages,
+                    running = state.running,
+                    runningHint = state.runningHint,
                     callbacks = callbacks,
+                    inputFocused = inputFocused,
+                    modifier = Modifier.weight(1f),
+                )
+
+                AnimatedVisibility(
+                    visible = state.pendingConfirm != null,
+                    modifier = Modifier.padding(horizontal = metrics.base),
+                    enter = fadeIn(HmpMotion.enter()) + expandIn(HmpMotion.enter()),
+                    exit = fadeOut(HmpMotion.exit()) + shrinkOut(HmpMotion.exit()),
+                ) {
+                    state.pendingConfirm?.let { p ->
+                        ConfirmMatrixCard(
+                            items = p.items,
+                            submitted = p.submitted,
+                            callbacks = callbacks,
+                        )
+                    }
+                }
+
+                // 配额耗尽提示：与输入栏同层，不占输入区排版
+                if (quotaBlocked) {
+                    Text(
+                        text = stringResource(Res.string.ai_quota_exhausted_hint),
+                        style = typo.caption,
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.padding(horizontal = metrics.cozy, vertical = metrics.micro),
+                    )
+                }
+                // 底部输入栏（自绘紧凑输入框 + 圆形发送）
+                ChatInputBar(
+                    input = state.input,
+                    running = state.running || (state.pendingConfirm != null && !state.pendingConfirm.submitted),
+                    quotaBlocked = quotaBlocked,
+                    onInputChange = onInputChange,
+                    onSend = onSend,
+                    onFocusChanged = { inputFocused = it },
                 )
             }
-        }
-
-        // 配额耗尽提示：与输入栏同层，不占输入区排版
-        if (quotaBlocked) {
-            Text(
-                text = stringResource(Res.string.ai_quota_exhausted_hint),
-                style = typo.caption,
-                color = MaterialTheme.colorScheme.error,
-                modifier = Modifier.padding(horizontal = metrics.cozy, vertical = metrics.micro),
-            )
-        }
-        // 底部输入栏（自绘紧凑输入框 + 圆形发送）
-        ChatInputBar(
-            input = state.input,
-            running = state.running || (state.pendingConfirm != null && !state.pendingConfirm.submitted),
-            quotaBlocked = quotaBlocked,
-            onInputChange = onInputChange,
-            onSend = onSend,
-            onFocusChanged = { inputFocused = it },
-        )
-        }
         }
     }
 }
@@ -318,10 +317,16 @@ private fun ChatInputBar(
             enabled = canSend,
             modifier = Modifier.size(LayoutConstraints.ChatIconSize),
             colors = IconButtonDefaults.filledIconButtonColors(
-                containerColor = if (canSend) MaterialTheme.colorScheme.primary
-                else MaterialTheme.colorScheme.surfaceVariant,
-                contentColor = if (canSend) MaterialTheme.colorScheme.onPrimary
-                else MaterialTheme.colorScheme.onSurfaceVariant,
+                containerColor = if (canSend) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.surfaceVariant
+                },
+                contentColor = if (canSend) {
+                    MaterialTheme.colorScheme.onPrimary
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
             ),
         ) {
             Icon(

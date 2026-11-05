@@ -56,11 +56,9 @@ internal class IosShareService : ShareService {
 
 /** 文件选择：Swift PHPicker / UIDocumentPicker。 */
 internal class IosFilePickerService : FilePickerService {
-    override fun pickImage(onResult: (String?) -> Unit) =
-        IosPlatformServicesBridge.pickImage?.invoke(onResult) ?: onResult(null)
+    override fun pickImage(onResult: (String?) -> Unit) = IosPlatformServicesBridge.pickImage?.invoke(onResult) ?: onResult(null)
 
-    override fun openBackupFile(onResult: (String?) -> Unit) =
-        IosPlatformServicesBridge.openBackupFile?.invoke(onResult) ?: onResult(null)
+    override fun openBackupFile(onResult: (String?) -> Unit) = IosPlatformServicesBridge.openBackupFile?.invoke(onResult) ?: onResult(null)
 
     // iOS 沙箱内无「自定义扫描目录」概念：音乐来自 Documents 目录（Files App 导入），
     // 故相关区块不渲染（见 LibrarySettingsScreen），本方法恒回调 null。
@@ -88,8 +86,7 @@ internal class IosPermissionService : PermissionService {
 /** 标签编辑桥：选图走 Swift PHPicker；写权限恒授权；写入走 shared MusicTagEditor。 */
 internal class IosMusicTagEditService : MusicTagEditService {
 
-    override fun pickCoverImage(onResult: (ByteArray?) -> Unit) =
-        IosPlatformServicesBridge.pickCoverImage?.invoke(onResult) ?: onResult(null)
+    override fun pickCoverImage(onResult: (ByteArray?) -> Unit) = IosPlatformServicesBridge.pickCoverImage?.invoke(onResult) ?: onResult(null)
 
     override fun requestMusicWriteAccess(filePath: String, onResult: (MusicWriteAccessResult) -> Unit) {
         val exists = platform.Foundation.NSFileManager.defaultManager.fileExistsAtPath(filePath)
@@ -119,8 +116,12 @@ internal class IosMusicTagEditService : MusicTagEditService {
 
 /** 悬浮歌词：iOS 无悬浮窗体系，空实现（与 Desktop 一致）。 */
 internal class IosFloatingLyricsService : FloatingLyricsController {
-    override fun start() { IosPlatformServicesBridge.floatingLyricsStart?.invoke() }
-    override fun stop() { IosPlatformServicesBridge.floatingLyricsStop?.invoke() }
+    override fun start() {
+        IosPlatformServicesBridge.floatingLyricsStart?.invoke()
+    }
+    override fun stop() {
+        IosPlatformServicesBridge.floatingLyricsStop?.invoke()
+    }
 }
 
 /**

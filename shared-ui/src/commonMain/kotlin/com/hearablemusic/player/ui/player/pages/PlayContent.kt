@@ -3,6 +3,7 @@ package com.hearablemusic.player.ui.player.pages
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -11,7 +12,6 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.displayCutoutPadding
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -56,7 +56,11 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.hearablemusic.player.ui.agent.shell.RadioConsoleController
 import com.hearablemusic.player.ui.common.components.base.HMPCard
+import com.hearablemusic.player.ui.common.design.metrics.HMPMetricTokens
+import com.hearablemusic.player.ui.common.design.metrics.LayoutConstraints
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
 import com.hearablemusic.player.ui.common.design.typography.medium
 import com.hearablemusic.player.ui.common.dialogs.TimerDialog
@@ -65,6 +69,50 @@ import com.hearablemusic.player.ui.common.layout.WindowWidthSizeClass
 import com.hearablemusic.player.ui.common.util.UiState
 import com.hearablemusic.player.ui.common.util.isRenderableExtra
 import com.hearablemusic.player.ui.common.util.rememberHapticFeedback
+import com.hearablemusic.player.ui.common.viewmodel.PaletteColors
+import com.hearablemusic.player.ui.generated.resources.Res
+import com.hearablemusic.player.ui.generated.resources.agent_capsule_desc
+import com.hearablemusic.player.ui.generated.resources.album_label
+import com.hearablemusic.player.ui.generated.resources.artist_introduction
+import com.hearablemusic.player.ui.generated.resources.artist_label
+import com.hearablemusic.player.ui.generated.resources.backward_end_fill
+import com.hearablemusic.player.ui.generated.resources.chevron_up_circle
+import com.hearablemusic.player.ui.generated.resources.creative_background
+import com.hearablemusic.player.ui.generated.resources.favorite
+import com.hearablemusic.player.ui.generated.resources.forward_end_fill
+import com.hearablemusic.player.ui.generated.resources.heart
+import com.hearablemusic.player.ui.generated.resources.heart_fill
+import com.hearablemusic.player.ui.generated.resources.identify_song
+import com.hearablemusic.player.ui.generated.resources.labels
+import com.hearablemusic.player.ui.generated.resources.liked_status
+import com.hearablemusic.player.ui.generated.resources.lyrics
+import com.hearablemusic.player.ui.generated.resources.more
+import com.hearablemusic.player.ui.generated.resources.music_note_list
+import com.hearablemusic.player.ui.generated.resources.music_title_placeholder
+import com.hearablemusic.player.ui.generated.resources.next
+import com.hearablemusic.player.ui.generated.resources.pause
+import com.hearablemusic.player.ui.generated.resources.personal_stats
+import com.hearablemusic.player.ui.generated.resources.play_fill
+import com.hearablemusic.player.ui.generated.resources.play_pause
+import com.hearablemusic.player.ui.generated.resources.playback_mode
+import com.hearablemusic.player.ui.generated.resources.playlist
+import com.hearablemusic.player.ui.generated.resources.playlist_count
+import com.hearablemusic.player.ui.generated.resources.previous
+import com.hearablemusic.player.ui.generated.resources.radio_card_idle
+import com.hearablemusic.player.ui.generated.resources.recommendation_mode
+import com.hearablemusic.player.ui.generated.resources.related_info
+import com.hearablemusic.player.ui.generated.resources.repeat
+import com.hearablemusic.player.ui.generated.resources.repeat_1
+import com.hearablemusic.player.ui.generated.resources.scope
+import com.hearablemusic.player.ui.generated.resources.shuffle
+import com.hearablemusic.player.ui.generated.resources.skipped_count
+import com.hearablemusic.player.ui.generated.resources.sleep_timer
+import com.hearablemusic.player.ui.generated.resources.song_achievements
+import com.hearablemusic.player.ui.generated.resources.song_description
+import com.hearablemusic.player.ui.generated.resources.song_detail_tab_intro
+import com.hearablemusic.player.ui.generated.resources.sort_play_count
+import com.hearablemusic.player.ui.generated.resources.timer
+import com.hearablemusic.player.ui.generated.resources.user_rating
 import com.hearablemusic.player.ui.library.pages.components.AlbumCover
 import com.hearablemusic.player.ui.library.pages.components.musiclist.CurrentPlayingConfig
 import com.hearablemusic.player.ui.library.pages.components.musiclist.EditConfig
@@ -79,50 +127,6 @@ import com.hearablemusic.player.ui.library.viewmodel.SongDetailData
 import com.hearablemusic.player.ui.library.viewmodel.SongDetailViewModel
 import com.hearablemusic.player.ui.player.components.DotPager
 import com.hearablemusic.player.ui.player.components.RadioEntryCard
-import com.hearablemusic.player.ui.common.viewmodel.PaletteColors
-import com.hearablemusic.player.ui.generated.resources.Res
-import com.hearablemusic.player.ui.generated.resources.album_label
-import com.hearablemusic.player.ui.generated.resources.artist_introduction
-import com.hearablemusic.player.ui.generated.resources.artist_label
-import com.hearablemusic.player.ui.generated.resources.backward_end_fill
-import com.hearablemusic.player.ui.generated.resources.creative_background
-import com.hearablemusic.player.ui.generated.resources.favorite
-import com.hearablemusic.player.ui.generated.resources.forward_end_fill
-import com.hearablemusic.player.ui.generated.resources.agent_capsule_desc
-import com.hearablemusic.player.ui.generated.resources.heart
-import com.hearablemusic.player.ui.generated.resources.heart_fill
-import com.hearablemusic.player.ui.generated.resources.identify_song
-import com.hearablemusic.player.ui.generated.resources.labels
-import com.hearablemusic.player.ui.generated.resources.liked_status
-import com.hearablemusic.player.ui.generated.resources.lyrics
-import com.hearablemusic.player.ui.generated.resources.music_note_list
-import com.hearablemusic.player.ui.generated.resources.music_title_placeholder
-import com.hearablemusic.player.ui.generated.resources.next
-import com.hearablemusic.player.ui.generated.resources.pause
-import com.hearablemusic.player.ui.generated.resources.personal_stats
-import com.hearablemusic.player.ui.generated.resources.play_fill
-import com.hearablemusic.player.ui.generated.resources.play_pause
-import com.hearablemusic.player.ui.generated.resources.playback_mode
-import com.hearablemusic.player.ui.generated.resources.playlist
-import com.hearablemusic.player.ui.generated.resources.playlist_count
-import com.hearablemusic.player.ui.generated.resources.radio_card_idle
-import com.hearablemusic.player.ui.generated.resources.recommendation_mode
-import com.hearablemusic.player.ui.generated.resources.scope
-import com.hearablemusic.player.ui.generated.resources.more
-import com.hearablemusic.player.ui.generated.resources.previous
-import com.hearablemusic.player.ui.generated.resources.related_info
-import com.hearablemusic.player.ui.generated.resources.repeat
-import com.hearablemusic.player.ui.generated.resources.repeat_1
-import com.hearablemusic.player.ui.generated.resources.shuffle
-import com.hearablemusic.player.ui.generated.resources.skipped_count
-import com.hearablemusic.player.ui.generated.resources.sleep_timer
-import com.hearablemusic.player.ui.generated.resources.song_achievements
-import com.hearablemusic.player.ui.generated.resources.song_description
-import com.hearablemusic.player.ui.generated.resources.song_detail_tab_intro
-import com.hearablemusic.player.ui.generated.resources.sort_play_count
-import com.hearablemusic.player.ui.generated.resources.chevron_up_circle
-import com.hearablemusic.player.ui.generated.resources.timer
-import com.hearablemusic.player.ui.generated.resources.user_rating
 import com.hearablemusic.player.ui.player.viewmodel.LyricsSettingsState
 import com.hearablemusic.player.ui.player.viewmodel.PlayerCallbacks
 import com.hearablemusic.player.ui.player.viewmodel.PlayerUiState
@@ -131,17 +135,13 @@ import com.hmp.domain.config.LyricsAlignment
 import com.hmp.domain.enum.PlaybackMode
 import com.hmp.domain.music.Music
 import com.hmp.domain.music.MusicInfo
-import kotlin.math.abs
-import com.hearablemusic.player.ui.agent.shell.RadioConsoleController
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
-import org.koin.compose.viewmodel.koinViewModel
 import org.koin.compose.koinInject
-import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
-import com.hearablemusic.player.ui.common.design.metrics.HMPMetricTokens
-import com.hearablemusic.player.ui.common.design.metrics.LayoutConstraints
+import org.koin.compose.viewmodel.koinViewModel
+import kotlin.math.abs
 
 // 格式化时间为 mm:ss（commonMain 无 String.format，用 padStart 等价实现）
 fun formatTime(millis: Long): String {
@@ -197,7 +197,7 @@ fun PlayContent(
     }
 
     BoxWithConstraints(
-        modifier = Modifier.fillMaxSize()
+        modifier = Modifier.fillMaxSize(),
     ) {
         val sizeClass = LocalWindowSizeInfo.current.widthSizeClass
         val windowSizeInfo = LocalWindowSizeInfo.current
@@ -208,6 +208,7 @@ fun PlayContent(
         val scrollState = rememberScrollState()
         val coverSize = when (sizeClass) {
             WindowWidthSizeClass.Compact -> minOf(containerWidth * 0.65f, LayoutConstraints.PanelMaxWidth)
+
             WindowWidthSizeClass.Medium, WindowWidthSizeClass.Expanded ->
                 minOf(containerWidth * 0.35f, LayoutConstraints.CoverMaxWidthWide.coerceAtMost(maxHeight * 0.5f))
         }
@@ -215,7 +216,7 @@ fun PlayContent(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .then(if (hazeState != null) Modifier.hazeSource(state = hazeState) else Modifier)
+                .then(if (hazeState != null) Modifier.hazeSource(state = hazeState) else Modifier),
         ) {
             if (isPhoneLandscape) {
                 // 手机横屏：左栏封面，右栏 tabs
@@ -223,20 +224,31 @@ fun PlayContent(
                 var isProgrammaticScroll by remember { mutableStateOf(false) }
                 Row(modifier = Modifier.fillMaxSize().displayCutoutPadding()) {
                     var dragOffset by remember { mutableFloatStateOf(0f) }
-                    Box(Modifier.weight(0.35f).fillMaxHeight()
-                        .pointerInput(Unit) {
-                            detectHorizontalDragGestures(
-                                onDragEnd = {
-                                    if (dragOffset > 100f) callbacks.onPrevious()
-                                    else if (dragOffset < -100f) callbacks.onNext()
-                                    dragOffset = 0f
-                                },
-                                onDragCancel = { dragOffset = 0f },
-                                onHorizontalDrag = { _, dragAmount -> dragOffset += dragAmount }
-                            )
-                        }, contentAlignment = Alignment.Center) {
-                        AlbumCover(musicInfo?.music?.albumArtUri, minOf(containerWidth * 0.5f, LayoutConstraints.DialogMaxWidth), HMPMetricTokens.Compact.cozy, HMPMetricTokens.Compact.compact,
-                            modifier = Modifier.graphicsLayer { translationX = dragOffset })
+                    Box(
+                        Modifier.weight(0.35f).fillMaxHeight()
+                            .pointerInput(Unit) {
+                                detectHorizontalDragGestures(
+                                    onDragEnd = {
+                                        if (dragOffset > 100f) {
+                                            callbacks.onPrevious()
+                                        } else if (dragOffset < -100f) {
+                                            callbacks.onNext()
+                                        }
+                                        dragOffset = 0f
+                                    },
+                                    onDragCancel = { dragOffset = 0f },
+                                    onHorizontalDrag = { _, dragAmount -> dragOffset += dragAmount },
+                                )
+                            },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        AlbumCover(
+                            musicInfo?.music?.albumArtUri,
+                            minOf(containerWidth * 0.5f, LayoutConstraints.DialogMaxWidth),
+                            HMPMetricTokens.Compact.cozy,
+                            HMPMetricTokens.Compact.compact,
+                            modifier = Modifier.graphicsLayer { translationX = dragOffset },
+                        )
                     }
                     Column(Modifier.weight(0.65f).fillMaxHeight().padding(start = metrics.cozy, end = metrics.section).padding(vertical = metrics.cozy), horizontalAlignment = Alignment.CenterHorizontally) {
                         val tabs = listOf("controls", "lyrics", "info", "radio", "playlist")
@@ -255,37 +267,59 @@ fun PlayContent(
                         Box(modifier = Modifier.weight(1f)) {
                             HorizontalPager(state = pagerState) { page ->
                                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                                when (tabs[page]) {
-                                    "controls" -> Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = metrics.cozy), horizontalAlignment = Alignment.CenterHorizontally) {
-                                        MusicInfo(musicInfo?.music, { callbacks.onArtistClick(it) }, centerAlign = true)
-                                        Spacer(Modifier.height(metrics.section))
-                                        SeekBar(currentPosition, duration) { callbacks.onSeek(it) }
-                                        PlaybackControlsButtons(
-                                            isPlaying = isPlaying,
-                                            playbackMode = playbackMode,
-                                            isLike = isLiked,
-                                            remainingTime = remainingTime,
-                                            playlistExpanded = selectedTab == "playlist",
-                                            onPlayPause = { haptic.performClick(); callbacks.onPlayPause() },
-                                            onNext = { haptic.performClick(); callbacks.onNext() },
-                                            onPrevious = { haptic.performClick(); callbacks.onPrevious() },
-                                            onPlaybackModeChange = { haptic.performContextClick(); callbacks.onPlaybackModeChange() },
-                                            onFavorite = { haptic.performConfirm(); callbacks.onFavorite() },
-                                            onChatClick = onOpenChat,
-                                            onPlaylistToggle = { selectedTab = if (selectedTab == "playlist") "controls" else "playlist" },
-                                            onTimerClick = { callbacks.onShowTimerDialog() },
-                                            onHeartMode = { haptic.performConfirm(); callbacks.onHeartMode() },
-                                        )
-                                    }
-                                    "playlist" -> PlaylistTabContent(playlist, currentIndex ?: 0, onPlayItem = { callbacks.onPlayItem(it) }, onMoveToTop = { callbacks.onMoveToTop(it) }, onRemoveFromPlaylist = { callbacks.onRemoveFromPlaylist(it) }, onClearPlaylist = { callbacks.onClearPlaylist() })
-                                    "info" -> SongDetailInfoTab(songDetailState, musicInfo?.extra, musicInfo?.userInfo)
-                                    "radio" -> if (musicInfo != null) {
-                                        Box(Modifier.fillMaxSize().padding(horizontal = metrics.cozy), contentAlignment = Alignment.Center) {
-                                            RadioEntryCard(onOpenConsole = { radioConsole.open() })
+                                    when (tabs[page]) {
+                                        "controls" -> Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = metrics.cozy), horizontalAlignment = Alignment.CenterHorizontally) {
+                                            MusicInfo(musicInfo?.music, { callbacks.onArtistClick(it) }, centerAlign = true)
+                                            Spacer(Modifier.height(metrics.section))
+                                            SeekBar(currentPosition, duration) { callbacks.onSeek(it) }
+                                            PlaybackControlsButtons(
+                                                isPlaying = isPlaying,
+                                                playbackMode = playbackMode,
+                                                isLike = isLiked,
+                                                remainingTime = remainingTime,
+                                                playlistExpanded = selectedTab == "playlist",
+                                                onPlayPause = {
+                                                    haptic.performClick()
+                                                    callbacks.onPlayPause()
+                                                },
+                                                onNext = {
+                                                    haptic.performClick()
+                                                    callbacks.onNext()
+                                                },
+                                                onPrevious = {
+                                                    haptic.performClick()
+                                                    callbacks.onPrevious()
+                                                },
+                                                onPlaybackModeChange = {
+                                                    haptic.performContextClick()
+                                                    callbacks.onPlaybackModeChange()
+                                                },
+                                                onFavorite = {
+                                                    haptic.performConfirm()
+                                                    callbacks.onFavorite()
+                                                },
+                                                onChatClick = onOpenChat,
+                                                onPlaylistToggle = { selectedTab = if (selectedTab == "playlist") "controls" else "playlist" },
+                                                onTimerClick = { callbacks.onShowTimerDialog() },
+                                                onHeartMode = {
+                                                    haptic.performConfirm()
+                                                    callbacks.onHeartMode()
+                                                },
+                                            )
                                         }
+
+                                        "playlist" -> PlaylistTabContent(playlist, currentIndex ?: 0, onPlayItem = { callbacks.onPlayItem(it) }, onMoveToTop = { callbacks.onMoveToTop(it) }, onRemoveFromPlaylist = { callbacks.onRemoveFromPlaylist(it) }, onClearPlaylist = { callbacks.onClearPlaylist() })
+
+                                        "info" -> SongDetailInfoTab(songDetailState, musicInfo?.extra, musicInfo?.userInfo)
+
+                                        "radio" -> if (musicInfo != null) {
+                                            Box(Modifier.fillMaxSize().padding(horizontal = metrics.cozy), contentAlignment = Alignment.Center) {
+                                                RadioEntryCard(onOpenConsole = { radioConsole.open() })
+                                            }
+                                        }
+
+                                        else -> AdvancedLyrics(Modifier.fillMaxSize().padding(vertical = metrics.cozy), lyrics, currentPosition, { callbacks.onSeek(it) }, lyricsOriginalTextSize, lyricsTranslatedTextSize, lyricsCurrentTimeTextSize, lyricsLineSpacing, totalDurationMs = duration, karaokeEnabled = lyricsKaraokeEnabled, isPlaying = isPlaying, paletteColors = paletteColors, displayMode = lyricsDisplayMode, alignment = lyricsAlignment)
                                     }
-                                    else -> AdvancedLyrics(Modifier.fillMaxSize().padding(vertical = metrics.cozy), lyrics, currentPosition, { callbacks.onSeek(it) }, lyricsOriginalTextSize, lyricsTranslatedTextSize, lyricsCurrentTimeTextSize, lyricsLineSpacing, totalDurationMs = duration, karaokeEnabled = lyricsKaraokeEnabled, isPlaying = isPlaying, paletteColors = paletteColors, displayMode = lyricsDisplayMode, alignment = lyricsAlignment)
-                                }
                                 } // center Box
                             }
                         }
@@ -306,21 +340,39 @@ fun PlayContent(
                             Spacer(Modifier.height(metrics.cozy))
                             SeekBar(currentPosition, duration) { callbacks.onSeek(it) }
                             PlaybackControlsButtons(
-                                            isPlaying = isPlaying,
-                                            playbackMode = playbackMode,
-                                            isLike = isLiked,
-                                            remainingTime = remainingTime,
-                                            playlistExpanded = selectedTab == "playlist",
-                                            onPlayPause = { haptic.performClick(); callbacks.onPlayPause() },
-                                            onNext = { haptic.performClick(); callbacks.onNext() },
-                                            onPrevious = { haptic.performClick(); callbacks.onPrevious() },
-                                            onPlaybackModeChange = { haptic.performContextClick(); callbacks.onPlaybackModeChange() },
-                                            onFavorite = { haptic.performConfirm(); callbacks.onFavorite() },
-                                            onChatClick = onOpenChat,
-                                            onPlaylistToggle = { selectedTab = if (selectedTab == "playlist") "lyrics" else "playlist" },
-                                            onTimerClick = { callbacks.onShowTimerDialog() },
-                                            onHeartMode = { haptic.performConfirm(); callbacks.onHeartMode() },
-                                        )
+                                isPlaying = isPlaying,
+                                playbackMode = playbackMode,
+                                isLike = isLiked,
+                                remainingTime = remainingTime,
+                                playlistExpanded = selectedTab == "playlist",
+                                onPlayPause = {
+                                    haptic.performClick()
+                                    callbacks.onPlayPause()
+                                },
+                                onNext = {
+                                    haptic.performClick()
+                                    callbacks.onNext()
+                                },
+                                onPrevious = {
+                                    haptic.performClick()
+                                    callbacks.onPrevious()
+                                },
+                                onPlaybackModeChange = {
+                                    haptic.performContextClick()
+                                    callbacks.onPlaybackModeChange()
+                                },
+                                onFavorite = {
+                                    haptic.performConfirm()
+                                    callbacks.onFavorite()
+                                },
+                                onChatClick = onOpenChat,
+                                onPlaylistToggle = { selectedTab = if (selectedTab == "playlist") "lyrics" else "playlist" },
+                                onTimerClick = { callbacks.onShowTimerDialog() },
+                                onHeartMode = {
+                                    haptic.performConfirm()
+                                    callbacks.onHeartMode()
+                                },
+                            )
                             Spacer(Modifier.height(metrics.compact))
                         }
                     }
@@ -343,12 +395,15 @@ fun PlayContent(
                             HorizontalPager(state = pagerState) { page ->
                                 when (tabs[page]) {
                                     "playlist" -> PlaylistTabContent(playlist, currentIndex ?: 0, onPlayItem = { callbacks.onPlayItem(it) }, onMoveToTop = { callbacks.onMoveToTop(it) }, onRemoveFromPlaylist = { callbacks.onRemoveFromPlaylist(it) }, onClearPlaylist = { callbacks.onClearPlaylist() })
+
                                     "info" -> SongDetailInfoTab(songDetailState, musicInfo?.extra, musicInfo?.userInfo)
+
                                     "radio" -> if (musicInfo != null) {
                                         Box(Modifier.fillMaxSize().padding(horizontal = metrics.cozy), contentAlignment = Alignment.Center) {
                                             RadioEntryCard(onOpenConsole = { radioConsole.open() })
                                         }
                                     }
+
                                     else -> AdvancedLyrics(Modifier.fillMaxSize().padding(vertical = metrics.cozy), lyrics, currentPosition, { callbacks.onSeek(it) }, lyricsOriginalTextSize, lyricsTranslatedTextSize, lyricsCurrentTimeTextSize, lyricsLineSpacing, totalDurationMs = duration, karaokeEnabled = lyricsKaraokeEnabled, isPlaying = isPlaying, paletteColors = paletteColors, displayMode = lyricsDisplayMode, alignment = lyricsAlignment)
                                 }
                             }
@@ -371,109 +426,109 @@ fun PlayContent(
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
-                    .verticalScroll(scrollState)
-            ) {
-                // 播放器主界面容器：强制填满一屏高度
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(screenHeight)
+                        .verticalScroll(scrollState),
                 ) {
+                    // 播放器主界面容器：强制填满一屏高度
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = metrics.cozy)
-                            .weight(1f) // 使顶部区域占据剩余空间
+                            .height(screenHeight),
                     ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = metrics.cozy)
+                                .weight(1f), // 使顶部区域占据剩余空间
+                        ) {
+                            Spacer(modifier = Modifier.height(metrics.cozy))
+                            PlayerHeader({ callbacks.onBackClick() })
+                            Spacer(modifier = Modifier.height(metrics.section))
+                            MusicInfo(musicInfo?.music, { callbacks.onArtistClick(it) })
+                            Spacer(modifier = Modifier.height(metrics.cozy))
+                            // 封面区域：使用 weight(1f) 实现弹性缩放
+                            MusicInfoExtra(
+                                musicInfo = musicInfo,
+                                lyrics = lyrics,
+                                currentPosition = currentPosition,
+                                originalTextSize = lyricsOriginalTextSize,
+                                translatedTextSize = lyricsTranslatedTextSize,
+                                currentTimeTextSize = lyricsCurrentTimeTextSize,
+                                lineSpacing = lyricsLineSpacing,
+                                displayMode = lyricsDisplayMode,
+                                alignment = lyricsAlignment,
+                                totalDurationMs = duration,
+                                karaokeEnabled = lyricsKaraokeEnabled,
+                                paletteColors = paletteColors,
+                                isPlaying = isPlaying,
+                                onSeek = { callbacks.onSeek(it) },
+                                onOpenConsole = { radioConsole.open() },
+                                modifier = Modifier.weight(1f),
+                            )
+                        }
+
                         Spacer(modifier = Modifier.height(metrics.cozy))
-                        PlayerHeader({ callbacks.onBackClick() })
-                        Spacer(modifier = Modifier.height(metrics.section))
-                        MusicInfo(musicInfo?.music, { callbacks.onArtistClick(it) })
+
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            SeekBar(
+                                currentPosition = currentPosition,
+                                duration = duration,
+                                onSeek = { callbacks.onSeek(it) },
+                            )
+                            // 播放控制按钮区
+                            PlaybackControlsButtons(
+                                isPlaying = isPlaying,
+                                playbackMode = playbackMode,
+                                isLike = isLiked,
+                                remainingTime = remainingTime,
+                                playlistExpanded = playlistExpanded,
+                                onPlayPause = {
+                                    haptic.performClick()
+                                    callbacks.onPlayPause()
+                                },
+                                onNext = {
+                                    haptic.performClick()
+                                    callbacks.onNext()
+                                },
+                                onPrevious = {
+                                    haptic.performClick()
+                                    callbacks.onPrevious()
+                                },
+                                onPlaybackModeChange = {
+                                    haptic.performContextClick()
+                                    callbacks.onPlaybackModeChange()
+                                },
+                                onFavorite = {
+                                    haptic.performConfirm()
+                                    callbacks.onFavorite()
+                                },
+                                onChatClick = onOpenChat,
+                                onTimerClick = { callbacks.onShowTimerDialog() },
+                                onHeartMode = {
+                                    haptic.performConfirm()
+                                    callbacks.onHeartMode()
+                                },
+                                onPlaylistToggle = {
+                                    playlistExpanded = !playlistExpanded
+                                },
+                            )
+                        }
                         Spacer(modifier = Modifier.height(metrics.cozy))
-                        // 封面区域：使用 weight(1f) 实现弹性缩放
-                        MusicInfoExtra(
-                            musicInfo = musicInfo,
-                            lyrics = lyrics,
-                            currentPosition = currentPosition,
-                            originalTextSize = lyricsOriginalTextSize,
-                            translatedTextSize = lyricsTranslatedTextSize,
-                            currentTimeTextSize = lyricsCurrentTimeTextSize,
-                              lineSpacing = lyricsLineSpacing,
-                              displayMode = lyricsDisplayMode,
-                              alignment = lyricsAlignment,
-                              totalDurationMs = duration,
-                              karaokeEnabled = lyricsKaraokeEnabled,
-                              paletteColors = paletteColors,
-                              isPlaying = isPlaying,
-                              onSeek = { callbacks.onSeek(it) },
-                            onOpenConsole = { radioConsole.open() },
-                            modifier = Modifier.weight(1f)
-                        )
                     }
 
-                    Spacer(modifier = Modifier.height(metrics.cozy))
-
-                    Column(
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        SeekBar(
-                            currentPosition = currentPosition,
-                            duration = duration,
-                            onSeek = { callbacks.onSeek(it) }
-                        )
-                        // 播放控制按钮区
-                        PlaybackControlsButtons(
-                            isPlaying = isPlaying,
-                            playbackMode = playbackMode,
-                            isLike = isLiked,
-                            remainingTime = remainingTime,
-                            playlistExpanded = playlistExpanded,
-                            onPlayPause = {
-                                haptic.performClick()
-                                callbacks.onPlayPause()
-                            },
-                            onNext = {
-                                haptic.performClick()
-                                callbacks.onNext()
-                            },
-                            onPrevious = {
-                                haptic.performClick()
-                                callbacks.onPrevious()
-                            },
-                            onPlaybackModeChange = {
-                                haptic.performContextClick()
-                                callbacks.onPlaybackModeChange()
-                            },
-                            onFavorite = {
-                                haptic.performConfirm()
-                                callbacks.onFavorite()
-                            },
-                            onChatClick = onOpenChat,
-                            onTimerClick = { callbacks.onShowTimerDialog() },
-                            onHeartMode = {
-                                haptic.performConfirm()
-                                callbacks.onHeartMode()
-                            },
-                            onPlaylistToggle = {
-                                playlistExpanded = !playlistExpanded
-                            }
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(metrics.cozy))
+                    // 播放列表区域：位于主界面下方
+                    PlaylistArea(
+                        expanded = playlistExpanded,
+                        playlist = playlist,
+                        currentIndex = currentIndex,
+                        scrollState = scrollState,
+                        onClearPlaylist = { callbacks.onClearPlaylist() },
+                        onPlayItem = { callbacks.onPlayItem(it) },
+                        onMoveToTop = { callbacks.onMoveToTop(it) },
+                        onRemoveFromPlaylist = { callbacks.onRemoveFromPlaylist(it) },
+                    )
                 }
-
-                // 播放列表区域：位于主界面下方
-                PlaylistArea(
-                    expanded = playlistExpanded,
-                    playlist = playlist,
-                    currentIndex = currentIndex,
-                    scrollState = scrollState,
-                    onClearPlaylist = { callbacks.onClearPlaylist() },
-                    onPlayItem = { callbacks.onPlayItem(it) },
-                    onMoveToTop = { callbacks.onMoveToTop(it) },
-                    onRemoveFromPlaylist = { callbacks.onRemoveFromPlaylist(it) }
-                )
-            }
             } // else
         }
         if (showTimerDialog) {
@@ -487,7 +542,7 @@ fun PlayContent(
                     }
                     showTimerDialog = false
                 },
-                hazeState = hazeState
+                hazeState = hazeState,
             )
         }
     }
@@ -498,13 +553,13 @@ fun PlayContent(
 fun MusicInfo(
     music: Music?,
     onArtistClick: (String) -> Unit,
-    centerAlign: Boolean = false
+    centerAlign: Boolean = false,
 ) {
     val metrics = LocalHmpMetrics.current
     val typo = LocalHmpTypo.current
     Column(
         horizontalAlignment = if (centerAlign) Alignment.CenterHorizontally else Alignment.Start,
-        modifier = Modifier.padding(horizontal = metrics.block)
+        modifier = Modifier.padding(horizontal = metrics.block),
     ) {
         val artistLabel = stringResource(Res.string.artist_label)
         Text(
@@ -512,7 +567,7 @@ fun MusicInfo(
             maxLines = 1,
             overflow = TextOverflow.MiddleEllipsis,
             style = typo.display,
-            color = MaterialTheme.colorScheme.onSurface
+            color = MaterialTheme.colorScheme.onSurface,
         )
         Spacer(modifier = Modifier.height(metrics.compact))
         Text(
@@ -523,7 +578,7 @@ fun MusicInfo(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.clickable {
                 onArtistClick(music?.artist ?: artistLabel)
-            }
+            },
         )
         Spacer(modifier = Modifier.height(metrics.micro))
         Text(
@@ -531,7 +586,7 @@ fun MusicInfo(
             maxLines = 1,
             overflow = TextOverflow.MiddleEllipsis,
             style = typo.subtitle,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }
@@ -563,7 +618,7 @@ fun MusicInfoExtra(
                 modifier = Modifier
                     .padding(metrics.cozy)
                     .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(metrics.cozy)
+                verticalArrangement = Arrangement.spacedBy(metrics.cozy),
             ) {
                 if (musicInfo?.extra != null) {
                     TechnicalInfoCard(musicInfo.extra)
@@ -576,7 +631,7 @@ fun MusicInfoExtra(
                 musicInfo?.music?.albumArtUri,
                 LayoutConstraints.PanelHeight,
                 metrics.cozy,
-                metrics.compact
+                metrics.compact,
             )
         },
         {
@@ -594,14 +649,14 @@ fun MusicInfoExtra(
                 paletteColors = paletteColors,
                 isPlaying = isPlaying,
                 displayMode = displayMode,
-                alignment = alignment
+                alignment = alignment,
             )
-        }
+        },
     )
     DotPager(
         modifier = modifier.fillMaxWidth(),
         pageContent = contents,
-        initialPage = 1
+        initialPage = 1,
     )
 }
 
@@ -611,7 +666,7 @@ fun MusicInfoExtra(
 fun SeekBar(
     currentPosition: Long,
     duration: Long,
-    onSeek: (Long) -> Unit
+    onSeek: (Long) -> Unit,
 ) {
     val metrics = LocalHmpMetrics.current
     val haptic = rememberHapticFeedback()
@@ -626,11 +681,10 @@ fun SeekBar(
         }
     }
 
-
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = metrics.section)
+            .padding(horizontal = metrics.section),
     ) {
         Slider(
             value = sliderPosition,
@@ -659,7 +713,7 @@ fun SeekBar(
                     modifier = Modifier.height(metrics.micro),
                     thumbTrackGapSize = 0.dp,
                     trackInsideCornerSize = 0.dp,
-                    drawStopIndicator = null
+                    drawStopIndicator = null,
                 )
             },
             thumb = {
@@ -668,24 +722,24 @@ fun SeekBar(
                         .size(metrics.micro)
                         .background(
                             color = Color.Transparent,
-                        )
+                        ),
                 )
-            }
+            },
         )
         Row(
             modifier = Modifier.fillMaxWidth()
                 .padding(metrics.compact),
-            horizontalArrangement = Arrangement.SpaceBetween
+            horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             Text(
                 text = formatTime(currentPosition),
                 style = typo.footnote,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Text(
                 text = formatTime(duration),
                 style = typo.footnote,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }
@@ -717,17 +771,17 @@ fun PlaybackControlsButtons(
 
     Column(
         modifier = Modifier.fillMaxWidth(),
-        horizontalAlignment = Alignment.CenterHorizontally
+        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         // 播放控制按钮区域
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.Center,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
         ) {
             IconButton(
                 onClick = onPrevious,
-                modifier = Modifier.size(metrics.row)
+                modifier = Modifier.size(metrics.row),
             ) {
                 Icon(
                     painter = painterResource(Res.drawable.backward_end_fill),
@@ -738,7 +792,7 @@ fun PlaybackControlsButtons(
 
             IconButton(
                 onClick = onPlayPause,
-                modifier = Modifier.size(metrics.row)
+                modifier = Modifier.size(metrics.row),
             ) {
                 Icon(
                     painter = painterResource(if (isPlaying) Res.drawable.pause else Res.drawable.play_fill),
@@ -749,7 +803,7 @@ fun PlaybackControlsButtons(
 
             IconButton(
                 onClick = onNext,
-                modifier = Modifier.size(metrics.row)
+                modifier = Modifier.size(metrics.row),
             ) {
                 Icon(
                     painter = painterResource(Res.drawable.forward_end_fill),
@@ -766,7 +820,7 @@ fun PlaybackControlsButtons(
             modifier = Modifier.fillMaxWidth()
                 .padding(horizontal = metrics.cozy),
             horizontalArrangement = Arrangement.SpaceAround,
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             IconButton(onClick = onPlaybackModeChange) {
                 Icon(
@@ -775,7 +829,7 @@ fun PlaybackControlsButtons(
                             PlaybackMode.SHUFFLE -> Res.drawable.shuffle
                             PlaybackMode.REPEAT_ONE -> Res.drawable.repeat_1
                             PlaybackMode.SEQUENTIAL -> Res.drawable.repeat
-                        }
+                        },
                     ),
                     tint = MaterialTheme.colorScheme.onSurface,
                     contentDescription = stringResource(Res.string.playback_mode),
@@ -796,7 +850,7 @@ fun PlaybackControlsButtons(
                 onClick = {
                     haptic.performClick()
                     onChatClick()
-                }
+                },
             ) {
                 Icon(
                     painter = painterResource(Res.drawable.scope),
@@ -810,12 +864,12 @@ fun PlaybackControlsButtons(
                 onClick = {
                     haptic.performClick()
                     onPlaylistToggle()
-                }
+                },
             ) {
                 Icon(
                     tint = if (playlistExpanded) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
                     painter = painterResource(
-                        if (playlistExpanded) Res.drawable.chevron_up_circle else Res.drawable.music_note_list
+                        if (playlistExpanded) Res.drawable.chevron_up_circle else Res.drawable.music_note_list,
                     ),
                     contentDescription = stringResource(Res.string.playlist),
                 )
@@ -835,12 +889,12 @@ fun PlaybackControlsButtons(
                         modifier = Modifier
                             .align(Alignment.TopEnd)
                             .size(metrics.compact)
-                            .background(MaterialTheme.colorScheme.primary, CircleShape)
+                            .background(MaterialTheme.colorScheme.primary, CircleShape),
                     )
                 }
                 DropdownMenu(
                     expanded = showMoreMenu,
-                    onDismissRequest = { showMoreMenu = false }
+                    onDismissRequest = { showMoreMenu = false },
                 ) {
                     DropdownMenuItem(
                         text = { Text(stringResource(Res.string.recommendation_mode)) },
@@ -851,9 +905,9 @@ fun PlaybackControlsButtons(
                         leadingIcon = {
                             Icon(
                                 painter = painterResource(Res.drawable.identify_song),
-                                contentDescription = null
+                                contentDescription = null,
                             )
-                        }
+                        },
                     )
                     DropdownMenuItem(
                         text = {
@@ -862,7 +916,7 @@ fun PlaybackControlsButtons(
                                     formatTime(remainingTime)
                                 } else {
                                     stringResource(Res.string.sleep_timer)
-                                }
+                                },
                             )
                         },
                         onClick = {
@@ -872,9 +926,9 @@ fun PlaybackControlsButtons(
                         leadingIcon = {
                             Icon(
                                 painter = painterResource(Res.drawable.timer),
-                                contentDescription = null
+                                contentDescription = null,
                             )
-                        }
+                        },
                     )
                 }
             }
@@ -884,21 +938,29 @@ fun PlaybackControlsButtons(
 
 @Composable
 private fun PlaylistTabContent(
-    playlist: List<MusicInfo>, currentIndex: Int,
-    onPlayItem: (MusicInfo) -> Unit, onMoveToTop: (MusicInfo) -> Unit,
-    onRemoveFromPlaylist: (MusicInfo) -> Unit, onClearPlaylist: () -> Unit
+    playlist: List<MusicInfo>,
+    currentIndex: Int,
+    onPlayItem: (MusicInfo) -> Unit,
+    onMoveToTop: (MusicInfo) -> Unit,
+    onRemoveFromPlaylist: (MusicInfo) -> Unit,
+    onClearPlaylist: () -> Unit,
 ) {
     val metrics = LocalHmpMetrics.current
     val haptic = rememberHapticFeedback()
     Column(modifier = Modifier.fillMaxSize().padding(horizontal = metrics.block, vertical = metrics.cozy)) {
         HMPCard(
             modifier = Modifier.fillMaxWidth().weight(1f),
-            contentPadding = Modifier
+            contentPadding = Modifier,
         ) {
             if (playlist.isNotEmpty()) {
                 val callbacks = object : MusicListCallbacksAdapter() {
-                    override fun onItemClick(musicInfo: MusicInfo, index: Int) { haptic.performClick(); onPlayItem(musicInfo) }
-                    override fun onRemoveFromPlaylist(musicInfo: MusicInfo) { onRemoveFromPlaylist(musicInfo) }
+                    override fun onItemClick(musicInfo: MusicInfo, index: Int) {
+                        haptic.performClick()
+                        onPlayItem(musicInfo)
+                    }
+                    override fun onRemoveFromPlaylist(musicInfo: MusicInfo) {
+                        onRemoveFromPlaylist(musicInfo)
+                    }
                 }
                 MusicList(musicInfoList = playlist, config = defaultMusicListConfig(callbacks).copy(header = HeaderConfig.None, item = ItemConfig(showIndex = true, variant = ItemVariant.Full, fullOptions = FullItemOptions(showPinButton = true, showRemoveButton = true, showMenuButton = false)), edit = EditConfig(enabled = false), currentPlaying = CurrentPlayingConfig(index = currentIndex, autoScrollToCurrent = true)), modifier = Modifier.fillMaxSize(), isPlaying = false)
             }
@@ -931,16 +993,25 @@ private fun SongDetailInfoTab(songDetailState: UiState<SongDetailData>, musicExt
             }
             if (userInfo != null) {
                 InfoCard(title = stringResource(Res.string.personal_stats)) {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(metrics.compact)) { StatCell(stringResource(Res.string.sort_play_count), (userInfo.playCount ?: 0).toString(), Modifier.weight(1f)); StatCell(stringResource(Res.string.skipped_count), (userInfo.skippedCount ?: 0).toString(), Modifier.weight(1f)); StatCell(stringResource(Res.string.playlist_count), (userInfo.inCustomPlaylistCount ?: 0).toString(), Modifier.weight(1f)) }
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(metrics.compact)) {
+                        StatCell(stringResource(Res.string.sort_play_count), (userInfo.playCount ?: 0).toString(), Modifier.weight(1f))
+                        StatCell(stringResource(Res.string.skipped_count), (userInfo.skippedCount ?: 0).toString(), Modifier.weight(1f))
+                        StatCell(stringResource(Res.string.playlist_count), (userInfo.inCustomPlaylistCount ?: 0).toString(), Modifier.weight(1f))
+                    }
                     Spacer(Modifier.height(metrics.compact))
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(metrics.compact)) { StatCell(stringResource(Res.string.user_rating), (userInfo.userRating ?: 0).toString(), Modifier.weight(1f)); StatCell(stringResource(Res.string.liked_status), if (userInfo.liked) "♥" else "♡", Modifier.weight(1f)) }
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(metrics.compact)) {
+                        StatCell(stringResource(Res.string.user_rating), (userInfo.userRating ?: 0).toString(), Modifier.weight(1f))
+                        StatCell(stringResource(Res.string.liked_status), if (userInfo.liked) "♥" else "♡", Modifier.weight(1f))
+                    }
                 }
             }
             val validLabels = data.labels.filterNotNull().filter { it.label.name.isNotBlank() }
             if (validLabels.isNotEmpty()) {
                 InfoCard(title = stringResource(Res.string.labels)) { FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(metrics.compact), verticalArrangement = Arrangement.spacedBy(metrics.micro)) { validLabels.forEach { label -> AssistChip(onClick = {}, label = { Text(label.label.name, style = typo.caption) }, border = null) } } }
             }
-        } else if (songDetailState is UiState.Loading) { Box(Modifier.fillMaxWidth().padding(metrics.section), contentAlignment = Alignment.Center) { CircularProgressIndicator(Modifier.size(metrics.section), strokeWidth = metrics.hair) } }
+        } else if (songDetailState is UiState.Loading) {
+            Box(Modifier.fillMaxWidth().padding(metrics.section), contentAlignment = Alignment.Center) { CircularProgressIndicator(Modifier.size(metrics.section), strokeWidth = metrics.hair) }
+        }
     }
 }
 
@@ -951,7 +1022,7 @@ private fun InfoCard(title: String, content: @Composable () -> Unit) {
     HMPCard(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(metrics.base),
-        contentPadding = Modifier.padding(metrics.cozy)
+        contentPadding = Modifier.padding(metrics.cozy),
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(metrics.compact)) {
             Text(title, style = typo.body.medium(), color = MaterialTheme.colorScheme.onSurface)
@@ -964,24 +1035,44 @@ private fun InfoCard(title: String, content: @Composable () -> Unit) {
 private fun InfoRow(label: String, value: String) {
     val metrics = LocalHmpMetrics.current
     val typo = LocalHmpTypo.current
-    Column { Text(label, style = typo.footnote.medium(), color = MaterialTheme.colorScheme.primary); Spacer(Modifier.height(metrics.hair)); Text(value, style = typo.footnote, color = MaterialTheme.colorScheme.onSurfaceVariant) } }
+    Column {
+        Text(label, style = typo.footnote.medium(), color = MaterialTheme.colorScheme.primary)
+        Spacer(Modifier.height(metrics.hair))
+        Text(value, style = typo.footnote, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
 
 @Composable
 private fun StatCell(label: String, value: String, modifier: Modifier = Modifier) {
     val metrics = LocalHmpMetrics.current
     val typo = LocalHmpTypo.current
-    Surface(modifier, shape = RoundedCornerShape(metrics.compact), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f), tonalElevation = 0.dp) { Column(Modifier.padding(metrics.compact), horizontalAlignment = Alignment.CenterHorizontally) { Text(value, style = typo.body.medium(), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface); Text(label, style = typo.caption, color = MaterialTheme.colorScheme.onSurfaceVariant) } }
+    Surface(modifier, shape = RoundedCornerShape(metrics.compact), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f), tonalElevation = 0.dp) {
+        Column(Modifier.padding(metrics.compact), horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(value, style = typo.body.medium(), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+            Text(label, style = typo.caption, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
 }
 
 @Composable
 private fun PlayerTabBar(
-    selectedTab: String, onTabSelected: (String) -> Unit,
+    selectedTab: String,
+    onTabSelected: (String) -> Unit,
     tabs: List<Pair<String, String>> = listOf("lyrics" to stringResource(Res.string.lyrics), "info" to stringResource(Res.string.song_detail_tab_intro), "playlist" to stringResource(Res.string.playlist)),
 ) {
     val metrics = LocalHmpMetrics.current
     val haptic = rememberHapticFeedback()
     val typo = LocalHmpTypo.current
     Surface(shape = RoundedCornerShape(metrics.cozy), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.8f)) {
-        Row(Modifier.padding(metrics.micro)) { tabs.forEach { (id, label) -> Box(Modifier.clip(RoundedCornerShape(metrics.cozy)).background(if (selectedTab == id) MaterialTheme.colorScheme.primary.copy(alpha = 0.2f) else Color.Transparent).clickable { haptic.performClick(); onTabSelected(id) }.padding(horizontal = metrics.cozy, vertical = metrics.compact)) { Text(label, style = typo.footnote.medium(), color = if (selectedTab == id) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface) } } }
+        Row(Modifier.padding(metrics.micro)) {
+            tabs.forEach { (id, label) ->
+                Box(
+                    Modifier.clip(RoundedCornerShape(metrics.cozy)).background(if (selectedTab == id) MaterialTheme.colorScheme.primary.copy(alpha = 0.2f) else Color.Transparent).clickable {
+                        haptic.performClick()
+                        onTabSelected(id)
+                    }.padding(horizontal = metrics.cozy, vertical = metrics.compact),
+                ) { Text(label, style = typo.footnote.medium(), color = if (selectedTab == id) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface) }
+            }
+        }
     }
 }

@@ -34,7 +34,6 @@ data class MusicLabel(
     val updatedAt: Long? = null,
 )
 
-
 @Dao
 interface MusicLabelDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
@@ -43,31 +42,37 @@ interface MusicLabelDao {
     @Query("SELECT * FROM musicLabel WHERE musicId = :musicId")
     suspend fun getLabelsById(musicId: Long): List<MusicLabel>
 
-    @Query("""
+    @Query(
+        """
     SELECT label
     FROM musicLabel
     WHERE type = :type
     GROUP BY label
     ORDER BY COUNT(*) DESC
-""")
+""",
+    )
     fun getLabelsByType(type: LabelCategory): Flow<List<LabelName>>
 
-    @Query("""
+    @Query(
+        """
     SELECT musicId
     FROM musicLabel
     WHERE label = :label
     LIMIT :limit
-""")
+""",
+    )
     suspend fun getMusicIdListByType(label: LabelName, limit: Int = 100): List<Long>
 
     /** SQL GROUP BY 查 top N label（替代 getAllLabels + 内存 groupBy）。 */
-    @Query("""
+    @Query(
+        """
     SELECT label, COUNT(*) as cnt
     FROM musicLabel
     GROUP BY label
     ORDER BY cnt DESC
     LIMIT :limit
-""")
+""",
+    )
     suspend fun getTopLabels(limit: Int): List<LabelCountPair>
 
     /**
@@ -91,7 +96,8 @@ interface MusicLabelDao {
      * 窗口内 Top N 标签（按窗口内播放次数加权）。
      * JOIN PlaybackHistory 只统计窗口内被播放过的标签。
      */
-    @Query("""
+    @Query(
+        """
         SELECT l.label AS label, COUNT(h.id) AS cnt
         FROM musicLabel l
         INNER JOIN PlaybackHistory h ON h.musicId = l.musicId
@@ -99,7 +105,8 @@ interface MusicLabelDao {
         GROUP BY l.label
         ORDER BY cnt DESC
         LIMIT :limit
-    """)
+    """,
+    )
     suspend fun getTopLabelsSince(cutoff: Long, category: LabelCategory, limit: Int): List<LabelCountPair>
 }
 

@@ -1,8 +1,7 @@
 package com.hmp.domain.agent.tool
-import com.hmp.domain.agent.tool.spec.ToolRegistry
-
 import com.hmp.domain.agent.port.NowPlayingContextProvider
 import com.hmp.domain.agent.port.PlaybackCommandPort
+import com.hmp.domain.agent.tool.spec.ToolRegistry
 import com.hmp.domain.music.MusicRepository
 import com.hmp.domain.playlist.PlaylistRepository
 import com.hmp.domain.setting.SettingsRepository

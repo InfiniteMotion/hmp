@@ -51,13 +51,13 @@ data class MusicExtra(
     val language: String? = null,
     val date: Long? = null,
     val recommendationIds: String? = null,
-    val isGetExtraInfo : Boolean,
-    val rewards : String? = null,
-    val popLyric : String? = null,
-    val singerIntroduce : String? = null,
-    val backgroundIntroduce : String? = null,
-    val description : String? = null,
-    val relevantMusic : String? = null,
+    val isGetExtraInfo: Boolean,
+    val rewards: String? = null,
+    val popLyric: String? = null,
+    val singerIntroduce: String? = null,
+    val backgroundIntroduce: String? = null,
+    val description: String? = null,
+    val relevantMusic: String? = null,
     val isDeleted: Boolean = false,
 )
 
@@ -106,15 +106,15 @@ data class MusicInfo(
 
     @Relation(
         parentColumn = "id",
-        entityColumn = "id"
+        entityColumn = "id",
     )
     val extra: MusicExtra?,
 
     @Relation(
         parentColumn = "id",
-        entityColumn = "id"
+        entityColumn = "id",
     )
-    val userInfo: UserInfo?
+    val userInfo: UserInfo?,
 )
 
 @Dao
@@ -163,7 +163,7 @@ interface MusicDao {
         SELECT music.id, music.path FROM music
         INNER JOIN userInfo ON music.id = userInfo.id
         WHERE music.isDeleted = 1 AND userInfo.removedByUser = 1
-    """
+    """,
     )
     suspend fun getRemovedMusicIdAndPath(): List<MusicIdPath>
 
@@ -218,7 +218,8 @@ interface MusicExtraDao {
     @Query("SELECT id FROM musicExtra WHERE isGetExtraInfo = 1 AND isDeleted = 0")
     suspend fun getIdsWithExtraInfo(): List<Long>
 
-    @Query("""
+    @Query(
+        """
         UPDATE musicExtra SET
             isGetExtraInfo = true,
             rewards = :rewards,
@@ -228,7 +229,8 @@ interface MusicExtraDao {
             description = :description,
             relevantMusic = :relevantMusic
         WHERE id = :id
-    """)
+    """,
+    )
     suspend fun updateExtraFieldsById(
         id: Long,
         rewards: String?,
@@ -236,13 +238,15 @@ interface MusicExtraDao {
         singerIntroduce: String?,
         backgroundIntroduce: String?,
         description: String?,
-        relevantMusic: String?
+        relevantMusic: String?,
     )
 
-    @Query("""
+    @Query(
+        """
         SELECT COUNT(*) FROM musicExtra
         WHERE isGetExtraInfo = false AND isDeleted = 0
-    """)
+    """,
+    )
     fun getMusicWithoutExtraCount(): Flow<Int>
 
     @Query("SELECT id FROM musicExtra WHERE isDeleted = 0")
@@ -354,7 +358,7 @@ interface UserInfoDao {
         upsertAll(
             ids.map {
                 (existing[it] ?: UserInfo(id = it)).copy(removedByUser = true, isDeleted = true)
-            }
+            },
         )
     }
 
@@ -366,7 +370,7 @@ interface UserInfoDao {
         upsertAll(
             ids.map {
                 (existing[it] ?: UserInfo(id = it)).copy(removedByUser = false, isDeleted = false)
-            }
+            },
         )
     }
 
@@ -380,12 +384,14 @@ interface UserInfoDao {
     suspend fun getAllUserInfos(): List<UserInfo>
 
     /** days 天内未播放的曲目 (id, lastPlayedMs)。lastPlayed 为 null 表示从未播放过。按最久未播排序。 */
-    @Query("""
+    @Query(
+        """
         SELECT id, lastPlayed FROM userInfo
         WHERE isDeleted = 0 AND (lastPlayed IS NULL OR lastPlayed < :thresholdMs)
         ORDER BY lastPlayed ASC
         LIMIT :limit
-    """)
+    """,
+    )
     suspend fun getForgottenIds(thresholdMs: Long, limit: Int): List<ForgottenRow>
 }
 
@@ -418,7 +424,7 @@ interface MusicAllDao {
         "SELECT * FROM music WHERE isDeleted = 0 AND (" +
             "title LIKE :query ESCAPE '\\' OR " +
             "artist LIKE :query ESCAPE '\\' OR " +
-            "album LIKE :query ESCAPE '\\')"
+            "album LIKE :query ESCAPE '\\')",
     )
     suspend fun searchMusic(query: String): List<MusicInfo>
 
@@ -427,14 +433,16 @@ interface MusicAllDao {
     suspend fun getRandomMusicInfo(): MusicInfo?
 
     @Transaction
-    @Query("""
+    @Query(
+        """
         SELECT * FROM music
         WHERE isDeleted = 0 AND id IN (
             SELECT id FROM musicExtra WHERE isGetExtraInfo = 0 AND isDeleted = 0
         )
         ORDER BY RANDOM()
         LIMIT 1
-    """)
+    """,
+    )
     suspend fun getRandomMusicInfoWithMissingExtra(): MusicInfo?
 
     @Transaction
@@ -476,7 +484,7 @@ interface MusicAllDao {
     @Query(
         "SELECT artist AS name, COUNT(*) AS count FROM music " +
             "WHERE isDeleted = 0 AND artist IS NOT NULL AND TRIM(artist) <> '' " +
-            "GROUP BY artist ORDER BY count DESC, name ASC LIMIT :limit"
+            "GROUP BY artist ORDER BY count DESC, name ASC LIMIT :limit",
     )
     suspend fun getTopArtistSummary(limit: Int): List<NameCountRow>
 
@@ -484,7 +492,7 @@ interface MusicAllDao {
     @Query(
         "SELECT album AS name, COUNT(*) AS count FROM music " +
             "WHERE isDeleted = 0 AND album IS NOT NULL AND TRIM(album) <> '' " +
-            "GROUP BY album ORDER BY count DESC, name ASC LIMIT :limit"
+            "GROUP BY album ORDER BY count DESC, name ASC LIMIT :limit",
     )
     suspend fun getTopAlbumSummary(limit: Int): List<NameCountRow>
 

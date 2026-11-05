@@ -14,9 +14,9 @@ import kotlinx.coroutines.flow.Flow
  * 播放列表管理Use Case
  */
 class ManagePlaylistUseCase(
-    
+
     private val playlistRepository: PlaylistRepository,
-    private val settingsRepository: SettingsRepository
+    private val settingsRepository: SettingsRepository,
 ) {
     /**
      * 创建播放列表。
@@ -37,8 +37,7 @@ class ManagePlaylistUseCase(
      *
      * @param excludeId 重命名时传自己的 id；否则「改成原名」会被判成重名。
      */
-    suspend fun validateName(raw: String, excludeId: Long? = null): PlaylistNameError? =
-        validatePlaylistName(raw, playlistRepository, excludeId)
+    suspend fun validateName(raw: String, excludeId: Long? = null): PlaylistNameError? = validatePlaylistName(raw, playlistRepository, excludeId)
 
     /**
      * 按名查歌单（没有则 null）。
@@ -46,8 +45,7 @@ class ManagePlaylistUseCase(
      * 这里**没有** `removePlaylist(name)`：按名删除绕过下面的系统歌单保护，
      * 而 v10 之后名字有唯一索引，"按名"与"按 id"已是等价的寻址方式，只留安全的那一条（D3-05②）。
      */
-    suspend fun findPlaylistByName(name: String): Playlist? =
-        playlistRepository.getPlaylistByName(name)
+    suspend fun findPlaylistByName(name: String): Playlist? = playlistRepository.getPlaylistByName(name)
 
     /**
      * 按 ID 删除播放列表；系统列表（默认 / 红心 / 最近）不可删。
@@ -73,23 +71,17 @@ class ManagePlaylistUseCase(
     /**
      * 获取所有播放列表
      */
-    suspend fun getAllPlaylists(): List<Playlist> {
-        return playlistRepository.getAllPlaylists()
-    }
+    suspend fun getAllPlaylists(): List<Playlist> = playlistRepository.getAllPlaylists()
 
     /**
      * 获取所有播放列表（Flow版本，用于响应式更新）
      */
-    fun getAllPlaylistsFlow(): Flow<List<Playlist>> {
-        return playlistRepository.getAllPlaylistsFlow()
-    }
+    fun getAllPlaylistsFlow(): Flow<List<Playlist>> = playlistRepository.getAllPlaylistsFlow()
 
     /**
      * 根据 ID 获取播放列表元数据（名称等）
      */
-    suspend fun getPlaylistMeta(id: Long): Playlist? {
-        return playlistRepository.getPlaylistMeta(id)
-    }
+    suspend fun getPlaylistMeta(id: Long): Playlist? = playlistRepository.getPlaylistMeta(id)
 
     /**
      * 重命名播放列表。
@@ -121,16 +113,12 @@ class ManagePlaylistUseCase(
     /**
      * 根据ID获取播放列表中的歌曲列表
      */
-    suspend fun getPlaylistById(playlistId: Long): List<MusicInfo> {
-        return playlistRepository.getPlaylistById(playlistId)
-    }
+    suspend fun getPlaylistById(playlistId: Long): List<MusicInfo> = playlistRepository.getPlaylistById(playlistId)
 
     /**
      * 获取播放列表中的音乐(Flow)
      */
-    fun getMusicInfoInPlaylist(playlistId: Long): Flow<List<MusicInfo>> {
-        return playlistRepository.getMusicInfoInPlaylist(playlistId)
-    }
+    fun getMusicInfoInPlaylist(playlistId: Long): Flow<List<MusicInfo>> = playlistRepository.getMusicInfoInPlaylist(playlistId)
 
     /**
      * 添加音乐到播放列表
@@ -156,7 +144,7 @@ class ManagePlaylistUseCase(
     /**
      * 调整播放列表内歌曲顺序
      */
+
     /** `false` = 入参不是当前可见曲目的完整排列，什么都没改（D3-04）。 */
-    suspend fun reorderPlaylistItems(playlistId: Long, orderedMusicIds: List<Long>): Boolean =
-        playlistRepository.reorderPlaylistItems(playlistId, orderedMusicIds)
+    suspend fun reorderPlaylistItems(playlistId: Long, orderedMusicIds: List<Long>): Boolean = playlistRepository.reorderPlaylistItems(playlistId, orderedMusicIds)
 }

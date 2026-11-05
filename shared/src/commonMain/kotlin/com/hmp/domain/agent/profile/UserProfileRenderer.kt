@@ -192,59 +192,69 @@ object UserProfileRenderer {
         if (facts.isEmpty()) return emptyList()
         val sentence = facts.joinToString("、") + "。"
         return listOf(
-            if (p.type.weakEvidence) "你在音乐里表现出的倾向：$sentence" else sentence
+            if (p.type.weakEvidence) "你在音乐里表现出的倾向：$sentence" else sentence,
         )
     }
 
     /** 槽位 → 短语。未知槽位返回 null（**不硬编**，免得内部键名漏进上下文）。 */
     private fun slotPhrase(slot: String, value: String): String? = when (slot) {
         PortraitType.PRIMARY_PART -> "主要在${timeLabel(value)}听"
+
         PortraitType.COMPLETION_RATE -> when (value) {
             "HIGH" -> "很少中途跳歌"
             "LOW" -> "经常听到一半就跳"
             else -> null
         }
+
         PortraitType.SKIP_POINT -> when (value) {
             "INTRO" -> "常在前奏就跳掉"
             "MIDDLE" -> "多在听了一半之后跳"
             else -> null
         }
+
         PortraitType.REPEAT_RATE -> when (value) {
             "HIGH" -> "会把同一批翻来覆去地听"
             "LOW" -> "很少重复同一首"
             else -> null
         }
+
         // ── 口味侧写（T0b 起有对话抽取写入；value 是自由短语）──
         PortraitType.LEADING_GENRE -> "常听${sanitizeInline(value)}这一类"
+
         PortraitType.TOP_ARTISTS -> "常听${sanitizeInline(value)}的歌"
+
         PortraitType.DISLIKED_STYLES -> "不爱听${sanitizeInline(value)}"
+
         // ── B 类（T0b）：值由 BPortraitModeler 产出，渲染短语只覆盖有把握的两极 ──
         PortraitType.DETERMINISM -> when (value) {
             "HIGH" -> "反复听熟悉的那一批"
             "LOW" -> "总在换新的听"
             else -> null
         }
+
         PortraitType.SESSION_LENGTH -> when (value) {
             "LONG" -> "一坐下来就听得久"
             "SHORT" -> "每次只听一小会儿"
             else -> null
         }
+
         PortraitType.FRAGMENTATION -> when (value) {
             "HIGH" -> "听歌是碎着听的"
             "LOW" -> "听起来很整"
             else -> null
         }
+
         PortraitType.MOOD_CONSISTENCY -> when (value) {
             "HIGH" -> "情绪基调挺统一"
             "LOW" -> "情绪跨度不小"
             else -> null
         }
+
         else -> null
     }
 
     /** 自由短语值进上下文前的最后一道闸：单行、限长。 */
-    private fun sanitizeInline(raw: String): String =
-        raw.lines().first().trim().take(12)
+    private fun sanitizeInline(raw: String): String = raw.lines().first().trim().take(12)
 
     private fun timeLabel(part: String): String = when (part) {
         "DAWN" -> "凌晨"

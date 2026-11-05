@@ -32,7 +32,9 @@ class TokenQuotaGateTest {
         override suspend fun sumByHourForAgent(sinceMs: Long, agentId: String): List<TokenTimeBucket> = emptyList()
         override suspend fun sumTotal(): Long = rows.sumOf { it.totalTokens }
         override suspend fun sumTotalSince(sinceMs: Long): Long = sumTotal()
-        override suspend fun deleteAll() { rows = emptyList() }
+        override suspend fun deleteAll() {
+            rows = emptyList()
+        }
     }
 
     private fun row(agent: String, total: Long) = TokenAggregateRow(
@@ -44,12 +46,11 @@ class TokenQuotaGateTest {
         calls = 1,
     )
 
-    private fun gate(rows: List<TokenAggregateRow>, settings: FakeSettingsRepository = FakeSettingsRepository()) =
-        TokenQuotaGate(
-            ledgerDao = SeededDao(rows),
-            settingsRepository = settings,
-            timeProvider = { 1_000_000L },
-        )
+    private fun gate(rows: List<TokenAggregateRow>, settings: FakeSettingsRepository = FakeSettingsRepository()) = TokenQuotaGate(
+        ledgerDao = SeededDao(rows),
+        settingsRepository = settings,
+        timeProvider = { 1_000_000L },
+    )
 
     @Test
     fun free_bucketCap_blocksOnlyThatBucket_andProfileCountsAsMaster() = runTest {
@@ -71,7 +72,7 @@ class TokenQuotaGateTest {
                 row("radio", 24_000_000L),
                 row("enrich", 24_000_000L),
                 row("hello", 13_000_000L),
-            )
+            ),
         )
 
         listOf("master", "radio", "enrich", "hello").forEach { agent ->
@@ -95,7 +96,7 @@ class TokenQuotaGateTest {
         val settings = FakeSettingsRepository()
         settings.saveAiAccessMode(AiAccessMode.CUSTOM)
         settings.saveGlobalAgentConfig(
-            GlobalAgentConfig(tokenLimitsEnabled = true, perAgentDailyTokenQuota = mapOf("master" to 100L))
+            GlobalAgentConfig(tokenLimitsEnabled = true, perAgentDailyTokenQuota = mapOf("master" to 100L)),
         )
         val gate = gate(emptyList(), settings)
 
@@ -111,7 +112,7 @@ class TokenQuotaGateTest {
         val settings = FakeSettingsRepository()
         settings.saveAiAccessMode(AiAccessMode.CUSTOM)
         settings.saveGlobalAgentConfig(
-            GlobalAgentConfig(tokenLimitsEnabled = false, perAgentDailyTokenQuota = mapOf("master" to 1L))
+            GlobalAgentConfig(tokenLimitsEnabled = false, perAgentDailyTokenQuota = mapOf("master" to 1L)),
         )
         val gate = gate(listOf(row("master", 999_999_999L)), settings)
 
@@ -123,7 +124,7 @@ class TokenQuotaGateTest {
         val settings = FakeSettingsRepository()
         settings.saveAiAccessMode(AiAccessMode.CUSTOM)
         settings.saveGlobalAgentConfig(
-            GlobalAgentConfig(tokenLimitsEnabled = true, dailyTokenQuota = 1_000)
+            GlobalAgentConfig(tokenLimitsEnabled = true, dailyTokenQuota = 1_000),
         )
         val gate = gate(listOf(row("radio", 700L), row("master", 300L)), settings)
 
@@ -144,8 +145,7 @@ class TokenQuotaGateTest {
             override suspend fun count(): Long = 1L
             override suspend fun earliestMs(): Long? = null
             override suspend fun sumByAgent(sinceMs: Long): List<TokenAggregateRow> = emptyList()
-            override suspend fun sumByAgentForMode(sinceMs: Long, mode: String): List<TokenAggregateRow> =
-                if (sinceMs == 0L) listOf(row("master", 1_500L)) else emptyList()
+            override suspend fun sumByAgentForMode(sinceMs: Long, mode: String): List<TokenAggregateRow> = if (sinceMs == 0L) listOf(row("master", 1_500L)) else emptyList()
             override suspend fun sumByEndpoint(sinceMs: Long): List<TokenAggregateRow> = emptyList()
             override suspend fun sumByHour(sinceMs: Long): List<TokenTimeBucket> = emptyList()
             override suspend fun sumByDay(sinceMs: Long): List<TokenTimeBucket> = emptyList()

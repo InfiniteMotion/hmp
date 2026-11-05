@@ -5,8 +5,7 @@ import androidx.room.Room
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import kotlinx.coroutines.Dispatchers
 
-fun hmpDatabasePath(context: Context): String =
-    context.getDatabasePath("music_database.db").absolutePath
+fun hmpDatabasePath(context: Context): String = context.getDatabasePath("music_database.db").absolutePath
 
 fun getDatabaseBuilder(context: Context): androidx.room.RoomDatabase.Builder<AppDatabase> {
     val dbFile = context.getDatabasePath("music_database.db")
@@ -14,19 +13,17 @@ fun getDatabaseBuilder(context: Context): androidx.room.RoomDatabase.Builder<App
     AppDatabaseGuard.enforce(dbFile.absolutePath)
     return Room.databaseBuilder<AppDatabase>(
         context = context,
-        name = dbFile.absolutePath
+        name = dbFile.absolutePath,
     )
 }
 
-actual fun getRoomDatabase(builder: androidx.room.RoomDatabase.Builder<AppDatabase>): AppDatabase {
-    return builder
-        .addMigrations(*AppDatabase.ALL_MIGRATIONS)
-        // 1→9 迁移链完整，故不再挂破坏式重建兜底。
-        // fallbackToDestructiveMigration(dropAllTables = true) 会连「降级」与「未知版本」一起放过：
-        // 用户的库版本只要高于本应用（beta 回退、新设备备份恢复、新库拷回旧安装），
-        // 整库就被静默 drop —— 播放列表/听歌统计/Agent 记忆全没且无提示。
-        // 宁可打不开（数据仍在，升回新版本即可恢复），也不静默清库。
-        .setDriver(BundledSQLiteDriver())
-        .setQueryCoroutineContext(Dispatchers.Default)
-        .build()
-}
+actual fun getRoomDatabase(builder: androidx.room.RoomDatabase.Builder<AppDatabase>): AppDatabase = builder
+    .addMigrations(*AppDatabase.ALL_MIGRATIONS)
+    // 1→9 迁移链完整，故不再挂破坏式重建兜底。
+    // fallbackToDestructiveMigration(dropAllTables = true) 会连「降级」与「未知版本」一起放过：
+    // 用户的库版本只要高于本应用（beta 回退、新设备备份恢复、新库拷回旧安装），
+    // 整库就被静默 drop —— 播放列表/听歌统计/Agent 记忆全没且无提示。
+    // 宁可打不开（数据仍在，升回新版本即可恢复），也不静默清库。
+    .setDriver(BundledSQLiteDriver())
+    .setQueryCoroutineContext(Dispatchers.Default)
+    .build()

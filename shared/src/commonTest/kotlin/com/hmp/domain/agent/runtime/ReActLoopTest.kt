@@ -8,8 +8,8 @@ import com.hmp.domain.agent.port.LlmEvent
 import com.hmp.domain.agent.port.LlmMessage
 import com.hmp.domain.agent.port.LlmToolSpec
 import com.hmp.domain.agent.port.LlmTransport
-import com.hmp.domain.agent.tool.spec.ToolRegistry
 import com.hmp.domain.agent.tool.spec.AgentTool
+import com.hmp.domain.agent.tool.spec.ToolRegistry
 import com.hmp.test.fakes.FakeStopSignal
 import com.hmp.test.fakes.RecordingTool
 import com.hmp.test.fakes.perTurnTransport
@@ -111,7 +111,11 @@ class ReActLoopTest {
         var called = 0
         val transport = perTurnTransport(listOf(LlmEvent.TextDelta("hi"), LlmEvent.Completed))
         loop().run(
-            policy, transport, config, systemPrompt, input,
+            policy,
+            transport,
+            config,
+            systemPrompt,
+            input,
             registry = registry(RecordingTool()),
             onSessionComplete = { called++ },
         )
@@ -128,7 +132,7 @@ class ReActLoopTest {
         }
         val transport = perTurnTransport(listOf(LlmEvent.TextDelta("hi"), LlmEvent.Completed))
         loop(presenceBus = bus).run(policy, transport, config, systemPrompt, input, registry = registry(RecordingTool()))
-        runCurrent()   // 泵一次调度，让收集者消费缓冲中的事件
+        runCurrent() // 泵一次调度，让收集者消费缓冲中的事件
         assertTrue(events.any { it is PresenceEvent.TaskProgress && it.phase == "thinking" }, "应发出 thinking 进度事件")
         assertTrue(events.any { it is PresenceEvent.TaskProgress && it.phase == "idle" }, "应发出 idle 进度事件")
     }
@@ -143,17 +147,16 @@ class ReActLoopTest {
             override suspend fun count(): Long = 1L
             override suspend fun earliestMs(): Long? = null
             override suspend fun sumByAgent(sinceMs: Long): List<com.hmp.data.database.TokenAggregateRow> = emptyList()
-            override suspend fun sumByAgentForMode(sinceMs: Long, mode: String): List<com.hmp.data.database.TokenAggregateRow> =
-                listOf(
-                    com.hmp.data.database.TokenAggregateRow(
-                        label = "master",
-                        promptTokens = 40_000_000L,
-                        completionTokens = 0L,
-                        totalTokens = 40_000_000L,
-                        estimatedRows = 0L,
-                        calls = 1L,
-                    )
-                )
+            override suspend fun sumByAgentForMode(sinceMs: Long, mode: String): List<com.hmp.data.database.TokenAggregateRow> = listOf(
+                com.hmp.data.database.TokenAggregateRow(
+                    label = "master",
+                    promptTokens = 40_000_000L,
+                    completionTokens = 0L,
+                    totalTokens = 40_000_000L,
+                    estimatedRows = 0L,
+                    calls = 1L,
+                ),
+            )
             override suspend fun sumByEndpoint(sinceMs: Long): List<com.hmp.data.database.TokenAggregateRow> = emptyList()
             override suspend fun sumByHour(sinceMs: Long): List<com.hmp.data.database.TokenTimeBucket> = emptyList()
             override suspend fun sumByDay(sinceMs: Long): List<com.hmp.data.database.TokenTimeBucket> = emptyList()

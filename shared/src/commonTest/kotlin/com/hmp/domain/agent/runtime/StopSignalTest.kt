@@ -31,8 +31,11 @@ class StopSignalTest {
         val signal = SchedulerStopSignal()
         signal.onSchedulerPaused()
 
-        val waiter = async { signal.waitResume(); true }
-        yield()  // 让 waiter 启动并挂起在门闩上
+        val waiter = async {
+            signal.waitResume()
+            true
+        }
+        yield() // 让 waiter 启动并挂起在门闩上
         assertTrue(!waiter.isCompleted, "pause 期间 waitResume 必须挂起")
 
         signal.onSchedulerResumed()
@@ -43,9 +46,12 @@ class StopSignalTest {
     fun onSchedulerPaused_isIdempotent() = runBlocking {
         val signal = SchedulerStopSignal()
         signal.onSchedulerPaused()
-        signal.onSchedulerPaused()  // 重复 pause 不得死锁/不得二次持锁
+        signal.onSchedulerPaused() // 重复 pause 不得死锁/不得二次持锁
 
-        val waiter = async { signal.waitResume(); true }
+        val waiter = async {
+            signal.waitResume()
+            true
+        }
         yield()
         assertTrue(!waiter.isCompleted)
         signal.onSchedulerResumed()
@@ -63,7 +69,7 @@ class StopSignalTest {
     fun waitResume_passesImmediately_afterResumeBeforeWait() = runBlocking {
         val signal = SchedulerStopSignal()
         signal.onSchedulerPaused()
-        signal.onSchedulerResumed()  // Agent 尚未调 waitResume，门闩已提前释放
+        signal.onSchedulerResumed() // Agent 尚未调 waitResume，门闩已提前释放
 
         // 必须立即通过（pauseRequested=false 快速路径）
         withTimeout(1_000) { signal.waitResume() }
@@ -79,7 +85,10 @@ class StopSignalTest {
         val signal = SchedulerStopSignal()
         repeat(3) {
             signal.onSchedulerPaused()
-            val waiter = async { signal.waitResume(); true }
+            val waiter = async {
+                signal.waitResume()
+                true
+            }
             yield()
             assertTrue(!waiter.isCompleted, "第 ${it + 1} 轮 pause 期间必须挂起")
             signal.onSchedulerResumed()

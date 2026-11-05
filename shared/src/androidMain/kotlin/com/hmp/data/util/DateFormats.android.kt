@@ -6,8 +6,7 @@ import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
 
-actual fun todayDateString(): String =
-    SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+actual fun todayDateString(): String = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
 
 actual fun parseDateToMillis(date: String): Long? = try {
     SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).parse(date)?.time
@@ -28,13 +27,10 @@ actual fun millisUntilNextLocalMidnight(): Long {
     return cal.timeInMillis - now
 }
 
-actual fun formatMmddFromMillis(epochMs: Long): String =
-    SimpleDateFormat("MM-dd", Locale.getDefault()).format(Date(epochMs))
-actual fun localHourOfDay(epochMs: Long): Int =
-    Calendar.getInstance().apply { timeInMillis = epochMs }.get(Calendar.HOUR_OF_DAY)
+actual fun formatMmddFromMillis(epochMs: Long): String = SimpleDateFormat("MM-dd", Locale.getDefault()).format(Date(epochMs))
+actual fun localHourOfDay(epochMs: Long): Int = Calendar.getInstance().apply { timeInMillis = epochMs }.get(Calendar.HOUR_OF_DAY)
 
-actual fun localDateString(epochMs: Long): String =
-    SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date(epochMs))
+actual fun localDateString(epochMs: Long): String = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date(epochMs))
 
 actual fun localDayRange(date: String): Pair<Long, Long>? {
     val start = parseDateToMillis(date) ?: return null

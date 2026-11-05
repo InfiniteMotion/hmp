@@ -19,7 +19,6 @@ internal object RadioSeedKeywords {
         }.take(5)
     }
 
-
     /** 单个标签的同义词匹配。未列出的标签永不通过关键词命中。 */
     private fun matches(label: LabelName, lower: String): Boolean = when (label) {
         LabelName.BLUES -> "blues" in lower || "蓝调" in lower

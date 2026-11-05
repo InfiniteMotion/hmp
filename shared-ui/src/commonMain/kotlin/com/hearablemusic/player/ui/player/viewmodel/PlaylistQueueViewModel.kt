@@ -2,9 +2,9 @@ package com.hearablemusic.player.ui.player.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.hearablemusic.player.ui.platform.PlaybackController
 import com.hmp.domain.music.MusicInfo
 import com.hmp.domain.music.MusicLabel
-import com.hearablemusic.player.ui.platform.PlaybackController
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 

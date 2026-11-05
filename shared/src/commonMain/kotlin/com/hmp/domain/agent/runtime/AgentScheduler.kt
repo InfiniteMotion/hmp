@@ -1,17 +1,16 @@
 package com.hmp.domain.agent.runtime
 
 import com.hmp.domain.agent.port.TimeProvider
-
+import com.hmp.log.HmpLog
+import com.hmp.log.LogTag
+import com.hmp.platform.Synchronized
+import com.hmp.platform.Volatile
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import com.hmp.log.HmpLog
-import com.hmp.log.LogTag
-import com.hmp.platform.Volatile
-import com.hmp.platform.Synchronized
 
 /**
  * Agent 优先级：数值越小优先级越高。
@@ -133,10 +132,12 @@ internal class AgentScheduler(
                             HmpLog.i(LogTag.AgentScheduler) { "⏱️ [Scheduler] $agentId RESUMED (priority=${registration.priority})" }
                             runCatching { registration.onResume() }
                         }
+
                         AgentRunState.PAUSED -> {
                             HmpLog.i(LogTag.AgentScheduler) { "⏱️ [Scheduler] $agentId PAUSED (priority=${registration.priority})" }
                             runCatching { registration.onPause() }
                         }
+
                         AgentRunState.UNREGISTERED -> Unit
                     }
                 }
@@ -147,13 +148,15 @@ internal class AgentScheduler(
 
     // ===== 状态判定（纯规则，零 LLM） =====
 
-    private fun decideState(registration: AgentRegistration): AgentRunState {
-        return when (registration.priority) {
-            AgentPriority.MASTER -> AgentRunState.RUNNING // 永不暂停
-            AgentPriority.RADIO -> decideRadioState()
-            AgentPriority.ENRICH -> decideEnrichState()
-            AgentPriority.HELLO -> decideHelloState()
-        }
+    private fun decideState(registration: AgentRegistration): AgentRunState = when (registration.priority) {
+        AgentPriority.MASTER -> AgentRunState.RUNNING
+
+        // 永不暂停
+        AgentPriority.RADIO -> decideRadioState()
+
+        AgentPriority.ENRICH -> decideEnrichState()
+
+        AgentPriority.HELLO -> decideHelloState()
     }
 
     /** Hello (4): 永不暂停——门面副驾驶，最靠近用户 */

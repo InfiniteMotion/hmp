@@ -1,6 +1,5 @@
 package com.hearablemusic.player.ui.playlist.pages
 
-import com.hearablemusic.player.ui.common.navigation.Routes as NavRoutes
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
@@ -50,13 +49,21 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.hearablemusic.player.ui.common.util.commonFormat
-import com.hearablemusic.player.ui.common.util.activityViewModel
-import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
-import com.hmp.domain.music.MusicInfo
-import com.hmp.domain.playlist.Playlist
+import com.hearablemusic.player.ui.common.design.animation.HmpMotion
+import com.hearablemusic.player.ui.common.design.metrics.LayoutConstraints
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
+import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
+import com.hearablemusic.player.ui.common.dialogs.base.InputDialog
+import com.hearablemusic.player.ui.common.dialogs.controller.DialogManager
+import com.hearablemusic.player.ui.common.dialogs.viewmodel.DialogManagerViewModel
+import com.hearablemusic.player.ui.common.dialogs.viewmodel.DialogViewModel
+import com.hearablemusic.player.ui.common.pages.base.SubScreen
+import com.hearablemusic.player.ui.common.util.UiState
+import com.hearablemusic.player.ui.common.util.activityViewModel
+import com.hearablemusic.player.ui.common.util.commonFormat
+import com.hearablemusic.player.ui.common.util.rememberHapticFeedback
 import com.hearablemusic.player.ui.generated.resources.Res
 import com.hearablemusic.player.ui.generated.resources.add_songs_to_playlist
 import com.hearablemusic.player.ui.generated.resources.added_n_songs_to_playlist
@@ -78,22 +85,15 @@ import com.hearablemusic.player.ui.library.pages.components.musiclist.FullItemOp
 import com.hearablemusic.player.ui.library.pages.components.musiclist.MusicList
 import com.hearablemusic.player.ui.library.pages.components.musiclist.MusicListCallbacksAdapter
 import com.hearablemusic.player.ui.library.pages.components.musiclist.playlistPresetMusicListConfig
-import com.hearablemusic.player.ui.common.dialogs.controller.DialogManager
-import com.hearablemusic.player.ui.common.dialogs.base.InputDialog
-import com.hearablemusic.player.ui.common.pages.base.SubScreen
-import com.hearablemusic.player.ui.common.util.UiState
-import com.hearablemusic.player.ui.common.util.rememberHapticFeedback
-import com.hearablemusic.player.ui.common.dialogs.viewmodel.DialogManagerViewModel
-import com.hearablemusic.player.ui.common.dialogs.viewmodel.DialogViewModel
 import com.hearablemusic.player.ui.player.viewmodel.PlaybackViewModel
 import com.hearablemusic.player.ui.player.viewmodel.PlaylistQueueViewModel
 import com.hearablemusic.player.ui.playlist.viewmodel.PlaylistViewModel
+import com.hmp.domain.music.MusicInfo
+import com.hmp.domain.playlist.Playlist
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
-import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
-import com.hearablemusic.player.ui.common.design.metrics.LayoutConstraints
-import com.hearablemusic.player.ui.common.design.animation.HmpMotion
+import com.hearablemusic.player.ui.common.navigation.Routes as NavRoutes
 
 @Composable
 fun PlaylistScreen(
@@ -112,6 +112,7 @@ fun PlaylistScreen(
             playlistId != null -> {
                 playlistViewModel.loadPlaylistById(playlistId)
             }
+
             playlistName != null -> {
                 playlistViewModel.getSelectedPlaylist(playlistName)
             }
@@ -173,13 +174,15 @@ fun PlaylistScreen(
                                     if (selectedIds.isNotEmpty()) {
                                         dialogManager.showMessage(addedMessage)
                                     }
-                                }
+                                },
                             )
-                        }
+                        },
                     )
                 }
             }
-        } else null
+        } else {
+            null
+        },
     )
 }
 
@@ -205,7 +208,7 @@ fun PlaylistScreenContent(
     onUpdateDescription: (Long, String?) -> Unit,
     onRemoveFromPlaylist: (Long, Long) -> Unit,
     onReorder: (List<Long>) -> Unit,
-    onAddSongsClick: (() -> Unit)? = null
+    onAddSongsClick: (() -> Unit)? = null,
 ) {
     val metrics = LocalHmpMetrics.current
     val haptic = rememberHapticFeedback()
@@ -216,7 +219,7 @@ fun PlaylistScreenContent(
     var showDescriptionDialog by remember { mutableStateOf(false) }
     var descriptionValue by remember(playlistMeta?.description) {
         mutableStateOf(
-            playlistMeta?.description ?: ""
+            playlistMeta?.description ?: "",
         )
     }
     var isListEditMode by remember { mutableStateOf(false) }
@@ -240,7 +243,7 @@ fun PlaylistScreenContent(
     LaunchedEffect(
         isCustomPlaylist,
         musicListState.firstVisibleItemIndex,
-        musicListState.firstVisibleItemScrollOffset
+        musicListState.firstVisibleItemScrollOffset,
     ) {
         if (
             isCustomPlaylist &&
@@ -293,7 +296,7 @@ fun PlaylistScreenContent(
         },
         onDismiss = {
             showRenameDialog = false
-        }
+        },
     )
 
     // 编辑歌单描述弹窗
@@ -309,14 +312,14 @@ fun PlaylistScreenContent(
             selectedPlaylistId?.let {
                 onUpdateDescription(
                     it,
-                    input.trim().ifEmpty { null }
+                    input.trim().ifEmpty { null },
                 )
             }
             showDescriptionDialog = false
         },
         onDismiss = {
             showDescriptionDialog = false
-        }
+        },
     )
 
     SubScreen(
@@ -335,17 +338,19 @@ fun PlaylistScreenContent(
                     modifier = Modifier.size(metrics.block),
                     colors = IconButtonDefaults.filledIconButtonColors(
                         containerColor = MaterialTheme.colorScheme.primary,
-                        contentColor = MaterialTheme.colorScheme.onPrimary
-                    )
+                        contentColor = MaterialTheme.colorScheme.onPrimary,
+                    ),
                 ) {
                     Icon(
                         painter = painterResource(Res.drawable.gearshape),
                         contentDescription = stringResource(Res.string.edit_list),
-                        modifier = Modifier.size(metrics.cozy)
+                        modifier = Modifier.size(metrics.cozy),
                     )
                 }
             }
-        } else null
+        } else {
+            null
+        },
     ) {
         Column(
             modifier = Modifier
@@ -357,10 +362,10 @@ fun PlaylistScreenContent(
                 AnimatedVisibility(
                     visible = !shouldCollapseHeader,
                     enter = expandVertically(animationSpec = HmpMotion.standard()) + fadeIn(animationSpec = HmpMotion.micro()),
-                    exit = shrinkVertically(animationSpec = HmpMotion.standard()) + fadeOut(animationSpec = HmpMotion.micro())
+                    exit = shrinkVertically(animationSpec = HmpMotion.standard()) + fadeOut(animationSpec = HmpMotion.micro()),
                 ) {
                     PlaylistHeader(
-                        meta = playlistMeta
+                        meta = playlistMeta,
                     )
                 }
             }
@@ -386,7 +391,7 @@ fun PlaylistScreenContent(
                         showViewDetail = true,
                         showPlayNext = true,
                         showRemoveFromCurrentPlaylist = false,
-                        showDelete = false
+                        showDelete = false,
                     )
                     dialogViewModel.showMusicDetailDialog(musicInfo, menuConfig)
                 }
@@ -410,9 +415,9 @@ fun PlaylistScreenContent(
                                     musicIds = selectedMusicList.map { it.music.id },
                                     onComplete = {
                                         dialogManager.showMessage(commonFormat(addedNSongsMessageFormat, selectedMusicList.size))
-                                    }
+                                    },
                                 )
-                            }
+                            },
                         )
                     }
                 }
@@ -443,7 +448,9 @@ fun PlaylistScreenContent(
                             )
                         }
                     }
-                } else null,
+                } else {
+                    null
+                },
             )
             val config = baseConfig.copy(
                 item = baseConfig.item.copy(
@@ -468,35 +475,35 @@ fun PlaylistScreenContent(
 private fun PlaylistStatItem(
     label: String,
     value: String,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     val metrics = LocalHmpMetrics.current
     val typo = LocalHmpTypo.current
     Column(
         modifier = modifier,
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(metrics.micro, Alignment.CenterVertically)
+        verticalArrangement = Arrangement.spacedBy(metrics.micro, Alignment.CenterVertically),
     ) {
         Text(
             text = value,
             style = typo.subtitle.copy(
                 fontWeight = FontWeight.Bold,
             ),
-            color = MaterialTheme.colorScheme.onSurface
+            color = MaterialTheme.colorScheme.onSurface,
         )
         Text(
             text = label,
             style = typo.caption,
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
             maxLines = 1,
-            overflow = TextOverflow.Ellipsis
+            overflow = TextOverflow.Ellipsis,
         )
     }
 }
 
 @Composable
 private fun PlaylistHeader(
-    meta: Playlist
+    meta: Playlist,
 ) {
     val metrics = LocalHmpMetrics.current
     val typo = LocalHmpTypo.current
@@ -505,7 +512,7 @@ private fun PlaylistHeader(
             .fillMaxWidth(),
         shape = RoundedCornerShape(metrics.section),
         colors = CardDefaults.cardColors(
-            containerColor = Transparent
+            containerColor = Transparent,
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
     ) {
@@ -513,13 +520,13 @@ private fun PlaylistHeader(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(metrics.cozy),
-            horizontalAlignment = Alignment.CenterHorizontally
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             // Cover Image
             Box(
                 modifier = Modifier
                     .size(HEADER_COVER_SIZE_DP.dp)
-                    .clip(RoundedCornerShape(HEADER_CORNER_RADIUS_DP.dp))
+                    .clip(RoundedCornerShape(HEADER_CORNER_RADIUS_DP.dp)),
             ) {
                 AlbumCover(
                     uri = meta.coverUri,
@@ -537,25 +544,25 @@ private fun PlaylistHeader(
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceEvenly,
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
                     if (meta.songCount > 0) {
                         PlaylistStatItem(
                             label = stringResource(Res.string.counts),
-                            value = meta.songCount.toString()
+                            value = meta.songCount.toString(),
                         )
                     }
                     if (meta.totalDurationMs > 0) {
                         val minutes = (meta.totalDurationMs / 1000 / 60).toInt()
                         PlaylistStatItem(
                             label = stringResource(Res.string.duration),
-                            value = stringResource(Res.string.minutes_format, minutes)
+                            value = stringResource(Res.string.minutes_format, minutes),
                         )
                     }
                     if (meta.playCount > 0) {
                         PlaylistStatItem(
                             label = stringResource(Res.string.play),
-                            value = meta.playCount.toString()
+                            value = meta.playCount.toString(),
                         )
                     }
                 }
@@ -575,7 +582,7 @@ private fun PlaylistHeader(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = metrics.compact),
-                    textAlign = TextAlign.Center
+                    textAlign = TextAlign.Center,
                 )
             }
         }

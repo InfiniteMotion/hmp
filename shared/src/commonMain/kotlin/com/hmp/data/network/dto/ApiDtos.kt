@@ -91,7 +91,7 @@ data class OpenAiFunctionSpec(
 data class OpenAiStyleResponse(
     val id: String? = null,
     val choices: List<OpenAiChoice>? = null,
-    val usage: OpenAiUsage? = null
+    val usage: OpenAiUsage? = null,
 )
 
 @Serializable
@@ -99,7 +99,7 @@ data class OpenAiChoice(
     val message: OpenAiMessage? = null,
     /** OpenAI 端点发 snake_case；缺 SerialName 时解码恒为 null（review 测试发现 2026-08-28） */
     @SerialName("finish_reason")
-    val finishReason: String? = null
+    val finishReason: String? = null,
 )
 
 // ========== OpenAI Compatible SSE Stream ==========
@@ -174,14 +174,14 @@ data class OpenAiPromptTokensDetails(
 
 @Serializable
 data class ModelsResponse(
-    val data: List<ModelItem>? = null
+    val data: List<ModelItem>? = null,
 )
 
 @Serializable
 data class ModelItem(
     val id: String,
     @SerialName("owned_by")
-    val ownedBy: String? = null
+    val ownedBy: String? = null,
 )
 
 // ========== Music Info Response ==========
@@ -199,5 +199,5 @@ data class MusicInfoResponse(
     val backgroundIntroduce: String = "",
     val description: String = "",
     val relevantMusic: String = "",
-    val errorInfo: String = ""
+    val errorInfo: String = "",
 )

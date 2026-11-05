@@ -1,13 +1,20 @@
 package com.hearablemusic.player.ui.playlist.viewmodel
 
-
-import com.hmp.domain.music.MusicSortKey
-import com.hmp.domain.music.SortDirection
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.hmp.domain.music.MusicInfo
+import com.hearablemusic.player.ui.common.util.UiState
+import com.hearablemusic.player.ui.common.util.nowEpochMillis
+import com.hearablemusic.player.ui.generated.resources.Res
+import com.hearablemusic.player.ui.generated.resources.default_playlist
+import com.hearablemusic.player.ui.generated.resources.heart
+import com.hearablemusic.player.ui.generated.resources.recently_played
+import com.hearablemusic.player.ui.playlist.userVisiblePlaylists
+import com.hearablemusic.player.ui.startup.DefaultPlaylistGuard
 import com.hmp.domain.enum.LabelCategory
 import com.hmp.domain.enum.LabelName
+import com.hmp.domain.music.MusicInfo
+import com.hmp.domain.music.MusicSortKey
+import com.hmp.domain.music.SortDirection
 import com.hmp.domain.music.usecase.GetAllMusicUseCase
 import com.hmp.domain.music.usecase.MusicLabelUseCase
 import com.hmp.domain.playlist.Playlist
@@ -15,18 +22,10 @@ import com.hmp.domain.playlist.PlaylistNameError
 import com.hmp.domain.playlist.PlaylistNameException
 import com.hmp.domain.playlist.SystemPlaylists
 import com.hmp.domain.playlist.usecase.ManagePlaylistUseCase
-import com.hearablemusic.player.ui.playlist.userVisiblePlaylists
 import com.hmp.domain.setting.SettingsRepository
 import com.hmp.log.HmpLog
 import com.hmp.log.LogTag
-import com.hearablemusic.player.ui.common.util.UiState
-import com.hearablemusic.player.ui.common.util.nowEpochMillis
-import com.hearablemusic.player.ui.startup.DefaultPlaylistGuard
-import com.hearablemusic.player.ui.generated.resources.Res
-import com.hearablemusic.player.ui.generated.resources.default_playlist
-import com.hearablemusic.player.ui.generated.resources.heart
-import com.hearablemusic.player.ui.generated.resources.recently_played
-import org.jetbrains.compose.resources.getString
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -35,22 +34,21 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-
-import kotlinx.coroutines.Job
+import org.jetbrains.compose.resources.getString
 
 data class PlaylistScreenUiState(
     val playlistName: String = "",
     val playlist: UiState<List<MusicInfo>> = UiState.Idle,
     val playlistMeta: Playlist? = null,
     val selectedPlaylistId: Long? = null,
-    val isCustomPlaylist: Boolean = false
+    val isCustomPlaylist: Boolean = false,
 )
 
 class PlaylistViewModel(
     private val managePlaylistUseCase: ManagePlaylistUseCase,
     private val musicLabelUseCase: MusicLabelUseCase,
     private val settingsRepository: SettingsRepository,
-    private val getAllMusicUseCase: GetAllMusicUseCase
+    private val getAllMusicUseCase: GetAllMusicUseCase,
 ) : ViewModel() {
 
     val genrePlaylistName = musicLabelUseCase.getLabelNamesByType(LabelCategory.GENRE)
@@ -88,19 +86,19 @@ class PlaylistViewModel(
         _selectedPlaylistState,
         _selectedPlaylistMeta,
         _selectedPlaylistId,
-        _isCustomPlaylist
+        _isCustomPlaylist,
     ) { name, playlistState, meta, id, isCustom ->
         PlaylistScreenUiState(
             playlistName = name,
             playlist = playlistState,
             playlistMeta = meta,
             selectedPlaylistId = id,
-            isCustomPlaylist = isCustom
+            isCustomPlaylist = isCustom,
         )
     }.stateIn(
         viewModelScope,
         SharingStarted.WhileSubscribed(5000),
-        PlaylistScreenUiState()
+        PlaylistScreenUiState(),
     )
 
     private val _userCustomPlaylistsState = MutableStateFlow<UiState<List<Playlist>>>(UiState.Idle)
@@ -244,10 +242,14 @@ class PlaylistViewModel(
         viewModelScope.launch {
             val result = runCatching { managePlaylistUseCase.removePlaylistById(id) }
             when {
-                result.isFailure -> _userCustomPlaylistsState.value =
-                    UiState.Error(result.exceptionOrNull()?.message ?: "删除失败")
-                result.getOrNull() == false -> _userCustomPlaylistsState.value =
-                    UiState.Error("系统歌单不可删除")
+                result.isFailure ->
+                    _userCustomPlaylistsState.value =
+                        UiState.Error(result.exceptionOrNull()?.message ?: "删除失败")
+
+                result.getOrNull() == false ->
+                    _userCustomPlaylistsState.value =
+                        UiState.Error("系统歌单不可删除")
+
                 else -> {
                     _selectedPlaylistId.value = null
                     _selectedPlaylistMeta.value = null
@@ -275,7 +277,7 @@ class PlaylistViewModel(
     fun addItemsToPlaylist(
         playlistId: Long,
         musicIds: List<Long>,
-        onComplete: (() -> Unit)? = null
+        onComplete: (() -> Unit)? = null,
     ) {
         viewModelScope.launch {
             musicIds.forEach { musicId ->
@@ -401,5 +403,4 @@ class PlaylistViewModel(
             }
         }
     }
-
 }

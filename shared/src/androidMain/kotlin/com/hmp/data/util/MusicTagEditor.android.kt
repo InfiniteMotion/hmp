@@ -1,8 +1,8 @@
 package com.hmp.data.util
 
-import android.content.Context
 import android.content.ContentUris
 import android.content.ContentValues
+import android.content.Context
 import android.media.MediaScannerConnection
 import android.net.Uri
 import android.provider.MediaStore
@@ -18,7 +18,7 @@ import java.io.File
  * 需要通过 SAF 授权后使用 [MusicTagEditor.writeTags] 的 Uri 重载写入。
  */
 class NeedsStorageAccessException(
-    filePath: String
+    filePath: String,
 ) : IllegalStateException("Storage access required to edit: $filePath")
 
 actual object MusicTagEditor {
@@ -36,7 +36,7 @@ actual object MusicTagEditor {
     actual fun writeTags(filePath: String, tags: EditableMusicTags): Result<Unit> {
         val context = appContext
             ?: return Result.failure(
-                IllegalStateException("MusicTagEditor has not been initialized")
+                IllegalStateException("MusicTagEditor has not been initialized"),
             )
         return try {
             val file = File(filePath)
@@ -64,7 +64,7 @@ actual object MusicTagEditor {
     fun writeTags(uri: Uri, tags: EditableMusicTags, scanPath: String? = null): Result<Unit> {
         val context = appContext
             ?: return Result.failure(
-                IllegalStateException("MusicTagEditor has not been initialized")
+                IllegalStateException("MusicTagEditor has not been initialized"),
             )
         val resolver = context.contentResolver
         return try {
@@ -73,13 +73,13 @@ actual object MusicTagEditor {
                 resolver.openInputStream(uri)?.use { input ->
                     tempFile.outputStream().use { output -> input.copyTo(output) }
                 } ?: return Result.failure(
-                    IllegalStateException("Cannot open input stream for: $uri")
+                    IllegalStateException("Cannot open input stream for: $uri"),
                 )
                 writeTagsToFile(tempFile, tags)
                 resolver.openOutputStream(uri, "w")?.use { output ->
                     tempFile.inputStream().use { input -> input.copyTo(output) }
                 } ?: return Result.failure(
-                    IllegalStateException("Cannot open output stream for: $uri")
+                    IllegalStateException("Cannot open output stream for: $uri"),
                 )
             } finally {
                 tempFile.delete()
@@ -122,13 +122,13 @@ actual object MusicTagEditor {
             projection,
             selection,
             arrayOf(filePath),
-            null
+            null,
         )?.use { cursor ->
             if (cursor.moveToFirst()) {
                 val id = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.Audio.Media._ID))
                 return ContentUris.withAppendedId(
                     MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
-                    id
+                    id,
                 )
             }
         }
@@ -165,26 +165,24 @@ actual object MusicTagEditor {
         AudioFileIO.write(audioFile)
     }
 
-    private fun artworkFromBytes(bytes: ByteArray): Artwork {
-        return ArtworkFactory.getNew().apply {
-            binaryData = bytes
-            mimeType = detectImageMimeType(bytes)
-            description = ""
-        }
+    private fun artworkFromBytes(bytes: ByteArray): Artwork = ArtworkFactory.getNew().apply {
+        binaryData = bytes
+        mimeType = detectImageMimeType(bytes)
+        description = ""
     }
 
-    private fun detectImageMimeType(bytes: ByteArray): String {
-        return when {
-            bytes.size >= 8 &&
-                bytes[0] == 0x89.toByte() &&
-                bytes[1] == 0x50.toByte() &&
-                bytes[2] == 0x4E.toByte() &&
-                bytes[3] == 0x47.toByte() -> "image/png"
-            bytes.size >= 3 &&
-                bytes[0] == 0xFF.toByte() &&
-                bytes[1] == 0xD8.toByte() &&
-                bytes[2] == 0xFF.toByte() -> "image/jpeg"
-            else -> "image/jpeg"
-        }
+    private fun detectImageMimeType(bytes: ByteArray): String = when {
+        bytes.size >= 8 &&
+            bytes[0] == 0x89.toByte() &&
+            bytes[1] == 0x50.toByte() &&
+            bytes[2] == 0x4E.toByte() &&
+            bytes[3] == 0x47.toByte() -> "image/png"
+
+        bytes.size >= 3 &&
+            bytes[0] == 0xFF.toByte() &&
+            bytes[1] == 0xD8.toByte() &&
+            bytes[2] == 0xFF.toByte() -> "image/jpeg"
+
+        else -> "image/jpeg"
     }
 }

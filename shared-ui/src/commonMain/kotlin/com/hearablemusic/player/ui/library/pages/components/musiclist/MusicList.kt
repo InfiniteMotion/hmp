@@ -7,12 +7,12 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -22,9 +22,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
-import com.hmp.domain.music.MusicInfo
-import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 import com.hearablemusic.player.ui.common.design.animation.HmpMotion
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
+import com.hmp.domain.music.MusicInfo
 
 /**
  * 增强版音乐列表根组件。根据 [config] 渲染头部、编辑栏、列表内容；内部持有 [LazyListState] 与 [MusicListState]。
@@ -115,8 +115,11 @@ fun MusicList(
                 modifier = Modifier
                     .fillMaxSize()
                     .then(
-                        if (showIndexStrip) Modifier.padding(end = indexStripWidth)
-                        else Modifier
+                        if (showIndexStrip) {
+                            Modifier.padding(end = indexStripWidth)
+                        } else {
+                            Modifier
+                        },
                     ),
             )
             if (showScrollbar) {

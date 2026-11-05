@@ -16,20 +16,24 @@ import com.hearablemusic.player.ui.common.design.metrics.LayoutConstraints
 enum class WindowWidthSizeClass {
     /** < 600dp — 手机竖屏 */
     Compact,
+
     /** 600–840dp — 手机横屏、小平板竖屏 */
     Medium,
+
     /** >= 840dp — 平板横屏、桌面端 */
-    Expanded
+    Expanded,
 }
 
 @Immutable
 enum class WindowHeightSizeClass {
     /** < 480dp */
     Compact,
+
     /** 480–900dp */
     Medium,
+
     /** >= 900dp */
-    Expanded
+    Expanded,
 }
 
 @Immutable

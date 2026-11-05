@@ -100,8 +100,7 @@ class MinimalSettingsRepository : SettingsRepository {
     override val customAiConfig: Flow<AiEndpointConfig>
         get() = kotlinx.coroutines.flow.flowOf(AiEndpointConfig(isConfigured = true))
 
-    override suspend fun getAgentPolicyConfig(agentRole: String): com.hmp.domain.agent.policy.AgentPolicyConfig =
-        com.hmp.domain.agent.policy.AgentPolicyConfig()
+    override suspend fun getAgentPolicyConfig(agentRole: String): com.hmp.domain.agent.policy.AgentPolicyConfig = com.hmp.domain.agent.policy.AgentPolicyConfig()
     override suspend fun saveAgentPolicyConfig(
         agentRole: String,
         config: com.hmp.domain.agent.policy.AgentPolicyConfig,
@@ -149,43 +148,55 @@ class MinimalSettingsRepository : SettingsRepository {
 
     @Deprecated("legacy")
     override val lyricsOriginalTextSize: Flow<Int> get() = kotlinx.coroutines.flow.flowOf(16)
+
     @Deprecated("legacy")
     override suspend fun saveLyricsOriginalTextSize(size: Int) = unused()
+
     @Deprecated("legacy")
     override suspend fun getLyricsOriginalTextSize(): Int = 16
 
     @Deprecated("legacy")
     override val lyricsTranslatedTextSize: Flow<Int> get() = kotlinx.coroutines.flow.flowOf(14)
+
     @Deprecated("legacy")
     override suspend fun saveLyricsTranslatedTextSize(size: Int) = unused()
+
     @Deprecated("legacy")
     override suspend fun getLyricsTranslatedTextSize(): Int = 14
 
     @Deprecated("legacy")
     override val lyricsCurrentTimeTextSize: Flow<Int> get() = kotlinx.coroutines.flow.flowOf(12)
+
     @Deprecated("legacy")
     override suspend fun saveLyricsCurrentTimeTextSize(size: Int) = unused()
+
     @Deprecated("legacy")
     override suspend fun getLyricsCurrentTimeTextSize(): Int = 12
 
     @Deprecated("legacy")
     override val lyricsLineSpacing: Flow<Int> get() = kotlinx.coroutines.flow.flowOf(8)
+
     @Deprecated("legacy")
     override suspend fun saveLyricsLineSpacing(spacing: Int) = unused()
+
     @Deprecated("legacy")
     override suspend fun getLyricsLineSpacing(): Int = 8
 
     @Deprecated("legacy")
     override val lyricsDisplayMode: Flow<com.hmp.domain.config.DisplayMode> get() = kotlinx.coroutines.flow.flowOf(com.hmp.domain.config.DisplayMode.DUAL)
+
     @Deprecated("legacy")
     override suspend fun saveLyricsDisplayMode(mode: com.hmp.domain.config.DisplayMode) = unused()
+
     @Deprecated("legacy")
     override suspend fun getLyricsDisplayMode(): com.hmp.domain.config.DisplayMode = com.hmp.domain.config.DisplayMode.DUAL
 
     @Deprecated("legacy")
     override val lyricsAlignment: Flow<com.hmp.domain.config.LyricsAlignment> get() = kotlinx.coroutines.flow.flowOf(com.hmp.domain.config.LyricsAlignment.CENTER)
+
     @Deprecated("legacy")
     override suspend fun saveLyricsAlignment(alignment: com.hmp.domain.config.LyricsAlignment) = unused()
+
     @Deprecated("legacy")
     override suspend fun getLyricsAlignment(): com.hmp.domain.config.LyricsAlignment = com.hmp.domain.config.LyricsAlignment.CENTER
 

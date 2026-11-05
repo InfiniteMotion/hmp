@@ -5,12 +5,12 @@ import com.hmp.data.di.androidPlatformModule
 import com.hmp.data.di.sharedModule
 import com.hmp.data.network.BuiltInApiKeyProvider
 import io.ktor.client.engine.HttpClientEngine
-import kotlin.reflect.KClass
-import kotlin.test.Test
 import org.koin.dsl.module
 import org.koin.test.verify.definition
 import org.koin.test.verify.injectedParameters
 import org.koin.test.verify.verify
+import kotlin.reflect.KClass
+import kotlin.test.Test
 
 /**
  * Android 端**真实装配图**的 DI 校验（X-04 的另一半，与 DesktopKoinGraphVerificationTest 对称）。

@@ -25,7 +25,7 @@ class AudioEffectSettingsTest {
             bassBoostLevel = 5,
             isSurroundSoundEnabled = true,
             reverbPreset = 3,
-            customEqualizerLevels = levels
+            customEqualizerLevels = levels,
         )
         assertEquals(2, settings.equalizerPreset)
         assertEquals(5, settings.bassBoostLevel)
@@ -110,7 +110,7 @@ class EqualizerBandTest {
             frequency = 60,
             level = 3.5f,
             minLevel = -12,
-            maxLevel = 12
+            maxLevel = 12,
         )
         assertEquals(0, band.bandIndex)
         assertEquals(60, band.frequency)

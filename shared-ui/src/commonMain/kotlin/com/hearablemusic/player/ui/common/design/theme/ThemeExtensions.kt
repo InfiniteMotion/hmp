@@ -16,13 +16,9 @@ interface ThemeExtension {
  * 默认主题扩展实现
  */
 class DefaultThemeExtension : ThemeExtension {
-    override fun getColorScheme(isDarkTheme: Boolean): ColorScheme {
-        return ThemeManager.getPresetColorScheme(isDarkTheme)
-    }
-    
-    override fun generateDynamicColorScheme(paletteColors: PaletteColors, isDarkTheme: Boolean): ColorScheme {
-        return ThemeManager.generateDynamicColorScheme(paletteColors, isDarkTheme)
-    }
+    override fun getColorScheme(isDarkTheme: Boolean): ColorScheme = ThemeManager.getPresetColorScheme(isDarkTheme)
+
+    override fun generateDynamicColorScheme(paletteColors: PaletteColors, isDarkTheme: Boolean): ColorScheme = ThemeManager.generateDynamicColorScheme(paletteColors, isDarkTheme)
 }
 
 /**
@@ -30,22 +26,16 @@ class DefaultThemeExtension : ThemeExtension {
  */
 object ThemeExtensionManager {
     private var currentExtension: ThemeExtension = DefaultThemeExtension()
-    
+
     fun setThemeExtension(extension: ThemeExtension) {
         currentExtension = extension
     }
-    
-    fun getThemeExtension(): ThemeExtension {
-        return currentExtension
-    }
-    
+
+    fun getThemeExtension(): ThemeExtension = currentExtension
+
     @Composable
-    fun getColorScheme(isDarkTheme: Boolean): ColorScheme {
-        return currentExtension.getColorScheme(isDarkTheme)
-    }
-    
+    fun getColorScheme(isDarkTheme: Boolean): ColorScheme = currentExtension.getColorScheme(isDarkTheme)
+
     @Composable
-    fun generateDynamicColorScheme(paletteColors: PaletteColors, isDarkTheme: Boolean): ColorScheme {
-        return currentExtension.generateDynamicColorScheme(paletteColors, isDarkTheme)
-    }
+    fun generateDynamicColorScheme(paletteColors: PaletteColors, isDarkTheme: Boolean): ColorScheme = currentExtension.generateDynamicColorScheme(paletteColors, isDarkTheme)
 }

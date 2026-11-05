@@ -5,9 +5,9 @@ import com.hmp.domain.agent.port.FakeNowPlayingContextProvider
 import com.hmp.domain.agent.port.LlmEvent
 import com.hmp.domain.agent.port.PlaybackCommand
 import com.hmp.domain.agent.port.PlaybackCommandPort
+import com.hmp.domain.agent.runtime.sub.radio.RadioState
 import com.hmp.domain.agent.tool.ToolDependencies
 import com.hmp.domain.agent.tool.createBaseToolRegistry
-import com.hmp.domain.agent.runtime.sub.radio.RadioState
 import com.hmp.domain.enum.LabelName
 import com.hmp.domain.music.Music
 import com.hmp.domain.music.MusicInfo
@@ -43,8 +43,7 @@ class MasterAgentLifecycleTest {
         }
     }
 
-    private fun song(id: Long, title: String, artist: String) =
-        MusicInfo(Music(id, title, artist, "Album", 180_000, "/$id.mp3", ""), null, null)
+    private fun song(id: Long, title: String, artist: String) = MusicInfo(Music(id, title, artist, "Album", 180_000, "/$id.mp3", ""), null, null)
 
     private fun buildMaster(playback: PlaybackCommandPort, transport: FakeLlmTransport): MasterAgent {
         val musicRepo = FakeAgentMusicRepository()
@@ -62,7 +61,7 @@ class MasterAgentLifecycleTest {
                     settingsRepository = FakeSettingsRepository(),
                     nowPlayingContextProvider = FakeNowPlayingContextProvider,
                     playbackCommandPort = playback,
-                )
+                ),
             ),
             radioTransport = transport,
             defaultLlmConfig = AiEndpointConfig(isConfigured = true),
@@ -86,7 +85,7 @@ class MasterAgentLifecycleTest {
         }
         assertTrue(
             master.activeScopeChildren() > 0,
-            "电台开播后主作用域里应有转发/监听协程，否则这条用例没有压到 D6-02"
+            "电台开播后主作用域里应有转发/监听协程，否则这条用例没有压到 D6-02",
         )
 
         master.close()

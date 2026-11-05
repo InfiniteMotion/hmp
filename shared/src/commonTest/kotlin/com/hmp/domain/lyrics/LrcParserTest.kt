@@ -199,7 +199,7 @@ class FindCurrentLyricIndexTest {
         val lyrics = listOf(
             LyricLineData(1000L, "Line 1"),
             LyricLineData(5000L, "Line 2"),
-            LyricLineData(10000L, "Line 3")
+            LyricLineData(10000L, "Line 3"),
         )
         val result = findCurrentLyricIndex(lyrics, 5000L)
         assertEquals(1, result)
@@ -210,7 +210,7 @@ class FindCurrentLyricIndexTest {
         val lyrics = listOf(
             LyricLineData(1000L, "Line 1"),
             LyricLineData(5000L, "Line 2"),
-            LyricLineData(10000L, "Line 3")
+            LyricLineData(10000L, "Line 3"),
         )
         val result = findCurrentLyricIndex(lyrics, 7000L)
         assertEquals(1, result)
@@ -220,7 +220,7 @@ class FindCurrentLyricIndexTest {
     fun beforeFirstTimestamp_returnsZero() {
         val lyrics = listOf(
             LyricLineData(1000L, "Line 1"),
-            LyricLineData(5000L, "Line 2")
+            LyricLineData(5000L, "Line 2"),
         )
         val result = findCurrentLyricIndex(lyrics, 500L)
         assertEquals(0, result)
@@ -230,7 +230,7 @@ class FindCurrentLyricIndexTest {
     fun afterLastTimestamp_returnsLastIndex() {
         val lyrics = listOf(
             LyricLineData(1000L, "Line 1"),
-            LyricLineData(5000L, "Line 2")
+            LyricLineData(5000L, "Line 2"),
         )
         val result = findCurrentLyricIndex(lyrics, 99999L)
         assertEquals(1, result)

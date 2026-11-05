@@ -1,12 +1,12 @@
 package com.hearablemusic.player.ui.agent.chat
 
 import com.hearablemusic.player.ui.common.text.UiText
-import com.hmp.domain.agent.port.ConfirmRequest
-import com.hmp.domain.agent.runtime.TerminationReason
 import com.hmp.domain.agent.port.AgentMessageStore
+import com.hmp.domain.agent.port.ConfirmRequest
 import com.hmp.domain.agent.port.FakePlaybackCommandPort
 import com.hmp.domain.agent.port.StoredAgentMessage
 import com.hmp.domain.agent.port.ToolPermissionLevel
+import com.hmp.domain.agent.runtime.TerminationReason
 import com.hmp.domain.setting.usecase.UserSettingsUseCase
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -47,15 +47,14 @@ class ChatViewModelTest {
         override suspend fun loadSession(sessionId: String, limit: Int): List<StoredAgentMessage> = emptyList()
     }
 
-    private fun vm(gateway: FakeChatAgentGateway) =
-        ChatViewModel(
-            gateway,
-            UserSettingsUseCase(MinimalSettingsRepository()),
-            FakePlaybackCommandPort,
-            fakeMessageStore,
-            // 测试里不限额：dao/settings 均可空，闸门恒放行
-            com.hmp.domain.agent.quota.TokenQuotaGate(null, null) { 0L },
-        )
+    private fun vm(gateway: FakeChatAgentGateway) = ChatViewModel(
+        gateway,
+        UserSettingsUseCase(MinimalSettingsRepository()),
+        FakePlaybackCommandPort,
+        fakeMessageStore,
+        // 测试里不限额：dao/settings 均可空，闸门恒放行
+        com.hmp.domain.agent.quota.TokenQuotaGate(null, null) { 0L },
+    )
 
     private fun needConfirm() = ChatAgentEvent.NeedConfirm(
         turnId = "t1",

@@ -11,8 +11,8 @@ import com.hmp.test.fakes.FakeTransactionRunner
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
-import kotlin.test.assertFailsWith
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
 
@@ -26,8 +26,12 @@ class BackupUseCaseTest {
     private val exportUseCase = ExportUserDataBackupUseCase(settingsRepository, musicRepository, playlistRepository, backupFileRepository)
     private val transactionRunner = FakeTransactionRunner()
     private val importUseCase = ImportUserDataBackupUseCase(
-        settingsRepository, musicRepository, playlistRepository, backupFileRepository,
-        exportUseCase, transactionRunner
+        settingsRepository,
+        musicRepository,
+        playlistRepository,
+        backupFileRepository,
+        exportUseCase,
+        transactionRunner,
     )
     private val deleteUseCase = DeleteBackupUseCase(backupFileRepository)
     private val getBackupsUseCase = GetBackupsUseCase(backupFileRepository)

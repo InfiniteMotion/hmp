@@ -20,7 +20,7 @@ class LyricsConfigResolverTest {
             originalTextSize = 20,
             translatedTextSize = 16,
             displayMode = DisplayMode.LANG1,
-            alignment = LyricsAlignment.LEFT
+            alignment = LyricsAlignment.LEFT,
         )
         val configs = mapOf(LyricsComponent.PLAYER to config)
         val result = LyricsConfigResolver.resolve(LyricsComponent.PLAYER, configs)
@@ -34,15 +34,15 @@ class LyricsConfigResolverTest {
     fun resolve_linkedToOther_usesLinkedConfig() {
         val playerConfig = LyricsComponentConfig(
             originalTextSize = 20,
-            linkedTo = "fullscreen"
+            linkedTo = "fullscreen",
         )
         val fullscreenConfig = LyricsComponentConfig(
             originalTextSize = 30,
-            displayMode = DisplayMode.DUAL
+            displayMode = DisplayMode.DUAL,
         )
         val configs = mapOf(
             LyricsComponent.PLAYER to playerConfig,
-            LyricsComponent.FULLSCREEN to fullscreenConfig
+            LyricsComponent.FULLSCREEN to fullscreenConfig,
         )
         val result = LyricsConfigResolver.resolve(LyricsComponent.PLAYER, configs)
         // Should use fullscreen config since player links to fullscreen
@@ -54,16 +54,16 @@ class LyricsConfigResolverTest {
     fun resolve_linkedToChain_ignoresChainUsesOwn() {
         val playerConfig = LyricsComponentConfig(
             originalTextSize = 20,
-            linkedTo = "fullscreen"
+            linkedTo = "fullscreen",
         )
         // fullscreen links to floating → chain, should fallback to own
         val fullscreenConfig = LyricsComponentConfig(
             originalTextSize = 30,
-            linkedTo = "floating"
+            linkedTo = "floating",
         )
         val configs = mapOf(
             LyricsComponent.PLAYER to playerConfig,
-            LyricsComponent.FULLSCREEN to fullscreenConfig
+            LyricsComponent.FULLSCREEN to fullscreenConfig,
         )
         val result = LyricsConfigResolver.resolve(LyricsComponent.PLAYER, configs)
         // Chain detected → use own config (playerConfig → fullscreenConfig → floating, chain)
@@ -76,7 +76,7 @@ class LyricsConfigResolverTest {
     fun resolve_linkedToSelf_returnsOwn() {
         val config = LyricsComponentConfig(
             originalTextSize = 25,
-            linkedTo = "player"
+            linkedTo = "player",
         )
         val configs = mapOf(LyricsComponent.PLAYER to config)
         val result = LyricsConfigResolver.resolve(LyricsComponent.PLAYER, configs)
@@ -88,7 +88,7 @@ class LyricsConfigResolverTest {
         val configs = mapOf(
             LyricsComponent.PLAYER to LyricsComponentConfig(originalTextSize = 16),
             LyricsComponent.FULLSCREEN to LyricsComponentConfig(originalTextSize = 24),
-            LyricsComponent.FLOATING to LyricsComponentConfig(originalTextSize = 12)
+            LyricsComponent.FLOATING to LyricsComponentConfig(originalTextSize = 12),
         )
         val result = LyricsConfigResolver.resolveAll(configs)
         assertEquals(3, result.size)
@@ -152,7 +152,7 @@ class LyricsComponentConfigTest {
             currentTimeTextSize = 22,
             lineSpacing = 10,
             displayMode = DisplayMode.LANG1,
-            alignment = LyricsAlignment.LEFT
+            alignment = LyricsAlignment.LEFT,
         )
         val lyricsConfig = config.toLyricsConfig()
         assertEquals(20, lyricsConfig.originalTextSize)

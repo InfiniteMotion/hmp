@@ -37,7 +37,7 @@ actual object SecureStorageHelper {
             keyStore.setEntry(
                 KEY_ALIAS,
                 KeyStore.SecretKeyEntry(key),
-                KeyStore.PasswordProtection(KEY_PASSWORD.toCharArray())
+                KeyStore.PasswordProtection(KEY_PASSWORD.toCharArray()),
             )
             keyStoreFile.parentFile.mkdirs()
             keyStoreFile.outputStream().use { keyStore.store(it, KEYSTORE_PASSWORD.toCharArray()) }

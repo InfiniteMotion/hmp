@@ -29,11 +29,11 @@ import com.hmp.storybook.theme.LocalAppLanguage
  * 标签分类枚举
  */
 private enum class TagCategory(val key: String) {
-    GENRE("GENRE"),       // 曲风
-    MOOD("MOOD"),         // 情绪
+    GENRE("GENRE"), // 曲风
+    MOOD("MOOD"), // 情绪
     SCENARIO("SCENARIO"), // 场景
     LANGUAGE("LANGUAGE"), // 语言
-    ERA("ERA"),           // 年代
+    ERA("ERA"), // 年代
 }
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -43,19 +43,21 @@ fun CapsuleButtonPage(onBack: () -> Unit) {
 
     StorybookPage(
         title = Strings.capsuleButton(lang),
-        description = if (lang == AppLanguage.ZH)
+        description = if (lang == AppLanguage.ZH) {
             "胶囊标签组件 (Capsule)，FlowRow 布局，展示真实标签分类"
-        else
-            "Capsule tag component with FlowRow layout, showing real tag categories",
+        } else {
+            "Capsule tag component with FlowRow layout, showing real tag categories"
+        },
         onBack = onBack,
     ) {
         // 基础样式
         ComponentShowcase(
             title = if (lang == AppLanguage.ZH) "基础样式" else "Basic Styles",
-            description = if (lang == AppLanguage.ZH)
+            description = if (lang == AppLanguage.ZH) {
                 "形状 RoundedCornerShape(16.dp)，内边距 水平 12.dp / 垂直 6.dp，文字颜色 onPrimary"
-            else
-                "Shape RoundedCornerShape(16.dp), padding H=12.dp / V=6.dp, text color onPrimary",
+            } else {
+                "Shape RoundedCornerShape(16.dp), padding H=12.dp / V=6.dp, text color onPrimary"
+            },
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -81,10 +83,11 @@ fun CapsuleButtonPage(onBack: () -> Unit) {
         // LabelsCapsule 展示：真实标签分类
         ComponentShowcase(
             title = if (lang == AppLanguage.ZH) "LabelsCapsule 标签分类" else "LabelsCapsule Tag Categories",
-            description = if (lang == AppLanguage.ZH)
+            description = if (lang == AppLanguage.ZH) {
                 "技术信息使用 tertiary + labelMedium，标签使用 primary + labelSmall，FlowRow 布局，每行最多 4 个，间距 8.dp"
-            else
-                "Tech info uses tertiary + labelMedium, tags use primary + labelSmall, FlowRow layout, max 4 per row, spacing 8.dp",
+            } else {
+                "Tech info uses tertiary + labelMedium, tags use primary + labelSmall, FlowRow layout, max 4 per row, spacing 8.dp"
+            },
         ) {
             // 曲风 GENRE
             LabelsCapsuleGroup(

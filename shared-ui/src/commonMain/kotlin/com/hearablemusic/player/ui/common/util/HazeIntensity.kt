@@ -24,12 +24,10 @@ enum class HazeMaterialPreset(val value: String, val intensity: Float) {
     THIN("thin", 0.25f),
     REGULAR("regular", 0.50f),
     THICK("thick", 0.75f),
-    ULTRA_THICK("ultra_thick", 1.0f)
+    ULTRA_THICK("ultra_thick", 1.0f),
 }
 
-fun hazeMaterialPresetFromValue(value: String): HazeMaterialPreset {
-    return HazeMaterialPreset.entries.firstOrNull { it.value == value } ?: HazeMaterialPreset.REGULAR
-}
+fun hazeMaterialPresetFromValue(value: String): HazeMaterialPreset = HazeMaterialPreset.entries.firstOrNull { it.value == value } ?: HazeMaterialPreset.REGULAR
 
 data class HazeRenderSettings(
     val mode: String = DEFAULT_HAZE_MODE,
@@ -37,7 +35,7 @@ data class HazeRenderSettings(
     val intensity: Float = DEFAULT_HAZE_INTENSITY,
     val blurRadius: Float = DEFAULT_HAZE_BLUR_RADIUS,
     val noiseFactor: Float = DEFAULT_HAZE_NOISE_FACTOR,
-    val tintAlpha: Float = DEFAULT_HAZE_TINT_ALPHA
+    val tintAlpha: Float = DEFAULT_HAZE_TINT_ALPHA,
 )
 
 val LocalHazeRenderSettings = staticCompositionLocalOf { HazeRenderSettings() }
@@ -45,7 +43,7 @@ val LocalHazeRenderSettings = staticCompositionLocalOf { HazeRenderSettings() }
 @Composable
 fun ProvideHazeRenderSettings(
     settings: HazeRenderSettings,
-    content: @Composable () -> Unit
+    content: @Composable () -> Unit,
 ) {
     CompositionLocalProvider(LocalHazeRenderSettings provides settings, content = content)
 }
@@ -80,7 +78,7 @@ fun hazeStyleForIntensity(): HazeStyle {
             tints = listOf(tint),
             blurRadius = settings.blurRadius.coerceAtLeast(0f).dp,
             noiseFactor = settings.noiseFactor.coerceIn(0f, 1f),
-            fallbackTint = tint
+            fallbackTint = tint,
         )
     }
 

@@ -13,8 +13,7 @@ package com.hmp.domain.playlist
  */
 object SystemPlaylists {
 
-    fun ids(currentId: Long?, likedId: Long?, recentId: Long?): Set<Long> =
-        setOfNotNull(currentId, likedId, recentId)
+    fun ids(currentId: Long?, likedId: Long?, recentId: Long?): Set<Long> = setOfNotNull(currentId, likedId, recentId)
 
     fun isSystem(
         playlistId: Long,

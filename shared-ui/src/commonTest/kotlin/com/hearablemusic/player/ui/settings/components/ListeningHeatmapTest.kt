@@ -24,11 +24,11 @@ class ListeningHeatmapTest {
     fun daysLandOnTheirRealWeekdayColumn() {
         val grid = buildListeningHeatmap(
             minutesByDate = mapOf(
-                "2026-03-01" to 30,   // 周日
-                "2026-03-05" to 45,   // 周四
+                "2026-03-01" to 30, // 周日
+                "2026-03-05" to 45, // 周四
             ),
-            today = "2026-03-08",     // 周日
-            dayCount = 8,             // 窗口 2026-03-01 … 2026-03-08
+            today = "2026-03-08", // 周日
+            dayCount = 8, // 窗口 2026-03-01 … 2026-03-08
         )
 
         // 周一为一行第 0 列 → 周四 = 3、周日 = 6
@@ -90,8 +90,8 @@ class ListeningHeatmapTest {
     fun paddingCellsAreMarkedAsOutsideTheWindow() {
         val grid = buildListeningHeatmap(
             minutesByDate = emptyMap(),
-            today = "2026-03-05",   // 周四
-            dayCount = 1,           // 只看这一天
+            today = "2026-03-05", // 周四
+            dayCount = 1, // 只看这一天
         )
 
         assertEquals(1, grid.inWindowDays)

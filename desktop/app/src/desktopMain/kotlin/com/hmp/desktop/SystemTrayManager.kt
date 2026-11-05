@@ -43,7 +43,7 @@ object SystemTrayManager {
         onNext: () -> Unit,
         onPrev: () -> Unit,
         onShowWindow: () -> Unit,
-        onExit: () -> Unit
+        onExit: () -> Unit,
     ) {
         if (!SystemTray.isSupported()) return
 

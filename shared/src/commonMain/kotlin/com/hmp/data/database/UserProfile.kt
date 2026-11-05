@@ -5,10 +5,10 @@ import androidx.room.Dao
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.Insert
-import androidx.room.Upsert
 import androidx.room.OnConflictStrategy
 import androidx.room.PrimaryKey
 import androidx.room.Query
+import androidx.room.Upsert
 
 /**
  * 用户认识模块（画像）的持久化层 —— Room v5 → v6 新增的两张表。
@@ -122,7 +122,7 @@ interface UserProfileEvidenceDao {
             distinct_sessions = distinct_sessions + :sessionDelta,
             last_session_id = :sessionId
         WHERE id = :id
-        """
+        """,
     )
     suspend fun confirmObservation(
         id: Long,
@@ -145,7 +145,7 @@ interface UserProfileEvidenceDao {
         SELECT * FROM user_profile_evidence
         WHERE subject = :subject AND predicate = :predicate AND value = :value
         LIMIT 1
-        """
+        """,
     )
     suspend fun find(subject: String, predicate: String, value: String): UserProfileEvidenceEntity?
 

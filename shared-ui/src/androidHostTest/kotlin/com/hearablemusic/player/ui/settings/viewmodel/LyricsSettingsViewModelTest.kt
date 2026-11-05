@@ -36,7 +36,10 @@ import org.junit.Test
 class LyricsSettingsViewModelTest {
 
     private val dispatcher: TestDispatcher = StandardTestDispatcher()
-    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+    private val json = Json {
+        ignoreUnknownKeys = true
+        encodeDefaults = true
+    }
 
     private val playerFlow = MutableStateFlow("")
     private val fullscreenFlow = MutableStateFlow("")
@@ -58,8 +61,7 @@ class LyricsSettingsViewModelTest {
         Dispatchers.resetMain()
     }
 
-    private fun encode(config: LyricsComponentConfig) =
-        json.encodeToString(LyricsComponentConfig.serializer(), config)
+    private fun encode(config: LyricsComponentConfig) = json.encodeToString(LyricsComponentConfig.serializer(), config)
 
     @Test
     fun playerConfig_reflectsComponentConfig() = runTest(dispatcher) {
@@ -90,7 +92,7 @@ class LyricsSettingsViewModelTest {
     @Test
     fun updateFullscreenConfig_isReadModifyWrite() = runTest(dispatcher) {
         fullscreenFlow.value = encode(
-            LyricsComponentConfig(lineSpacing = 9, karaokeEnabled = false, linkedTo = "floating")
+            LyricsComponentConfig(lineSpacing = 9, karaokeEnabled = false, linkedTo = "floating"),
         )
         coEvery { repository.getLyricsFullscreenConfig() } answers { fullscreenFlow.value }
         val saved = slot<String>()

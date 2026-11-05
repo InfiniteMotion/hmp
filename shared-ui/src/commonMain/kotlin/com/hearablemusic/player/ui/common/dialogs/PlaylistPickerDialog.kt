@@ -1,15 +1,5 @@
 package com.hearablemusic.player.ui.common.dialogs
 
-import com.hearablemusic.player.ui.generated.resources.Res
-import org.jetbrains.compose.resources.painterResource
-import org.jetbrains.compose.resources.stringResource
-
-import com.hearablemusic.player.ui.generated.resources.chevron_right
-import com.hearablemusic.player.ui.generated.resources.minutes_format
-import com.hearablemusic.player.ui.generated.resources.music_note_list
-import com.hearablemusic.player.ui.generated.resources.play_count_display
-import com.hearablemusic.player.ui.generated.resources.songs_count
-
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -37,20 +27,27 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
-import com.hmp.domain.playlist.Playlist
-import com.hearablemusic.player.ui.common.dialogs.base.ScrimDialog
+import com.hearablemusic.player.ui.common.design.metrics.LayoutConstraints
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
+import com.hearablemusic.player.ui.common.dialogs.base.ScrimDialog
 import com.hearablemusic.player.ui.common.util.HazeRenderSettings
 import com.hearablemusic.player.ui.common.util.LocalHazeRenderSettings
 import com.hearablemusic.player.ui.common.util.ProvideHazeRenderSettings
 import com.hearablemusic.player.ui.common.util.hazeStyleForIntensity
 import com.hearablemusic.player.ui.common.util.hazeTintAlpha
-
+import com.hearablemusic.player.ui.generated.resources.Res
+import com.hearablemusic.player.ui.generated.resources.chevron_right
+import com.hearablemusic.player.ui.generated.resources.minutes_format
+import com.hearablemusic.player.ui.generated.resources.music_note_list
+import com.hearablemusic.player.ui.generated.resources.play_count_display
+import com.hearablemusic.player.ui.generated.resources.songs_count
+import com.hmp.domain.playlist.Playlist
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
-import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
-import com.hearablemusic.player.ui.common.design.metrics.LayoutConstraints
+import org.jetbrains.compose.resources.painterResource
+import org.jetbrains.compose.resources.stringResource
 
 @OptIn(ExperimentalHazeMaterialsApi::class)
 @Composable
@@ -60,12 +57,12 @@ fun PlaylistPickerDialog(
     onDismiss: () -> Unit,
     onSelectPlaylist: (Playlist) -> Unit,
     hazeState: HazeState? = null,
-    hazeRenderSettings: HazeRenderSettings? = null
+    hazeRenderSettings: HazeRenderSettings? = null,
 ) {
     val metrics = LocalHmpMetrics.current
     val resolvedHazeRenderSettings = hazeRenderSettings ?: LocalHazeRenderSettings.current
     val typo = LocalHmpTypo.current
-    
+
     ProvideHazeRenderSettings(settings = resolvedHazeRenderSettings) {
         ScrimDialog(onDismissRequest = onDismiss) {
             val dialogShape = RoundedCornerShape(metrics.section)
@@ -77,9 +74,11 @@ fun PlaylistPickerDialog(
                         if (hazeState != null) {
                             Modifier.hazeEffect(
                                 state = hazeState,
-                                style = hazeStyleForIntensity()
+                                style = hazeStyleForIntensity(),
                             )
-                        } else Modifier
+                        } else {
+                            Modifier
+                        },
                     ),
                 shape = dialogShape,
                 colors = CardDefaults.cardColors(
@@ -87,28 +86,28 @@ fun PlaylistPickerDialog(
                         MaterialTheme.colorScheme.surface.copy(alpha = hazeTintAlpha())
                     } else {
                         MaterialTheme.colorScheme.surface
-                    }
+                    },
                 ),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
             ) {
                 Column(
                     modifier = Modifier
                         .padding(metrics.section)
                         .fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(metrics.cozy)
+                    verticalArrangement = Arrangement.spacedBy(metrics.cozy),
                 ) {
                     Text(
                         text = title,
                         style = typo.headline,
-                        color = MaterialTheme.colorScheme.onBackground
+                        color = MaterialTheme.colorScheme.onBackground,
                     )
 
                     LazyColumn(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(LayoutConstraints.PanelHeight),
-                        verticalArrangement = Arrangement.spacedBy(metrics.compact)
+                        verticalArrangement = Arrangement.spacedBy(metrics.compact),
                     ) {
                         items(playlists) { playlist ->
                             PlaylistItem(
@@ -116,7 +115,7 @@ fun PlaylistPickerDialog(
                                 onClick = {
                                     onSelectPlaylist(playlist)
                                     onDismiss()
-                                }
+                                },
                             )
                         }
                     }
@@ -129,7 +128,7 @@ fun PlaylistPickerDialog(
 @Composable
 fun PlaylistItem(
     playlist: Playlist,
-    onClick: () -> Unit
+    onClick: () -> Unit,
 ) {
     val metrics = LocalHmpMetrics.current
     val typo = LocalHmpTypo.current
@@ -140,32 +139,32 @@ fun PlaylistItem(
             .clickable(onClick = onClick)
             .padding(vertical = metrics.compact, horizontal = metrics.micro),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(metrics.cozy)
+        horizontalArrangement = Arrangement.spacedBy(metrics.cozy),
     ) {
         Box(
             modifier = Modifier
                 .size(metrics.bar)
-                .clip(RoundedCornerShape(metrics.compact))
+                .clip(RoundedCornerShape(metrics.compact)),
         ) {
             if (playlist.coverUri != null && playlist.coverUri!!.isNotBlank()) {
                 AsyncImage(
                     model = playlist.coverUri,
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize()
+                    modifier = Modifier.fillMaxSize(),
                 )
             } else {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
                         .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.8f)),
-                    contentAlignment = Alignment.Center
+                    contentAlignment = Alignment.Center,
                 ) {
                     Icon(
                         painter = painterResource(Res.drawable.music_note_list),
                         contentDescription = null,
                         modifier = Modifier.size(metrics.block),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                     )
                 }
             }
@@ -176,7 +175,7 @@ fun PlaylistItem(
                 style = typo.subtitle,
                 color = MaterialTheme.colorScheme.onBackground,
                 maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+                overflow = TextOverflow.Ellipsis,
             )
             if (playlist.songCount > 0 || playlist.totalDurationMs > 0 || playlist.playCount > 0) {
                 val parts = mutableListOf<String>()
@@ -197,7 +196,7 @@ fun PlaylistItem(
                         color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.padding(top = metrics.hair)
+                        modifier = Modifier.padding(top = metrics.hair),
                     )
                 }
             }
@@ -206,7 +205,7 @@ fun PlaylistItem(
             painter = painterResource(Res.drawable.chevron_right),
             contentDescription = null,
             modifier = Modifier.size(metrics.cozy),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }

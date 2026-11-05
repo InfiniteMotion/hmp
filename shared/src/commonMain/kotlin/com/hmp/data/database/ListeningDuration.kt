@@ -9,13 +9,12 @@ import androidx.room.Query
 import androidx.room.Transaction
 import kotlinx.coroutines.flow.Flow
 
-
 @Entity(tableName = "listeningDuration")
 data class ListeningDuration(
     @PrimaryKey
     val date: String,
     val duration: Long,
-    val updatedAt: Long
+    val updatedAt: Long,
 )
 
 @Dao

@@ -41,15 +41,14 @@ class ContentAndStateModelingTest {
 
         // 10 个流派各 10%，最大的只占 10% → BROAD
         val broad = LibraryModeler.computeContent(
-            content(genres = (1..10).associate { "G$it" to 10 })
+            content(genres = (1..10).associate { "G$it" to 10 }),
         )
         assertEquals(LibraryModeler.BREADTH_BROAD, assertNotNull(broad).genreBreadth)
     }
 
     @Test
     fun languageMix_singleBilingualMultilingual() {
-        fun mixOf(vararg pairs: Pair<String, Int>) =
-            assertNotNull(LibraryModeler.computeContent(content(languages = pairs.toMap()))).languageMix
+        fun mixOf(vararg pairs: Pair<String, Int>) = assertNotNull(LibraryModeler.computeContent(content(languages = pairs.toMap()))).languageMix
 
         assertEquals(LibraryModeler.LANG_SINGLE, mixOf("ZH" to 95, "EN" to 5))
         assertEquals(LibraryModeler.LANG_BILINGUAL, mixOf("ZH" to 55, "EN" to 45))
@@ -134,7 +133,7 @@ class ContentAndStateModelingTest {
     @Test
     fun sanitizeNames_capsCountLengthAndDropsSeparators() {
         val names = LibraryModeler.sanitizeNames(
-            listOf("深夜", "通勤", "深夜", "a/b", "很长的歌单名字超过十二个字符了", "1", "2", "3", "4", "5")
+            listOf("深夜", "通勤", "深夜", "a/b", "很长的歌单名字超过十二个字符了", "1", "2", "3", "4", "5"),
         )
         assertEquals(listOf("深夜", "通勤", "1", "2", "3"), names, "去重 + 截断到 5 条")
     }

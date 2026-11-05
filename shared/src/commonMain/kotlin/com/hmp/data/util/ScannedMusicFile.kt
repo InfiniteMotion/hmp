@@ -26,5 +26,5 @@ data class ScannedMusicFile(
     val sampleRate: Int? = null,
     val fileSize: Long? = null,
     val format: String? = null,
-    val lyrics: String? = null
+    val lyrics: String? = null,
 )

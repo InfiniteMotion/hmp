@@ -1,11 +1,4 @@
 package com.hearablemusic.player.ui.agent.cards
-import com.hearablemusic.player.ui.common.design.colors.HelloCardPalette
-import com.hearablemusic.player.ui.generated.resources.card_discover_footnote
-import com.hearablemusic.player.ui.generated.resources.card_discover_title
-import com.hearablemusic.player.ui.generated.resources.card_unknown_artist
-import com.hearablemusic.player.ui.generated.resources.card_unknown_track
-import org.jetbrains.compose.resources.stringResource
-
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -36,18 +29,22 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
+import com.hearablemusic.player.ui.common.design.colors.HelloCardPalette
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
 import com.hearablemusic.player.ui.common.design.typography.medium
 import com.hearablemusic.player.ui.generated.resources.Res
+import com.hearablemusic.player.ui.generated.resources.card_discover_footnote
+import com.hearablemusic.player.ui.generated.resources.card_discover_title
+import com.hearablemusic.player.ui.generated.resources.card_unknown_artist
+import com.hearablemusic.player.ui.generated.resources.card_unknown_track
 import com.hearablemusic.player.ui.generated.resources.unknown
 import com.hmp.domain.agent.card.DiscoverContent
 import com.hmp.domain.agent.card.SlideCard
 import com.hmp.domain.music.MusicRepository
 import org.jetbrains.compose.resources.painterResource
+import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
-import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
-
-
 
 // ═══════════════════════════════════════════════════════════════════
 // 家族 C：DISCOVER —— 多曲目探索
@@ -71,7 +68,9 @@ internal fun FamilyDiscoverCard(
                     onTap = { /* 短按留给 Pager 手势 */ },
                 )
             }
+
             onCardClick != null -> m.clickable { onCardClick.invoke(card) }
+
             else -> m
         }
     }
@@ -101,14 +100,14 @@ internal fun FamilyDiscoverCard(
                 .fillMaxSize()
                 .background(
                     brush = Brush.linearGradient(
-                        colors = listOf(HelloCardPalette.Discover.Start.copy(alpha = 0.95f), HelloCardPalette.Discover.End.copy(alpha = 0.90f))
-                    )
+                        colors = listOf(HelloCardPalette.Discover.Start.copy(alpha = 0.95f), HelloCardPalette.Discover.End.copy(alpha = 0.90f)),
+                    ),
                 )
-                .padding(metrics.cozy)
+                .padding(metrics.cozy),
         ) {
             Column(
                 modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.Center,   // 整体垂直居中
+                verticalArrangement = Arrangement.Center, // 整体垂直居中
             ) {
                 // ① 主题标签
                 Text(

@@ -4,36 +4,36 @@ import com.hearablemusic.player.ui.generated.resources.Res
 import com.hearablemusic.player.ui.generated.resources.agent_chat_error_failed
 import com.hearablemusic.player.ui.generated.resources.agent_chat_radio_night_summary
 import com.hearablemusic.player.ui.generated.resources.agent_chat_radio_seed_summary
-import com.hmp.domain.agent.port.ConfirmGate
+import com.hmp.data.database.currentTimeMillis
 import com.hmp.data.util.currentHour
+import com.hmp.domain.agent.config.EngineDefaults
+import com.hmp.domain.agent.persona.DefaultCompanionProfiles
+import com.hmp.domain.agent.port.AgentMessageStore
+import com.hmp.domain.agent.port.AuditLogPort
+import com.hmp.domain.agent.port.ConfirmGate
 import com.hmp.domain.agent.port.ConfirmOutcome
 import com.hmp.domain.agent.port.ConfirmRequest
+import com.hmp.domain.agent.port.LlmMessage
+import com.hmp.domain.agent.port.NowPlayingContextProvider
+import com.hmp.domain.agent.profile.UserMemory
 import com.hmp.domain.agent.runtime.BuiltinIntentId
+import com.hmp.domain.agent.runtime.ContextAssembler
 import com.hmp.domain.agent.runtime.LibraryOverview
+import com.hmp.domain.agent.runtime.MasterAgent
 import com.hmp.domain.agent.runtime.RunContextInput
 import com.hmp.domain.agent.runtime.TerminationReason
 import com.hmp.domain.agent.runtime.ToolExecutionRecord
-import com.hmp.domain.agent.persona.DefaultCompanionProfiles
-import com.hmp.domain.agent.profile.UserMemory
-import com.hmp.domain.agent.port.AgentMessageStore
-import com.hmp.domain.agent.port.AuditLogPort
-import com.hmp.domain.agent.port.LlmMessage
-import com.hmp.domain.agent.port.NowPlayingContextProvider
-import com.hmp.domain.agent.runtime.ContextAssembler
-import com.hmp.domain.agent.config.EngineDefaults
-import com.hmp.domain.agent.runtime.MasterAgent
 import com.hmp.domain.agent.runtime.sub.radio.RadioState
+import com.hmp.domain.music.MusicRepository
 import com.hmp.domain.music.MusicSortKey
 import com.hmp.domain.music.SortDirection
-import com.hmp.domain.music.MusicRepository
 import com.hmp.domain.setting.model.AiEndpointConfig
-import com.hmp.data.database.currentTimeMillis
+import com.hmp.log.HmpLog
+import com.hmp.log.LogTag
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
-import com.hmp.log.HmpLog
-import com.hmp.log.LogTag
 import org.jetbrains.compose.resources.getString
 
 /**
@@ -42,20 +42,24 @@ import org.jetbrains.compose.resources.getString
 sealed interface ChatAgentEvent {
     /** 引擎请求确认：携带本轮全部待确认项，UI 据此渲染确认卡并令 [ConfirmBridge.submit] 恢复引擎。 */
     data class NeedConfirm(val turnId: String, val requests: List<ConfirmRequest>) : ChatAgentEvent
+
     /** 单条工具执行回执（写审计成功后送达）。 */
     data class ToolExecuted(val record: ToolExecutionRecord) : ChatAgentEvent
+
     /** 单轮结束：最终答复文本 + 全量执行记录 + 终止原因。 */
     data class Finished(
         val text: String,
         val toolCalls: List<ToolExecutionRecord>,
         val terminatedBy: TerminationReason,
     ) : ChatAgentEvent
+
     /** 电台启动：携带 songlist 曲目 + 种子标签摘要（M6-T1）。 */
     data class RadioStarted(
         val songs: List<com.hmp.domain.music.MusicInfo>,
         val seedLabels: List<String>,
         val summary: String,
     ) : ChatAgentEvent
+
     /** 电台状态变更（续歌/停止/耗尽）。 */
     data class RadioStateChanged(
         val isPlaying: Boolean,
@@ -75,6 +79,7 @@ sealed interface ChatAgentEvent {
 class ConfirmBridge {
     private val pending = LinkedHashMap<String, CompletableDeferred<List<ConfirmOutcome>>>()
     private var counter = 0
+
     /** 向 UI 请求确认的回调（由网关在 flow 生产者上下文中注入，可 emit）。 */
     var onRequest: (suspend (String, List<ConfirmRequest>) -> Unit)? = null
 
@@ -92,11 +97,10 @@ class ConfirmBridge {
      * UI 侧：提交决策列表，恢复对应 [turnId] 的挂起。
      * @return true 该批次仍待确认（成功投递）；false 该批次已关闭（竞态/已取消）。
      */
-    fun submit(turnId: String, outcomes: List<ConfirmOutcome>): Boolean =
-        pending.remove(turnId)?.let {
-            HmpLog.i(LogTag.AgentGateway) { "🌉 confirm submit: turn=$turnId outcomes=$outcomes" }
-            it.complete(outcomes)
-        } ?: false.also { HmpLog.w(LogTag.AgentGateway) { "🌉 confirm submit: turn=$turnId 已关闭/取消" } }
+    fun submit(turnId: String, outcomes: List<ConfirmOutcome>): Boolean = pending.remove(turnId)?.let {
+        HmpLog.i(LogTag.AgentGateway) { "🌉 confirm submit: turn=$turnId outcomes=$outcomes" }
+        it.complete(outcomes)
+    } ?: false.also { HmpLog.w(LogTag.AgentGateway) { "🌉 confirm submit: turn=$turnId 已关闭/取消" } }
 }
 
 /** 对话引擎接缝（M5-T1）：把一次用户输入换算为面向 UI 的事件流。 */
@@ -196,11 +200,13 @@ class MasterChatGateway(
                         emit(ChatAgentEvent.Failed(result.text))
                     }
                 }
+
                 null -> {
                     // 未命中内建意图：正常 LLM 对话，逐条回执工具执行
                     result.toolCalls.forEach { emit(ChatAgentEvent.ToolExecuted(it)) }
                     emit(ChatAgentEvent.Finished(result.text, result.toolCalls, result.terminatedBy))
                 }
+
                 else -> {
                     // 其余内建意图：文案已由 Master 生成，直接渲染回复气泡（无工具调用）
                     emit(ChatAgentEvent.Finished(result.text, emptyList(), result.terminatedBy))
@@ -256,7 +262,7 @@ class MasterChatGateway(
         val total = musicRepository.getMusicCount().first()
         val known = musicRepository.getMusicWithExtraCount().first()
         val recognitionText = ContextAssembler.buildRecognitionProgress(known, total)
-        val hour = currentHour()   // 与统计侧同一个本地时区口径（D5-01：原先这里是 UTC 自算）
+        val hour = currentHour() // 与统计侧同一个本地时区口径（D5-01：原先这里是 UTC 自算）
         val overviewText = ContextAssembler.buildLibraryOverview(buildLibraryOverview())
         // 对话开始时顺手推进行为画像 —— 契约 §4.2 说"定时聚合"，本项目没有常驻调度器，
         // 改成"低频闸门 + 事件触发"（间隔 20h，见 ProfileConfig）；这里是最自然的事件点。
@@ -311,7 +317,7 @@ class MasterChatGateway(
         HmpLog.i(LogTag.AgentGateway) { "🌉 startRadio: ${tracks.size} tracks → ${musicInfos.size} resolved" }
         return ChatAgentEvent.RadioStarted(
             songs = musicInfos,
-            seedLabels = tracks.map { it.why },  // why 暂当 labels 用（简单）
+            seedLabels = tracks.map { it.why }, // why 暂当 labels 用（简单）
             summary = summary,
         )
     }

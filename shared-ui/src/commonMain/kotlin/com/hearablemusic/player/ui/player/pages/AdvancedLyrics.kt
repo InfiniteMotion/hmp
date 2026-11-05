@@ -37,18 +37,18 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
-import org.jetbrains.compose.resources.painterResource
-import org.jetbrains.compose.resources.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.hearablemusic.player.ui.common.design.metrics.LayoutConstraints
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
+import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
+import com.hearablemusic.player.ui.common.viewmodel.PaletteColors
 import com.hearablemusic.player.ui.generated.resources.Res
 import com.hearablemusic.player.ui.generated.resources.ic_gallery_search_things
 import com.hearablemusic.player.ui.generated.resources.no_lyrics
-import androidx.compose.ui.unit.sp
-import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
-import com.hearablemusic.player.ui.common.viewmodel.PaletteColors
 import com.hmp.domain.config.DisplayMode
 import com.hmp.domain.config.LyricsAlignment
 import com.hmp.domain.lyrics.CharTiming
@@ -57,9 +57,9 @@ import com.hmp.domain.lyrics.LyricLineData
 import com.hmp.domain.lyrics.LyricsPresentationParams
 import com.hmp.domain.lyrics.LyricsTimingGenerator
 import com.hmp.domain.lyrics.findCurrentLyricIndex
+import org.jetbrains.compose.resources.painterResource
+import org.jetbrains.compose.resources.stringResource
 import kotlin.math.abs
-import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
-import com.hearablemusic.player.ui.common.design.metrics.LayoutConstraints
 
 /**
  * 高级歌词组件 - 「静谧辉光」旗舰默认呈现
@@ -88,7 +88,7 @@ fun AdvancedLyrics(
     isPlaying: Boolean = true,
     paletteColors: PaletteColors? = null,
     displayMode: DisplayMode = DisplayMode.DUAL,
-    alignment: LyricsAlignment = LyricsAlignment.CENTER
+    alignment: LyricsAlignment = LyricsAlignment.CENTER,
 ) {
     if (lyrics == null) {
         EmptyLyricsView(modifier)
@@ -122,14 +122,14 @@ fun AdvancedLyrics(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .onSizeChanged { containerHeightPx = it.height }
+            .onSizeChanged { containerHeightPx = it.height },
     ) {
         // 自动滚动到当前行，居中显示（contentPadding 已提供上下对称空间）
         LaunchedEffect(currentIndex, containerHeightPx) {
             if (currentIndex >= 0 && currentIndex < timedLyrics.size && containerHeightPx > 0) {
                 scrollState.animateScrollToItem(
                     index = currentIndex,
-                    scrollOffset = 0
+                    scrollOffset = 0,
                 )
             }
         }
@@ -138,17 +138,17 @@ fun AdvancedLyrics(
             state = scrollState,
             modifier = Modifier.fillMaxSize(),
             horizontalAlignment = lazyColumnHorizontalAlignment,
-            contentPadding = PaddingValues(vertical = with(density) { (containerHeightPx / 2).let { if (it > 0) it.toDp() else LayoutConstraints.PanelHeight } })
+            contentPadding = PaddingValues(vertical = with(density) { (containerHeightPx / 2).let { if (it > 0) it.toDp() else LayoutConstraints.PanelHeight } }),
         ) {
             itemsIndexed(
                 items = timedLyrics,
-                key = { index, item -> "${item.timestamp}_${index}" }
+                key = { index, item -> "${item.timestamp}_$index" },
             ) { index, lyricLine ->
                 val isCurrent = index == currentIndex && currentIndex >= 0
                 val lineEndMs = LyricsTimingGenerator.lineEndMs(
                     timedLyrics,
                     index,
-                    totalDurationMs.takeIf { it > 0 }
+                    totalDurationMs.takeIf { it > 0 },
                 )
                 AdvancedLyricItem(
                     lyricLine = lyricLine,
@@ -171,7 +171,7 @@ fun AdvancedLyrics(
                     onClick = {
                         hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
                         onSeek(lyricLine.timestamp)
-                    }
+                    },
                 )
             }
         }
@@ -182,7 +182,7 @@ fun AdvancedLyrics(
 private data class LyricPalette(
     val sung: Color,
     val unsung: Color,
-    val glow: Color
+    val glow: Color,
 )
 
 /**
@@ -196,7 +196,7 @@ private fun resolveLyricPalette(paletteColors: PaletteColors?): LyricPalette {
     return LyricPalette(
         sung = scheme.primary,
         unsung = scheme.onSurface.copy(alpha = 0.45f),
-        glow = pal?.primary ?: scheme.primary
+        glow = pal?.primary ?: scheme.primary,
     )
 }
 
@@ -222,7 +222,7 @@ private fun AdvancedLyricItem(
     currentTimeTextSize: Int = 16,
     lineSpacing: Int = 6,
     alignment: LyricsAlignment = LyricsAlignment.CENTER,
-    onClick: () -> Unit
+    onClick: () -> Unit,
 ) {
     val metrics = LocalHmpMetrics.current
     // 距离层次：行距透明度曲线驱动 alpha；聚焦窗口外（distance >= 2）模糊
@@ -232,7 +232,7 @@ private fun AdvancedLyricItem(
     val animatedAlpha by animateFloatAsState(
         targetValue = targetAlpha,
         animationSpec = tween(durationMillis = LyricsPresentationParams.LINE_TRANSITION_MS),
-        label = "LyricAlpha"
+        label = "LyricAlpha",
     )
 
     val translated = lyricLine.translatedText
@@ -258,7 +258,7 @@ private fun AdvancedLyricItem(
                     Modifier.blur(blurRadius.dp)
                 } else {
                     Modifier
-                }
+                },
             )
             .graphicsLayer {
                 alpha = animatedAlpha
@@ -285,9 +285,10 @@ private fun AdvancedLyricItem(
                         isPlaying = isPlaying,
                         textAlign = textAlign,
                         fontSize = originalTextSize.sp,
-                        fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal
+                        fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal,
                     )
                 }
+
                 DisplayMode.LANG2 -> {
                     if (translated != null) {
                         LyricText(
@@ -302,7 +303,7 @@ private fun AdvancedLyricItem(
                             isPlaying = isPlaying,
                             textAlign = textAlign,
                             fontSize = translatedTextSize.sp,
-                            fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal
+                            fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal,
                         )
                     } else {
                         LyricText(
@@ -317,10 +318,11 @@ private fun AdvancedLyricItem(
                             isPlaying = isPlaying,
                             textAlign = textAlign,
                             fontSize = originalTextSize.sp,
-                            fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal
+                            fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal,
                         )
                     }
                 }
+
                 DisplayMode.DUAL -> {
                     if (translated == null) {
                         LyricText(
@@ -335,7 +337,7 @@ private fun AdvancedLyricItem(
                             isPlaying = isPlaying,
                             textAlign = textAlign,
                             fontSize = if (isCurrent) currentTimeTextSize.sp else originalTextSize.sp,
-                            fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal
+                            fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal,
                         )
                     } else {
                         LyricText(
@@ -350,7 +352,7 @@ private fun AdvancedLyricItem(
                             isPlaying = isPlaying,
                             textAlign = textAlign,
                             fontSize = if (isCurrent) currentTimeTextSize.sp else originalTextSize.sp,
-                            fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal
+                            fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal,
                         )
 
                         Spacer(modifier = Modifier.height(metrics.micro))
@@ -366,7 +368,7 @@ private fun AdvancedLyricItem(
                             isPlaying = isPlaying,
                             textAlign = textAlign,
                             fontSize = translatedTextSize.sp,
-                            fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal
+                            fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal,
                         )
                     }
                 }
@@ -393,7 +395,7 @@ private fun LyricText(
     fontSize: TextUnit,
     fontWeight: FontWeight,
     textAlign: TextAlign,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     if (isCurrent && karaokeEnabled && text.isNotBlank()) {
         KaraokeLyricText(
@@ -410,7 +412,7 @@ private fun LyricText(
             fontSize = fontSize,
             fontWeight = fontWeight,
             textAlign = textAlign,
-            modifier = modifier
+            modifier = modifier,
         )
     } else {
         val baseColor = if (isCurrent) lyricPalette.sung else MaterialTheme.colorScheme.onSurface
@@ -426,7 +428,7 @@ private fun LyricText(
                         .blur(LyricsPresentationParams.GLOW_BLUR_RADIUS_DP.dp)
                         .graphicsLayer {
                             alpha = LyricsPresentationParams.GLOW_ALPHA_MAX * 0.8f
-                        }
+                        },
                 )
             }
             Text(
@@ -434,7 +436,7 @@ private fun LyricText(
                 color = baseColor,
                 fontSize = fontSize,
                 fontWeight = fontWeight,
-                textAlign = textAlign
+                textAlign = textAlign,
             )
         }
     }
@@ -452,19 +454,19 @@ private fun EmptyLyricsView(modifier: Modifier = Modifier) {
             .fillMaxSize()
             .padding(metrics.section),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+        verticalArrangement = Arrangement.Center,
     ) {
         Icon(
             painter = painterResource(Res.drawable.ic_gallery_search_things),
             contentDescription = null,
             tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-            modifier = Modifier.padding(bottom = metrics.cozy)
+            modifier = Modifier.padding(bottom = metrics.cozy),
         )
 
         Text(
             text = stringResource(Res.string.no_lyrics),
             style = typo.body,
-            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
         )
     }
 }

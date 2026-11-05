@@ -14,7 +14,7 @@ import kotlin.test.assertNull
  */
 class ParentPathTest {
 
-    private val windows = "\\/"   // 两个字符：反斜杠 + 正斜杠（Desktop 声明的就是这个集合）
+    private val windows = "\\/" // 两个字符：反斜杠 + 正斜杠（Desktop 声明的就是这个集合）
 
     @Test
     fun windowsPaths_groupByTheirOwnFolder() {

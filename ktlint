@@ -1,0 +1,88 @@
+#!/usr/bin/env bash
+# HMP ktlint wrapper (macOS / Linux / Git Bash).
+# The version and SHA256 below are the single source of truth for the jar.
+#
+#   ./ktlint            check all Kotlin sources
+#   ./ktlint format     auto-format all Kotlin sources
+#   ./ktlint staged     check staged .kt files only (for a pre-commit hook)
+#
+# Override the JVM with HMP_KTLINT_JAVA=/path/to/bin/java if needed.
+
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$ROOT"
+
+KTLINT_VERSION="1.8.0"
+KTLINT_SHA256="369ad2b789f95a011f807e1fcb690ccef80bd7cd014fd139e73ae82dcc0baeab"
+KTLINT_URL="https://repo1.maven.org/maven2/com/pinterest/ktlint/ktlint-cli/${KTLINT_VERSION}/ktlint-cli-${KTLINT_VERSION}-all.jar"
+JAR_DIR="$ROOT/tools/ktlint"
+JAR="$JAR_DIR/ktlint-cli-${KTLINT_VERSION}-all.jar"
+JAVA_BIN="${HMP_KTLINT_JAVA:-java}"
+
+# Glob patterns live in exactly ONE place. ktlint's default glob does NOT
+# exclude build/: without this negation, KSP output adds ~25k phantom errors.
+# .gradle.kts is excluded in phase 1 (see docs/ktlint-integration.md 4.4).
+PATTERNS=('**/*.kt' '!**/build/**' '!**/*.gradle.kts')
+
+sha256_of() {
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "$1" | cut -d' ' -f1
+  elif command -v shasum >/dev/null 2>&1; then
+    shasum -a 256 "$1" | cut -d' ' -f1
+  else
+    echo "[ktlint] ERROR: neither sha256sum nor shasum is available" >&2
+    exit 1
+  fi
+}
+
+need_download=0
+if [ ! -f "$JAR" ]; then
+  need_download=1
+elif [ "$(sha256_of "$JAR")" != "$KTLINT_SHA256" ]; then
+  echo "[ktlint] cached jar failed SHA256 check, re-downloading" >&2
+  need_download=1
+fi
+
+if [ "$need_download" -eq 1 ]; then
+  mkdir -p "$JAR_DIR"
+  echo "[ktlint] downloading $KTLINT_URL" >&2
+  curl -fSL --retry 3 -o "$JAR.tmp" "$KTLINT_URL"
+  mv "$JAR.tmp" "$JAR"
+  actual="$(sha256_of "$JAR")"
+  if [ "$actual" != "$KTLINT_SHA256" ]; then
+    echo "[ktlint] ERROR: SHA256 mismatch" >&2
+    echo "[ktlint]   expected $KTLINT_SHA256" >&2
+    echo "[ktlint]   actual   $actual" >&2
+    rm -f "$JAR"
+    exit 1
+  fi
+fi
+
+ACTION="${1:-check}"
+case "$ACTION" in
+  check)
+    exec "$JAVA_BIN" -jar "$JAR" "${PATTERNS[@]}"
+    ;;
+  format)
+    exec "$JAVA_BIN" -jar "$JAR" -F "${PATTERNS[@]}"
+    ;;
+  staged)
+    files=()
+    while IFS= read -r f; do
+      case "$f" in
+        */build/*) continue ;;
+        *.kt) files+=("$f") ;;
+      esac
+    done < <(git diff --cached --name-only --diff-filter=ACMR -- '*.kt' || true)
+    if [ "${#files[@]}" -eq 0 ]; then
+      echo "[ktlint] no staged .kt files" >&2
+      exit 0
+    fi
+    exec "$JAVA_BIN" -jar "$JAR" "${files[@]}"
+    ;;
+  *)
+    echo "usage: $0 [check | format | staged]" >&2
+    exit 2
+    ;;
+esac

@@ -1,11 +1,15 @@
+// JNA 绑定的函数名必须与 Win32 导出符号同名（ReleaseCapture / SetWindowRgn /
+// CreateRoundRectRgn），不能改成 Kotlin 小驼峰，故在此文件级豁免 function-naming。
+@file:Suppress("ktlint:standard:function-naming")
+
 package com.hmp.desktop
 
+import com.hmp.log.HmpLog
+import com.hmp.log.LogTag
 import com.sun.jna.Native
 import com.sun.jna.platform.win32.User32
 import com.sun.jna.platform.win32.WinDef
 import com.sun.jna.win32.W32APIOptions
-import com.hmp.log.HmpLog
-import com.hmp.log.LogTag
 
 /**
  * Native window operations for undecorated window management on Windows.
@@ -97,8 +101,12 @@ object WindowHelper {
     /** GDI functions for region operations. */
     private interface Gdi32Extra : com.sun.jna.Library {
         fun CreateRoundRectRgn(
-            nLeftRect: Int, nTopRect: Int, nRightRect: Int, nBottomRect: Int,
-            nWidthEllipse: Int, nHeightEllipse: Int
+            nLeftRect: Int,
+            nTopRect: Int,
+            nRightRect: Int,
+            nBottomRect: Int,
+            nWidthEllipse: Int,
+            nHeightEllipse: Int,
         ): WinDef.HRGN
     }
 }

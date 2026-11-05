@@ -70,7 +70,7 @@ private object PinyinD0 {
         "qian", "jue", "cang", "chu", "san", "bei", "xiao", "yong", "yao", "tan", "suo", "yang",
         "fa", "bing", "jia", "dai", "zai", "tang", "gu", "bin", "chu", "nuo", "can", "lei",
         "cui", "yong", "zao", "zong", "beng", "song", "ao", "chuan", "yu", "zhai", "zu", "shang",
-        "chuang", "jing", "chi", "sha"
+        "chuang", "jing", "chi", "sha",
     )
 }
 
@@ -135,7 +135,7 @@ private object PinyinD1 {
         "wan", "bei", "zu", "zhuo", "xie", "dan", "mai", "nan", "dan", "ji", "bo", "shuai",
         "bo", "kuang", "bian", "bu", "zhan", "ka", "lu", "you", "lu", "xi", "gua", "wo",
         "xie", "jie", "jie", "wei", "ang", "qiong", "zhi", "mao", "yin", "wei", "shao", "ji",
-        "que", "luan", "chi", "juan"
+        "que", "luan", "chi", "juan",
     )
 }
 
@@ -200,7 +200,7 @@ private object PinyinD2 {
         "piao", "lou", "ga", "gu", "xiao", "hu", "hui", "guo", "ou", "xian", "ze", "chang",
         "xu", "po", "de", "ma", "ma", "hu", "lei", "du", "ga", "tang", "ye", "beng",
         "ying", "sai", "jiao", "mi", "xiao", "hua", "mai", "ran", "zuo", "peng", "lao", "xiao",
-        "ji", "zhu", "chao", "kui"
+        "ji", "zhu", "chao", "kui",
     )
 }
 
@@ -265,7 +265,7 @@ private object PinyinD3 {
         "lan", "ju", "huai", "dang", "rang", "qian", "xun", "xian", "xi", "he", "ai", "ya",
         "dao", "hao", "ruan", "jin", "lei", "kuang", "lu", "yan", "tan", "wei", "huai", "long",
         "long", "rui", "li", "lin", "rang", "chan", "xun", "yan", "lei", "ba", "wan", "shi",
-        "ren", "san", "zhuang", "zhuang"
+        "ren", "san", "zhuang", "zhuang",
     )
 }
 
@@ -330,7 +330,7 @@ private object PinyinD4 {
         "gui", "zhai", "qiong", "yu", "shou", "an", "tu", "song", "wan", "rou", "yao", "hong",
         "yi", "jing", "zhun", "mi", "zhu", "dang", "hong", "zong", "guan", "zhou", "ding", "wan",
         "yi", "bao", "shi", "shi", "chong", "shen", "ke", "xuan", "shi", "you", "huan", "yi",
-        "tiao", "shi", "xian", "gong"
+        "tiao", "shi", "xian", "gong",
     )
 }
 
@@ -395,7 +395,7 @@ private object PinyinD5 {
         "zheng", "xu", "mi", "wei", "wo", "fu", "yi", "bang", "ping", "die", "gong", "pan",
         "huang", "tao", "mi", "jia", "teng", "hui", "zhong", "shan", "man", "mu", "biao", "guo",
         "ze", "mu", "bang", "zhang", "jing", "chan", "fu", "zhi", "hu", "fan", "chuang", "bi",
-        "bi", "zhang", "mi", "qiao"
+        "bi", "zhang", "mi", "qiao",
     )
 }
 
@@ -460,7 +460,7 @@ private object PinyinD6 {
         "bian", "min", "zong", "ti", "qiao", "chou", "bei", "xuan", "wei", "ge", "qian", "wei",
         "yu", "yu", "bi", "xuan", "huan", "min", "bi", "yi", "mian", "yong", "kai", "dang",
         "yin", "e", "chen", "mao", "qia", "ke", "yu", "ai", "qie", "yan", "nuo", "gan",
-        "yun", "zong", "sai", "leng"
+        "yun", "zong", "sai", "leng",
     )
 }
 
@@ -525,7 +525,7 @@ private object PinyinD7 {
         "dan", "meng", "chan", "sao", "guan", "peng", "yuan", "nuo", "jian", "zheng", "jiu", "jian",
         "yu", "yan", "kui", "nan", "hong", "rou", "pi", "wei", "sai", "zou", "xuan", "miao",
         "ti", "nie", "cha", "shi", "zong", "zhen", "yi", "xun", "yong", "bian", "yang", "huan",
-        "yan", "zan", "an", "xu"
+        "yan", "zan", "an", "xu",
     )
 }
 
@@ -590,7 +590,7 @@ private object PinyinD8 {
         "qing", "qi", "jing", "gui", "zheng", "yi", "zhi", "an", "wan", "lin", "liang", "chang",
         "wang", "xiao", "zan", "fei", "xuan", "geng", "yi", "xia", "yun", "hui", "xu", "min",
         "kui", "ye", "ying", "shu", "wei", "shu", "qing", "mao", "nan", "jian", "nuan", "an",
-        "yang", "chun", "yao", "suo"
+        "yang", "chun", "yao", "suo",
     )
 }
 
@@ -655,7 +655,7 @@ private object PinyinD9 {
         "ye", "fu", "wei", "wei", "duan", "jia", "zong", "jian", "yi", "shen", "xi", "yan",
         "yan", "chuan", "jian", "chun", "yu", "he", "zha", "wo", "pian", "bi", "yao", "huo",
         "xu", "ruo", "yang", "la", "yan", "ben", "hui", "kui", "jie", "kui", "si", "feng",
-        "xie", "tuo", "zhi", "jian"
+        "xie", "tuo", "zhi", "jian",
     )
 }
 
@@ -720,7 +720,7 @@ private object PinyinD10 {
         "qiu", "dou", "sha", "tan", "pei", "ju", "duo", "cui", "bi", "san", "san", "mao",
         "sai", "shu", "shu", "tuo", "he", "jian", "ta", "san", "lv", "mu", "mao", "tong",
         "rong", "chang", "pu", "lu", "zhan", "sao", "zhan", "meng", "lu", "qu", "die", "shi",
-        "di", "min", "jue", "mang"
+        "di", "min", "jue", "mang",
     )
 }
 
@@ -785,7 +785,7 @@ private object PinyinD11 {
         "zai", "wu", "xi", "wen", "qiang", "ze", "shi", "su", "ai", "qin", "sou", "yun",
         "xiu", "yin", "rong", "hun", "su", "suo", "ni", "ta", "shi", "ru", "ai", "pan",
         "chu", "chu", "pang", "weng", "cang", "mie", "ge", "dian", "hao", "huang", "xi", "zi",
-        "di", "zhi", "xing", "fu"
+        "di", "zhi", "xing", "fu",
     )
 }
 
@@ -850,7 +850,7 @@ private object PinyinD12 {
         "mei", "huan", "xu", "zhao", "wei", "fan", "qiu", "sui", "yang", "lie", "zhu", "jie",
         "zao", "gua", "bao", "hu", "yun", "nan", "shi", "liang", "bian", "gou", "tui", "tang",
         "chao", "shan", "en", "bo", "huang", "xie", "xi", "wu", "xi", "yun", "he", "he",
-        "xi", "yun", "xiong", "nai"
+        "xi", "yun", "xiong", "nai",
     )
 }
 
@@ -915,7 +915,7 @@ private object PinyinD13 {
         "tian", "chu", "zuo", "beng", "cheng", "hu", "qi", "e", "kun", "chang", "qi", "beng",
         "wan", "lu", "cong", "guan", "yan", "diao", "bei", "lin", "qin", "pi", "pa", "que",
         "zhuo", "qin", "fa", "jin", "qiong", "du", "jie", "hun", "yu", "mao", "mei", "chun",
-        "xuan", "ti", "xing", "dai"
+        "xuan", "ti", "xing", "dai",
     )
 }
 
@@ -980,7 +980,7 @@ private object PinyinD14 {
         "dao", "lu", "zhan", "meng", "li", "jin", "xu", "jian", "pan", "guan", "an", "lu",
         "xu", "zhou", "dang", "an", "gu", "li", "mu", "ding", "gan", "xu", "mang", "wang",
         "zhi", "qi", "yuan", "tian", "xiang", "dun", "xin", "xi", "pan", "feng", "dun", "min",
-        "ming", "sheng", "shi", "yun"
+        "ming", "sheng", "shi", "yun",
     )
 }
 
@@ -1045,7 +1045,7 @@ private object PinyinD15 {
         "di", "bei", "zhuo", "zhen", "yong", "ji", "gao", "tang", "si", "ma", "ta", "fu",
         "xuan", "qi", "yu", "xi", "ji", "si", "chan", "dan", "gui", "sui", "li", "nong",
         "mi", "dao", "li", "rang", "yue", "ti", "zan", "lei", "rou", "yu", "yu", "li",
-        "xie", "qin", "he", "tu"
+        "xie", "qin", "he", "tu",
     )
 }
 
@@ -1110,7 +1110,7 @@ private object PinyinD16 {
         "sou", "zhou", "qian", "zhuo", "teng", "lu", "lu", "jian", "tuo", "ying", "yu", "lai",
         "long", "qie", "lian", "lan", "qian", "yue", "zhong", "qu", "lian", "bian", "duan", "zuan",
         "li", "si", "luo", "ying", "yue", "zhuo", "yu", "mi", "di", "fan", "shen", "zhe",
-        "shen", "nv", "he", "lei"
+        "shen", "nv", "he", "lei",
     )
 }
 
@@ -1175,7 +1175,7 @@ private object PinyinD17 {
         "xian", "gou", "zhui", "huan", "di", "lv", "bian", "min", "yuan", "jin", "fu", "ru",
         "zhen", "feng", "cui", "gao", "chan", "li", "yi", "jian", "bin", "piao", "man", "lei",
         "ying", "suo", "mou", "sao", "xie", "liao", "shan", "zeng", "jiang", "qian", "qiao", "huan",
-        "jiao", "zuan", "fou", "xie"
+        "jiao", "zuan", "fou", "xie",
     )
 }
 
@@ -1240,7 +1240,7 @@ private object PinyinD18 {
         "gu", "qi", "cui", "bin", "xun", "nao", "wo", "zang", "xian", "biao", "xing", "kuan",
         "la", "yan", "lu", "huo", "za", "luo", "qu", "zang", "luan", "ni", "za", "chen",
         "qian", "wo", "guang", "zang", "lin", "guang", "zi", "jiao", "nie", "chou", "ji", "gao",
-        "chou", "mian", "nie", "zhi"
+        "chou", "mian", "nie", "zhi",
     )
 }
 
@@ -1305,7 +1305,7 @@ private object PinyinD19 {
         "kai", "kui", "hua", "jiang", "lou", "wei", "pai", "you", "sou", "yin", "shi", "chun",
         "shi", "yun", "zhen", "lang", "ru", "meng", "li", "que", "suan", "yuan", "li", "ju",
         "xi", "bang", "chu", "xu", "tu", "liu", "huo", "dian", "qian", "zu", "po", "cuo",
-        "yuan", "chu", "yu", "kuai"
+        "yuan", "chu", "yu", "kuai",
     )
 }
 
@@ -1370,7 +1370,7 @@ private object PinyinD20 {
         "wang", "can", "yang", "ying", "guo", "chan", "ding", "la", "ke", "jie", "xie", "ting",
         "mao", "xu", "mian", "yu", "jie", "shi", "xuan", "huang", "yan", "bian", "rou", "wei",
         "fu", "yuan", "mei", "wei", "fu", "ru", "xie", "you", "qiu", "mao", "xia", "ying",
-        "shi", "chong", "tang", "zhu"
+        "shi", "chong", "tang", "zhu",
     )
 }
 
@@ -1435,7 +1435,7 @@ private object PinyinD21 {
         "yan", "yan", "ding", "fu", "qiu", "qiu", "jiao", "hong", "ji", "fan", "xun", "diao",
         "hong", "chai", "tao", "xu", "jie", "yi", "ren", "xun", "yin", "shan", "qi", "tuo",
         "ji", "xun", "yin", "e", "fen", "ya", "yao", "song", "shen", "yin", "xin", "jue",
-        "xiao", "ne", "chen", "you"
+        "xiao", "ne", "chen", "you",
     )
 }
 
@@ -1500,7 +1500,7 @@ private object PinyinD22 {
         "tie", "yi", "chi", "mao", "he", "bi", "lu", "lin", "hui", "gai", "pian", "zi",
         "jia", "xu", "zei", "jiao", "gai", "zang", "jian", "ying", "xun", "zhen", "she", "bin",
         "bin", "qiu", "she", "chuan", "zang", "zhou", "lai", "zan", "ci", "chen", "shang", "tian",
-        "pei", "geng", "xian", "mai"
+        "pei", "geng", "xian", "mai",
     )
 }
 
@@ -1565,7 +1565,7 @@ private object PinyinD23 {
         "zhen", "li", "yao", "qing", "shi", "zai", "zhi", "jiao", "zhou", "quan", "lu", "jiao",
         "zhe", "fu", "liang", "nian", "bei", "hui", "gun", "wang", "liang", "chuo", "zi", "cou",
         "fu", "ji", "wen", "shu", "pei", "yuan", "xia", "zhan", "lu", "zhe", "lin", "xin",
-        "gu", "ci", "ci", "pi"
+        "gu", "ci", "ci", "pi",
     )
 }
 
@@ -1630,7 +1630,7 @@ private object PinyinD24 {
         "ling", "bing", "si", "gu", "bo", "pi", "yu", "si", "zuo", "bu", "you", "tian",
         "jia", "zhen", "shi", "shi", "zhi", "ju", "chan", "shi", "shi", "xuan", "zhao", "bao",
         "he", "bi", "sheng", "chu", "shi", "bo", "zhu", "chi", "za", "po", "tong", "qian",
-        "fu", "zhai", "mao", "qian"
+        "fu", "zhai", "mao", "qian",
     )
 }
 
@@ -1695,7 +1695,7 @@ private object PinyinD25 {
         "jiao", "yi", "chan", "chong", "tang", "an", "yin", "ru", "zhu", "lao", "pu", "wu",
         "lai", "te", "lian", "keng", "xiao", "suo", "li", "zeng", "chu", "guo", "gao", "e",
         "xiu", "cuo", "lve", "feng", "xin", "liu", "kai", "jian", "rui", "ti", "lang", "qin",
-        "ju", "a", "qiang", "zhe"
+        "ju", "a", "qiang", "zhe",
     )
 }
 
@@ -1760,7 +1760,7 @@ private object PinyinD26 {
         "jian", "bian", "di", "jian", "wen", "tao", "gou", "ta", "bei", "xie", "pan", "ge",
         "bi", "kuo", "tang", "lou", "gui", "qiao", "xue", "ji", "jian", "jiang", "chan", "da",
         "hu", "xian", "qian", "du", "wa", "jian", "lan", "wei", "ren", "fu", "mei", "quan",
-        "ge", "wei", "qiao", "han"
+        "ge", "wei", "qiao", "han",
     )
 }
 
@@ -1825,7 +1825,7 @@ private object PinyinD27 {
         "xi", "huan", "li", "biao", "ma", "yu", "tuo", "xun", "chi", "qu", "ri", "bo",
         "lv", "zang", "shi", "si", "fu", "ju", "zou", "zhu", "tuo", "nu", "jia", "yi",
         "dai", "xiao", "ma", "yin", "jiao", "hua", "luo", "hai", "pian", "biao", "li", "cheng",
-        "yan", "xing", "qin", "jun"
+        "yan", "xing", "qin", "jun",
     )
 }
 
@@ -1890,7 +1890,7 @@ private object PinyinD28 {
         "zhong", "yu", "yang", "yu", "ya", "tie", "yu", "tian", "ying", "dui", "wu", "er",
         "gua", "ai", "zhi", "yan", "heng", "xiao", "jia", "lie", "zhu", "yang", "ti", "hong",
         "luo", "ru", "mou", "ge", "ren", "jiao", "xiu", "zhou", "chi", "luo", "heng", "nian",
-        "e", "luan", "jia", "ji"
+        "e", "luan", "jia", "ji",
     )
 }
 
@@ -1947,7 +1947,7 @@ private object PinyinD29 {
         "chen", "he", "yin", "ju", "ling", "bao", "tiao", "zi", "yin", "yu", "chuo", "qu",
         "wo", "long", "pang", "gong", "pang", "yan", "long", "long", "gong", "kan", "da", "ling",
         "da", "long", "gong", "kan", "gui", "qiu", "bie", "gui", "yue", "chui", "he", "jue",
-        "xie", "yu"
+        "xie", "yu",
     )
 }
 

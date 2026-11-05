@@ -16,10 +16,10 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestResult
 import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
-import kotlinx.coroutines.test.resetMain
 import java.lang.reflect.Proxy
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -79,70 +79,67 @@ class DesktopPlaybackSettlementTest {
 
     /** D5-04：结算写的是会话累计实听，不是引擎位置（150 秒）也不是元数据时长（200 秒）。 */
     @Test
-    fun endOfSessionWritesCumulativeListenedMs_notEnginePositionOrMetadata(): TestResult =
-        runTestWithMain {
-            val audio = FakeAudioEngine().apply {
-                setDuration(200_000L)
-                setCurrentPosition(150_000L)
-            }
-            val log = Recorded()
-            val controller = newController(audio, log)
-            controller.playMusic(track(1L, durationMs = 200_000L))
-            runCurrent()
-
-            check(log.inserted.size == 1) { "会话未建立，后续断言无意义" }
-
-            controller.releaseAndSettle()
-
-            val settlement = log.settlements.singleOrNull()
-                ?: error("releaseAndSettle() 返回时结算还没落库（D5-07 的等待没生效）")
-            val (_, playedMs, isCompleted) = settlement
-
-            assertFalse(isCompleted, "非自然播完的退出结算不该标完播")
-            // 引擎位置 150 秒、元数据 200 秒：真实累计只可能是「测试跑起来的这几毫秒」
-            assertTrue(playedMs < 5_000L, "playDuration=$playedMs 不是累计实听（更像引擎位置/元数据时长）")
+    fun endOfSessionWritesCumulativeListenedMs_notEnginePositionOrMetadata(): TestResult = runTestWithMain {
+        val audio = FakeAudioEngine().apply {
+            setDuration(200_000L)
+            setCurrentPosition(150_000L)
         }
+        val log = Recorded()
+        val controller = newController(audio, log)
+        controller.playMusic(track(1L, durationMs = 200_000L))
+        runCurrent()
+
+        check(log.inserted.size == 1) { "会话未建立，后续断言无意义" }
+
+        controller.releaseAndSettle()
+
+        val settlement = log.settlements.singleOrNull()
+            ?: error("releaseAndSettle() 返回时结算还没落库（D5-07 的等待没生效）")
+        val (_, playedMs, isCompleted) = settlement
+
+        assertFalse(isCompleted, "非自然播完的退出结算不该标完播")
+        // 引擎位置 150 秒、元数据 200 秒：真实累计只可能是「测试跑起来的这几毫秒」
+        assertTrue(playedMs < 5_000L, "playDuration=$playedMs 不是累计实听（更像引擎位置/元数据时长）")
+    }
 
     /** D5-04 的自然播完分支：完播标记为真，时长仍是累计实听（旧实现这里写的是元数据时长）。 */
     @Test
-    fun naturalCompletionMarksCompletedAndWritesCumulativeMs(): TestResult =
-        runTestWithMain {
-            val audio = FakeAudioEngine().apply {
-                setDuration(200_000L)
-                setCurrentPosition(150_000L)
-            }
-            val log = Recorded()
-            val controller = newController(audio, log)
-            controller.playMusic(track(1L, durationMs = 200_000L))
-            runCurrent()
-
-            audio.simulatePlaybackComplete()
-            runCurrent()
-
-            val settlement = log.settlements.singleOrNull() ?: error("完播没有结算")
-            val (_, playedMs, isCompleted) = settlement
-            assertTrue(isCompleted, "自然播完要标完播")
-            assertTrue(playedMs < 5_000L, "playDuration=$playedMs 不是累计实听")
+    fun naturalCompletionMarksCompletedAndWritesCumulativeMs(): TestResult = runTestWithMain {
+        val audio = FakeAudioEngine().apply {
+            setDuration(200_000L)
+            setCurrentPosition(150_000L)
         }
+        val log = Recorded()
+        val controller = newController(audio, log)
+        controller.playMusic(track(1L, durationMs = 200_000L))
+        runCurrent()
+
+        audio.simulatePlaybackComplete()
+        runCurrent()
+
+        val settlement = log.settlements.singleOrNull() ?: error("完播没有结算")
+        val (_, playedMs, isCompleted) = settlement
+        assertTrue(isCompleted, "自然播完要标完播")
+        assertTrue(playedMs < 5_000L, "playDuration=$playedMs 不是累计实听")
+    }
 
     /** D5-07：可重入 —— 第二次 release 不重复结算，也不留下第二条历史记录。 */
     @Test
-    fun releaseIsReentrant_secondCallDoesNotSettleTwice(): TestResult =
-        runTestWithMain {
-            val audio = FakeAudioEngine()
-            val log = Recorded()
-            val controller = newController(audio, log)
-            controller.playMusic(track(1L))
-            runCurrent()
+    fun releaseIsReentrant_secondCallDoesNotSettleTwice(): TestResult = runTestWithMain {
+        val audio = FakeAudioEngine()
+        val log = Recorded()
+        val controller = newController(audio, log)
+        controller.playMusic(track(1L))
+        runCurrent()
 
-            controller.releaseAndSettle()
-            // 模拟 DisposableEffect.onDispose 与窗口关闭回调各触发一次
-            controller.releaseAndSettle()
+        controller.releaseAndSettle()
+        // 模拟 DisposableEffect.onDispose 与窗口关闭回调各触发一次
+        controller.releaseAndSettle()
 
-            assertEquals(1, log.settlements.size, "双次 release 重复结算了同一个会话")
-            assertEquals(1, log.inserted.size, "release 不应新建播放会话")
-            assertTrue(audio.releaseCalled, "releaseAndSettle 收尾要释放引擎")
-        }
+        assertEquals(1, log.settlements.size, "双次 release 重复结算了同一个会话")
+        assertEquals(1, log.inserted.size, "release 不应新建播放会话")
+        assertTrue(audio.releaseCalled, "releaseAndSettle 收尾要释放引擎")
+    }
 
     /** D1-04：releaseAndSettle 返回前，当前位置与队列都必须已写盘。 */
     @Test
@@ -191,18 +188,17 @@ class DesktopPlaybackSettlementTest {
 
     /** D5-06：入口必须带来源，且取值落在三端共用的闭集里（iOS 曾恒传 null，来源分布恒空）。 */
     @Test
-    fun playMusicRecordsKnownSource_notNull(): TestResult =
-        runTestWithMain {
-            val audio = FakeAudioEngine()
-            val log = Recorded()
-            val controller = newController(audio, log)
-            controller.playMusic(track(1L))
-            runCurrent()
+    fun playMusicRecordsKnownSource_notNull(): TestResult = runTestWithMain {
+        val audio = FakeAudioEngine()
+        val log = Recorded()
+        val controller = newController(audio, log)
+        controller.playMusic(track(1L))
+        runCurrent()
 
-            val history = log.inserted.singleOrNull() ?: error("会话没建立")
-            assertEquals(PlaybackSources.MANUAL, history.source)
-            assertTrue(PlaybackSources.isKnown(history.source), "来源取值必须在闭集内：${history.source}")
-        }
+        val history = log.inserted.singleOrNull() ?: error("会话没建立")
+        assertEquals(PlaybackSources.MANUAL, history.source)
+        assertTrue(PlaybackSources.isKnown(history.source), "来源取值必须在闭集内：${history.source}")
+    }
 
     private fun runTestWithMain(body: suspend TestScope.() -> Unit): TestResult = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
@@ -247,11 +243,17 @@ class DesktopPlaybackSettlementTest {
 
     private fun defaultReturnValue(rt: Class<*>): Any? = when (rt) {
         Void.TYPE -> Unit
+
         Boolean::class.javaPrimitiveType -> false
+
         Int::class.javaPrimitiveType -> 0
+
         Long::class.javaPrimitiveType -> 0L
+
         Float::class.javaPrimitiveType -> 0f
+
         Double::class.javaPrimitiveType -> 0.0
+
         else -> when {
             Flow::class.java.isAssignableFrom(rt) -> kotlinx.coroutines.flow.emptyFlow<Any?>()
             List::class.java.isAssignableFrom(rt) -> emptyList<Any>()

@@ -1,11 +1,5 @@
 package com.hearablemusic.player.ui.common.dialogs.base
 
-import com.hearablemusic.player.ui.generated.resources.Res
-import org.jetbrains.compose.resources.stringResource
-
-import com.hearablemusic.player.ui.generated.resources.cancel
-import com.hearablemusic.player.ui.generated.resources.ok
-
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -24,6 +18,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
+import com.hearablemusic.player.ui.generated.resources.Res
+import com.hearablemusic.player.ui.generated.resources.cancel
+import com.hearablemusic.player.ui.generated.resources.ok
+import org.jetbrains.compose.resources.stringResource
 
 @Composable
 fun InputDialog(
@@ -38,18 +36,18 @@ fun InputDialog(
     maxLines: Int = 1,
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
     onConfirm: (String) -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
 ) {
     val metrics = LocalHmpMetrics.current
     if (visible) {
         var inputValue by remember(initialValue) { mutableStateOf(initialValue) }
-        
+
         AlertDialog(
             onDismissRequest = onDismiss,
             title = { Text(title) },
             text = {
                 Column(
-                    verticalArrangement = Arrangement.spacedBy(metrics.compact)
+                    verticalArrangement = Arrangement.spacedBy(metrics.compact),
                 ) {
                     OutlinedTextField(
                         value = inputValue,
@@ -60,7 +58,7 @@ fun InputDialog(
                         maxLines = maxLines,
                         keyboardOptions = keyboardOptions,
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(metrics.base)
+                        shape = RoundedCornerShape(metrics.base),
                     )
                 }
             },
@@ -73,7 +71,7 @@ fun InputDialog(
                 TextButton(onClick = onDismiss) {
                     Text(dismissText)
                 }
-            }
+            },
         )
     }
 }

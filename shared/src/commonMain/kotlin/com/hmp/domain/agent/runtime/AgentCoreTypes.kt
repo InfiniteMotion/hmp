@@ -33,6 +33,7 @@ enum class BuiltinIntentId {
     RADIO_START,
     RADIO_STOP,
     RADIO_RESUME,
+
     /** 「继续电台」但电台并未处于暂停态时的空操作（guard 拦截分支）。 */
     RADIO_RESUME_NOOP,
     ENRICH_START,

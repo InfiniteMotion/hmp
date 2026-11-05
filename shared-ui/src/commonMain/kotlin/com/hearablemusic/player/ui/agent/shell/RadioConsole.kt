@@ -1,18 +1,4 @@
 package com.hearablemusic.player.ui.agent.shell
-import com.hearablemusic.player.ui.generated.resources.agent_radio_anchor_thought
-import com.hearablemusic.player.ui.generated.resources.agent_radio_auto_theme
-import com.hearablemusic.player.ui.generated.resources.agent_radio_collapse
-import com.hearablemusic.player.ui.generated.resources.agent_radio_end_hint
-import com.hearablemusic.player.ui.generated.resources.agent_radio_status_building
-import com.hearablemusic.player.ui.generated.resources.agent_radio_status_line
-import com.hearablemusic.player.ui.generated.resources.agent_radio_status_paused
-import com.hearablemusic.player.ui.generated.resources.agent_radio_status_playing
-import com.hearablemusic.player.ui.generated.resources.agent_radio_status_stopped
-import com.hearablemusic.player.ui.generated.resources.agent_radio_swipe_end
-import com.hearablemusic.player.ui.generated.resources.agent_radio_upcoming_full
-import com.hearablemusic.player.ui.generated.resources.agent_radio_upcoming_none
-import com.hearablemusic.player.ui.generated.resources.agent_radio_upcoming_preview
-
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
@@ -58,9 +44,9 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
-import com.hmp.domain.agent.runtime.MasterAgent
-import com.hmp.domain.agent.runtime.sub.radio.RadioState
-import com.hmp.domain.agent.runtime.sub.shared.RadioTrack
+import com.hearablemusic.player.ui.common.design.animation.HmpMotion
+import com.hearablemusic.player.ui.common.design.metrics.LayoutConstraints
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
 import com.hearablemusic.player.ui.common.design.typography.medium
 import com.hearablemusic.player.ui.common.dialogs.base.ScrimDialog
@@ -71,19 +57,32 @@ import com.hearablemusic.player.ui.common.util.hazeStyleForIntensity
 import com.hearablemusic.player.ui.common.util.hazeTintAlpha
 import com.hearablemusic.player.ui.common.util.rememberPlatformHaptics
 import com.hearablemusic.player.ui.generated.resources.Res
+import com.hearablemusic.player.ui.generated.resources.agent_radio_anchor_thought
+import com.hearablemusic.player.ui.generated.resources.agent_radio_auto_theme
+import com.hearablemusic.player.ui.generated.resources.agent_radio_collapse
+import com.hearablemusic.player.ui.generated.resources.agent_radio_end_hint
+import com.hearablemusic.player.ui.generated.resources.agent_radio_status_building
+import com.hearablemusic.player.ui.generated.resources.agent_radio_status_line
+import com.hearablemusic.player.ui.generated.resources.agent_radio_status_paused
+import com.hearablemusic.player.ui.generated.resources.agent_radio_status_playing
+import com.hearablemusic.player.ui.generated.resources.agent_radio_status_stopped
+import com.hearablemusic.player.ui.generated.resources.agent_radio_swipe_end
+import com.hearablemusic.player.ui.generated.resources.agent_radio_upcoming_full
+import com.hearablemusic.player.ui.generated.resources.agent_radio_upcoming_none
+import com.hearablemusic.player.ui.generated.resources.agent_radio_upcoming_preview
 import com.hearablemusic.player.ui.generated.resources.radiowaves
-import org.jetbrains.compose.resources.stringResource
 import com.hearablemusic.player.ui.library.pages.components.AlbumCover
 import com.hearablemusic.player.ui.platform.HapticEffect
+import com.hmp.domain.agent.runtime.MasterAgent
+import com.hmp.domain.agent.runtime.sub.radio.RadioState
+import com.hmp.domain.agent.runtime.sub.shared.RadioTrack
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import org.jetbrains.compose.resources.painterResource
+import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
 import kotlin.math.roundToInt
-import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
-import com.hearablemusic.player.ui.common.design.metrics.LayoutConstraints
-import com.hearablemusic.player.ui.common.design.animation.HmpMotion
 
 /**
  * 节目单在控制台里**只列前 N 首**。
@@ -181,9 +180,11 @@ fun RadioConsole(
                             if (hazeState != null) {
                                 Modifier.hazeEffect(
                                     state = hazeState,
-                                    style = hazeStyleForIntensity()
+                                    style = hazeStyleForIntensity(),
                                 )
-                            } else Modifier
+                            } else {
+                                Modifier
+                            },
                         ),
                     shape = dialogShape,
                     colors = CardDefaults.cardColors(
@@ -191,208 +192,209 @@ fun RadioConsole(
                             MaterialTheme.colorScheme.surface.copy(alpha = hazeTintAlpha())
                         } else {
                             MaterialTheme.colorScheme.surface
-                        }
+                        },
                     ),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                 ) {
                     // 高度自适应：列自身随内容收缩；仅中间列表在"封顶后"才吃剩余空间滚动
                     Column(modifier = Modifier.fillMaxWidth()) {
-
-                    // ① 头部：电台标识 + 主题 + 状态 + 收起
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = metrics.section)
-                            .padding(top = metrics.section, bottom = metrics.cozy),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Icon(
-                            painter = painterResource(Res.drawable.radiowaves),
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(metrics.cozy),
-                        )
-                        Spacer(modifier = Modifier.width(metrics.base))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = card.theme?.takeIf { it.isNotBlank() } ?: stringResource(Res.string.agent_radio_auto_theme),
-                                style = typo.headline,
-                                color = MaterialTheme.colorScheme.onBackground,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
+                        // ① 头部：电台标识 + 主题 + 状态 + 收起
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = metrics.section)
+                                .padding(top = metrics.section, bottom = metrics.cozy),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Icon(
+                                painter = painterResource(Res.drawable.radiowaves),
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(metrics.cozy),
                             )
+                            Spacer(modifier = Modifier.width(metrics.base))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = card.theme?.takeIf { it.isNotBlank() } ?: stringResource(Res.string.agent_radio_auto_theme),
+                                    style = typo.headline,
+                                    color = MaterialTheme.colorScheme.onBackground,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                                Text(
+                                    text = stringResource(Res.string.agent_radio_status_line, stateText, card.upcomingCount),
+                                    style = typo.caption,
+                                    color = MaterialTheme.colorScheme.onBackground,
+                                )
+                            }
+                            // 唯一刻意保留的偏离：满屏面板下，24dp 外缝太薄，单靠点外关闭不好按
                             Text(
-                                text = stringResource(Res.string.agent_radio_status_line, stateText, card.upcomingCount),
-                                style = typo.caption,
-                                color = MaterialTheme.colorScheme.onBackground,
+                                text = stringResource(Res.string.agent_radio_collapse),
+                                style = typo.footnote.medium(),
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(metrics.micro))
+                                    .clickable(
+                                        interactionSource = remember { MutableInteractionSource() },
+                                        indication = null,
+                                    ) {
+                                        haptic.perform(HapticEffect.TICK)
+                                        onDismiss()
+                                    }
+                                    .padding(horizontal = metrics.compact, vertical = metrics.micro),
                             )
                         }
-                        // 唯一刻意保留的偏离：满屏面板下，24dp 外缝太薄，单靠点外关闭不好按
-                        Text(
-                            text = stringResource(Res.string.agent_radio_collapse),
-                            style = typo.footnote.medium(),
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(metrics.micro))
-                                .clickable(
-                                    interactionSource = remember { MutableInteractionSource() },
-                                    indication = null,
-                                ) {
-                                    haptic.perform(HapticEffect.TICK)
-                                    onDismiss()
-                                }
-                                .padding(horizontal = metrics.compact, vertical = metrics.micro),
-                        )
-                    }
 
-                    // ②③④ 主体（可滚动）
-                    // fill = false：内容不多时只占自身高度（弹窗因此收缩），内容超高才吃满剩余空间并滚动
-                    Column(
-                        modifier = Modifier
-                            .weight(1f, fill = false)
-                            .fillMaxWidth()
-                            .verticalScroll(rememberScrollState())
-                            .padding(horizontal = metrics.section),
-                    ) {
-                        // ② 在播（ANCHOR）
-                        now?.let { track ->
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                if (nowCoverUri != null) {
-                                    AlbumCover(uri = nowCoverUri, size = metrics.bar, corner = metrics.base, shadow = metrics.micro)
-                                } else {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(metrics.bar)
-                                            .clip(RoundedCornerShape(metrics.base))
-                                            .background(MaterialTheme.colorScheme.surfaceVariant),
-                                        contentAlignment = Alignment.Center,
-                                    ) {
-                                        Icon(
-                                            painter = painterResource(Res.drawable.radiowaves),
-                                            contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            modifier = Modifier.size(metrics.cozy),
-                                        )
+                        // ②③④ 主体（可滚动）
+                        // fill = false：内容不多时只占自身高度（弹窗因此收缩），内容超高才吃满剩余空间并滚动
+                        Column(
+                            modifier = Modifier
+                                .weight(1f, fill = false)
+                                .fillMaxWidth()
+                                .verticalScroll(rememberScrollState())
+                                .padding(horizontal = metrics.section),
+                        ) {
+                            // ② 在播（ANCHOR）
+                            now?.let { track ->
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    if (nowCoverUri != null) {
+                                        AlbumCover(uri = nowCoverUri, size = metrics.bar, corner = metrics.base, shadow = metrics.micro)
+                                    } else {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(metrics.bar)
+                                                .clip(RoundedCornerShape(metrics.base))
+                                                .background(MaterialTheme.colorScheme.surfaceVariant),
+                                            contentAlignment = Alignment.Center,
+                                        ) {
+                                            Icon(
+                                                painter = painterResource(Res.drawable.radiowaves),
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                modifier = Modifier.size(metrics.cozy),
+                                            )
+                                        }
                                     }
-                                }
-                                Spacer(modifier = Modifier.width(metrics.cozy))
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = track.title,
-                                        style = typo.subtitle,
-                                        color = MaterialTheme.colorScheme.onBackground,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                    )
-                                    if (track.artist.isNotBlank()) {
+                                    Spacer(modifier = Modifier.width(metrics.cozy))
+                                    Column(modifier = Modifier.weight(1f)) {
                                         Text(
-                                            text = track.artist,
-                                            style = typo.caption,
+                                            text = track.title,
+                                            style = typo.subtitle,
                                             color = MaterialTheme.colorScheme.onBackground,
                                             maxLines = 1,
                                             overflow = TextOverflow.Ellipsis,
                                         )
-                                    }
-                                    if (track.why.isNotBlank()) {
-                                        Text(
-                                            text = track.why,
-                                            style = typo.caption,
-                                            color = MaterialTheme.colorScheme.primary,
-                                            maxLines = 2,
-                                            overflow = TextOverflow.Ellipsis,
-                                        )
-                                    }
-                                }
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(metrics.cozy))
-
-                        // ③ 节目单（主角：主播为这段收听排的东西；只列前 5 首，点任一可跳到那首）
-                        Text(
-                            text = when {
-                                upcoming.isEmpty() -> stringResource(Res.string.agent_radio_upcoming_none)
-                                upcoming.size > UPCOMING_PREVIEW ->
-                                    stringResource(Res.string.agent_radio_upcoming_preview, upcoming.size, UPCOMING_PREVIEW)
-                                else -> stringResource(Res.string.agent_radio_upcoming_full, upcoming.size)
-                            },
-                            style = typo.footnote.medium(),
-                            color = MaterialTheme.colorScheme.onBackground,
-                        )
-                        Spacer(modifier = Modifier.height(metrics.micro))
-                        preview.forEachIndexed { index, track ->
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clip(RoundedCornerShape(metrics.compact))
-                                    .clickable(
-                                        interactionSource = remember { MutableInteractionSource() },
-                                        indication = null,
-                                    ) { onPlayTrack(track.musicId) }
-                                    .padding(vertical = metrics.micro),
-                                horizontalArrangement = Arrangement.Start,
-                            ) {
-                                Text(
-                                    text = "${index + 1}",
-                                    style = typo.caption,
-                                    color = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.width(metrics.cozy),
-                                )
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = track.title,
-                                        style = typo.subtitle,
-                                        color = MaterialTheme.colorScheme.onBackground,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                    )
-                                    if (track.why.isNotBlank()) {
-                                        Text(
-                                            text = track.why,
-                                            style = typo.caption,
-                                            color = MaterialTheme.colorScheme.onBackground,
-                                            maxLines = 2,
-                                            overflow = TextOverflow.Ellipsis,
-                                        )
+                                        if (track.artist.isNotBlank()) {
+                                            Text(
+                                                text = track.artist,
+                                                style = typo.caption,
+                                                color = MaterialTheme.colorScheme.onBackground,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis,
+                                            )
+                                        }
+                                        if (track.why.isNotBlank()) {
+                                            Text(
+                                                text = track.why,
+                                                style = typo.caption,
+                                                color = MaterialTheme.colorScheme.primary,
+                                                maxLines = 2,
+                                                overflow = TextOverflow.Ellipsis,
+                                            )
+                                        }
                                     }
                                 }
                             }
-                        }
 
-                        // ④ 主播思路（最近一轮）
-                        card.lastAdjust?.takeIf { it.isNotBlank() }?.let { intent ->
                             Spacer(modifier = Modifier.height(metrics.cozy))
+
+                            // ③ 节目单（主角：主播为这段收听排的东西；只列前 5 首，点任一可跳到那首）
                             Text(
-                                text = stringResource(Res.string.agent_radio_anchor_thought),
+                                text = when {
+                                    upcoming.isEmpty() -> stringResource(Res.string.agent_radio_upcoming_none)
+
+                                    upcoming.size > UPCOMING_PREVIEW ->
+                                        stringResource(Res.string.agent_radio_upcoming_preview, upcoming.size, UPCOMING_PREVIEW)
+
+                                    else -> stringResource(Res.string.agent_radio_upcoming_full, upcoming.size)
+                                },
                                 style = typo.footnote.medium(),
                                 color = MaterialTheme.colorScheme.onBackground,
                             )
                             Spacer(modifier = Modifier.height(metrics.micro))
-                            Text(
-                                text = intent,
-                                style = typo.caption,
-                                color = MaterialTheme.colorScheme.onBackground,
-                            )
+                            preview.forEachIndexed { index, track ->
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(metrics.compact))
+                                        .clickable(
+                                            interactionSource = remember { MutableInteractionSource() },
+                                            indication = null,
+                                        ) { onPlayTrack(track.musicId) }
+                                        .padding(vertical = metrics.micro),
+                                    horizontalArrangement = Arrangement.Start,
+                                ) {
+                                    Text(
+                                        text = "${index + 1}",
+                                        style = typo.caption,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.width(metrics.cozy),
+                                    )
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = track.title,
+                                            style = typo.subtitle,
+                                            color = MaterialTheme.colorScheme.onBackground,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                        )
+                                        if (track.why.isNotBlank()) {
+                                            Text(
+                                                text = track.why,
+                                                style = typo.caption,
+                                                color = MaterialTheme.colorScheme.onBackground,
+                                                maxLines = 2,
+                                                overflow = TextOverflow.Ellipsis,
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+
+                            // ④ 主播思路（最近一轮）
+                            card.lastAdjust?.takeIf { it.isNotBlank() }?.let { intent ->
+                                Spacer(modifier = Modifier.height(metrics.cozy))
+                                Text(
+                                    text = stringResource(Res.string.agent_radio_anchor_thought),
+                                    style = typo.footnote.medium(),
+                                    color = MaterialTheme.colorScheme.onBackground,
+                                )
+                                Spacer(modifier = Modifier.height(metrics.micro))
+                                Text(
+                                    text = intent,
+                                    style = typo.caption,
+                                    color = MaterialTheme.colorScheme.onBackground,
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(metrics.cozy))
                         }
 
-                        Spacer(modifier = Modifier.height(metrics.cozy))
-                    }
-
-                    // ⑤ 吸底：结束这一档（滑动收档）
-                    EndSessionSlider(
-                        enabled = radioState != null,
-                        onDragStart = { haptic.perform(HapticEffect.DRAG_START) },
-                        onEnd = {
-                            haptic.perform(HapticEffect.CONFIRM)
-                            onEndSession()
-                        },
-                    )
-                    }   // Card 的内容列
-                }       // Card
-            }           // BoxWithConstraints（自适应尺寸）
-        }               // ScrimDialog
-    }                   // ProvideHazeRenderSettings
-}                       // fun RadioConsole
+                        // ⑤ 吸底：结束这一档（滑动收档）
+                        EndSessionSlider(
+                            enabled = radioState != null,
+                            onDragStart = { haptic.perform(HapticEffect.DRAG_START) },
+                            onEnd = {
+                                haptic.perform(HapticEffect.CONFIRM)
+                                onEndSession()
+                            },
+                        )
+                    } // Card 的内容列
+                } // Card
+            } // BoxWithConstraints（自适应尺寸）
+        } // ScrimDialog
+    } // ProvideHazeRenderSettings
+} // fun RadioConsole
 
 /**
  * 滑动收档 —— 「结束这一档」的确认手势。
@@ -437,19 +439,23 @@ private fun EndSessionSlider(
                 .background(dangerColor.copy(alpha = 0.08f))
                 .onSizeChanged { trackWidth = it.width }
                 .then(
-                    if (!enabled) Modifier else Modifier.pointerInput(maxTravel) {
-                        detectHorizontalDragGestures(
-                            onDragStart = { onDragStart() },
-                            onDragEnd = {
-                                if (dragOffset >= fireThreshold) onEnd()
-                                dragOffset = 0f
-                            },
-                            onDragCancel = { dragOffset = 0f },
-                            onHorizontalDrag = { _, amount ->
-                                dragOffset = (dragOffset + amount).coerceIn(0f, maxTravel)
-                            },
-                        )
-                    }
+                    if (!enabled) {
+                        Modifier
+                    } else {
+                        Modifier.pointerInput(maxTravel) {
+                            detectHorizontalDragGestures(
+                                onDragStart = { onDragStart() },
+                                onDragEnd = {
+                                    if (dragOffset >= fireThreshold) onEnd()
+                                    dragOffset = 0f
+                                },
+                                onDragCancel = { dragOffset = 0f },
+                                onHorizontalDrag = { _, amount ->
+                                    dragOffset = (dragOffset + amount).coerceIn(0f, maxTravel)
+                                },
+                            )
+                        }
+                    },
                 ),
             contentAlignment = Alignment.Center,
         ) {

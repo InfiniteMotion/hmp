@@ -74,8 +74,8 @@ data class HelloCardCache(
     // ── ANNIVERSARY 专用 ──
     @ColumnInfo(name = "anniversary_artist")
     val anniversaryArtist: String? = null,
-    @ColumnInfo(name = "anniversary_subject")
     // 预留字段（G14 死列）：当前写入恒为 null、全仓无读取；待 anniversary 主体名实现或随 schema 演进移除
+    @ColumnInfo(name = "anniversary_subject")
     val anniversarySubject: String? = null,
 )
 
@@ -83,9 +83,9 @@ data class HelloCardCache(
 class HelloCardConverters {
     @TypeConverter
     fun fromStringList(list: List<String>?): String? = list?.joinToString("\u001F")
+
     @TypeConverter
-    fun toStringList(value: String?): List<String>? =
-        if (value == null) null else value.split("\u001F").filter { it.isNotEmpty() }
+    fun toStringList(value: String?): List<String>? = if (value == null) null else value.split("\u001F").filter { it.isNotEmpty() }
 }
 
 @Dao

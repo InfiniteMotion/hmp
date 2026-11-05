@@ -47,8 +47,8 @@ class InMemoryMusicRepository(
     coverArtWriter = coverArtWriter,
 ) {
     // 扫描落库已在基类（D2-01），本类不用它：给一个空扫描结果即可
-    override suspend fun performMusicScan() =
-        Triple(emptyList<com.hmp.data.database.Music>(), emptyList<MusicExtra>(), emptyList<UserInfo>())
+    override suspend fun performMusicScan() = Triple(emptyList<com.hmp.data.database.Music>(), emptyList<MusicExtra>(), emptyList<UserInfo>())
+
     // getAllMusicInfoAsList 不再桩掉：基类那份（D2-08 收口后）跑的是真 Room，
     // 桩着它等于让一批用例绕过真实排序语义。
     // getDeletedMusicIdsGroupedByFolder 同样不再桩掉（D2-13 收口后基类只有一份实现），

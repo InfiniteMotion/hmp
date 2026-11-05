@@ -7,8 +7,8 @@ import com.hmp.domain.agent.port.TrackSettledEvent
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
-import kotlin.test.assertEquals
 import kotlin.test.assertContains
+import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -26,10 +26,13 @@ class RadioSessionTest {
         mergeWindowMs: Long = 200L,
         private val responses: MutableList<String?>,
         private val snapshot: RadioContextSnapshot = RadioContextSnapshot(
-            playingTitle = "在播曲", playingMusicId = 999L,
+            playingTitle = "在播曲",
+            playingMusicId = 999L,
             queueRemaining = 5,
             upcoming = listOf(
-                RadioQueueEntry(11L, "A"), RadioQueueEntry(22L, "B"), RadioQueueEntry(33L, "C"),
+                RadioQueueEntry(11L, "A"),
+                RadioQueueEntry(22L, "B"),
+                RadioQueueEntry(33L, "C"),
             ),
         ),
         theme: String? = null,
@@ -69,13 +72,16 @@ class RadioSessionTest {
             totalMs: Long = 240_000L,
             musicId: Long = 1L,
         ) = TrackSettledEvent(
-            musicId = musicId, title = title, outcome = outcome,
-            playedMs = playedMs, totalMs = totalMs, atMs = 0L,
+            musicId = musicId,
+            title = title,
+            outcome = outcome,
+            playedMs = playedMs,
+            totalMs = totalMs,
+            atMs = 0L,
         )
 
         /** 最近一次发给模型的 user 消息。 */
-        fun lastUserMessage(): String =
-            sentMessages.last().last { it.role == "user" }.content.orEmpty()
+        fun lastUserMessage(): String = sentMessages.last().last { it.role == "user" }.content.orEmpty()
     }
 
     private fun Harness.run(scope: kotlinx.coroutines.CoroutineScope) {
@@ -376,7 +382,10 @@ class RadioSessionTest {
         val session = RadioSession(
             targetCount = 12,
             clock = { 0L },
-            judge = { gate.await(); """{"action":"replace","musicIds":[11]}""" },
+            judge = {
+                gate.await()
+                """{"action":"replace","musicIds":[11]}"""
+            },
             onVerdict = { g, v ->
                 if (g == gen) verdicts += v
                 g == gen
@@ -387,13 +396,19 @@ class RadioSessionTest {
         session.begin()
         session.start(this)
         session.onTrackSettled(
-            TrackSettledEvent(musicId = 1, title = "歌", outcome = TrackOutcome.SKIPPED_NEXT,
-                playedMs = 1_000L, totalMs = 240_000L, atMs = 0L),
+            TrackSettledEvent(
+                musicId = 1,
+                title = "歌",
+                outcome = TrackOutcome.SKIPPED_NEXT,
+                playedMs = 1_000L,
+                totalMs = 240_000L,
+                atMs = 0L,
+            ),
         )
-        advanceUntilIdle()          // judge 挂起在 gate 上
+        advanceUntilIdle() // judge 挂起在 gate 上
 
-        gen = 1                     // 「暂停/关闭」发生
-        gate.complete(Unit)         // 结果此刻才回来
+        gen = 1 // 「暂停/关闭」发生
+        gate.complete(Unit) // 结果此刻才回来
         advanceUntilIdle()
 
         assertTrue(verdicts.isEmpty(), "该轮在途期间世代变了 → 结果必须丢弃")
@@ -419,13 +434,19 @@ class RadioSessionTest {
         session.begin()
         session.start(this)
         session.onTrackSettled(
-            TrackSettledEvent(musicId = 1, title = "歌", outcome = TrackOutcome.SKIPPED_NEXT,
-                playedMs = 1_000L, totalMs = 240_000L, atMs = 0L),
+            TrackSettledEvent(
+                musicId = 1,
+                title = "歌",
+                outcome = TrackOutcome.SKIPPED_NEXT,
+                playedMs = 1_000L,
+                totalMs = 240_000L,
+                atMs = 0L,
+            ),
         )
         advanceUntilIdle()
 
         assertEquals(1, verdicts.size, "世代没变 → 正常执行")
-        gen = 8                     // 之后才发生的暂停不影响已执行的判定
+        gen = 8 // 之后才发生的暂停不影响已执行的判定
         session.close()
     }
 }

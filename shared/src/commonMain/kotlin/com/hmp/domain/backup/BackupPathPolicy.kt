@@ -26,8 +26,10 @@ object BackupPathPolicy {
         val unified = path.replace('\\', '/')
         val prefix = when {
             unified.startsWith("/") -> "/"
+
             // "C:/Users/..." -> 盘符保留，便于与同一来源的目录路径比较
             unified.length >= 3 && unified[1] == ':' && unified[2] == '/' -> unified.substring(0, 3)
+
             else -> ""
         }
         val body = if (prefix.isEmpty()) unified else unified.removePrefix(prefix)

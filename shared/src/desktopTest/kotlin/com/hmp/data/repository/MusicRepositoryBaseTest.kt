@@ -10,12 +10,10 @@ import com.hmp.domain.backup.MusicLabelSnapshot
 import com.hmp.domain.backup.MusicUserStateSnapshot
 import com.hmp.domain.enum.LabelCategory
 import com.hmp.domain.enum.LabelName
-import com.hmp.data.database.myenum.LabelCategory as DbLabelCategory
-import com.hmp.data.database.myenum.LabelName as DbLabelName
 import com.hmp.domain.music.MusicInfo
+import com.hmp.domain.music.MusicLabel
 import com.hmp.domain.music.MusicSortKey
 import com.hmp.domain.music.SortDirection
-import com.hmp.domain.music.MusicLabel
 import com.hmp.test.db.createTestDatabase
 import com.hmp.test.repo.InMemoryMusicRepository
 import io.ktor.client.HttpClient
@@ -29,6 +27,8 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import com.hmp.data.database.myenum.LabelCategory as DbLabelCategory
+import com.hmp.data.database.myenum.LabelName as DbLabelName
 
 class MusicRepositoryBaseTest {
 
@@ -54,6 +54,7 @@ class MusicRepositoryBaseTest {
      * 于是标题与实际列表长期不一致（列表查询是带 `isDeleted = 0` 过滤的）。
      * 取消移除时反向也错，所以两条路径都要断言。
      */
+
     /**
      * D2-05 / D2-06：搜索的**转义**与**匹配列**必须在真 Room 上验。
      *
@@ -103,9 +104,14 @@ class MusicRepositoryBaseTest {
         listOf(1L, 2L, 3L).forEach { id ->
             db.musicDao().insert(
                 com.hmp.data.database.Music(
-                    id = id, title = "S$id", artist = "A", album = "B",
-                    duration = 60_000L, path = "/$id.mp3", albumArtUri = ""
-                )
+                    id = id,
+                    title = "S$id",
+                    artist = "A",
+                    album = "B",
+                    duration = 60_000L,
+                    path = "/$id.mp3",
+                    albumArtUri = "",
+                ),
             )
             db.musicExtraDao().insert(MusicExtra(id = id, isGetExtraInfo = true))
             db.userInfoDao().insert(UserInfo(id = id))
@@ -125,9 +131,14 @@ class MusicRepositoryBaseTest {
     private suspend fun insertSearchable(id: Long, title: String, artist: String, album: String) {
         db.musicDao().insert(
             com.hmp.data.database.Music(
-                id = id, title = title, artist = artist, album = album,
-                duration = 100L, path = "/$id.mp3", albumArtUri = ""
-            )
+                id = id,
+                title = title,
+                artist = artist,
+                album = album,
+                duration = 100L,
+                path = "/$id.mp3",
+                albumArtUri = "",
+            ),
         )
         db.musicExtraDao().insert(MusicExtra(id = id, isGetExtraInfo = true))
         db.userInfoDao().insert(UserInfo(id = id))
@@ -146,12 +157,11 @@ class MusicRepositoryBaseTest {
      */
     @Test
     fun getAllMusicInfoAsList_sortsByEveryKey() = runTest {
-        insertSortable(id = 1, title = "Beta",  duration = 300L, playCount = 5, fileSize = 200L, date = 2_000L)
+        insertSortable(id = 1, title = "Beta", duration = 300L, playCount = 5, fileSize = 200L, date = 2_000L)
         insertSortable(id = 2, title = "Alpha", duration = 100L, playCount = 1, fileSize = 300L, date = 1_000L)
         insertSortable(id = 3, title = "Gamma", duration = 200L, playCount = 9, fileSize = 100L, date = null)
 
-        suspend fun idsOf(key: MusicSortKey, direction: SortDirection): List<Long> =
-            repo.getAllMusicInfoAsList(key, direction).map { it.music.id }
+        suspend fun idsOf(key: MusicSortKey, direction: SortDirection): List<Long> = repo.getAllMusicInfoAsList(key, direction).map { it.music.id }
 
         assertEquals(listOf(2L, 1L, 3L), idsOf(MusicSortKey.TITLE, SortDirection.ASC))
         assertEquals(listOf(3L, 1L, 2L), idsOf(MusicSortKey.TITLE, SortDirection.DESC))
@@ -185,9 +195,14 @@ class MusicRepositoryBaseTest {
     ) {
         db.musicDao().insert(
             com.hmp.data.database.Music(
-                id = id, title = title, artist = "A", album = "B",
-                duration = duration, path = "/$id.mp3", albumArtUri = ""
-            )
+                id = id,
+                title = title,
+                artist = "A",
+                album = "B",
+                duration = duration,
+                path = "/$id.mp3",
+                albumArtUri = "",
+            ),
         )
         db.musicExtraDao().insert(MusicExtra(id = id, fileSize = fileSize, date = date, isGetExtraInfo = true))
         db.userInfoDao().insert(UserInfo(id = id, playCount = playCount))
@@ -239,9 +254,14 @@ class MusicRepositoryBaseTest {
     private suspend fun insertHiddenAt(target: InMemoryMusicRepository, id: Long, path: String) {
         db.musicDao().insert(
             com.hmp.data.database.Music(
-                id = id, title = "H$id", artist = "A", album = "B",
-                duration = 60_000L, path = path, albumArtUri = ""
-            )
+                id = id,
+                title = "H$id",
+                artist = "A",
+                album = "B",
+                duration = 60_000L,
+                path = path,
+                albumArtUri = "",
+            ),
         )
         db.musicExtraDao().insert(MusicExtra(id = id, isGetExtraInfo = true))
         db.userInfoDao().insert(UserInfo(id = id))
@@ -263,10 +283,10 @@ class MusicRepositoryBaseTest {
 
         // 基准曲 1：GENRE=POP（权重 3）+ MOOD=HAPPY（权重 4）
         insertLabeled(1L, listOf(DbLabelCategory.GENRE to DbLabelName.POP, DbLabelCategory.MOOD to DbLabelName.HAPPY))
-        insertLabeled(2L, listOf(DbLabelCategory.GENRE to DbLabelName.POP))                                        // 3
-        insertLabeled(3L, listOf(DbLabelCategory.MOOD to DbLabelName.HAPPY))                                       // 4
+        insertLabeled(2L, listOf(DbLabelCategory.GENRE to DbLabelName.POP)) // 3
+        insertLabeled(3L, listOf(DbLabelCategory.MOOD to DbLabelName.HAPPY)) // 4
         insertLabeled(4L, listOf(DbLabelCategory.GENRE to DbLabelName.POP, DbLabelCategory.MOOD to DbLabelName.HAPPY)) // 7
-        insertLabeled(5L, listOf(DbLabelCategory.GENRE to DbLabelName.ROCK))                                       // 0 → 不该出现
+        insertLabeled(5L, listOf(DbLabelCategory.GENRE to DbLabelName.ROCK)) // 0 → 不该出现
 
         val ids = batchedRepo.getSimilarSongsByWeightedLabels(1L, limit = 10).map { it.music.id }
 
@@ -289,7 +309,7 @@ class MusicRepositoryBaseTest {
         insertArtist(id = 5L, artist = "Abba")
         insertArtist(id = 6L, artist = "   ") // isBlank：不该成为一个分组
         insertArtist(id = 7L, artist = "Zelda")
-        repo.removeFromLibrary(listOf(7L))    // 软删的不该被数进去
+        repo.removeFromLibrary(listOf(7L)) // 软删的不该被数进去
 
         assertEquals(
             listOf("Beatles" to 3, "Abba" to 1, "Mando" to 1),
@@ -318,14 +338,14 @@ class MusicRepositoryBaseTest {
                 DbLabelCategory.SCENARIO to DbLabelName.WORKOUT,
                 DbLabelCategory.LANGUAGE to DbLabelName.CHINESE,
                 DbLabelCategory.ERA to DbLabelName.NINETIES,
-            )
+            ),
         )
         // 每首候选只与基准重叠一个类别 → 它的分数就等于那个类别的权重
-        insertLabeled(2L, listOf(DbLabelCategory.ERA to DbLabelName.NINETIES))        // 1
-        insertLabeled(3L, listOf(DbLabelCategory.LANGUAGE to DbLabelName.CHINESE))    // 1
-        insertLabeled(4L, listOf(DbLabelCategory.SCENARIO to DbLabelName.WORKOUT))    // 2
-        insertLabeled(5L, listOf(DbLabelCategory.GENRE to DbLabelName.POP))           // 3
-        insertLabeled(6L, listOf(DbLabelCategory.MOOD to DbLabelName.HAPPY))          // 4
+        insertLabeled(2L, listOf(DbLabelCategory.ERA to DbLabelName.NINETIES)) // 1
+        insertLabeled(3L, listOf(DbLabelCategory.LANGUAGE to DbLabelName.CHINESE)) // 1
+        insertLabeled(4L, listOf(DbLabelCategory.SCENARIO to DbLabelName.WORKOUT)) // 2
+        insertLabeled(5L, listOf(DbLabelCategory.GENRE to DbLabelName.POP)) // 3
+        insertLabeled(6L, listOf(DbLabelCategory.MOOD to DbLabelName.HAPPY)) // 4
 
         val ids = repo.getSimilarSongsByWeightedLabels(1L, limit = 10).map { it.music.id }
 
@@ -356,15 +376,20 @@ class MusicRepositoryBaseTest {
     ) {
         db.musicDao().insert(
             com.hmp.data.database.Music(
-                id = id, title = "L$id", artist = "A", album = "B",
-                duration = 60_000L, path = "/$id.mp3", albumArtUri = ""
-            )
+                id = id,
+                title = "L$id",
+                artist = "A",
+                album = "B",
+                duration = 60_000L,
+                path = "/$id.mp3",
+                albumArtUri = "",
+            ),
         )
         db.musicExtraDao().insert(MusicExtra(id = id, isGetExtraInfo = true))
         db.userInfoDao().insert(UserInfo(id = id))
         labels.forEach { (type, name) ->
             db.musicLabelDao().insert(
-                com.hmp.data.database.MusicLabel(musicId = id, type = type, label = name)
+                com.hmp.data.database.MusicLabel(musicId = id, type = type, label = name),
             )
         }
     }
@@ -372,9 +397,14 @@ class MusicRepositoryBaseTest {
     private suspend fun insertArtist(id: Long, artist: String) {
         db.musicDao().insert(
             com.hmp.data.database.Music(
-                id = id, title = "T$id", artist = artist, album = "B$id",
-                duration = 60_000L, path = "/$id.mp3", albumArtUri = ""
-            )
+                id = id,
+                title = "T$id",
+                artist = artist,
+                album = "B$id",
+                duration = 60_000L,
+                path = "/$id.mp3",
+                albumArtUri = "",
+            ),
         )
         db.musicExtraDao().insert(MusicExtra(id = id, isGetExtraInfo = true))
         db.userInfoDao().insert(UserInfo(id = id))
@@ -475,7 +505,7 @@ class MusicRepositoryBaseTest {
     fun restoreLegacyV1Snapshot_labelsLackProvenance() = runTest {
         // v1 存量备份（无 source/confidence/时间戳字段）→ 还原后 null，按 LLM 旧认识处理
         val legacy = MusicUserStateSnapshot(
-            labels = listOf(MusicLabelSnapshot(musicId = 1L, label = LabelName.ROCK, category = LabelCategory.GENRE))
+            labels = listOf(MusicLabelSnapshot(musicId = 1L, label = LabelName.ROCK, category = LabelCategory.GENRE)),
         )
         repo.restoreMusicUserState(legacy)
 

@@ -63,8 +63,10 @@ class MusicTagEditorAndroidTest {
         val totalLength = 44 + dataLength
 
         fun intLe(value: Int) = byteArrayOf(
-            (value and 0xFF).toByte(), ((value shr 8) and 0xFF).toByte(),
-            ((value shr 16) and 0xFF).toByte(), ((value shr 24) and 0xFF).toByte()
+            (value and 0xFF).toByte(),
+            ((value shr 8) and 0xFF).toByte(),
+            ((value shr 16) and 0xFF).toByte(),
+            ((value shr 24) and 0xFF).toByte(),
         )
         fun shortLe(value: Int) = byteArrayOf((value and 0xFF).toByte(), ((value shr 8) and 0xFF).toByte())
 
@@ -101,7 +103,7 @@ class MusicTagEditorAndroidTest {
                 artist = "新歌手",
                 album = "新专辑",
                 lyrics = "渐暗的舞台",
-            )
+            ),
         )
 
         assertTrue(result.isSuccess, "写入失败：${result.exceptionOrNull()}")

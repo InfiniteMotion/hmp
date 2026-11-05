@@ -65,8 +65,13 @@ class LlmCallExecutorTest {
             LlmEvent.Completed,
         )
         LlmCallExecutor.call(
-            transport, config, messages(), tools = null, temperature = 0.7f,
-            meter = meter, taskId = "t1",
+            transport,
+            config,
+            messages(),
+            tools = null,
+            temperature = 0.7f,
+            meter = meter,
+            taskId = "t1",
         )
         // 全局计数器已删除；用量只落账本（此处 dao=null，记账被跳过），不再有进程内累加可断言
         assertTrue(true)
@@ -79,8 +84,13 @@ class LlmCallExecutorTest {
 
         val transport = scriptTransport(LlmEvent.Failed("x"), LlmEvent.Completed)
         LlmCallExecutor.call(
-            transport, config, messages(), tools = null, temperature = 0.7f,
-            meter = meter, taskId = "t2",
+            transport,
+            config,
+            messages(),
+            tools = null,
+            temperature = 0.7f,
+            meter = meter,
+            taskId = "t2",
         )
         // 没有 usage 的失败调用不记账（账本未写入即可，dao=null 时无从断言，保留下方语义注释）
     }
@@ -124,13 +134,12 @@ class LlmCallExecutorTest {
 
     private fun messages(): List<LlmMessage> = listOf(LlmMessage(role = "user", content = "hi"))
 
-    private fun scriptTransport(vararg events: LlmEvent): LlmTransport =
-        object : LlmTransport {
-            override suspend fun streamChat(
-                config: AiEndpointConfig,
-                messages: List<LlmMessage>,
-                tools: List<LlmToolSpec>?,
-                temperature: Float,
-            ): Flow<LlmEvent> = flow { events.forEach { emit(it) } }
-        }
+    private fun scriptTransport(vararg events: LlmEvent): LlmTransport = object : LlmTransport {
+        override suspend fun streamChat(
+            config: AiEndpointConfig,
+            messages: List<LlmMessage>,
+            tools: List<LlmToolSpec>?,
+            temperature: Float,
+        ): Flow<LlmEvent> = flow { events.forEach { emit(it) } }
+    }
 }

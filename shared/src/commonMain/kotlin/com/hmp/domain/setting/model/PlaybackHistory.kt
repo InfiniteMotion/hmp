@@ -9,5 +9,5 @@ data class PlaybackHistory(
     val playedAt: Long,
     val playDuration: Long = 0,
     val isCompleted: Boolean = false,
-    val source: String? = null
+    val source: String? = null,
 )

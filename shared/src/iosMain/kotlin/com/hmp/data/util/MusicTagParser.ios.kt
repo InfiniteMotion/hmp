@@ -26,7 +26,7 @@ actual object MusicTagParser {
                 title = fallbackTitle,
                 artist = "Unknown Artist",
                 album = "Unknown Album",
-                format = url.pathExtension?.uppercase()
+                format = url.pathExtension?.uppercase(),
             )
         } catch (_: Exception) {
             null

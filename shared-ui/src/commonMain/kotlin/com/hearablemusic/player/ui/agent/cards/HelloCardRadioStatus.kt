@@ -1,20 +1,4 @@
 package com.hearablemusic.player.ui.agent.cards
-import com.hearablemusic.player.ui.common.design.colors.HelloCardPalette
-import com.hearablemusic.player.ui.generated.resources.card_radio_candidate
-import com.hearablemusic.player.ui.generated.resources.card_radio_continuing
-import com.hearablemusic.player.ui.generated.resources.card_radio_enrich_optimizing
-import com.hearablemusic.player.ui.generated.resources.card_radio_next
-import com.hearablemusic.player.ui.generated.resources.card_radio_paused
-import com.hearablemusic.player.ui.generated.resources.card_radio_playing
-import com.hearablemusic.player.ui.generated.resources.card_radio_reorder_skipped
-import com.hearablemusic.player.ui.generated.resources.card_radio_theme_ready
-import com.hearablemusic.player.ui.generated.resources.card_radio_title_default
-import com.hearablemusic.player.ui.generated.resources.card_radio_title_theme
-import com.hearablemusic.player.ui.generated.resources.card_radio_upcoming
-import com.hearablemusic.player.ui.generated.resources.card_radio_why
-import org.jetbrains.compose.resources.getString
-import org.jetbrains.compose.resources.stringResource
-
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -37,6 +21,8 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -47,9 +33,23 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
+import com.hearablemusic.player.ui.common.design.colors.HelloCardPalette
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
 import com.hearablemusic.player.ui.common.design.typography.medium
 import com.hearablemusic.player.ui.generated.resources.Res
+import com.hearablemusic.player.ui.generated.resources.card_radio_candidate
+import com.hearablemusic.player.ui.generated.resources.card_radio_continuing
+import com.hearablemusic.player.ui.generated.resources.card_radio_enrich_optimizing
+import com.hearablemusic.player.ui.generated.resources.card_radio_next
+import com.hearablemusic.player.ui.generated.resources.card_radio_paused
+import com.hearablemusic.player.ui.generated.resources.card_radio_playing
+import com.hearablemusic.player.ui.generated.resources.card_radio_reorder_skipped
+import com.hearablemusic.player.ui.generated.resources.card_radio_theme_ready
+import com.hearablemusic.player.ui.generated.resources.card_radio_title_default
+import com.hearablemusic.player.ui.generated.resources.card_radio_title_theme
+import com.hearablemusic.player.ui.generated.resources.card_radio_upcoming
+import com.hearablemusic.player.ui.generated.resources.card_radio_why
 import com.hearablemusic.player.ui.generated.resources.unknown
 import com.hmp.domain.agent.card.RadioStatusContent
 import com.hmp.domain.agent.card.SlideCard
@@ -57,14 +57,10 @@ import com.hmp.domain.agent.card.SlideType
 import com.hmp.domain.agent.runtime.MasterAgent
 import com.hmp.domain.agent.runtime.sub.radio.RadioMessage
 import com.hmp.domain.agent.runtime.sub.radio.RadioState
+import org.jetbrains.compose.resources.getString
 import org.jetbrains.compose.resources.painterResource
+import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
-
-
-
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 /**
  * 主播按语的机械标签黑名单 —— 这些是**上游下发的内部标记**（非自然语言），不上 UI。
  * 属数据约定值（与 `RadioSubAgent` 的 `why` 字段同源），**不参与本地化**。
@@ -208,7 +204,9 @@ internal fun FamilyRadioStatusCard(
                     onTap = { /* 短按留给 Pager 手势 */ },
                 )
             }
+
             onCardClick != null -> m.clickable { onCardClick.invoke(card) }
+
             else -> m
         }
     }
@@ -248,9 +246,9 @@ internal fun FamilyRadioStatusCard(
                     brush = Brush.linearGradient(
                         colors = listOf(
                             primaryAnimated.copy(alpha = 0.95f),
-                            bgAnimated.copy(alpha = 0.90f)
-                        )
-                    )
+                            bgAnimated.copy(alpha = 0.90f),
+                        ),
+                    ),
                 )
                 .padding(horizontal = metrics.cozy, vertical = metrics.cozy),
         ) {
@@ -397,10 +395,13 @@ internal fun FamilyRadioStatusCard(
                                 val msgText = when (msg) {
                                     is RadioMessage.ReorderSkipped ->
                                         stringResource(Res.string.card_radio_reorder_skipped, msg.count)
+
                                     is RadioMessage.EnrichOptimizing ->
                                         stringResource(Res.string.card_radio_enrich_optimizing)
+
                                     is RadioMessage.TrackContinuing ->
                                         stringResource(Res.string.card_radio_continuing, msg.title)
+
                                     is RadioMessage.ThemeChanged ->
                                         stringResource(Res.string.card_radio_theme_ready, msg.theme)
                                 }

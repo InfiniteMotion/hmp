@@ -1,8 +1,8 @@
 package com.hearablemusic.player.ui.common.util
 
 import com.hmp.domain.enum.LabelName
-import kotlin.test.assertTrue
 import kotlin.test.Test
+import kotlin.test.assertTrue
 
 class LabelExtensionsTest {
 
@@ -15,7 +15,7 @@ class LabelExtensionsTest {
         val distinctCount = LabelName.entries.map { it.iconRes }.distinct().size
         assertTrue(
             distinctCount == LabelName.entries.size,
-            "每个标签应映射到独立图标资源：$distinctCount/${LabelName.entries.size}"
+            "每个标签应映射到独立图标资源：$distinctCount/${LabelName.entries.size}",
         )
     }
 }

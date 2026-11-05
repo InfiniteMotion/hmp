@@ -5,8 +5,8 @@ import androidx.annotation.OptIn
 import androidx.compose.animation.core.animateIntAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.border
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -41,14 +41,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.media3.common.util.UnstableApi
 import com.hearablemusic.player.player.controller.MusicController
+import com.hearablemusic.player.ui.common.design.colors.ColorTokens
+import com.hearablemusic.player.ui.common.design.metrics.LayoutConstraints
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 import com.hmp.domain.config.LyricsConfig
 import com.hmp.domain.lyrics.LrcParser
-import com.hmp.domain.lyrics.findCurrentLyricIndex
 import com.hmp.domain.lyrics.LyricsComponent
+import com.hmp.domain.lyrics.findCurrentLyricIndex
 import com.hmp.domain.setting.usecase.LyricsSettingsUseCase
-import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
-import com.hearablemusic.player.ui.common.design.metrics.LayoutConstraints
-import com.hearablemusic.player.ui.common.design.colors.ColorTokens
 
 @OptIn(UnstableApi::class)
 @Composable
@@ -57,7 +57,7 @@ fun FloatingLyricsOverlay(
     lyricsSettingsUseCase: LyricsSettingsUseCase,
     windowManager: WindowManager,
     initialLayoutParams: WindowManager.LayoutParams,
-    onClose: () -> Unit
+    onClose: () -> Unit,
 ) {
     val metrics = LocalHmpMetrics.current
     val overlayView = LocalView.current
@@ -79,7 +79,9 @@ fun FloatingLyricsOverlay(
     val animatedX by animateIntAsState(animTargetX, tween(250), label = "snapX")
     LaunchedEffect(animatedX) {
         initialLayoutParams.x = animatedX
-        try { windowManager.updateViewLayout(overlayView, initialLayoutParams) } catch (_: Exception) {}
+        try {
+            windowManager.updateViewLayout(overlayView, initialLayoutParams)
+        } catch (_: Exception) {}
     }
 
     val lyricsText = lyrics
@@ -103,25 +105,31 @@ fun FloatingLyricsOverlay(
             .background(background, RoundedCornerShape(metrics.cozy))
             .clip(RoundedCornerShape(metrics.cozy))
             .then(
-                if (!isLocked) Modifier.pointerInput(Unit) {
-                    detectDragGestures(
-                        onDrag = { _, d ->
-                            initialLayoutParams.x += d.x.toInt()
-                            initialLayoutParams.y += d.y.toInt()
-                            try { windowManager.updateViewLayout(overlayView, initialLayoutParams) } catch (_: Exception) {}
-                        },
-                        onDragEnd = {
-                            val cx = initialLayoutParams.x + initialLayoutParams.width / 2
-                            animTargetX = if (cx < screenWidth / 2) 0 else screenWidth - initialLayoutParams.width
-                        }
-                    )
-                } else Modifier
-            )
+                if (!isLocked) {
+                    Modifier.pointerInput(Unit) {
+                        detectDragGestures(
+                            onDrag = { _, d ->
+                                initialLayoutParams.x += d.x.toInt()
+                                initialLayoutParams.y += d.y.toInt()
+                                try {
+                                    windowManager.updateViewLayout(overlayView, initialLayoutParams)
+                                } catch (_: Exception) {}
+                            },
+                            onDragEnd = {
+                                val cx = initialLayoutParams.x + initialLayoutParams.width / 2
+                                animTargetX = if (cx < screenWidth / 2) 0 else screenWidth - initialLayoutParams.width
+                            },
+                        )
+                    }
+                } else {
+                    Modifier
+                },
+            ),
     ) {
         // Top bar
         Row(
             Modifier.fillMaxWidth().padding(horizontal = metrics.compact, vertical = metrics.micro),
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             Text("⋮⋮", color = dimTextColor, fontSize = LayoutConstraints.OverlayFontSizeBody)
             Spacer(Modifier.weight(1f))
@@ -138,7 +146,7 @@ fun FloatingLyricsOverlay(
             Modifier
                 .fillMaxSize()
                 .padding(horizontal = metrics.cozy, vertical = metrics.base),
-            contentAlignment = Alignment.Center
+            contentAlignment = Alignment.Center,
         ) {
             if (currentLine != null) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -149,7 +157,7 @@ fun FloatingLyricsOverlay(
                         fontWeight = FontWeight.Bold,
                         textAlign = TextAlign.Center,
                         maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
+                        overflow = TextOverflow.Ellipsis,
                     )
                     if (resolvedConfig.displayMode != com.hmp.domain.config.DisplayMode.LANG1) {
                         currentLine.translatedText?.let { translated ->
@@ -160,7 +168,7 @@ fun FloatingLyricsOverlay(
                                 fontSize = resolvedConfig.translatedTextSize.sp,
                                 textAlign = TextAlign.Center,
                                 maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
+                                overflow = TextOverflow.Ellipsis,
                             )
                         }
                     }
@@ -175,7 +183,7 @@ fun FloatingLyricsOverlay(
             Box(
                 Modifier
                     .align(Alignment.BottomCenter)
-                    .padding(bottom = metrics.micro)
+                    .padding(bottom = metrics.micro),
             ) {
                 Text("●", color = Color.White.copy(alpha = 0.15f), fontSize = LayoutConstraints.OverlayFontSizeDot)
             }

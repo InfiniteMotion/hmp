@@ -21,7 +21,7 @@ import kotlinx.coroutines.launch
  * 页内快捷面板（独立歌词页底部）写的是 **FULLSCREEN** 组件；播放页只读 **PLAYER**。
  */
 class LyricsSettingsViewModel(
-    private val lyricsSettingsUseCase: LyricsSettingsUseCase
+    private val lyricsSettingsUseCase: LyricsSettingsUseCase,
 ) : ViewModel() {
 
     /** 播放页内联歌词的生效配置（已完成 `linkedTo` 链解析）。 */

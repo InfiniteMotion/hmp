@@ -1,3 +1,7 @@
+// 测试函数名刻意用中文描述场景（如「静默期内丢弃结算与暂停」），比小驼峰更易读，
+// 故在此文件级豁免 function-naming。
+@file:Suppress("ktlint:standard:function-naming")
+
 package com.hmp.domain.agent.port
 
 import kotlinx.coroutines.delay
@@ -16,8 +20,12 @@ import kotlin.test.assertTrue
 class PlaybackObservationBusTest {
 
     private fun settled(title: String, playedMs: Long) = TrackSettledEvent(
-        musicId = 1L, title = title, outcome = TrackOutcome.SKIPPED_NEXT,
-        playedMs = playedMs, totalMs = 240_000L, atMs = 0L,
+        musicId = 1L,
+        title = title,
+        outcome = TrackOutcome.SKIPPED_NEXT,
+        playedMs = playedMs,
+        totalMs = 240_000L,
+        atMs = 0L,
     )
 
     // 注意：muteFor 基于真实单调时钟，因此这两个测试不能用 runTest（它走虚拟时间，
@@ -44,20 +52,21 @@ class PlaybackObservationBusTest {
         assertEquals(1, seen.size, "静默期内的假结算不能报")
         assertTrue(pausesSeen.isEmpty(), "编排引起的假暂停也不能报")
 
-        delay(320L)   // 等过静默窗口
+        delay(320L) // 等过静默窗口
         bus.onTrackSettled(1, "静默过后", TrackOutcome.SKIPPED_NEXT, 20_000L, 240_000L)
         delay(20)
         assertEquals(2, seen.size, "静默结束后恢复正常上报")
 
-        job.cancel(); job2.cancel()
+        job.cancel()
+        job2.cancel()
     }
 
     @Test
     fun 静默会取更晚的那个截止时间() = runBlocking {
         val bus = PlaybackObservationBus()
         bus.muteFor(100L)
-        bus.muteFor(400L)   // 更晚的应当生效
-        delay(150L)         // 第一个窗口已过，第二个还没
+        bus.muteFor(400L) // 更晚的应当生效
+        delay(150L) // 第一个窗口已过，第二个还没
 
         val seen = mutableListOf<TrackSettledEvent>()
         val job = launch { bus.trackSettled.collect { seen += it } }

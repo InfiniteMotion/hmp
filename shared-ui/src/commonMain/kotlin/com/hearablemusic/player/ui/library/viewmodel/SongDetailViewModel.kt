@@ -2,16 +2,15 @@ package com.hearablemusic.player.ui.library.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-
+import com.hearablemusic.player.ui.common.util.UiState
+import com.hearablemusic.player.ui.generated.resources.Res
+import com.hearablemusic.player.ui.generated.resources.music_not_found
+import com.hearablemusic.player.ui.generated.resources.unknown_error
 import com.hmp.domain.music.MusicInfo
 import com.hmp.domain.music.MusicLabel
 import com.hmp.domain.music.usecase.GetDailyMusicRecommendationUseCase
 import com.hmp.domain.setting.model.PlaybackHistory
 import com.hmp.domain.setting.usecase.PlaybackHistoryUseCase
-import com.hearablemusic.player.ui.common.util.UiState
-import com.hearablemusic.player.ui.generated.resources.Res
-import com.hearablemusic.player.ui.generated.resources.music_not_found
-import com.hearablemusic.player.ui.generated.resources.unknown_error
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -22,12 +21,12 @@ import org.jetbrains.compose.resources.getString
 data class SongDetailData(
     val musicInfo: MusicInfo,
     val labels: List<MusicLabel?>,
-    val playbackHistory: List<PlaybackHistory> = emptyList()
+    val playbackHistory: List<PlaybackHistory> = emptyList(),
 )
 
 class SongDetailViewModel(
     private val getDailyRecommendationUseCase: GetDailyMusicRecommendationUseCase,
-    private val playbackHistoryUseCase: PlaybackHistoryUseCase
+    private val playbackHistoryUseCase: PlaybackHistoryUseCase,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<UiState<SongDetailData>>(UiState.Idle)
@@ -50,8 +49,8 @@ class SongDetailViewModel(
                             SongDetailData(
                                 musicInfo = recommendation.musicInfo!!,
                                 labels = recommendation.labels,
-                                playbackHistory = history
-                            )
+                                playbackHistory = history,
+                            ),
                         )
                     }
                 } else {

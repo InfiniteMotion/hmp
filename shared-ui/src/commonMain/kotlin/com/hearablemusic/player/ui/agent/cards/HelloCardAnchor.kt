@@ -1,9 +1,4 @@
 package com.hearablemusic.player.ui.agent.cards
-import com.hearablemusic.player.ui.common.design.colors.HelloCardPalette
-import com.hearablemusic.player.ui.generated.resources.card_anchor_not_playing
-import com.hearablemusic.player.ui.generated.resources.card_unknown
-import org.jetbrains.compose.resources.stringResource
-
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -24,7 +19,9 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -36,8 +33,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
+import com.hearablemusic.player.ui.common.design.colors.HelloCardPalette
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
 import com.hearablemusic.player.ui.generated.resources.Res
+import com.hearablemusic.player.ui.generated.resources.card_anchor_not_playing
+import com.hearablemusic.player.ui.generated.resources.card_unknown
 import com.hearablemusic.player.ui.generated.resources.none
 import com.hearablemusic.player.ui.platform.PlaybackController
 import com.hmp.domain.agent.card.AnchorContent
@@ -48,13 +49,8 @@ import com.hmp.domain.agent.port.NowPlayingContext
 import com.hmp.domain.lyrics.LrcParser
 import com.hmp.domain.lyrics.findCurrentLyricIndex
 import org.jetbrains.compose.resources.painterResource
+import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
-
-
-
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 // ═══════════════════════════════════════════════════════════════════
 // ANCHOR / RADIO_STATUS 独立构建函数（UI 层直接调用，不走 agent）
 // ═══════════════════════════════════════════════════════════════════
@@ -67,9 +63,11 @@ internal fun buildAnchorCardFromContext(
     val currentPosMs = ctx?.currentPositionMs ?: 0L
     val progressPct = if (durationMs > 0) {
         (currentPosMs * 100 / durationMs).toInt().coerceIn(0, 100)
-    } else 0
+    } else {
+        0
+    }
     return SlideCard(
-        cardId = "anchor",  // 固定 ID，避免每次 replace 生成新 cardId 导致动画
+        cardId = "anchor", // 固定 ID，避免每次 replace 生成新 cardId 导致动画
         type = SlideType.ANCHOR,
         content = AnchorContent(
             trackTitle = music?.music?.title,
@@ -151,7 +149,9 @@ internal fun FamilyAnchorCard(
                     onTap = { /* 短按留给 Pager 手势 */ },
                 )
             }
+
             onCardClick != null -> m.clickable { onCardClick.invoke(card) }
+
             else -> m
         }
     }
@@ -168,39 +168,39 @@ internal fun FamilyAnchorCard(
                     brush = Brush.linearGradient(
                         colors = listOf(
                             primaryAnimated.copy(alpha = 0.95f),
-                            bgAnimated.copy(alpha = 0.90f)
-                        )
-                    )
+                            bgAnimated.copy(alpha = 0.90f),
+                        ),
+                    ),
                 )
-                .padding(metrics.cozy)
+                .padding(metrics.cozy),
         ) {
             Row(
                 modifier = Modifier.fillMaxSize(),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Column(
-                    modifier = Modifier.weight(2f)
+                    modifier = Modifier.weight(2f),
                 ) {
                     when {
                         c.albumArtUri != null -> AsyncImage(
                             model = c.albumArtUri,
                             contentDescription = null,
                             contentScale = ContentScale.Crop,
-                            modifier = Modifier.clip(RoundedCornerShape(metrics.section))
+                            modifier = Modifier.clip(RoundedCornerShape(metrics.section)),
                         )
 
                         else -> Image(
                             painter = painterResource(Res.drawable.none),
                             contentDescription = null,
                             contentScale = ContentScale.Crop,
-                            modifier = Modifier.clip(RoundedCornerShape(metrics.section))
+                            modifier = Modifier.clip(RoundedCornerShape(metrics.section)),
                         )
                     }
                 }
 
                 // 右侧：歌名 + 艺术家 + 当前歌词 + 元数据
                 Column(
-                    modifier = Modifier.weight(1f).padding(metrics.compact)
+                    modifier = Modifier.weight(1f).padding(metrics.compact),
                 ) {
                     Text(
                         text = c.trackTitle ?: stringResource(Res.string.card_anchor_not_playing),
@@ -255,7 +255,6 @@ internal fun FamilyAnchorCard(
                         }
                     }
                 }
-
             }
         }
     }

@@ -66,28 +66,25 @@ object UserProfileMapper {
     )
 
     /** [createdAt] 传已存在的行的时间：覆盖时不该把"何时建立"重置（审计四问之一）。 */
-    fun PortraitDraft.toEntity(nowMs: Long, createdAt: Long): UserProfilePortraitEntity =
-        UserProfilePortraitEntity(
-            type = type.id,
-            tier = tier.id,
-            slotsJson = encodeSlots(slots),
-            evidenceRefs = encodeRefs(evidenceRefs),
-            confidence = confidence,
-            createdAt = createdAt,
-            updatedAt = nowMs,
-            coverageAtModeling = coverageAtModeling,
-        )
+    fun PortraitDraft.toEntity(nowMs: Long, createdAt: Long): UserProfilePortraitEntity = UserProfilePortraitEntity(
+        type = type.id,
+        tier = tier.id,
+        slotsJson = encodeSlots(slots),
+        evidenceRefs = encodeRefs(evidenceRefs),
+        confidence = confidence,
+        createdAt = createdAt,
+        updatedAt = nowMs,
+        coverageAtModeling = coverageAtModeling,
+    )
 
     // ── 槽位与反链的编解码 ─────────────────────────────────────────────
 
     fun encodeSlots(slots: Map<String, String>): String = json.encodeToString(slots)
 
-    fun decodeSlots(raw: String): Map<String, String> =
-        runCatching { json.decodeFromString<Map<String, String>>(raw) }.getOrDefault(emptyMap())
+    fun decodeSlots(raw: String): Map<String, String> = runCatching { json.decodeFromString<Map<String, String>>(raw) }.getOrDefault(emptyMap())
 
     /** 反链存的是证据行 id 的 CSV（契约 §2.4：≤10 条/侧写，不用关联表）。 */
     fun encodeRefs(ids: List<Long>): String = ids.joinToString(",")
 
-    fun decodeRefs(raw: String): List<Long> =
-        raw.split(',').mapNotNull { it.trim().toLongOrNull() }
+    fun decodeRefs(raw: String): List<Long> = raw.split(',').mapNotNull { it.trim().toLongOrNull() }
 }

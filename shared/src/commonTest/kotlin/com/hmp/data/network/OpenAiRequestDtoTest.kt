@@ -7,13 +7,13 @@ import com.hmp.data.network.dto.OpenAiMessage
 import com.hmp.data.network.dto.OpenAiStyleRequest
 import com.hmp.data.network.dto.OpenAiStyleResponse
 import com.hmp.data.network.dto.OpenAiTool
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
 
 /**
  * 协议 DTO 序列化形状测试（任务书 M2-T1 + M2-T3）：
@@ -36,11 +36,11 @@ class OpenAiRequestDtoTest {
                             name = "searchLibrary",
                             description = "搜索曲库",
                             parameters = JsonObject(mapOf("type" to JsonPrimitive("object"))),
-                        )
-                    )
+                        ),
+                    ),
                 ),
                 toolChoice = JsonPrimitive("auto"),
-            )
+            ),
         )
 
         assertTrue(encoded.contains("\"tools\""), "应序列化 tools")
@@ -55,7 +55,7 @@ class OpenAiRequestDtoTest {
     @Test
     fun requestWithoutTools_omitsToolsAndToolChoice() {
         val encoded = json.encodeToString(
-            OpenAiStyleRequest(model = "m", messages = listOf(OpenAiMessage("user", "hi")))
+            OpenAiStyleRequest(model = "m", messages = listOf(OpenAiMessage("user", "hi"))),
         )
 
         assertFalse(encoded.contains("\"tools\""))
@@ -69,8 +69,8 @@ class OpenAiRequestDtoTest {
                 model = "m",
                 messages = listOf(
                     OpenAiMessage(role = "tool", content = "{\"ok\":true}", toolCallId = "call_1"),
-                )
-            )
+                ),
+            ),
         )
 
         assertTrue(encoded.contains("\"tool_call_id\":\"call_1\""))
@@ -90,12 +90,12 @@ class OpenAiRequestDtoTest {
                             OpenAiAssistantToolCall(
                                 id = "call_7",
                                 function = OpenAiFunctionCall(name = "searchLibrary", arguments = "{\"query\":\"摇滚\"}"),
-                            )
+                            ),
                         ),
                     ),
                     OpenAiMessage(role = "tool", content = "[]", toolCallId = "call_7"),
-                )
-            )
+                ),
+            ),
         )
 
         assertTrue(encoded.contains("\"tool_calls\":[{\"id\":\"call_7\""), "assistant 消息应携带 tool_calls 数组")
@@ -115,7 +115,7 @@ class OpenAiRequestDtoTest {
             {"choices":[{"message":{"role":"assistant","tool_calls":[
                 {"id":"c1","type":"function","function":{"name":"searchLibrary","arguments":"{}"}}
             ]},"finish_reason":"tool_calls"}]}
-            """.trimIndent()
+            """.trimIndent(),
         )
 
         val call = decoded.choices!!.single().message!!.toolCalls!!.single()
@@ -129,7 +129,7 @@ class OpenAiRequestDtoTest {
     fun temperatureDefaultInDto_isLegacySafe() {
         // DTO 默认 0.7 保持既有调用兼容；显式档位由调用方传入（M2-T3）
         val encoded = json.encodeToString(
-            OpenAiStyleRequest(model = "m", messages = listOf(OpenAiMessage("user", "hi")))
+            OpenAiStyleRequest(model = "m", messages = listOf(OpenAiMessage("user", "hi"))),
         )
         assertTrue(encoded.contains("\"temperature\":0.7"))
     }
@@ -138,7 +138,7 @@ class OpenAiRequestDtoTest {
     fun nonStreamingRequest_omitsStreamField() {
         // callChatApi（非流式，富化管道）不传 stream——端点返回普通 JSON
         val encoded = json.encodeToString(
-            OpenAiStyleRequest(model = "m", messages = listOf(OpenAiMessage("user", "hi")))
+            OpenAiStyleRequest(model = "m", messages = listOf(OpenAiMessage("user", "hi"))),
         )
         assertFalse(encoded.contains("\"stream\""))
     }
@@ -146,7 +146,7 @@ class OpenAiRequestDtoTest {
     @Test
     fun streamingRequest_carriesStreamTrue() {
         val encoded = json.encodeToString(
-            OpenAiStyleRequest(model = "m", messages = listOf(OpenAiMessage("user", "hi")), stream = true)
+            OpenAiStyleRequest(model = "m", messages = listOf(OpenAiMessage("user", "hi")), stream = true),
         )
         assertTrue(encoded.contains("\"stream\":true"))
     }
@@ -154,7 +154,7 @@ class OpenAiRequestDtoTest {
     @Test
     fun temperature_roundTripsFloats() {
         val encoded = json.encodeToString(
-            OpenAiStyleRequest(model = "m", messages = listOf(OpenAiMessage("user", "hi")), temperature = 0.25f)
+            OpenAiStyleRequest(model = "m", messages = listOf(OpenAiMessage("user", "hi")), temperature = 0.25f),
         )
         val decoded = json.decodeFromString<OpenAiStyleRequest>(encoded)
         assertEquals(0.25f, decoded.temperature)

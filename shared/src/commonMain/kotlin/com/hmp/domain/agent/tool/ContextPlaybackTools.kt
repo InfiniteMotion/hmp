@@ -1,19 +1,16 @@
 package com.hmp.domain.agent.tool
-import com.hmp.domain.agent.tool.spec.DEFAULT_RESULT_LIMIT
-import com.hmp.domain.agent.tool.spec.DEFAULT_RESULT_LIMIT
-import com.hmp.domain.agent.tool.spec.formatPositionMs
-import com.hmp.domain.agent.tool.spec.AgentTool
-import com.hmp.domain.agent.tool.spec.ToolResult
-import com.hmp.domain.agent.tool.spec.ToolParam
-import com.hmp.domain.agent.tool.spec.ToolNames
-import com.hmp.domain.agent.tool.spec.ToolArgs
-import com.hmp.domain.agent.tool.spec.LongParam
-import com.hmp.domain.agent.tool.spec.IntParam
-import com.hmp.domain.agent.tool.spec.EnumParam
-
-import com.hmp.domain.agent.port.ToolPermissionLevel
-
 import com.hmp.domain.agent.port.PlaybackCommand
+import com.hmp.domain.agent.port.ToolPermissionLevel
+import com.hmp.domain.agent.tool.spec.AgentTool
+import com.hmp.domain.agent.tool.spec.DEFAULT_RESULT_LIMIT
+import com.hmp.domain.agent.tool.spec.EnumParam
+import com.hmp.domain.agent.tool.spec.IntParam
+import com.hmp.domain.agent.tool.spec.LongParam
+import com.hmp.domain.agent.tool.spec.ToolArgs
+import com.hmp.domain.agent.tool.spec.ToolNames
+import com.hmp.domain.agent.tool.spec.ToolParam
+import com.hmp.domain.agent.tool.spec.ToolResult
+import com.hmp.domain.agent.tool.spec.formatPositionMs
 import com.hmp.domain.music.MusicInfo
 import kotlinx.coroutines.flow.first
 
@@ -67,7 +64,7 @@ class GetSimilarSongsTool(
         val limit = args.optionalInt("limit") ?: DEFAULT_RESULT_LIMIT
         val similar = repo.getSimilarSongsByWeightedLabels(anchorId, limit)
         if (similar.isEmpty()) return ToolResult.success("未找到与歌曲 $anchorId 足够相似的歌曲")
-        return ToolResult.success("与「${anchorId}」相似的歌曲：\n${similar.summaryLines(limit)}")
+        return ToolResult.success("与「$anchorId」相似的歌曲：\n${similar.summaryLines(limit)}")
     }
 }
 
@@ -101,8 +98,11 @@ class PlaybackControlTool(
         val built = buildInstantCommand(command, args)
             ?: return ToolResult.failure("指令「$command」缺少必要参数（seek_to 需 position_ms）")
         val (ok, text) = port.execute(built)
-        return if (ok) ToolResult.success("已执行：${built.displayName}")
-        else ToolResult.failure("播放控制失败：$text")
+        return if (ok) {
+            ToolResult.success("已执行：${built.displayName}")
+        } else {
+            ToolResult.failure("播放控制失败：$text")
+        }
     }
 
     private fun buildInstantCommand(raw: String, args: ToolArgs): PlaybackCommand? = when (raw) {
@@ -138,7 +138,10 @@ class PlaybackPlayAtTool(
     override suspend fun run(args: ToolArgs): ToolResult {
         val musicId = args.requireLong("music_id")
         val (ok, text) = port.execute(PlaybackCommand.PLAY_BY_ID(musicId))
-        return if (ok) ToolResult.success("已切换播放曲目 $musicId")
-        else ToolResult.failure("播放控制失败：$text")
+        return if (ok) {
+            ToolResult.success("已切换播放曲目 $musicId")
+        } else {
+            ToolResult.failure("播放控制失败：$text")
+        }
     }
 }

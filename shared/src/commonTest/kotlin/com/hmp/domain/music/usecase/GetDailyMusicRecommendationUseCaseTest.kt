@@ -24,13 +24,16 @@ class GetDailyMusicRecommendationUseCaseTest {
     private fun musicInfo(id: Long, hasExtra: Boolean = true) = MusicInfo(
         music = Music(id = id, title = "Song$id", artist = "Artist${id % 5}", album = "Album${id % 3}", duration = 100, path = "/$id.mp3", albumArtUri = ""),
         extra = MusicExtra(id = id, isGetExtraInfo = hasExtra),
-        userInfo = UserInfo(id = id)
+        userInfo = UserInfo(id = id),
     )
 
     /** Enrich 管道落库的 6 列文本（写端形状）。 */
     private fun extraTexts(id: Long) = MusicExtraTexts(
-        rewards = "格莱美$id", popLyric = "歌词$id", singerIntroduce = "歌手介绍$id",
-        backgroundIntroduce = "创作背景$id", description = "歌曲简介$id",
+        rewards = "格莱美$id",
+        popLyric = "歌词$id",
+        singerIntroduce = "歌手介绍$id",
+        backgroundIntroduce = "创作背景$id",
+        description = "歌曲简介$id",
         relevantMusic = "相似歌曲$id",
     )
 

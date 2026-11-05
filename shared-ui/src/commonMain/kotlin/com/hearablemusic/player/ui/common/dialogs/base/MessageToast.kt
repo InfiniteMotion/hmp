@@ -28,20 +28,20 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.hearablemusic.player.ui.common.design.animation.HmpMotion
+import com.hearablemusic.player.ui.common.design.metrics.LayoutConstraints
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
+import com.hearablemusic.player.ui.common.dialogs.viewmodel.MessageDuration
 import com.hearablemusic.player.ui.common.util.HazeRenderSettings
 import com.hearablemusic.player.ui.common.util.LocalHazeRenderSettings
+import com.hearablemusic.player.ui.common.util.ProvideHazeRenderSettings
 import com.hearablemusic.player.ui.common.util.hazeStyleForIntensity
 import com.hearablemusic.player.ui.common.util.hazeTintAlpha
-import com.hearablemusic.player.ui.common.dialogs.viewmodel.MessageDuration
-import com.hearablemusic.player.ui.common.util.ProvideHazeRenderSettings
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import kotlinx.coroutines.delay
-import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
-import com.hearablemusic.player.ui.common.design.metrics.LayoutConstraints
-import com.hearablemusic.player.ui.common.design.animation.HmpMotion
 
 @OptIn(ExperimentalHazeMaterialsApi::class)
 @Composable
@@ -51,7 +51,7 @@ fun MessageToast(
     id: Long,
     hazeState: HazeState?,
     hazeRenderSettings: HazeRenderSettings? = null,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
 ) {
     val metrics = LocalHmpMetrics.current
     val typo = LocalHmpTypo.current
@@ -66,12 +66,12 @@ fun MessageToast(
         delay(50)
         visible = true
         isExiting = false
-        
+
         val delayMs = when (duration) {
             MessageDuration.Short -> 2000L
             MessageDuration.Long -> 4000L
         }
-        
+
         delay(delayMs)
         isExiting = true
         visible = false
@@ -85,18 +85,18 @@ fun MessageToast(
             visible = visible,
             enter = fadeIn(animationSpec = HmpMotion.standard()) + slideInVertically(
                 initialOffsetY = { -100 }, // 固定的偏移量，使动画更明显
-                animationSpec = HmpMotion.standard()
+                animationSpec = HmpMotion.standard(),
             ),
             exit = fadeOut(animationSpec = HmpMotion.standard()) + slideOutVertically(
                 targetOffsetY = { if (isExiting) -100 else 100 }, // 正常退出向上，被覆盖时向下
-                animationSpec = HmpMotion.standard()
-            )
+                animationSpec = HmpMotion.standard(),
+            ),
         ) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(top = metrics.bar),
-                contentAlignment = Alignment.TopCenter
+                contentAlignment = Alignment.TopCenter,
             ) {
                 Box(
                     modifier = Modifier
@@ -106,39 +106,41 @@ fun MessageToast(
                             if (hazeState != null) {
                                 Modifier.hazeEffect(
                                     state = hazeState,
-                                    style = hazeStyleForIntensity()
+                                    style = hazeStyleForIntensity(),
                                 )
-                            } else Modifier
+                            } else {
+                                Modifier
+                            },
                         )
                         .background(
                             if (hazeState != null) {
                                 MaterialTheme.colorScheme.surface.copy(alpha = hazeTintAlpha())
                             } else {
                                 MaterialTheme.colorScheme.surface
-                            }
+                            },
                         )
                         .border(
                             BorderStroke(
                                 width = metrics.stroke.hairline,
-                                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.14f)
+                                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.14f),
                             ),
-                            shape = RoundedCornerShape(metrics.block)
+                            shape = RoundedCornerShape(metrics.block),
                         )
-                        .padding(horizontal = metrics.cozy, vertical = metrics.base)
+                        .padding(horizontal = metrics.cozy, vertical = metrics.base),
                 ) {
                     Box(
                         modifier = Modifier.fillMaxWidth(),
-                        contentAlignment = Alignment.Center
+                        contentAlignment = Alignment.Center,
                     ) {
                         Column(
-                            horizontalAlignment = Alignment.CenterHorizontally
+                            horizontalAlignment = Alignment.CenterHorizontally,
                         ) {
                             message.split("\n").forEach { line ->
                                 Text(
                                     text = line,
                                     style = typo.body,
                                     color = MaterialTheme.colorScheme.onSurface,
-                                    textAlign = TextAlign.Center
+                                    textAlign = TextAlign.Center,
                                 )
                             }
                         }

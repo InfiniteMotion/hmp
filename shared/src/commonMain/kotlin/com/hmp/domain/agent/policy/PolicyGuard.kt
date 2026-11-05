@@ -1,8 +1,8 @@
 package com.hmp.domain.agent.policy
 
-import com.hmp.domain.agent.port.ToolPermissionLevel
 import com.hmp.domain.agent.port.AuditEntry
 import com.hmp.domain.agent.port.AuditLogPort
+import com.hmp.domain.agent.port.ToolPermissionLevel
 
 /**
  * 许可裁决结果（PolicyGuard）。
@@ -10,10 +10,13 @@ import com.hmp.domain.agent.port.AuditLogPort
 sealed interface PermissionDecision {
     /** 无需用户确认，可直接执行。 */
     data object AllowSilent : PermissionDecision
+
     /** 执行后需发通知（不阻挡用户交互）。 */
     data object AllowWithNotify : PermissionDecision
+
     /** 需要用户确认（确认流弹窗）。 */
     data object RequireConfirm : PermissionDecision
+
     /** 系统/策略层面主动拒绝（Agent 身份门），语义区别于 RequireConfirm（等用户决策）。 */
     data object Deny : PermissionDecision
 }
@@ -46,20 +49,28 @@ class PolicyGuard(
         //   不可逆操作（删播放列表等）必须每次显式确认：白名单是永久 + 无撤销入口的，
         //   一旦命中就等于把硬规则永久关闭，见 Phase 2 的 STRONG_CONFIRM 分支。
         if (level != ToolPermissionLevel.STRONG_CONFIRM && agentPolicy.isAlwaysAllow(toolName)) {
-            auditLog.record(AuditEntry(
-                tool = toolName, outcome = "allowed_silent",
-                reason = "Phase0-alwaysAllow: role=${agentPolicy.role}", taskId = taskId,
-            ))
+            auditLog.record(
+                AuditEntry(
+                    tool = toolName,
+                    outcome = "allowed_silent",
+                    reason = "Phase0-alwaysAllow: role=${agentPolicy.role}",
+                    taskId = taskId,
+                ),
+            )
             return PermissionDecision.AllowSilent
         }
 
         // ═══ Phase 1: Agent 身份门（硬编码安全红线）═══
         if (!agentPolicy.canAccess(level)) {
             val reason = "Phase1-deny: role=${agentPolicy.role} maxLevel=${agentPolicy.maxLevel} toolLevel=${level.ordinal}"
-            auditLog.record(AuditEntry(
-                tool = toolName, outcome = "denied",
-                reason = reason, taskId = taskId,
-            ))
+            auditLog.record(
+                AuditEntry(
+                    tool = toolName,
+                    outcome = "denied",
+                    reason = reason,
+                    taskId = taskId,
+                ),
+            )
             return PermissionDecision.Deny
         }
 
@@ -84,7 +95,7 @@ class PolicyGuard(
                 outcome = outcome,
                 reason = "Phase2: level=${level.ordinal} role=${agentPolicy.role} trust=$trust → ${decision::class.simpleName}",
                 taskId = taskId,
-            )
+            ),
         )
         return decision
     }

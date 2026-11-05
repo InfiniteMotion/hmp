@@ -19,11 +19,10 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
 import com.hearablemusic.player.ui.common.components.base.SearchButton
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
 import com.hearablemusic.player.ui.common.layout.LocalWindowSizeInfo
 import com.hearablemusic.player.ui.common.layout.WindowWidthSizeClass
-import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
-
 
 val LocalTabHeaderContent = staticCompositionLocalOf<(@Composable () -> Unit)?> { null }
 
@@ -34,7 +33,7 @@ fun TabScreen(
     navController: NavBackStack<NavKey>? = null,
     trailing: @Composable (() -> Unit)? = null,
     showHeader: Boolean = true,
-    content: @Composable () -> Unit
+    content: @Composable () -> Unit,
 ) {
     val metrics = LocalHmpMetrics.current
     val typo = LocalHmpTypo.current
@@ -46,53 +45,53 @@ fun TabScreen(
     }
     Box(
         modifier = Modifier
-            .fillMaxSize()
+            .fillMaxSize(),
     ) {
         Column(
             verticalArrangement = Arrangement.Top,
             horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier.fillMaxSize(),
         ) {
             if (showHeader && !isLandscape) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = horizontalPadding, end = horizontalPadding, top = metrics.cozy, bottom = metrics.cozy),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                if (title != null) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth()
-                            .padding(top = metrics.cozy),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = title,
-                            style = typo.title,
-                            color = MaterialTheme.colorScheme.onBackground
-                        )
-                        Spacer(modifier = Modifier.weight(1f))
-                        if (trailing != null) trailing()
-                        if (hasSearchBotton && navController != null) {
-                            Spacer(modifier = Modifier.width(metrics.compact))
-                            SearchButton(navController)
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = horizontalPadding, end = horizontalPadding, top = metrics.cozy, bottom = metrics.cozy),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    if (title != null) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth()
+                                .padding(top = metrics.cozy),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                text = title,
+                                style = typo.title,
+                                color = MaterialTheme.colorScheme.onBackground,
+                            )
+                            Spacer(modifier = Modifier.weight(1f))
+                            if (trailing != null) trailing()
+                            if (hasSearchBotton && navController != null) {
+                                Spacer(modifier = Modifier.width(metrics.compact))
+                                SearchButton(navController)
+                            }
                         }
-                    }
-                } else {
-                    // 无 title 但有 trailing/search → 只渲染右侧操作区
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.End,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        if (trailing != null) trailing()
-                        if (hasSearchBotton && navController != null) {
-                            if (trailing != null) Spacer(modifier = Modifier.width(metrics.compact))
-                            SearchButton(navController)
+                    } else {
+                        // 无 title 但有 trailing/search → 只渲染右侧操作区
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.End,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            if (trailing != null) trailing()
+                            if (hasSearchBotton && navController != null) {
+                                if (trailing != null) Spacer(modifier = Modifier.width(metrics.compact))
+                                SearchButton(navController)
+                            }
                         }
                     }
                 }
-            }
             }
             content()
         }

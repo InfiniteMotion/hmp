@@ -45,7 +45,7 @@ class BackupPathPolicyTest {
             BackupPathPolicy.isDirectChildOf(
                 "C:\\Users\\TS\\.hmp\\backups\\a.json",
                 "C:/Users/TS/.hmp/backups",
-            )
+            ),
         )
     }
 

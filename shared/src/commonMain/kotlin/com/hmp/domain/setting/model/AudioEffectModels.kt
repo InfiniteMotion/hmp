@@ -3,7 +3,7 @@ package com.hmp.domain.setting.model
 data class AudioEffectPreset(
     val id: Int,
     val name: String,
-    val description: String
+    val description: String,
 )
 
 data class AudioEffectSettings(
@@ -11,7 +11,7 @@ data class AudioEffectSettings(
     val bassBoostLevel: Int = 0,
     val isSurroundSoundEnabled: Boolean = false,
     val reverbPreset: Int = 0,
-    val customEqualizerLevels: FloatArray = floatArrayOf()
+    val customEqualizerLevels: FloatArray = floatArrayOf(),
 ) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
@@ -43,5 +43,5 @@ data class EqualizerBand(
     val frequency: Int,
     val level: Float,
     val minLevel: Int,
-    val maxLevel: Int
+    val maxLevel: Int,
 )

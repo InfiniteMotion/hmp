@@ -6,7 +6,6 @@ import com.hmp.domain.agent.port.LlmToolSpec
 import com.hmp.domain.agent.port.LlmTransport
 import com.hmp.domain.agent.quota.QuotaDecision
 import com.hmp.domain.setting.model.AiEndpointConfig
-
 import com.hmp.log.HmpLog
 import com.hmp.log.LogTag
 import kotlinx.coroutines.CancellationException
@@ -78,17 +77,21 @@ internal object LlmCallExecutor {
             ).toList().forEach { e ->
                 when (e) {
                     is LlmEvent.TextDelta -> text.append(e.text)
+
                     is LlmEvent.ToolCall -> calls += e
+
                     is LlmEvent.Usage -> usage = e
+
                     is LlmEvent.Failed -> {
                         failed = true
                         failedMessage = e.message
                     }
+
                     LlmEvent.Completed -> Unit
                 }
             }
         } catch (ce: CancellationException) {
-            throw ce  // 协程取消不吞，让上层处理
+            throw ce // 协程取消不吞，让上层处理
         } catch (e: Exception) {
             failed = true
             failedMessage = e.message

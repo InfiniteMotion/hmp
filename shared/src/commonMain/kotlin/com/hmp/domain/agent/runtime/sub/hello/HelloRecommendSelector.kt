@@ -42,8 +42,7 @@ object HelloRecommendSelector {
     const val TOKENS_PER_ROW: Int = 36
     const val MIN_LIBRARY_ROWS: Int = 40
 
-    fun libraryRowBudget(): Int =
-        (LIBRARY_TOKEN_BUDGET / TOKENS_PER_ROW).coerceAtLeast(MIN_LIBRARY_ROWS)
+    fun libraryRowBudget(): Int = (LIBRARY_TOKEN_BUDGET / TOKENS_PER_ROW).coerceAtLeast(MIN_LIBRARY_ROWS)
 
     private val json = Json {
         ignoreUnknownKeys = true
@@ -87,7 +86,7 @@ object HelloRecommendSelector {
                     "## 曲库（共 $totalCount 首，受上下文限制仅列 ${library.size} 首，已省略 $omittedCount 首）"
                 } else {
                     "## 曲库（共 $totalCount 首，以下 ${rest.size} 首为本地推荐之外的曲目）"
-                }
+                },
             )
             if (rest.isEmpty()) {
                 appendLine("（无其他曲目）")

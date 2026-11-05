@@ -12,7 +12,7 @@ class BuiltInApiKeyProviderTest {
         val provider = BuiltInApiKeyProvider(
             endpoint = "https://api.example.com",
             apiKey = "sk-test123",
-            model = "gpt-4"
+            model = "gpt-4",
         )
         val config = provider.getConfig()
         assertTrue(config.isConfigured)
@@ -26,7 +26,7 @@ class BuiltInApiKeyProviderTest {
         val provider = BuiltInApiKeyProvider(
             endpoint = "https://api.example.com",
             apiKey = "",
-            model = "gpt-4"
+            model = "gpt-4",
         )
         val config = provider.getConfig()
         assertFalse(config.isConfigured)
@@ -37,7 +37,7 @@ class BuiltInApiKeyProviderTest {
         val provider = BuiltInApiKeyProvider(
             endpoint = "https://api.example.com",
             apiKey = "   ",
-            model = "gpt-4"
+            model = "gpt-4",
         )
         val config = provider.getConfig()
         assertFalse(config.isConfigured)

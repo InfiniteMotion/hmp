@@ -10,24 +10,6 @@ import androidx.room.Query
 import androidx.room.Transaction
 import kotlinx.coroutines.flow.Flow
 
-@Entity(
-    tableName = "playlist_item",
-    primaryKeys = ["songId", "playlistId"],
-    foreignKeys = [
-        ForeignKey(
-        entity = Playlist::class,
-        parentColumns = ["id"],
-        childColumns = ["playlistId"],
-        onDelete = ForeignKey.CASCADE
-    )],
-    indices = [
-        Index(value = ["playlistId"]),
-        // v10（D3-03，决策 1）：同一歌单内 itemOrder 唯一 —— 此前并发 addToPlaylist 会读到
-        // 同一个 MAX(itemOrder) 写出重复序号，`ORDER BY itemOrder` 的相对顺序退化成 SQLite 自选。
-        Index(value = ["playlistId", "itemOrder"], unique = true),
-    ]
-)
-
 /**
  * 歌单条目。
  *
@@ -35,11 +17,25 @@ import kotlinx.coroutines.flow.Flow
  * `INNER JOIN music` 取 `music.path`，全仓零消费；曲目改名/换设备/跨端恢复后它会与真实路径
  * 不一致，却仍然在场，容易误导后来人"可以按它直接播"。
  */
-data class PlaylistItem(
-    val songId: Long,
-    val playlistId: Long,
-    val itemOrder: Int = 0
+@Entity(
+    tableName = "playlist_item",
+    primaryKeys = ["songId", "playlistId"],
+    foreignKeys = [
+        ForeignKey(
+            entity = Playlist::class,
+            parentColumns = ["id"],
+            childColumns = ["playlistId"],
+            onDelete = ForeignKey.CASCADE,
+        ),
+    ],
+    indices = [
+        Index(value = ["playlistId"]),
+        // v10（D3-03，决策 1）：同一歌单内 itemOrder 唯一 —— 此前并发 addToPlaylist 会读到
+        // 同一个 MAX(itemOrder) 写出重复序号，`ORDER BY itemOrder` 的相对顺序退化成 SQLite 自选。
+        Index(value = ["playlistId", "itemOrder"], unique = true),
+    ],
 )
+data class PlaylistItem(val songId: Long, val playlistId: Long, val itemOrder: Int = 0)
 
 @Dao
 interface PlaylistItemDao {
@@ -50,22 +46,27 @@ interface PlaylistItemDao {
     suspend fun insertPlaylist(items: List<PlaylistItem>)
 
     @Transaction
-    @Query("""
+    @Query(
+        """
         SELECT music.* FROM music
         INNER JOIN playlist_item ON music.id = playlist_item.songId
         WHERE playlist_item.playlistId = :playlistId AND music.isDeleted = 0
         ORDER BY playlist_item.itemOrder ASC
-    """)
+    """,
+    )
     fun getMusicInfoInPlaylist(playlistId: Long): Flow<List<MusicInfo>>
 
     @Transaction
-    @Query("""
+    @Query(
+        """
     SELECT music.* FROM music
     INNER JOIN playlist_item ON music.id = playlist_item.songId
     WHERE playlist_item.playlistId = :playlistId AND music.isDeleted = 0
     ORDER BY playlist_item.itemOrder ASC
-""")
+""",
+    )
     suspend fun getPlaylistById(playlistId: Long): List<MusicInfo>
+
     @Query("DELETE FROM playlist_item WHERE playlistId = :playlistId")
     suspend fun deletePlaylistItem(playlistId: Long)
 
@@ -82,16 +83,18 @@ interface PlaylistItemDao {
     // 派生列的重算是被条目写入触发的，所以事务待在条目 DAO 这一侧，而不是 PlaylistDao。
 
     /** 追加条目：序号在同一语句内取当前最大值 +1。重复添加同一首 = 移到末尾，与原 `@Insert(REPLACE)` 语义一致。 */
-    @Query("""
+    @Query(
+        """
         INSERT OR REPLACE INTO playlist_item (songId, playlistId, itemOrder)
         SELECT :songId, :playlistId, COALESCE(MAX(itemOrder), -1) + 1
         FROM playlist_item WHERE playlistId = :playlistId
-    """)
+    """,
+    )
     suspend fun insertWithNextOrder(playlistId: Long, songId: Long)
 
     @Query(
         "SELECT songId FROM playlist_item WHERE playlistId = :playlistId " +
-            "ORDER BY itemOrder ASC, songId ASC"
+            "ORDER BY itemOrder ASC, songId ASC",
     )
     suspend fun getSongIdsInOrder(playlistId: Long): List<Long>
 
@@ -108,7 +111,7 @@ interface PlaylistItemDao {
         INNER JOIN music m ON m.id = pi.songId
         WHERE pi.playlistId = :playlistId AND m.isDeleted = 0
         ORDER BY pi.itemOrder ASC
-        """
+        """,
     )
     suspend fun getVisibleSongIdsInOrder(playlistId: Long): List<Long>
 
@@ -141,7 +144,7 @@ interface PlaylistItemDao {
             ),
             updatedAt = :updatedAt
         WHERE id = :playlistId
-        """
+        """,
     )
     suspend fun refreshStats(playlistId: Long, updatedAt: Long)
 
@@ -166,7 +169,7 @@ interface PlaylistItemDao {
             ),
             updatedAt = :updatedAt
         WHERE id = :playlistId
-        """
+        """,
     )
     suspend fun fillCoverFromFirstItem(playlistId: Long, updatedAt: Long)
 
@@ -202,7 +205,7 @@ interface PlaylistItemDao {
             ),
             updatedAt = :updatedAt
         WHERE id IN (SELECT DISTINCT playlistId FROM playlist_item WHERE songId IN (:songIds))
-        """
+        """,
     )
     suspend fun refreshStatsForPlaylistsContaining(songIds: List<Long>, updatedAt: Long)
 
@@ -241,7 +244,7 @@ interface PlaylistItemDao {
         insertPlaylist(
             songIds.mapIndexed { index, songId ->
                 PlaylistItem(playlistId = playlistId, songId = songId, itemOrder = index)
-            }
+            },
         )
         refreshStats(playlistId, updatedAt)
         fillCoverFromFirstItem(playlistId, updatedAt)
@@ -277,6 +280,7 @@ interface PlaylistItemDao {
         fillCoverFromFirstItem(playlistId, updatedAt)
         return true
     }
+
     /**
      * 全表导出（备份用）。
      *

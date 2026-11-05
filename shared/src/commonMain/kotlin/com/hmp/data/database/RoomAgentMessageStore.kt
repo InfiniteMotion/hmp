@@ -24,20 +24,19 @@ class RoomAgentMessageStore(
                 content = message.content,
                 renderHint = message.renderHint,
                 createdAt = message.createdAt,
-            )
+            ),
         )
     }
 
-    override suspend fun loadSession(sessionId: String, limit: Int): List<StoredAgentMessage> =
-        dao.getBySession(sessionId)
-            .takeLast(limit.coerceAtLeast(0))
-            .map {
-                StoredAgentMessage(
-                    sessionId = it.sessionId,
-                    role = it.role,
-                    content = it.content,
-                    renderHint = it.renderHint,
-                    createdAt = it.createdAt,
-                )
-            }
+    override suspend fun loadSession(sessionId: String, limit: Int): List<StoredAgentMessage> = dao.getBySession(sessionId)
+        .takeLast(limit.coerceAtLeast(0))
+        .map {
+            StoredAgentMessage(
+                sessionId = it.sessionId,
+                role = it.role,
+                content = it.content,
+                renderHint = it.renderHint,
+                createdAt = it.createdAt,
+            )
+        }
 }

@@ -1,16 +1,5 @@
 package com.hearablemusic.player.ui.library.pages
 
-import com.hmp.domain.music.MusicSortKey
-import com.hmp.domain.music.SortDirection
-import com.hearablemusic.player.ui.generated.resources.Res
-import org.jetbrains.compose.resources.stringResource
-
-import com.hearablemusic.player.ui.generated.resources.added_n_songs_to_playlist
-import com.hearablemusic.player.ui.generated.resources.confirm_batch_remove_from_library
-import com.hearablemusic.player.ui.generated.resources.confirm_remove_from_library
-import com.hearablemusic.player.ui.generated.resources.select_playlist
-import com.hearablemusic.player.ui.generated.resources.title_gallery
-
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -25,12 +14,26 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.hearablemusic.player.ui.common.util.commonFormat
-import com.hearablemusic.player.ui.common.util.activityViewModel
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
-import com.hmp.domain.music.MusicInfo
-import com.hmp.domain.playlist.Playlist
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
+import com.hearablemusic.player.ui.common.dialogs.base.ConfirmDialog
+import com.hearablemusic.player.ui.common.dialogs.controller.DialogManager
+import com.hearablemusic.player.ui.common.dialogs.viewmodel.DialogManagerViewModel
+import com.hearablemusic.player.ui.common.dialogs.viewmodel.DialogViewModel
+import com.hearablemusic.player.ui.common.layout.LocalWindowSizeInfo
+import com.hearablemusic.player.ui.common.navigation.Routes
+import com.hearablemusic.player.ui.common.pages.base.TabScreen
+import com.hearablemusic.player.ui.common.util.UiState
+import com.hearablemusic.player.ui.common.util.activityViewModel
+import com.hearablemusic.player.ui.common.util.commonFormat
+import com.hearablemusic.player.ui.common.util.rememberHapticFeedback
+import com.hearablemusic.player.ui.generated.resources.Res
+import com.hearablemusic.player.ui.generated.resources.added_n_songs_to_playlist
+import com.hearablemusic.player.ui.generated.resources.confirm_batch_remove_from_library
+import com.hearablemusic.player.ui.generated.resources.confirm_remove_from_library
+import com.hearablemusic.player.ui.generated.resources.select_playlist
+import com.hearablemusic.player.ui.generated.resources.title_gallery
 import com.hearablemusic.player.ui.library.pages.components.musiclist.CurrentPlayingConfig
 import com.hearablemusic.player.ui.library.pages.components.musiclist.EditConfig
 import com.hearablemusic.player.ui.library.pages.components.musiclist.GalleryItemOptions
@@ -42,20 +45,15 @@ import com.hearablemusic.player.ui.library.pages.components.musiclist.MusicList
 import com.hearablemusic.player.ui.library.pages.components.musiclist.MusicListCallbacksAdapter
 import com.hearablemusic.player.ui.library.pages.components.musiclist.galleryPresetMusicListConfig
 import com.hearablemusic.player.ui.library.pages.components.musiclist.indexJumpConfigForOrderBy
-import com.hearablemusic.player.ui.common.dialogs.controller.DialogManager
-import com.hearablemusic.player.ui.common.dialogs.base.ConfirmDialog
-import com.hearablemusic.player.ui.common.pages.base.TabScreen
-import com.hearablemusic.player.ui.common.layout.LocalWindowSizeInfo
-import com.hearablemusic.player.ui.common.navigation.Routes
-import com.hearablemusic.player.ui.common.util.UiState
-import com.hearablemusic.player.ui.common.util.rememberHapticFeedback
-import com.hearablemusic.player.ui.common.dialogs.viewmodel.DialogManagerViewModel
-import com.hearablemusic.player.ui.common.dialogs.viewmodel.DialogViewModel
 import com.hearablemusic.player.ui.library.viewmodel.LibraryViewModel
 import com.hearablemusic.player.ui.player.viewmodel.PlaybackViewModel
 import com.hearablemusic.player.ui.player.viewmodel.PlaylistQueueViewModel
 import com.hearablemusic.player.ui.playlist.viewmodel.PlaylistViewModel
-import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
+import com.hmp.domain.music.MusicInfo
+import com.hmp.domain.music.MusicSortKey
+import com.hmp.domain.music.SortDirection
+import com.hmp.domain.playlist.Playlist
+import org.jetbrains.compose.resources.stringResource
 
 @Composable
 fun GalleryScreen(
@@ -65,7 +63,7 @@ fun GalleryScreen(
     dialogViewModel: DialogViewModel = activityViewModel(),
     playlistViewModel: PlaylistViewModel = activityViewModel(),
     dialogManagerViewModel: DialogManagerViewModel = activityViewModel(),
-    navController: NavBackStack<NavKey>
+    navController: NavBackStack<NavKey>,
 ) {
     val isPlaying by playbackViewModel.isPlaying.collectAsState()
     val musicInfoList by libraryViewModel.allMusic.collectAsState()
@@ -91,7 +89,7 @@ fun GalleryScreen(
         playWith = playlistQueueViewModel::playWith,
         addToPlaylist = playlistQueueViewModel::addToPlaylist,
         onFavorite = playlistQueueViewModel::updateMusicLikedStatus,
-        onShare =  {  },
+        onShare = { },
         onDetail = {
             navController.add(Routes.Library.SongDetail(it.music.id))
         },
@@ -140,12 +138,12 @@ fun GalleryScreenContent(
     dialogViewModel: DialogViewModel,
     playlistViewModel: PlaylistViewModel,
     dialogManager: DialogManager,
-    navController: NavBackStack<NavKey>
+    navController: NavBackStack<NavKey>,
 ) {
     val metrics = LocalHmpMetrics.current
     val haptic = rememberHapticFeedback()
     val isLandscape = LocalWindowSizeInfo.current.isLandscape
-    
+
     var showRemoveConfirmDialog by remember { mutableStateOf(false) }
     var pendingRemoveMusicInfo by remember { mutableStateOf<MusicInfo?>(null) }
     var showBatchRemoveConfirmDialog by remember { mutableStateOf(false) }
@@ -167,7 +165,7 @@ fun GalleryScreenContent(
                 showViewDetail = true,
                 showPlayNext = true,
                 showRemoveFromCurrentPlaylist = false,
-                showDelete = true
+                showDelete = true,
             )
             dialogViewModel.showMusicDetailDialog(musicInfo, menuConfig)
         }
@@ -186,9 +184,9 @@ fun GalleryScreenContent(
                             musicIds = idsToAdd,
                             onComplete = {
                                 dialogManager.showMessage(commonFormat(addedNSongsMessageFormat, selectedMusicList.size))
-                            }
+                            },
                         )
-                    }
+                    },
                 )
             }
         }
@@ -221,7 +219,7 @@ fun GalleryScreenContent(
         list = ListConfig(
             enableLongPressToEnterEdit = true,
             bottomSpacerHeight = metrics.row,
-            columns = if (isLandscape) 2 else 1
+            columns = if (isLandscape) 2 else 1,
         ),
         edit = EditConfig(enabled = true),
         indexJump = indexJumpConfigForOrderBy(selectedGenre, selectedOrder),
@@ -236,7 +234,7 @@ fun GalleryScreenContent(
             TabScreen(
                 title = stringResource(Res.string.title_gallery),
                 hasSearchBotton = true,
-                navController = navController
+                navController = navController,
             ) {
                 Column {
                     key(deleteCounter) {
@@ -258,7 +256,7 @@ fun GalleryScreenContent(
         title = stringResource(Res.string.confirm_remove_from_library),
         message = "",
         onConfirm = {
-            pendingRemoveMusicInfo?.let { info -> 
+            pendingRemoveMusicInfo?.let { info ->
                 onRemoveFromLibrary(listOf(info.music.id))
             }
             showRemoveConfirmDialog = false
@@ -267,7 +265,7 @@ fun GalleryScreenContent(
         onDismiss = {
             showRemoveConfirmDialog = false
             pendingRemoveMusicInfo = null
-        }
+        },
     )
 
     // 批量移除确认
@@ -286,7 +284,7 @@ fun GalleryScreenContent(
             onDismiss = {
                 showBatchRemoveConfirmDialog = false
                 pendingBatchIds = null
-            }
+            },
         )
     }
 }

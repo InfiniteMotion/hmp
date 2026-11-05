@@ -97,7 +97,10 @@ internal object ChatIntentRules {
 
         return when {
             seed.isNotBlank() -> seed
-            isRadioIntent(lower) -> ""     // 强触发词但无种子 → 自动提取
+
+            isRadioIntent(lower) -> ""
+
+            // 强触发词但无种子 → 自动提取
             else -> null
         }
     }

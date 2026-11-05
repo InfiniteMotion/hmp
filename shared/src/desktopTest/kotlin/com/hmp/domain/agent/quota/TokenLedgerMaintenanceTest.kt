@@ -35,8 +35,8 @@ class TokenLedgerMaintenanceTest {
     fun snapshot_usesOneWindowForTotalAndAgentRows() = runTest {
         val dao = FakeLedgerDao(
             listOf(
-                entry(now - dayMs, agent = "master", tokens = 100),      // 窗口内
-                entry(now - 40 * dayMs, agent = "radio", tokens = 999),  // 窗口外
+                entry(now - dayMs, agent = "master", tokens = 100), // 窗口内
+                entry(now - 40 * dayMs, agent = "radio", tokens = 999), // 窗口外
             ),
         )
         val maintenance = TokenLedgerMaintenance(dao) { now }

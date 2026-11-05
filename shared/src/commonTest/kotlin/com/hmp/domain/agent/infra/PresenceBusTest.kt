@@ -63,7 +63,7 @@ class PresenceBusTest {
     @Test
     fun emit_beforeSubscription_isNotReplayed() = runTest {
         val bus = PresenceBus()
-        bus.emit(PresenceEvent.DjBlank)   // 无订阅者 → 事件即发即弃
+        bus.emit(PresenceEvent.DjBlank) // 无订阅者 → 事件即发即弃
 
         val received = mutableListOf<PresenceEvent>()
         backgroundScope.launch(start = CoroutineStart.UNDISPATCHED) {

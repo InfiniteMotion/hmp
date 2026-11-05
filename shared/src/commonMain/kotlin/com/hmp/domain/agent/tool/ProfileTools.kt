@@ -1,15 +1,13 @@
 package com.hmp.domain.agent.tool
-import com.hmp.domain.agent.tool.spec.AgentTool
-import com.hmp.domain.agent.tool.spec.ToolResult
-import com.hmp.domain.agent.tool.spec.ToolParam
-import com.hmp.domain.agent.tool.spec.ToolNames
-import com.hmp.domain.agent.tool.spec.ToolArgs
-import com.hmp.domain.agent.tool.spec.StringParam
-
 import com.hmp.domain.agent.port.ToolPermissionLevel
-
 import com.hmp.domain.agent.profile.PortraitType
 import com.hmp.domain.agent.profile.ProfileSources
+import com.hmp.domain.agent.tool.spec.AgentTool
+import com.hmp.domain.agent.tool.spec.StringParam
+import com.hmp.domain.agent.tool.spec.ToolArgs
+import com.hmp.domain.agent.tool.spec.ToolNames
+import com.hmp.domain.agent.tool.spec.ToolParam
+import com.hmp.domain.agent.tool.spec.ToolResult
 
 /**
  * 用户认识模块（画像）的工具面 —— 契约 `agent-profile.md` §4.7 / §7。
@@ -89,7 +87,7 @@ class ProfileNoteTool(
             ToolResult.failure(
                 "记不下：『$predicate』不在允许的槽位闭集内。可用的是：" +
                     PortraitType.entries.joinToString("、") { it.displayName } +
-                    " 下的槽位；不接受自由发明的字段。"
+                    " 下的槽位；不接受自由发明的字段。",
             )
         }
     }
@@ -122,7 +120,7 @@ class ProfileForgetTool(
         } else {
             ToolResult.failure(
                 "认不出『$typeId』。可忘掉的是：" +
-                    PortraitType.entries.joinToString("、") { "${it.id}（${it.displayName}）" }
+                    PortraitType.entries.joinToString("、") { "${it.id}（${it.displayName}）" },
             )
         }
     }

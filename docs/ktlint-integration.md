@@ -1,11 +1,11 @@
 # ktlint 融入开发流程 · 设计方案
 
-> **状态**：**移出 v7.3 待办 —— 2026-11-05 用户决议**（方案有效，等时机；重启条件见 `TODO.md` §七 R50 与 `docs/archive/7_x/7_3/domain/X.md` X-07）
-> **原定启动条件**：`feature/agent-build` 线并入 `master`、工作区无未提交改动 —— 这条前置在 7.3 期间反复被别的施工重置，故整体顺延，不再占本版排期。
+> **状态**：**2026-11-05 已在 7.4 落地**（`./ktlint check` = 0 处）。本文件保留为**方案与实测数据底稿**；7.4 范围内的改判、施工顺序与验收以 [`7_4/plan.md`](7_4/plan.md) 为准。
+> **历史**：v7.3 期间因「工作区收口」前置反复被别的施工重置而暂缓（决议见 `TODO.md` §七 R50 / 归档 `domain/X.md` X-07）；7.4 范围收窄为只做 ktlint 后前置消解，一次跑完全量格式化。
 > **前置**：本方案是 [`build-tasks-plan.md`](archive/7_x/7_2/design/build-tasks-plan.md) 的配套项 —— 那份解决「构建任务」，这份解决「代码风格门禁」。
-> **实测依据**：ktlint CLI 1.8.0 + JDK 21，全部数据来自本仓库真实运行（见 §8 与 §2–§5 各表的实测标注）。
+> **实测依据**：ktlint CLI 1.8.0 + JDK 21（本机 JDK 17 与 21 的 check 结果逐行一致），全部数据来自本仓库真实运行（见 §8 与 §2–§5 各表的实测标注）。
 
-**为什么延后**：格式化会产生 446 文件 / 16,819 行的机械 churn，而当前 `MasterAgent.kt` / `RadioSubAgent.kt` / `build.gradle.kts` 既在 ktlint 的改动清单上、又在未提交的工作区里 —— 此时格式化会让机械 diff 与功能 diff 混在一起，两边都没法 review。等分支线落定，格式化是「新基线成立前的最后一步」，一次跑完即可。**方案本身不需要修订，恢复时从 §7 的 T0 直接开始。**
+**方案里已过期的三处**（改判详见 `7_4/plan.md` §三）：`ci.yml` 不存在 → 闸门落 `pr-check.yml` 并进 Verdict；T7「CI 跑 testAll」→ 改为本机 `compileAll` + 分层测试（实测 `testAll` 会在 `:desktop:core-player:desktopTest` 挂死）；T1「check 输出 107 处」→ 107 是**格式化之后**的残留，格式化前实测 9,183 处。
 
 ## 1. 定位与边界
 
@@ -241,7 +241,7 @@ ubuntu + JDK 21
 | 阶段 | 动作 | 验收 |
 |---|---|---|
 | **T0** | **等 agent 分支线合并进 `master`，并提交掉工作区未提交项（本方案的启动门槛）** | `git status` 干净、只剩 `master` 一条活跃开发线 |
-| T1 | `.editorconfig` + `.gitattributes` | 包装脚本 `check` 输出 107 处（而非 7,521 或 37,155） |
+| T1 | `.editorconfig` + `.gitattributes` | 包装脚本 `check` 输出 **intellij_idea 档量级**（2026-11-05 本机实测 **9,183 处**；当年 7,521 / 默认档 37,155）。**107 处是 T2 格式化之后的残留，不是 T1 的 check 结果** |
 | T2 | `ktlint -F` + 27 处处置 | `check` **0 处**；`git diff --stat` 约 446 文件 |
 | T3 | `.git-blame-ignore-revs` | `git blame` 不指向机械提交 |
 | T4 | 包装脚本 | 新克隆一次即跑通（含 jar 下载 + SHA 校验分支） |
@@ -258,4 +258,5 @@ ubuntu + JDK 21
 3. **`ktlint installGitPreCommitHook` 在 Windows 上段错误**（`0xC0000005`，hook 未生成）。同类命令 `installGitPrePushHook` 一样。→ hook 必须手写。
 4. **`generateEditorConfig` 需要显式 `--code-style`**，否则报 `missing option --code-style`。
 5. **JSON reporter 的 stdout 混有日志**：WARN 行会出现在 JSON 之前，直接 `JSON.parse` 会炸。需按行定位首个 `[` 行与末个 `]` 行再切片。
-6. **本机 bash 管道不可用**：`| grep` 会让 stdout 整体为空（`grep: command not found`），排查时极易误判为「命令无输出」。一律用纯 node 脚本 + Write 工具落盘。
+6. **本机 bash 管道不可用**：`| grep` 会让 stdout 整体为空（`grep: command not found`），排查时极易误判为「命令无输出」。一律用纯 node 脚本 + Write 工具落盘。**2026-11-05 复核**：此条已过期，当前 Git Bash 的 `grep` / 管道可用；仅作历史记录保留。
+7. **Windows 批处理不能全局开 `EnableDelayedExpansion`**（2026-11-05 新增，7.4 实测）：`cmd.exe` 会吞掉 `!**/build/**` 开头的 `!`，把否定模式变成**肯定模式** —— 实测 `ktlint.bat check` 输出 96,822 行，把 KSP 生成码与全部 `.gradle.kts` 一起扫了（正确值 9,229 行 / 9,183 处）。`ktlint.bat` 必须全局 `DisableDelayedExpansion`、只在 `staged` 分支局部启用；改完用「与 POSIX 版违规集合逐行比对」验收。

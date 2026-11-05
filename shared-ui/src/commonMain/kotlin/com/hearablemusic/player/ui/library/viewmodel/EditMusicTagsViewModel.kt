@@ -2,10 +2,6 @@ package com.hearablemusic.player.ui.library.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.hmp.data.util.MusicTagParser
-import com.hmp.domain.music.EditableMusicTags
-import com.hmp.domain.music.usecase.EditMusicTagsUseCase
-import com.hmp.domain.music.usecase.GetAllMusicUseCase
 import com.hearablemusic.player.ui.common.util.isFilePathWritable
 import com.hearablemusic.player.ui.generated.resources.Res
 import com.hearablemusic.player.ui.generated.resources.music_not_found
@@ -13,16 +9,20 @@ import com.hearablemusic.player.ui.generated.resources.no_changes
 import com.hearablemusic.player.ui.generated.resources.unknown_error
 import com.hearablemusic.player.ui.platform.MusicWriteAccessResult
 import com.hearablemusic.player.ui.platform.PlatformServices
-import kotlin.coroutines.resume
+import com.hmp.data.util.MusicTagParser
+import com.hmp.domain.music.EditableMusicTags
+import com.hmp.domain.music.usecase.EditMusicTagsUseCase
+import com.hmp.domain.music.usecase.GetAllMusicUseCase
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlin.coroutines.suspendCoroutine
 import kotlinx.coroutines.withContext
 import org.jetbrains.compose.resources.getString
+import kotlin.coroutines.resume
+import kotlin.coroutines.suspendCoroutine
 
 data class EditMusicTagsUiState(
     val isLoading: Boolean = true,
@@ -45,7 +45,7 @@ data class EditMusicTagsUiState(
      * 由 `MusicTagEditService.canWriteTags` 申报，不是 UI 自己去猜平台。
      */
     val canWriteTags: Boolean = true,
-    val error: String? = null
+    val error: String? = null,
 )
 
 sealed interface SaveTagsResult {
@@ -56,7 +56,7 @@ sealed interface SaveTagsResult {
 class EditMusicTagsViewModel(
     private val getAllMusicUseCase: GetAllMusicUseCase,
     private val editMusicTagsUseCase: EditMusicTagsUseCase,
-    private val platformServices: PlatformServices
+    private val platformServices: PlatformServices,
 ) : ViewModel() {
 
     /**
@@ -64,7 +64,7 @@ class EditMusicTagsViewModel(
      * iOS 上会先闪一次可用的保存按钮再收回去。
      */
     private val _uiState = MutableStateFlow(
-        EditMusicTagsUiState(canWriteTags = platformServices.musicTagEdit.canWriteTags)
+        EditMusicTagsUiState(canWriteTags = platformServices.musicTagEdit.canWriteTags),
     )
     val uiState: StateFlow<EditMusicTagsUiState> = _uiState.asStateFlow()
 
@@ -94,7 +94,7 @@ class EditMusicTagsViewModel(
                     _uiState.update {
                         it.copy(
                             isLoading = false,
-                            error = getString(Res.string.music_not_found)
+                            error = getString(Res.string.music_not_found),
                         )
                     }
                     return@launch
@@ -136,14 +136,14 @@ class EditMusicTagsViewModel(
                         lyrics = lyrics,
                         albumArtUri = music.albumArtUri,
                         hasChanges = false,
-                        isFileWritable = fileWritable
+                        isFileWritable = fileWritable,
                     )
                 }
             } catch (e: Exception) {
                 _uiState.update {
                     it.copy(
                         isLoading = false,
-                        error = e.message ?: getString(Res.string.unknown_error)
+                        error = e.message ?: getString(Res.string.unknown_error),
                     )
                 }
             }
@@ -215,7 +215,7 @@ class EditMusicTagsViewModel(
                 }
                 .onFailure { e ->
                     _saveResult.value = SaveTagsResult.Error(
-                        e.message ?: getString(Res.string.unknown_error)
+                        e.message ?: getString(Res.string.unknown_error),
                     )
                 }
             _isSaving.value = false
@@ -248,15 +248,15 @@ class EditMusicTagsViewModel(
                         .onFailure { e ->
                             _saveResult.value = SaveTagsResult.Error(
                                 e.message
-                                    ?: getString(Res.string.unknown_error)
+                                    ?: getString(Res.string.unknown_error),
                             )
                         }
                 },
                 onFailure = { e ->
                     _saveResult.value = SaveTagsResult.Error(
-                        e.message ?: getString(Res.string.unknown_error)
+                        e.message ?: getString(Res.string.unknown_error),
                     )
-                }
+                },
             )
             _isSaving.value = false
         }
@@ -275,27 +275,25 @@ class EditMusicTagsViewModel(
             genre = state.genre.trim().takeIf { it.isNotEmpty() && it != originalGenre },
             track = state.track.trim().takeIf { it.isNotEmpty() && it != originalTrack },
             lyrics = state.lyrics.takeIf { it.isNotEmpty() && it != originalLyrics },
-            albumArt = state.newAlbumArtBytes
+            albumArt = state.newAlbumArtBytes,
         )
         if (!tags.hasChanges) {
             _saveResult.value = SaveTagsResult.Error(
-                getString(Res.string.no_changes)
+                getString(Res.string.no_changes),
             )
             return null
         }
         return tags
     }
 
-    private fun computeHasChanges(state: EditMusicTagsUiState): Boolean {
-        return (state.title.trim().isNotEmpty() && state.title.trim() != originalTitle) ||
-            (state.artist.trim().isNotEmpty() && state.artist.trim() != originalArtist) ||
-            (state.album.trim().isNotEmpty() && state.album.trim() != originalAlbum) ||
-            (state.year.trim().isNotEmpty() && state.year.trim() != originalYear) ||
-            (state.genre.trim().isNotEmpty() && state.genre.trim() != originalGenre) ||
-            (state.track.trim().isNotEmpty() && state.track.trim() != originalTrack) ||
-            (state.lyrics.isNotEmpty() && state.lyrics != originalLyrics) ||
-            state.newAlbumArtBytes != null
-    }
+    private fun computeHasChanges(state: EditMusicTagsUiState): Boolean = (state.title.trim().isNotEmpty() && state.title.trim() != originalTitle) ||
+        (state.artist.trim().isNotEmpty() && state.artist.trim() != originalArtist) ||
+        (state.album.trim().isNotEmpty() && state.album.trim() != originalAlbum) ||
+        (state.year.trim().isNotEmpty() && state.year.trim() != originalYear) ||
+        (state.genre.trim().isNotEmpty() && state.genre.trim() != originalGenre) ||
+        (state.track.trim().isNotEmpty() && state.track.trim() != originalTrack) ||
+        (state.lyrics.isNotEmpty() && state.lyrics != originalLyrics) ||
+        state.newAlbumArtBytes != null
 
     private companion object {
         const val MAX_YEAR_LENGTH = 4

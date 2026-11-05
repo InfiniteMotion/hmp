@@ -10,9 +10,7 @@ import kotlinx.coroutines.Dispatchers
  * Creates an in-memory Room database for testing.
  * Uses the bundled SQLite driver with in-memory storage (no file on disk).
  */
-fun createTestDatabase(): AppDatabase {
-    return Room.inMemoryDatabaseBuilder<AppDatabase>()
-        .setDriver(BundledSQLiteDriver())
-        .setQueryCoroutineContext(Dispatchers.Default)
-        .build()
-}
+fun createTestDatabase(): AppDatabase = Room.inMemoryDatabaseBuilder<AppDatabase>()
+    .setDriver(BundledSQLiteDriver())
+    .setQueryCoroutineContext(Dispatchers.Default)
+    .build()

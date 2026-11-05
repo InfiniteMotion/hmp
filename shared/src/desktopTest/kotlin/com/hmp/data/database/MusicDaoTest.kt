@@ -33,14 +33,11 @@ class MusicDaoTest {
         db.close()
     }
 
-    private fun music(id: Long, title: String = "Song$id", artist: String = "Artist$id", path: String = "/$id.mp3") =
-        Music(id = id, title = title, artist = artist, album = "Album", duration = 100000L, path = path, albumArtUri = "")
+    private fun music(id: Long, title: String = "Song$id", artist: String = "Artist$id", path: String = "/$id.mp3") = Music(id = id, title = title, artist = artist, album = "Album", duration = 100000L, path = path, albumArtUri = "")
 
-    private fun extra(id: Long, hasExtra: Boolean = true) =
-        MusicExtra(id = id, isGetExtraInfo = hasExtra)
+    private fun extra(id: Long, hasExtra: Boolean = true) = MusicExtra(id = id, isGetExtraInfo = hasExtra)
 
-    private fun userInfo(id: Long, liked: Boolean = false) =
-        UserInfo(id = id, liked = liked)
+    private fun userInfo(id: Long, liked: Boolean = false) = UserInfo(id = id, liked = liked)
 
     @Test
     fun insertAndGetById() = runTest {
@@ -231,20 +228,24 @@ class MusicDaoTest {
 
     @Test
     fun musicAll_searchByTitle() = runTest {
-        musicDao.insertAll(listOf(
-            music(1, title = "Hello World"),
-            music(2, title = "Goodbye"),
-            music(3, title = "Hello Again")
-        ))
+        musicDao.insertAll(
+            listOf(
+                music(1, title = "Hello World"),
+                music(2, title = "Goodbye"),
+                music(3, title = "Hello Again"),
+            ),
+        )
         assertEquals(2, musicAllDao.searchMusic("%Hello%").size)
     }
 
     @Test
     fun musicAll_searchByArtist() = runTest {
-        musicDao.insertAll(listOf(
-            music(1, title = "Song A", artist = "Taylor"),
-            music(2, title = "Song B", artist = "Adele")
-        ))
+        musicDao.insertAll(
+            listOf(
+                music(1, title = "Song A", artist = "Taylor"),
+                music(2, title = "Song B", artist = "Adele"),
+            ),
+        )
         val results = musicAllDao.searchMusic("%Taylor%")
         assertEquals(1, results.size)
         assertEquals("Song A", results[0].music.title)

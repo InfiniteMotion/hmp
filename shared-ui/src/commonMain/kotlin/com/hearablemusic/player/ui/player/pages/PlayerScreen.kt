@@ -22,27 +22,26 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
-import org.koin.compose.koinInject
-import org.koin.compose.viewmodel.koinViewModel
-import com.hearablemusic.player.ui.common.util.activityViewModel
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
-
-import com.hearablemusic.player.ui.common.navigation.Routes
-import com.hearablemusic.player.ui.common.util.rememberHapticFeedback
+import com.hearablemusic.player.ui.common.design.metrics.LayoutConstraints
 import com.hearablemusic.player.ui.common.dialogs.viewmodel.DialogViewModel
+import com.hearablemusic.player.ui.common.navigation.Routes
+import com.hearablemusic.player.ui.common.util.activityViewModel
+import com.hearablemusic.player.ui.common.util.rememberHapticFeedback
+import com.hearablemusic.player.ui.common.viewmodel.ThemeViewModel
 import com.hearablemusic.player.ui.player.viewmodel.LyricsSettingsState
+import com.hearablemusic.player.ui.player.viewmodel.PlaybackViewModel
 import com.hearablemusic.player.ui.player.viewmodel.PlayerCallbacks
 import com.hearablemusic.player.ui.player.viewmodel.PlayerUiState
-import com.hearablemusic.player.ui.player.viewmodel.PlaybackViewModel
 import com.hearablemusic.player.ui.player.viewmodel.PlaylistQueueViewModel
 import com.hearablemusic.player.ui.playlist.viewmodel.PlaylistViewModel
-import com.hearablemusic.player.ui.settings.viewmodel.SettingsViewModel
 import com.hearablemusic.player.ui.settings.viewmodel.LyricsSettingsViewModel
-import com.hearablemusic.player.ui.common.viewmodel.ThemeViewModel
+import com.hearablemusic.player.ui.settings.viewmodel.SettingsViewModel
 import com.hmp.domain.music.MusicInfo
 import dev.chrisbanes.haze.rememberHazeState
-import com.hearablemusic.player.ui.common.design.metrics.LayoutConstraints
+import org.koin.compose.koinInject
+import org.koin.compose.viewmodel.koinViewModel
 
 // 播放器主界面
 @Composable
@@ -53,7 +52,7 @@ fun PlayerScreen(
     lyricsSettingsViewModel: LyricsSettingsViewModel = koinViewModel(),
     themeViewModel: ThemeViewModel = activityViewModel(),
     dialogViewModel: DialogViewModel = activityViewModel(),
-    navController: NavBackStack<NavKey>
+    navController: NavBackStack<NavKey>,
 ) {
     val density = LocalDensity.current
     val dismissThreshold = with(density) { LayoutConstraints.PanelHeightLarge.toPx() }
@@ -70,7 +69,6 @@ fun PlayerScreen(
     DisposableEffect(Unit) {
         playbackViewModel.startProgressTracking()
         onDispose {
-
         }
     }
 
@@ -99,7 +97,7 @@ fun PlayerScreen(
         isLiked = isLiked,
         lyrics = lyrics,
         playlist = playlist,
-        currentIndex = currentIndex
+        currentIndex = currentIndex,
     )
 
     val lyricsSettingsState = LyricsSettingsState(
@@ -109,17 +107,31 @@ fun PlayerScreen(
         lyricsLineSpacing = lyricsConfig.lineSpacing,
         lyricsDisplayMode = lyricsConfig.displayMode,
         lyricsAlignment = lyricsConfig.alignment,
-        lyricsKaraokeEnabled = lyricsConfig.karaokeEnabled
+        lyricsKaraokeEnabled = lyricsConfig.karaokeEnabled,
     )
 
     val playerCallbacks = object : PlayerCallbacks {
-        override fun onSeek(position: Long) { playbackViewModel.seekTo(position) }
-        override fun onPlayPause() { if (isPlaying) playbackViewModel.pauseMusic() else playbackViewModel.playOrResume() }
-        override fun onNext() { playbackViewModel.playNext() }
-        override fun onPrevious() { playbackViewModel.playPrevious() }
-        override fun onPlaybackModeChange() { playbackViewModel.togglePlaybackModeByOrder() }
-        override fun onFavorite() { musicInfo?.let { playlistQueueViewModel.updateMusicLikedStatus(it, !isLiked) } }
-        override fun onTimerClick(minutes: Int) { playbackViewModel.startTimer(minutes) }
+        override fun onSeek(position: Long) {
+            playbackViewModel.seekTo(position)
+        }
+        override fun onPlayPause() {
+            if (isPlaying) playbackViewModel.pauseMusic() else playbackViewModel.playOrResume()
+        }
+        override fun onNext() {
+            playbackViewModel.playNext()
+        }
+        override fun onPrevious() {
+            playbackViewModel.playPrevious()
+        }
+        override fun onPlaybackModeChange() {
+            playbackViewModel.togglePlaybackModeByOrder()
+        }
+        override fun onFavorite() {
+            musicInfo?.let { playlistQueueViewModel.updateMusicLikedStatus(it, !isLiked) }
+        }
+        override fun onTimerClick(minutes: Int) {
+            playbackViewModel.startTimer(minutes)
+        }
         override fun onShowTimerDialog() {
             dialogViewModel.showTimerDialog(
                 onConfirm = { minutes ->
@@ -127,17 +139,33 @@ fun PlayerScreen(
                 },
                 onDismiss = {
                     // 用户取消
-                }
+                },
             )
         }
-        override fun onCancelTimer() { playbackViewModel.cancelTimer() }
-        override fun onHeartMode() { navController.add(Routes.Player.Lyrics) }
-        override fun onArtistClick(artistName: String) { navController.add(Routes.Library.Artist(artistName)) }
-        override fun onClearPlaylist() { playlistQueueViewModel.clearPlaylist() }
-        override fun onPlayItem(musicInfo: MusicInfo) { playlistQueueViewModel.playAt(musicInfo) }
-        override fun onMoveToTop(musicInfo: MusicInfo) { playlistQueueViewModel.moveToTop(musicInfo) }
-        override fun onRemoveFromPlaylist(musicInfo: MusicInfo) { playlistQueueViewModel.removeFromPlaylist(musicInfo) }
-        override fun onBackClick() { navController.removeLastOrNull() }
+        override fun onCancelTimer() {
+            playbackViewModel.cancelTimer()
+        }
+        override fun onHeartMode() {
+            navController.add(Routes.Player.Lyrics)
+        }
+        override fun onArtistClick(artistName: String) {
+            navController.add(Routes.Library.Artist(artistName))
+        }
+        override fun onClearPlaylist() {
+            playlistQueueViewModel.clearPlaylist()
+        }
+        override fun onPlayItem(musicInfo: MusicInfo) {
+            playlistQueueViewModel.playAt(musicInfo)
+        }
+        override fun onMoveToTop(musicInfo: MusicInfo) {
+            playlistQueueViewModel.moveToTop(musicInfo)
+        }
+        override fun onRemoveFromPlaylist(musicInfo: MusicInfo) {
+            playlistQueueViewModel.removeFromPlaylist(musicInfo)
+        }
+        override fun onBackClick() {
+            navController.removeLastOrNull()
+        }
     }
 
     // 监听音乐变化并加载相关信息
@@ -155,10 +183,10 @@ fun PlayerScreen(
         offsetY = offsetY,
         scope = scope,
         haptic = { haptic.performLightClick() },
-        onDismiss = { 
+        onDismiss = {
             navController.removeLastOrNull()
             haptic.performGestureEnd()
-        }
+        },
     )
 
     Box(
@@ -169,19 +197,37 @@ fun PlayerScreen(
             .onKeyEvent { event ->
                 if (event.type == KeyEventType.KeyDown) {
                     when (event.key) {
-                        Key.Spacebar -> { playerCallbacks.onPlayPause(); true }
-                        Key.DirectionLeft -> { playerCallbacks.onPrevious(); true }
-                        Key.DirectionRight -> { playerCallbacks.onNext(); true }
-                        Key.L -> { playerCallbacks.onHeartMode(); true }
+                        Key.Spacebar -> {
+                            playerCallbacks.onPlayPause()
+                            true
+                        }
+
+                        Key.DirectionLeft -> {
+                            playerCallbacks.onPrevious()
+                            true
+                        }
+
+                        Key.DirectionRight -> {
+                            playerCallbacks.onNext()
+                            true
+                        }
+
+                        Key.L -> {
+                            playerCallbacks.onHeartMode()
+                            true
+                        }
+
                         else -> false
                     }
-                } else false
+                } else {
+                    false
+                }
             }
             .offset { IntOffset(0, offsetY.value.toInt()) }
             .graphicsLayer {
                 alpha = 1f - (offsetY.value / (2 * dismissThreshold)).coerceIn(0f, 1f)
             }
-            .nestedScroll(nestedScrollConnection) // 添加嵌套滚动支持
+            .nestedScroll(nestedScrollConnection), // 添加嵌套滚动支持
     ) {
         PlayContent(
             playerUiState = playerUiState,

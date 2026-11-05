@@ -12,17 +12,17 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Palette
-import androidx.compose.material.icons.filled.Widgets
-import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.material.icons.filled.AccountTree
+import androidx.compose.material.icons.filled.ChatBubbleOutline
+import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.Lightbulb
-import androidx.compose.material.icons.filled.CloudOff
+import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.PersonOff
-import androidx.compose.material.icons.filled.ChatBubbleOutline
-import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.material.icons.filled.SmartToy
+import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material.icons.filled.Widgets
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -39,6 +39,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.hmp.storybook.i18n.Strings
 import com.hmp.storybook.pages.architecture.ArchitecturePage
 import com.hmp.storybook.pages.components.AlbumCoverPage
 import com.hmp.storybook.pages.components.AvatarPage
@@ -49,8 +50,8 @@ import com.hmp.storybook.pages.components.MusicRowPage
 import com.hmp.storybook.pages.design.AnimationPage
 import com.hmp.storybook.pages.design.ColorPalettePage
 import com.hmp.storybook.pages.design.TypographyPage
-import com.hmp.storybook.pages.product.ProductJourneyPage
 import com.hmp.storybook.pages.product.DesignPhilosophyPage
+import com.hmp.storybook.pages.product.ProductJourneyPage
 import com.hmp.storybook.pages.screens.HomeScreenPage
 import com.hmp.storybook.pages.screens.PlayerScreenPage
 import com.hmp.storybook.pages.screens.PlaylistScreenPage
@@ -58,15 +59,12 @@ import com.hmp.storybook.pages.screens.SettingsScreenPage
 import com.hmp.storybook.theme.AppLanguage
 import com.hmp.storybook.theme.HDBlue
 import com.hmp.storybook.theme.LocalAppLanguage
-import com.hmp.storybook.i18n.Strings
 
 /**
  * 导航状态，在顶层管理
  */
 @Composable
-fun rememberStorybookNavController(): StorybookNavController {
-    return remember { StorybookNavController() }
-}
+fun rememberStorybookNavController(): StorybookNavController = remember { StorybookNavController() }
 
 class StorybookNavController {
     var currentRoute by mutableStateOf<StorybookRoute>(StorybookRoute.Home)
@@ -133,10 +131,11 @@ private fun HomePageContent(navController: StorybookNavController) {
         )
         Spacer(modifier = Modifier.height(4.dp))
         Text(
-            text = if (isZh)
+            text = if (isZh) {
                 "Kotlin/Wasm + Compose Multiplatform 驱动的交互式产品技术文档"
-            else
-                "Interactive product tech docs powered by Kotlin/Wasm + Compose Multiplatform",
+            } else {
+                "Interactive product tech docs powered by Kotlin/Wasm + Compose Multiplatform"
+            },
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
         )
@@ -185,10 +184,11 @@ private fun HomePageContent(navController: StorybookNavController) {
                 Text(text = Strings.productPositioning(lang), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = if (isZh)
+                    text = if (isZh) {
                         "一款现代化的跨平台本地音乐播放器，基于 Kotlin Multiplatform 构建，Android 端使用 Jetpack Compose，iOS 端使用 SwiftUI。坚持纯本地路线，不做云同步、不引入账号、不做社交，仅保留用户自填 API 的 AI 推荐。"
-                    else
-                        "A modern cross-platform local music player built with Kotlin Multiplatform. Android uses Jetpack Compose, iOS uses SwiftUI. Committed to local-first: no cloud sync, no accounts, no social features \u2014 only user-configured AI recommendations.",
+                    } else {
+                        "A modern cross-platform local music player built with Kotlin Multiplatform. Android uses Jetpack Compose, iOS uses SwiftUI. Committed to local-first: no cloud sync, no accounts, no social features \u2014 only user-configured AI recommendations."
+                    },
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -232,7 +232,9 @@ private fun HomePageContent(navController: StorybookNavController) {
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = if (isZh) "例外：用户自填 API Key 的 AI 推荐" else "Exception: User-configured AI recommendations with own API key",
-                        style = MaterialTheme.typography.bodyMedium, color = HDBlue, fontWeight = FontWeight.Medium,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = HDBlue,
+                        fontWeight = FontWeight.Medium,
                     )
                 }
             }
@@ -339,9 +341,9 @@ private fun HomePageContent(navController: StorybookNavController) {
         ) {
             techTags.forEach { tag ->
                 Card(
-                        shape = RoundedCornerShape(12.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                 ) {
                     Text(
                         text = tag,

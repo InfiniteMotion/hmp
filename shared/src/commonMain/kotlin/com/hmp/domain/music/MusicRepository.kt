@@ -3,15 +3,15 @@ package com.hmp.domain.music
 import com.hmp.domain.agent.enrich.EnrichBatchResult
 import com.hmp.domain.agent.enrich.EnrichHealth
 import com.hmp.domain.agent.enrich.EnrichWorkUnit
-import com.hmp.domain.setting.model.AiEndpointConfig
-import com.hmp.domain.setting.model.ListeningDuration
 import com.hmp.domain.agent.profile.BehaviorSnapshot
 import com.hmp.domain.agent.profile.LibraryContentSnapshot
 import com.hmp.domain.agent.profile.LibraryStateSnapshot
-import com.hmp.domain.setting.model.PlaybackHistory
-import com.hmp.domain.setting.model.UserUsageAnalytics
 import com.hmp.domain.enum.LabelCategory
 import com.hmp.domain.enum.LabelName
+import com.hmp.domain.setting.model.AiEndpointConfig
+import com.hmp.domain.setting.model.ListeningDuration
+import com.hmp.domain.setting.model.PlaybackHistory
+import com.hmp.domain.setting.model.UserUsageAnalytics
 import kotlinx.coroutines.flow.Flow
 
 interface MusicRepository {
@@ -89,6 +89,7 @@ interface MusicRepository {
     suspend fun refreshMusicTags(musicId: Long, tags: EditableMusicTags): Result<Unit>
 
     // 相似度推荐 (Similarity)
+
     /**
      * 按标签相似度取相似曲目。
      *
@@ -106,6 +107,7 @@ interface MusicRepository {
 
     // 额外信息 / AI (Extra Info / AI)
     suspend fun getMusicLyrics(musicId: Long): String?
+
     /**
      * 写入富化文案的 6 列（Enrich 管道出口），并把 `isGetExtraInfo` 置 true ——
      * 即「写入富化文案」同时意味着「标记该曲已富化」。
@@ -145,7 +147,7 @@ interface MusicRepository {
     // Snapshot Export/Import
     suspend fun exportMusicUserStateSnapshot(): com.hmp.domain.backup.MusicUserStateSnapshot
     suspend fun restoreMusicUserState(snapshot: com.hmp.domain.backup.MusicUserStateSnapshot)
-    
+
     suspend fun exportListeningStatsSnapshot(): com.hmp.domain.backup.ListeningStatsSnapshot
     suspend fun restoreListeningStats(snapshot: com.hmp.domain.backup.ListeningStatsSnapshot)
 
@@ -189,23 +191,22 @@ interface MusicRepository {
 
     /** N 年前的今天首次播放的曲目（ANNIVERSARY 卡；date 参数格式 yyyy-MM-dd，和 todayDateString() 一致）。
      * 按 firstPlayedAt 升序（最久的在前），返回 (musicId, firstPlayedAtMs, thatDayPlays)。 */
-    suspend fun getAnniversaryTracks(date: String): List<Triple<Long, Long, Int>>;
+    suspend fun getAnniversaryTracks(date: String): List<Triple<Long, Long, Int>>
 
     /** 歌单创建纪念日候选（ANNIVERSARY 卡）。按 createdAt 升序（最久在前）。 */
-    suspend fun getAnniversaryPlaylists(date: String): List<PlaylistAnniversaryRow>;
+    suspend fun getAnniversaryPlaylists(date: String): List<PlaylistAnniversaryRow>
 
     /** 所有歌的累计时长 + 播放次数视图（播放里程碑 + 时长里程碑候选）。 */
-    suspend fun getAllMusicDurations(): List<MusicDurationRow>;
+    suspend fun getAllMusicDurations(): List<MusicDurationRow>
 
     /** 今日有新播放的 musicId 集合（用于检查今天是否跨过播放里程碑）。 */
-    suspend fun getMusicIdsPlayedOn(date: String): List<Long>;
+    suspend fun getMusicIdsPlayedOn(date: String): List<Long>
 
     /** 某歌单累计被播放次数。 */
-    suspend fun getPlaybackCountForPlaylist(playlistName: String): Int;
+    suspend fun getPlaybackCountForPlaylist(playlistName: String): Int
 
     /** 某风格 label 下的曲目（DISCOVER 兜底 + RECOMMEND 时段匹配；等价于 getMusicIdListByType，额外提供别名） */
-    suspend fun getRecentTracksByLabel(label: LabelName, limit: Int): List<Long> =
-        getMusicIdListByType(label, limit)
+    suspend fun getRecentTracksByLabel(label: LabelName, limit: Int): List<Long> = getMusicIdListByType(label, limit)
 
     /** 最近 30 天活跃过的风格 label 排序（DISCOVER 兜底 + RadioSubAgent 共用） */
     suspend fun getGlobalTopLabels(limit: Int): List<LabelName>
@@ -262,7 +263,7 @@ interface MusicRepository {
     suspend fun getWindowedTopLabels(
         days: Int,
         category: com.hmp.data.database.myenum.LabelCategory,
-        limit: Int = 5
+        limit: Int = 5,
     ): List<com.hmp.domain.setting.model.LabelCountEntry>
 
     /** 窗口内 Top N 歌曲（歌名 + 歌手 + 播放次数）。 */
@@ -290,7 +291,7 @@ data class MusicDurationRow(
 
 /** F9-T1：时段分布行（窗口内某小时的播放次数 + 累计时长）。 */
 data class HourlyDistributionRow(
-    val hour: Int,      // 0-23
+    val hour: Int, // 0-23
     val playCount: Int,
     val totalMs: Long,
 )

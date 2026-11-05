@@ -16,8 +16,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
-import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
 import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
+import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
 
 @Composable
 fun SectionHeader(title: String) {
@@ -27,20 +27,20 @@ fun SectionHeader(title: String) {
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = metrics.micro),
-        verticalAlignment = Alignment.CenterVertically
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
             modifier = Modifier
                 .width(metrics.micro)
                 .height(metrics.cozy)
                 .clip(RoundedCornerShape(metrics.hair))
-                .background(MaterialTheme.colorScheme.primary)
+                .background(MaterialTheme.colorScheme.primary),
         )
         Spacer(modifier = Modifier.width(metrics.cozy))
         Text(
             text = title,
             style = typo.subtitle,
-            color = MaterialTheme.colorScheme.onSurface
+            color = MaterialTheme.colorScheme.onSurface,
         )
     }
 }

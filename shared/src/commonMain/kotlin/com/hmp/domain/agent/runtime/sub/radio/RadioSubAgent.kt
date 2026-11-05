@@ -1,42 +1,40 @@
 package com.hmp.domain.agent.runtime.sub.radio
 
 import com.hmp.domain.agent.config.EngineDefaults
-import com.hmp.domain.agent.runtime.sub.shared.SubAgent
-
-import com.hmp.domain.agent.runtime.sub.shared.RadioTrack
-import com.hmp.domain.agent.runtime.sub.shared.RadioTrackSource
-
-
 import com.hmp.domain.agent.infra.PresenceBus
-import com.hmp.log.HmpLog
-import com.hmp.log.LogTag
 import com.hmp.domain.agent.port.AuditLogPort
-import com.hmp.domain.agent.port.LlmMessage
-import com.hmp.domain.agent.port.PlaybackObservationBus
-import com.hmp.domain.agent.port.PauseEvent
-import com.hmp.domain.agent.port.PlaybackCommandPort
-import com.hmp.domain.agent.port.PlaybackCommand
+import com.hmp.domain.agent.port.Capability
+import com.hmp.domain.agent.port.CapabilityState
 import com.hmp.domain.agent.port.CommandSource
+import com.hmp.domain.agent.port.LlmMessage
 import com.hmp.domain.agent.port.NowPlayingContextProvider
+import com.hmp.domain.agent.port.PauseEvent
+import com.hmp.domain.agent.port.PlaybackCommand
+import com.hmp.domain.agent.port.PlaybackCommandPort
+import com.hmp.domain.agent.port.PlaybackObservationBus
 import com.hmp.domain.agent.port.TrackSettledEvent
 import com.hmp.domain.agent.port.currentLocalMoment
 import com.hmp.domain.agent.port.dayPart
 import com.hmp.domain.agent.port.describe
 import com.hmp.domain.agent.runtime.AgentContextBudget
 import com.hmp.domain.agent.runtime.AgentRunState
-import com.hmp.domain.agent.port.Capability
-import com.hmp.domain.agent.port.CapabilityState
 import com.hmp.domain.agent.runtime.LlmCallExecutor
-import com.hmp.domain.agent.runtime.TokenMeter
 import com.hmp.domain.agent.runtime.StopSignal
+import com.hmp.domain.agent.runtime.TokenMeter
 import com.hmp.domain.agent.runtime.ToolRegistryView
+import com.hmp.domain.agent.runtime.sub.shared.RadioTrack
+import com.hmp.domain.agent.runtime.sub.shared.RadioTrackSource
+import com.hmp.domain.agent.runtime.sub.shared.SubAgent
 import com.hmp.domain.enum.LabelCategory
 import com.hmp.domain.enum.LabelName
+import com.hmp.domain.music.MusicInfo
 import com.hmp.domain.music.MusicRepository
 import com.hmp.domain.music.MusicSortKey
 import com.hmp.domain.music.SortDirection
-import com.hmp.domain.music.MusicInfo
 import com.hmp.domain.setting.model.AiEndpointConfig
+import com.hmp.log.HmpLog
+import com.hmp.log.LogTag
+import com.hmp.platform.Volatile
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -53,7 +51,6 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import com.hmp.platform.Volatile
 
 /**
  * RadioSubAgent：AI 电台执行器（spec 驱动 —— `docs/archive/7_x/7_2/design/agent-radio.md`）。
@@ -120,7 +117,8 @@ internal class RadioSubAgent(
     private val promptPreferredLang: String? = null,
     private val globalReplyLanguage: String = "zh",
     private val promptOverrides: Map<String, String> = emptyMap(),
-) : SubAgent(agentId, contextBudget, toolRegistryView), Capability {
+) : SubAgent(agentId, contextBudget, toolRegistryView),
+    Capability {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
@@ -129,10 +127,10 @@ internal class RadioSubAgent(
         val cfg = radioConfig
         HmpLog.i(LogTag.AgentRadio) {
             "📻 RadioSubAgent created | targetCount=$targetCount | temp=$defaultTemperature | " +
-            "hasLLM=${cfg != null} | endpoint=${cfg?.endpoint?.take(40) ?: "(none)"} | " +
-            "model=${cfg?.selectedModel?.take(30) ?: "(default)"} | hasKey=${cfg?.apiKey?.isNotBlank() == true} | " +
-            "promptLang=${promptPreferredLang ?: "(global→$globalReplyLanguage)"} | " +
-            "promptOverrides=${promptOverrides.size} keys"
+                "hasLLM=${cfg != null} | endpoint=${cfg?.endpoint?.take(40) ?: "(none)"} | " +
+                "model=${cfg?.selectedModel?.take(30) ?: "(default)"} | hasKey=${cfg?.apiKey?.isNotBlank() == true} | " +
+                "promptLang=${promptPreferredLang ?: "(global→$globalReplyLanguage)"} | " +
+                "promptOverrides=${promptOverrides.size} keys"
         }
     }
 
@@ -196,10 +194,13 @@ internal class RadioSubAgent(
 
     private var currentPlaylist: List<RadioTrack>
         get() = _playlist.value
-        set(value) { _playlist.value = value }
+        set(value) {
+            _playlist.value = value
+        }
 
     /** 最近一次队列调整（固定文案 + 数字，绝不出现模型生成的文字）。null = 本档还没调过。 */
     private val _lastAdjust = MutableStateFlow<String?>(null)
+
     /** 本档主题（用户种子）；整档不变 —— 卡片上的「固定信息」。null = 自动电台 */
     private val _theme = MutableStateFlow<String?>(null)
 
@@ -219,7 +220,9 @@ internal class RadioSubAgent(
         // 用 Eagerly 而非 WhileSubscribed：无人订阅时状态也必须保持最新，
         // 否则「先取值再订阅」的调用方（含测试）会拿到初始值。
     }.stateIn(scope, SharingStarted.Eagerly, RadioCardState(null, 0, null, null))
+
     @Volatile private var seed: String? = null
+
     /** 暴露给 UI：电台主题（用户 seed / 提取的标签关键词，null=自动电台） */
     val stationTheme: String? get() = seed?.takeIf { it.isNotBlank() }
 
@@ -241,7 +244,7 @@ internal class RadioSubAgent(
         isActive = true
         runState = AgentRunState.RUNNING
         while (scope.isActive && isActive) {
-            stopSignal?.waitResume()  // Scheduler pause → 挂起
+            stopSignal?.waitResume() // Scheduler pause → 挂起
             if (stopSignal?.shouldSoftStop() == true) break
             // runLoop 只做状态维持——续歌触发由 Master 或 Playback 层调 continueRadio()
             kotlinx.coroutines.delay(500)
@@ -303,13 +306,15 @@ internal class RadioSubAgent(
         this.seed = seed
         this.lastTrigger = trigger
         this.playedCount = 0
-        _theme.value = seed?.takeIf { it.isNotBlank() }   // 固定信息：本档主题
-        _lastAdjust.value = null                          // 新的一档，清空上次的调整痕迹
+        _theme.value = seed?.takeIf { it.isNotBlank() } // 固定信息：本档主题
+        _lastAdjust.value = null // 新的一档，清空上次的调整痕迹
         // 对话触发且没给 seed → 用对话原文兜底做关键词提取（否则交给 nowPlaying 自动提取）
         val seedInput = seed?.takeIf { it.isNotBlank() }
             ?: chatContext?.takeIf { it.isNotBlank() && trigger == RadioTrigger.CHAT_INPUT }
         _radioState.value = RadioState.BUILDING(
-            progressPercent = 10, actionText = "AI 正在理解你的喜好...", targetCount = targetCount,
+            progressPercent = 10,
+            actionText = "AI 正在理解你的喜好...",
+            targetCount = targetCount,
         )
         // 注：不再发 CompanionBadge —— 徽标圆点方案已废弃（2026-09-19），电台态改由
         // 底栏伙伴胶囊**直接订阅 `radioState`** 呈现（换图标 + 高亮），不经 PresenceBus。
@@ -318,7 +323,9 @@ internal class RadioSubAgent(
         val seedLabels = extractSeedLabels(seedInput)
         lastSeedLabels = seedLabels
         _radioState.value = RadioState.BUILDING(
-            progressPercent = 30, actionText = "从曲库里筛选好歌...", targetCount = targetCount,
+            progressPercent = 30,
+            actionText = "从曲库里筛选好歌...",
+            targetCount = targetCount,
         )
         val local = buildLocalFallback(seedLabels)
         HmpLog.i(LogTag.AgentRadio) { "📻 startRadio: local fallback ${local.size} tracks, seedLabels=${seedLabels.map { it.name }}" }
@@ -335,7 +342,9 @@ internal class RadioSubAgent(
         var opening: OpeningTurn? = null
         if (radioConfig != null && contextBudget.llmClient != null && local.isNotEmpty()) {
             _radioState.value = RadioState.BUILDING(
-                progressPercent = 50, actionText = "AI 正在排歌...", targetCount = targetCount,
+                progressPercent = 50,
+                actionText = "AI 正在排歌...",
+                targetCount = targetCount,
             )
             val g = generation
             opening = askOpeningWithRetry(seedInput, seedLabels, local, g, playing = local.firstOrNull())
@@ -345,7 +354,9 @@ internal class RadioSubAgent(
 
         // ── C/D 段｜收口 ──
         _radioState.value = RadioState.BUILDING(
-            progressPercent = 95, actionText = "整理播放列表...", targetCount = targetCount,
+            progressPercent = 95,
+            actionText = "整理播放列表...",
+            targetCount = targetCount,
         )
         val arbitrated = diffArbitration(local)
         this.currentPlaylist = arbitrated
@@ -358,7 +369,8 @@ internal class RadioSubAgent(
             )
         } else {
             RadioState.PLAYING(
-                currentCount = arbitrated.size, targetCount = arbitrated.size.coerceAtLeast(targetCount),
+                currentCount = arbitrated.size,
+                targetCount = arbitrated.size.coerceAtLeast(targetCount),
             )
         }
 
@@ -435,7 +447,7 @@ internal class RadioSubAgent(
     /** Master 下令停电台 */
     suspend fun stopRadio() {
         HmpLog.i(LogTag.AgentRadio) { "📻 stopRadio()" }
-        generation++   // 此后到达的模型结果一律作废
+        generation++ // 此后到达的模型结果一律作废
         _radioState.value = RadioState.IDLE
         currentPlaylist = emptyList()
         playedCount = 0
@@ -443,10 +455,10 @@ internal class RadioSubAgent(
         _messageFlow.value = null
         _theme.value = null
         _lastAdjust.value = null
-        seed = null                     // 新的一档不要继承旧主题
+        seed = null // 新的一档不要继承旧主题
         pausedDuringBuilding = false
-        cancelPendingPauseCheck()       // 电台已关，挂起的暂停核查作废
-        stopSession()   // 关闭即丢弃整段对话（C2 只做会话内）
+        cancelPendingPauseCheck() // 电台已关，挂起的暂停核查作废
+        stopSession() // 关闭即丢弃整段对话（C2 只做会话内）
         // 注：RADIO_STATUS 卡与底栏伙伴胶囊电台态都已由 UI 层**直接订阅 radioState**，
         // IDLE 即自动回落，无需再发任何事件（CompanionBadge 已于 2026-09-19 废弃删除）。
     }
@@ -461,7 +473,7 @@ internal class RadioSubAgent(
             HmpLog.w(LogTag.AgentRadio) { "📻 pauseRadio: not PLAYING (state=$current), skip" }
             return
         }
-        generation++   // 暂停后到达的模型结果也作废（用户已经离开这一档）
+        generation++ // 暂停后到达的模型结果也作废（用户已经离开这一档）
         cancelPendingPauseCheck()
         runState = AgentRunState.PAUSED
         _radioState.value = RadioState.PAUSED(
@@ -510,7 +522,7 @@ internal class RadioSubAgent(
             remaining
         } else {
             HmpLog.i(LogTag.AgentRadio) { "📻 continueRadio: pool exhausted, rebuilding" }
-            startRadio(seed = null)  // 用 nowPlaying 重新建
+            startRadio(seed = null) // 用 nowPlaying 重新建
         }
     }
 
@@ -569,17 +581,19 @@ internal class RadioSubAgent(
         when (_radioState.value) {
             is RadioState.PLAYING -> {
                 if (event.resumed) {
-                    if (cancelPendingPauseCheck()) forward = null   // 瞬时对的收尾，成对丢弃
+                    if (cancelPendingPauseCheck()) forward = null // 瞬时对的收尾，成对丢弃
                 } else {
                     schedulePauseCheck(event, wasBuilding = false)
-                    forward = null   // 先挂着，核查确认后才进事实
+                    forward = null // 先挂着，核查确认后才进事实
                 }
             }
+
             is RadioState.PAUSED -> if (event.resumed) {
                 cancelPendingPauseCheck()
                 // 用户在暂停期间直接点了播放 → 电台跟着恢复（会话保留），不再"用户接管退出"
                 resumeByUser()
             }
+
             is RadioState.BUILDING -> {
                 // 启动中（正在等模型返回）：暂停同样作废在途结果，并记住收口时落 PAUSED
                 if (event.resumed) {
@@ -590,7 +604,8 @@ internal class RadioSubAgent(
                     forward = null
                 }
             }
-            else -> forward = null   // 未运行，忽略
+
+            else -> forward = null // 未运行，忽略
         }
         forward?.let { session?.onPause(it) }
     }
@@ -618,7 +633,7 @@ internal class RadioSubAgent(
             } else {
                 pauseByUser()
             }
-            session?.onPause(event)   // 真暂停才进事实流
+            session?.onPause(event) // 真暂停才进事实流
         }
     }
 
@@ -696,7 +711,7 @@ internal class RadioSubAgent(
      */
     private suspend fun tryResumeRetained(incomingSeed: String?): Boolean {
         val r = retained ?: return false
-        if (session != null) return false            // 已经在播，谈不上复用
+        if (session != null) return false // 已经在播，谈不上复用
         if (r.messages.isEmpty() || r.playlist.isEmpty()) return false
 
         val ageMs = nowMonotonicMs() - r.closedAtMs
@@ -740,7 +755,7 @@ internal class RadioSubAgent(
         val queue = now.queueIds
         if (queue.isNotEmpty()) {
             val qIdx = queue.indexOfFirst { it == playingId }
-            val rIdx = r.playlist.indexOfFirst { it.musicId == playingId }   // ③-a 已保证 >= 0
+            val rIdx = r.playlist.indexOfFirst { it.musicId == playingId } // ③-a 已保证 >= 0
             val queueTail = if (qIdx >= 0) queue.drop(qIdx + 1) else emptyList()
             val mirrorTail = if (rIdx >= 0) r.playlist.drop(rIdx + 1).map { it.musicId } else emptyList()
             if (qIdx < 0 || queueTail != mirrorTail) {
@@ -810,7 +825,9 @@ internal class RadioSubAgent(
         _lastAdjust.value = null
 
         _radioState.value = RadioState.BUILDING(
-            progressPercent = 20, actionText = "接着这首往下排...", targetCount = targetCount,
+            progressPercent = 20,
+            actionText = "接着这首往下排...",
+            targetCount = targetCount,
         )
 
         val seedInput = seed?.takeIf { it.isNotBlank() }
@@ -850,7 +867,9 @@ internal class RadioSubAgent(
         val opening = if (radioConfig != null && contextBudget.llmClient != null && local.isNotEmpty()) {
             val g = generation
             askOpeningWithRetry(seedInput, seedLabels, local, g, playing = head)
-        } else null
+        } else {
+            null
+        }
         val resolved = opening?.ids?.let {
             resolveTracks(it, excludeMusicId = currentId, whys = opening.whys)
         }
@@ -926,9 +945,11 @@ internal class RadioSubAgent(
         session = s
         HmpLog.i(LogTag.AgentRadio) {
             "📻 [会话] 开启（队列来源=$openingSource，端点=${if (radioConfig != null) "有" else "无"}）" +
-                (openingArchive?.let {
-                    " | 档案恢复：已执行 ${it.executed.size} / 编排思路 ${it.intents.size} / 台账 ${it.settled.size} 条"
-                } ?: "")
+                (
+                    openingArchive?.let {
+                        " | 档案恢复：已执行 ${it.executed.size} / 编排思路 ${it.intents.size} / 台账 ${it.settled.size} 条"
+                    } ?: ""
+                    )
         }
     }
 
@@ -1024,9 +1045,11 @@ internal class RadioSubAgent(
             messages = messages.map { msg ->
                 if (msg.role == "system" && !memoryBriefing.isNullOrBlank()) {
                     msg.copy(content = listOfNotNull(msg.content, memoryBriefing).joinToString("\n\n"))
-                } else msg
+                } else {
+                    msg
+                }
             },
-            tools = null,          // 判断阶段不给工具：它只能三选一，不能自己去改队列
+            tools = null, // 判断阶段不给工具：它只能三选一，不能自己去改队列
             temperature = defaultTemperature,
         ) ?: return null
         if (res.failed) {
@@ -1107,7 +1130,9 @@ internal class RadioSubAgent(
         // 主播的编排思路（reason）上卡片 —— 结构化字段渲染，不是自由拼句（spec §3.3）
         val intent = verdict.reason?.takeIf { it.isNotBlank() }?.take(CARD_INTENT_MAX)
         when (verdict.action) {
-            RadioAction.NONE -> Unit      // 沉默是默认答案
+            RadioAction.NONE -> Unit
+
+            // 沉默是默认答案
             RadioAction.APPEND -> {
                 // 模型给出的 count 生效（prompt 里承诺过）；越界/缺失回落 targetCount
                 val n = refillQueue(requested = verdict.appendCount.takeIf { it in 1..targetCount })
@@ -1166,7 +1191,7 @@ internal class RadioSubAgent(
         runCatching {
             playbackPort.execute(
                 PlaybackCommand.REPLACE_QUEUE(musicIds),
-                CommandSource.AGENT_INTERNAL,   // 自家人操作，不能被当成用户意图
+                CommandSource.AGENT_INTERNAL, // 自家人操作，不能被当成用户意图
             )
         }.onFailure { e ->
             HmpLog.w(LogTag.AgentRadio, e) { "📻 REPLACE_QUEUE failed" }
@@ -1186,7 +1211,7 @@ internal class RadioSubAgent(
     private suspend fun verifyQueueAfterReplace(expected: List<Long>) {
         val now = runCatching { nowPlayingProvider.getNowPlaying() }.getOrNull() ?: return
         val queue = now.queueIds
-        if (queue.isEmpty()) return   // 播放器不报队列 → 无从回读，快照层会退回镜像
+        if (queue.isEmpty()) return // 播放器不报队列 → 无从回读，快照层会退回镜像
         val wanted = expected.filter { it != now.currentMusicId }
         val pIdx = now.currentMusicId?.let { queue.indexOf(it) } ?: -1
         val after = if (pIdx >= 0) queue.drop(pIdx + 1) else queue
@@ -1328,12 +1353,12 @@ internal class RadioSubAgent(
         )
         val effectiveLang = when (promptPreferredLang) {
             "zh", "en", "auto" -> promptPreferredLang
-            else -> globalReplyLanguage  // "global" 或 null → 用全局
+            else -> globalReplyLanguage // "global" 或 null → 用全局
         }
         HmpLog.i(LogTag.AgentRadio) {
             "📻 [开播] askOpeningQueue | promptLang=$effectiveLang | promptLen=${systemPrompt.length} | " +
-            "hasOverride=${promptOverrides.isNotEmpty()} | " +
-            "model=${radioConfig?.selectedModel?.take(30) ?: "(default)"}"
+                "hasOverride=${promptOverrides.isNotEmpty()} | " +
+                "model=${radioConfig?.selectedModel?.take(30) ?: "(default)"}"
         }
         val view = buildLibraryView(seedLabels, local)
         val messages = listOf(
@@ -1428,7 +1453,7 @@ internal class RadioSubAgent(
     ): String = buildString {
         appendLine("## 开启情境（这是本档节目的第 1 轮）")
         appendLine("- 时刻：${currentLocalMoment().describe()}")
-        appendLine("- 触发：${lastTrigger}")
+        appendLine("- 触发：$lastTrigger")
         appendLine("- 用户说：${seedInput?.takeIf { it.isNotBlank() } ?: "（无，自动电台）"}")
         appendLine("- 本地提取的风格标签：${seedLabels.joinToString("、") { it.name }.ifBlank { "（无）" }}")
 
@@ -1453,8 +1478,11 @@ internal class RadioSubAgent(
 
         appendLine()
         appendLine(
-            if (view.filtered) "## 曲库（共 ${view.totalCount} 首，以下 ${view.shownCount} 首为按标签筛出的候选）"
-            else "## 曲库（共 ${view.totalCount} 首，全量）"
+            if (view.filtered) {
+                "## 曲库（共 ${view.totalCount} 首，以下 ${view.shownCount} 首为按标签筛出的候选）"
+            } else {
+                "## 曲库（共 ${view.totalCount} 首，全量）"
+            },
         )
         view.lines.forEach(::appendLine)
 
@@ -1584,7 +1612,7 @@ internal class RadioSubAgent(
         perLabelIds.forEach { ids -> ids.forEach { score[it] = (score[it] ?: 0) + 1 } }
 
         // 命中标签数降序 → 取 top targetCount
-        //（曾经取 targetCount*2「给 LLM diff 留空间」，那是旧 ReAct 时代的需要；
+        // （曾经取 targetCount*2「给 LLM diff 留空间」，那是旧 ReAct 时代的需要；
         //  现在模型直接给完整队列，多推一倍只会让 REPLACE_QUEUE 时清掉的更多、编排噪声更大）
         val candidateIds = score.entries
             .sortedByDescending { it.value }
@@ -1611,14 +1639,13 @@ internal class RadioSubAgent(
         return tracks
     }
 
-    private fun musicInfoToRadioTrack(info: MusicInfo, why: String, source: RadioTrackSource): RadioTrack =
-        RadioTrack(
-            musicId = info.music.id,
-            title = info.music.title,
-            artist = info.music.artist,
-            why = why,
-            source = source,
-        )
+    private fun musicInfoToRadioTrack(info: MusicInfo, why: String, source: RadioTrackSource): RadioTrack = RadioTrack(
+        musicId = info.music.id,
+        title = info.music.title,
+        artist = info.music.artist,
+        why = why,
+        source = source,
+    )
 
     // ═══════════════════════════════════════════════════════════════
     // 收口保险（去重 + 截 targetCount）
@@ -1634,9 +1661,9 @@ internal class RadioSubAgent(
         this.radioConfig = radioConfig
         HmpLog.i(LogTag.AgentRadio) {
             "🔄 updateAiConfig | hasLLM=${radioConfig != null} | " +
-            "endpoint=${radioConfig?.endpoint?.take(40) ?: "(none)"} | " +
-            "model=${radioConfig?.selectedModel?.take(30) ?: "(default)"} | " +
-            "hasKey=${radioConfig?.apiKey?.isNotBlank() == true}"
+                "endpoint=${radioConfig?.endpoint?.take(40) ?: "(none)"} | " +
+                "model=${radioConfig?.selectedModel?.take(30) ?: "(default)"} | " +
+                "hasKey=${radioConfig?.apiKey?.isNotBlank() == true}"
         }
     }
 
@@ -1648,16 +1675,19 @@ internal class RadioSubAgent(
     override val stateFlow: StateFlow<CapabilityState> = _radioState.map { rs ->
         when (rs) {
             is RadioState.IDLE -> CapabilityState(CapabilityState.Status.IDLE, raw = rs)
+
             is RadioState.BUILDING -> CapabilityState(
                 status = CapabilityState.Status.BUILDING,
                 detail = rs.actionText,
                 raw = rs,
             )
+
             is RadioState.PLAYING -> CapabilityState(
                 status = CapabilityState.Status.RUNNING,
                 detail = "正在播放，共 ${rs.currentCount} 首",
                 raw = rs,
             )
+
             is RadioState.PAUSED -> CapabilityState(
                 status = CapabilityState.Status.PAUSED,
                 detail = "暂停中，共 ${rs.currentCount} 首",
@@ -1680,7 +1710,6 @@ internal class RadioSubAgent(
         return "电台已停止"
     }
 }
-
 
 /** 电台短时消息存活时长（与 AgentNoticeBar 侧条 4s 退场一致） */
 private const val RADIO_MESSAGE_TTL_MS = 4_000L

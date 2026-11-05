@@ -16,8 +16,7 @@ class GetAllMusicUseCaseTest {
     private val repository = FakeMusicRepository()
     private val useCase = GetAllMusicUseCase(repository)
 
-    private fun music(id: Long, title: String, artist: String = "Artist", album: String = "Album", duration: Long = 180000) =
-        MusicInfo(music = Music(id = id, title = title, artist = artist, album = album, duration = duration, path = "/music/$id.mp3", albumArtUri = ""), extra = null, userInfo = null)
+    private fun music(id: Long, title: String, artist: String = "Artist", album: String = "Album", duration: Long = 180000) = MusicInfo(music = Music(id = id, title = title, artist = artist, album = album, duration = duration, path = "/music/$id.mp3", albumArtUri = ""), extra = null, userInfo = null)
 
     @Test
     fun invoke_emptyRepository_returnsEmpty() = runTest {

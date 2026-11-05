@@ -1,8 +1,5 @@
 package com.hmp.domain.agent.runtime.sub.radio
 
-import com.hmp.domain.agent.runtime.sub.shared.RadioTrack
-import com.hmp.domain.agent.tool.createBaseToolRegistry
-
 import com.hmp.domain.agent.port.CommandSource
 import com.hmp.domain.agent.port.FakeNowPlayingContextProvider
 import com.hmp.domain.agent.port.LlmEvent
@@ -17,7 +14,9 @@ import com.hmp.domain.agent.port.currentLocalMoment
 import com.hmp.domain.agent.port.dayPart
 import com.hmp.domain.agent.runtime.AgentContextBudget
 import com.hmp.domain.agent.runtime.ToolRegistryView
+import com.hmp.domain.agent.runtime.sub.shared.RadioTrack
 import com.hmp.domain.agent.tool.ToolDependencies
+import com.hmp.domain.agent.tool.createBaseToolRegistry
 import com.hmp.domain.agent.tool.spec.ToolNames
 import com.hmp.domain.agent.tool.spec.ToolRegistry
 import com.hmp.domain.enum.LabelName
@@ -34,13 +33,12 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withTimeout
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertNull
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /** 测试用曲目构造（文件级——嵌套 Fixture 也需要访问）。 */
-private fun song(id: Long, title: String, artist: String) =
-    MusicInfo(Music(id, title, artist, "Album", 180_000, "/$id.mp3", ""), null, null)
+private fun song(id: Long, title: String, artist: String) = MusicInfo(Music(id, title, artist, "Album", 180_000, "/$id.mp3", ""), null, null)
 
 /**
  * RadioSubAgent spec 驱动实现的确定性测试。
@@ -229,7 +227,7 @@ class RadioSubAgentTest {
         listOf(song(4, "补一", "丁"), song(5, "补二", "戊")).forEach {
             fx.musicRepo.songs[it.music.id] = it
         }
-        val agent = fx.agent(transport = null)   // 无端点
+        val agent = fx.agent(transport = null) // 无端点
 
         agent.startRadio(seed = "摇滚")
         val before = fx.playback.commands.count { it.first is PlaybackCommand.ADD_TO_QUEUE }
@@ -259,14 +257,14 @@ class RadioSubAgentTest {
      */
     @Test
     fun contextSnapshot_followsNowPlaying_notStaleCounter() = runBlocking {
-        val fx = Fixture().apply { seedLibrary() }   // 队列 [1 夜航, 2 清晨, 3 回声]
-        val provider = FixedNowPlaying(null)         // 开播时没有在播曲目 → 走完整路径
+        val fx = Fixture().apply { seedLibrary() } // 队列 [1 夜航, 2 清晨, 3 回声]
+        val provider = FixedNowPlaying(null) // 开播时没有在播曲目 → 走完整路径
 
         val agent = fx.agent(transport = null, nowPlaying = provider)
         agent.startRadio(seed = "摇滚")
         // 此时 playedCount = 0，若按计数推算「在播」会得出第 1 首
 
-        provider.id = 3L   // 播放器说现在播的是第 3 首
+        provider.id = 3L // 播放器说现在播的是第 3 首
         val snap = agent.contextSnapshot()
         assertEquals(3L, snap.playingMusicId, "在播要以播放器为准，而不是 playedCount=0 推出的第 1 首")
         assertTrue(snap.upcoming.isEmpty(), "第 3 首之后没有待播了")
@@ -289,7 +287,7 @@ class RadioSubAgentTest {
         val fx = Fixture().apply { seedLibrary() }
         val provider = FixedNowPlaying(1L)
         val agent = fx.agent(transport = null, nowPlaying = provider)
-        agent.startRadio(seed = "摇滚")   // 镜像队列 [1,2,3]
+        agent.startRadio(seed = "摇滚") // 镜像队列 [1,2,3]
 
         // 模拟播放器队列与镜像分叉：REPLACE_QUEUE 部分失效（2 号没进去，混入两首别的）
         provider.queueIds = listOf(1L, 99L, 98L)
@@ -305,20 +303,18 @@ class RadioSubAgentTest {
     }
 
     /** id 可变的在播 provider（模拟播放过程中换歌；playing=false 模拟暂停态）。 */
-    private class FixedNowPlaying(var id: Long?, var playing: Boolean = true) :
-        com.hmp.domain.agent.port.NowPlayingContextProvider {
+    private class FixedNowPlaying(var id: Long?, var playing: Boolean = true) : com.hmp.domain.agent.port.NowPlayingContextProvider {
         /** 播放器侧队列（模拟 REPLACE_QUEUE 后播放器里的真实队列）；空 = 播放器不报队列。 */
         var queueIds: List<Long> = emptyList()
 
-        override suspend fun getNowPlaying(): com.hmp.domain.agent.port.NowPlayingContext =
-            com.hmp.domain.agent.port.NowPlayingContext(
-                currentMusicId = id,
-                currentMusicInfo = null,
-                isPlaying = playing,
-                currentPositionMs = 0,
-                durationMs = 0,
-                queueIds = queueIds,
-            )
+        override suspend fun getNowPlaying(): com.hmp.domain.agent.port.NowPlayingContext = com.hmp.domain.agent.port.NowPlayingContext(
+            currentMusicId = id,
+            currentMusicInfo = null,
+            isPlaying = playing,
+            currentPositionMs = 0,
+            durationMs = 0,
+            queueIds = queueIds,
+        )
     }
 
     /**
@@ -411,7 +407,7 @@ class RadioSubAgentTest {
                 listOf(LlmEvent.TextDelta("""{"musicIds":[1,2],"reason":"承接在播曲"}"""), LlmEvent.Completed),
             ),
         )
-        val provider = FixedNowPlaying(3L, playing = true)   // 接播路径：3 正在播
+        val provider = FixedNowPlaying(3L, playing = true) // 接播路径：3 正在播
         val agent = fx.agent(transport, nowPlaying = provider)
 
         agent.startRadio(seed = "摇滚")
@@ -445,14 +441,14 @@ class RadioSubAgentTest {
     @Test
     fun transientPauseDuringSkip_doesNotPauseOrExit() = runBlocking {
         val fx = Fixture().apply { seedLibrary() }
-        val provider = FixedNowPlaying(null)   // 从零起播 → PLAYING
+        val provider = FixedNowPlaying(null) // 从零起播 → PLAYING
         val agent = fx.agent(transport = null, nowPlaying = provider)
         agent.startRadio(seed = "摇滚")
         assertTrue(agent.queryState() is RadioState.PLAYING)
 
         // 切歌过渡：暂停事件到达，但播放器实际已经接着播下一首了
         agent.onPause(PauseEvent(resumed = false, atMs = nowMonotonicMs()))
-        delay(1200)   // 越过 800ms 去抖窗口
+        delay(1200) // 越过 800ms 去抖窗口
         assertTrue(agent.queryState() is RadioState.PLAYING, "瞬时暂停不应把电台暂停")
 
         // 紧跟的 resumed 只是切歌过渡收尾，不该改变状态（更不该退出电台）
@@ -470,7 +466,7 @@ class RadioSubAgentTest {
         val agent = fx.agent(transport = null, nowPlaying = provider)
         agent.startRadio(seed = "摇滚")
 
-        provider.playing = false   // 用户真的暂停了
+        provider.playing = false // 用户真的暂停了
         agent.onPause(PauseEvent(resumed = false, atMs = nowMonotonicMs()))
 
         withTimeout(5_000) {
@@ -560,8 +556,7 @@ class RadioSubAgentTest {
     // ── 关闭后重开：复用上一段对话，省掉上下文组装 ──────────────
 
     /** 重开时下发的指令里，出现这两类就说明走了完整组装（被复用跳过的部分）。 */
-    private fun List<PlaybackCommand>.rebuiltQueue(): Boolean =
-        any { it is PlaybackCommand.ADD_TO_QUEUE || it is PlaybackCommand.REPLACE_QUEUE }
+    private fun List<PlaybackCommand>.rebuiltQueue(): Boolean = any { it is PlaybackCommand.ADD_TO_QUEUE || it is PlaybackCommand.REPLACE_QUEUE }
 
     @Test
     fun reopenWithinWindow_reusesConversation_skipsQueueAssembly() = runBlocking {
@@ -703,7 +698,9 @@ class RadioSubAgentTest {
     fun reopenAfterWindow_startsFresh() = runBlocking {
         val fx = Fixture().apply { seedLibrary() }
         val first = listOf(
-            song(1, "夜航", "甲"), song(2, "清晨", "乙"), song(3, "回声", "丙"),
+            song(1, "夜航", "甲"),
+            song(2, "清晨", "乙"),
+            song(3, "回声", "丙"),
         ).map { RadioTrack(it.music.id, it.music.title, it.music.artist, "") }
 
         // 超出兜底窗口 → 走完整 Start 流程
@@ -728,7 +725,9 @@ class RadioSubAgentTest {
     fun reopenWithDifferentQueue_startsFresh() = runBlocking {
         val fx = Fixture().apply { seedLibrary() }
         val first = listOf(
-            song(1, "夜航", "甲"), song(2, "清晨", "乙"), song(3, "回声", "丙"),
+            song(1, "夜航", "甲"),
+            song(2, "清晨", "乙"),
+            song(3, "回声", "丙"),
         ).map { RadioTrack(it.music.id, it.music.title, it.music.artist, "") }
 
         // 关闭时间很近，但播放器里已经是别的歌 → 队列被换过，不能复用
@@ -741,7 +740,7 @@ class RadioSubAgentTest {
         )
         val agent = fx.agent(
             transport = null,
-            nowPlaying = FixedNowPlaying(999L),   // 不在原队列里
+            nowPlaying = FixedNowPlaying(999L), // 不在原队列里
             retained = retained,
         )
         agent.startRadio(seed = "摇滚")
@@ -753,7 +752,9 @@ class RadioSubAgentTest {
     fun reopenWithDifferentSeed_startsFresh() = runBlocking {
         val fx = Fixture().apply { seedLibrary() }
         val first = listOf(
-            song(1, "夜航", "甲"), song(2, "清晨", "乙"), song(3, "回声", "丙"),
+            song(1, "夜航", "甲"),
+            song(2, "清晨", "乙"),
+            song(3, "回声", "丙"),
         ).map { RadioTrack(it.music.id, it.music.title, it.music.artist, "") }
 
         // 窗口内、队列没变，但用户换主题了（上一档摇滚，这次爵士）→ 不能沿用旧对话
@@ -805,8 +806,8 @@ class RadioSubAgentTest {
         val fx = Fixture().apply { seedLibrary() }
         val transport = FakeLlmTransport(
             perTurnScript = listOf(
-                listOf(LlmEvent.Failed("scripted transient failure")),                        // 第 1 发：瞬时失败
-                listOf(LlmEvent.TextDelta("""{"musicIds":[3,2,1]}"""), LlmEvent.Completed),   // 重试：给出队列
+                listOf(LlmEvent.Failed("scripted transient failure")), // 第 1 发：瞬时失败
+                listOf(LlmEvent.TextDelta("""{"musicIds":[3,2,1]}"""), LlmEvent.Completed), // 重试：给出队列
             ),
         )
         val agent = fx.agent(transport)
@@ -850,7 +851,9 @@ class RadioSubAgentTest {
     fun reopenWhenDayPartChanged_startsFresh() = runBlocking {
         val fx = Fixture().apply { seedLibrary() }
         val first = listOf(
-            song(1, "夜航", "甲"), song(2, "清晨", "乙"), song(3, "回声", "丙"),
+            song(1, "夜航", "甲"),
+            song(2, "清晨", "乙"),
+            song(3, "回声", "丙"),
         ).map { RadioTrack(it.music.id, it.music.title, it.music.artist, "") }
 
         // 队列没变、刚关闭，但时段变了（开播时段 ≠ 现在）→ 这是另一场节目
@@ -881,7 +884,9 @@ class RadioSubAgentTest {
     fun reopenSameDayPart_reusesEvenAfterWindow() = runBlocking {
         val fx = Fixture().apply { seedLibrary() }
         val first = listOf(
-            song(1, "夜航", "甲"), song(2, "清晨", "乙"), song(3, "回声", "丙"),
+            song(1, "夜航", "甲"),
+            song(2, "清晨", "乙"),
+            song(3, "回声", "丙"),
         ).map { RadioTrack(it.music.id, it.music.title, it.music.artist, "") }
 
         // 超过旧的 30 分钟窗口，但时段没变、队列没变 → 仍应复用（时间只兜底，不再主判）
@@ -915,7 +920,7 @@ class RadioSubAgentTest {
         agent.onPause(PauseEvent(resumed = false, atMs = nowMonotonicMs()))
         delay(50)
         agent.onPause(PauseEvent(resumed = true, atMs = nowMonotonicMs()))
-        delay(1200)   // 越过去抖窗口，确认没有任何核查落地
+        delay(1200) // 越过去抖窗口，确认没有任何核查落地
         assertEquals(0, agent.debugRecordedPauseCount(), "瞬时对不应进事实账本")
 
         // 真暂停：确认后才进账本（入账经合并窗口，轮询等待）

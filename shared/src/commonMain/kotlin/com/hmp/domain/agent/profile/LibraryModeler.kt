@@ -20,11 +20,11 @@ object LibraryModeler {
 
     // ── 取值域（闭集 token；中文说法在 UserProfileRenderer 里）────────────
 
-    const val SCALE_TINY = "TINY"          // < 50
-    const val SCALE_SMALL = "SMALL"        // < 300
-    const val SCALE_MEDIUM = "MEDIUM"      // < 1000
-    const val SCALE_LARGE = "LARGE"        // < 5000
-    const val SCALE_HUGE = "HUGE"          // ≥ 5000
+    const val SCALE_TINY = "TINY" // < 50
+    const val SCALE_SMALL = "SMALL" // < 300
+    const val SCALE_MEDIUM = "MEDIUM" // < 1000
+    const val SCALE_LARGE = "LARGE" // < 5000
+    const val SCALE_HUGE = "HUGE" // ≥ 5000
 
     const val CONCENTRATION_FOCUSED = "FOCUSED"
     const val CONCENTRATION_BALANCED = "BALANCED"
@@ -63,8 +63,8 @@ object LibraryModeler {
     private const val ORGANIZED_MAX_TOP_SHARE = 0.6
 
     /** 单曲时长倾向以**中位数**判定（均值会被长曲拉偏） */
-    private const val SHORT_DURATION_MS = 3 * 60 * 1000L + 30_000L   // 3:30
-    private const val LONG_DURATION_MS = 5 * 60 * 1000L + 30_000L    // 5:30
+    private const val SHORT_DURATION_MS = 3 * 60 * 1000L + 30_000L // 3:30
+    private const val LONG_DURATION_MS = 5 * 60 * 1000L + 30_000L // 5:30
 
     /** 路径分类最多记几个目录名（多了就成流水账） */
     private const val MAX_PATH_GROUPS = 5
@@ -239,8 +239,11 @@ object LibraryModeler {
     fun medianDurationMs(tracks: List<LibraryTrack>): Long {
         if (tracks.isEmpty()) return 0
         val sorted = tracks.map { it.durationMs }.sorted()
-        return if (sorted.size % 2 == 1) sorted[sorted.size / 2]
-        else ((sorted[sorted.size / 2 - 1] + sorted[sorted.size / 2]) / 2).toLong()
+        return if (sorted.size % 2 == 1) {
+            sorted[sorted.size / 2]
+        } else {
+            ((sorted[sorted.size / 2 - 1] + sorted[sorted.size / 2]) / 2).toLong()
+        }
     }
 
     // ══════════════ 阶段二 · 内容建模（契约 §4.1.2 / §4.1.4）══════════════
@@ -445,6 +448,5 @@ object LibraryModeler {
         .take(MAX_PLAYLIST_NAMES)
 
     /** 供测试与日志用的整数百分比（避免浮点比较的脆弱断言）。 */
-    internal fun percent(part: Int, total: Int): Long =
-        if (total <= 0) 0L else (part.toDouble() / total * 100).roundToLong()
+    internal fun percent(part: Int, total: Int): Long = if (total <= 0) 0L else (part.toDouble() / total * 100).roundToLong()
 }

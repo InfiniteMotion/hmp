@@ -70,7 +70,7 @@ fun KaraokeLyricText(
     fontSize: TextUnit,
     fontWeight: FontWeight,
     textAlign: TextAlign,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     val density = LocalDensity.current
 
@@ -98,7 +98,7 @@ fun KaraokeLyricText(
                         lastPositionMs = lastPosition,
                         lastTimestampNanos = lastNanos,
                         nowNanos = now,
-                        isPlaying = true
+                        isPlaying = true,
                     )
                 }
                 lastNanos = now
@@ -168,16 +168,16 @@ fun KaraokeLyricText(
                     .blur(LyricsPresentationParams.GLOW_BLUR_RADIUS_DP.dp)
                     .graphicsLayer {
                         alpha = LyricsPresentationParams.glowAlpha(
-                            (sin(glowPhase.floatValue) * 0.5f + 0.5f)
+                            (sin(glowPhase.floatValue) * 0.5f + 0.5f),
                         )
-                    }
+                    },
             )
         }
 
         FlowRow(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = arrangement,
-            verticalArrangement = Arrangement.Center
+            verticalArrangement = Arrangement.Center,
         ) {
             expanded.forEachIndexed { i, timing ->
                 val char = text[i].toString()
@@ -192,9 +192,9 @@ fun KaraokeLyricText(
                     targetValue = if (isSung) LyricsPresentationParams.CHAR_EMPHASIS_SCALE else 1f,
                     animationSpec = tween(
                         durationMillis = LyricsPresentationParams.EMPHASIS_TRANSITION_MS,
-                        easing = FastOutSlowInEasing
+                        easing = FastOutSlowInEasing,
                     ),
-                    label = "CharEmphasisScale"
+                    label = "CharEmphasisScale",
                 )
                 // 用画布变换原位放大（不产生图层、绘制阶段读动画值），放大后保持
                 Box(
@@ -206,20 +206,20 @@ fun KaraokeLyricText(
                                 scale(
                                     scaleX = s,
                                     scaleY = s,
-                                    pivot = Offset(size.width / 2f, size.height / 2f)
+                                    pivot = Offset(size.width / 2f, size.height / 2f),
                                 ) {
                                     this@drawWithContent.drawContent()
                                 }
                             } else {
                                 this@drawWithContent.drawContent()
                             }
-                        }
+                        },
                 ) {
                     Text(
                         text = char,
                         color = unsungColor,
                         fontSize = fontSize,
-                        fontWeight = fontWeight
+                        fontWeight = fontWeight,
                     )
                     if (timing != null) {
                         val start = timing.startMs
@@ -239,7 +239,7 @@ fun KaraokeLyricText(
                                 clipRect(right = size.width * t) {
                                     this@drawWithContent.drawContent()
                                 }
-                            }
+                            },
                         )
                     }
                 }

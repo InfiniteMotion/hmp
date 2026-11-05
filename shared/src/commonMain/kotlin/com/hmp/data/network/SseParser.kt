@@ -30,13 +30,17 @@ object SseParser {
                         hasData = false
                     }
                 }
-                line.startsWith(":") -> Unit // 注释行：忽略
+
+                line.startsWith(":") -> Unit
+
+                // 注释行：忽略
                 line.startsWith("data:") -> {
                     val raw = line.removePrefix("data:")
                     val payload = if (raw.startsWith(" ")) raw.drop(1) else raw
                     dataBuilder.append(payload).append('\n')
                     hasData = true
                 }
+
                 else -> Unit // event:/id:/retry: 等字段当前协议无需处理
             }
         }

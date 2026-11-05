@@ -44,8 +44,7 @@ interface BackupFileRepository {
         const val IMPORTED_PREFIX = "$USER_BACKUP_PREFIX-imported"
 
         /** 三端共用的列表可见性判据，避免各写一份 filter 而出现"能写不能看"。 */
-        fun isBackupFileName(name: String): Boolean =
-            (name.startsWith("$USER_BACKUP_PREFIX-") || name.startsWith("$PRE_RESTORE_PREFIX-")) &&
-                name.endsWith(".json")
+        fun isBackupFileName(name: String): Boolean = (name.startsWith("$USER_BACKUP_PREFIX-") || name.startsWith("$PRE_RESTORE_PREFIX-")) &&
+            name.endsWith(".json")
     }
 }

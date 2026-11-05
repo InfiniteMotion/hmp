@@ -20,10 +20,10 @@ class UserUsageAnalyticsTest {
             thisWeekMinutes = 120,
             lastWeekMinutes = 100,
             topPlayedSongs = listOf(
-                TopPlayedEntry(1, "Song A", "Artist A", 10)
+                TopPlayedEntry(1, "Song A", "Artist A", 10),
             ),
             recentPlaybackWithTitle = listOf(
-                RecentPlaybackEntry(1, "Song A", "Artist A", 1700000000L, 180000L, true, "playlist")
+                RecentPlaybackEntry(1, "Song A", "Artist A", 1700000000L, 180000L, true, "playlist"),
             ),
             playSourceBreakdown = mapOf("playlist" to 60, "search" to 40),
             topGenres = listOf(LabelCountEntry("Rock", 30)),
@@ -31,7 +31,7 @@ class UserUsageAnalyticsTest {
             topScenarios = listOf(LabelCountEntry("Workout", 15)),
             topArtists = listOf(ArtistCountEntry("Artist A", 20)),
             customPlaylistCount = 5,
-            topSongsInPlaylists = listOf(TopPlayedEntry(1, "Song A", "Artist A", 8))
+            topSongsInPlaylists = listOf(TopPlayedEntry(1, "Song A", "Artist A", 8)),
         )
         assertEquals(100, analytics.totalPlayCount)
         assertEquals(20, analytics.totalSkipCount)
@@ -66,7 +66,7 @@ class UserUsageAnalyticsTest {
             thisWeekMinutes = 0,
             lastWeekMinutes = 0,
             topPlayedSongs = emptyList(),
-            recentPlaybackWithTitle = emptyList()
+            recentPlaybackWithTitle = emptyList(),
         )
         assertTrue(analytics.playSourceBreakdown.isEmpty())
         assertTrue(analytics.topGenres.isEmpty())
@@ -101,7 +101,7 @@ class RecentPlaybackEntryTest {
             playedAt = 1700000000L,
             playDuration = 180000L,
             isCompleted = true,
-            source = "playlist"
+            source = "playlist",
         )
         assertEquals(1L, entry.musicId)
         assertEquals(true, entry.isCompleted)
@@ -117,7 +117,7 @@ class RecentPlaybackEntryTest {
             playedAt = 1700100000L,
             playDuration = 30000L,
             isCompleted = false,
-            source = null
+            source = null,
         )
         assertEquals(false, entry.isCompleted)
         assertNull(entry.source)

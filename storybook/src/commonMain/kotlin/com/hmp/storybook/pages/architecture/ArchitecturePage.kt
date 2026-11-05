@@ -44,10 +44,11 @@ fun ArchitecturePage(onBack: () -> Unit) {
         // 版本信息
         ComponentShowcase(
             title = if (lang == AppLanguage.ZH) "版本信息" else "Version Info",
-            description = if (lang == AppLanguage.ZH)
+            description = if (lang == AppLanguage.ZH) {
                 "HMP v5.10 当前使用的核心技术版本"
-            else
-                "Core technology versions for HMP v5.10",
+            } else {
+                "Core technology versions for HMP v5.10"
+            },
         ) {
             VersionInfoCard(lang)
         }
@@ -55,10 +56,11 @@ fun ArchitecturePage(onBack: () -> Unit) {
         // 架构概览: 5 层架构
         ComponentShowcase(
             title = Strings.overview(lang),
-            description = if (lang == AppLanguage.ZH)
+            description = if (lang == AppLanguage.ZH) {
                 "HMP 采用 5 层架构: UI层(平台原生) / ViewModel层(Koin+StateFlow) / Domain层(shared) / Data层(shared) / 播放引擎(平台原生)"
-            else
-                "HMP uses 5-layer architecture: UI(Native) / ViewModel(Koin+StateFlow) / Domain(shared) / Data(shared) / Playback Engine(Native)",
+            } else {
+                "HMP uses 5-layer architecture: UI(Native) / ViewModel(Koin+StateFlow) / Domain(shared) / Data(shared) / Playback Engine(Native)"
+            },
         ) {
             ArchitectureDiagram(lang)
         }
@@ -66,10 +68,11 @@ fun ArchitecturePage(onBack: () -> Unit) {
         // 模块结构
         ComponentShowcase(
             title = Strings.moduleStructure(lang),
-            description = if (lang == AppLanguage.ZH)
+            description = if (lang == AppLanguage.ZH) {
                 "Monorepo 结构: :shared, :android:app, :android:core-player, :shared-ui, :ios, :storybook"
-            else
-                "Monorepo: :shared, :android:app, :android:core-player, :shared-ui, :ios, :storybook",
+            } else {
+                "Monorepo: :shared, :android:app, :android:core-player, :shared-ui, :ios, :storybook"
+            },
         ) {
             ModuleStructureDiagram(lang)
         }
@@ -77,10 +80,11 @@ fun ArchitecturePage(onBack: () -> Unit) {
         // 技术栈表格
         ComponentShowcase(
             title = Strings.techStack(lang),
-            description = if (lang == AppLanguage.ZH)
+            description = if (lang == AppLanguage.ZH) {
                 "各平台使用的技术栈完整对照"
-            else
-                "Complete tech stack comparison across platforms",
+            } else {
+                "Complete tech stack comparison across platforms"
+            },
         ) {
             TechStackTable(lang)
         }
@@ -88,10 +92,11 @@ fun ArchitecturePage(onBack: () -> Unit) {
         // KMP 跨平台机制: expect/actual 8 组接口
         ComponentShowcase(
             title = Strings.kmpPlatform(lang),
-            description = if (lang == AppLanguage.ZH)
+            description = if (lang == AppLanguage.ZH) {
                 "通过 expect/actual 实现 8 组平台特定接口"
-            else
-                "8 groups of platform-specific interfaces via expect/actual",
+            } else {
+                "8 groups of platform-specific interfaces via expect/actual"
+            },
         ) {
             ExpectActualList(lang)
         }
@@ -99,10 +104,11 @@ fun ArchitecturePage(onBack: () -> Unit) {
         // 数据库实体
         ComponentShowcase(
             title = if (lang == AppLanguage.ZH) "数据库实体" else "Database Entities",
-            description = if (lang == AppLanguage.ZH)
+            description = if (lang == AppLanguage.ZH) {
                 "8 个 Room 实体: Music, MusicExtra, UserInfo, MusicLabel, Playlist, PlaylistItem, PlaybackHistory, ListeningDuration"
-            else
-                "8 Room entities: Music, MusicExtra, UserInfo, MusicLabel, Playlist, PlaylistItem, PlaybackHistory, ListeningDuration",
+            } else {
+                "8 Room entities: Music, MusicExtra, UserInfo, MusicLabel, Playlist, PlaylistItem, PlaybackHistory, ListeningDuration"
+            },
         ) {
             DatabaseEntitiesList(lang)
         }
@@ -110,10 +116,11 @@ fun ArchitecturePage(onBack: () -> Unit) {
         // UseCase 列表
         ComponentShowcase(
             title = if (lang == AppLanguage.ZH) "UseCase 列表" else "UseCase List",
-            description = if (lang == AppLanguage.ZH)
+            description = if (lang == AppLanguage.ZH) {
                 "19 个 UseCase 覆盖音乐管理、播放控制、歌单操作等核心业务"
-            else
-                "19 UseCases covering music management, playback control, playlist operations, etc.",
+            } else {
+                "19 UseCases covering music management, playback control, playlist operations, etc."
+            },
         ) {
             UseCaseList(lang)
         }
@@ -314,8 +321,11 @@ HMP/
 @Composable
 private fun TechStackTable(lang: AppLanguage) {
     val rows = listOf(
-        if (lang == AppLanguage.ZH) listOf("领域", "Android", "Shared (KMP)", "iOS")
-        else listOf("Domain", "Android", "Shared (KMP)", "iOS"),
+        if (lang == AppLanguage.ZH) {
+            listOf("领域", "Android", "Shared (KMP)", "iOS")
+        } else {
+            listOf("Domain", "Android", "Shared (KMP)", "iOS")
+        },
         listOf("UI", "Compose + M3", "--", "SwiftUI"),
         listOf("导航", "Navigation 3", "--", "NavigationStack"),
         listOf("播放", "Media3", "--", "AVFoundation"),
@@ -332,9 +342,13 @@ private fun TechStackTable(lang: AppLanguage) {
     Column(modifier = Modifier.fillMaxWidth()) {
         rows.forEachIndexed { index, row ->
             val isHeader = index == 0
-            val bgColor = if (isHeader) HDBlue.copy(alpha = 0.1f)
-            else if (index % 2 == 0) MaterialTheme.colorScheme.surfaceContainerLowest
-            else Color.Transparent
+            val bgColor = if (isHeader) {
+                HDBlue.copy(alpha = 0.1f)
+            } else if (index % 2 == 0) {
+                MaterialTheme.colorScheme.surfaceContainerLowest
+            } else {
+                Color.Transparent
+            }
 
             Row(
                 modifier = Modifier
@@ -346,8 +360,11 @@ private fun TechStackTable(lang: AppLanguage) {
                     val weight = if (colIndex == 0) 1.2f else 1f
                     Text(
                         text = cell,
-                        style = if (isHeader) MaterialTheme.typography.labelMedium
-                        else MaterialTheme.typography.bodySmall,
+                        style = if (isHeader) {
+                            MaterialTheme.typography.labelMedium
+                        } else {
+                            MaterialTheme.typography.bodySmall
+                        },
                         fontWeight = if (isHeader) FontWeight.Bold else FontWeight.Normal,
                         color = if (isHeader) HDBlue else MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.weight(weight),
@@ -519,10 +536,11 @@ private fun UseCaseList(lang: AppLanguage) {
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(
-                        if (index % 2 == 0)
+                        if (index % 2 == 0) {
                             MaterialTheme.colorScheme.surfaceContainerLowest
-                        else
-                            Color.Transparent,
+                        } else {
+                            Color.Transparent
+                        },
                         RoundedCornerShape(4.dp),
                     )
                     .padding(horizontal = 8.dp, vertical = 4.dp),

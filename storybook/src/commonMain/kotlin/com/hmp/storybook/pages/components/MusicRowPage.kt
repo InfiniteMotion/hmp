@@ -40,9 +40,9 @@ import com.hmp.storybook.theme.LocalAppLanguage
  * MusicListItem 的三种变体
  */
 private enum class MusicRowVariant {
-    FULL,       // 高度 80.dp, 封面 56.dp, 圆角 10.dp, headlineSmall + labelSmall
-    COMPACT,    // 高度 64.dp, 封面 48.dp, 圆角 8.dp, bodyMedium + bodySmall
-    GALLERY,    // 高度 80.dp, 封面 56.dp, 圆角 10.dp, headlineSmall + labelSmall
+    FULL, // 高度 80.dp, 封面 56.dp, 圆角 10.dp, headlineSmall + labelSmall
+    COMPACT, // 高度 64.dp, 封面 48.dp, 圆角 8.dp, bodyMedium + bodySmall
+    GALLERY, // 高度 80.dp, 封面 56.dp, 圆角 10.dp, headlineSmall + labelSmall
 }
 
 @Composable
@@ -51,19 +51,21 @@ fun MusicRowPage(onBack: () -> Unit) {
 
     StorybookPage(
         title = Strings.musicRow(lang),
-        description = if (lang == AppLanguage.ZH)
+        description = if (lang == AppLanguage.ZH) {
             "歌曲列表行组件 (MusicListItem)，展示 Full / Compact / Gallery 三种变体"
-        else
-            "Song list row component (MusicListItem) with Full / Compact / Gallery variants",
+        } else {
+            "Song list row component (MusicListItem) with Full / Compact / Gallery variants"
+        },
         onBack = onBack,
     ) {
         // Full 变体
         ComponentShowcase(
             title = if (lang == AppLanguage.ZH) "Full 变体" else "Full Variant",
-            description = if (lang == AppLanguage.ZH)
+            description = if (lang == AppLanguage.ZH) {
                 "高度 80.dp, 封面 56.dp, 圆角 10.dp, headlineSmall + labelSmall"
-            else
-                "Height 80.dp, cover 56.dp, corner 10.dp, headlineSmall + labelSmall",
+            } else {
+                "Height 80.dp, cover 56.dp, corner 10.dp, headlineSmall + labelSmall"
+            },
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 MusicRowPreview(
@@ -93,10 +95,11 @@ fun MusicRowPage(onBack: () -> Unit) {
         // Compact 变体
         ComponentShowcase(
             title = if (lang == AppLanguage.ZH) "Compact 变体" else "Compact Variant",
-            description = if (lang == AppLanguage.ZH)
+            description = if (lang == AppLanguage.ZH) {
                 "高度 64.dp, 封面 48.dp, 圆角 8.dp, bodyMedium + bodySmall"
-            else
-                "Height 64.dp, cover 48.dp, corner 8.dp, bodyMedium + bodySmall",
+            } else {
+                "Height 64.dp, cover 48.dp, corner 8.dp, bodyMedium + bodySmall"
+            },
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 MusicRowPreview(
@@ -126,10 +129,11 @@ fun MusicRowPage(onBack: () -> Unit) {
         // Gallery 变体
         ComponentShowcase(
             title = if (lang == AppLanguage.ZH) "Gallery 变体" else "Gallery Variant",
-            description = if (lang == AppLanguage.ZH)
+            description = if (lang == AppLanguage.ZH) {
                 "高度 80.dp, 封面 56.dp, 圆角 10.dp, headlineSmall + labelSmall"
-            else
-                "Height 80.dp, cover 56.dp, corner 10.dp, headlineSmall + labelSmall",
+            } else {
+                "Height 80.dp, cover 56.dp, corner 10.dp, headlineSmall + labelSmall"
+            },
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 MusicRowPreview(
@@ -260,6 +264,7 @@ private fun MusicRowPreview(
                             overflow = TextOverflow.Ellipsis,
                         )
                     }
+
                     MusicRowVariant.COMPACT -> {
                         Text(
                             text = title,

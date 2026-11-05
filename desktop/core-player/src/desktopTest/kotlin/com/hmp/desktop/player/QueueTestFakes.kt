@@ -74,20 +74,30 @@ internal inline fun <reified T : Any> stubInterface(
 
         when (val rt = method.returnType) {
             Void.TYPE -> Unit
+
             Boolean::class.javaPrimitiveType -> false
+
             Int::class.javaPrimitiveType -> 0
+
             Long::class.javaPrimitiveType -> 0L
+
             Float::class.javaPrimitiveType -> 0f
+
             Double::class.javaPrimitiveType -> 0.0
+
             else -> when {
                 // 关键：Flow 默认返回「什么也不发射」的流，而非 MutableStateFlow(null)。
                 // 否则 init 里的 collectLatest 会把 null 赋给非空的 _currentPlaylist，
                 // 且 advanceUntilIdle() 会被 init 的响应式恢复把手动添加的列表覆写掉。
                 kotlinx.coroutines.flow.Flow::class.java.isAssignableFrom(rt) ->
                     kotlinx.coroutines.flow.emptyFlow<Any?>()
+
                 List::class.java.isAssignableFrom(rt) -> emptyList<Any>()
+
                 Set::class.java.isAssignableFrom(rt) -> emptySet<Any>()
+
                 Map::class.java.isAssignableFrom(rt) -> emptyMap<Any, Any>()
+
                 else -> null
             }
         }
@@ -157,12 +167,17 @@ internal fun settingsRepositoryWithPlaylistId(
 ): SettingsRepository = stubInterface { name ->
     when (name) {
         "getCurrentPlaylistId" -> playlistId
+
         // loadPlaylistFromSettings 对 currentMusicId 取 .first()：默认 emptyFlow 会让它抛
         // NoSuchElementException、整段恢复被 catch 吞掉，启动后内存队列恒为空。
         "getCurrentMusicId" -> MutableStateFlow<Long?>(null)
+
         "getLikedPlaylistId" -> MutableStateFlow<Long?>(2L)
+
         "getRecentPlaylistId" -> MutableStateFlow<Long?>(3L)
+
         "getCurrentPosition" -> MutableStateFlow(0L)
+
         else -> null
     }
 }

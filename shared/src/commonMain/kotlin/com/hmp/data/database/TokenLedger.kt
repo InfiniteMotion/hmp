@@ -104,7 +104,7 @@ interface TokenLedgerDao {
             "SUM(CASE WHEN measured = 0 THEN 1 ELSE 0 END) AS estimatedRows, " +
             "COUNT(*) AS calls " +
             "FROM token_ledger WHERE created_at >= :sinceMs " +
-            "GROUP BY agent_id ORDER BY totalTokens DESC"
+            "GROUP BY agent_id ORDER BY totalTokens DESC",
     )
     suspend fun sumByAgent(sinceMs: Long): List<TokenAggregateRow>
 
@@ -122,7 +122,7 @@ interface TokenLedgerDao {
             "SUM(CASE WHEN measured = 0 THEN 1 ELSE 0 END) AS estimatedRows, " +
             "COUNT(*) AS calls " +
             "FROM token_ledger WHERE access_mode = :mode AND created_at >= :sinceMs " +
-            "GROUP BY agent_id ORDER BY totalTokens DESC"
+            "GROUP BY agent_id ORDER BY totalTokens DESC",
     )
     suspend fun sumByAgentForMode(sinceMs: Long, mode: String): List<TokenAggregateRow>
 
@@ -135,7 +135,7 @@ interface TokenLedgerDao {
             "SUM(CASE WHEN measured = 0 THEN 1 ELSE 0 END) AS estimatedRows, " +
             "COUNT(*) AS calls " +
             "FROM token_ledger WHERE created_at >= :sinceMs " +
-            "GROUP BY endpoint_host, model ORDER BY totalTokens DESC"
+            "GROUP BY endpoint_host, model ORDER BY totalTokens DESC",
     )
     suspend fun sumByEndpoint(sinceMs: Long): List<TokenAggregateRow>
 
@@ -146,7 +146,7 @@ interface TokenLedgerDao {
             "SUM(completion_tokens) AS completionTokens, " +
             "SUM(prompt_tokens + completion_tokens) AS totalTokens " +
             "FROM token_ledger WHERE created_at >= :sinceMs " +
-            "GROUP BY bucketStart ORDER BY bucketStart ASC"
+            "GROUP BY bucketStart ORDER BY bucketStart ASC",
     )
     suspend fun sumByHour(sinceMs: Long): List<TokenTimeBucket>
 
@@ -157,7 +157,7 @@ interface TokenLedgerDao {
             "SUM(completion_tokens) AS completionTokens, " +
             "SUM(prompt_tokens + completion_tokens) AS totalTokens " +
             "FROM token_ledger WHERE created_at >= :sinceMs " +
-            "GROUP BY bucketStart ORDER BY bucketStart ASC"
+            "GROUP BY bucketStart ORDER BY bucketStart ASC",
     )
     suspend fun sumByDay(sinceMs: Long): List<TokenTimeBucket>
 
@@ -171,7 +171,7 @@ interface TokenLedgerDao {
             "SUM(completion_tokens) AS completionTokens, " +
             "SUM(prompt_tokens + completion_tokens) AS totalTokens " +
             "FROM token_ledger WHERE created_at >= :sinceMs AND agent_id = :agentId " +
-            "GROUP BY bucketStart ORDER BY bucketStart ASC"
+            "GROUP BY bucketStart ORDER BY bucketStart ASC",
     )
     suspend fun sumByHourForAgent(sinceMs: Long, agentId: String): List<TokenTimeBucket>
 

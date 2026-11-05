@@ -4,8 +4,6 @@ import com.hmp.data.database.AppDatabase
 import com.hmp.data.database.Music
 import com.hmp.data.database.MusicExtra
 import com.hmp.data.database.UserInfo
-import com.hmp.domain.music.Music as DomainMusic
-import com.hmp.domain.music.MusicInfo as DomainMusicInfo
 import com.hmp.test.db.createTestDatabase
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
@@ -17,6 +15,8 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import com.hmp.domain.music.Music as DomainMusic
+import com.hmp.domain.music.MusicInfo as DomainMusicInfo
 
 class PlaylistRepositoryImplTest {
 
@@ -30,14 +30,21 @@ class PlaylistRepositoryImplTest {
     }
 
     @AfterTest
-    fun teardown() { db.close() }
+    fun teardown() {
+        db.close()
+    }
 
     private suspend fun insertMusicWithCover(id: Long, cover: String) {
         db.musicDao().insert(
             Music(
-                id = id, title = "Song$id", artist = "A", album = "B",
-                duration = 100000L, path = "/$id.mp3", albumArtUri = cover
-            )
+                id = id,
+                title = "Song$id",
+                artist = "A",
+                album = "B",
+                duration = 100000L,
+                path = "/$id.mp3",
+                albumArtUri = cover,
+            ),
         )
         db.musicExtraDao().insert(MusicExtra(id = id, isGetExtraInfo = true))
         db.userInfoDao().insert(UserInfo(id = id))
@@ -52,83 +59,109 @@ class PlaylistRepositoryImplTest {
     /** 造一个"从界面上看得到"的领域曲目，喂给 `resetPlaylistItems` 用。 */
     private fun domainMusicInfo(id: Long) = DomainMusicInfo(
         music = DomainMusic(
-            id = id, title = "Song$id", artist = "A", album = "B",
-            duration = 100000L, path = "/$id.mp3", albumArtUri = ""
+            id = id,
+            title = "Song$id",
+            artist = "A",
+            album = "B",
+            duration = 100000L,
+            path = "/$id.mp3",
+            albumArtUri = "",
         ),
         extra = null,
-        userInfo = null
+        userInfo = null,
     )
 
     @Test fun createPlaylist_returnsId() = runTest { assertTrue(repo.createPlaylist("P") > 0) }
 
     @Test fun createAndGetAll() = runTest {
-        repo.createPlaylist("A"); repo.createPlaylist("B")
+        repo.createPlaylist("A")
+        repo.createPlaylist("B")
         assertEquals(2, repo.getAllPlaylists().size)
     }
 
     @Test fun getPlaylistByName() = runTest {
-        val id = repo.createPlaylist("Del"); repo.createPlaylist("Keep")
+        val id = repo.createPlaylist("Del")
+        repo.createPlaylist("Keep")
         assertEquals(id, repo.getPlaylistByName("Del")?.id)
         assertNull(repo.getPlaylistByName("Nope"))
     }
 
     @Test fun removeById() = runTest {
-        val id = repo.createPlaylist("X"); repo.removePlaylistById(id)
+        val id = repo.createPlaylist("X")
+        repo.removePlaylistById(id)
         assertTrue(repo.getAllPlaylists().isEmpty())
     }
 
     @Test fun rename() = runTest {
-        val id = repo.createPlaylist("Old"); repo.renamePlaylist(id, "New")
+        val id = repo.createPlaylist("Old")
+        repo.renamePlaylist(id, "New")
         assertEquals("New", repo.getPlaylistMeta(id)?.name)
     }
 
     @Test fun updateDescription() = runTest {
-        val id = repo.createPlaylist("P"); repo.updatePlaylistDescription(id, "desc")
+        val id = repo.createPlaylist("P")
+        repo.updatePlaylistDescription(id, "desc")
         assertEquals("desc", repo.getPlaylistMeta(id)?.description)
     }
 
     @Test fun setPinned() = runTest {
-        val id = repo.createPlaylist("P"); repo.setPlaylistPinned(id, true)
+        val id = repo.createPlaylist("P")
+        repo.setPlaylistPinned(id, true)
         assertTrue(repo.getPlaylistMeta(id)?.isPinned == true)
     }
 
     @Test fun addToPlaylist_updatesSongCount() = runTest {
         val pid = repo.createPlaylist("P")
-        insertMusic(1); insertMusic(2)
-        repo.addToPlaylist(pid, 1); repo.addToPlaylist(pid, 2)
+        insertMusic(1)
+        insertMusic(2)
+        repo.addToPlaylist(pid, 1)
+        repo.addToPlaylist(pid, 2)
         assertEquals(2, repo.getPlaylistMeta(pid)?.songCount)
     }
 
     @Test fun addToPlaylist_updatesTotalDuration() = runTest {
         val pid = repo.createPlaylist("P")
-        insertMusic(1, duration = 60000L); insertMusic(2, duration = 120000L)
-        repo.addToPlaylist(pid, 1); repo.addToPlaylist(pid, 2)
+        insertMusic(1, duration = 60000L)
+        insertMusic(2, duration = 120000L)
+        repo.addToPlaylist(pid, 1)
+        repo.addToPlaylist(pid, 2)
         assertEquals(180000L, repo.getPlaylistMeta(pid)?.totalDurationMs)
     }
 
     @Test fun removeItem_updatesCount() = runTest {
         val pid = repo.createPlaylist("P")
-        insertMusic(1); insertMusic(2)
-        repo.addToPlaylist(pid, 1); repo.addToPlaylist(pid, 2)
+        insertMusic(1)
+        insertMusic(2)
+        repo.addToPlaylist(pid, 1)
+        repo.addToPlaylist(pid, 2)
         repo.removeItemFromPlaylist(1, pid)
         assertEquals(1, repo.getPlaylistMeta(pid)?.songCount)
     }
 
     @Test fun getMusicInfoInPlaylist() = runTest {
         val pid = repo.createPlaylist("P")
-        insertMusic(1, "First"); insertMusic(2, "Second")
-        repo.addToPlaylist(pid, 1); repo.addToPlaylist(pid, 2)
+        insertMusic(1, "First")
+        insertMusic(2, "Second")
+        repo.addToPlaylist(pid, 1)
+        repo.addToPlaylist(pid, 2)
         val music = repo.getMusicInfoInPlaylist(pid).first()
-        assertEquals(2, music.size); assertEquals("First", music[0].music.title)
+        assertEquals(2, music.size)
+        assertEquals("First", music[0].music.title)
     }
 
     @Test fun reorderItems() = runTest {
         val pid = repo.createPlaylist("P")
-        insertMusic(1); insertMusic(2); insertMusic(3)
-        repo.addToPlaylist(pid, 1); repo.addToPlaylist(pid, 2); repo.addToPlaylist(pid, 3)
+        insertMusic(1)
+        insertMusic(2)
+        insertMusic(3)
+        repo.addToPlaylist(pid, 1)
+        repo.addToPlaylist(pid, 2)
+        repo.addToPlaylist(pid, 3)
         repo.reorderPlaylistItems(pid, listOf(3, 1, 2))
         val music = repo.getPlaylistById(pid)
-        assertEquals(3L, music[0].music.id); assertEquals(1L, music[1].music.id); assertEquals(2L, music[2].music.id)
+        assertEquals(3L, music[0].music.id)
+        assertEquals(1L, music[1].music.id)
+        assertEquals(2L, music[2].music.id)
     }
 
     /**
@@ -140,7 +173,10 @@ class PlaylistRepositoryImplTest {
      */
     @Test fun reorderItems_incompleteInput_rejectedWithoutPartialWrite() = runTest {
         val pid = repo.createPlaylist("P")
-        listOf(1L, 2L, 3L).forEach { insertMusic(it); repo.addToPlaylist(pid, it) }
+        listOf(1L, 2L, 3L).forEach {
+            insertMusic(it)
+            repo.addToPlaylist(pid, it)
+        }
         val before = repo.getPlaylistById(pid).map { it.music.id }
         assertEquals(listOf(1L, 2L, 3L), before)
 
@@ -163,7 +199,10 @@ class PlaylistRepositoryImplTest {
      */
     @Test fun reorderItems_againstVisibleSongs_ignoresSoftDeletedOnes() = runTest {
         val pid = repo.createPlaylist("P")
-        listOf(1L, 2L, 3L).forEach { insertMusic(it); repo.addToPlaylist(pid, it) }
+        listOf(1L, 2L, 3L).forEach {
+            insertMusic(it)
+            repo.addToPlaylist(pid, it)
+        }
         db.musicDao().markDeletedByIds(listOf(2L))
 
         assertTrue(repo.reorderPlaylistItems(pid, listOf(3L, 1L)), "软删的那首不该被算进『你没列出来』")
@@ -187,7 +226,10 @@ class PlaylistRepositoryImplTest {
      */
     @Test fun resetPlaylistItems_neverResurrectsSoftDeletedTracks() = runTest {
         val pid = repo.createPlaylist("P")
-        listOf(1L, 2L, 3L).forEach { insertMusic(it); repo.addToPlaylist(pid, it) }
+        listOf(1L, 2L, 3L).forEach {
+            insertMusic(it)
+            repo.addToPlaylist(pid, it)
+        }
         db.musicDao().markDeletedByIds(listOf(2L))
         assertEquals(listOf(2L), db.musicDao().getDeletedMusicIdAndPath().map { it.id })
 
@@ -196,8 +238,9 @@ class PlaylistRepositoryImplTest {
         repo.resetPlaylistItems(pid, listOf(1L, 2L, 3L).map { domainMusicInfo(it) })
 
         assertEquals(
-            listOf(2L), db.musicDao().getDeletedMusicIdAndPath().map { it.id },
-            "软删状态不能被一次替换冲刷成 false"
+            listOf(2L),
+            db.musicDao().getDeletedMusicIdAndPath().map { it.id },
+            "软删状态不能被一次替换冲刷成 false",
         )
         assertEquals(listOf(1L, 3L), db.musicDao().getAllActiveIds(), "可见集合应保持不变")
         assertEquals(2, repo.getPlaylistMeta(pid)?.songCount, "软删的那首仍占条目位，但不该算进 songCount")
@@ -232,18 +275,23 @@ class PlaylistRepositoryImplTest {
 
     @Test fun incrementPlayCount() = runTest {
         val id = repo.createPlaylist("P")
-        repo.incrementPlaylistPlayCount(id); repo.incrementPlaylistPlayCount(id)
+        repo.incrementPlaylistPlayCount(id)
+        repo.incrementPlaylistPlayCount(id)
         assertEquals(2, repo.getPlaylistMeta(id)?.playCount)
     }
 
     @Test fun exportAndRestore_roundTrip() = runTest {
         val id = repo.createPlaylist("P")
-        insertMusic(1); repo.addToPlaylist(id, 1)
+        insertMusic(1)
+        repo.addToPlaylist(id, 1)
         val snap = repo.exportPlaylistsSnapshot()
-        assertEquals(1, snap.playlists.size); assertEquals(1, snap.playlistItems.size)
-        repo.removePlaylistById(id); assertTrue(repo.getAllPlaylists().isEmpty())
+        assertEquals(1, snap.playlists.size)
+        assertEquals(1, snap.playlistItems.size)
+        repo.removePlaylistById(id)
+        assertTrue(repo.getAllPlaylists().isEmpty())
         repo.restoreFromSnapshot(snap)
-        assertEquals(1, repo.getAllPlaylists().size); assertEquals("P", repo.getAllPlaylists()[0].name)
+        assertEquals(1, repo.getAllPlaylists().size)
+        assertEquals("P", repo.getAllPlaylists()[0].name)
     }
 
     /**
@@ -256,7 +304,10 @@ class PlaylistRepositoryImplTest {
      */
     @Test fun exportAndRestore_keepsUserOrder() = runTest {
         val id = repo.createPlaylist("Ordered")
-        listOf(1L, 2L, 3L).forEach { insertMusic(it); repo.addToPlaylist(id, it) }
+        listOf(1L, 2L, 3L).forEach {
+            insertMusic(it)
+            repo.addToPlaylist(id, it)
+        }
         repo.reorderPlaylistItems(id, listOf(3L, 1L, 2L))
         assertEquals(listOf(3L, 1L, 2L), repo.getPlaylistById(id).map { it.music.id })
 
@@ -273,12 +324,14 @@ class PlaylistRepositoryImplTest {
 
     /** D3-02 的降级分支：旧快照没有 `itemOrder`（全 0）时按导出顺序编号，而不是撞唯一索引。 */
     @Test fun restoreFromLegacySnapshot_withoutItemOrder() = runTest {
-        insertMusic(1); insertMusic(2); insertMusic(3)
+        insertMusic(1)
+        insertMusic(2)
+        insertMusic(3)
         val legacy = com.hmp.domain.backup.PlaylistsSnapshot(
             playlists = listOf(com.hmp.domain.playlist.Playlist(id = 900L, name = "Legacy")),
             playlistItems = listOf(1L, 2L, 3L).map {
                 com.hmp.domain.playlist.PlaylistItem(songId = it, playlistId = 900L)
-            }
+            },
         )
 
         repo.restoreFromSnapshot(legacy)
@@ -287,7 +340,8 @@ class PlaylistRepositoryImplTest {
     }
 
     @Test fun getAllPlaylistsFlow() = runTest {
-        repo.createPlaylist("A"); repo.createPlaylist("B")
+        repo.createPlaylist("A")
+        repo.createPlaylist("B")
         val flow = repo.getAllPlaylistsFlow().first()
         assertEquals(2, flow.size)
     }

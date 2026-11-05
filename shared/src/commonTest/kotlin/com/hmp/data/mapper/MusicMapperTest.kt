@@ -1,20 +1,20 @@
 package com.hmp.data.mapper
 
+import com.hmp.domain.music.MusicLabel
+import com.hmp.domain.setting.model.ListeningDuration
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import com.hmp.data.database.ListeningDuration as ListeningDurationEntity
 import com.hmp.data.database.Music as MusicEntity
 import com.hmp.data.database.MusicExtra as MusicExtraEntity
 import com.hmp.data.database.MusicLabel as MusicLabelEntity
-import com.hmp.data.database.UserInfo as UserInfoEntity
-import com.hmp.data.database.ListeningDuration as ListeningDurationEntity
 import com.hmp.data.database.PlaybackHistory as PlaybackHistoryEntity
+import com.hmp.data.database.UserInfo as UserInfoEntity
 import com.hmp.data.database.myenum.LabelCategory as DataLabelCategory
 import com.hmp.data.database.myenum.LabelName as DataLabelName
 import com.hmp.domain.enum.LabelCategory as DomainLabelCategory
 import com.hmp.domain.enum.LabelName as DomainLabelName
-import com.hmp.domain.music.MusicLabel
-import com.hmp.domain.setting.model.ListeningDuration
 import com.hmp.domain.setting.model.PlaybackHistory as PlaybackHistoryDomain
-import kotlin.test.Test
-import kotlin.test.assertEquals
 
 /**
  * 曲目图（`music` / `musicExtra` / `userInfo`）的映射测试 —— **只测 `entity → domain`**。
@@ -39,7 +39,7 @@ class MusicMapperTest {
             album = "Test Album",
             duration = 180000L,
             path = "/path/to/song.mp3",
-            albumArtUri = "/path/to/art.jpg"
+            albumArtUri = "/path/to/art.jpg",
         )
         val domain = entity.toDomain()
         assertEquals(1L, domain.id)
@@ -69,7 +69,7 @@ class MusicMapperTest {
             singerIntroduce = "intro",
             backgroundIntroduce = "bg",
             description = "desc",
-            relevantMusic = "related"
+            relevantMusic = "related",
         )
         val domain = entity.toDomain()
         assertEquals(1L, domain.id)
@@ -94,7 +94,7 @@ class MusicMapperTest {
             playCount = 42,
             skippedCount = 3,
             userRating = 5,
-            inCustomPlaylistCount = 2
+            inCustomPlaylistCount = 2,
         )
         val domain = entity.toDomain()
         assertEquals(1L, domain.id)
@@ -112,7 +112,7 @@ class MusicMapperTest {
         val entity = MusicLabelEntity(
             musicId = 1,
             type = DataLabelCategory.GENRE,
-            label = DataLabelName.ROCK
+            label = DataLabelName.ROCK,
         )
         val domain = entity.toDomain()
         assertEquals(1L, domain.musicId)
@@ -125,7 +125,7 @@ class MusicMapperTest {
         val domain = MusicLabel(
             musicId = 2,
             type = DomainLabelCategory.MOOD,
-            label = DomainLabelName.HAPPY
+            label = DomainLabelName.HAPPY,
         )
         val entity = domain.toEntity()
         assertEquals(2L, entity.musicId)
@@ -138,7 +138,7 @@ class MusicMapperTest {
         val entity = ListeningDurationEntity(
             date = "2024-01-15",
             duration = 3600000L,
-            updatedAt = 1700000000L
+            updatedAt = 1700000000L,
         )
         val domain = entity.toDomain()
         assertEquals("2024-01-15", domain.date)
@@ -151,7 +151,7 @@ class MusicMapperTest {
         val original = ListeningDuration(
             date = "2024-06-01",
             duration = 7200000L,
-            updatedAt = 1700100000L
+            updatedAt = 1700100000L,
         )
         val entity = original.toEntity()
         val restored = entity.toDomain()
@@ -166,7 +166,7 @@ class MusicMapperTest {
             playedAt = 1700000000L,
             playDuration = 120000L,
             isCompleted = true,
-            source = "playlist"
+            source = "playlist",
         )
         val domain = entity.toDomain()
         assertEquals(1L, domain.id)
@@ -185,7 +185,7 @@ class MusicMapperTest {
             playedAt = 1700100000L,
             playDuration = 180000L,
             isCompleted = false,
-            source = "search"
+            source = "search",
         )
         val entity = original.toEntity()
         val restored = entity.toDomain()

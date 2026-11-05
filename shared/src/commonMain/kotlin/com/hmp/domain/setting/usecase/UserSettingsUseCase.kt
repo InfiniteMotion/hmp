@@ -7,7 +7,7 @@ import com.hmp.domain.setting.model.ScanDirectoryConfig
 import kotlinx.coroutines.flow.Flow
 
 class UserSettingsUseCase(
-    private val settingsRepository: SettingsRepository
+    private val settingsRepository: SettingsRepository,
 ) {
     val isFirstLaunch: Flow<Boolean> = settingsRepository.isFirstLaunch
 
@@ -60,9 +60,7 @@ class UserSettingsUseCase(
         settingsRepository.saveHazeIntensity(intensity)
     }
 
-    suspend fun getAvatarUri(): String? {
-        return settingsRepository.getAvatarUri()
-    }
+    suspend fun getAvatarUri(): String? = settingsRepository.getAvatarUri()
 
     suspend fun saveAvatarUri(uri: String) {
         settingsRepository.saveAvatarUri(uri)
@@ -77,33 +75,25 @@ class UserSettingsUseCase(
     // AI Access Mode
     val aiAccessMode: Flow<AiAccessMode> = settingsRepository.aiAccessMode
 
-    suspend fun getAiAccessMode(): AiAccessMode {
-        return settingsRepository.getAiAccessMode()
-    }
+    suspend fun getAiAccessMode(): AiAccessMode = settingsRepository.getAiAccessMode()
 
     suspend fun saveAiAccessMode(mode: AiAccessMode) {
         settingsRepository.saveAiAccessMode(mode)
     }
 
-    suspend fun getCustomAiConfig(): AiEndpointConfig {
-        return settingsRepository.getCustomAiConfig()
-    }
+    suspend fun getCustomAiConfig(): AiEndpointConfig = settingsRepository.getCustomAiConfig()
 
     suspend fun saveCustomAiConfig(config: AiEndpointConfig) {
         settingsRepository.saveCustomAiConfig(config)
     }
 
-    suspend fun getActiveAiConfig(): AiEndpointConfig {
-        return settingsRepository.getActiveAiConfig()
-    }
+    suspend fun getActiveAiConfig(): AiEndpointConfig = settingsRepository.getActiveAiConfig()
 
     suspend fun isBuiltInAiConfigured(): Boolean = settingsRepository.isBuiltInAiConfigured()
 
-    suspend fun getGlobalAgentConfig(): com.hmp.domain.agent.runtime.GlobalAgentConfig =
-        settingsRepository.getGlobalAgentConfig()
+    suspend fun getGlobalAgentConfig(): com.hmp.domain.agent.runtime.GlobalAgentConfig = settingsRepository.getGlobalAgentConfig()
 
-    suspend fun saveGlobalAgentConfig(config: com.hmp.domain.agent.runtime.GlobalAgentConfig) =
-        settingsRepository.saveGlobalAgentConfig(config)
+    suspend fun saveGlobalAgentConfig(config: com.hmp.domain.agent.runtime.GlobalAgentConfig) = settingsRepository.saveGlobalAgentConfig(config)
 
     val autoBatchProcess: Flow<Boolean> = settingsRepository.autoBatchProcess
 
@@ -123,5 +113,4 @@ class UserSettingsUseCase(
     suspend fun saveScanDirectoryConfig(config: ScanDirectoryConfig) {
         settingsRepository.saveScanDirectoryConfig(config)
     }
-
 }

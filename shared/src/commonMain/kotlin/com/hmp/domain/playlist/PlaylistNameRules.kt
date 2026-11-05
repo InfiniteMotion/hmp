@@ -60,10 +60,11 @@ suspend fun validatePlaylistName(
  * 十几处测试与调用点使用，改成密封结果会把改动面摊到与规则无关的地方。
  * 调用点要展示文案时按 [error] 翻成本地化字符串即可。
  */
-class PlaylistNameException(val error: PlaylistNameError) : IllegalArgumentException(
-    when (error) {
-        PlaylistNameError.EMPTY -> "歌单名不能为空"
-        PlaylistNameError.TOO_LONG -> "歌单名不能超过 $PLAYLIST_NAME_MAX_LENGTH 个字"
-        PlaylistNameError.DUPLICATE -> "已存在同名歌单"
-    }
-)
+class PlaylistNameException(val error: PlaylistNameError) :
+    IllegalArgumentException(
+        when (error) {
+            PlaylistNameError.EMPTY -> "歌单名不能为空"
+            PlaylistNameError.TOO_LONG -> "歌单名不能超过 $PLAYLIST_NAME_MAX_LENGTH 个字"
+            PlaylistNameError.DUPLICATE -> "已存在同名歌单"
+        },
+    )

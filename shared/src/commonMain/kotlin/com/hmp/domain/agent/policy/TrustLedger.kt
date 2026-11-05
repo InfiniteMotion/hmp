@@ -34,7 +34,7 @@ class TrustLedger(
         implicitAcceptByTool[toolName] = c
         if (c >= escalationThreshold && config.trustLevel < 2) {
             config.trustLevel++
-            implicitAcceptByTool[toolName] = 0  // 置零避免下档立即触发
+            implicitAcceptByTool[toolName] = 0 // 置零避免下档立即触发
             onChange?.invoke()
         }
     }

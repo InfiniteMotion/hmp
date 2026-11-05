@@ -53,7 +53,7 @@ fun IosAppRootShell() {
                     recommendationViewModel = recommendationViewModel,
                     onFinished = {
                         settingsViewModel.saveIsFirstLaunchStatus(false)
-                    }
+                    },
                 )
             } else {
                 AppRoot(darkTheme = darkTheme)
@@ -63,5 +63,4 @@ fun IosAppRootShell() {
 }
 
 /** Swift 壳调用入口：创建完整 Compose 应用根 ViewController。 */
-fun createAppRootViewController(): UIViewController =
-    ComposeUIViewController { IosAppRootShell() }
+fun createAppRootViewController(): UIViewController = ComposeUIViewController { IosAppRootShell() }

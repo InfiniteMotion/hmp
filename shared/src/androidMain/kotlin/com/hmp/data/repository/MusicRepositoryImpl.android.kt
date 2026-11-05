@@ -22,11 +22,13 @@ import com.hmp.data.database.UserInfoDao
 import com.hmp.data.database.currentTimeMillis
 import com.hmp.data.mapper.toDomain
 import com.hmp.data.network.OpenAiCompatibleAdapter
+import com.hmp.domain.backup.TransactionRunner
 import com.hmp.domain.music.AudioFormats
 import com.hmp.domain.music.MusicInfo
 import com.hmp.domain.music.MusicRepository
-import com.hmp.domain.backup.TransactionRunner
 import com.hmp.domain.setting.SettingsRepository
+import com.hmp.log.HmpLog
+import com.hmp.log.LogTag
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -39,8 +41,6 @@ import kotlinx.serialization.json.Json
 import org.jaudiotagger.audio.AudioFileIO
 import org.jaudiotagger.tag.FieldKey
 import java.io.File
-import com.hmp.log.HmpLog
-import com.hmp.log.LogTag
 
 /**
  * Android 播放器仓库实现（B0 去重后仅保留平台分叉）：MediaStore 扫描 / SAF 标签写入 /
@@ -62,7 +62,7 @@ class MusicRepositoryImpl(
     forgottenDeliveryDao: ForgottenDeliveryDao,
     transactionRunner: TransactionRunner,
     private val settingsRepository: SettingsRepository,
-    private val context: Context
+    private val context: Context,
 ) : MusicRepositoryBase(
     musicDao = musicDao,
     musicExtraDao = musicExtraDao,
@@ -77,7 +77,7 @@ class MusicRepositoryImpl(
     agentAuditLogDao = agentAuditLogDao,
     forgottenDeliveryDao = forgottenDeliveryDao,
     json = json,
-    transactionRunner = transactionRunner
+    transactionRunner = transactionRunner,
 ) {
 
     // `getAllMusicInfoAsList` 已上收到 `MusicRepositoryBase`（一-5 / D2-08）：
@@ -188,7 +188,7 @@ class MusicRepositoryImpl(
             MediaStore.Audio.Media.DATA,
             MediaStore.Audio.Media.ALBUM_ID,
             MediaStore.Audio.Media.MIME_TYPE,
-            MediaStore.Audio.Media.SIZE
+            MediaStore.Audio.Media.SIZE,
         )
 
         // 目录管理（R3 恢复）：Android 无「扫描根」概念（MediaStore 已索引全部可读媒体），
@@ -233,7 +233,7 @@ class MusicRepositoryImpl(
             projection,
             selection,
             selectionArgs.toTypedArray(),
-            sortOrder
+            sortOrder,
         )?.use { cursor ->
             while (cursor.moveToNext()) {
                 try {
@@ -256,7 +256,7 @@ class MusicRepositoryImpl(
 
                     val albumArtUri = ContentUris.withAppendedId(
                         "content://media/external/audio/albumart".toUri(),
-                        albumId
+                        albumId,
                     ).toString()
 
                     scanRows.add(
@@ -269,8 +269,8 @@ class MusicRepositoryImpl(
                             path = path,
                             albumArtUri = albumArtUri,
                             mimeType = mimeType,
-                            fileSize = fileSize
-                        )
+                            fileSize = fileSize,
+                        ),
                     )
                 } catch (e: Exception) {
                     HmpLog.e(LogTag.DataMusicRepo, e) { "🎵 MusicRepository: Error processing music item: ${e.message}" }
@@ -306,8 +306,8 @@ class MusicRepositoryImpl(
                     album = row.album,
                     duration = row.duration,
                     path = row.path,
-                    albumArtUri = row.albumArtUri
-                )
+                    albumArtUri = row.albumArtUri,
+                ),
             )
             musicExtraList.add(
                 MusicExtra(
@@ -317,13 +317,13 @@ class MusicRepositoryImpl(
                     sampleRate = extra.sampleRate,
                     fileSize = row.fileSize,
                     format = row.mimeType,
-                    isGetExtraInfo = false
-                )
+                    isGetExtraInfo = false,
+                ),
             )
             userInfoList.add(
                 UserInfo(
                     id = row.id,
-                )
+                ),
             )
         }
 
@@ -333,5 +333,4 @@ class MusicRepositoryImpl(
         }
         Triple(musicList, extrasWithDate, userInfoList)
     }
-
 }

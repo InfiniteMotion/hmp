@@ -59,10 +59,11 @@ fun MiniPlayerBarPage(onBack: () -> Unit) {
 
     StorybookPage(
         title = Strings.miniPlayerBar(lang),
-        description = if (lang == AppLanguage.ZH)
+        description = if (lang == AppLanguage.ZH) {
             "全局悬浮迷你播放器，胶囊形设计，显示当前播放歌曲信息，支持播放/暂停、上一首/下一首控制"
-        else
-            "Global floating mini player with capsule design, showing current song info with play/pause and skip controls",
+        } else {
+            "Global floating mini player with capsule design, showing current song info with play/pause and skip controls"
+        },
         onBack = onBack,
     ) {
         // 播放中状态
@@ -174,7 +175,7 @@ private fun MiniPlayerBarPreview(
                             ),
                         )
                         .then(
-                            if (isPlaying) Modifier.rotate(rotation) else Modifier
+                            if (isPlaying) Modifier.rotate(rotation) else Modifier,
                         ),
                 )
 

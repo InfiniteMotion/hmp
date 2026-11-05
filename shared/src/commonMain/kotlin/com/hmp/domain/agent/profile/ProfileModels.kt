@@ -41,8 +41,7 @@ object ProfileSources {
      * 用途见 [ProfileConfig.contextConfidenceFloor] 的 KDoc —— 曲库侧写是"数出来的"，
      * 不是"猜出来的"，所以不受推断类门槛约束。
      */
-    fun isFactual(source: String): Boolean =
-        source == LIBRARY_SHAPE || source == LIBRARY_CONTENT
+    fun isFactual(source: String): Boolean = source == LIBRARY_SHAPE || source == LIBRARY_CONTENT
 }
 
 /** 分级阈值与配额（契约 §13 的 PF4 / PF14；先硬编码，将来可搬 DataStore）。 */

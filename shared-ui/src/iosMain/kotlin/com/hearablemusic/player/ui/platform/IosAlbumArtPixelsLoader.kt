@@ -23,33 +23,32 @@ import platform.posix.memcpy
  */
 class IosAlbumArtPixelsLoader : AlbumArtPixelsLoader {
 
-    override suspend fun loadPixels(albumArtUri: String): IntArray? =
-        withContext(Dispatchers.Default) {
-            val fm = NSFileManager.defaultManager
-            if (!fm.fileExistsAtPath(albumArtUri)) return@withContext null
+    override suspend fun loadPixels(albumArtUri: String): IntArray? = withContext(Dispatchers.Default) {
+        val fm = NSFileManager.defaultManager
+        if (!fm.fileExistsAtPath(albumArtUri)) return@withContext null
 
-            val bytes = runCatching {
-                fm.contentsAtPath(albumArtUri)?.toByteArray()
-            }.getOrNull() ?: return@withContext null
+        val bytes = runCatching {
+            fm.contentsAtPath(albumArtUri)?.toByteArray()
+        }.getOrNull() ?: return@withContext null
 
-            runCatching {
-                val image = Image.makeFromEncoded(bytes)
-                val bitmap = Bitmap()
-                bitmap.allocPixels(
-                    ImageInfo.makeN32Premul(image.width, image.height, null)
-                )
-                Canvas(bitmap).drawImage(image, 0f, 0f)
+        runCatching {
+            val image = Image.makeFromEncoded(bytes)
+            val bitmap = Bitmap()
+            bitmap.allocPixels(
+                ImageInfo.makeN32Premul(image.width, image.height, null),
+            )
+            Canvas(bitmap).drawImage(image, 0f, 0f)
 
-                val step = maxOf(1, minOf(image.width, image.height) / 32)
-                val pixels = mutableListOf<Int>()
-                for (y in 0 until image.height step step) {
-                    for (x in 0 until image.width step step) {
-                        pixels.add(bitmap.getColor(x, y))
-                    }
+            val step = maxOf(1, minOf(image.width, image.height) / 32)
+            val pixels = mutableListOf<Int>()
+            for (y in 0 until image.height step step) {
+                for (x in 0 until image.width step step) {
+                    pixels.add(bitmap.getColor(x, y))
                 }
-                pixels.toIntArray()
-            }.getOrNull()
-        }
+            }
+            pixels.toIntArray()
+        }.getOrNull()
+    }
 }
 
 /** NSData → ByteArray（K/N 无内建转换，memcpy 拷贝）。 */

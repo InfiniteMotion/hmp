@@ -63,7 +63,6 @@ enum class LabelName {
     HINDI,
     RUSSIAN,
 
-
     // 年代标签
     SIXTIES,
     SEVENTIES,
@@ -73,21 +72,19 @@ enum class LabelName {
     TWENTY_TENS,
     TWENTY_TWENTIES,
 
-    UNKNOWN;
+    UNKNOWN,
+
+    ;
 
     companion object {
-        fun match(value: String): LabelName? {
-            return enumValues<LabelName>().firstOrNull {
-                it.name.equals(value, ignoreCase = true)
-            }
+        fun match(value: String): LabelName? = enumValues<LabelName>().firstOrNull {
+            it.name.equals(value, ignoreCase = true)
         }
-        
+
         /**
          * 获取标签对应的图标资源名称(小写)
          * UI层需要根据这个名称获取drawable资源
          */
-        fun LabelName.getIconResourceName(): String {
-            return this.name.lowercase()
-        }
+        fun LabelName.getIconResourceName(): String = this.name.lowercase()
     }
 }

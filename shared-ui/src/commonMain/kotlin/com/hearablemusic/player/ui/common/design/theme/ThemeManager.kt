@@ -10,33 +10,29 @@ import kotlin.math.pow
 
 object ThemeManager {
 
-    fun getLightColorScheme(): ColorScheme {
-        return lightColorScheme(
-            primary = ColorTokens.LightPrimary,
-            onPrimary = ColorTokens.LightOnPrimary,
-            primaryContainer = ColorTokens.LightPrimaryContainer,
-            onPrimaryContainer = ColorTokens.LightOnPrimaryContainer,
-            secondary = ColorTokens.LightSecondary,
-            background = ColorTokens.LightBackground,
-            surface = ColorTokens.LightSurface,
-            error = ColorTokens.LightError,
-            surfaceTint = ColorTokens.LightPrimary,
-        )
-    }
+    fun getLightColorScheme(): ColorScheme = lightColorScheme(
+        primary = ColorTokens.LightPrimary,
+        onPrimary = ColorTokens.LightOnPrimary,
+        primaryContainer = ColorTokens.LightPrimaryContainer,
+        onPrimaryContainer = ColorTokens.LightOnPrimaryContainer,
+        secondary = ColorTokens.LightSecondary,
+        background = ColorTokens.LightBackground,
+        surface = ColorTokens.LightSurface,
+        error = ColorTokens.LightError,
+        surfaceTint = ColorTokens.LightPrimary,
+    )
 
-    fun getDarkColorScheme(): ColorScheme {
-        return darkColorScheme(
-            primary = ColorTokens.DarkPrimary,
-            onPrimary = ColorTokens.DarkOnPrimary,
-            primaryContainer = ColorTokens.DarkPrimaryContainer,
-            onPrimaryContainer = ColorTokens.DarkOnPrimaryContainer,
-            secondary = ColorTokens.DarkSecondary,
-            background = ColorTokens.DarkBackground,
-            surface = ColorTokens.DarkSurface,
-            error = ColorTokens.DarkError,
-            surfaceTint = ColorTokens.DarkPrimary,
-        )
-    }
+    fun getDarkColorScheme(): ColorScheme = darkColorScheme(
+        primary = ColorTokens.DarkPrimary,
+        onPrimary = ColorTokens.DarkOnPrimary,
+        primaryContainer = ColorTokens.DarkPrimaryContainer,
+        onPrimaryContainer = ColorTokens.DarkOnPrimaryContainer,
+        secondary = ColorTokens.DarkSecondary,
+        background = ColorTokens.DarkBackground,
+        surface = ColorTokens.DarkSurface,
+        error = ColorTokens.DarkError,
+        surfaceTint = ColorTokens.DarkPrimary,
+    )
 
     fun generateDynamicColorScheme(paletteColors: PaletteColors, isDarkTheme: Boolean): ColorScheme {
         val rawPrimary = paletteColors.primary
@@ -80,8 +76,11 @@ object ThemeManager {
     private fun relativeLuminance(r: Int, g: Int, b: Int): Float {
         fun linearize(c: Int): Double {
             val s = c / 255.0
-            return if (s <= 0.04045) s / 12.92
-            else ((s + 0.055) / 1.055).pow(2.4)
+            return if (s <= 0.04045) {
+                s / 12.92
+            } else {
+                ((s + 0.055) / 1.055).pow(2.4)
+            }
         }
         return (0.2126 * linearize(r) + 0.7152 * linearize(g) + 0.0722 * linearize(b)).toFloat()
     }
@@ -103,7 +102,7 @@ object ThemeManager {
     private fun ensureContrast(
         color: Color,
         background: Color,
-        target: Float
+        target: Float,
     ): Color {
         var r = (color.red * 255).toInt().coerceIn(0, 255)
         var g = (color.green * 255).toInt().coerceIn(0, 255)
@@ -124,15 +123,13 @@ object ThemeManager {
             b = (b + db).coerceIn(0, 255)
         }
         return Color(
-            0xFF000000L or (r.toLong() shl 16) or (g.toLong() shl 8) or b.toLong()
+            0xFF000000L or (r.toLong() shl 16) or (g.toLong() shl 8) or b.toLong(),
         )
     }
 
-    fun getPresetColorScheme(isDarkTheme: Boolean): ColorScheme {
-        return if (isDarkTheme) {
-            getDarkColorScheme()
-        } else {
-            getLightColorScheme()
-        }
+    fun getPresetColorScheme(isDarkTheme: Boolean): ColorScheme = if (isDarkTheme) {
+        getDarkColorScheme()
+    } else {
+        getLightColorScheme()
     }
 }

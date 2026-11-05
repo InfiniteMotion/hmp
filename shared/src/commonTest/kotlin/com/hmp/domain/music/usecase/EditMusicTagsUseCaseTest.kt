@@ -24,10 +24,10 @@ class EditMusicTagsUseCaseTest {
             album = "Old Album",
             duration = 180000,
             path = "/music/$id.mp3",
-            albumArtUri = ""
+            albumArtUri = "",
         ),
         extra = null,
-        userInfo = null
+        userInfo = null,
     )
 
     @Test
@@ -42,8 +42,8 @@ class EditMusicTagsUseCaseTest {
                 year = "2020",
                 genre = "Rock",
                 track = "3",
-                lyrics = "new lyrics"
-            )
+                lyrics = "new lyrics",
+            ),
         )
         assertTrue(result.isSuccess)
         val updated = repository.getMusicInfoById(1).first()!!
@@ -85,7 +85,7 @@ class EditMusicTagsUseCaseTest {
         repository.addMusic(music(1))
         val result = useCase.refreshAfterFileWrite(
             1,
-            EditableMusicTags(title = "New Title", lyrics = "new lyrics")
+            EditableMusicTags(title = "New Title", lyrics = "new lyrics"),
         )
         assertTrue(result.isSuccess)
         val updated = repository.getMusicInfoById(1).first()!!

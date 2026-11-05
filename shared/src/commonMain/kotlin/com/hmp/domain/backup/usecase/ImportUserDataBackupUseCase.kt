@@ -47,20 +47,20 @@ class ImportUserDataBackupUseCase(
 
         if (snapshot.version > UserBackupSnapshot.CURRENT_VERSION) {
             return Result.failure(
-                BackupVersionTooNewException(snapshot.version, UserBackupSnapshot.CURRENT_VERSION)
+                BackupVersionTooNewException(snapshot.version, UserBackupSnapshot.CURRENT_VERSION),
             )
         }
         if (snapshot.createdAt <= 0L) {
             // 导出侧一定会写 createdAt（`ExportUserDataBackupUseCase`）。为 0 说明这不是本应用
             // 导出的备份 —— 最典型的是 `{}`，它能反序列化成功但四个分区全空，继续下去就是把库清空。
             return Result.failure(
-                IllegalArgumentException("这不是 Hearable Music Player 的备份文件（缺少 createdAt），本次未改动任何数据。")
+                IllegalArgumentException("这不是 Hearable Music Player 的备份文件（缺少 createdAt），本次未改动任何数据。"),
             )
         }
 
         val safetyCopyPath = exportUseCase(BackupFileRepository.PRE_RESTORE_PREFIX).getOrNull()
             ?: return Result.failure(
-                IllegalStateException("未能生成恢复前副本，本次恢复未开始，曲库与设置保持原样。")
+                IllegalStateException("未能生成恢复前副本，本次恢复未开始，曲库与设置保持原样。"),
             )
 
         return try {
@@ -73,7 +73,7 @@ class ImportUserDataBackupUseCase(
                 // 让"库回滚了而设置已改"这种半截状态只可能由 DataStore 自己写失败造成（罕见，且有副本可找回）。
                 settingsRepository.restoreFromSnapshot(
                     snapshot.appSettings
-                        ?: AppSettingsSnapshot(themeMode = "default", backgroundStyle = "FLUID")
+                        ?: AppSettingsSnapshot(themeMode = "default", backgroundStyle = "FLUID"),
                 )
             }
             Result.success(Unit)

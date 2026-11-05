@@ -1,12 +1,15 @@
 package com.hmp.test.fakes
 
+import com.hmp.domain.agent.port.CommandSource
 import com.hmp.domain.agent.port.ConfirmGate
 import com.hmp.domain.agent.port.ConfirmOutcome
 import com.hmp.domain.agent.port.ConfirmRequest
-import com.hmp.domain.agent.port.CommandSource
 import com.hmp.domain.agent.port.FakeNowPlayingContextProvider
+import com.hmp.domain.agent.port.LlmMessage
+import com.hmp.domain.agent.port.LlmTransport
 import com.hmp.domain.agent.port.PlaybackCommand
 import com.hmp.domain.agent.port.PlaybackCommandPort
+import com.hmp.domain.agent.port.ToolPermissionLevel
 import com.hmp.domain.agent.runtime.StopSignal
 import com.hmp.domain.agent.runtime.SystemConditions
 import com.hmp.domain.agent.tool.ToolDependencies
@@ -14,9 +17,6 @@ import com.hmp.domain.agent.tool.spec.AgentTool
 import com.hmp.domain.agent.tool.spec.ToolArgs
 import com.hmp.domain.agent.tool.spec.ToolParam
 import com.hmp.domain.agent.tool.spec.ToolResult
-import com.hmp.domain.agent.port.ToolPermissionLevel
-import com.hmp.domain.agent.port.LlmMessage
-import com.hmp.domain.agent.port.LlmTransport
 import com.hmp.domain.music.Music
 import com.hmp.domain.music.MusicInfo
 import com.hmp.domain.setting.model.AiEndpointConfig
@@ -71,8 +71,7 @@ class FakeSystemConditions(
  * 引擎层测试（ReActLoop / Scheduler）不关心播放指令内容，只要 ToolDependencies 可装配。
  */
 object FakePlaybackCommandPort : PlaybackCommandPort {
-    override suspend fun execute(command: PlaybackCommand, source: CommandSource): Pair<Boolean, String> =
-        true to "ok"
+    override suspend fun execute(command: PlaybackCommand, source: CommandSource): Pair<Boolean, String> = true to "ok"
 }
 
 // ───────────────────────── 工具 Fake ─────────────────────────
@@ -141,12 +140,10 @@ fun seedMusic(
 }
 
 /** 脚本化 LlmTransport：每轮重放同一序列。 */
-fun scriptedTransport(vararg events: com.hmp.domain.agent.port.LlmEvent): LlmTransport =
-    FakeLlmTransport(script = events.toList())
+fun scriptedTransport(vararg events: com.hmp.domain.agent.port.LlmEvent): LlmTransport = FakeLlmTransport(script = events.toList())
 
 /** 脚本化 LlmTransport：按轮次消费（多轮 tool-loop 场景）。 */
-fun perTurnTransport(vararg turns: List<com.hmp.domain.agent.port.LlmEvent>): LlmTransport =
-    FakeLlmTransport(perTurnScript = turns.map { it })
+fun perTurnTransport(vararg turns: List<com.hmp.domain.agent.port.LlmEvent>): LlmTransport = FakeLlmTransport(perTurnScript = turns.map { it })
 
 /** 调用即失败的 LlmTransport（模拟 HTTP/网络错误路径）。 */
 fun failingTransport(): LlmTransport = FakeLlmTransport(failOnCall = true)

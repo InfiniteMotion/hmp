@@ -50,8 +50,7 @@ object AppDatabaseGuard {
      * 只有**文件已存在**时才打开它 —— `BundledSQLiteDriver.open()` 对不存在的路径会顺手建出空文件，
      * 守卫不该有"替用户建库"这种副作用。
      */
-    private fun readUserVersionIfPresent(dbPath: String): Int? =
-        if (databaseFileExists(dbPath)) readUserVersion(dbPath) else null
+    private fun readUserVersionIfPresent(dbPath: String): Int? = if (databaseFileExists(dbPath)) readUserVersion(dbPath) else null
 
     /** 纯判定（与 IO 分开，判据才能直接喂数字进来验）。 */
     fun judge(dbVersion: Int?, codeVersion: Int): DatabaseTooNew? {
@@ -68,19 +67,18 @@ object AppDatabaseGuard {
         tooNew = null
     }
 
-    private fun readUserVersion(path: String): Int? =
-        runCatching {
-            // SQLiteConnection 不是 Closeable，`use` 只给语句用；连接必须自己关掉，
-            // 否则守卫会在每次启动上留一个悬着的库句柄。
-            val connection: SQLiteConnection = BundledSQLiteDriver().open(path)
-            try {
-                connection.prepare("PRAGMA user_version").use { statement ->
-                    if (statement.step()) statement.getLong(0).toInt() else null
-                }
-            } finally {
-                connection.close()
+    private fun readUserVersion(path: String): Int? = runCatching {
+        // SQLiteConnection 不是 Closeable，`use` 只给语句用；连接必须自己关掉，
+        // 否则守卫会在每次启动上留一个悬着的库句柄。
+        val connection: SQLiteConnection = BundledSQLiteDriver().open(path)
+        try {
+            connection.prepare("PRAGMA user_version").use { statement ->
+                if (statement.step()) statement.getLong(0).toInt() else null
             }
-        }.getOrNull()
+        } finally {
+            connection.close()
+        }
+    }.getOrNull()
 }
 
 /** 库比代码新。版本号只用于把话说清楚，不做任何"能不能凑合用"的判断。 */
@@ -92,10 +90,11 @@ data class DatabaseTooNew(val dbVersion: Int, val codeVersion: Int)
  * 类型化是判据要求的一半：不收敛的话，冒到启动流程的是 Room 内部的 `IllegalStateException`
  * （"A migration ... was not found"），它既不说明版本关系，也不该出现在用户面前。
  */
-class DatabaseTooNewException(val state: DatabaseTooNew) : Exception(
-    "数据库版本（${state.dbVersion}）高于本应用支持的版本（${state.codeVersion}）。" +
-        "数据未被修改：请升级应用到新版本，或从更早的备份恢复。"
-)
+class DatabaseTooNewException(val state: DatabaseTooNew) :
+    Exception(
+        "数据库版本（${state.dbVersion}）高于本应用支持的版本（${state.codeVersion}）。" +
+            "数据未被修改：请升级应用到新版本，或从更早的备份恢复。",
+    )
 
 /**
  * 库文件是否存在。三端的"文件"语义不同（`java.io.File` vs `NSFileManager`），

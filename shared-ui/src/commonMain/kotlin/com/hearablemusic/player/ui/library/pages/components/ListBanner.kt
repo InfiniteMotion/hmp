@@ -19,8 +19,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
 import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
+import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
 
 /**
  * 列表页分组标题。
@@ -30,14 +30,14 @@ fun ListGroupName(
     bannerNameF: String,
     bannerNameS: String,
     themeColor: Color,
-    trailing: @Composable (() -> Unit)? = null
+    trailing: @Composable (() -> Unit)? = null,
 ) {
     val metrics = LocalHmpMetrics.current
     val typo = LocalHmpTypo.current
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(bottom = metrics.cozy)
+            .padding(bottom = metrics.cozy),
     ) {
         // 标题部分
         Row(
@@ -45,26 +45,26 @@ fun ListGroupName(
                 .fillMaxWidth()
                 .padding(start = metrics.cozy, end = metrics.cozy, top = metrics.cozy, bottom = metrics.compact),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+            horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = bannerNameF,
                     style = typo.headline,
-                    color = MaterialTheme.colorScheme.onBackground
+                    color = MaterialTheme.colorScheme.onBackground,
                 )
                 Spacer(modifier = Modifier.width(metrics.compact))
                 Box(
                     modifier = Modifier
                         .size(metrics.compact)
                         .clip(CircleShape)
-                        .background(themeColor)
+                        .background(themeColor),
                 )
                 Spacer(modifier = Modifier.width(metrics.compact))
                 Text(
                     text = bannerNameS,
                     style = typo.headline,
-                    color = MaterialTheme.colorScheme.onBackground
+                    color = MaterialTheme.colorScheme.onBackground,
                 )
             }
             if (trailing != null) trailing()

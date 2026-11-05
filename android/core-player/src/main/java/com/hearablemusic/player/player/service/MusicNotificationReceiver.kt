@@ -16,7 +16,7 @@ class MusicNotificationReceiver : BroadcastReceiver() {
             this.action = action
         }
         HmpLog.d(LogTag.PlayerService) { "📡 接收到操作: $action" }
-        
+
         // API 26+ 需要使用 startForegroundService
         try {
             context.startForegroundService(serviceIntent)

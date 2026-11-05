@@ -68,13 +68,11 @@ object LyricsPresentationParams {
      * 距离模糊半径（dp）：当前行与上下行（distance 0/1）保持清晰，
      * 聚焦窗口外（distance >= 2）施加模糊。
      */
-    fun blurRadiusDp(distance: Int): Float =
-        if (distance >= 2) FAR_BLUR_RADIUS_DP else 0f
+    fun blurRadiusDp(distance: Int): Float = if (distance >= 2) FAR_BLUR_RADIUS_DP else 0f
 
     /** 光晕呼吸 alpha：phase01 取 0..1（正弦相位归一化） */
     fun glowAlpha(phase01: Float): Float {
         val p = phase01.coerceIn(0f, 1f)
         return GLOW_ALPHA_MIN + (GLOW_ALPHA_MAX - GLOW_ALPHA_MIN) * p
     }
-
 }

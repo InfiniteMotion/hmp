@@ -1,17 +1,17 @@
 package com.hmp.domain.agent.profile
 
 import com.hmp.data.database.UserProfileEvidenceDao
+import com.hmp.data.database.UserProfileEvidenceEntity
 import com.hmp.data.database.UserProfileNarrativeDao
 import com.hmp.data.database.UserProfileNarrativeEntity
 import com.hmp.data.database.UserProfilePortraitDao
 import com.hmp.data.database.currentTimeMillis
 import com.hmp.data.mapper.UserProfileMapper
 import com.hmp.data.mapper.UserProfileMapper.toDomain
-import com.hmp.data.database.UserProfileEvidenceEntity
 import com.hmp.data.mapper.UserProfileMapper.toEntity
-import com.hmp.domain.backup.TransactionRunner
 import com.hmp.domain.agent.port.AuditEntry
 import com.hmp.domain.agent.port.AuditLogPort
+import com.hmp.domain.backup.TransactionRunner
 import com.hmp.domain.music.MusicRepository
 import com.hmp.domain.music.MusicSortKey
 import com.hmp.domain.music.SortDirection
@@ -421,15 +421,14 @@ class UserMemory(
      *
      * 该查询本身带 `WHERE music.isDeleted = 0`，天然符合"排除软删除"纪律（契约 §4.3）。
      */
-    private suspend fun loadLibraryTracks(): List<LibraryTrack> =
-        musicRepository.getAllMusicInfoAsList(MusicSortKey.ID, SortDirection.ASC).map { info ->
-            LibraryTrack(
-                artist = info.music.artist,
-                album = info.music.album,
-                durationMs = info.music.duration,
-                path = info.music.path,
-            )
-        }
+    private suspend fun loadLibraryTracks(): List<LibraryTrack> = musicRepository.getAllMusicInfoAsList(MusicSortKey.ID, SortDirection.ASC).map { info ->
+        LibraryTrack(
+            artist = info.music.artist,
+            album = info.music.album,
+            durationMs = info.music.duration,
+            path = info.music.path,
+        )
+    }
 
     /** 侧写表不存来源（它是派生物），来源要按反链把证据取回来 —— 上下文门槛按"事实/推断"区分。 */
     private suspend fun loadPortraitDrafts(): List<PortraitDraft> {
@@ -443,7 +442,7 @@ class UserMemory(
         }
         return rows.map { row ->
             row.toDomain(
-                UserProfileMapper.decodeRefs(row.evidenceRefs).mapNotNull { sourceById[it] }.toSet()
+                UserProfileMapper.decodeRefs(row.evidenceRefs).mapNotNull { sourceById[it] }.toSet(),
             )
         }
     }
@@ -465,11 +464,9 @@ class UserMemory(
      * 一次刷写的原子段（D5-12）：有事务入口就包起来，没有就原样跑
      *（"依赖不齐则整体不装配"的老路径保留可运行，但那条路上没有原子性）。
      */
-    private suspend fun <R> writePhase(block: suspend () -> R): R =
-        transactionRunner?.run(block) ?: block()
+    private suspend fun <R> writePhase(block: suspend () -> R): R = transactionRunner?.run(block) ?: block()
 
-    private suspend fun upsertEvidence(draft: EvidenceDraft, now: Long): Int =
-        upsertEvidenceBatch(listOf(draft), now)
+    private suspend fun upsertEvidence(draft: EvidenceDraft, now: Long): Int = upsertEvidenceBatch(listOf(draft), now)
 
     /**
      * 一批草稿的落库（D5-12）：**一次批量读 + 最多两次批量写**，往返数与草稿条数无关。
@@ -535,7 +532,7 @@ class UserMemory(
                     nowMs = now,
                     createdAt = existingCreatedAt[portrait.type.id] ?: now,
                 )
-            }
+            },
         )
         return portraits.size
     }

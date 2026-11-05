@@ -29,10 +29,13 @@ interface AgentKeepAlivePort {
 enum class KeepAliveReason {
     /** 有音频正在播放（最基础的后台存活场景）。 */
     PLAYING,
+
     /** 电台会话活跃（含"等模型出队列"的无音频窗口）。 */
     RADIO_ACTIVE,
+
     /** 富化等周期性后台任务（可走 BGProcessingTask / dataSync 型服务）。 */
     ENRICH_TASK,
+
     /** 主动问候等主动性工作。 */
     PROACTIVE,
 }

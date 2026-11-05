@@ -1,3 +1,8 @@
+// PlaybackCommand 的实现刻意用 SCREAMING_SNAKE 表达「命令枚举」语义，
+// 与 Kotlin 的 class-naming 规则冲突；改名会让 CommandLexicon / ContextPlaybackTools /
+// ControllerAgentPorts 等引用文件一起产生无收益的 diff，故在此文件级豁免。
+@file:Suppress("ktlint:standard:class-naming")
+
 package com.hmp.domain.agent.port
 
 import com.hmp.domain.music.MusicInfo
@@ -22,26 +27,47 @@ enum class CommandSource { USER, AGENT_INTERNAL }
 sealed interface PlaybackCommand {
     val displayName: String
 
-    data object PLAY : PlaybackCommand { override val displayName: String get() = "播放" }
-    data object PAUSE : PlaybackCommand { override val displayName: String get() = "暂停" }
-    data object NEXT : PlaybackCommand { override val displayName: String get() = "下一首" }
-    data object PREVIOUS : PlaybackCommand { override val displayName: String get() = "上一首" }
+    data object PLAY : PlaybackCommand {
+        override val displayName: String get() = "播放"
+    }
+    data object PAUSE : PlaybackCommand {
+        override val displayName: String get() = "暂停"
+    }
+    data object NEXT : PlaybackCommand {
+        override val displayName: String get() = "下一首"
+    }
+    data object PREVIOUS : PlaybackCommand {
+        override val displayName: String get() = "上一首"
+    }
     data class SEEK_TO(val positionMs: Long) : PlaybackCommand {
         override val displayName: String get() = "跳转至 ${positionMs / 1000} 秒"
     }
     data class PLAY_BY_ID(val musicId: Long) : PlaybackCommand {
         override val displayName: String get() = "播放曲目 $musicId"
     }
-    data object SHUFFLE_ON : PlaybackCommand { override val displayName: String get() = "开启随机播放" }
-    data object SHUFFLE_OFF : PlaybackCommand { override val displayName: String get() = "关闭随机播放" }
-    data object REPEAT_ONE_ON : PlaybackCommand { override val displayName: String get() = "单曲循环开启" }
-    data object REPEAT_ALL_ON : PlaybackCommand { override val displayName: String get() = "全部循环开启" }
-    data object REPEAT_OFF : PlaybackCommand { override val displayName: String get() = "关闭循环" }
+    data object SHUFFLE_ON : PlaybackCommand {
+        override val displayName: String get() = "开启随机播放"
+    }
+    data object SHUFFLE_OFF : PlaybackCommand {
+        override val displayName: String get() = "关闭随机播放"
+    }
+    data object REPEAT_ONE_ON : PlaybackCommand {
+        override val displayName: String get() = "单曲循环开启"
+    }
+    data object REPEAT_ALL_ON : PlaybackCommand {
+        override val displayName: String get() = "全部循环开启"
+    }
+    data object REPEAT_OFF : PlaybackCommand {
+        override val displayName: String get() = "关闭循环"
+    }
     data class ADD_TO_QUEUE(val musicId: Long) : PlaybackCommand {
         override val displayName: String get() = "追加入队 $musicId"
     }
+
     /** 跳过当前播放队列的所有曲目（M6-T2 电台重排时清空旧队列）。 */
-    data object SKIP_ALL : PlaybackCommand { override val displayName: String get() = "清空播放队列" }
+    data object SKIP_ALL : PlaybackCommand {
+        override val displayName: String get() = "清空播放队列"
+    }
 
     /**
      * 保持当前正在播放的曲目不动，用给定曲目列表替换队列中剩余的曲目。
@@ -148,8 +174,7 @@ object FakePlaybackCommandPort : PlaybackCommandPort {
     override suspend fun execute(
         command: PlaybackCommand,
         source: CommandSource,
-    ): Pair<Boolean, String> =
-        true to "（测试环境）[${command.displayName}] 已接收指令"
+    ): Pair<Boolean, String> = true to "（测试环境）[${command.displayName}] 已接收指令"
 }
 
 object FakeNowPlayingContextProvider : NowPlayingContextProvider {

@@ -24,10 +24,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.hmp.domain.agent.quota.TokenQuotaGate
-import com.hmp.domain.agent.runtime.MasterAgent
-import com.hmp.domain.agent.runtime.sub.radio.RadioState
 import com.hearablemusic.player.ui.common.components.base.HMPCard
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
 import com.hearablemusic.player.ui.common.design.typography.medium
 import com.hearablemusic.player.ui.common.dialogs.controller.DialogManager
@@ -51,11 +49,13 @@ import com.hearablemusic.player.ui.generated.resources.radio_card_open_console
 import com.hearablemusic.player.ui.generated.resources.radio_entry_seed_desc
 import com.hearablemusic.player.ui.generated.resources.radio_entry_seed_title
 import com.hearablemusic.player.ui.generated.resources.radiowaves
+import com.hmp.domain.agent.quota.TokenQuotaGate
+import com.hmp.domain.agent.runtime.MasterAgent
+import com.hmp.domain.agent.runtime.sub.radio.RadioState
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
-import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 
 /**
  * 播放页的电台入口（替换原「生成推荐列表」）。
@@ -119,8 +119,11 @@ fun RadioEntryCard(
                 Icon(
                     painter = painterResource(Res.drawable.radiowaves),
                     contentDescription = null,
-                    tint = if (isActive) MaterialTheme.colorScheme.primary
-                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                    tint = if (isActive) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
                     modifier = Modifier.size(metrics.cozy),
                 )
                 Spacer(Modifier.size(metrics.compact))
@@ -134,8 +137,11 @@ fun RadioEntryCard(
                     Text(
                         text = statusText,
                         style = typo.caption,
-                        color = if (isPaused) MaterialTheme.colorScheme.onSurfaceVariant
-                        else MaterialTheme.colorScheme.primary,
+                        color = if (isPaused) {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        } else {
+                            MaterialTheme.colorScheme.primary
+                        },
                     )
                 }
             }

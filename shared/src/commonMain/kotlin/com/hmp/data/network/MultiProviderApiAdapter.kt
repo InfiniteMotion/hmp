@@ -6,6 +6,8 @@ import com.hmp.data.network.dto.OpenAiStreamChunk
 import com.hmp.data.network.dto.OpenAiStyleRequest
 import com.hmp.data.network.dto.OpenAiStyleResponse
 import com.hmp.domain.setting.model.AiEndpointConfig
+import com.hmp.log.HmpLog
+import com.hmp.log.LogTag
 import io.ktor.client.*
 import io.ktor.client.call.*
 import io.ktor.client.request.*
@@ -15,8 +17,6 @@ import io.ktor.utils.io.*
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.serialization.json.Json
-import com.hmp.log.HmpLog
-import com.hmp.log.LogTag
 
 sealed class AiApiResult<out T> {
     data class Success<T>(val data: T) : AiApiResult<T>()
@@ -31,15 +31,13 @@ sealed class AiApiError {
     data class ParseError(val message: String) : AiApiError()
     data class UnknownError(val message: String) : AiApiError()
 
-    fun toDisplayMessage(): String {
-        return when (this) {
-            is NetworkError -> "网络连接失败: $message"
-            is AuthError -> "认证失败，请检查 API Key"
-            is RateLimitError -> "请求过于频繁，请稍后重试"
-            is ServerError -> "服务器错误 ($code)"
-            is ParseError -> "响应解析失败"
-            is UnknownError -> "未知错误: $message"
-        }
+    fun toDisplayMessage(): String = when (this) {
+        is NetworkError -> "网络连接失败: $message"
+        is AuthError -> "认证失败，请检查 API Key"
+        is RateLimitError -> "请求过于频繁，请稍后重试"
+        is ServerError -> "服务器错误 ($code)"
+        is ParseError -> "响应解析失败"
+        is UnknownError -> "未知错误: $message"
     }
 }
 
@@ -50,7 +48,7 @@ sealed class AiApiError {
  */
 class OpenAiCompatibleAdapter(
     private val httpClient: HttpClient,
-    private val json: Json
+    private val json: Json,
 ) {
     /**
      * 调用 Chat Completion API（非流式）。
@@ -61,39 +59,37 @@ class OpenAiCompatibleAdapter(
     suspend fun callChatApi(
         config: AiEndpointConfig,
         prompt: String,
-        temperature: Float = 0.3f
-    ): AiApiResult<String> {
-        return try {
-            val url = "${config.endpoint.trimEnd('/')}/chat/completions"
-            val requestBody = OpenAiStyleRequest(
-                model = config.selectedModel,
-                messages = listOf(OpenAiMessage(role = "user", content = prompt)),
-                temperature = temperature,
-                responseFormat = mapOf("type" to "json_object")
-            )
+        temperature: Float = 0.3f,
+    ): AiApiResult<String> = try {
+        val url = "${config.endpoint.trimEnd('/')}/chat/completions"
+        val requestBody = OpenAiStyleRequest(
+            model = config.selectedModel,
+            messages = listOf(OpenAiMessage(role = "user", content = prompt)),
+            temperature = temperature,
+            responseFormat = mapOf("type" to "json_object"),
+        )
 
-            val response = httpClient.post(url) {
-                headers {
-                    append("Authorization", formatAuthToken(config.apiKey))
-                    append("Content-Type", "application/json")
-                }
-                setBody(requestBody)
+        val response = httpClient.post(url) {
+            headers {
+                append("Authorization", formatAuthToken(config.apiKey))
+                append("Content-Type", "application/json")
             }
-
-            if (response.status.isSuccess()) {
-                val responseBody: OpenAiStyleResponse = response.body()
-                val content = responseBody.choices?.firstOrNull()?.message?.content
-                if (content != null) {
-                    AiApiResult.Success(content)
-                } else {
-                    AiApiResult.Error(AiApiError.ParseError("No content in response"))
-                }
-            } else {
-                handleHttpError(response.status)
-            }
-        } catch (e: Exception) {
-            AiApiResult.Error(AiApiError.NetworkError(e.message ?: "Network error"))
+            setBody(requestBody)
         }
+
+        if (response.status.isSuccess()) {
+            val responseBody: OpenAiStyleResponse = response.body()
+            val content = responseBody.choices?.firstOrNull()?.message?.content
+            if (content != null) {
+                AiApiResult.Success(content)
+            } else {
+                AiApiResult.Error(AiApiError.ParseError("No content in response"))
+            }
+        } else {
+            handleHttpError(response.status)
+        }
+    } catch (e: Exception) {
+        AiApiResult.Error(AiApiError.NetworkError(e.message ?: "Network error"))
     }
 
     /**
@@ -143,67 +139,59 @@ class OpenAiCompatibleAdapter(
     /**
      * 获取可用模型列表
      */
-    suspend fun fetchModels(config: AiEndpointConfig): AiApiResult<List<String>> {
-        return try {
-            val url = "${config.endpoint.trimEnd('/')}/models"
-            val response = httpClient.get(url) {
-                headers {
-                    append("Authorization", formatAuthToken(config.apiKey))
-                }
+    suspend fun fetchModels(config: AiEndpointConfig): AiApiResult<List<String>> = try {
+        val url = "${config.endpoint.trimEnd('/')}/models"
+        val response = httpClient.get(url) {
+            headers {
+                append("Authorization", formatAuthToken(config.apiKey))
             }
-
-            if (response.status.isSuccess()) {
-                val responseBody: ModelsResponse = response.body()
-                val models = responseBody.data?.map { it.id }?.sorted() ?: emptyList()
-                if (models.isNotEmpty()) {
-                    AiApiResult.Success(models)
-                } else {
-                    AiApiResult.Error(AiApiError.ParseError("No models returned"))
-                }
-            } else {
-                handleHttpError(response.status)
-            }
-        } catch (e: Exception) {
-            AiApiResult.Error(AiApiError.NetworkError(e.message ?: "Network error"))
         }
+
+        if (response.status.isSuccess()) {
+            val responseBody: ModelsResponse = response.body()
+            val models = responseBody.data?.map { it.id }?.sorted() ?: emptyList()
+            if (models.isNotEmpty()) {
+                AiApiResult.Success(models)
+            } else {
+                AiApiResult.Error(AiApiError.ParseError("No models returned"))
+            }
+        } else {
+            handleHttpError(response.status)
+        }
+    } catch (e: Exception) {
+        AiApiResult.Error(AiApiError.NetworkError(e.message ?: "Network error"))
     }
 
     /**
      * 测试连接（验证 endpoint + key 有效性）
      */
-    suspend fun testConnection(config: AiEndpointConfig): AiApiResult<Boolean> {
-        return try {
-            val url = "${config.endpoint.trimEnd('/')}/models"
-            val response = httpClient.get(url) {
-                headers {
-                    append("Authorization", formatAuthToken(config.apiKey))
-                }
+    suspend fun testConnection(config: AiEndpointConfig): AiApiResult<Boolean> = try {
+        val url = "${config.endpoint.trimEnd('/')}/models"
+        val response = httpClient.get(url) {
+            headers {
+                append("Authorization", formatAuthToken(config.apiKey))
             }
-
-            if (response.status.isSuccess()) {
-                AiApiResult.Success(true)
-            } else {
-                handleHttpError(response.status)
-            }
-        } catch (e: Exception) {
-            AiApiResult.Error(AiApiError.NetworkError(e.message ?: "网络错误"))
         }
-    }
 
-    private fun handleHttpError(status: HttpStatusCode): AiApiResult<Nothing> {
-        return when (status.value) {
-            401, 403 -> AiApiResult.Error(AiApiError.AuthError("Authentication failed: ${status.description}"))
-            429 -> AiApiResult.Error(AiApiError.RateLimitError("Rate limit exceeded"))
-            in 500..599 -> AiApiResult.Error(AiApiError.ServerError(status.value, status.description))
-            else -> AiApiResult.Error(AiApiError.UnknownError("HTTP ${status.value}: ${status.description}"))
-        }
-    }
-
-    private fun formatAuthToken(apiKey: String): String {
-        return if (apiKey.startsWith("Bearer ", ignoreCase = true)) {
-            apiKey
+        if (response.status.isSuccess()) {
+            AiApiResult.Success(true)
         } else {
-            "Bearer $apiKey"
+            handleHttpError(response.status)
         }
+    } catch (e: Exception) {
+        AiApiResult.Error(AiApiError.NetworkError(e.message ?: "网络错误"))
+    }
+
+    private fun handleHttpError(status: HttpStatusCode): AiApiResult<Nothing> = when (status.value) {
+        401, 403 -> AiApiResult.Error(AiApiError.AuthError("Authentication failed: ${status.description}"))
+        429 -> AiApiResult.Error(AiApiError.RateLimitError("Rate limit exceeded"))
+        in 500..599 -> AiApiResult.Error(AiApiError.ServerError(status.value, status.description))
+        else -> AiApiResult.Error(AiApiError.UnknownError("HTTP ${status.value}: ${status.description}"))
+    }
+
+    private fun formatAuthToken(apiKey: String): String = if (apiKey.startsWith("Bearer ", ignoreCase = true)) {
+        apiKey
+    } else {
+        "Bearer $apiKey"
     }
 }

@@ -36,8 +36,12 @@ class CardPoolTest {
         cardId = id,
         type = SlideType.RECOMMEND,
         content = RecommendContent(
-            trackId = 1, trackTitle = "夜航", reason = "因为你最近常听",
-            currentPhase = TimePhase.WORK, sourceLabel = null, durationSec = 180,
+            trackId = 1,
+            trackTitle = "夜航",
+            reason = "因为你最近常听",
+            currentPhase = TimePhase.WORK,
+            sourceLabel = null,
+            durationSec = 180,
         ),
     )
 
@@ -110,16 +114,19 @@ class CardPoolTest {
     fun popByType_removesOnlyThatType() {
         val pool = CardPool()
         pool.replace(SlideType.ANCHOR, anchorCard("a1"))
-        pool.replace(SlideType.RADIO_STATUS, SlideCard(
-            cardId = "rs1",
-            type = SlideType.RADIO_STATUS,
-            content = RadioStatusContent(
-                stationTheme = "摇滚", actionText = "播放中",
-                nowPlayingTitle = "夜航", nowPlayingArtist = "甲", albumArtUri = null,
-                nowPlayingWhy = null, nextTrackTitle = null, nextTrackWhy = null,
-                playlistCount = 3, progressPercent = null, targetCount = null,
+        pool.replace(
+            SlideType.RADIO_STATUS,
+            SlideCard(
+                cardId = "rs1",
+                type = SlideType.RADIO_STATUS,
+                content = RadioStatusContent(
+                    stationTheme = "摇滚", actionText = "播放中",
+                    nowPlayingTitle = "夜航", nowPlayingArtist = "甲", albumArtUri = null,
+                    nowPlayingWhy = null, nextTrackTitle = null, nextTrackWhy = null,
+                    playlistCount = 3, progressPercent = null, targetCount = null,
+                ),
             ),
-        ))
+        )
 
         pool.popByType(SlideType.RADIO_STATUS)
 

@@ -1,15 +1,15 @@
 package com.hmp.domain.music.usecase
 
-import com.hmp.domain.setting.model.ListeningDuration
 import com.hmp.domain.music.MusicInfo
 import com.hmp.domain.music.MusicLabel
 import com.hmp.domain.music.MusicRepository
 import com.hmp.domain.setting.SettingsRepository
+import com.hmp.domain.setting.model.ListeningDuration
+import com.hmp.log.HmpLog
+import com.hmp.log.LogTag
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.withTimeoutOrNull
-import com.hmp.log.HmpLog
-import com.hmp.log.LogTag
 
 class GetDailyMusicRecommendationUseCase(
     private val musicRepository: MusicRepository,
@@ -22,7 +22,7 @@ class GetDailyMusicRecommendationUseCase(
      */
     data class MusicRecommendation(
         val musicInfo: MusicInfo?,
-        val labels: List<MusicLabel?>
+        val labels: List<MusicLabel?>,
     )
 
     suspend fun getMusicWithExtraById(musicId: Long): MusicRecommendation? {
@@ -47,13 +47,9 @@ class GetDailyMusicRecommendationUseCase(
         return musicRepository.validateProviderApiKey(config).getOrDefault(false)
     }
 
-    suspend fun validateProviderApiKey(config: com.hmp.domain.setting.model.AiEndpointConfig): Boolean {
-        return musicRepository.validateProviderApiKey(config).getOrDefault(false)
-    }
+    suspend fun validateProviderApiKey(config: com.hmp.domain.setting.model.AiEndpointConfig): Boolean = musicRepository.validateProviderApiKey(config).getOrDefault(false)
 
-    suspend fun fetchModels(config: com.hmp.domain.setting.model.AiEndpointConfig): kotlin.Result<List<String>> {
-        return musicRepository.fetchAvailableModels(config)
-    }
+    suspend fun fetchModels(config: com.hmp.domain.setting.model.AiEndpointConfig): kotlin.Result<List<String>> = musicRepository.fetchAvailableModels(config)
 
     /**
      * 热力图数据源：**一整年**（D5-08）。
@@ -62,9 +58,7 @@ class GetDailyMusicRecommendationUseCase(
      * "35 条"既不是 35 天也不是全年，页面却写着"全年/年度热力图"。
      * 现在一次取满 365 个日历日的量，缺的日子由纯函数侧补零（网格对齐在那边做）。
      */
-    fun getRecentListeningDurations(): Flow<List<ListeningDuration>> {
-        return musicRepository.getRecentListeningDurations(HEATMAP_WINDOW_DAYS)
-    }
+    fun getRecentListeningDurations(): Flow<List<ListeningDuration>> = musicRepository.getRecentListeningDurations(HEATMAP_WINDOW_DAYS)
 
     private companion object {
         /** 热力图窗口 = 一年（与站点对外承诺的「全年听歌密度」同口径） */

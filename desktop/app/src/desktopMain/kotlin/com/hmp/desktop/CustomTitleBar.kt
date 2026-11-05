@@ -23,18 +23,18 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.hearablemusic.player.ui.common.design.animation.HmpMotion
+import com.hearablemusic.player.ui.common.design.colors.ColorTokens
 import com.hearablemusic.player.ui.common.design.metrics.HMPMetricTokens
 import com.hearablemusic.player.ui.common.design.metrics.LayoutConstraints
-import com.hearablemusic.player.ui.common.design.colors.ColorTokens
-import com.hearablemusic.player.ui.common.design.animation.HmpMotion
 
 /**
  * 标题栏高度。Main.kt 将它 provides 给 LocalTitleBarInset，内容区为悬浮标题栏让位。
@@ -58,37 +58,40 @@ fun CustomTitleBar(
     isDarkTheme: Boolean,
     isPlaying: Boolean = false,
     onMinimize: () -> Unit,
-    onClose: () -> Unit
+    onClose: () -> Unit,
 ) {
     // 背景透明度：与下方动态背景完全相同的动画机制
     val bgAlpha by animateFloatAsState(
         targetValue = if (isPlaying) 0f else 1f,
-        animationSpec = HmpMotion.page()
+        animationSpec = HmpMotion.page(),
     )
 
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(TITLE_BAR_HEIGHT)
+            .height(TITLE_BAR_HEIGHT),
     ) {
         // 背景层（alpha 动画）
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .graphicsLayer(alpha = bgAlpha)
-                .background(MaterialTheme.colorScheme.background)
+                .background(MaterialTheme.colorScheme.background),
         )
 
         // 内容层（始终可见）
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier.fillMaxSize(),
         ) {
             // Left: App title — dimmed when playing for immersive look
             val titleColor by animateColorAsState(
-                targetValue = if (isPlaying) MaterialTheme.colorScheme.primary.copy(alpha = 0.55f)
-                               else MaterialTheme.colorScheme.primary,
-                animationSpec = HmpMotion.page()
+                targetValue = if (isPlaying) {
+                    MaterialTheme.colorScheme.primary.copy(alpha = 0.55f)
+                } else {
+                    MaterialTheme.colorScheme.primary
+                },
+                animationSpec = HmpMotion.page(),
             )
             Text(
                 text = "HMP",
@@ -96,70 +99,70 @@ fun CustomTitleBar(
                 color = titleColor,
                 fontSize = LayoutConstraints.TitleBarFontSize,
                 fontWeight = FontWeight.SemiBold,
-                letterSpacing = LayoutConstraints.TitleBarLetterSpacing
+                letterSpacing = LayoutConstraints.TitleBarLetterSpacing,
             )
 
-        // Center: Draggable area — uses java.awt.MouseInfo for screen-absolute
-        // mouse position. This avoids the Compose coordinate feedback loop that
-        // causes jitter when using detectDragGestures.
-        Box(
-            modifier = Modifier
-                .weight(1f)
-                .height(TITLE_BAR_HEIGHT)
-                .pointerInput(Unit) {
-                    awaitPointerEventScope {
-                        while (true) {
-                            val down = awaitPointerEvent(PointerEventPass.Initial)
-                            if (!down.changes.any { it.pressed }) continue
-                            down.changes.first().consume()
-
-                            val awtWindow = java.awt.Window.getWindows().firstOrNull() ?: continue
-                            val startMouse = java.awt.MouseInfo.getPointerInfo().location
-                            val startWin = awtWindow.locationOnScreen
-
+            // Center: Draggable area — uses java.awt.MouseInfo for screen-absolute
+            // mouse position. This avoids the Compose coordinate feedback loop that
+            // causes jitter when using detectDragGestures.
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .height(TITLE_BAR_HEIGHT)
+                    .pointerInput(Unit) {
+                        awaitPointerEventScope {
                             while (true) {
-                                val move = awaitPointerEvent(PointerEventPass.Initial)
-                                if (!move.changes.any { it.pressed }) break
-                                move.changes.first().consume()
+                                val down = awaitPointerEvent(PointerEventPass.Initial)
+                                if (!down.changes.any { it.pressed }) continue
+                                down.changes.first().consume()
 
-                                val mouse = java.awt.MouseInfo.getPointerInfo().location
-                                awtWindow.location = java.awt.Point(
-                                    startWin.x + mouse.x - startMouse.x,
-                                    startWin.y + mouse.y - startMouse.y
-                                )
+                                val awtWindow = java.awt.Window.getWindows().firstOrNull() ?: continue
+                                val startMouse = java.awt.MouseInfo.getPointerInfo().location
+                                val startWin = awtWindow.locationOnScreen
+
+                                while (true) {
+                                    val move = awaitPointerEvent(PointerEventPass.Initial)
+                                    if (!move.changes.any { it.pressed }) break
+                                    move.changes.first().consume()
+
+                                    val mouse = java.awt.MouseInfo.getPointerInfo().location
+                                    awtWindow.location = java.awt.Point(
+                                        startWin.x + mouse.x - startMouse.x,
+                                        startWin.y + mouse.y - startMouse.y,
+                                    )
+                                }
                             }
                         }
-                    }
-                }
-        )
-
-        // Right: Window control buttons
-        val closeInteraction = remember { MutableInteractionSource() }
-        val closeHovered by closeInteraction.collectIsHoveredAsState()
-
-        Row(
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Minimize button
-            WindowControlButton(
-                symbol = "─",
-                isDarkTheme = isDarkTheme,
-                isTransparent = isPlaying,
-                onClick = onMinimize
+                    },
             )
 
-            // Close button — red highlight on hover
-            WindowControlButton(
-                symbol = "✕",
-                isDarkTheme = isDarkTheme,
-                isClose = true,
-                isTransparent = isPlaying,
-                interactionSource = closeInteraction,
-                hoveredOverride = closeHovered,
-                onClick = onClose
-            )
+            // Right: Window control buttons
+            val closeInteraction = remember { MutableInteractionSource() }
+            val closeHovered by closeInteraction.collectIsHoveredAsState()
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                // Minimize button
+                WindowControlButton(
+                    symbol = "─",
+                    isDarkTheme = isDarkTheme,
+                    isTransparent = isPlaying,
+                    onClick = onMinimize,
+                )
+
+                // Close button — red highlight on hover
+                WindowControlButton(
+                    symbol = "✕",
+                    isDarkTheme = isDarkTheme,
+                    isClose = true,
+                    isTransparent = isPlaying,
+                    interactionSource = closeInteraction,
+                    hoveredOverride = closeHovered,
+                    onClick = onClose,
+                )
+            }
         }
-    }
     }
 }
 
@@ -171,7 +174,7 @@ private fun WindowControlButton(
     isTransparent: Boolean = false,
     interactionSource: MutableInteractionSource = remember { MutableInteractionSource() },
     hoveredOverride: Boolean? = null,
-    onClick: () -> Unit
+    onClick: () -> Unit,
 ) {
     val isHovered = hoveredOverride ?: interactionSource.collectIsHoveredAsState().value
     val isPressed by interactionSource.collectIsPressedAsState()
@@ -201,17 +204,17 @@ private fun WindowControlButton(
             .clickable(
                 interactionSource = interactionSource,
                 indication = null,
-                onClick = onClick
+                onClick = onClick,
             )
             .background(bgColor),
-        contentAlignment = Alignment.Center
+        contentAlignment = Alignment.Center,
     ) {
         Text(
             text = symbol,
             color = textColor,
             fontSize = LayoutConstraints.TitleBarButtonFontSize,
             textAlign = TextAlign.Center,
-            fontWeight = FontWeight.Normal
+            fontWeight = FontWeight.Normal,
         )
     }
 }

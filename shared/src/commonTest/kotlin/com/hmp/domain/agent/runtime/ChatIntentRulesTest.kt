@@ -33,7 +33,7 @@ class ChatIntentRulesTest {
     fun stopRadio_matchesStopPhrasesButNotMentions() {
         assertTrue(ChatIntentRules.isStopRadio("停电台"))
         assertTrue(ChatIntentRules.isStopRadio("stop radio"))
-        assertFalse(ChatIntentRules.isStopRadio("电台不错"))  // 提到电台 ≠ 要停
+        assertFalse(ChatIntentRules.isStopRadio("电台不错")) // 提到电台 ≠ 要停
     }
 
     // ═══ 富化生命周期：六态各自命中，且互不误命中 ═══

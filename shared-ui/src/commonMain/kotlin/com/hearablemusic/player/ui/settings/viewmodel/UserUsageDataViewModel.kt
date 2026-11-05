@@ -1,4 +1,6 @@
 package com.hearablemusic.player.ui.settings.viewmodel
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.hearablemusic.player.ui.common.text.UiText
 import com.hearablemusic.player.ui.common.text.asUiText
 import com.hearablemusic.player.ui.generated.resources.Res
@@ -7,27 +9,24 @@ import com.hearablemusic.player.ui.generated.resources.dim_overview
 import com.hearablemusic.player.ui.generated.resources.dim_rank
 import com.hearablemusic.player.ui.generated.resources.dim_recent
 import com.hearablemusic.player.ui.generated.resources.dim_taste
-
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
 import com.hmp.data.database.myenum.LabelCategory
+import com.hmp.domain.agent.card.NarrativeTimeRange
+import com.hmp.domain.agent.card.toDays
 import com.hmp.domain.agent.profile.PersonalityCardComposer
 import com.hmp.domain.agent.profile.ProfileNarrativeState
 import com.hmp.domain.agent.runtime.MasterAgent
-import com.hmp.domain.agent.card.NarrativeTimeRange
-import com.hmp.domain.agent.card.toDays
 import com.hmp.domain.music.HourlyDistributionRow
 import com.hmp.domain.music.MusicRepository
 import com.hmp.domain.setting.model.LabelCountEntry
 import com.hmp.domain.setting.model.RecentPlaybackEntry
 import com.hmp.domain.setting.model.TopPlayedEntry
 import com.hmp.domain.setting.model.WindowedUsageAnalytics
+import com.hmp.log.HmpLog
+import com.hmp.log.LogTag
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
-import com.hmp.log.HmpLog
-import com.hmp.log.LogTag
 import kotlinx.coroutines.launch
 
 /** 维度筛选枚举 — 决定下方内容区渲染什么组件。 */
@@ -73,11 +72,15 @@ class UserUsageDataViewModel(
     // ── ② 筛选轴 ──
     private val _dimension = MutableStateFlow(Dimension.OVERVIEW)
     val dimension: StateFlow<Dimension> = _dimension.asStateFlow()
-    fun selectDimension(d: Dimension) { _dimension.value = d }
+    fun selectDimension(d: Dimension) {
+        _dimension.value = d
+    }
 
     private val _timeRange = MutableStateFlow(NarrativeTimeRange.MONTH)
     val timeRange: StateFlow<NarrativeTimeRange> = _timeRange.asStateFlow()
-    fun selectTimeRange(range: NarrativeTimeRange) { _timeRange.value = range }
+    fun selectTimeRange(range: NarrativeTimeRange) {
+        _timeRange.value = range
+    }
 
     // ── ③ 时间窗口数据（两轴交叉） ──
     private val _windowed = MutableStateFlow(WindowedBundle())
@@ -123,6 +126,7 @@ class UserUsageDataViewModel(
                     isLoading = false,
                 )
             }
+
             Dimension.TASTE -> {
                 val topGenres = attempt(dim) { repo.getWindowedTopLabels(days, LabelCategory.GENRE) }.orEmpty()
                 val topMoods = attempt(dim) { repo.getWindowedTopLabels(days, LabelCategory.MOOD) }.orEmpty()
@@ -130,11 +134,14 @@ class UserUsageDataViewModel(
                 // 三条都取回空列表无法区分"没数据"与"失败"，所以失败标记只在 analytics 之外按整维度记：
                 // 任何一条抛异常就把该维度记为失败（空列表本身不报错）
                 _windowed.value = WindowedBundle(
-                    topGenres = topGenres, topMoods = topMoods, topScenarios = topScenarios,
+                    topGenres = topGenres,
+                    topMoods = topMoods,
+                    topScenarios = topScenarios,
                     failedDimension = failed,
                     isLoading = false,
                 )
             }
+
             Dimension.HOUR -> {
                 val hourly = attempt(dim) { repo.getHourlyDistribution(days) }
                 if (hourly == null) failed = dim
@@ -144,6 +151,7 @@ class UserUsageDataViewModel(
                     isLoading = false,
                 )
             }
+
             Dimension.RANK -> {
                 val songs = attempt(dim) { repo.getWindowedTopSongs(days) }
                 if (songs == null) failed = dim
@@ -153,6 +161,7 @@ class UserUsageDataViewModel(
                     isLoading = false,
                 )
             }
+
             Dimension.RECENT -> {
                 val items = attempt(dim) { repo.getWindowedRecentPlayback(days) }
                 if (items == null) failed = dim
@@ -171,15 +180,14 @@ class UserUsageDataViewModel(
      * 日志只记维度、时段与异常类（对齐 `UserMemory` 的「日志只记条数不记内容」纪律），
      * 不把播放记录内容写进日志。
      */
-    private suspend fun <T> attempt(dim: Dimension, block: suspend () -> T): T? =
-        try {
-            block()
-        } catch (e: kotlinx.coroutines.CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            HmpLog.w(LogTag.UiSettings, e) { "使用数据窗口读取失败 | dimension=$dim | range=${timeRange.value} | cause=${e::class.simpleName}" }
-            null
-        }
+    private suspend fun <T> attempt(dim: Dimension, block: suspend () -> T): T? = try {
+        block()
+    } catch (e: kotlinx.coroutines.CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        HmpLog.w(LogTag.UiSettings, e) { "使用数据窗口读取失败 | dimension=$dim | range=${timeRange.value} | cause=${e::class.simpleName}" }
+        null
+    }
 
     /** 兜底刷新（外部需要强制重拉时调用）。 */
     fun refresh() {

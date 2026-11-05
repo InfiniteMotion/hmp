@@ -2,48 +2,47 @@ package com.hearablemusic.player.ui.library.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.hearablemusic.player.ui.common.util.UiState
+import com.hearablemusic.player.ui.common.util.fileParentOf
+import com.hearablemusic.player.ui.generated.resources.Res
+import com.hearablemusic.player.ui.generated.resources.scan_failed
+import com.hearablemusic.player.ui.generated.resources.unknown
+import com.hmp.domain.agent.port.LibraryMutatedNotifier
 import com.hmp.domain.music.MusicInfo
 import com.hmp.domain.music.MusicSortKey
 import com.hmp.domain.music.SortDirection
 import com.hmp.domain.music.usecase.GetAllMusicUseCase
 import com.hmp.domain.music.usecase.GetDeletedMusicIdsGroupedByFolderUseCase
-import com.hmp.domain.agent.port.LibraryMutatedNotifier
 import com.hmp.domain.music.usecase.LoadMusicFromDeviceUseCase
 import com.hmp.domain.music.usecase.RemoveFromLibraryUseCase
 import com.hmp.domain.music.usecase.RestoreToLibraryUseCase
 import com.hmp.domain.music.usecase.SyncMusicFromDeviceIncrementalUseCase
 import com.hmp.domain.setting.model.ScanDirectoryConfig
 import com.hmp.domain.setting.usecase.UserSettingsUseCase
-
-import com.hearablemusic.player.ui.common.util.UiState
-import com.hearablemusic.player.ui.common.util.fileParentOf
-import com.hearablemusic.player.ui.generated.resources.Res
-import com.hearablemusic.player.ui.generated.resources.scan_failed
-import com.hearablemusic.player.ui.generated.resources.unknown
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.getString
 
 data class FolderInfo(
     val path: String,
-    val songCount: Int
+    val songCount: Int,
 )
 
 data class HiddenFolderInfo(
     val path: String,
     val songCount: Int,
-    val musicIds: List<Long>
+    val musicIds: List<Long>,
 )
 
 data class ScanResult(
     val musicList: List<MusicInfo> = emptyList(),
-    val scannedFolderCount: Int = 0
+    val scannedFolderCount: Int = 0,
 )
 
 /**
@@ -152,8 +151,11 @@ class LibraryViewModel(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), ScanDirectoryConfig())
 
     fun addScanDirectory(path: String) = updateScanDirectoryConfig { current ->
-        if (path.isBlank() || path in current.scanDirectories) current
-        else current.copy(scanDirectories = current.scanDirectories + path)
+        if (path.isBlank() || path in current.scanDirectories) {
+            current
+        } else {
+            current.copy(scanDirectories = current.scanDirectories + path)
+        }
     }
 
     fun removeScanDirectory(path: String) = updateScanDirectoryConfig { current ->
@@ -161,8 +163,11 @@ class LibraryViewModel(
     }
 
     fun addBlockedDirectory(path: String) = updateScanDirectoryConfig { current ->
-        if (path.isBlank() || path in current.blockedDirectories) current
-        else current.copy(blockedDirectories = current.blockedDirectories + path)
+        if (path.isBlank() || path in current.blockedDirectories) {
+            current
+        } else {
+            current.copy(blockedDirectories = current.blockedDirectories + path)
+        }
     }
 
     fun removeBlockedDirectory(path: String) = updateScanDirectoryConfig { current ->
@@ -259,7 +264,7 @@ class LibraryViewModel(
      */
     private fun refreshUserProfile() {
         // v3.6 收口：UI 只发「库变了」命令，画像重建的协调在 Master 内部
-        //（MasterAgent.onLibraryMutated 内 launch，失败不影响库操作本身）
+        // （MasterAgent.onLibraryMutated 内 launch，失败不影响库操作本身）
         libraryMutated.onLibraryMutated()
     }
 

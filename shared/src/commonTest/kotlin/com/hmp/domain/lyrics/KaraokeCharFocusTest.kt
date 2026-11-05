@@ -10,7 +10,7 @@ class KaraokeCharFocusTest {
         CharTiming("你", 0L, 1000L),
         CharTiming("好", 1000L, 2000L),
         CharTiming("世", 2000L, 3000L),
-        CharTiming("界", 3000L, 4000L)
+        CharTiming("界", 3000L, 4000L),
     )
 
     @Test
@@ -64,7 +64,7 @@ class KaraokeCharFocusTest {
             CharTiming("你", 0L, 100L),
             CharTiming("好", 100L, 200L),
             CharTiming("世", 200L, 300L),
-            CharTiming("界", 300L, 400L)
+            CharTiming("界", 300L, 400L),
         )
         val expanded = expandCharTimings("你好世界", timings)
         assertEquals(listOf(timings[0], timings[1], timings[2], timings[3]), expanded)
@@ -74,7 +74,7 @@ class KaraokeCharFocusTest {
     fun expandCharTimings_whitespaceCharsMapToNull() {
         val timings = listOf(
             CharTiming("A", 0L, 100L),
-            CharTiming("B", 100L, 200L)
+            CharTiming("B", 100L, 200L),
         )
         val expanded = expandCharTimings("A B", timings)
         assertEquals(timings[0], expanded[0])

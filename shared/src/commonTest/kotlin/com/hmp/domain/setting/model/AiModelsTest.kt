@@ -24,7 +24,7 @@ class AiEndpointConfigTest {
             apiKey = "sk-test-key",
             selectedModel = "gpt-4o",
             availableModels = listOf("gpt-4o", "gpt-4o-mini"),
-            isConfigured = true
+            isConfigured = true,
         )
         assertEquals("https://api.example.com/v1", config.endpoint)
         assertEquals("sk-test-key", config.apiKey)

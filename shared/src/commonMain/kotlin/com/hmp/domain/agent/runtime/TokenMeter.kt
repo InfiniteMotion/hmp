@@ -1,13 +1,12 @@
 package com.hmp.domain.agent.runtime
 
-import com.hmp.domain.agent.port.TimeProvider
-import com.hmp.domain.agent.quota.QuotaDecision
-import com.hmp.domain.agent.quota.TokenQuotaGate
-
 import com.hmp.data.database.TokenLedgerDao
 import com.hmp.data.database.TokenLedgerEntry
 import com.hmp.domain.agent.port.LlmEvent
 import com.hmp.domain.agent.port.LlmMessage
+import com.hmp.domain.agent.port.TimeProvider
+import com.hmp.domain.agent.quota.QuotaDecision
+import com.hmp.domain.agent.quota.TokenQuotaGate
 import com.hmp.domain.setting.model.AiEndpointConfig
 import com.hmp.log.HmpLog
 import com.hmp.log.LogTag
@@ -40,8 +39,7 @@ internal class TokenMeter(
 ) {
 
     /** 发请求前的准入判定。null gate = 永远放行。 */
-    suspend fun checkQuota(agentId: String): QuotaDecision =
-        quotaGate?.check(agentId) ?: QuotaDecision.Allowed
+    suspend fun checkQuota(agentId: String): QuotaDecision = quotaGate?.check(agentId) ?: QuotaDecision.Allowed
 
     /**
      * 记一次 LLM 调用。

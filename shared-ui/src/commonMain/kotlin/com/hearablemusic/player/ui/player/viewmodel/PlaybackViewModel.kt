@@ -1,14 +1,14 @@
 package com.hearablemusic.player.ui.player.viewmodel
 
 import androidx.lifecycle.ViewModel
+import com.hearablemusic.player.ui.platform.PlaybackController
 import com.hmp.domain.enum.PlaybackMode
 import com.hmp.domain.music.MusicInfo
-import com.hearablemusic.player.ui.platform.PlaybackController
 import kotlinx.coroutines.flow.StateFlow
 
 /** 播放控制薄包装：转发 [PlaybackController] 冻结接口的状态流。 */
 class PlaybackViewModel(
-    private val playbackController: PlaybackController
+    private val playbackController: PlaybackController,
 ) : ViewModel() {
 
     val isPlaying: StateFlow<Boolean> = playbackController.isPlaying

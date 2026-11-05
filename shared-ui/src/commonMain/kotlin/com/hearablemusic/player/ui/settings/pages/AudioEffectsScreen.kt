@@ -2,7 +2,6 @@ package com.hearablemusic.player.ui.settings.pages
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -33,17 +32,20 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color.Companion.Transparent
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
-import com.hmp.domain.setting.model.AudioEffectSettings
 import com.hearablemusic.player.ui.common.components.base.TitleWidget
+import com.hearablemusic.player.ui.common.design.metrics.HMPMetricTokens
+import com.hearablemusic.player.ui.common.design.metrics.LayoutConstraints
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
-import com.hearablemusic.player.ui.common.pages.base.SubScreen
 import com.hearablemusic.player.ui.common.layout.LocalWindowSizeInfo
+import com.hearablemusic.player.ui.common.pages.base.SubScreen
 import com.hearablemusic.player.ui.common.util.rememberHapticFeedback
 import com.hearablemusic.player.ui.generated.resources.Res
 import com.hearablemusic.player.ui.generated.resources.audio_effects_settings
@@ -54,34 +56,32 @@ import com.hearablemusic.player.ui.generated.resources.custom_equalizer
 import com.hearablemusic.player.ui.generated.resources.hall
 import com.hearablemusic.player.ui.generated.resources.large_room
 import com.hearablemusic.player.ui.generated.resources.preset_equalizer
-import com.hearablemusic.player.ui.generated.resources.reverb
 import com.hearablemusic.player.ui.generated.resources.reset_all
+import com.hearablemusic.player.ui.generated.resources.reverb
 import com.hearablemusic.player.ui.generated.resources.small_room
 import com.hearablemusic.player.ui.generated.resources.surround_sound
 import com.hearablemusic.player.ui.settings.viewmodel.AudioEffectViewModel
+import com.hmp.domain.setting.model.AudioEffectSettings
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 import kotlin.math.abs
-import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
-import com.hearablemusic.player.ui.common.design.metrics.HMPMetricTokens
-import com.hearablemusic.player.ui.common.design.metrics.LayoutConstraints
 
 @Composable
 fun AudioEffectsScreen(
     viewModel: AudioEffectViewModel = koinViewModel(),
-    navController: NavBackStack<NavKey>
+    navController: NavBackStack<NavKey>,
 ) {
     val audioEffectSettings by viewModel.audioEffectSettings.collectAsState()
     val equalizerPresets by viewModel.equalizerPresets.collectAsState()
     val equalizerBandCount by viewModel.equalizerBandCount.collectAsState()
     val equalizerBandLevelRange by viewModel.equalizerBandLevelRange.collectAsState()
     val currentEqualizerBandLevels by viewModel.currentEqualizerBandLevels.collectAsState()
-    
+
     // 初始化音效状态
     LaunchedEffect(Unit) {
         viewModel.initializeAudioEffects()
     }
-    
+
     AudioEffectsScreenContent(
         audioEffectSettings = audioEffectSettings,
         equalizerPresets = equalizerPresets,
@@ -93,7 +93,7 @@ fun AudioEffectsScreen(
         onSetBassBoost = viewModel::setBassBoost,
         onSetSurroundSound = viewModel::setSurroundSound,
         onSetReverb = viewModel::setReverb,
-        onSetCustomEqualizer = viewModel::setCustomEqualizer
+        onSetCustomEqualizer = viewModel::setCustomEqualizer,
     )
 }
 
@@ -109,81 +109,80 @@ fun AudioEffectsScreenContent(
     onSetBassBoost: (Int) -> Unit,
     onSetSurroundSound: (Boolean) -> Unit,
     onSetReverb: (Int) -> Unit,
-    onSetCustomEqualizer: (FloatArray) -> Unit
+    onSetCustomEqualizer: (FloatArray) -> Unit,
 ) {
     val metrics = LocalHmpMetrics.current
     // 使用SubScreen模板
     SubScreen(
         onBackClick = onBackClick,
-        title = stringResource(Res.string.audio_effects_settings)
+        title = stringResource(Res.string.audio_effects_settings),
     ) {
         val isLandscape = LocalWindowSizeInfo.current.isLandscape
         Column(
             modifier = Modifier.verticalScroll(rememberScrollState())
                 .fillMaxWidth()
                 .padding(metrics.section),
-            verticalArrangement = Arrangement.spacedBy(metrics.section)
+            verticalArrangement = Arrangement.spacedBy(metrics.section),
         ) {
             if (isLandscape) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(metrics.section)
+                    horizontalArrangement = Arrangement.spacedBy(metrics.section),
                 ) {
-                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(metrics.section))  {
-            TitleWidget(
-                title = stringResource(Res.string.preset_equalizer)
-            ) {
-                EqualizerPresetSelector(
-                    presets = equalizerPresets,
-                    currentPreset = audioEffectSettings.equalizerPreset,
-                    onPresetSelected = onSetEqualizerPreset
-                )
-            }
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(metrics.section)) {
+                        TitleWidget(
+                            title = stringResource(Res.string.preset_equalizer),
+                        ) {
+                            EqualizerPresetSelector(
+                                presets = equalizerPresets,
+                                currentPreset = audioEffectSettings.equalizerPreset,
+                                onPresetSelected = onSetEqualizerPreset,
+                            )
+                        }
 
-            TitleWidget(
-                title = stringResource(Res.string.audio_effects_settings)
-            ) {
-                Column(
-                    modifier = Modifier.fillMaxWidth()
-                        .padding(metrics.cozy),
-                    verticalArrangement = Arrangement.spacedBy(metrics.cozy)
-                ) {
-                    BassBoostSlider(
-                        currentLevel = audioEffectSettings.bassBoostLevel,
-                        onLevelChanged = onSetBassBoost
-                    )
-                    SurroundSoundToggle(
-                        isEnabled = audioEffectSettings.isSurroundSoundEnabled,
-                        onToggle = onSetSurroundSound
-                    )
-                    ReverbSettings(
-                        currentPreset = audioEffectSettings.reverbPreset,
-                        onPresetChanged = onSetReverb
-                    )
-                }
-            }
+                        TitleWidget(
+                            title = stringResource(Res.string.audio_effects_settings),
+                        ) {
+                            Column(
+                                modifier = Modifier.fillMaxWidth()
+                                    .padding(metrics.cozy),
+                                verticalArrangement = Arrangement.spacedBy(metrics.cozy),
+                            ) {
+                                BassBoostSlider(
+                                    currentLevel = audioEffectSettings.bassBoostLevel,
+                                    onLevelChanged = onSetBassBoost,
+                                )
+                                SurroundSoundToggle(
+                                    isEnabled = audioEffectSettings.isSurroundSoundEnabled,
+                                    onToggle = onSetSurroundSound,
+                                )
+                                ReverbSettings(
+                                    currentPreset = audioEffectSettings.reverbPreset,
+                                    onPresetChanged = onSetReverb,
+                                )
+                            }
+                        }
                     }
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(metrics.section)) {
-
-            TitleWidget(
-                title = stringResource(Res.string.custom_equalizer)
-            ) {
-                CustomEqualizer(
-                    bandCount = equalizerBandCount,
-                    bandLevelRange = equalizerBandLevelRange,
-                    currentBandLevels = currentEqualizerBandLevels,
-                    onBandLevelChanged = { index, level ->
-                        val newLevels = currentEqualizerBandLevels.copyOf()
-                        newLevels[index] = level
-                        onSetCustomEqualizer(newLevels)
-                    },
-                    onResetAll = {
-                        // 重置所有频段到0
-                        val resetLevels = FloatArray(equalizerBandCount)
-                        onSetCustomEqualizer(resetLevels)
-                    }
-                )
-            }
+                        TitleWidget(
+                            title = stringResource(Res.string.custom_equalizer),
+                        ) {
+                            CustomEqualizer(
+                                bandCount = equalizerBandCount,
+                                bandLevelRange = equalizerBandLevelRange,
+                                currentBandLevels = currentEqualizerBandLevels,
+                                onBandLevelChanged = { index, level ->
+                                    val newLevels = currentEqualizerBandLevels.copyOf()
+                                    newLevels[index] = level
+                                    onSetCustomEqualizer(newLevels)
+                                },
+                                onResetAll = {
+                                    // 重置所有频段到0
+                                    val resetLevels = FloatArray(equalizerBandCount)
+                                    onSetCustomEqualizer(resetLevels)
+                                },
+                            )
+                        }
                     }
                 }
             } else {
@@ -198,9 +197,20 @@ fun AudioEffectsScreenContent(
                     }
                 }
                 TitleWidget(title = stringResource(Res.string.custom_equalizer)) {
-                    CustomEqualizer(bandCount = equalizerBandCount, bandLevelRange = equalizerBandLevelRange, currentBandLevels = currentEqualizerBandLevels,
-                        onBandLevelChanged = { index, level -> val n = currentEqualizerBandLevels.copyOf(); n[index] = level; onSetCustomEqualizer(n) },
-                        onResetAll = { val r = FloatArray(equalizerBandCount); onSetCustomEqualizer(r) })
+                    CustomEqualizer(
+                        bandCount = equalizerBandCount,
+                        bandLevelRange = equalizerBandLevelRange,
+                        currentBandLevels = currentEqualizerBandLevels,
+                        onBandLevelChanged = { index, level ->
+                            val n = currentEqualizerBandLevels.copyOf()
+                            n[index] = level
+                            onSetCustomEqualizer(n)
+                        },
+                        onResetAll = {
+                            val r = FloatArray(equalizerBandCount)
+                            onSetCustomEqualizer(r)
+                        },
+                    )
                 }
             }
             Spacer(modifier = Modifier.height(metrics.row))
@@ -213,21 +223,21 @@ fun AudioEffectsScreenContent(
 fun EqualizerPresetSelector(
     presets: List<String>,
     currentPreset: Int,
-    onPresetSelected: (Int) -> Unit
+    onPresetSelected: (Int) -> Unit,
 ) {
     val metrics = LocalHmpMetrics.current
     val typo = LocalHmpTypo.current
     Column(
         modifier = Modifier.fillMaxWidth()
             .padding(metrics.cozy),
-        verticalArrangement = Arrangement.spacedBy(metrics.cozy)
+        verticalArrangement = Arrangement.spacedBy(metrics.cozy),
     ) {
         // 将预设列表分成两行
         val rows = presets.chunked(2)
         rows.forEach { rowPresets ->
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(metrics.cozy)
+                horizontalArrangement = Arrangement.spacedBy(metrics.cozy),
             ) {
                 rowPresets.forEachIndexed { rowIndex, preset ->
                     val globalIndex = rows.indexOf(rowPresets) * 2 + rowIndex
@@ -238,18 +248,18 @@ fun EqualizerPresetSelector(
                             .clip(RoundedCornerShape(metrics.base))
                             .background(
                                 color = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.2f) else Transparent,
-                                shape = RoundedCornerShape(metrics.base)
+                                shape = RoundedCornerShape(metrics.base),
                             )
                             .clickable {
                                 onPresetSelected(globalIndex)
                             }
                             .padding(metrics.cozy),
-                        contentAlignment = Alignment.Center
+                        contentAlignment = Alignment.Center,
                     ) {
                         Text(
                             text = preset,
                             style = typo.body,
-                            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
                         )
                     }
                 }
@@ -262,28 +272,28 @@ fun EqualizerPresetSelector(
 @Composable
 fun BassBoostSlider(
     currentLevel: Int,
-    onLevelChanged: (Int) -> Unit
+    onLevelChanged: (Int) -> Unit,
 ) {
     val typo = LocalHmpTypo.current
     var sliderValue by remember { mutableFloatStateOf(currentLevel.toFloat()) }
 
     Column(
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier.fillMaxWidth(),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
                 text = stringResource(Res.string.bass_boost),
                 style = typo.body,
-                color = MaterialTheme.colorScheme.onSurface
+                color = MaterialTheme.colorScheme.onSurface,
             )
             Text(
-                text = "${currentLevel}%",
+                text = "$currentLevel%",
                 style = typo.footnote,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
         Slider(
@@ -293,7 +303,7 @@ fun BassBoostSlider(
                 onLevelChanged(newValue.toInt())
             },
             valueRange = 0f..100f,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
         )
     }
 }
@@ -302,7 +312,7 @@ fun BassBoostSlider(
 @Composable
 fun SurroundSoundToggle(
     isEnabled: Boolean,
-    onToggle: (Boolean) -> Unit
+    onToggle: (Boolean) -> Unit,
 ) {
     val metrics = LocalHmpMetrics.current
     val typo = LocalHmpTypo.current
@@ -314,42 +324,43 @@ fun SurroundSoundToggle(
             }
             .padding(metrics.cozy),
         horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
             text = stringResource(Res.string.surround_sound),
             style = typo.body,
-            color = MaterialTheme.colorScheme.onSurface
+            color = MaterialTheme.colorScheme.onSurface,
         )
         Checkbox(
             checked = isEnabled,
-            onCheckedChange = onToggle
+            onCheckedChange = onToggle,
         )
     }
 }
+
 // 混响设置组件
 @Composable
 fun ReverbSettings(
     currentPreset: Int,
-    onPresetChanged: (Int) -> Unit
+    onPresetChanged: (Int) -> Unit,
 ) {
     val metrics = LocalHmpMetrics.current
     val typo = LocalHmpTypo.current
     val reverbPresets = listOf(stringResource(Res.string.close), stringResource(Res.string.small_room), stringResource(Res.string.large_room), stringResource(Res.string.hall), stringResource(Res.string.church))
 
     Column(
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier.fillMaxWidth(),
     ) {
         Text(
             text = stringResource(Res.string.reverb),
             style = typo.body,
             modifier = Modifier.padding(bottom = metrics.compact),
-            color = MaterialTheme.colorScheme.onSurface
+            color = MaterialTheme.colorScheme.onSurface,
         )
         val isLandscape = LocalWindowSizeInfo.current.isLandscape
         Column(
             modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(metrics.base)
+            verticalArrangement = Arrangement.spacedBy(metrics.base),
         ) {
             // 将混响预设分成两行，第一行3个，第二行2个
             val firstRow = reverbPresets.take(3)
@@ -358,7 +369,7 @@ fun ReverbSettings(
             // 第一行
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(metrics.base)
+                horizontalArrangement = Arrangement.spacedBy(metrics.base),
             ) {
                 firstRow.forEachIndexed { index, preset ->
                     val isSelected = index == currentPreset
@@ -368,18 +379,18 @@ fun ReverbSettings(
                             .clip(RoundedCornerShape(metrics.compact))
                             .background(
                                 color = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.2f) else Transparent,
-                                shape = RoundedCornerShape(metrics.compact)
+                                shape = RoundedCornerShape(metrics.compact),
                             )
                             .clickable {
                                 onPresetChanged(index)
                             }
                             .padding(metrics.base),
-                        contentAlignment = Alignment.Center
+                        contentAlignment = Alignment.Center,
                     ) {
                         Text(
                             text = preset,
                             style = typo.footnote,
-                            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
                         )
                     }
                 }
@@ -388,7 +399,7 @@ fun ReverbSettings(
             // 第二行
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(metrics.base)
+                horizontalArrangement = Arrangement.spacedBy(metrics.base),
             ) {
                 secondRow.forEachIndexed { index, preset ->
                     val globalIndex = 3 + index
@@ -399,18 +410,18 @@ fun ReverbSettings(
                             .clip(RoundedCornerShape(metrics.compact))
                             .background(
                                 color = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.2f) else Transparent,
-                                shape = RoundedCornerShape(metrics.compact)
+                                shape = RoundedCornerShape(metrics.compact),
                             )
                             .clickable {
                                 onPresetChanged(globalIndex)
                             }
                             .padding(metrics.base),
-                        contentAlignment = Alignment.Center
+                        contentAlignment = Alignment.Center,
                     ) {
                         Text(
                             text = preset,
                             style = typo.footnote,
-                            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
                         )
                     }
                 }
@@ -427,7 +438,7 @@ fun CustomEqualizer(
     bandLevelRange: Pair<Int, Int>,
     currentBandLevels: FloatArray,
     onBandLevelChanged: (Int, Float) -> Unit,
-    onResetAll: () -> Unit = {}
+    onResetAll: () -> Unit = {},
 ) {
     val metrics = LocalHmpMetrics.current
     val typo = LocalHmpTypo.current
@@ -441,7 +452,7 @@ fun CustomEqualizer(
     Column(
         modifier = Modifier.fillMaxWidth()
             .padding(metrics.cozy),
-        verticalArrangement = Arrangement.spacedBy(metrics.cozy)
+        verticalArrangement = Arrangement.spacedBy(metrics.cozy),
     ) {
         // 均衡器滑块区域
         Row(
@@ -449,40 +460,40 @@ fun CustomEqualizer(
                 .fillMaxWidth()
                 .padding(horizontal = metrics.compact),
             horizontalArrangement = Arrangement.SpaceEvenly,
-            verticalAlignment = Alignment.Bottom
+            verticalAlignment = Alignment.Bottom,
         ) {
             for (i in 0 until bandCount) {
                 EqualizerBand(
                     frequencyLabel = frequencyLabels.getOrElse(i) { "${i + 1}" },
                     currentLevel = currentBandLevels.getOrElse(i) { 0f },
                     levelRange = bandLevelRange,
-                    onLevelChanged = { level -> onBandLevelChanged(i, level) }
+                    onLevelChanged = { level -> onBandLevelChanged(i, level) },
                 )
             }
         }
         // 重置全部按钮
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.Start
+            horizontalArrangement = Arrangement.Start,
         ) {
             Box(
                 modifier = Modifier
                     .clip(RoundedCornerShape(metrics.compact))
                     .background(
                         color = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f),
-                        shape = RoundedCornerShape(metrics.compact)
+                        shape = RoundedCornerShape(metrics.compact),
                     )
                     .clickable {
                         haptic.performClick()
                         onResetAll()
                     }
                     .padding(horizontal = metrics.base, vertical = metrics.compact),
-                contentAlignment = Alignment.Center
+                contentAlignment = Alignment.Center,
             ) {
                 Text(
                     text = stringResource(Res.string.reset_all),
                     style = typo.footnote,
-                    color = MaterialTheme.colorScheme.primary
+                    color = MaterialTheme.colorScheme.primary,
                 )
             }
         }
@@ -496,7 +507,7 @@ fun EqualizerBand(
     frequencyLabel: String,
     currentLevel: Float,
     levelRange: Pair<Int, Int>,
-    onLevelChanged: (Float) -> Unit
+    onLevelChanged: (Float) -> Unit,
 ) {
     val metrics = LocalHmpMetrics.current
     val typo = LocalHmpTypo.current
@@ -509,19 +520,20 @@ fun EqualizerBand(
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(metrics.compact),
-        modifier = Modifier.padding(horizontal = metrics.micro)
+        modifier = Modifier.padding(horizontal = metrics.micro),
     ) {
         // 数值显示
         Text(
             text = if (sliderValue >= 0) "+${sliderValue.toInt()}" else "${sliderValue.toInt()}",
             style = typo.caption,
-            color = if (sliderValue > 0)
+            color = if (sliderValue > 0) {
                 MaterialTheme.colorScheme.primary
-            else if (sliderValue < 0)
+            } else if (sliderValue < 0) {
                 MaterialTheme.colorScheme.error.copy(alpha = 0.8f)
-            else
-                MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(bottom = metrics.cozy)
+            } else {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            },
+            modifier = Modifier.padding(bottom = metrics.cozy),
         )
 
         // 垂直滑块（使用自定义手势处理）
@@ -547,11 +559,11 @@ fun EqualizerBand(
                             val delta = -dragAmount / trackHeightPx * (levelRange.second - levelRange.first)
                             val newValue = (sliderValue + delta).coerceIn(
                                 levelRange.first.toFloat(),
-                                levelRange.second.toFloat()
+                                levelRange.second.toFloat(),
                             )
                             sliderValue = newValue
                             onLevelChanged(newValue)
-                        }
+                        },
                     )
                 }
                 .pointerInput(Unit) {
@@ -562,12 +574,12 @@ fun EqualizerBand(
                         val newValue = levelRange.first + normalizedPosition * (levelRange.second - levelRange.first)
                         sliderValue = newValue.coerceIn(
                             levelRange.first.toFloat(),
-                            levelRange.second.toFloat()
+                            levelRange.second.toFloat(),
                         )
                         onLevelChanged(sliderValue)
                     }
                 },
-            contentAlignment = Alignment.Center
+            contentAlignment = Alignment.Center,
         ) {
             // 背景轨道
             Box(
@@ -575,8 +587,8 @@ fun EqualizerBand(
                     .size(metrics.compact, metrics.card)
                     .background(
                         color = MaterialTheme.colorScheme.surfaceVariant,
-                        shape = RoundedCornerShape(metrics.micro)
-                    )
+                        shape = RoundedCornerShape(metrics.micro),
+                    ),
             )
 
             // 活动轨道（从中心到当前位置）
@@ -584,17 +596,22 @@ fun EqualizerBand(
                 modifier = Modifier
                     .size(HMPMetricTokens.Compact.compact, (HMPMetricTokens.Compact.card * abs(normalizedValue - 0.5f) * 2).coerceAtLeast(0.dp))
                     .align(
-                        if (sliderValue >= 0) Alignment.TopCenter
-                        else Alignment.BottomCenter
+                        if (sliderValue >= 0) {
+                            Alignment.TopCenter
+                        } else {
+                            Alignment.BottomCenter
+                        },
                     )
                     .background(
-                        color = if (sliderValue > 0)
+                        color = if (sliderValue > 0) {
                             MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
-                        else if (sliderValue < 0)
+                        } else if (sliderValue < 0) {
                             MaterialTheme.colorScheme.error.copy(alpha = 0.4f)
-                        else Transparent,
-                        shape = RoundedCornerShape(metrics.micro)
-                    )
+                        } else {
+                            Transparent
+                        },
+                        shape = RoundedCornerShape(metrics.micro),
+                    ),
             )
 
             // 中心线（0dB位置）
@@ -603,8 +620,8 @@ fun EqualizerBand(
                     .size(metrics.cozy, metrics.hair)
                     .align(Alignment.Center)
                     .background(
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-                    )
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                    ),
             )
 
             // 滑块 thumb
@@ -621,8 +638,8 @@ fun EqualizerBand(
                     .offset(y = with(density) { thumbOffsetY.toDp() })
                     .background(
                         color = MaterialTheme.colorScheme.primary,
-                        shape = RoundedCornerShape(metrics.micro)
-                    )
+                        shape = RoundedCornerShape(metrics.micro),
+                    ),
             )
         }
 
@@ -631,7 +648,7 @@ fun EqualizerBand(
             text = frequencyLabel,
             style = typo.caption,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = metrics.cozy)
+            modifier = Modifier.padding(top = metrics.cozy),
         )
     }
 }

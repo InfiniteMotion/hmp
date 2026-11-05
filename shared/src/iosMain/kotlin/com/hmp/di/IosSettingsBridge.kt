@@ -35,7 +35,7 @@ class IosSettingsBridge(
                 selectedModel = model.ifEmpty { old.selectedModel },
                 availableModels = old.availableModels,
                 isConfigured = apiKey.isNotEmpty() || old.isConfigured,
-            )
+            ),
         )
     }
 
@@ -56,7 +56,7 @@ class IosSettingsBridge(
                 apiKey = apiKey,
                 selectedModel = model,
                 isConfigured = apiKey.isNotEmpty(),
-            )
+            ),
         )
     }
 }
@@ -69,25 +69,18 @@ data class IosProviderConfigSnapshot(
 )
 
 /** 按端点前缀反查服务商（预设端点为完整 /chat/completions URL，前缀比对本桥适用）。 */
-private fun providerOfEndpoint(endpoint: String): AiProviderType {
-    return AiProviderType.entries.firstOrNull { provider ->
-        endpoint.startsWith(provider.defaultEndpoint.takeWhile { it != '?' })
-    } ?: AiProviderType.DEEPSEEK
-}
+private fun providerOfEndpoint(endpoint: String): AiProviderType = AiProviderType.entries.firstOrNull { provider ->
+    endpoint.startsWith(provider.defaultEndpoint.takeWhile { it != '?' })
+} ?: AiProviderType.DEEPSEEK
 
 // ── Swift 顶层入口（KoinHelper 同款模式） ──
 
-suspend fun getIosCurrentProvider(): AiProviderType =
-    bridge().getCurrentProvider()
+suspend fun getIosCurrentProvider(): AiProviderType = bridge().getCurrentProvider()
 
-suspend fun setIosCurrentProvider(provider: AiProviderType, apiKey: String, model: String) =
-    bridge().setCurrentProvider(provider, apiKey, model)
+suspend fun setIosCurrentProvider(provider: AiProviderType, apiKey: String, model: String) = bridge().setCurrentProvider(provider, apiKey, model)
 
-suspend fun getIosProviderConfig(): IosProviderConfigSnapshot =
-    bridge().getProviderConfig()
+suspend fun getIosProviderConfig(): IosProviderConfigSnapshot = bridge().getProviderConfig()
 
-suspend fun saveIosProviderConfig(apiKey: String, model: String) =
-    bridge().saveProviderConfig(apiKey, model)
+suspend fun saveIosProviderConfig(apiKey: String, model: String) = bridge().saveProviderConfig(apiKey, model)
 
-private fun bridge(): IosSettingsBridge =
-    IosSettingsBridge(KoinPlatform.getKoin().get<UserSettingsUseCase>())
+private fun bridge(): IosSettingsBridge = IosSettingsBridge(KoinPlatform.getKoin().get<UserSettingsUseCase>())

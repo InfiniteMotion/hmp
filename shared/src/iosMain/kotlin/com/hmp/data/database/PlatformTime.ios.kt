@@ -16,5 +16,4 @@ import platform.Foundation.timeIntervalSince1970
  * 没有需要救的真实用户库 —— 为一份不存在的历史写迁移，是把风险发给未来。
  */
 @OptIn(ExperimentalForeignApi::class)
-actual fun currentTimeMillis(): Long =
-    (NSDate().timeIntervalSince1970 * 1000.0).toLong()
+actual fun currentTimeMillis(): Long = (NSDate().timeIntervalSince1970 * 1000.0).toLong()

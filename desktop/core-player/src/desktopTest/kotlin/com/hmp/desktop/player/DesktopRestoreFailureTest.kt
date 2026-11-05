@@ -2,11 +2,11 @@ package com.hmp.desktop.player
 
 import com.hmp.domain.music.MusicRepository
 import com.hmp.domain.playlist.PlaylistRepository
+import com.hmp.domain.playlist.usecase.ManagePlaylistUseCase
 import com.hmp.domain.setting.SettingsRepository
 import com.hmp.domain.setting.usecase.CurrentPlaybackUseCase
 import com.hmp.domain.setting.usecase.PlaybackHistoryUseCase
 import com.hmp.domain.setting.usecase.TimerUseCase
-import com.hmp.domain.playlist.usecase.ManagePlaylistUseCase
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.test.runCurrent
@@ -26,11 +26,16 @@ class DesktopRestoreFailureTest {
         val settings = stubInterface<SettingsRepository> { name ->
             when (name) {
                 "getCurrentPlaylistId" -> MutableStateFlow<Long?>(1L)
+
                 "getLikedPlaylistId" -> MutableStateFlow<Long?>(2L)
+
                 "getRecentPlaylistId" -> MutableStateFlow<Long?>(3L)
+
                 // 两个恢复入口各抛一次，模拟 DB/DataStore 启动期异常
                 "getCurrentMusicId" -> flow<Long?> { error("boom: currentMusicId") }
+
                 "getCurrentPosition" -> flow<Long> { error("boom: currentPosition") }
+
                 else -> null
             }
         }

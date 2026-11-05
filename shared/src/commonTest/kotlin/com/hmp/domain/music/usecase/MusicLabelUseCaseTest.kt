@@ -1,10 +1,10 @@
 package com.hmp.domain.music.usecase
 
+import com.hmp.domain.enum.LabelCategory
+import com.hmp.domain.enum.LabelName
 import com.hmp.domain.music.Music
 import com.hmp.domain.music.MusicInfo
 import com.hmp.domain.music.MusicLabel
-import com.hmp.domain.enum.LabelCategory
-import com.hmp.domain.enum.LabelName
 import com.hmp.test.fakes.FakeMusicRepository
 import com.hmp.test.fakes.FakePlaylistRepository
 import kotlinx.coroutines.flow.first
@@ -21,7 +21,8 @@ class MusicLabelUseCaseTest {
 
     private fun music(id: Long) = MusicInfo(
         music = Music(id = id, title = "Song$id", artist = "A", album = "B", duration = 100, path = "/$id.mp3", albumArtUri = ""),
-        extra = null, userInfo = null
+        extra = null,
+        userInfo = null,
     )
 
     @Test
@@ -62,7 +63,7 @@ class MusicLabelUseCaseTest {
             moods = listOf("Happy"),
             scenarios = listOf("Workout"),
             language = "Chinese",
-            era = "2020s"
+            era = "2020s",
         )
         useCase.addMusicLabels(1, labels)
         val musicLabels = useCase.getMusicLabels(1)

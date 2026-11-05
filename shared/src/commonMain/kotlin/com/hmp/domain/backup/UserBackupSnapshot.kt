@@ -15,7 +15,7 @@ data class UserBackupSnapshot(
     val appSettings: AppSettingsSnapshot? = null,
     val musicUserState: MusicUserStateSnapshot = MusicUserStateSnapshot(),
     val playlists: PlaylistsSnapshot = PlaylistsSnapshot(),
-    val listeningStats: ListeningStatsSnapshot = ListeningStatsSnapshot()
+    val listeningStats: ListeningStatsSnapshot = ListeningStatsSnapshot(),
 ) {
     companion object {
         /**
@@ -44,14 +44,14 @@ data class AppSettingsSnapshot(
     val autoBatchProcess: Boolean = true,
     val aiAccessMode: String = "FREE",
     val customAiEndpoint: String = "",
-    val customAiModel: String = ""
+    val customAiModel: String = "",
 )
 
 @Serializable
 data class MusicUserStateSnapshot(
     val userInfos: List<UserInfoSnapshot> = emptyList(),
     val extras: List<MusicExtraUserSnapshot> = emptyList(),
-    val labels: List<MusicLabelSnapshot> = emptyList()
+    val labels: List<MusicLabelSnapshot> = emptyList(),
 )
 
 @Serializable
@@ -63,7 +63,7 @@ data class UserInfoSnapshot(
     val playCount: Int? = null,
     val skippedCount: Int? = null,
     val userRating: Int? = null,
-    val inCustomPlaylistCount: Int? = null
+    val inCustomPlaylistCount: Int? = null,
 )
 
 @Serializable
@@ -75,7 +75,7 @@ data class MusicExtraUserSnapshot(
     val singerIntroduce: String? = null,
     val backgroundIntroduce: String? = null,
     val description: String? = null,
-    val relevantMusic: String? = null
+    val relevantMusic: String? = null,
 )
 
 @Serializable
@@ -87,17 +87,17 @@ data class MusicLabelSnapshot(
     val source: String? = null,
     val confidence: Double? = null,
     val createdAt: Long? = null,
-    val updatedAt: Long? = null
+    val updatedAt: Long? = null,
 )
 
 @Serializable
 data class PlaylistsSnapshot(
     val playlists: List<Playlist> = emptyList(),
-    val playlistItems: List<PlaylistItem> = emptyList()
+    val playlistItems: List<PlaylistItem> = emptyList(),
 )
 
 @Serializable
 data class ListeningStatsSnapshot(
     val listeningDurations: List<ListeningDuration> = emptyList(),
-    val playbackHistories: List<PlaybackHistory> = emptyList()
+    val playbackHistories: List<PlaybackHistory> = emptyList(),
 )

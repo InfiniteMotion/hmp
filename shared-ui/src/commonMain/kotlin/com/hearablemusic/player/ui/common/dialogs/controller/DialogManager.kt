@@ -1,9 +1,9 @@
 package com.hearablemusic.player.ui.common.dialogs.controller
 
-import com.hmp.domain.agent.port.ConfirmDecision
-import com.hmp.domain.agent.port.ConfirmStep
 import com.hearablemusic.player.ui.common.dialogs.viewmodel.DialogEvent
 import com.hearablemusic.player.ui.common.dialogs.viewmodel.MessageDuration
+import com.hmp.domain.agent.port.ConfirmDecision
+import com.hmp.domain.agent.port.ConfirmStep
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -29,7 +29,7 @@ class DialogManager {
     private val _dialogEvent = MutableSharedFlow<DialogEvent?>(
         replay = 0,
         extraBufferCapacity = 1,
-        onBufferOverflow = BufferOverflow.DROP_OLDEST
+        onBufferOverflow = BufferOverflow.DROP_OLDEST,
     )
     val dialogEvent: SharedFlow<DialogEvent?> = _dialogEvent.asSharedFlow()
 
@@ -77,14 +77,14 @@ class DialogManager {
                 stepIndex = 0,
                 continuation = { decision ->
                     if (cont.isActive && !cont.isCompleted) cont.resume(decision)
-                }
+                },
             )
             pendingConfirms[id] = pending
 
             // 发射第一个 step 给 UI
             scope.launch {
                 _dialogEvent.emit(
-                    DialogEvent.ConfirmChain(steps = steps, stepIndex = 0, id = id)
+                    DialogEvent.ConfirmChain(steps = steps, stepIndex = 0, id = id),
                 )
             }
 
@@ -112,7 +112,7 @@ class DialogManager {
                         steps = pending.steps,
                         stepIndex = nextIndex,
                         id = id,
-                    )
+                    ),
                 )
             }
         }

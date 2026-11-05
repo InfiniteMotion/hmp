@@ -15,12 +15,12 @@ fun SharedLabelIcon(
     iconRes: DrawableResource,
     contentDescription: String?,
     modifier: Modifier = Modifier,
-    contentScale: ContentScale = ContentScale.Crop
+    contentScale: ContentScale = ContentScale.Crop,
 ) {
     Image(
         painter = painterResource(iconRes),
         contentDescription = contentDescription,
         modifier = modifier,
-        contentScale = contentScale
+        contentScale = contentScale,
     )
 }

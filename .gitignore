@@ -199,3 +199,6 @@ gradle/gradle-daemon-jvm.properties
 
 # Python 字节码（.github/scripts/ 下的预检脚本）
 __pycache__/
+
+# ktlint CLI jar：由 ./ktlint 包装脚本按需下载并校验 SHA256，不入库
+tools/ktlint/

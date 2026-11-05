@@ -63,18 +63,20 @@ fun SettingsScreenPage(onBack: () -> Unit) {
 
     StorybookPage(
         title = Strings.settingsScreen(lang),
-        description = if (lang == AppLanguage.ZH)
+        description = if (lang == AppLanguage.ZH) {
             "HMP 设置页面 (SettingItem: RoundedCornerShape(12.dp), surfaceVariant 0.5f, 图标 32.dp primary) + UserScreen (用户卡片 20.dp/1dp边框, Avatar 100, 收听图表, 2x2 功能网格)"
-        else
-            "HMP Settings (SettingItem: RoundedCornerShape(12.dp), surfaceVariant 0.5f, icon 32.dp primary) + UserScreen (user card 20.dp/1dp border, Avatar 100, listening chart, 2x2 grid)",
+        } else {
+            "HMP Settings (SettingItem: RoundedCornerShape(12.dp), surfaceVariant 0.5f, icon 32.dp primary) + UserScreen (user card 20.dp/1dp border, Avatar 100, listening chart, 2x2 grid)"
+        },
         onBack = onBack,
     ) {
         ComponentShowcase(
             title = if (lang == AppLanguage.ZH) "设置页预览" else "Settings Preview",
-            description = if (lang == AppLanguage.ZH)
+            description = if (lang == AppLanguage.ZH) {
                 "SettingItem 卡片 (12.dp圆角, surfaceVariant 0.5f) + 图标 32.dp primary + 列表项间距 16.dp + 卡片内边距 16.dp"
-            else
-                "SettingItem card (12.dp radius, surfaceVariant 0.5f) + icon 32.dp primary + list spacing 16.dp + card padding 16.dp",
+            } else {
+                "SettingItem card (12.dp radius, surfaceVariant 0.5f) + icon 32.dp primary + list spacing 16.dp + card padding 16.dp"
+            },
         ) {
             PhoneFramePreview {
                 SettingsScreenContent(lang)
@@ -83,10 +85,11 @@ fun SettingsScreenPage(onBack: () -> Unit) {
 
         ComponentShowcase(
             title = if (lang == AppLanguage.ZH) "用户页预览" else "User Screen Preview",
-            description = if (lang == AppLanguage.ZH)
+            description = if (lang == AppLanguage.ZH) {
                 "用户卡片 (RoundedCornerShape(20.dp), 1dp边框) + Avatar(aSize=100) + 收听图表 + 2x2 功能网格"
-            else
-                "User card (RoundedCornerShape(20.dp), 1dp border) + Avatar(aSize=100) + Listening chart + 2x2 feature grid",
+            } else {
+                "User card (RoundedCornerShape(20.dp), 1dp border) + Avatar(aSize=100) + Listening chart + 2x2 feature grid"
+            },
         ) {
             PhoneFramePreview {
                 UserScreenContent(lang)
@@ -383,8 +386,11 @@ private fun UserScreenContent(lang: AppLanguage) {
                                     .height(heights[index].dp)
                                     .clip(RoundedCornerShape(4.dp))
                                     .background(
-                                        if (index == 4) MaterialTheme.colorScheme.primary
-                                        else MaterialTheme.colorScheme.primary.copy(alpha = 0.3f),
+                                        if (index == 4) {
+                                            MaterialTheme.colorScheme.primary
+                                        } else {
+                                            MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
+                                        },
                                     ),
                             )
                             Spacer(modifier = Modifier.height(4.dp))

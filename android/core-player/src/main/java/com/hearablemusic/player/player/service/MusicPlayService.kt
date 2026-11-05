@@ -29,14 +29,14 @@ import androidx.media3.session.MediaSession
 import androidx.media3.session.SessionResult
 import coil.imageLoader
 import coil.request.ImageRequest
-import com.hmp.domain.music.Music
 import com.hearablemusic.player.player.AudioEffectManager
 import com.hearablemusic.player.player.R
+import com.hmp.domain.music.Music
+import com.hmp.log.HmpLog
+import com.hmp.log.LogTag
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import com.hmp.log.HmpLog
-import com.hmp.log.LogTag
 
 interface PlayControl {
     fun play()
@@ -68,7 +68,9 @@ interface PlayControl {
 }
 
 @UnstableApi
-class MusicPlayService : Service(), PlayControl {
+class MusicPlayService :
+    Service(),
+    PlayControl {
 
     companion object {
         const val ACTION_PLAY = "com.hearablemusic.player.ACTION_PLAY"
@@ -77,6 +79,7 @@ class MusicPlayService : Service(), PlayControl {
         const val ACTION_PREV = "com.hearablemusic.player.ACTION_PREV"
 
         // ── F11-L2：agent 运行时保活 ──
+
         /**
          * agent 运行时（电台等）通过 [AgentKeepAlivePort] 发来的保活诉求。
          * 携带 [EXTRA_AGENT_ACTIVE] = true/false，让服务在「电台构建中（无音频）」窗口也保持前台。
@@ -135,6 +138,7 @@ class MusicPlayService : Service(), PlayControl {
                     exoPlayer.pause()
                     playbackListener?.onPlayStateChanged(false)
                 }
+
                 BluetoothDevice.ACTION_ACL_DISCONNECTED -> {
                     // 蓝牙断开,暂停播放
                     HmpLog.d(LogTag.PlayerService) { "📡 Bluetooth disconnected, pausing playback" }
@@ -146,7 +150,7 @@ class MusicPlayService : Service(), PlayControl {
     }
 
     private var isReceiverRegistered = false
-    
+
     // 歌词替换：缓存原始歌曲信息
     private var originalTitle: String? = null
     private var originalArtist: String? = null
@@ -154,19 +158,19 @@ class MusicPlayService : Service(), PlayControl {
 
     // 音效管理器
     private val audioEffectManager = AudioEffectManager()
-    
+
     // 音效相关成员变量
     private var equalizerPreset = 0
     private var bassBoostLevel = 0
     private var surroundSoundEnabled = false
     private var reverbPreset = 0
     private var customEqualizerLevels = floatArrayOf()
-    
+
     // 均衡器预设列表
     private val equalizerPresets = listOf(
-        "正常", "摇滚", "流行", "古典", "爵士", "蓝调", "电子", "嘻哈", "金属", "乡村"
+        "正常", "摇滚", "流行", "古典", "爵士", "蓝调", "电子", "嘻哈", "金属", "乡村",
     )
-    
+
     // 音效初始化标志
     private var isAudioEffectInitialized = false
     private var audioEffectInitRetryCount = 0
@@ -185,13 +189,12 @@ class MusicPlayService : Service(), PlayControl {
         fun getService(): MusicPlayService = this@MusicPlayService
     }
 
-
     // 创建通知频道
     private fun createNotificationChannel() {
         val channel = NotificationChannel(
             "music_channel", // 通知频道 ID
-            "音乐播放",         // 通知频道名称
-            NotificationManager.IMPORTANCE_LOW // 重要性:低,避免打扰
+            "音乐播放", // 通知频道名称
+            NotificationManager.IMPORTANCE_LOW, // 重要性:低,避免打扰
         ).apply {
             description = "播放控制通知"
             setSound(null, null) // API 36 建议显式设置声音
@@ -208,28 +211,38 @@ class MusicPlayService : Service(), PlayControl {
         music: Music,
         albumArtBitmap: Bitmap?,
         mainActivityClass: Class<*>,
-        lyricLine: String? = null
+        lyricLine: String? = null,
     ): Notification {
         val mainPendingIntent = PendingIntent.getActivity(
-            this, 0, Intent(this, mainActivityClass),
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            this,
+            0,
+            Intent(this, mainActivityClass),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
         // API 36 要求使用 PendingIntent.FLAG_IMMUTABLE
         val prevPending = PendingIntent.getBroadcast(
-            this, 1, Intent(this, MusicNotificationReceiver::class.java).setAction(ACTION_PREV),
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            this,
+            1,
+            Intent(this, MusicNotificationReceiver::class.java).setAction(ACTION_PREV),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
         val pausePending = PendingIntent.getBroadcast(
-            this, 2, Intent(this, MusicNotificationReceiver::class.java).setAction(ACTION_PAUSE),
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            this,
+            2,
+            Intent(this, MusicNotificationReceiver::class.java).setAction(ACTION_PAUSE),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
         val playPending = PendingIntent.getBroadcast(
-            this, 3, Intent(this, MusicNotificationReceiver::class.java).setAction(ACTION_PLAY),
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            this,
+            3,
+            Intent(this, MusicNotificationReceiver::class.java).setAction(ACTION_PLAY),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
         val nextPending = PendingIntent.getBroadcast(
-            this, 4, Intent(this, MusicNotificationReceiver::class.java).setAction(ACTION_NEXT),
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            this,
+            4,
+            Intent(this, MusicNotificationReceiver::class.java).setAction(ACTION_NEXT),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
         val isPlaying = exoPlayer.isPlaying
 
@@ -253,23 +266,28 @@ class MusicPlayService : Service(), PlayControl {
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .addAction(
                 NotificationCompat.Action.Builder(
-                    R.drawable.backward_end_fill, "上一首", prevPending
-                ).build()
+                    R.drawable.backward_end_fill,
+                    "上一首",
+                    prevPending,
+                ).build(),
             )
             .addAction(
-                if (isPlaying)
+                if (isPlaying) {
                     NotificationCompat.Action.Builder(R.drawable.pause, "暂停", pausePending).build()
-                else
+                } else {
                     NotificationCompat.Action.Builder(R.drawable.play_fill, "播放", playPending).build()
+                },
             )
             .addAction(
                 NotificationCompat.Action.Builder(
-                    R.drawable.forward_end_fill, "下一首", nextPending
-                ).build()
+                    R.drawable.forward_end_fill,
+                    "下一首",
+                    nextPending,
+                ).build(),
             )
             .setStyle(
                 androidx.media3.session.MediaStyleNotificationHelper.MediaStyle(mediaSession)
-                    .setShowActionsInCompactView(0, 1, 2)
+                    .setShowActionsInCompactView(0, 1, 2),
             )
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setOnlyAlertOnce(true)
@@ -300,9 +318,11 @@ class MusicPlayService : Service(), PlayControl {
         mainActivityClass?.let { cls ->
             builder.setContentIntent(
                 PendingIntent.getActivity(
-                    this, 0, Intent(this, cls),
-                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-                )
+                    this,
+                    0,
+                    Intent(this, cls),
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+                ),
             )
         }
         return builder.build()
@@ -422,14 +442,12 @@ class MusicPlayService : Service(), PlayControl {
         // 创建自定义 Player 包装器
         customPlayer = object : ForwardingPlayer(exoPlayer) {
             // 重写方法让系统认为始终有上/下一首
-            override fun getAvailableCommands(): Player.Commands {
-                return super.getAvailableCommands().buildUpon()
-                    .add(COMMAND_SEEK_TO_NEXT)
-                    .add(COMMAND_SEEK_TO_NEXT_MEDIA_ITEM)
-                    .add(COMMAND_SEEK_TO_PREVIOUS)
-                    .add(COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM)
-                    .build()
-            }
+            override fun getAvailableCommands(): Player.Commands = super.getAvailableCommands().buildUpon()
+                .add(COMMAND_SEEK_TO_NEXT)
+                .add(COMMAND_SEEK_TO_NEXT_MEDIA_ITEM)
+                .add(COMMAND_SEEK_TO_PREVIOUS)
+                .add(COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM)
+                .build()
 
             // 重写 seekToNext 方法
             override fun seekToNext() {
@@ -455,23 +473,21 @@ class MusicPlayService : Service(), PlayControl {
             .setCallback(object : MediaSession.Callback {
                 override fun onConnect(
                     session: MediaSession,
-                    controller: MediaSession.ControllerInfo
-                ): MediaSession.ConnectionResult {
-                    return MediaSession.ConnectionResult.AcceptedResultBuilder(session)
-                        .setAvailableSessionCommands(
-                            MediaSession.ConnectionResult.DEFAULT_SESSION_COMMANDS
-                        )
-                        .setAvailablePlayerCommands(
-                            MediaSession.ConnectionResult.DEFAULT_PLAYER_COMMANDS
-                        )
-                        .build()
-                }
+                    controller: MediaSession.ControllerInfo,
+                ): MediaSession.ConnectionResult = MediaSession.ConnectionResult.AcceptedResultBuilder(session)
+                    .setAvailableSessionCommands(
+                        MediaSession.ConnectionResult.DEFAULT_SESSION_COMMANDS,
+                    )
+                    .setAvailablePlayerCommands(
+                        MediaSession.ConnectionResult.DEFAULT_PLAYER_COMMANDS,
+                    )
+                    .build()
 
                 // 添加命令拦截,确保系统命令被正确处理
                 override fun onPlayerCommandRequest(
                     session: MediaSession,
                     controller: MediaSession.ControllerInfo,
-                    playerCommand: Int
+                    playerCommand: Int,
                 ): Int {
                     HmpLog.d(LogTag.PlayerService) { "📡 onPlayerCommandRequest: $playerCommand, listener: ${playbackListener != null}" }
                     when (playerCommand) {
@@ -483,6 +499,7 @@ class MusicPlayService : Service(), PlayControl {
                             }
                             return SessionResult.RESULT_SUCCESS
                         }
+
                         Player.COMMAND_SEEK_TO_PREVIOUS, Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM -> {
                             HmpLog.d(LogTag.PlayerService) { "📡 Seek to previous requested" }
                             // 在主线程调用 listener
@@ -545,16 +562,19 @@ class MusicPlayService : Service(), PlayControl {
                     .setTitle(music.title)
                     .setArtist(music.artist)
                     .setAlbumTitle(music.album)
-                    .build()
+                    .build(),
             )
             .build()
         exoPlayer.setMediaItem(mediaItem)
         exoPlayer.prepare()
-
     }
 
-    override fun play() { exoPlayer.play() }
-    override fun pause() { exoPlayer.pause() }
+    override fun play() {
+        exoPlayer.play()
+    }
+    override fun pause() {
+        exoPlayer.pause()
+    }
 
     override fun playSingleMusic(music: Music) {
         cacheMusic(music)
@@ -578,7 +598,7 @@ class MusicPlayService : Service(), PlayControl {
     }
 
     // 跳转到指定位置(毫秒)
-     override fun seekTo(position: Long) {
+    override fun seekTo(position: Long) {
         exoPlayer.seekTo(position)
     }
 
@@ -604,7 +624,7 @@ class MusicPlayService : Service(), PlayControl {
 
     // MainActivity类引用,需要从外部设置
     private var mainActivityClass: Class<*>? = null
-    
+
     fun setMainActivityClass(activityClass: Class<*>) {
         mainActivityClass = activityClass
     }
@@ -617,13 +637,17 @@ class MusicPlayService : Service(), PlayControl {
                 getCurrentPlayingMusic()?.let { updateNotificationPlaybackState(it) }
                 playbackListener?.onPlayStateChanged(true)
             }
+
             ACTION_PAUSE -> {
                 exoPlayer.pause()
                 getCurrentPlayingMusic()?.let { updateNotificationPlaybackState(it) }
                 playbackListener?.onPlayStateChanged(false)
             }
+
             ACTION_NEXT -> playbackListener?.onPlaybackNext()
+
             ACTION_PREV -> playbackListener?.onPlaybackPrev()
+
             // F11-L2：agent 运行时（电台）保活诉求——无音频也保持前台
             ACTION_AGENT_KEEPALIVE -> {
                 val active = intent.getBooleanExtra(EXTRA_AGENT_ACTIVE, false)
@@ -699,12 +723,13 @@ class MusicPlayService : Service(), PlayControl {
                 currentItem.mediaMetadata.buildUpon()
                     .setTitle(newTitle)
                     .setArtist(newArtist)
-                    .build()
+                    .build(),
             ).build()
         exoPlayer.replaceMediaItem(exoPlayer.currentMediaItemIndex, newItem)
     }
 
     private var currentAlbumArtBitmap: Bitmap? = null
+
     // 刷新通知(重新加载封面)
     private fun updateNotificationWithCover(music: Music) {
         // 先显示默认封面
@@ -732,15 +757,15 @@ class MusicPlayService : Service(), PlayControl {
             }
         }
     }
-    
+
     // 初始化音效（延迟初始化，等待播放器准备就绪）
     private fun initializeAudioEffectsIfNeeded() {
         if (isAudioEffectInitialized || audioEffectInitRetryCount >= maxAudioEffectInitRetries) {
             return
         }
-        
+
         audioEffectInitRetryCount++
-        
+
         try {
             val sessionId = exoPlayer.audioSessionId
             if (sessionId > 0) {
@@ -748,7 +773,7 @@ class MusicPlayService : Service(), PlayControl {
                 if (success) {
                     isAudioEffectInitialized = true
                     HmpLog.d(LogTag.PlayerService) { "📡 Audio effects initialized successfully" }
-                    
+
                     // 恢复之前的音效设置
                     restoreAudioEffectSettings()
                 } else {
@@ -761,7 +786,7 @@ class MusicPlayService : Service(), PlayControl {
             HmpLog.e(LogTag.PlayerService, e) { "📡 Error initializing audio effects" }
         }
     }
-    
+
     // 恢复音效设置
     private fun restoreAudioEffectSettings() {
         if (equalizerPreset != 0) {
@@ -782,7 +807,7 @@ class MusicPlayService : Service(), PlayControl {
             }
         }
     }
-    
+
     // 音效控制方法实现
     override fun setEqualizerPreset(preset: Int) {
         if (audioEffectManager.setEqualizerPreset(preset)) {
@@ -792,7 +817,7 @@ class MusicPlayService : Service(), PlayControl {
             HmpLog.w(LogTag.PlayerService) { "📡 Failed to set equalizer preset: $preset" }
         }
     }
-    
+
     override fun setBassBoost(level: Int) {
         val strength = (level * 10).toShort()
         if (audioEffectManager.setBassBoostStrength(strength)) {
@@ -802,7 +827,7 @@ class MusicPlayService : Service(), PlayControl {
             HmpLog.w(LogTag.PlayerService) { "📡 Failed to set bass boost level: $level" }
         }
     }
-    
+
     override fun setSurroundSound(enabled: Boolean) {
         if (audioEffectManager.setVirtualizerEnabled(enabled)) {
             surroundSoundEnabled = enabled
@@ -811,7 +836,7 @@ class MusicPlayService : Service(), PlayControl {
             HmpLog.w(LogTag.PlayerService) { "📡 Failed to set surround sound: $enabled" }
         }
     }
-    
+
     override fun setReverb(preset: Int) {
         if (audioEffectManager.setReverbPreset(preset.toShort())) {
             reverbPreset = preset
@@ -820,7 +845,7 @@ class MusicPlayService : Service(), PlayControl {
             HmpLog.w(LogTag.PlayerService) { "📡 Failed to set reverb preset: $preset" }
         }
     }
-    
+
     override fun setCustomEqualizer(bandLevels: FloatArray) {
         var success = true
         bandLevels.forEachIndexed { index, level ->
@@ -828,7 +853,7 @@ class MusicPlayService : Service(), PlayControl {
                 success = false
             }
         }
-        
+
         if (success) {
             customEqualizerLevels = bandLevels
             HmpLog.d(LogTag.PlayerService) { "📡 Set custom equalizer levels: ${bandLevels.contentToString()}" }
@@ -836,36 +861,24 @@ class MusicPlayService : Service(), PlayControl {
             HmpLog.w(LogTag.PlayerService) { "📡 Failed to set some custom equalizer levels" }
         }
     }
-    
-    override fun getEqualizerPresets(): List<String> {
-        return equalizerPresets
-    }
-    
-    override fun getCurrentEqualizerPreset(): Int {
-        return equalizerPreset
-    }
-    
-    override fun getBassBoostLevel(): Int {
-        return bassBoostLevel
-    }
-    
-    override fun isSurroundSoundEnabled(): Boolean {
-        return surroundSoundEnabled
-    }
-    
-    override fun getReverbPreset(): Int {
-        return reverbPreset
-    }
-    
-    override fun getEqualizerBandCount(): Int {
-        return audioEffectManager.getEqualizerBandCount()
-    }
-    
+
+    override fun getEqualizerPresets(): List<String> = equalizerPresets
+
+    override fun getCurrentEqualizerPreset(): Int = equalizerPreset
+
+    override fun getBassBoostLevel(): Int = bassBoostLevel
+
+    override fun isSurroundSoundEnabled(): Boolean = surroundSoundEnabled
+
+    override fun getReverbPreset(): Int = reverbPreset
+
+    override fun getEqualizerBandCount(): Int = audioEffectManager.getEqualizerBandCount()
+
     override fun getEqualizerBandLevelRange(): Pair<Int, Int> {
         val range = audioEffectManager.getEqualizerBandLevelRange()
         return Pair(range.first.toInt(), range.second.toInt())
     }
-    
+
     override fun getCurrentEqualizerBandLevels(): FloatArray {
         // 从音效管理器获取当前各频段的增益值
         val levels = audioEffectManager.getCurrentEqualizerBandLevels()

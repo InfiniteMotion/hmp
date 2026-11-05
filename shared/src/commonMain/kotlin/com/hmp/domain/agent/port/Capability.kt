@@ -30,14 +30,10 @@ interface Capability {
     val stateFlow: StateFlow<CapabilityState>
 
     /** 启动或重启能力（可选：不 override 则抛 UnsupportedOperationException） */
-    suspend fun start(): String {
-        throw UnsupportedOperationException("$capabilityName.start() 不支持")
-    }
+    suspend fun start(): String = throw UnsupportedOperationException("$capabilityName.start() 不支持")
 
     /** 完全停止（释放资源、退出 runLoop）（可选） */
-    suspend fun stop(): String {
-        throw UnsupportedOperationException("$capabilityName.stop() 不支持")
-    }
+    suspend fun stop(): String = throw UnsupportedOperationException("$capabilityName.stop() 不支持")
 }
 
 /**
@@ -53,11 +49,11 @@ data class CapabilityState(
     val raw: Any? = null,
 ) {
     enum class Status {
-        IDLE,        // 未启动或已停止
-        BUILDING,    // 启动中（电台拉种子、富化检查覆盖率）
-        RUNNING,     // 正常运行
-        PAUSED,      // 暂停（富化 pause / 电台 pause）
-        COMPLETED,   // 正常完成（富化达到目标覆盖率自行退出）
-        ERROR,       // 不可恢复错误（LLM 连败等）
+        IDLE, // 未启动或已停止
+        BUILDING, // 启动中（电台拉种子、富化检查覆盖率）
+        RUNNING, // 正常运行
+        PAUSED, // 暂停（富化 pause / 电台 pause）
+        COMPLETED, // 正常完成（富化达到目标覆盖率自行退出）
+        ERROR, // 不可恢复错误（LLM 连败等）
     }
 }

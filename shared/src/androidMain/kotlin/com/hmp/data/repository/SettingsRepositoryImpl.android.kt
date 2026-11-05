@@ -34,7 +34,7 @@ class SettingsRepositoryImpl(
      * 密钥读写门面（D7-01）。**Android 是这条缺陷的主发现地**：`allowBackup` 把 DataStore 里的
      * 密文随云备份 / 设备迁移带走，而 AndroidKeyStore 的密钥不可导出、不迁移 → 恢复后必解不开。
      */
-    private val secrets: com.hmp.data.util.SecureSecrets = com.hmp.data.util.PlatformSecureSecrets
+    private val secrets: com.hmp.data.util.SecureSecrets = com.hmp.data.util.PlatformSecureSecrets,
 ) : SettingsRepository {
     private companion object {
         const val HAZE_MODE_CUSTOM = "custom"
@@ -45,7 +45,10 @@ class SettingsRepositoryImpl(
         const val DEFAULT_HAZE_TINT_ALPHA = 0.22f
     }
 
-    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+    private val json = Json {
+        ignoreUnknownKeys = true
+        encodeDefaults = true
+    }
 
     private object PreferencesKeys {
         val IS_FIRST_LAUNCH = booleanPreferencesKey("is_first_launch")
@@ -61,6 +64,7 @@ class SettingsRepositoryImpl(
         val CUSTOM_AI_ENDPOINT = stringPreferencesKey("custom_ai_endpoint")
         val CUSTOM_AI_API_KEY = stringPreferencesKey("custom_ai_api_key")
         val CUSTOM_AI_MODEL = stringPreferencesKey("custom_ai_model")
+
         // Agent Policy Config — per-Agent 信任档位 + 永远允许白名单
         // key 名用 role 做前缀，一个 Preferences 文件里存多个 Agent 的配置
         fun agentTrustLevelKey(role: String) = intPreferencesKey("agent_policy_${role}_trust_level")
@@ -70,10 +74,11 @@ class SettingsRepositoryImpl(
         fun agentPromptOverridesKey(role: String) = stringPreferencesKey("agent_policy_${role}_prompt_overrides")
         fun agentPreferredLangKey(role: String) = stringPreferencesKey("agent_policy_${role}_preferred_lang")
         fun agentEnabledKey(role: String) = booleanPreferencesKey("agent_policy_${role}_enabled")
+
         // Per-Agent AI Endpoint Config — 独立 endpoint/apiKey/model
-        fun agentEndpointKey(role: String) = stringPreferencesKey("agent_endpoint_${role}")
-        fun agentApiKeyKey(role: String) = stringPreferencesKey("agent_apikey_${role}")
-        fun agentModelKey(role: String) = stringPreferencesKey("agent_model_${role}")
+        fun agentEndpointKey(role: String) = stringPreferencesKey("agent_endpoint_$role")
+        fun agentApiKeyKey(role: String) = stringPreferencesKey("agent_apikey_$role")
+        fun agentModelKey(role: String) = stringPreferencesKey("agent_model_$role")
         val AGENT_GLOBAL = stringPreferencesKey("agent_global")
         val THEME_MODE = stringPreferencesKey("theme_mode")
         val BACKGROUND_STYLE = stringPreferencesKey("background_style")
@@ -103,6 +108,7 @@ class SettingsRepositoryImpl(
         val FLOATING_LYRICS_ENABLED = booleanPreferencesKey("floating_lyrics_enabled")
         val GALLERY_ORDER_BY = stringPreferencesKey("gallery_order_by")
         val GALLERY_ORDER_TYPE = stringPreferencesKey("gallery_order_type")
+
         // 目录管理（扫描目录 / 屏蔽目录）：桌面与 Android 共用同一序列化结构，
         // Android 侧作为 MediaStore 查询的 include/exclude 过滤使用。
         val SCAN_DIRECTORY_CONFIG = stringPreferencesKey("scan_directory_config")
@@ -110,15 +116,11 @@ class SettingsRepositoryImpl(
 
     private val dataStore = context.dataStore
 
-    private fun normalizeHazeMode(mode: String): String {
-        return if (mode == HAZE_MODE_PRESET) HAZE_MODE_PRESET else HAZE_MODE_CUSTOM
-    }
+    private fun normalizeHazeMode(mode: String): String = if (mode == HAZE_MODE_PRESET) HAZE_MODE_PRESET else HAZE_MODE_CUSTOM
 
-    private fun normalizeHazeMaterialPreset(preset: String): String {
-        return when (preset) {
-            "ultra_thin", "thin", "regular", "thick", "ultra_thick" -> preset
-            else -> HAZE_MATERIAL_PRESET_REGULAR
-        }
+    private fun normalizeHazeMaterialPreset(preset: String): String = when (preset) {
+        "ultra_thin", "thin", "regular", "thick", "ultra_thick" -> preset
+        else -> HAZE_MATERIAL_PRESET_REGULAR
     }
 
     override val isFirstLaunch: Flow<Boolean> = dataStore.data.map { prefs -> prefs[PreferencesKeys.IS_FIRST_LAUNCH] ?: true }
@@ -137,7 +139,11 @@ class SettingsRepositoryImpl(
     override val likedPlaylistId: Flow<Long?> = dataStore.data.map { prefs -> prefs[PreferencesKeys.LIKED_PLAYLIST_ID] }
     override val recentPlaylistId: Flow<Long?> = dataStore.data.map { prefs -> prefs[PreferencesKeys.RECENT_PLAYLIST_ID] }
     override val aiAccessMode: Flow<AiAccessMode> = dataStore.data.map { prefs ->
-        try { AiAccessMode.valueOf(prefs[PreferencesKeys.AI_ACCESS_MODE] ?: "FREE") } catch (e: Exception) { AiAccessMode.FREE }
+        try {
+            AiAccessMode.valueOf(prefs[PreferencesKeys.AI_ACCESS_MODE] ?: "FREE")
+        } catch (e: Exception) {
+            AiAccessMode.FREE
+        }
     }
     override val equalizerPreset: Flow<Int> = dataStore.data.map { prefs -> prefs[PreferencesKeys.EQUALIZER_PRESET] ?: 0 }
     override val bassBoostLevel: Flow<Int> = dataStore.data.map { prefs -> prefs[PreferencesKeys.BASS_BOOST_LEVEL] ?: 0 }
@@ -152,11 +158,19 @@ class SettingsRepositoryImpl(
     override val lyricsLineSpacing: Flow<Int> = dataStore.data.map { prefs -> prefs[PreferencesKeys.LYRICS_LINE_SPACING] ?: 6 }
     override val lyricsDisplayMode: Flow<DisplayMode> = dataStore.data.map { prefs ->
         val modeStr = prefs[PreferencesKeys.LYRICS_DISPLAY_MODE] ?: "DUAL"
-        try { DisplayMode.valueOf(modeStr) } catch (e: IllegalArgumentException) { DisplayMode.DUAL }
+        try {
+            DisplayMode.valueOf(modeStr)
+        } catch (e: IllegalArgumentException) {
+            DisplayMode.DUAL
+        }
     }
     override val lyricsAlignment: Flow<LyricsAlignment> = dataStore.data.map { prefs ->
         val alignmentStr = prefs[PreferencesKeys.LYRICS_ALIGNMENT] ?: "CENTER"
-        try { LyricsAlignment.valueOf(alignmentStr) } catch (e: IllegalArgumentException) { LyricsAlignment.CENTER }
+        try {
+            LyricsAlignment.valueOf(alignmentStr)
+        } catch (e: IllegalArgumentException) {
+            LyricsAlignment.CENTER
+        }
     }
     override val lyricsKaraokeEnabled: Flow<Boolean> = dataStore.data.map { prefs ->
         prefs[PreferencesKeys.LYRICS_KARAOKE_ENABLED] ?: true
@@ -182,19 +196,22 @@ class SettingsRepositoryImpl(
         dataStore.edit { prefs -> prefs[PreferencesKeys.GALLERY_ORDER_TYPE] = orderType }
     }
 
-
     override suspend fun saveIsFirstLaunch(isFirstLaunch: Boolean) {
         dataStore.edit { prefs -> prefs[PreferencesKeys.IS_FIRST_LAUNCH] = isFirstLaunch }
     }
     override suspend fun saveIsLoadMusic(isLoadMusic: Boolean) {
         dataStore.edit { prefs -> prefs[PreferencesKeys.IS_LOAD_MUSIC] = isLoadMusic }
     }
+
     // 目录管理（R3 恢复）：此前为 `flowOf(ScanDirectoryConfig())` / 空实现 —— 写了不保存、永远读不到，
     // 使 LibrarySettingsScreen 的目录管理区块在 Android 上成为空壳。现按 desktop 同构实现真实持久化。
     override val scanDirectoryConfig: Flow<ScanDirectoryConfig> = dataStore.data.map { prefs ->
         prefs[PreferencesKeys.SCAN_DIRECTORY_CONFIG]?.let {
-            try { json.decodeFromString<ScanDirectoryConfig>(it) }
-            catch (_: Exception) { ScanDirectoryConfig() }
+            try {
+                json.decodeFromString<ScanDirectoryConfig>(it)
+            } catch (_: Exception) {
+                ScanDirectoryConfig()
+            }
         } ?: ScanDirectoryConfig()
     }
     override suspend fun saveScanDirectoryConfig(config: ScanDirectoryConfig) {
@@ -255,10 +272,10 @@ class SettingsRepositoryImpl(
     override suspend fun saveAutoBatchProcess(enabled: Boolean) {
         dataStore.edit { prefs -> prefs[PreferencesKeys.AUTO_BATCH_PROCESS] = enabled }
     }
-    override suspend fun getAiAccessMode(): AiAccessMode {
-        return try {
-            AiAccessMode.valueOf(context.dataStore.data.first()[PreferencesKeys.AI_ACCESS_MODE] ?: "FREE")
-        } catch (e: Exception) { AiAccessMode.FREE }
+    override suspend fun getAiAccessMode(): AiAccessMode = try {
+        AiAccessMode.valueOf(context.dataStore.data.first()[PreferencesKeys.AI_ACCESS_MODE] ?: "FREE")
+    } catch (e: Exception) {
+        AiAccessMode.FREE
     }
 
     override suspend fun saveAiAccessMode(mode: AiAccessMode) {
@@ -294,11 +311,9 @@ class SettingsRepositoryImpl(
         }
     }
 
-    override suspend fun getActiveAiConfig(): AiEndpointConfig {
-        return when (getAiAccessMode()) {
-            AiAccessMode.FREE, AiAccessMode.PAID -> builtInApiKeyProvider.getConfig()
-            AiAccessMode.CUSTOM -> getCustomAiConfig()
-        }
+    override suspend fun getActiveAiConfig(): AiEndpointConfig = when (getAiAccessMode()) {
+        AiAccessMode.FREE, AiAccessMode.PAID -> builtInApiKeyProvider.getConfig()
+        AiAccessMode.CUSTOM -> getCustomAiConfig()
     }
 
     override suspend fun getAgentEndpointConfig(agentRole: String): AiEndpointConfig? {
@@ -415,38 +430,42 @@ class SettingsRepositoryImpl(
     }
     override suspend fun getLyricsDisplayMode(): DisplayMode {
         val modeStr = dataStore.data.first()[PreferencesKeys.LYRICS_DISPLAY_MODE] ?: "DUAL"
-        return try { DisplayMode.valueOf(modeStr) } catch (e: IllegalArgumentException) { DisplayMode.DUAL }
+        return try {
+            DisplayMode.valueOf(modeStr)
+        } catch (e: IllegalArgumentException) {
+            DisplayMode.DUAL
+        }
     }
     override suspend fun saveLyricsAlignment(alignment: LyricsAlignment) {
         dataStore.edit { prefs -> prefs[PreferencesKeys.LYRICS_ALIGNMENT] = alignment.name }
     }
     override suspend fun getLyricsAlignment(): LyricsAlignment {
         val alignmentStr = dataStore.data.first()[PreferencesKeys.LYRICS_ALIGNMENT] ?: "CENTER"
-        return try { LyricsAlignment.valueOf(alignmentStr) } catch (e: IllegalArgumentException) { LyricsAlignment.CENTER }
+        return try {
+            LyricsAlignment.valueOf(alignmentStr)
+        } catch (e: IllegalArgumentException) {
+            LyricsAlignment.CENTER
+        }
     }
     override suspend fun saveLyricsKaraokeEnabled(enabled: Boolean) {
         dataStore.edit { prefs -> prefs[PreferencesKeys.LYRICS_KARAOKE_ENABLED] = enabled }
     }
-    override suspend fun getLyricsKaraokeEnabled(): Boolean =
-        dataStore.data.first()[PreferencesKeys.LYRICS_KARAOKE_ENABLED] ?: true
+    override suspend fun getLyricsKaraokeEnabled(): Boolean = dataStore.data.first()[PreferencesKeys.LYRICS_KARAOKE_ENABLED] ?: true
 
     override suspend fun saveLyricsPlayerConfig(json: String) {
         dataStore.edit { prefs -> prefs[PreferencesKeys.LYRICS_PLAYER_CONFIG] = json }
     }
-    override suspend fun getLyricsPlayerConfig(): String =
-        dataStore.data.first()[PreferencesKeys.LYRICS_PLAYER_CONFIG] ?: json.encodeToString(LyricsComponentConfig.DEFAULT)
+    override suspend fun getLyricsPlayerConfig(): String = dataStore.data.first()[PreferencesKeys.LYRICS_PLAYER_CONFIG] ?: json.encodeToString(LyricsComponentConfig.DEFAULT)
 
     override suspend fun saveLyricsFullscreenConfig(json: String) {
         dataStore.edit { prefs -> prefs[PreferencesKeys.LYRICS_FULLSCREEN_CONFIG] = json }
     }
-    override suspend fun getLyricsFullscreenConfig(): String =
-        dataStore.data.first()[PreferencesKeys.LYRICS_FULLSCREEN_CONFIG] ?: json.encodeToString(LyricsComponentConfig.DEFAULT)
+    override suspend fun getLyricsFullscreenConfig(): String = dataStore.data.first()[PreferencesKeys.LYRICS_FULLSCREEN_CONFIG] ?: json.encodeToString(LyricsComponentConfig.DEFAULT)
 
     override suspend fun saveLyricsFloatingConfig(json: String) {
         dataStore.edit { prefs -> prefs[PreferencesKeys.LYRICS_FLOATING_CONFIG] = json }
     }
-    override suspend fun getLyricsFloatingConfig(): String =
-        dataStore.data.first()[PreferencesKeys.LYRICS_FLOATING_CONFIG] ?: json.encodeToString(LyricsComponentConfig.DEFAULT)
+    override suspend fun getLyricsFloatingConfig(): String = dataStore.data.first()[PreferencesKeys.LYRICS_FLOATING_CONFIG] ?: json.encodeToString(LyricsComponentConfig.DEFAULT)
 
     override suspend fun saveFloatingLyricsEnabled(enabled: Boolean) {
         dataStore.edit { prefs -> prefs[PreferencesKeys.FLOATING_LYRICS_ENABLED] = enabled }
@@ -460,7 +479,9 @@ class SettingsRepositoryImpl(
         val prefs = dataStore.data.first()
         val aiAccessMode = try {
             AiAccessMode.valueOf(prefs[PreferencesKeys.AI_ACCESS_MODE] ?: "FREE")
-        } catch (e: Exception) { AiAccessMode.FREE }
+        } catch (e: Exception) {
+            AiAccessMode.FREE
+        }
         return AppSettingsSnapshot(
             userName = prefs[PreferencesKeys.USER_NAME],
             avatarUri = prefs[PreferencesKeys.AVATAR_URI],
@@ -475,7 +496,7 @@ class SettingsRepositoryImpl(
             autoBatchProcess = prefs[PreferencesKeys.AUTO_BATCH_PROCESS] ?: true,
             aiAccessMode = aiAccessMode.name,
             customAiEndpoint = prefs[PreferencesKeys.CUSTOM_AI_ENDPOINT] ?: "",
-            customAiModel = prefs[PreferencesKeys.CUSTOM_AI_MODEL] ?: ""
+            customAiModel = prefs[PreferencesKeys.CUSTOM_AI_MODEL] ?: "",
         )
     }
 

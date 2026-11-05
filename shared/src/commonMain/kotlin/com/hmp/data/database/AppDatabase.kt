@@ -38,7 +38,7 @@ expect object AppDatabaseConstructor : RoomDatabaseConstructor<AppDatabase> {
         TokenLedgerEntry::class,
     ],
     version = 10,
-    exportSchema = true
+    exportSchema = true,
 )
 @TypeConverters(LabelConverters::class, HelloCardConverters::class)
 abstract class AppDatabase : RoomDatabase() {
@@ -87,17 +87,17 @@ abstract class AppDatabase : RoomDatabase() {
                 connection.execSQL(
                     "CREATE TABLE IF NOT EXISTS `agent_task` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
                         "`trigger_type` TEXT NOT NULL, `persona_snapshot` TEXT, `status` TEXT NOT NULL, " +
-                        "`budget_used` INTEGER, `result` TEXT, `created_at` INTEGER NOT NULL)"
+                        "`budget_used` INTEGER, `result` TEXT, `created_at` INTEGER NOT NULL)",
                 )
                 connection.execSQL(
                     "CREATE TABLE IF NOT EXISTS `agent_audit_log` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
                         "`task_id` INTEGER, `tool` TEXT NOT NULL, `args_hash` TEXT, " +
-                        "`outcome` TEXT NOT NULL, `reason` TEXT, `created_at` INTEGER NOT NULL)"
+                        "`outcome` TEXT NOT NULL, `reason` TEXT, `created_at` INTEGER NOT NULL)",
                 )
                 connection.execSQL(
                     "CREATE TABLE IF NOT EXISTS `agent_message` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
                         "`session_id` TEXT NOT NULL, `role` TEXT NOT NULL, `content` TEXT, " +
-                        "`render_hint` TEXT, `created_at` INTEGER NOT NULL)"
+                        "`render_hint` TEXT, `created_at` INTEGER NOT NULL)",
                 )
             }
         }
@@ -126,7 +126,7 @@ abstract class AppDatabase : RoomDatabase() {
                     `cardContentJson` TEXT NOT NULL,
                     `generatedAt` INTEGER NOT NULL,
                     `generatedForDate` TEXT NOT NULL
-                )"""
+                )""",
                 )
                 connection.execSQL(
                     """CREATE TABLE IF NOT EXISTS `hello_report_narrative` (
@@ -135,7 +135,7 @@ abstract class AppDatabase : RoomDatabase() {
                     `narrative` TEXT NOT NULL,
                     `generatedAt` INTEGER NOT NULL,
                     `avg_daily_minutes` REAL
-                )"""
+                )""",
                 )
             }
         }
@@ -196,11 +196,11 @@ abstract class AppDatabase : RoomDatabase() {
                     `evidence_count` INTEGER NOT NULL,
                     `distinct_sessions` INTEGER NOT NULL,
                     `last_session_id` TEXT
-                )"""
+                )""",
                 )
                 connection.execSQL(
                     "CREATE UNIQUE INDEX IF NOT EXISTS `index_user_profile_evidence_subject_predicate_value` " +
-                        "ON `user_profile_evidence` (`subject`, `predicate`, `value`)"
+                        "ON `user_profile_evidence` (`subject`, `predicate`, `value`)",
                 )
                 connection.execSQL(
                     """CREATE TABLE IF NOT EXISTS `user_profile_portrait` (
@@ -213,7 +213,7 @@ abstract class AppDatabase : RoomDatabase() {
                     `updated_at` INTEGER NOT NULL,
                     `coverage_at_modeling` REAL,
                     PRIMARY KEY(`type`)
-                )"""
+                )""",
                 )
             }
         }
@@ -233,7 +233,7 @@ abstract class AppDatabase : RoomDatabase() {
                     `facts_hash` INTEGER NOT NULL,
                     `generated_at` INTEGER NOT NULL,
                     PRIMARY KEY(`id`)
-                )"""
+                )""",
                 )
             }
         }
@@ -250,7 +250,7 @@ abstract class AppDatabase : RoomDatabase() {
                     `musicId` INTEGER NOT NULL,
                     `deliveredAt` INTEGER NOT NULL,
                     PRIMARY KEY(`musicId`)
-                )"""
+                )""",
                 )
             }
         }
@@ -277,13 +277,13 @@ abstract class AppDatabase : RoomDatabase() {
                     `cached_tokens` INTEGER NOT NULL,
                     `measured` INTEGER NOT NULL,
                     `task_id` TEXT
-                )"""
+                )""",
                 )
                 connection.execSQL(
-                    "CREATE INDEX IF NOT EXISTS `index_token_ledger_created_at` ON `token_ledger` (`created_at`)"
+                    "CREATE INDEX IF NOT EXISTS `index_token_ledger_created_at` ON `token_ledger` (`created_at`)",
                 )
                 connection.execSQL(
-                    "CREATE INDEX IF NOT EXISTS `index_token_ledger_agent_id` ON `token_ledger` (`agent_id`)"
+                    "CREATE INDEX IF NOT EXISTS `index_token_ledger_agent_id` ON `token_ledger` (`agent_id`)",
                 )
             }
         }
@@ -312,7 +312,7 @@ abstract class AppDatabase : RoomDatabase() {
 
                 // ③ 唯一索引：歌单名（此时存量已无重名）
                 connection.execSQL(
-                    "CREATE UNIQUE INDEX IF NOT EXISTS `index_playlist_name` ON `playlist` (`name`)"
+                    "CREATE UNIQUE INDEX IF NOT EXISTS `index_playlist_name` ON `playlist` (`name`)",
                 )
 
                 // ④ 删列：列序、主键与外键子句逐字对齐 Room 期望的 createSql（`10.json` 里那份）
@@ -325,28 +325,28 @@ abstract class AppDatabase : RoomDatabase() {
                         PRIMARY KEY(`songId`, `playlistId`),
                         FOREIGN KEY(`playlistId`) REFERENCES `playlist`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE
                     )
-                    """.trimIndent()
+                    """.trimIndent(),
                 )
                 connection.execSQL(
                     "INSERT INTO `playlist_item_new` (`songId`, `playlistId`, `itemOrder`) " +
-                        "SELECT `songId`, `playlistId`, `itemOrder` FROM `playlist_item`"
+                        "SELECT `songId`, `playlistId`, `itemOrder` FROM `playlist_item`",
                 )
                 connection.execSQL("DROP TABLE `playlist_item`")
                 connection.execSQL("ALTER TABLE `playlist_item_new` RENAME TO `playlist_item`")
                 connection.execSQL(
                     "CREATE INDEX IF NOT EXISTS `index_playlist_item_playlistId` " +
-                        "ON `playlist_item` (`playlistId`)"
+                        "ON `playlist_item` (`playlistId`)",
                 )
                 // ① 已保证同一歌单内序号不重复，这条唯一索引此刻才建得起来
                 connection.execSQL(
                     "CREATE UNIQUE INDEX IF NOT EXISTS `index_playlist_item_playlistId_itemOrder` " +
-                        "ON `playlist_item` (`playlistId`, `itemOrder`)"
+                        "ON `playlist_item` (`playlistId`, `itemOrder`)",
                 )
 
                 // ⑤ 其余 11 条：D2-07 的九条 + D5-11 的两条
                 //    先加 D2-02 的成因列（Room 期望它在 `userInfo` 最后一列，ALTER ADD COLUMN 正是追加到末尾）
                 connection.execSQL(
-                    "ALTER TABLE `userInfo` ADD COLUMN `removedByUser` INTEGER NOT NULL DEFAULT 0"
+                    "ALTER TABLE `userInfo` ADD COLUMN `removedByUser` INTEGER NOT NULL DEFAULT 0",
                 )
                 listOf(
                     "CREATE INDEX IF NOT EXISTS `index_music_isDeleted` ON `music` (`isDeleted`)",
@@ -368,7 +368,7 @@ abstract class AppDatabase : RoomDatabase() {
                 //    v10 尚未发布，直接并进同一版，不再新开迁移（与 userInfo.removedByUser 同一先例）。
                 //    存量行一律按 FREE 处理 —— 此前能用的只有内置 Key。
                 connection.execSQL(
-                    "ALTER TABLE `token_ledger` ADD COLUMN `access_mode` TEXT NOT NULL DEFAULT 'FREE'"
+                    "ALTER TABLE `token_ledger` ADD COLUMN `access_mode` TEXT NOT NULL DEFAULT 'FREE'",
                 )
             }
 
@@ -377,7 +377,7 @@ abstract class AppDatabase : RoomDatabase() {
                 val rows = mutableListOf<Triple<Long, Long, Long>>()
                 connection.prepare(
                     "SELECT playlistId, songId, itemOrder FROM playlist_item " +
-                        "ORDER BY playlistId ASC, itemOrder ASC, songId ASC"
+                        "ORDER BY playlistId ASC, itemOrder ASC, songId ASC",
                 ).use { statement ->
                     while (statement.step()) {
                         rows += Triple(statement.getLong(0), statement.getLong(1), statement.getLong(2))
@@ -388,7 +388,7 @@ abstract class AppDatabase : RoomDatabase() {
                         if (row.third != index.toLong()) {
                             connection.execSQL(
                                 "UPDATE playlist_item SET itemOrder = $index " +
-                                    "WHERE playlistId = ${row.first} AND songId = ${row.second}"
+                                    "WHERE playlistId = ${row.first} AND songId = ${row.second}",
                             )
                         }
                     }
@@ -399,21 +399,21 @@ abstract class AppDatabase : RoomDatabase() {
             private fun suffixDuplicatePlaylistNames(connection: SQLiteConnection) {
                 val duplicates = mutableListOf<String>()
                 connection.prepare(
-                    "SELECT name FROM playlist GROUP BY name HAVING COUNT(*) > 1"
+                    "SELECT name FROM playlist GROUP BY name HAVING COUNT(*) > 1",
                 ).use { statement ->
                     while (statement.step()) duplicates += statement.getText(0)
                 }
                 duplicates.forEach { name ->
                     val ids = mutableListOf<Long>()
                     connection.prepare(
-                        "SELECT id FROM playlist WHERE name = ${sqlLiteral(name)} ORDER BY id ASC"
+                        "SELECT id FROM playlist WHERE name = ${sqlLiteral(name)} ORDER BY id ASC",
                     ).use { statement ->
                         while (statement.step()) ids += statement.getLong(0)
                     }
                     ids.drop(1).forEach { id ->
                         val renamed = nextFreeName(connection, name)
                         connection.execSQL(
-                            "UPDATE playlist SET name = ${sqlLiteral(renamed)} WHERE id = $id"
+                            "UPDATE playlist SET name = ${sqlLiteral(renamed)} WHERE id = $id",
                         )
                     }
                 }
@@ -425,7 +425,7 @@ abstract class AppDatabase : RoomDatabase() {
                     val candidate = name + "_" + suffix
                     var taken = false
                     connection.prepare(
-                        "SELECT COUNT(*) FROM playlist WHERE name = ${sqlLiteral(candidate)}"
+                        "SELECT COUNT(*) FROM playlist WHERE name = ${sqlLiteral(candidate)}",
                     ).use { statement ->
                         if (statement.step()) taken = statement.getLong(0) > 0L
                     }
@@ -437,6 +437,7 @@ abstract class AppDatabase : RoomDatabase() {
             /** 迁移里只能拼字面量（`Migration` 拿不到绑参）；单引号按 SQL 规则翻倍转义。 */
             private fun sqlLiteral(value: String): String = "'" + value.replace("'", "''") + "'"
         }
+
         /**
          * 迁移链的唯一真源：三端 `addMigrations(*ALL_MIGRATIONS)` 与迁移测试引用同一份，
          * 结构上消灭「漏注册某一端」（漏一端 = 该端升级硬失败，因三端均已去掉 destructive 兜底）。

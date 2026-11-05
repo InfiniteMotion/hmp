@@ -56,18 +56,14 @@ class DesktopMusicControllerPlaybackAdapter(
     override fun removeFromPlaylist(music: MusicInfo) = mc.removeFromPlaylist(music)
     override fun moveToTop(music: MusicInfo) = mc.moveToTop(music)
     override fun clearPlaylist() = mc.clearPlaylist()
-    override fun addAllToPlaylistInOrder(playlist: List<MusicInfo>) =
-        mc.addAllToPlaylistInOrder(playlist)
-    override fun addAllToPlaylistByShuffle(playlist: List<MusicInfo>) =
-        mc.addAllToPlaylistByShuffle(playlist)
+    override fun addAllToPlaylistInOrder(playlist: List<MusicInfo>) = mc.addAllToPlaylistInOrder(playlist)
+    override fun addAllToPlaylistByShuffle(playlist: List<MusicInfo>) = mc.addAllToPlaylistByShuffle(playlist)
     override fun playHeartMode() = mc.playHeartMode()
 
     // ── 收藏 ──
-    override fun updateMusicLikedStatus(music: MusicInfo, liked: Boolean) =
-        mc.updateMusicLikedStatus(music, liked)
+    override fun updateMusicLikedStatus(music: MusicInfo, liked: Boolean) = mc.updateMusicLikedStatus(music, liked)
     override fun getLikedStatus(musicId: Long) = mc.getLikedStatus(musicId)
-    override suspend fun getCurrentLikedStatus(musicId: Long): Boolean =
-        mc.getCurrentLikedStatus(musicId)
+    override suspend fun getCurrentLikedStatus(musicId: Long): Boolean = mc.getCurrentLikedStatus(musicId)
 
     // ── 曲目元数据 ──
     override fun getMusicLabels(musicId: Long) = mc.getMusicLabels(musicId)

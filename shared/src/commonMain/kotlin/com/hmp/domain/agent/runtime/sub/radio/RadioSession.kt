@@ -1,14 +1,13 @@
 package com.hmp.domain.agent.runtime.sub.radio
 
-import com.hmp.domain.agent.runtime.sub.shared.RadioTrack
-
 import com.hmp.domain.agent.port.DayPart
-import com.hmp.log.HmpLog
-import com.hmp.log.LogTag
 import com.hmp.domain.agent.port.LlmMessage
 import com.hmp.domain.agent.port.PauseEvent
 import com.hmp.domain.agent.port.TrackOutcome
 import com.hmp.domain.agent.port.TrackSettledEvent
+import com.hmp.domain.agent.runtime.sub.shared.RadioTrack
+import com.hmp.log.HmpLog
+import com.hmp.log.LogTag
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -75,6 +74,7 @@ internal data class RadioContextSnapshot(
  * @param onVerdict 执行判定结果（由调用方落队列）
  * @param fallbackRefill 队列见底且模型没给动作时的本地补歌（spec §7.5 D2）
  */
+
 /** 进程内单调时钟原点 —— 复用窗口与会话都用它，保证时基一致。 */
 private val monotonicOrigin = TimeSource.Monotonic.markNow()
 
@@ -194,6 +194,7 @@ internal class RadioSession(
     private val settled = mutableListOf<TrackSettledEvent>()
     private val pauses = mutableListOf<PauseEvent>()
     private val executed = mutableListOf<String>()
+
     /** 节目档案里的「编排思路」：每轮判定的 reason + 开场编排的 reason（最多留最近几条） */
     private val intents = mutableListOf<String>()
     private val messages = mutableListOf<LlmMessage>()
@@ -323,17 +324,27 @@ internal class RadioSession(
                 while (true) {
                     val next = nextOrNull(mergeWindowMs) ?: break
                     batch += next
-                    if (next is Trigger.QueueLow) break   // 见底优先处理
+                    if (next is Trigger.QueueLow) break // 见底优先处理
                 }
             }
 
             // ── 入账：忠实记录，不做推断 ──
             var cause: RadioTriggerCause? = null
             var queueRemaining: Int? = null
-            for (t in batch) when (t) {
-                is Trigger.Settled -> { settled += t.event; cause = RadioTriggerCause.SETTLED }
-                is Trigger.Paused -> pauses += t.event
-                is Trigger.QueueLow -> { queueRemaining = t.remaining; cause = RadioTriggerCause.QUEUE_LOW }
+            for (t in batch) {
+                when (t) {
+                    is Trigger.Settled -> {
+                        settled += t.event
+                        cause = RadioTriggerCause.SETTLED
+                    }
+
+                    is Trigger.Paused -> pauses += t.event
+
+                    is Trigger.QueueLow -> {
+                        queueRemaining = t.remaining
+                        cause = RadioTriggerCause.QUEUE_LOW
+                    }
+                }
             }
 
             // 只有暂停/继续 → 不判断（暂停不是表态）
@@ -341,7 +352,7 @@ internal class RadioSession(
 
             val turn = ++turnIndex
             HmpLog.i(LogTag.AgentRadio) {
-                "📻 [TURN#$turn] 触发=${cause} 新结算=${batch.count { it is Trigger.Settled }} 条" +
+                "📻 [TURN#$turn] 触发=$cause 新结算=${batch.count { it is Trigger.Settled }} 条" +
                     "（合并窗口 ${mergeWindowMs}ms 内并批）"
             }
 
@@ -396,8 +407,8 @@ internal class RadioSession(
         queueRemaining: Int?,
         turn: Int,
     ): Pair<Int, RadioVerdict>? {
-        val g = generation()   // per-turn 快照：此后到结果回来之间世代变了 = 该轮作废
-        val snap = snapshot()   // suspend：问播放器当前到底在播什么
+        val g = generation() // per-turn 快照：此后到结果回来之间世代变了 = 该轮作废
+        val snap = snapshot() // suspend：问播放器当前到底在播什么
         val userContent = renderUserMessage(cause, queueRemaining, snap)
         // 完整上下文打 d 级（长），摘要打 i 级 —— 追踪时先 grep RadioTrace 看时间线，
         // 需要细看再放开 debug。
@@ -463,60 +474,58 @@ internal class RadioSession(
         cause: RadioTriggerCause,
         queueRemaining: Int?,
         snap: RadioContextSnapshot,
-    ): String {
-        return buildString {
-            // 完整收听台账：一档节目播的歌就几十首，一条事实一行，全量携带成本可忽略；
-            // 却让模型始终拥有整档的行为画像（连跳模式/听完的歌不会因历史裁剪失忆）。
-            // ★ 标出本轮新增 —— 旧事实在台账里，新信号一眼可辨。
-            appendLine("## 本档收听台账（开播以来累计，★ 为本轮新增）")
-            if (settled.isEmpty()) {
-                appendLine("（暂无结算）")
-            } else {
-                settled.forEachIndexed { i, e ->
-                    val mark = if (i >= sentSettled) "★" else " "
-                    appendLine("-$mark ${e.renderFact(originMs ?: e.atMs)}")
-                }
+    ): String = buildString {
+        // 完整收听台账：一档节目播的歌就几十首，一条事实一行，全量携带成本可忽略；
+        // 却让模型始终拥有整档的行为画像（连跳模式/听完的歌不会因历史裁剪失忆）。
+        // ★ 标出本轮新增 —— 旧事实在台账里，新信号一眼可辨。
+        appendLine("## 本档收听台账（开播以来累计，★ 为本轮新增）")
+        if (settled.isEmpty()) {
+            appendLine("（暂无结算）")
+        } else {
+            settled.forEachIndexed { i, e ->
+                val mark = if (i >= sentSettled) "★" else " "
+                appendLine("-$mark ${e.renderFact(originMs ?: e.atMs)}")
             }
-            if (pauses.isNotEmpty()) {
-                val last = if (pauses.last().resumed) "继续" else "暂停"
-                appendLine("- 本档累计暂停/继续 ${pauses.size} 次（最近一次：$last）")
-            }
-
-            appendLine()
-            appendLine("## 当前状态")
-            appendLine("- 在播：《${snap.playingTitle ?: "无"}》——**这一首不可替换，必须放完**")
-            appendLine("- 队列剩余：${queueRemaining ?: snap.queueRemaining} 首")
-
-            appendLine()
-            appendLine("## 节目档案（你的工作记忆，每轮都在）")
-            appendLine("- 主题：${theme?.takeIf { it.isNotBlank() } ?: "自动（无明确主题）"}")
-            if (snap.upcoming.isEmpty()) {
-                appendLine("- 当前队列（在播之后）：（空，该续上了）")
-            } else {
-                appendLine("- 当前队列（在播之后）：${snap.upcoming.joinToString("、") { "${it.musicId}|${it.title}" }}")
-                appendLine("- 之后是：${snap.upcoming.take(UPCOMING_PROSE).joinToString("、") { it.title }}")
-            }
-            if (executed.isNotEmpty()) {
-                executed.forEach { appendLine("- 已执行：$it") }
-            }
-            if (intents.isNotEmpty()) {
-                intents.forEach { appendLine("- 编排思路：$it") }
-            }
-
-            val pool = candidates()
-            if (pool.isNotBlank()) {
-                appendLine()
-                appendLine(pool.trimEnd())
-            }
-
-            appendLine()
-            appendLine(
-                when (cause) {
-                    RadioTriggerCause.QUEUE_LOW -> "队列快见底了。选一个动作。"
-                    RadioTriggerCause.SETTLED -> "选一个动作。判不准就选 none。"
-                }
-            )
         }
+        if (pauses.isNotEmpty()) {
+            val last = if (pauses.last().resumed) "继续" else "暂停"
+            appendLine("- 本档累计暂停/继续 ${pauses.size} 次（最近一次：$last）")
+        }
+
+        appendLine()
+        appendLine("## 当前状态")
+        appendLine("- 在播：《${snap.playingTitle ?: "无"}》——**这一首不可替换，必须放完**")
+        appendLine("- 队列剩余：${queueRemaining ?: snap.queueRemaining} 首")
+
+        appendLine()
+        appendLine("## 节目档案（你的工作记忆，每轮都在）")
+        appendLine("- 主题：${theme?.takeIf { it.isNotBlank() } ?: "自动（无明确主题）"}")
+        if (snap.upcoming.isEmpty()) {
+            appendLine("- 当前队列（在播之后）：（空，该续上了）")
+        } else {
+            appendLine("- 当前队列（在播之后）：${snap.upcoming.joinToString("、") { "${it.musicId}|${it.title}" }}")
+            appendLine("- 之后是：${snap.upcoming.take(UPCOMING_PROSE).joinToString("、") { it.title }}")
+        }
+        if (executed.isNotEmpty()) {
+            executed.forEach { appendLine("- 已执行：$it") }
+        }
+        if (intents.isNotEmpty()) {
+            intents.forEach { appendLine("- 编排思路：$it") }
+        }
+
+        val pool = candidates()
+        if (pool.isNotBlank()) {
+            appendLine()
+            appendLine(pool.trimEnd())
+        }
+
+        appendLine()
+        appendLine(
+            when (cause) {
+                RadioTriggerCause.QUEUE_LOW -> "队列快见底了。选一个动作。"
+                RadioTriggerCause.SETTLED -> "选一个动作。判不准就选 none。"
+            },
+        )
     }
 
     /** 历史超长时丢弃最早的轮次（system 保留；收听台账每轮全量重发，裁历史不失事实）。 */
@@ -535,7 +544,7 @@ internal class RadioSession(
     private suspend fun nextOrNull(timeoutMs: Long): Trigger? = try {
         withTimeoutOrNull(timeoutMs) { inbox.receive() }
     } catch (e: CancellationException) {
-        throw e   // 协程取消不吞
+        throw e // 协程取消不吞
     } catch (_: Throwable) {
         // close() 时 receive() 会抛 ClosedReceiveChannelException —— 那是正常退出路径，不是错误
         null
@@ -579,7 +588,10 @@ internal class RadioSession(
     )
 
     companion object {
-        private val json = Json { ignoreUnknownKeys = true; isLenient = true }
+        private val json = Json {
+            ignoreUnknownKeys = true
+            isLenient = true
+        }
 
         /**
          * 从模型输出里抠出 `musicIds` 数组（Start 定队列时用）。
@@ -699,7 +711,7 @@ internal class RadioSession(
 - whys 与 musicIds 一一对应、长度一致：每首歌一句主播按语（不超过 16 字），写给听众看——这首歌为什么排在这里、它和前后曲目怎么接。这是电台卡片上唯一展示你的话的地方，好好写。
 - 开播且上下文里标注了「正在播（电台起点）」时，额外给 seedWhy：为这首正在播的歌写一句按语（不超过 16 字），同样展示给听众
 - reason 是写给节目档案的编排思路——你之后每一轮都会看到它，用它记住"我为什么这么排"
-""".trimIndent()
+            """.trimIndent()
         }
     }
 }

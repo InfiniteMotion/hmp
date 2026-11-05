@@ -4,5 +4,9 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 enum class LabelCategory {
-    GENRE, MOOD, SCENARIO, LANGUAGE, ERA
+    GENRE,
+    MOOD,
+    SCENARIO,
+    LANGUAGE,
+    ERA,
 }

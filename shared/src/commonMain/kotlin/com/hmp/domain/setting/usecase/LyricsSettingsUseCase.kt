@@ -13,9 +13,12 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.Json
 
 class LyricsSettingsUseCase(
-    private val settingsRepository: SettingsRepository
+    private val settingsRepository: SettingsRepository,
 ) {
-    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+    private val json = Json {
+        ignoreUnknownKeys = true
+        encodeDefaults = true
+    }
     private val updateMutex = Mutex()
 
     // ==================== Per-component config ====================
@@ -41,15 +44,13 @@ class LyricsSettingsUseCase(
     /**
      * 获取所有组件配置的 Map（用于解析 linkedTo 链）
      */
-    suspend fun getAllComponentConfigs(): Map<LyricsComponent, LyricsComponentConfig> {
-        return LyricsComponent.entries.associateWith { component ->
-            val jsonStr = when (component) {
-                LyricsComponent.PLAYER -> settingsRepository.getLyricsPlayerConfig()
-                LyricsComponent.FULLSCREEN -> settingsRepository.getLyricsFullscreenConfig()
-                LyricsComponent.FLOATING -> settingsRepository.getLyricsFloatingConfig()
-            }
-            parseConfig(jsonStr)
+    suspend fun getAllComponentConfigs(): Map<LyricsComponent, LyricsComponentConfig> = LyricsComponent.entries.associateWith { component ->
+        val jsonStr = when (component) {
+            LyricsComponent.PLAYER -> settingsRepository.getLyricsPlayerConfig()
+            LyricsComponent.FULLSCREEN -> settingsRepository.getLyricsFullscreenConfig()
+            LyricsComponent.FLOATING -> settingsRepository.getLyricsFloatingConfig()
         }
+        parseConfig(jsonStr)
     }
 
     /**
@@ -68,21 +69,20 @@ class LyricsSettingsUseCase(
      * （`settingsRepository.lyricsOriginalTextSize` 等），设置页写的是新模型 —— 两边各存各的，
      * 用户改了设置看不到任何变化。
      */
-    fun configFlow(component: LyricsComponent): Flow<LyricsConfig> =
-        combine(
-            settingsRepository.lyricsPlayerConfig,
-            settingsRepository.lyricsFullscreenConfig,
-            settingsRepository.lyricsFloatingConfig,
-        ) { player, fullscreen, floating ->
-            LyricsConfigResolver.resolve(
-                component,
-                mapOf(
-                    LyricsComponent.PLAYER to parseConfig(player),
-                    LyricsComponent.FULLSCREEN to parseConfig(fullscreen),
-                    LyricsComponent.FLOATING to parseConfig(floating),
-                )
-            )
-        }
+    fun configFlow(component: LyricsComponent): Flow<LyricsConfig> = combine(
+        settingsRepository.lyricsPlayerConfig,
+        settingsRepository.lyricsFullscreenConfig,
+        settingsRepository.lyricsFloatingConfig,
+    ) { player, fullscreen, floating ->
+        LyricsConfigResolver.resolve(
+            component,
+            mapOf(
+                LyricsComponent.PLAYER to parseConfig(player),
+                LyricsComponent.FULLSCREEN to parseConfig(fullscreen),
+                LyricsComponent.FLOATING to parseConfig(floating),
+            ),
+        )
+    }
 
     /**
      * 读-改-写单个组件的配置（页内快捷面板用）。
@@ -108,12 +108,10 @@ class LyricsSettingsUseCase(
         saveComponentConfig(component, LyricsComponentConfig.DEFAULT)
     }
 
-    private fun parseConfig(jsonStr: String): LyricsComponentConfig {
-        return try {
-            json.decodeFromString(LyricsComponentConfig.serializer(), jsonStr)
-        } catch (e: Exception) {
-            LyricsComponentConfig.DEFAULT
-        }
+    private fun parseConfig(jsonStr: String): LyricsComponentConfig = try {
+        json.decodeFromString(LyricsComponentConfig.serializer(), jsonStr)
+    } catch (e: Exception) {
+        LyricsComponentConfig.DEFAULT
     }
 
     // Floating lyrics enabled toggle
@@ -123,4 +121,3 @@ class LyricsSettingsUseCase(
         settingsRepository.saveFloatingLyricsEnabled(enabled)
     }
 }
-

@@ -57,8 +57,7 @@ class BatchBToolsTest {
         }
     }
 
-    private fun song(id: Long, title: String, artist: String, album: String = "Album$id") =
-        MusicInfo(Music(id, title, artist, album, 180_000, "/$id.mp3", ""), null, null)
+    private fun song(id: Long, title: String, artist: String, album: String = "Album$id") = MusicInfo(Music(id, title, artist, album, 180_000, "/$id.mp3", ""), null, null)
 
     private fun jsonArgs(vararg pairs: Pair<String, Any>): JsonObject = buildJsonObject {
         pairs.forEach { (key, value) ->

@@ -12,26 +12,26 @@ import com.hearablemusic.player.ui.generated.resources.agent_chat_hint_scanning
 import com.hearablemusic.player.ui.generated.resources.agent_chat_hint_thinking
 import com.hearablemusic.player.ui.generated.resources.agent_chat_hint_wait
 import com.hmp.data.database.currentTimeMillis
-import com.hmp.domain.agent.port.ConfirmOutcome
-import com.hmp.domain.agent.port.ToolPermissionLevel
 import com.hmp.domain.agent.funnel.CommandLexicon
 import com.hmp.domain.agent.funnel.FunnelResult
 import com.hmp.domain.agent.port.AgentMessageStore
+import com.hmp.domain.agent.port.ConfirmOutcome
 import com.hmp.domain.agent.port.PlaybackCommand
 import com.hmp.domain.agent.port.PlaybackCommandPort
 import com.hmp.domain.agent.port.StoredAgentMessage
+import com.hmp.domain.agent.port.ToolPermissionLevel
 import com.hmp.domain.setting.usecase.UserSettingsUseCase
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
 import com.hmp.log.HmpLog
 import com.hmp.log.LogTag
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 
 /** 待确认的非模态卡片状态（M5-T4）。 */
 data class ConfirmCardState(
@@ -74,6 +74,7 @@ class ChatViewModel(
 
     private var idCounter = 1000L
     private var job: Job? = null
+
     /** 本轮已提交的确认批次（R-T4：单轮多次确认时逐批累积，回执不互相覆盖）。 */
     private val submittedConfirms = mutableListOf<ConfirmCardState>()
 
@@ -88,15 +89,17 @@ class ChatViewModel(
             HmpLog.i(LogTag.AgentChat) { "💬 session resume: sid=$sid history=${history.size}" }
             if (history.isNotEmpty()) {
                 _state.update {
-                    it.copy(messages = history.map { m ->
-                        CompanionMessage(
-                            id = nextId(),
-                            fromUser = m.role == "user",
-                            // 历史里嵌套的 Markdown 标记一并清洗（Compose 不解析 ** / ` / *）
-                            text = cleanAgentMarkdown(m.content.orEmpty()),
-                            renderHint = hintFromStore(m.renderHint),
-                        )
-                    })
+                    it.copy(
+                        messages = history.map { m ->
+                            CompanionMessage(
+                                id = nextId(),
+                                fromUser = m.role == "user",
+                                // 历史里嵌套的 Markdown 标记一并清洗（Compose 不解析 ** / ` / *）
+                                text = cleanAgentMarkdown(m.content.orEmpty()),
+                                renderHint = hintFromStore(m.renderHint),
+                            )
+                        },
+                    )
                 }
             } else {
                 // 无历史会话：填入问候语。只携带资源引用，解析留给组合期（随语言变化），
@@ -108,8 +111,8 @@ class ChatViewModel(
                                 id = 1,
                                 fromUser = false,
                                 textRes = Res.string.agent_chat_greeting.asUiText(),
-                            )
-                        )
+                            ),
+                        ),
                     )
                 }
             }
@@ -126,7 +129,7 @@ class ChatViewModel(
                     content = content,
                     renderHint = renderHint.name.lowercase(),
                     createdAt = currentTimeMillis(),
-                )
+                ),
             )
         }
     }
@@ -135,7 +138,7 @@ class ChatViewModel(
 
     /** 发送：追加用户气泡 → 启动一轮引擎对话。 */
     fun send() {
-        if (quotaBlocked.value) return  // UI 已置灰；这里再兜一层，防止外部入口绕过
+        if (quotaBlocked.value) return // UI 已置灰；这里再兜一层，防止外部入口绕过
         val text = _state.value.input.trim()
         if (text.isEmpty()) return
         _state.update { it.copy(input = "") }
@@ -169,7 +172,9 @@ class ChatViewModel(
             if (it.id == itemId && !it.permanentAllowForbidden) {
                 val newAlways = !it.alwaysAllow
                 it.copy(alwaysAllow = newAlways, selected = it.selected || newAlways)
-            } else it
+            } else {
+                it
+            }
         }
         _state.update { it.copy(pendingConfirm = p.copy(items = items)) }
     }
@@ -220,10 +225,12 @@ class ChatViewModel(
                 HmpLog.i(LogTag.AgentChat) { "💬 chat send (funnel=Direct): cmd=${decision.command}" }
                 launchDirect(decision.command)
             }
+
             FunnelResult.Upgrade -> {
                 HmpLog.i(LogTag.AgentChat) { "💬 chat send (funnel=Upgrade): $text" }
                 launchRun(text)
             }
+
             FunnelResult.Pass -> {
                 HmpLog.d(LogTag.AgentChat) { "💬 chat send (funnel=Pass): $text" }
                 launchRun(text)
@@ -261,14 +268,21 @@ class ChatViewModel(
                             if (current != null && !current.submitted) return@collect
                             val items = event.requests.map { r ->
                                 val strong = r.permissionLevel == ToolPermissionLevel.STRONG_CONFIRM
-                                ConfirmItem(id = r.toolName + "#" + r.argsSummary.hashCode(),
-                                    toolName = r.toolName, argsSummary = r.argsSummary,
+                                ConfirmItem(
+                                    id = r.toolName + "#" + r.argsSummary.hashCode(),
+                                    toolName = r.toolName,
+                                    argsSummary = r.argsSummary,
                                     // 不可逆项不预选：用户必须看清它改的是什么再自己勾上
-                                    selected = !strong, permissionLevel = r.permissionLevel)
+                                    selected = !strong,
+                                    permissionLevel = r.permissionLevel,
+                                )
                             }
                             _state.update { it.copy(pendingConfirm = ConfirmCardState(event.turnId, items)) }
                         }
-                        is ChatAgentEvent.ToolExecuted -> Unit // 执行回执并入 Finished 展平气泡
+
+                        is ChatAgentEvent.ToolExecuted -> Unit
+
+                        // 执行回执并入 Finished 展平气泡
                         is ChatAgentEvent.Finished -> {
                             // R-T4：逐批产出确认气泡，最终答复/工具记录一条 TEXT；回执互不覆盖
                             val bubbles = mutableListOf<CompanionMessage>()
@@ -292,6 +306,7 @@ class ChatViewModel(
                             submittedConfirms.clear()
                             gatewayBridge = null
                         }
+
                         is ChatAgentEvent.Failed -> {
                             HmpLog.w(LogTag.AgentChat) { "💬 chat failed: ${event.message}" }
                             _state.update {
@@ -311,20 +326,24 @@ class ChatViewModel(
                             submittedConfirms.clear()
                             gatewayBridge = null
                         }
+
                         is ChatAgentEvent.RadioStarted -> {
                             val summaryMsg = CompanionMessage(
-                                id = nextId(), fromUser = false,
+                                id = nextId(),
+                                fromUser = false,
                                 renderHint = CompanionRenderHint.TEXT,
                                 text = event.summary,
                             )
                             val songlistMsg = CompanionMessage(
-                                id = nextId(), fromUser = false,
+                                id = nextId(),
+                                fromUser = false,
                                 renderHint = CompanionRenderHint.SONGLIST,
                                 songs = event.songs,
                             )
                             listOf(summaryMsg, songlistMsg).forEach { persist("agent", it.text, it.renderHint) }
                             _state.update { it.copy(messages = it.messages + summaryMsg + songlistMsg) }
                         }
+
                         is ChatAgentEvent.RadioStateChanged -> {
                             HmpLog.i(LogTag.AgentChat) { "💬 radio state changed: playing=${event.isPlaying} tracks=${event.trackCount}" }
                         }
@@ -340,8 +359,7 @@ class ChatViewModel(
 
     private fun nextId(): Long = idCounter++
 
-    private fun pickRunningHint(messages: Int): UiText =
-        RUNNING_HINTS[(messages % RUNNING_HINTS.size).coerceIn(RUNNING_HINTS.indices)]
+    private fun pickRunningHint(messages: Int): UiText = RUNNING_HINTS[(messages % RUNNING_HINTS.size).coerceIn(RUNNING_HINTS.indices)]
 
     companion object {
         private const val SESSION_LOAD_LIMIT = 50
@@ -351,8 +369,7 @@ class ChatViewModel(
             Res.string.agent_chat_hint_playlist.asUiText(),
             Res.string.agent_chat_hint_wait.asUiText(),
         )
-        private fun hintFromStore(hint: String?): CompanionRenderHint =
-            hint?.uppercase()?.let { s -> CompanionRenderHint.entries.firstOrNull { it.name == s } }
-                ?: CompanionRenderHint.TEXT
+        private fun hintFromStore(hint: String?): CompanionRenderHint = hint?.uppercase()?.let { s -> CompanionRenderHint.entries.firstOrNull { it.name == s } }
+            ?: CompanionRenderHint.TEXT
     }
 }

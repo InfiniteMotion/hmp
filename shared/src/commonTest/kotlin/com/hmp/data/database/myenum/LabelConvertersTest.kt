@@ -56,7 +56,7 @@ class LabelConvertersTest {
             LabelName.WORKOUT, LabelName.SLEEP,
             LabelName.ENGLISH, LabelName.CHINESE,
             LabelName.SIXTIES, LabelName.TWENTY_TWENTIES,
-            LabelName.UNKNOWN
+            LabelName.UNKNOWN,
         )
         testLabels.forEach { label ->
             val str = converters.fromLabelName(label)

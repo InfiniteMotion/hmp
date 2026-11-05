@@ -35,15 +35,15 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
+import com.hearablemusic.player.ui.common.design.animation.HmpMotion
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
+import com.hearablemusic.player.ui.common.util.rememberHapticFeedback
 import com.hmp.data.database.currentTimeMillis
 import com.hmp.domain.agent.card.SlideCard
 import com.hmp.domain.agent.card.SlideType
-import com.hearablemusic.player.ui.common.util.rememberHapticFeedback
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
-import com.hearablemusic.player.ui.common.design.animation.HmpMotion
 
 // ═══════════════════════════════════════════════════════════════════
 // HelloCardCoverflow —— 垂直卡片堆叠（横竖屏共用的唯一实现）
@@ -68,8 +68,10 @@ import com.hearablemusic.player.ui.common.design.animation.HmpMotion
 private const val CF_AUTO_ROTATE_MS = 4000L
 private const val CF_USER_LOCK_MS = 5000L
 private const val CF_DRAG_THRESHOLD_PX = 70f
+
 /** 甩动速度阈值（px/ms）：超过则即使位移不足也翻页 */
 private const val CF_FLING_VELOCITY_PX_PER_MS = 1.2f
+
 /** 估速时忽略超过此值的事件间隔（ms）—— 停顿后的首个 delta 不代表速度 */
 private const val CF_VELOCITY_WINDOW_MS = 100f
 
@@ -184,11 +186,11 @@ internal fun HelloCardCoverflow(
                 //    （用户裁定"锁定也循环"）。故 pointerInput 的 key 里去掉 locked。
                 .pointerInput(cards.size) {
                     if (cards.size <= 1) return@pointerInput
-                    var acc = 0f        // 本次拖拽累计位移（px）
-                    var vTime = 0L      // 上一定位事件的时间戳（估速用）
-                    var velocity = 0f   // 松手瞬间的速度（px/ms）
-                    var total = 0f      // 本次拖拽累计绝对位移（区分"点按"与"拖动"）
-                    var startIndex = 0  // 拖拽起点的整数格（翻页目标以此为基准，避免跳两格）
+                    var acc = 0f // 本次拖拽累计位移（px）
+                    var vTime = 0L // 上一定位事件的时间戳（估速用）
+                    var velocity = 0f // 松手瞬间的速度（px/ms）
+                    var total = 0f // 本次拖拽累计绝对位移（区分"点按"与"拖动"）
+                    var startIndex = 0 // 拖拽起点的整数格（翻页目标以此为基准，避免跳两格）
                     val threshold = CF_DRAG_THRESHOLD_PX
 
                     fun settle(target: Float) {
@@ -210,7 +212,10 @@ internal fun HelloCardCoverflow(
 
                     detectVerticalDragGestures(
                         onDragStart = {
-                            acc = 0f; vTime = 0L; velocity = 0f; total = 0f
+                            acc = 0f
+                            vTime = 0L
+                            velocity = 0f
+                            total = 0f
                             // 起点格必须在此刻取：拖动中 offset 是小数，
                             // 若在 onDragEnd 再 round，1.6 会算成 2、再 +1 变 3（跳两格）。
                             startIndex = offset.value.roundToIntCompat()
@@ -225,8 +230,11 @@ internal fun HelloCardCoverflow(
                                 kotlin.math.abs(velocity) > CF_FLING_VELOCITY_PX_PER_MS
                             if (pageTurn) {
                                 // 翻一格：方向由位移（或甩动方向）决定，基准是**起点格**
-                                val dir = if (acc != 0f) (if (acc < 0) 1 else -1)
-                                else (if (velocity < 0) 1 else -1)
+                                val dir = if (acc != 0f) {
+                                    (if (acc < 0) 1 else -1)
+                                } else {
+                                    (if (velocity < 0) 1 else -1)
+                                }
                                 settle((startIndex + dir).toFloat())
                             } else {
                                 // ⚠️ 未过阈值也必须吸附回最近整点 ——
@@ -277,73 +285,78 @@ internal fun HelloCardCoverflow(
             val base = center.roundToIntCompat()
             val n = cards.size
 
-            if (n > 0) for (step in -2..2) {
-                val rawIndex = base + step
-                val d = rawIndex - center                // 展开索引下的带符号距离：>0 在下方
-                val absD = kotlin.math.abs(d)
-                if (absD > 2.5f) continue
-                val cardIndex = ((rawIndex % n) + n) % n // 环形取模 → 真实卡号
-                val eased = FastOutSlowInEasing.transform(absD.coerceIn(0f, 1f))
-                val isCenter = absD < 0.5f
+            if (n > 0) {
+                for (step in -2..2) {
+                    val rawIndex = base + step
+                    val d = rawIndex - center // 展开索引下的带符号距离：>0 在下方
+                    val absD = kotlin.math.abs(d)
+                    if (absD > 2.5f) continue
+                    val cardIndex = ((rawIndex % n) + n) % n // 环形取模 → 真实卡号
+                    val eased = FastOutSlowInEasing.transform(absD.coerceIn(0f, 1f))
+                    val isCenter = absD < 0.5f
 
-                // 离开缩小 / 进入放大：分两段连续缩放。
-                //   段① |d| ∈ [0,1]：1 → neighborScale（中心 → 邻卡位）
-                //   段② |d| ∈ [1,2]：1 → exitScale（邻卡位 → 更外侧，即"离开时继续缩小"）
-                // 两段相乘，故 |d|=1 处恰为 neighborScale、|d|≥2 处为 neighborScale × exitScale。
-                val nearT = eased                                   // 0→1 段已由 eased 提供
-                val farEased = FastOutSlowInEasing.transform(((absD - 1f) / 1f).coerceIn(0f, 1f))
-                val scale = (1f - nearT * (1f - tuning.neighborScale)) *
-                    (1f - farEased * (1f - tuning.exitScale))
-                // alpha 只走一段：到邻卡位即降到 neighborAlpha 后不再继续淡（再往外已基本出画）
-                val alpha = 1f - nearT * (1f - tuning.neighborAlpha)
-                val rotX = if (d > 0) -tuning.neighborRotation * eased
-                else tuning.neighborRotation * eased
+                    // 离开缩小 / 进入放大：分两段连续缩放。
+                    //   段① |d| ∈ [0,1]：1 → neighborScale（中心 → 邻卡位）
+                    //   段② |d| ∈ [1,2]：1 → exitScale（邻卡位 → 更外侧，即"离开时继续缩小"）
+                    // 两段相乘，故 |d|=1 处恰为 neighborScale、|d|≥2 处为 neighborScale × exitScale。
+                    val nearT = eased // 0→1 段已由 eased 提供
+                    val farEased = FastOutSlowInEasing.transform(((absD - 1f) / 1f).coerceIn(0f, 1f))
+                    val scale = (1f - nearT * (1f - tuning.neighborScale)) *
+                        (1f - farEased * (1f - tuning.exitScale))
+                    // alpha 只走一段：到邻卡位即降到 neighborAlpha 后不再继续淡（再往外已基本出画）
+                    val alpha = 1f - nearT * (1f - tuning.neighborAlpha)
+                    val rotX = if (d > 0) {
+                        -tuning.neighborRotation * eased
+                    } else {
+                        tuning.neighborRotation * eased
+                    }
 
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.Center)
-                        .width(cardWidth)
-                        .height(cardHeight)
-                        // 手动定位：把卡片中心按 `d × stepPx` 纵向偏移
-                        .layout { measurable, constraints ->
-                            val p = measurable.measure(constraints)
-                            layout(p.width, p.height) {
-                                p.placeRelative(
-                                    x = (constraints.maxWidth - p.width) / 2,
-                                    y = ((constraints.maxHeight - p.height) / 2 + (d * stepPx)).toInt(),
-                                )
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.Center)
+                            .width(cardWidth)
+                            .height(cardHeight)
+                            // 手动定位：把卡片中心按 `d × stepPx` 纵向偏移
+                            .layout { measurable, constraints ->
+                                val p = measurable.measure(constraints)
+                                layout(p.width, p.height) {
+                                    p.placeRelative(
+                                        x = (constraints.maxWidth - p.width) / 2,
+                                        y = ((constraints.maxHeight - p.height) / 2 + (d * stepPx)).toInt(),
+                                    )
+                                }
                             }
+                            // 层序：离中心越近越高（修正"后页盖前页"）
+                            .zIndex(10f - absD)
+                            .graphicsLayer {
+                                // 斜倚堆叠：旋转轴钉在邻卡的**内缘**（贴中卡那条边）——
+                                //   上邻卡（d<0）绕下缘、下邻卡（d>0）绕上缘。内缘位置不随缩放/旋转移动，
+                                //   卡像 panel 斜靠在中卡上下，外缘向后收进容器。
+                                // 中卡（|d|<0.5 视觉上）scale=1、rotation=0，轴点取哪都不影响渲染。
+                                transformOrigin = when {
+                                    !tuning.leanNeighbors -> TransformOrigin.Center
+                                    d < 0f -> TransformOrigin(0.5f, 1f)
+                                    else -> TransformOrigin(0.5f, 0f)
+                                }
+                                cameraDistance = tuning.cameraDistance
+                                rotationX = rotX
+                                scaleX = scale
+                                scaleY = scale
+                                this.alpha = alpha
+                            },
+                    ) {
+                        // key(cardId)：循环取模会让**同一槽位**在不同时刻轮到不同卡。
+                        // 若不显式给 key，Compose 按"槽位"复用节点 —— 归一化（5.0→0.0）时
+                        // 槽位里换了一张卡，卡内的状态（如 AsyncImage 已加载的封面）会被错误继承/重置。
+                        // 用 cardId 作 key，保证"同一张卡无论滚到哪个槽位"都复用同一个 composition。
+                        key(cards[cardIndex].cardId) {
+                            FamilyDispatch(
+                                card = cards[cardIndex],
+                                modifier = Modifier.fillMaxSize(),
+                                onCardClick = onCardClick,
+                                isCurrentPage = isCenter,
+                            )
                         }
-                        // 层序：离中心越近越高（修正"后页盖前页"）
-                        .zIndex(10f - absD)
-                        .graphicsLayer {
-                            // 斜倚堆叠：旋转轴钉在邻卡的**内缘**（贴中卡那条边）——
-                            //   上邻卡（d<0）绕下缘、下邻卡（d>0）绕上缘。内缘位置不随缩放/旋转移动，
-                            //   卡像 panel 斜靠在中卡上下，外缘向后收进容器。
-                            // 中卡（|d|<0.5 视觉上）scale=1、rotation=0，轴点取哪都不影响渲染。
-                            transformOrigin = when {
-                                !tuning.leanNeighbors -> TransformOrigin.Center
-                                d < 0f -> TransformOrigin(0.5f, 1f)
-                                else -> TransformOrigin(0.5f, 0f)
-                            }
-                            cameraDistance = tuning.cameraDistance
-                            rotationX = rotX
-                            scaleX = scale
-                            scaleY = scale
-                            this.alpha = alpha
-                        },
-                ) {
-                    // key(cardId)：循环取模会让**同一槽位**在不同时刻轮到不同卡。
-                    // 若不显式给 key，Compose 按"槽位"复用节点 —— 归一化（5.0→0.0）时
-                    // 槽位里换了一张卡，卡内的状态（如 AsyncImage 已加载的封面）会被错误继承/重置。
-                    // 用 cardId 作 key，保证"同一张卡无论滚到哪个槽位"都复用同一个 composition。
-                    key(cards[cardIndex].cardId) {
-                        FamilyDispatch(
-                            card = cards[cardIndex],
-                            modifier = Modifier.fillMaxSize(),
-                            onCardClick = onCardClick,
-                            isCurrentPage = isCenter,
-                        )
                     }
                 }
             }
@@ -358,15 +371,15 @@ internal fun HelloCardCoverflow(
             ) {
                 cards.forEachIndexed { index, _ ->
                     // 高亮判据也必须走**环形距离**：直接用 |index − offset| 在循环模式下会跳
-                    //（offset 归一化到 0 附近时，最后一张的点会错误地熄灭）。
+                    // （offset 归一化到 0 附近时，最后一张的点会错误地熄灭）。
                     val active = kotlin.math.abs(ringDelta(index.toFloat() - offset.value, n)) < 0.5f
                     Box(
                         modifier = Modifier
                             .size(if (active) metrics.micro else metrics.micro)
                             .clip(RoundedCornerShape(metrics.hair))
                             .background(
-                                if (active) dotColor else dotColor.copy(alpha = 0.3f)
-                            )
+                                if (active) dotColor else dotColor.copy(alpha = 0.3f),
+                            ),
                     )
                 }
             }

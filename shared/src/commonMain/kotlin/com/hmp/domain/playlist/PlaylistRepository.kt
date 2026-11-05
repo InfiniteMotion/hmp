@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.Flow
 interface PlaylistRepository {
     // Create/Delete Playlist
     suspend fun createPlaylist(name: String): Long
+
     /** 按名查一行；没有则 null。系统歌单自愈用它**接管**已有行，不再按名删除（D3-05②③）。 */
     suspend fun getPlaylistByName(name: String): Playlist?
     suspend fun removePlaylistById(id: Long)
@@ -21,6 +22,7 @@ interface PlaylistRepository {
     suspend fun setPlaylistLastPlayedAt(id: Long, timestamp: Long)
 
     // Manage Items
+
     /**
      * 追加一首。**没有 `musicPath` 参数**（一-4 / D3-15 收尾）：v10 删掉 `playlist_item.songUrl` 之后
      * 它就是纯死参数，调用方还得为了喂它去查一次曲目路径 —— 现在条目只认 `musicId`，路径永远从 `music` 表读。

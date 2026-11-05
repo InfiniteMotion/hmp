@@ -11,17 +11,17 @@ import com.hmp.domain.setting.model.ScanDirectoryConfig
 import com.hmp.domain.setting.usecase.UserSettingsUseCase
 import io.mockk.CapturingSlot
 import io.mockk.coEvery
-import io.mockk.slot
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.slot
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
-import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.TestDispatcher
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
@@ -80,9 +80,14 @@ class LibraryScanPolicyTest {
         coEvery { loadIncremental() } returns Result.success(Unit)
         coEvery { loadFull() } returns Result.success(Unit)
         return LibraryViewModel(
-            getAllMusic, loadFull, loadIncremental,
-            removeFromLibrary, restoreToLibrary, hiddenFoldersUseCase,
-            settings, notifier
+            getAllMusic,
+            loadFull,
+            loadIncremental,
+            removeFromLibrary,
+            restoreToLibrary,
+            hiddenFoldersUseCase,
+            settings,
+            notifier,
         )
     }
 
@@ -103,7 +108,7 @@ class LibraryScanPolicyTest {
         assertTrue("/music/incoming" in saved.captured.scanDirectories)
         assertTrue(
             "原有目录不能被覆盖掉",
-            saved.captured.scanDirectories.containsAll(configFlow.value.scanDirectories - "/music/incoming")
+            saved.captured.scanDirectories.containsAll(configFlow.value.scanDirectories - "/music/incoming"),
         )
     }
 

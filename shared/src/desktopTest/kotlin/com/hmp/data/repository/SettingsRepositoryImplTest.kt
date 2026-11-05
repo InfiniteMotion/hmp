@@ -27,7 +27,10 @@ class SettingsRepositoryImplTest {
     private lateinit var dataStore: DataStore<Preferences>
     private lateinit var repo: SettingsRepositoryImpl
     private lateinit var tempFile: File
-    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+    private val json = Json {
+        ignoreUnknownKeys = true
+        encodeDefaults = true
+    }
 
     @Before
     fun setup() {
@@ -344,26 +347,26 @@ class SettingsRepositoryImplTest {
     }
 
     @Test
-      fun saveFloatingLyricsEnabled() = runTest {
-          repo.saveFloatingLyricsEnabled(true)
-          assertTrue(repo.floatingLyricsEnabled.first())
-      }
+    fun saveFloatingLyricsEnabled() = runTest {
+        repo.saveFloatingLyricsEnabled(true)
+        assertTrue(repo.floatingLyricsEnabled.first())
+    }
 
-      // ===== Karaoke Lyrics =====
+    // ===== Karaoke Lyrics =====
 
-      @Test
-      fun lyricsKaraokeEnabled_defaultTrue() = runTest {
-          assertTrue(repo.lyricsKaraokeEnabled.first())
-      }
+    @Test
+    fun lyricsKaraokeEnabled_defaultTrue() = runTest {
+        assertTrue(repo.lyricsKaraokeEnabled.first())
+    }
 
-      @Test
-      fun saveLyricsKaraokeEnabled() = runTest {
-          repo.saveLyricsKaraokeEnabled(false)
-          assertFalse(repo.lyricsKaraokeEnabled.first())
-          assertFalse(repo.getLyricsKaraokeEnabled())
-      }
+    @Test
+    fun saveLyricsKaraokeEnabled() = runTest {
+        repo.saveLyricsKaraokeEnabled(false)
+        assertFalse(repo.lyricsKaraokeEnabled.first())
+        assertFalse(repo.getLyricsKaraokeEnabled())
+    }
 
-      // ===== Export/Import Snapshot =====
+    // ===== Export/Import Snapshot =====
 
     @Test
     fun exportAppSettingsSnapshot_containsDefaults() = runTest {
@@ -386,7 +389,7 @@ class SettingsRepositoryImplTest {
             autoBatchProcess = true,
             aiAccessMode = "FREE",
             customAiEndpoint = "",
-            customAiModel = ""
+            customAiModel = "",
         )
         repo.restoreFromSnapshot(snapshot)
         assertEquals("dark", repo.themeMode.first())

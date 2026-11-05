@@ -1,15 +1,12 @@
 package com.hmp.domain.agent.tool
-import com.hmp.domain.agent.tool.spec.DEFAULT_RESULT_LIMIT
-import com.hmp.domain.agent.tool.spec.DEFAULT_RESULT_LIMIT
-import com.hmp.domain.agent.tool.spec.AgentTool
-import com.hmp.domain.agent.tool.spec.ToolResult
-import com.hmp.domain.agent.tool.spec.ToolNames
-import com.hmp.domain.agent.tool.spec.ToolArgs
-import com.hmp.domain.agent.tool.spec.StringParam
-import com.hmp.domain.agent.tool.spec.LongParam
-
 import com.hmp.domain.agent.port.ToolPermissionLevel
-
+import com.hmp.domain.agent.tool.spec.AgentTool
+import com.hmp.domain.agent.tool.spec.DEFAULT_RESULT_LIMIT
+import com.hmp.domain.agent.tool.spec.LongParam
+import com.hmp.domain.agent.tool.spec.StringParam
+import com.hmp.domain.agent.tool.spec.ToolArgs
+import com.hmp.domain.agent.tool.spec.ToolNames
+import com.hmp.domain.agent.tool.spec.ToolResult
 import com.hmp.domain.enum.LabelCategory
 import com.hmp.domain.enum.LabelName
 import com.hmp.domain.music.MusicInfo
@@ -20,10 +17,9 @@ import kotlinx.serialization.json.JsonObject
 internal fun MusicInfo.songDisplay(): String = "${music.title} - ${music.artist}"
 
 /** 检索结果行：带序号与 music_id（id 供 controlPlayback.play_by_id 使用），控制在上下文行数。 */
-internal fun List<MusicInfo>.summaryLines(limit: Int): String =
-    take(limit.coerceAtLeast(1)).withIndex().joinToString("\n") { (i, it) ->
-        "${i + 1}. ${it.music.title} - ${it.music.artist} (id=${it.music.id})"
-    }
+internal fun List<MusicInfo>.summaryLines(limit: Int): String = take(limit.coerceAtLeast(1)).withIndex().joinToString("\n") { (i, it) ->
+    "${i + 1}. ${it.music.title} - ${it.music.artist} (id=${it.music.id})"
+}
 
 /** 标签过滤上限（避免标签命中大量曲目时 N 次查询）。 */
 private const val MAX_LABEL_RESULTS = 10
@@ -85,8 +81,7 @@ internal fun labelAliasesFor(query: String): List<LabelName> {
  * 4 个调用点（song_tags_get / add_user_label / remove_user_label / 标签概览）
  * 全是给 LLM 与用户看的文本，等于中文别名表从未生效。
  */
-internal fun LabelName.displayCn(): String =
-    LABEL_ALIASES.entries.firstOrNull { it.value == this && it.key != name.lowercase() }?.key ?: name
+internal fun LabelName.displayCn(): String = LABEL_ALIASES.entries.firstOrNull { it.value == this && it.key != name.lowercase() }?.key ?: name
 
 // ---------------- library_search (read/silent) ----------------
 
@@ -152,15 +147,14 @@ class SongTagsGetTool(
         if (labels.isEmpty()) {
             return ToolResult.failure("歌曲 $musicId 尚未富化：曲库中没有任何标签")
         }
-        fun of(category: LabelCategory) =
-            labels.filter { it.type == category }.joinToString("、") { it.label.displayCn() }
+        fun of(category: LabelCategory) = labels.filter { it.type == category }.joinToString("、") { it.label.displayCn() }
         return ToolResult.success(
             "歌曲 $musicId 标签：\n" +
                 "  genre(风格): ${of(LabelCategory.GENRE)}\n" +
                 "  mood(情绪): ${of(LabelCategory.MOOD)}\n" +
                 "  scenario(场景): ${of(LabelCategory.SCENARIO)}\n" +
                 "  era(年代): ${of(LabelCategory.ERA)}\n" +
-                "  language(语言): ${of(LabelCategory.LANGUAGE)}"
+                "  language(语言): ${of(LabelCategory.LANGUAGE)}",
         )
     }
 }

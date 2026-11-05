@@ -1,18 +1,18 @@
 package com.hmp.domain.agent.runtime
 
-import com.hmp.domain.agent.port.AuditEntry
-import com.hmp.domain.agent.port.ConfirmGate
-import com.hmp.domain.agent.port.ConfirmOutcome
-import com.hmp.domain.agent.port.ConfirmRequest
-import com.hmp.domain.agent.port.AuditLogPort
-import com.hmp.domain.agent.port.LlmEvent
-import com.hmp.domain.agent.port.LlmMessage
 import com.hmp.domain.agent.policy.AgentPolicy
 import com.hmp.domain.agent.policy.PermissionDecision
 import com.hmp.domain.agent.policy.PolicyGuard
+import com.hmp.domain.agent.port.AuditEntry
+import com.hmp.domain.agent.port.AuditLogPort
+import com.hmp.domain.agent.port.ConfirmGate
+import com.hmp.domain.agent.port.ConfirmOutcome
+import com.hmp.domain.agent.port.ConfirmRequest
+import com.hmp.domain.agent.port.LlmEvent
+import com.hmp.domain.agent.port.LlmMessage
+import com.hmp.domain.agent.tool.spec.ToolRegistry
 import com.hmp.log.HmpLog
 import com.hmp.log.LogTag
-import com.hmp.domain.agent.tool.spec.ToolRegistry
 import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
@@ -70,9 +70,12 @@ internal class ToolCallExecutor(
             val decision = policyGuard.decide(agentPolicy, tc.name, tool.permissionLevel, taskId)
             when (decision) {
                 is PermissionDecision.AllowSilent,
-                is PermissionDecision.AllowWithNotify -> approvals[tc.id] = true
+                is PermissionDecision.AllowWithNotify,
+                -> approvals[tc.id] = true
+
                 is PermissionDecision.RequireConfirm -> pending += tc
-                is PermissionDecision.Deny -> approvals[tc.id] = false  // Phase1 Agent 身份门拒 / Phase2 策略拒
+
+                is PermissionDecision.Deny -> approvals[tc.id] = false // Phase1 Agent 身份门拒 / Phase2 策略拒
             }
         }
 
@@ -90,7 +93,7 @@ internal class ToolCallExecutor(
                             argsSummary = summarizeArgs(tc.argumentsJson),
                             permissionLevel = registry.find(tc.name)!!.permissionLevel,
                         )
-                    }
+                    },
                 )
                 HmpLog.d(LogTag.AgentTool) { "🛠️ confirm outcomes=$outcomes" }
 
@@ -102,14 +105,16 @@ internal class ToolCallExecutor(
                             approvals[tc.id] = true
                             // AllowOnce 不改变 trustLevel——单次确认无论多少次都不应累积信任
                         }
+
                         ConfirmOutcome.AllowAlways -> {
                             approvals[tc.id] = true
                             alwaysAllowCandidates += tc.name
-                            trustLedger?.onActionAccepted(tc.name)  // 永远允许 → 触发信任累加
+                            trustLedger?.onActionAccepted(tc.name) // 永远允许 → 触发信任累加
                         }
+
                         ConfirmOutcome.Deny -> {
                             approvals[tc.id] = false
-                            trustLedger?.onActionRejected(tc.name)  // 拒绝 → 回拨信任
+                            trustLedger?.onActionRejected(tc.name) // 拒绝 → 回拨信任
                         }
                     }
                 }
@@ -140,20 +145,28 @@ internal class ToolCallExecutor(
     ): ToolExecutionRecord {
         val tool = registry.find(tc.name)
         if (tool == null) {
-            auditLog?.record(AuditEntry(
-                tool = tc.name, outcome = "skipped",
-                reason = "未知工具，跳过", taskId = taskId,
-            ))
+            auditLog?.record(
+                AuditEntry(
+                    tool = tc.name,
+                    outcome = "skipped",
+                    reason = "未知工具，跳过",
+                    taskId = taskId,
+                ),
+            )
             messages?.appendToolResult(tc, "（未知工具，已跳过）")
             return ToolExecutionRecord(tc.name, "skipped", "未知工具")
         }
 
         if (approved != null && !approved) {
-            auditLog?.record(AuditEntry(
-                tool = tc.name, outcome = "refused",
-                reason = "用户否决", argsHash = argsHash(tc.name, tc.argumentsJson),
-                taskId = taskId,
-            ))
+            auditLog?.record(
+                AuditEntry(
+                    tool = tc.name,
+                    outcome = "refused",
+                    reason = "用户否决",
+                    argsHash = argsHash(tc.name, tc.argumentsJson),
+                    taskId = taskId,
+                ),
+            )
             messages?.appendToolResult(tc, "（用户拒绝执行，已跳过）")
             return ToolExecutionRecord(tc.name, "refused", "用户拒绝")
         }
@@ -161,13 +174,15 @@ internal class ToolCallExecutor(
         return try {
             val args = parseArgsStrict(tc, json)
             val result = registry.executeTool(tc.name, args)
-            auditLog?.record(AuditEntry(
-                tool = tc.name,
-                outcome = if (result.success) "success" else "failed",
-                reason = result.failureReason ?: result.summary,
-                argsHash = argsHash(tc.name, tc.argumentsJson),
-                taskId = taskId,
-            ))
+            auditLog?.record(
+                AuditEntry(
+                    tool = tc.name,
+                    outcome = if (result.success) "success" else "failed",
+                    reason = result.failureReason ?: result.summary,
+                    argsHash = argsHash(tc.name, tc.argumentsJson),
+                    taskId = taskId,
+                ),
+            )
             messages?.appendToolResult(tc, result.summary)
             ToolExecutionRecord(
                 toolName = tc.name,
@@ -176,14 +191,17 @@ internal class ToolCallExecutor(
                 detail = result.detail,
             )
         } catch (ce: CancellationException) {
-            throw ce  // 协程取消不吞：吞掉会继续执行剩余 toolCalls 并写库（同 LlmCallExecutor 的约定）
+            throw ce // 协程取消不吞：吞掉会继续执行剩余 toolCalls 并写库（同 LlmCallExecutor 的约定）
         } catch (e: Exception) {
-            auditLog?.record(AuditEntry(
-                tool = tc.name, outcome = "failed",
-                reason = "执行异常: ${e.message}",
-                argsHash = argsHash(tc.name, tc.argumentsJson),
-                taskId = taskId,
-            ))
+            auditLog?.record(
+                AuditEntry(
+                    tool = tc.name,
+                    outcome = "failed",
+                    reason = "执行异常: ${e.message}",
+                    argsHash = argsHash(tc.name, tc.argumentsJson),
+                    taskId = taskId,
+                ),
+            )
             messages?.appendToolResult(tc, "（执行失败，已跳过）")
             ToolExecutionRecord(tc.name, "failed", "执行异常")
         }
@@ -192,8 +210,7 @@ internal class ToolCallExecutor(
     // ===== 工具方法 =====
 
     private fun summarizeArgs(args: String): String = args.take(80)
-    private fun argsHash(tool: String, args: String): String =
-        (tool.hashCode() * 31 + args.hashCode()).toUInt().toString(16)
+    private fun argsHash(tool: String, args: String): String = (tool.hashCode() * 31 + args.hashCode()).toUInt().toString(16)
 
     private fun MutableList<LlmMessage>.appendToolResult(
         tc: LlmEvent.ToolCall,
@@ -222,9 +239,12 @@ internal class ToolCallExecutor(
             json: Json = defaultJson,
         ): kotlinx.serialization.json.JsonObject? = runCatching {
             json.parseToJsonElement(tc.argumentsJson).let {
-                if (it is kotlinx.serialization.json.JsonObject) it
-                else kotlinx.serialization.json.buildJsonObject {
-                    put("raw", kotlinx.serialization.json.JsonPrimitive(tc.argumentsJson))
+                if (it is kotlinx.serialization.json.JsonObject) {
+                    it
+                } else {
+                    kotlinx.serialization.json.buildJsonObject {
+                        put("raw", kotlinx.serialization.json.JsonPrimitive(tc.argumentsJson))
+                    }
                 }
             }
         }.getOrNull()

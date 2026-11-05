@@ -24,17 +24,17 @@ class DeviceMusicScannerDurationFloorTest {
 
     private lateinit var root: File
 
-    private val bytesPerSecond = 8000L * 1 * 2   // 采样率 × 声道 × 每样本字节 = 16000 B/s
+    private val bytesPerSecond = 8000L * 1 * 2 // 采样率 × 声道 × 每样本字节 = 16000 B/s
 
     @Before
     fun createTree() {
         root = Files.createTempDirectory("hmp-duration-").toFile()
-        writeWav(File(root, "short.wav"), seconds = 1)     // 1s < 5s → 该被挡掉
-        writeWav(File(root, "exact.wav"), seconds = 5)     // 恰好 5s → 收（下限是 >=）
-        writeWav(File(root, "long.wav"), seconds = 6)      // 6s → 收
+        writeWav(File(root, "short.wav"), seconds = 1) // 1s < 5s → 该被挡掉
+        writeWav(File(root, "exact.wav"), seconds = 5) // 恰好 5s → 收（下限是 >=）
+        writeWav(File(root, "long.wav"), seconds = 6) // 6s → 收
         // 解析不出元数据的文件：时长**未知**而不是 0 —— 不因下限被丢（见 AudioFormats.isPlausibleTrack）
         File(root, "unparsable.mp3").writeText("not audio at all")
-        File(root, "notes.txt").writeText("not audio")     // 白名单外
+        File(root, "notes.txt").writeText("not audio") // 白名单外
     }
 
     @After
@@ -53,15 +53,15 @@ class DeviceMusicScannerDurationFloorTest {
             out.write("WAVE".toByteArray())
             out.write("fmt ".toByteArray())
             out.write(le32(16))
-            out.write(le16(1))                    // PCM
-            out.write(le16(1))                    // 声道
-            out.write(le32(8000))                 // 采样率
-            out.write(le32(bytesPerSecond.toInt()))  // 每秒字节数（时长就是靠它算的）
-            out.write(le16(2))                    // 块对齐
-            out.write(le16(16))                   // 位深
+            out.write(le16(1)) // PCM
+            out.write(le16(1)) // 声道
+            out.write(le32(8000)) // 采样率
+            out.write(le32(bytesPerSecond.toInt())) // 每秒字节数（时长就是靠它算的）
+            out.write(le16(2)) // 块对齐
+            out.write(le16(16)) // 位深
             out.write("data".toByteArray())
             out.write(le32(dataLength))
-            out.write(ByteArray(dataLength))      // 静音
+            out.write(ByteArray(dataLength)) // 静音
         }
     }
 

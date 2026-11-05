@@ -9,14 +9,12 @@ import com.hmp.domain.setting.model.AiEndpointConfig
 class BuiltInApiKeyProvider(
     private val endpoint: String = "",
     private val apiKey: String = "",
-    private val model: String = ""
+    private val model: String = "",
 ) {
-    fun getConfig(): AiEndpointConfig {
-        return AiEndpointConfig(
-            endpoint = endpoint,
-            apiKey = apiKey,
-            selectedModel = model,
-            isConfigured = apiKey.isNotBlank()
-        )
-    }
+    fun getConfig(): AiEndpointConfig = AiEndpointConfig(
+        endpoint = endpoint,
+        apiKey = apiKey,
+        selectedModel = model,
+        isConfigured = apiKey.isNotBlank(),
+    )
 }

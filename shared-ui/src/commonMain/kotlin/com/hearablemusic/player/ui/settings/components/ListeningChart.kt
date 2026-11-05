@@ -20,8 +20,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
 import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
+import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
 
 /**
  * 听歌密度热力图（D5-08 重做）。
@@ -53,7 +53,7 @@ fun ListeningChart(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = metrics.cozy),
-        horizontalArrangement = Arrangement.spacedBy(gap)
+        horizontalArrangement = Arrangement.spacedBy(gap),
     ) {
         // 左侧星期标签（行序 = ISO 1..7 = 周一至周日）
         Column(verticalArrangement = Arrangement.spacedBy(gap)) {
@@ -70,7 +70,7 @@ fun ListeningChart(
 
         Column(
             modifier = Modifier.horizontalScroll(scrollState),
-            verticalArrangement = Arrangement.spacedBy(gap)
+            verticalArrangement = Arrangement.spacedBy(gap),
         ) {
             for (weekdayIndex in 0 until 7) {
                 Row(horizontalArrangement = Arrangement.spacedBy(gap)) {
@@ -84,12 +84,14 @@ fun ListeningChart(
                                     when {
                                         // 窗口外的补齐格不上色：它不是"那天没听歌"
                                         item?.date == null -> Color.Transparent
+
                                         item.minutes == 0 -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+
                                         else -> MaterialTheme.colorScheme.primary.copy(
-                                            alpha = (item.minutes.toFloat() / maxValue).coerceIn(0.2f, 1f)
+                                            alpha = (item.minutes.toFloat() / maxValue).coerceIn(0.2f, 1f),
                                         )
-                                    }
-                                )
+                                    },
+                                ),
                         )
                     }
                 }

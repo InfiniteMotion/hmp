@@ -1,5 +1,11 @@
 package com.hmp.data.mapper
 
+import com.hmp.domain.music.Music
+import com.hmp.domain.music.MusicExtra
+import com.hmp.domain.music.MusicInfo
+import com.hmp.domain.music.MusicLabel
+import com.hmp.domain.music.UserInfo
+import com.hmp.domain.setting.model.ListeningDuration
 import com.hmp.data.database.ListeningDuration as ListeningDurationEntity
 import com.hmp.data.database.Music as MusicEntity
 import com.hmp.data.database.MusicExtra as MusicExtraEntity
@@ -10,12 +16,6 @@ import com.hmp.data.database.myenum.LabelCategory as DataLabelCategory
 import com.hmp.data.database.myenum.LabelName as DataLabelName
 import com.hmp.domain.enum.LabelCategory as DomainLabelCategory
 import com.hmp.domain.enum.LabelName as DomainLabelName
-import com.hmp.domain.music.Music
-import com.hmp.domain.music.MusicExtra
-import com.hmp.domain.music.MusicInfo
-import com.hmp.domain.music.MusicLabel
-import com.hmp.domain.music.UserInfo
-import com.hmp.domain.setting.model.ListeningDuration
 import com.hmp.domain.setting.model.PlaybackHistory as PlaybackHistoryDomain
 
 /**
@@ -45,7 +45,7 @@ fun MusicEntity.toDomain(): Music = Music(
     album = album,
     duration = duration,
     path = path,
-    albumArtUri = albumArtUri
+    albumArtUri = albumArtUri,
 )
 
 fun MusicExtraEntity.toDomain(): MusicExtra = MusicExtra(
@@ -64,7 +64,7 @@ fun MusicExtraEntity.toDomain(): MusicExtra = MusicExtra(
     singerIntroduce = singerIntroduce,
     backgroundIntroduce = backgroundIntroduce,
     description = description,
-    relevantMusic = relevantMusic
+    relevantMusic = relevantMusic,
 )
 
 fun UserInfoEntity.toDomain(): UserInfo = UserInfo(
@@ -75,37 +75,37 @@ fun UserInfoEntity.toDomain(): UserInfo = UserInfo(
     playCount = playCount,
     skippedCount = skippedCount,
     userRating = userRating,
-    inCustomPlaylistCount = inCustomPlaylistCount
+    inCustomPlaylistCount = inCustomPlaylistCount,
 )
 
 fun MusicInfoEntity.toDomain(): MusicInfo = MusicInfo(
     music = music.toDomain(),
     extra = extra?.toDomain(),
-    userInfo = userInfo?.toDomain()
+    userInfo = userInfo?.toDomain(),
 )
 
 fun MusicLabelEntity.toDomain(): MusicLabel = MusicLabel(
     musicId = musicId,
     type = DomainLabelCategory.valueOf(type.name),
-    label = DomainLabelName.valueOf(label.name)
+    label = DomainLabelName.valueOf(label.name),
 )
 
 fun MusicLabel.toEntity(): MusicLabelEntity = MusicLabelEntity(
     musicId = musicId,
     type = DataLabelCategory.valueOf(type.name),
-    label = DataLabelName.valueOf(label.name)
+    label = DataLabelName.valueOf(label.name),
 )
 
 fun ListeningDurationEntity.toDomain(): ListeningDuration = ListeningDuration(
     date = date,
     duration = duration,
-    updatedAt = updatedAt
+    updatedAt = updatedAt,
 )
 
 fun ListeningDuration.toEntity(): ListeningDurationEntity = ListeningDurationEntity(
     date = date,
     duration = duration,
-    updatedAt = updatedAt
+    updatedAt = updatedAt,
 )
 
 fun com.hmp.data.database.PlaybackHistory.toDomain(): PlaybackHistoryDomain = PlaybackHistoryDomain(
@@ -114,7 +114,7 @@ fun com.hmp.data.database.PlaybackHistory.toDomain(): PlaybackHistoryDomain = Pl
     playedAt = playedAt,
     playDuration = playDuration,
     isCompleted = isCompleted,
-    source = source
+    source = source,
 )
 
 fun PlaybackHistoryDomain.toEntity(): com.hmp.data.database.PlaybackHistory = com.hmp.data.database.PlaybackHistory(
@@ -123,5 +123,5 @@ fun PlaybackHistoryDomain.toEntity(): com.hmp.data.database.PlaybackHistory = co
     playedAt = playedAt,
     playDuration = playDuration,
     isCompleted = isCompleted,
-    source = source
+    source = source,
 )

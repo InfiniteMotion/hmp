@@ -31,7 +31,8 @@ enum class MusicSortKey {
 /** 排序方向。原先是 `"ASC"` / `"DESC"` 字符串配 `uppercase() == "DESC"` —— 其余任意值都静默当升序。 */
 enum class SortDirection {
     ASC,
-    DESC;
+    DESC,
+    ;
 
     val isDescending: Boolean get() = this == DESC
 }

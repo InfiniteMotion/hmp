@@ -1,10 +1,10 @@
 package com.hmp.domain.setting.usecase
 
+import com.hmp.domain.enum.LabelCategory
+import com.hmp.domain.enum.LabelName
 import com.hmp.domain.music.Music
 import com.hmp.domain.music.MusicInfo
 import com.hmp.domain.music.MusicLabel
-import com.hmp.domain.enum.LabelCategory
-import com.hmp.domain.enum.LabelName
 import com.hmp.test.fakes.FakeMusicRepository
 import com.hmp.test.fakes.FakePlaylistRepository
 import com.hmp.test.fakes.FakeSettingsRepository
@@ -25,7 +25,8 @@ class CurrentPlaybackUseCaseTest {
 
     private fun musicInfo(id: Long) = MusicInfo(
         music = Music(id = id, title = "Song$id", artist = "A", album = "B", duration = 100, path = "/$id.mp3", albumArtUri = ""),
-        extra = null, userInfo = null
+        extra = null,
+        userInfo = null,
     )
 
     @Test

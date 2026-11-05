@@ -29,10 +29,11 @@ fun TypographyPage(onBack: () -> Unit) {
         // 字体族信息
         ComponentShowcase(
             title = if (lang == AppLanguage.ZH) "字体族" else "Font Family",
-            description = if (lang == AppLanguage.ZH)
+            description = if (lang == AppLanguage.ZH) {
                 "HarmonyOS Sans — 华为 HarmonyOS 系统字体，6 种字重（Thin/Light/Regular/Medium/Bold/Black）"
-            else
-                "HarmonyOS Sans — Huawei HarmonyOS system font, 6 weights (Thin/Light/Regular/Medium/Bold/Black)",
+            } else {
+                "HarmonyOS Sans — Huawei HarmonyOS system font, 6 weights (Thin/Light/Regular/Medium/Bold/Black)"
+            },
         ) {
             val weights = listOf(
                 "Thin" to FontWeight.Thin,
@@ -56,10 +57,11 @@ fun TypographyPage(onBack: () -> Unit) {
         // Material3 Typography 规范
         ComponentShowcase(
             title = "Material3 Typography",
-            description = if (lang == AppLanguage.ZH)
+            description = if (lang == AppLanguage.ZH) {
                 "完整的 Material3 排版体系，sp → pt 1:1 映射"
-            else
-                "Complete Material3 type scale, sp → pt 1:1 mapping",
+            } else {
+                "Complete Material3 type scale, sp → pt 1:1 mapping"
+            },
         ) {
             val typeStyles = listOf(
                 "displayLarge" to MaterialTheme.typography.displayLarge,

@@ -45,26 +45,21 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
-import com.hmp.domain.music.MusicExtra
-import com.hmp.domain.music.MusicInfo
-import com.hmp.domain.music.MusicLabel
-import com.hmp.domain.setting.model.PlaybackHistory
-import com.hearablemusic.player.ui.library.pages.components.AlbumCover
 import com.hearablemusic.player.ui.common.components.SegmentedControl
 import com.hearablemusic.player.ui.common.components.SegmentedOption
 import com.hearablemusic.player.ui.common.components.base.TitleWidget
-import com.hearablemusic.player.ui.common.pages.base.SubScreen
-import com.hearablemusic.player.ui.common.layout.LocalWindowSizeInfo
+import com.hearablemusic.player.ui.common.design.metrics.LayoutConstraints
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
-import com.hearablemusic.player.ui.player.pages.TechnicalInfoCard
+import com.hearablemusic.player.ui.common.layout.LocalWindowSizeInfo
 import com.hearablemusic.player.ui.common.navigation.Routes
+import com.hearablemusic.player.ui.common.pages.base.SubScreen
 import com.hearablemusic.player.ui.common.util.UiState
 import com.hearablemusic.player.ui.common.util.commonFormat
 import com.hearablemusic.player.ui.common.util.formatEpochMillis
 import com.hearablemusic.player.ui.common.util.isRenderableExtra
 import com.hearablemusic.player.ui.common.util.nowEpochMillis
 import com.hearablemusic.player.ui.common.util.rememberHapticFeedback
-import com.hearablemusic.player.ui.library.viewmodel.SongDetailViewModel
 import com.hearablemusic.player.ui.generated.resources.Res
 import com.hearablemusic.player.ui.generated.resources.artist_introduction
 import com.hearablemusic.player.ui.generated.resources.completed
@@ -97,17 +92,22 @@ import com.hearablemusic.player.ui.generated.resources.song_detail_tab_user
 import com.hearablemusic.player.ui.generated.resources.sort_play_count
 import com.hearablemusic.player.ui.generated.resources.title_song_detail
 import com.hearablemusic.player.ui.generated.resources.user_rating
+import com.hearablemusic.player.ui.library.pages.components.AlbumCover
+import com.hearablemusic.player.ui.library.viewmodel.SongDetailViewModel
+import com.hearablemusic.player.ui.player.pages.TechnicalInfoCard
+import com.hmp.domain.music.MusicExtra
+import com.hmp.domain.music.MusicInfo
+import com.hmp.domain.music.MusicLabel
+import com.hmp.domain.setting.model.PlaybackHistory
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
-import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
-import com.hearablemusic.player.ui.common.design.metrics.LayoutConstraints
 
 @Composable
 fun SongDetailScreen(
     navController: NavBackStack<NavKey>,
     musicId: Long,
-    viewModel: SongDetailViewModel = koinViewModel()
+    viewModel: SongDetailViewModel = koinViewModel(),
 ) {
     val metrics = LocalHmpMetrics.current
     // 手动调用 loadSongDetail 方法，传入 musicId
@@ -136,17 +136,17 @@ fun SongDetailScreen(
                     modifier = Modifier.size(metrics.block),
                     colors = IconButtonDefaults.filledIconButtonColors(
                         containerColor = MaterialTheme.colorScheme.primary,
-                        contentColor = MaterialTheme.colorScheme.onPrimary
-                    )
+                        contentColor = MaterialTheme.colorScheme.onPrimary,
+                    ),
                 ) {
                     Icon(
                         painter = painterResource(Res.drawable.rename),
                         contentDescription = stringResource(Res.string.edit_music_tags),
-                        modifier = Modifier.size(metrics.section)
+                        modifier = Modifier.size(metrics.section),
                     )
                 }
             }
-        }
+        },
     ) {
         val isLandscape = LocalWindowSizeInfo.current.isLandscape
         val typo = LocalHmpTypo.current
@@ -155,12 +155,13 @@ fun SongDetailScreen(
                 .verticalScroll(rememberScrollState())
                 .fillMaxWidth()
                 .padding(horizontal = metrics.block, vertical = metrics.cozy),
-            horizontalAlignment = Alignment.CenterHorizontally
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             when (val state = uiState) {
                 is UiState.Loading, UiState.Idle -> {
                     SongDetailLoading()
                 }
+
                 is UiState.Success -> {
                     val data = state.data
                     if (isLandscape) {
@@ -191,26 +192,27 @@ fun SongDetailScreen(
                             onOpenPlayer = {
                                 haptic.performClick()
                                 navController.add(Routes.Player.Player)
-                            }
+                            },
                         )
                         SongDetailInfo(
                             musicInfo = data.musicInfo,
                             labels = data.labels,
-                            playbackHistory = data.playbackHistory
+                            playbackHistory = data.playbackHistory,
                         )
                     }
                     Spacer(modifier = Modifier.height(metrics.section))
                 }
+
                 is UiState.Error -> {
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Center,
-                        modifier = Modifier.fillMaxWidth().height(metrics.card)
+                        modifier = Modifier.fillMaxWidth().height(metrics.card),
                     ) {
                         Text(
                             text = state.message,
                             style = typo.body,
-                            color = MaterialTheme.colorScheme.error
+                            color = MaterialTheme.colorScheme.error,
                         )
                         Spacer(modifier = Modifier.height(metrics.cozy))
                         Button(onClick = { viewModel.retry() }) {
@@ -223,10 +225,7 @@ fun SongDetailScreen(
             }
         }
     }
-
 }
-
-
 
 @Composable
 private fun SongDetailPoster(
@@ -234,7 +233,7 @@ private fun SongDetailPoster(
     album: String,
     albumArtUri: String?,
     musicExtra: MusicExtra?,
-    onOpenPlayer: () -> Unit
+    onOpenPlayer: () -> Unit,
 ) {
     val metrics = LocalHmpMetrics.current
     val typo = LocalHmpTypo.current
@@ -243,17 +242,17 @@ private fun SongDetailPoster(
             .fillMaxWidth()
             .padding(metrics.section),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(metrics.cozy)
+        verticalArrangement = Arrangement.spacedBy(metrics.cozy),
     ) {
         Box(
             modifier = Modifier
-                .clickable(onClick = onOpenPlayer)
+                .clickable(onClick = onOpenPlayer),
         ) {
             AlbumCover(
                 albumArtUri,
                 metrics.hero,
                 corner = metrics.section,
-                shadow = LayoutConstraints.ShadowElevation
+                shadow = LayoutConstraints.ShadowElevation,
             )
         }
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -263,7 +262,7 @@ private fun SongDetailPoster(
                 color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.86f),
                 textAlign = TextAlign.Center,
                 maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+                overflow = TextOverflow.Ellipsis,
             )
             Spacer(modifier = Modifier.height(metrics.micro))
             Text(
@@ -272,7 +271,7 @@ private fun SongDetailPoster(
                 color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
                 textAlign = TextAlign.Center,
                 maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+                overflow = TextOverflow.Ellipsis,
             )
         }
         TechnicalInfoCard(extra = musicExtra)
@@ -294,22 +293,22 @@ private fun SongDetailExpanded(
     val typo = LocalHmpTypo.current
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(metrics.section)
+        horizontalArrangement = Arrangement.spacedBy(metrics.section),
     ) {
         // 左栏：封面 + 技术信息 + 个人统计 + 标签 + 最近播放
         Column(
             Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(metrics.section)
+            verticalArrangement = Arrangement.spacedBy(metrics.section),
         ) {
             Column(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(metrics.base)
+                verticalArrangement = Arrangement.spacedBy(metrics.base),
             ) {
                 Box(
                     modifier = Modifier
                         .clip(RoundedCornerShape(metrics.section))
-                        .clickable(onClick = onOpenPlayer)
+                        .clickable(onClick = onOpenPlayer),
                 ) {
                     AlbumCover(albumArtUri, metrics.hero, corner = metrics.section, shadow = LayoutConstraints.ShadowElevation)
                 }
@@ -320,7 +319,7 @@ private fun SongDetailExpanded(
                         color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.86f),
                         textAlign = TextAlign.Center,
                         maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        overflow = TextOverflow.Ellipsis,
                     )
                     Spacer(modifier = Modifier.height(metrics.micro))
                     Text(
@@ -329,7 +328,7 @@ private fun SongDetailExpanded(
                         color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
                         textAlign = TextAlign.Center,
                         maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        overflow = TextOverflow.Ellipsis,
                     )
                 }
                 TechnicalInfoCard(extra = musicExtra)
@@ -339,7 +338,7 @@ private fun SongDetailExpanded(
                 Column(verticalArrangement = Arrangement.spacedBy(metrics.compact)) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(metrics.compact)
+                        horizontalArrangement = Arrangement.spacedBy(metrics.compact),
                     ) {
                         StatItem(stringResource(Res.string.sort_play_count), (userInfo?.playCount ?: 0).toString(), Modifier.weight(1f))
                         StatItem(stringResource(Res.string.skipped_count), (userInfo?.skippedCount ?: 0).toString(), Modifier.weight(1f))
@@ -347,14 +346,14 @@ private fun SongDetailExpanded(
                     }
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(metrics.compact)
+                        horizontalArrangement = Arrangement.spacedBy(metrics.compact),
                     ) {
                         StatItem(stringResource(Res.string.user_rating), (userInfo?.userRating ?: 0).toString(), Modifier.weight(1f))
                         StatItem(stringResource(Res.string.last_played), formatLastPlayed(userInfo?.lastPlayed), Modifier.weight(1f))
                         StatItem(
                             stringResource(Res.string.liked_status),
                             userInfo?.liked?.let { if (it) stringResource(Res.string.liked_yes) else stringResource(Res.string.liked_no) } ?: stringResource(Res.string.liked_no),
-                            Modifier.weight(1f)
+                            Modifier.weight(1f),
                         )
                     }
                 }
@@ -366,7 +365,7 @@ private fun SongDetailExpanded(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(metrics.compact),
                         verticalArrangement = Arrangement.spacedBy(metrics.micro),
-                        itemVerticalAlignment = Alignment.CenterVertically
+                        itemVerticalAlignment = Alignment.CenterVertically,
                     ) {
                         validLabels.forEach { label ->
                             AssistChip(onClick = { }, label = { Text(label.label.name) }, border = null)
@@ -383,7 +382,7 @@ private fun SongDetailExpanded(
                                 modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(metrics.base),
                                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)),
-                                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                             ) {
                                 Column(modifier = Modifier.padding(metrics.compact)) {
                                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -396,7 +395,7 @@ private fun SongDetailExpanded(
                                         Text(
                                             if (history.isCompleted) stringResource(Res.string.completed) else stringResource(Res.string.incomplete),
                                             style = typo.caption,
-                                            color = if (history.isCompleted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                                            color = if (history.isCompleted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
                                         )
                                     }
                                 }
@@ -426,7 +425,7 @@ private fun SongDetailExpanded(
                         text = lyricsFull,
                         style = typo.body,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        lineHeight = typo.body.lineHeight * 1.2
+                        lineHeight = typo.body.lineHeight * 1.2,
                     )
                 }
             }
@@ -434,7 +433,7 @@ private fun SongDetailExpanded(
         // 右栏：歌曲介绍 + 精选歌词
         Column(
             Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(metrics.section)
+            verticalArrangement = Arrangement.spacedBy(metrics.section),
         ) {
             if (musicExtra == null) return@Column
 
@@ -487,9 +486,7 @@ private fun SongDetailExpanded(
     }
 }
 
-private fun formatTimestamp(timestamp: Long): String {
-    return formatEpochMillis(timestamp, "yyyy-MM-dd HH:mm")
-}
+private fun formatTimestamp(timestamp: Long): String = formatEpochMillis(timestamp, "yyyy-MM-dd HH:mm")
 
 private fun formatDuration(ms: Long): String {
     val totalSeconds = ms / 1000
@@ -503,13 +500,16 @@ private fun formatLastPlayed(timestamp: Long?): String {
     if (timestamp == null || timestamp == 0L) return stringResource(Res.string.never)
     val now = nowEpochMillis()
     val diff = now - timestamp
-    
+
     return when {
         diff < 60000L -> stringResource(Res.string.just_now)
 
         diff < 3600000L -> "${diff / 60000L}m ago"
+
         diff < 86400000L -> "${diff / 3600000L}h ago"
+
         diff < 604800000L -> "${diff / 86400000L}d ago"
+
         else -> {
             formatEpochMillis(timestamp, "MM-dd")
         }
@@ -526,27 +526,27 @@ private fun SongDetailLoading() {
             .height(metrics.hero),
         shape = RoundedCornerShape(metrics.section),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.38f)
+            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.38f),
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
     ) {
         Box(
             modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center
+            contentAlignment = Alignment.Center,
         ) {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(metrics.base),
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 CircularProgressIndicator(
                     modifier = Modifier.size(metrics.section),
                     strokeWidth = metrics.hair,
-                    color = MaterialTheme.colorScheme.primary
+                    color = MaterialTheme.colorScheme.primary,
                 )
                 Text(
                     text = stringResource(Res.string.loading),
                     style = typo.body,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }
@@ -561,17 +561,17 @@ fun StatItem(label: String, value: String, modifier: Modifier = Modifier) {
         modifier = modifier.aspectRatio(1f),
         shape = RoundedCornerShape(metrics.cozy),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f)
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f),
         ),
         border = BorderStroke(metrics.stroke.thin, MaterialTheme.colorScheme.outline.copy(alpha = 0.1f)),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
     ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(metrics.compact),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(metrics.micro, Alignment.CenterVertically)
+            verticalArrangement = Arrangement.spacedBy(metrics.micro, Alignment.CenterVertically),
         ) {
             Text(
                 text = label,
@@ -579,7 +579,7 @@ fun StatItem(label: String, value: String, modifier: Modifier = Modifier) {
                 color = MaterialTheme.colorScheme.onSurface,
                 textAlign = TextAlign.Center,
                 maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+                overflow = TextOverflow.Ellipsis,
             )
             Spacer(modifier = Modifier.height(metrics.base))
             Text(
@@ -590,7 +590,7 @@ fun StatItem(label: String, value: String, modifier: Modifier = Modifier) {
                 color = MaterialTheme.colorScheme.onSurface,
                 textAlign = TextAlign.Center,
                 maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+                overflow = TextOverflow.Ellipsis,
             )
         }
     }
@@ -601,7 +601,7 @@ fun StatItem(label: String, value: String, modifier: Modifier = Modifier) {
 fun SongDetailInfo(
     musicInfo: MusicInfo,
     labels: List<MusicLabel?> = emptyList(),
-    playbackHistory: List<PlaybackHistory> = emptyList()
+    playbackHistory: List<PlaybackHistory> = emptyList(),
 ) {
     val metrics = LocalHmpMetrics.current
     val typo = LocalHmpTypo.current
@@ -629,20 +629,19 @@ fun SongDetailInfo(
             options = listOf(
                 SegmentedOption(userId, stringResource(Res.string.song_detail_tab_user)),
                 SegmentedOption(introId, stringResource(Res.string.song_detail_tab_intro)),
-                SegmentedOption(lyricsId, stringResource(Res.string.song_detail_tab_lyrics))
+                SegmentedOption(lyricsId, stringResource(Res.string.song_detail_tab_lyrics)),
             ),
             selectedOption = selectedSection,
             onOptionSelected = {
                 selectedSection = it
                 haptic.performClick()
-            }
+            },
         )
 
         Spacer(modifier = Modifier.height(metrics.base))
 
         when (selectedSection) {
             introId -> {
-
                 // 创作背景
                 if (background != null) {
                     TitleWidget(title = stringResource(Res.string.creative_background)) {
@@ -650,7 +649,7 @@ fun SongDetailInfo(
                             text = background,
                             style = typo.body,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            lineHeight = typo.body.lineHeight * 1.2
+                            lineHeight = typo.body.lineHeight * 1.2,
                         )
                     }
                     Spacer(modifier = Modifier.height(metrics.cozy))
@@ -663,7 +662,7 @@ fun SongDetailInfo(
                             text = description,
                             style = typo.body,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            lineHeight = typo.body.lineHeight * 1.2
+                            lineHeight = typo.body.lineHeight * 1.2,
                         )
                     }
                     Spacer(modifier = Modifier.height(metrics.cozy))
@@ -676,7 +675,7 @@ fun SongDetailInfo(
                             text = singerIntroduce,
                             style = typo.body,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            lineHeight = typo.body.lineHeight * 1.2
+                            lineHeight = typo.body.lineHeight * 1.2,
                         )
                     }
                     Spacer(modifier = Modifier.height(metrics.cozy))
@@ -689,7 +688,7 @@ fun SongDetailInfo(
                             text = rewards,
                             style = typo.body,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            lineHeight = typo.body.lineHeight * 1.2
+                            lineHeight = typo.body.lineHeight * 1.2,
                         )
                     }
                     Spacer(modifier = Modifier.height(metrics.cozy))
@@ -702,7 +701,7 @@ fun SongDetailInfo(
                             text = relevantMusic,
                             style = typo.body,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            lineHeight = typo.body.lineHeight * 1.2
+                            lineHeight = typo.body.lineHeight * 1.2,
                         )
                     }
                     Spacer(modifier = Modifier.height(metrics.cozy))
@@ -716,7 +715,7 @@ fun SongDetailInfo(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(metrics.compact),
                             verticalArrangement = Arrangement.spacedBy(metrics.micro),
-                            itemVerticalAlignment = Alignment.CenterVertically
+                            itemVerticalAlignment = Alignment.CenterVertically,
                         ) {
                             validLabels.forEach { label ->
                                 AssistChip(
@@ -738,14 +737,14 @@ fun SongDetailInfo(
                     .filter { it.isNotBlank() }
                     .joinToString("\n")
                     .trim()
-                
+
                 if (popLyric != null) {
                     TitleWidget(title = stringResource(Res.string.popular_lyrics)) {
                         Text(
                             text = popLyric,
                             style = typo.body,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            lineHeight = typo.body.lineHeight * 1.2
+                            lineHeight = typo.body.lineHeight * 1.2,
                         )
                     }
                     Spacer(modifier = Modifier.height(metrics.cozy))
@@ -757,7 +756,7 @@ fun SongDetailInfo(
                             text = lyricsFull,
                             style = typo.body,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            lineHeight = typo.body.lineHeight * 1.2
+                            lineHeight = typo.body.lineHeight * 1.2,
                         )
                     }
                     Spacer(modifier = Modifier.height(metrics.cozy))
@@ -767,47 +766,47 @@ fun SongDetailInfo(
             userId -> {
                 // 用户统计
                 val userInfo = musicInfo.userInfo
-                
+
                 TitleWidget(title = stringResource(Res.string.personal_stats)) {
                     Column(verticalArrangement = Arrangement.spacedBy(metrics.compact)) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(metrics.compact)
+                            horizontalArrangement = Arrangement.spacedBy(metrics.compact),
                         ) {
                             StatItem(
                                 label = stringResource(Res.string.sort_play_count),
                                 value = (userInfo?.playCount ?: 0).toString(),
-                                modifier = Modifier.weight(1f)
+                                modifier = Modifier.weight(1f),
                             )
                             StatItem(
                                 label = stringResource(Res.string.skipped_count),
                                 value = (userInfo?.skippedCount ?: 0).toString(),
-                                modifier = Modifier.weight(1f)
+                                modifier = Modifier.weight(1f),
                             )
                             StatItem(
                                 label = stringResource(Res.string.playlist_count),
                                 value = (userInfo?.inCustomPlaylistCount ?: 0).toString(),
-                                modifier = Modifier.weight(1f)
+                                modifier = Modifier.weight(1f),
                             )
                         }
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(metrics.compact)
+                            horizontalArrangement = Arrangement.spacedBy(metrics.compact),
                         ) {
                             StatItem(
                                 label = stringResource(Res.string.user_rating),
                                 value = (userInfo?.userRating ?: 0).toString(),
-                                modifier = Modifier.weight(1f)
+                                modifier = Modifier.weight(1f),
                             )
                             StatItem(
                                 label = stringResource(Res.string.last_played),
                                 value = formatLastPlayed(userInfo?.lastPlayed),
-                                modifier = Modifier.weight(1f)
+                                modifier = Modifier.weight(1f),
                             )
                             StatItem(
                                 label = stringResource(Res.string.liked_status),
                                 value = userInfo?.liked?.let { if (it) stringResource(Res.string.liked_yes) else stringResource(Res.string.liked_no) } ?: stringResource(Res.string.liked_no),
-                                modifier = Modifier.weight(1f)
+                                modifier = Modifier.weight(1f),
                             )
                         }
                     }
@@ -823,42 +822,42 @@ fun SongDetailInfo(
                                     modifier = Modifier.fillMaxWidth(),
                                     shape = RoundedCornerShape(metrics.base),
                                     colors = CardDefaults.cardColors(
-                                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+                                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
                                     ),
-                                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                                 ) {
                                     Column(modifier = Modifier.padding(metrics.compact)) {
                                         Row(
                                             modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.SpaceBetween
+                                            horizontalArrangement = Arrangement.SpaceBetween,
                                         ) {
                                             Text(
                                                 text = "${stringResource(Res.string.duration)}: ${formatDuration(history.playDuration)}",
                                                 style = typo.footnote,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                             )
                                             history.source?.let {
                                                 Text(
                                                     text = it,
                                                     style = typo.footnote,
-                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                                 )
                                             }
                                         }
                                         Spacer(modifier = Modifier.height(metrics.micro))
                                         Row(
                                             modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.SpaceBetween
+                                            horizontalArrangement = Arrangement.SpaceBetween,
                                         ) {
                                             Text(
                                                 text = formatTimestamp(history.playedAt),
                                                 style = typo.footnote,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                             )
                                             Text(
                                                 text = if (history.isCompleted) stringResource(Res.string.completed) else stringResource(Res.string.incomplete),
                                                 style = typo.caption,
-                                                color = if (history.isCompleted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                                                color = if (history.isCompleted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
                                             )
                                         }
                                     }
@@ -872,7 +871,7 @@ fun SongDetailInfo(
                         Text(
                             text = stringResource(Res.string.song_detail_empty),
                             style = typo.body,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                     Spacer(modifier = Modifier.height(metrics.cozy))

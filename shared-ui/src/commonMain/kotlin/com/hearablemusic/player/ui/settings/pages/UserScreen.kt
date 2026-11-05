@@ -1,9 +1,4 @@
 package com.hearablemusic.player.ui.settings.pages
-import com.hearablemusic.player.ui.common.text.UiText
-import com.hearablemusic.player.ui.common.text.asString
-import com.hearablemusic.player.ui.common.text.asUiText
-import com.hearablemusic.player.ui.generated.resources.agent_ai_memory_log_title
-
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -28,9 +23,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -42,60 +37,64 @@ import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
 import com.hearablemusic.player.ui.common.components.Avatar
 import com.hearablemusic.player.ui.common.components.base.HMPCard
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
 import com.hearablemusic.player.ui.common.design.typography.medium
-import com.hearablemusic.player.ui.player.components.MiniPlayerSafeSpacer
 import com.hearablemusic.player.ui.common.layout.LocalWindowSizeInfo
 import com.hearablemusic.player.ui.common.layout.WindowWidthSizeClass
 import com.hearablemusic.player.ui.common.navigation.Routes
 import com.hearablemusic.player.ui.common.pages.base.TabScreen
+import com.hearablemusic.player.ui.common.text.UiText
+import com.hearablemusic.player.ui.common.text.asString
+import com.hearablemusic.player.ui.common.text.asUiText
 import com.hearablemusic.player.ui.common.util.activityViewModel
 import com.hearablemusic.player.ui.common.util.rememberHapticFeedback
 import com.hearablemusic.player.ui.generated.resources.Res
+import com.hearablemusic.player.ui.generated.resources.agent_ai_memory_log_title
 import com.hearablemusic.player.ui.generated.resources.ai_services
 import com.hearablemusic.player.ui.generated.resources.audio_effects
 import com.hearablemusic.player.ui.generated.resources.backup_settings
 import com.hearablemusic.player.ui.generated.resources.chevron_right
 import com.hearablemusic.player.ui.generated.resources.externaldrive
 import com.hearablemusic.player.ui.generated.resources.icloud
+import com.hearablemusic.player.ui.generated.resources.identify_song
 import com.hearablemusic.player.ui.generated.resources.last_week_minutes
-import com.hearablemusic.player.ui.generated.resources.liked_status
 import com.hearablemusic.player.ui.generated.resources.library_settings
+import com.hearablemusic.player.ui.generated.resources.liked_status
+import com.hearablemusic.player.ui.generated.resources.list_bullet
 import com.hearablemusic.player.ui.generated.resources.listening_insights
 import com.hearablemusic.player.ui.generated.resources.lyrics_settings
 import com.hearablemusic.player.ui.generated.resources.music
 import com.hearablemusic.player.ui.generated.resources.music_note_list
-import com.hearablemusic.player.ui.generated.resources.identify_song
-import com.hearablemusic.player.ui.generated.resources.list_bullet
 import com.hearablemusic.player.ui.generated.resources.skipped_count
 import com.hearablemusic.player.ui.generated.resources.slider_vertical_3
 import com.hearablemusic.player.ui.generated.resources.sort_play_count
 import com.hearablemusic.player.ui.generated.resources.square_fill_grid_2x2
-import com.hearablemusic.player.ui.generated.resources.this_week_minutes
 import com.hearablemusic.player.ui.generated.resources.theme_customization
+import com.hearablemusic.player.ui.generated.resources.this_week_minutes
 import com.hearablemusic.player.ui.generated.resources.title_user_usage_data
 import com.hearablemusic.player.ui.generated.resources.total_listening_minutes
-import com.hearablemusic.player.ui.settings.components.buildListeningHeatmap
-import com.hearablemusic.player.ui.settings.components.ListeningChart
-import com.hearablemusic.player.ui.settings.viewmodel.RecommendationViewModel
 import com.hearablemusic.player.ui.platform.PlaybackController
+import com.hearablemusic.player.ui.player.components.MiniPlayerSafeSpacer
+import com.hearablemusic.player.ui.settings.components.ListeningChart
+import com.hearablemusic.player.ui.settings.components.buildListeningHeatmap
+import com.hearablemusic.player.ui.settings.viewmodel.RecommendationViewModel
 import com.hearablemusic.player.ui.settings.viewmodel.SettingsViewModel
 import com.hearablemusic.player.ui.settings.viewmodel.UserUsageDataViewModel
 import com.hearablemusic.player.ui.settings.viewmodel.WindowedBundle
-import com.hmp.domain.setting.model.ListeningDuration
 import com.hmp.domain.agent.card.zhName
+import com.hmp.domain.setting.model.ListeningDuration
 import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
-import org.koin.compose.viewmodel.koinViewModel
 import org.koin.compose.koinInject
+import org.koin.compose.viewmodel.koinViewModel
 import kotlin.math.abs
-import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 
 internal data class SettingsEntry(
     val title: UiText,
     val icon: DrawableResource,
-    val route: NavKey
+    val route: NavKey,
 )
 
 internal val settingsItems = listOf(
@@ -115,8 +114,7 @@ internal val settingsItems = listOf(
  * Desktop/iOS 的音效是空桩（`PlaybackController.audioEffectsSupported=false`），
  * 按 §九 决策 5 从 UI 撤下入口，避免误导。
  */
-internal fun visibleSettingsEntries(audioEffectsSupported: Boolean): List<SettingsEntry> =
-    settingsItems.filter { it.route != Routes.Player.AudioEffects || audioEffectsSupported }
+internal fun visibleSettingsEntries(audioEffectsSupported: Boolean): List<SettingsEntry> = settingsItems.filter { it.route != Routes.Player.AudioEffects || audioEffectsSupported }
 
 @Composable
 private fun SettingsListCard(
@@ -130,45 +128,45 @@ private fun SettingsListCard(
     val entries = visibleSettingsEntries(playbackController.audioEffectsSupported)
     HMPCard(
         modifier = modifier,
-        contentPadding = Modifier.padding(vertical = metrics.compact)
+        contentPadding = Modifier.padding(vertical = metrics.compact),
     ) {
         entries.forEachIndexed { index, (title, icon, route) ->
-                if (index > 0) {
-                    HorizontalDivider(
-                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
-                    )
-                }
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable {
-                            haptic.performClick()
-                            navController.add(route)
-                        }
-                        .padding(horizontal = metrics.section, vertical = metrics.section),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Icon(
-                        painter = painterResource(icon),
-                        contentDescription = null,
-                        modifier = Modifier.size(metrics.section),
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                    Spacer(modifier = Modifier.weight(1f))
-                    Text(
-                        text = title.asString(),
-                        style = typo.body,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Spacer(modifier = Modifier.weight(1f))
-                    Icon(
-                        painter = painterResource(Res.drawable.chevron_right),
-                        contentDescription = null,
-                        modifier = Modifier.size(metrics.cozy),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+            if (index > 0) {
+                HorizontalDivider(
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f),
+                )
             }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        haptic.performClick()
+                        navController.add(route)
+                    }
+                    .padding(horizontal = metrics.section, vertical = metrics.section),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    painter = painterResource(icon),
+                    contentDescription = null,
+                    modifier = Modifier.size(metrics.section),
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+                Spacer(modifier = Modifier.weight(1f))
+                Text(
+                    text = title.asString(),
+                    style = typo.body,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                Spacer(modifier = Modifier.weight(1f))
+                Icon(
+                    painter = painterResource(Res.drawable.chevron_right),
+                    contentDescription = null,
+                    modifier = Modifier.size(metrics.cozy),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
     }
 }
 
@@ -195,7 +193,7 @@ fun UserScreen(
         listeningData = listeningData,
         windowed = windowed,
         rangeLabel = timeRange.zhName(),
-        navController = navController
+        navController = navController,
     )
 }
 
@@ -212,10 +210,10 @@ fun UserScreenContent(
      * 标成「总听歌时长」，语义相反。现在范围跟着一起显示，读者知道这是窗口值。
      */
     rangeLabel: String,
-    navController: NavBackStack<NavKey>
+    navController: NavBackStack<NavKey>,
 ) {
     val metrics = LocalHmpMetrics.current
-    TabScreen{
+    TabScreen {
         val sizeClass = LocalWindowSizeInfo.current.widthSizeClass
         val isLandscape = LocalWindowSizeInfo.current.isLandscape
         val typo = LocalHmpTypo.current
@@ -241,23 +239,23 @@ fun UserScreenContent(
                         haptic.performClick()
                         navController.add(Routes.Settings.ProfileSettings)
                     },
-                contentPadding = Modifier.padding(metrics.cozy)
+                contentPadding = Modifier.padding(metrics.cozy),
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
-                ){
+                ) {
                     Avatar(aSize = metrics.panel.value.toInt(), imageUri = avatarUri)
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center
-                    ){
+                        horizontalArrangement = Arrangement.Center,
+                    ) {
                         userName?.let {
                             Text(
                                 text = it,
                                 style = typo.displayL,
-                                color = MaterialTheme.colorScheme.onBackground
+                                color = MaterialTheme.colorScheme.onBackground,
                             )
                         }
                     }
@@ -275,7 +273,7 @@ fun UserScreenContent(
                         .fillMaxWidth()
                         .padding(horizontal = metrics.block)
                         .height(IntrinsicSize.Min),
-                    horizontalArrangement = Arrangement.spacedBy(metrics.section)
+                    horizontalArrangement = Arrangement.spacedBy(metrics.section),
                 ) {
                     Column(
                         modifier = Modifier.weight(1f).fillMaxHeight(),
@@ -296,7 +294,7 @@ fun UserScreenContent(
                                     haptic.performClick()
                                     navController.add(Routes.UserData.UserUsageData)
                                 },
-                            contentPadding = Modifier.padding(metrics.section)
+                            contentPadding = Modifier.padding(metrics.section),
                         ) {
                             Column(
                                 verticalArrangement = Arrangement.SpaceEvenly,
@@ -309,7 +307,7 @@ fun UserScreenContent(
                                     Text(
                                         text = stringResource(Res.string.listening_insights),
                                         style = typo.subtitle,
-                                        color = MaterialTheme.colorScheme.onSurface
+                                        color = MaterialTheme.colorScheme.onSurface,
                                     )
                                     // D5-09：这三个数字是窗口值，标签必须说清是哪个窗口
                                     Text(
@@ -324,25 +322,25 @@ fun UserScreenContent(
                                         Row(
                                             modifier = Modifier.fillMaxWidth(),
                                             horizontalArrangement = Arrangement.SpaceBetween,
-                                            verticalAlignment = Alignment.Bottom
+                                            verticalAlignment = Alignment.Bottom,
                                         ) {
                                             Column(horizontalAlignment = Alignment.Start) {
                                                 Text(
                                                     text = stringResource(Res.string.total_listening_minutes),
                                                     style = typo.caption,
-                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                                 )
                                                 Text(
                                                     text = "${a.totalListeningMinutes}",
                                                     style = typo.displayL,
-                                                    color = MaterialTheme.colorScheme.onSurface
+                                                    color = MaterialTheme.colorScheme.onSurface,
                                                 )
                                             }
                                         }
 
                                         Row(
                                             modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.spacedBy(metrics.compact)
+                                            horizontalArrangement = Arrangement.spacedBy(metrics.compact),
                                         ) {
                                             InsightPill(Modifier.weight(1f), stringResource(Res.string.sort_play_count), "${a.totalPlayCount}")
                                             InsightPill(Modifier.weight(1f), stringResource(Res.string.skipped_count), "${a.totalSkipCount}")
@@ -360,12 +358,12 @@ fun UserScreenContent(
         } else {
             Column(
                 modifier = Modifier.verticalScroll(rememberScrollState()).fillMaxSize(),
-                horizontalAlignment = Alignment.CenterHorizontally
+                horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Column(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = horizontalPadding),
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(metrics.section)
+                    verticalArrangement = Arrangement.spacedBy(metrics.section),
                 ) {
                     profileCard()
 
@@ -375,34 +373,34 @@ fun UserScreenContent(
                                 haptic.performClick()
                                 navController.add(Routes.UserData.UserUsageData)
                             },
-                        contentPadding = Modifier.padding(vertical = metrics.cozy)
+                        contentPadding = Modifier.padding(vertical = metrics.cozy),
                     ) {
                         Row(
                             modifier = Modifier.fillMaxWidth().padding(horizontal = metrics.cozy),
                             horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+                            verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Text(
                                 text = stringResource(Res.string.title_user_usage_data),
                                 style = typo.subtitle,
-                                color = MaterialTheme.colorScheme.onSurface
+                                color = MaterialTheme.colorScheme.onSurface,
                             )
                             Icon(
                                 painter = painterResource(Res.drawable.square_fill_grid_2x2),
                                 contentDescription = null,
                                 modifier = Modifier.size(metrics.cozy),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
                         Spacer(modifier = Modifier.height(metrics.compact))
                         ListeningChart(grid = heatmapGrid)
                     }
 
-                SettingsListCard(navController = navController)
+                    SettingsListCard(navController = navController)
+                }
+                // 给全局悬浮音乐胶囊预留底部空间
+                MiniPlayerSafeSpacer(height = metrics.bar)
             }
-            // 给全局悬浮音乐胶囊预留底部空间
-            MiniPlayerSafeSpacer(height = metrics.bar)
-        }
         }
     }
 }
@@ -415,28 +413,27 @@ private fun InsightPill(modifier: Modifier, label: String, value: String) {
         modifier = modifier,
         shape = RoundedCornerShape(metrics.base),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f)
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f),
         ),
         border = BorderStroke(metrics.stroke.thin, MaterialTheme.colorScheme.outline.copy(alpha = 0.1f)),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
     ) {
         Column(
             modifier = Modifier.fillMaxWidth().padding(horizontal = metrics.cozy, vertical = metrics.compact),
-            horizontalAlignment = Alignment.CenterHorizontally
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Text(
                 text = value,
                 style = typo.footnote.medium(),
-                color = MaterialTheme.colorScheme.onSurface
+                color = MaterialTheme.colorScheme.onSurface,
             )
             Text(
                 text = label,
                 style = typo.caption,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+                overflow = TextOverflow.Ellipsis,
             )
         }
     }
-
 }

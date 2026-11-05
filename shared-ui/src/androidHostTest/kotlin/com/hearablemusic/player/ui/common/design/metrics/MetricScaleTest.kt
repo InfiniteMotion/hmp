@@ -29,7 +29,8 @@ class MetricScaleTest {
         for ((width, sizes) in METRIC_SIZES_BY_WIDTH) {
             assertEquals(
                 "数列长度须与刻度档数一致（ordinal 对应）：$width",
-                MetricStep.entries.size, sizes.size,
+                MetricStep.entries.size,
+                sizes.size,
             )
             for (step in MetricStep.entries) {
                 assertTrue(

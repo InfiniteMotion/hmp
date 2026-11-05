@@ -1,16 +1,12 @@
 package com.hmp.di
 
-import com.hmp.data.database.AppDatabase
-import com.hmp.data.database.AgentMessageDao
 import com.hmp.data.database.AgentAuditLogDao
+import com.hmp.data.database.AgentMessageDao
+import com.hmp.data.database.AgentTaskDao
+import com.hmp.data.database.AppDatabase
+import com.hmp.data.database.ForgottenDeliveryDao
 import com.hmp.data.database.HelloCardCacheDao
 import com.hmp.data.database.HelloReportNarrativeDao
-import com.hmp.data.database.UserProfileEvidenceDao
-import com.hmp.data.database.UserProfileNarrativeDao
-import com.hmp.data.database.UserProfilePortraitDao
-import com.hmp.data.database.ForgottenDeliveryDao
-import com.hmp.data.database.AgentTaskDao
-import com.hmp.data.database.TokenLedgerDao
 import com.hmp.data.database.ListeningDurationDao
 import com.hmp.data.database.MusicAllDao
 import com.hmp.data.database.MusicDao
@@ -21,7 +17,11 @@ import com.hmp.data.database.PlaylistDao
 import com.hmp.data.database.PlaylistItemDao
 import com.hmp.data.database.RoomAgentMessageStore
 import com.hmp.data.database.RoomAuditLogAdapter
+import com.hmp.data.database.TokenLedgerDao
 import com.hmp.data.database.UserInfoDao
+import com.hmp.data.database.UserProfileEvidenceDao
+import com.hmp.data.database.UserProfileNarrativeDao
+import com.hmp.data.database.UserProfilePortraitDao
 import com.hmp.data.database.getDatabaseBuilder
 import com.hmp.data.database.getRoomDatabase
 import com.hmp.data.di.sharedModule
@@ -31,18 +31,18 @@ import com.hmp.data.repository.MusicRepositoryImpl
 import com.hmp.data.repository.PlaylistRepositoryImpl
 import com.hmp.data.repository.SettingsRepositoryImpl
 import com.hmp.data.util.DataStoreFactory
-import com.hmp.domain.backup.BackupFileRepository
 import com.hmp.domain.agent.port.AgentMessageStore
 import com.hmp.domain.agent.port.AuditLogPort
+import com.hmp.domain.backup.BackupFileRepository
 import com.hmp.domain.music.MusicRepository
 import com.hmp.domain.playlist.PlaylistRepository
 import com.hmp.domain.setting.SettingsRepository
+import com.hmp.log.HmpLog
+import com.hmp.log.LogTag
 import org.koin.core.context.startKoin
 import org.koin.core.module.dsl.singleOf
 import org.koin.dsl.bind
 import org.koin.dsl.module
-import com.hmp.log.HmpLog
-import com.hmp.log.LogTag
 
 val desktopPlatformModule = module {
     single { DataStoreFactory.create() }
@@ -58,9 +58,9 @@ val desktopPlatformModule = module {
     single<PlaylistItemDao> { get<AppDatabase>().playlistItemDao() }
     single<PlaybackHistoryDao> { get<AppDatabase>().playbackHistoryDao() }
     single<ListeningDurationDao> { get<AppDatabase>().listeningDurationDao() }
-single<AgentTaskDao> { get<AppDatabase>().agentTaskDao() }
-single<AgentAuditLogDao> { get<AppDatabase>().agentAuditLogDao() }
-single<AgentMessageDao> { get<AppDatabase>().agentMessageDao() }
+    single<AgentTaskDao> { get<AppDatabase>().agentTaskDao() }
+    single<AgentAuditLogDao> { get<AppDatabase>().agentAuditLogDao() }
+    single<AgentMessageDao> { get<AppDatabase>().agentMessageDao() }
     single<HelloCardCacheDao> { get<AppDatabase>().helloCardCacheDao() }
     single<HelloReportNarrativeDao> { get<AppDatabase>().helloReportNarrativeDao() }
     single<UserProfileEvidenceDao> { get<AppDatabase>().userProfileEvidenceDao() }
@@ -69,7 +69,7 @@ single<AgentMessageDao> { get<AppDatabase>().agentMessageDao() }
     single<ForgottenDeliveryDao> { get<AppDatabase>().forgottenDeliveryDao() }
     single<TokenLedgerDao> { get<AppDatabase>().tokenLedgerDao() }
     single<AuditLogPort> { RoomAuditLogAdapter(get<AgentAuditLogDao>()) }
-single<AgentMessageStore> { RoomAgentMessageStore(get<AgentMessageDao>()) }
+    single<AgentMessageStore> { RoomAgentMessageStore(get<AgentMessageDao>()) }
 
     single { BuiltInApiKeyProvider() } // Desktop: 占位符
     singleOf(::SettingsRepositoryImpl) bind SettingsRepository::class

@@ -17,7 +17,8 @@ enum class QuotaBucket(val bucketId: String) {
     MASTER("master"),
     RADIO("radio"),
     ENRICH("enrich"),
-    HELLO("hello");
+    HELLO("hello"),
+    ;
 
     companion object {
         fun ofLedgerAgent(agentId: String): QuotaBucket? = when (agentId) {
@@ -142,8 +143,7 @@ class TokenQuotaGate(
         )
     }
 
-    private suspend fun currentMode(): AiAccessMode =
-        runCatching { settingsRepository?.getAiAccessMode() }.getOrNull() ?: AiAccessMode.FREE
+    private suspend fun currentMode(): AiAccessMode = runCatching { settingsRepository?.getAiAccessMode() }.getOrNull() ?: AiAccessMode.FREE
 
     private suspend fun ensureSeededLocked(mode: AiAccessMode) {
         val dayStart = timeProvider().let { it - it % DAY_MS }
@@ -170,6 +170,7 @@ class TokenQuotaGate(
                 bucketCaps = FREE_BUCKET_CAPS
                 customLimitsEnabled = false
             }
+
             AiAccessMode.CUSTOM -> {
                 customLimitsEnabled = config?.tokenLimitsEnabled == true
                 totalCap = (config?.dailyTokenQuota ?: 0).toLong()
@@ -178,6 +179,7 @@ class TokenQuotaGate(
                     ?.toMap()
                     .orEmpty()
             }
+
             AiAccessMode.PAID -> {
                 totalCap = 0L
                 bucketCaps = emptyMap()
@@ -227,6 +229,7 @@ class TokenQuotaGate(
                     }
                 }
             }
+
             AiAccessMode.CUSTOM -> {
                 if (!customLimitsEnabled) return QuotaDecision.Allowed
                 if (totalCap > 0L && totalUsed >= totalCap) {
@@ -240,6 +243,7 @@ class TokenQuotaGate(
                     QuotaDecision.Allowed
                 }
             }
+
             AiAccessMode.PAID -> QuotaDecision.Allowed
         }
     }

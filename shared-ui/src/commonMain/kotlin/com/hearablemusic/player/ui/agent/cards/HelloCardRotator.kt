@@ -30,13 +30,21 @@ internal fun FamilyDispatch(
 ) {
     when (card.content) {
         is AnchorContent -> FamilyAnchorCard(card, modifier, onCardClick, onLongClick, isCurrentPage)
+
         is RecommendContent,
-        is ForgottenContent -> FamilySingleTrackCard(card, modifier, onCardClick, onLongClick)
+        is ForgottenContent,
+        -> FamilySingleTrackCard(card, modifier, onCardClick, onLongClick)
+
         is AnniversaryContent -> FamilyAnniversaryCard(card, modifier, onCardClick, onLongClick)
+
         is DiscoverContent -> FamilyDiscoverCard(card, modifier, onCardClick, onLongClick)
+
         is RadioStatusContent -> FamilyRadioStatusCard(card, modifier, onCardClick, onLongClick)
+
         is GreetingContent -> FamilyGreetingCard(card, modifier, onCardClick, onLongClick)
+
         is EnrichTrackingContent -> FamilyEnrichTrackingCard(card, modifier, onCardClick, onLongClick)
+
         is NarrativeContent -> FamilyNarrativeCard(card, modifier, onCardClick, onLongClick)
     }
 }

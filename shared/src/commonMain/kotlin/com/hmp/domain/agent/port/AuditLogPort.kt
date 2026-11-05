@@ -29,7 +29,7 @@ interface AuditLogPort {
                 tool = "radio.start",
                 outcome = "success",
                 reason = "seed=${seedLabels.joinToString(",")} tracks=$trackCount",
-            )
+            ),
         )
     }
 
@@ -40,7 +40,7 @@ interface AuditLogPort {
                 tool = "radio.reorder",
                 outcome = "success",
                 reason = "consecutiveSkips=$consecutiveCount lastTrack=${trackTitle.orEmpty()}",
-            )
+            ),
         )
     }
 }

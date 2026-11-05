@@ -4,5 +4,5 @@ import androidx.lifecycle.ViewModel
 import com.hearablemusic.player.ui.common.dialogs.controller.DialogManager
 
 class DialogManagerViewModel(
-    val dialogManager: DialogManager
+    val dialogManager: DialogManager,
 ) : ViewModel()

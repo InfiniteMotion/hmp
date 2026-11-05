@@ -1,29 +1,30 @@
 package com.hearablemusic.player.ui.agent.chat
-import com.hmp.domain.agent.tool.createBaseToolRegistry
-
+import com.hearablemusic.player.ui.agent.port.ControllerNowPlayingProvider
+import com.hearablemusic.player.ui.agent.port.ControllerPlaybackCommandPort
+import com.hmp.data.database.currentTimeMillis
 import com.hmp.data.di.AGENT_CHAT
 import com.hmp.data.di.AGENT_ENRICH
 import com.hmp.data.di.AGENT_HELLO
 import com.hmp.data.di.AGENT_RADIO
 import com.hmp.domain.agent.config.EngineDefaults
-import com.hmp.domain.agent.policy.PolicyGuard
 import com.hmp.domain.agent.infra.PresenceBus
 import com.hmp.domain.agent.infra.SessionStore
+import com.hmp.domain.agent.policy.PolicyGuard
 import com.hmp.domain.agent.policy.TrustLedger
+import com.hmp.domain.agent.port.AgentKeepAlivePort
 import com.hmp.domain.agent.port.LlmTransport
 import com.hmp.domain.agent.port.NowPlayingContextProvider
 import com.hmp.domain.agent.port.PlaybackCommandPort
-import com.hmp.domain.agent.port.AgentKeepAlivePort
 import com.hmp.domain.agent.runtime.MasterAgent
 import com.hmp.domain.agent.tool.ToolDependencies
+import com.hmp.domain.agent.tool.createBaseToolRegistry
 import com.hmp.domain.agent.tool.spec.ToolRegistry
 import com.hmp.domain.music.MusicRepository
 import com.hmp.domain.playlist.PlaylistRepository
 import com.hmp.domain.setting.SettingsRepository
 import com.hmp.domain.setting.usecase.UserSettingsUseCase
-import com.hearablemusic.player.ui.agent.port.ControllerNowPlayingProvider
-import com.hearablemusic.player.ui.agent.port.ControllerPlaybackCommandPort
-import com.hmp.data.database.currentTimeMillis
+import com.hmp.log.HmpLog
+import com.hmp.log.LogTag
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -31,8 +32,6 @@ import kotlinx.coroutines.launch
 import org.koin.core.qualifier.named
 import org.koin.dsl.bind
 import org.koin.dsl.module
-import com.hmp.log.HmpLog
-import com.hmp.log.LogTag
 
 /**
  * M5-T2 对话引擎接缝的三端共享 Koin 模块。
@@ -56,7 +55,7 @@ val chatGatewayModule = module {
 
     // ── T 阶段整合：MasterAgent 作为唯一大脑 ──
     // TrustLedger / AgentPolicyConfig 不再走 Koin——MasterAgent.handleUserMessage 里创建 per-Agent 独立实例
-    single { PolicyGuard(get()) }  // 只传 AuditLogPort
+    single { PolicyGuard(get()) } // 只传 AuditLogPort
     single { SessionStore({ currentTimeMillis() }) }
     single { PresenceBus() }
     single {

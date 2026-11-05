@@ -5,9 +5,9 @@ import androidx.lifecycle.viewModelScope
 import com.hearablemusic.player.ui.common.util.UiState
 import com.hmp.domain.music.MusicInfo
 import com.hmp.domain.music.usecase.GetAllMusicUseCase
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
 /**
@@ -15,7 +15,7 @@ import kotlinx.coroutines.launch
  * 从 PlaylistViewModel 中拆出，ArtistScreen 与 AlbumScreen 各自持有独立实例。
  */
 class ArtistAlbumViewModel(
-    private val getAllMusicUseCase: GetAllMusicUseCase
+    private val getAllMusicUseCase: GetAllMusicUseCase,
 ) : ViewModel() {
 
     private val _selectedArtistName = MutableStateFlow("")

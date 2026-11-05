@@ -5,14 +5,12 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
 
-fun <T, R> UiState<T>.map(transform: (T) -> R): UiState<R> {
-    return when (this) {
-        is UiState.Idle -> UiState.Idle
-        is UiState.Loading -> UiState.Loading
-        is UiState.Success -> UiState.Success(transform(data))
-        is UiState.Error -> UiState.Error(message)
-        is UiState.Empty -> UiState.Empty
-    }
+fun <T, R> UiState<T>.map(transform: (T) -> R): UiState<R> = when (this) {
+    is UiState.Idle -> UiState.Idle
+    is UiState.Loading -> UiState.Loading
+    is UiState.Success -> UiState.Success(transform(data))
+    is UiState.Error -> UiState.Error(message)
+    is UiState.Empty -> UiState.Empty
 }
 
 fun <T> UiState<T>.onSuccess(action: (T) -> Unit): UiState<T> {
@@ -61,13 +59,9 @@ val <T> UiState<T>.isIdle: Boolean
 val <T> UiState<T>.dataOrNull: T?
     get() = (this as? UiState.Success)?.data
 
-fun <T> Flow<T>.asUiState(): Flow<UiState<T>> {
-    return this.map<T, UiState<T>> { UiState.Success(it) }
-        .onStart { emit(UiState.Loading) }
-}
+fun <T> Flow<T>.asUiState(): Flow<UiState<T>> = this.map<T, UiState<T>> { UiState.Success(it) }
+    .onStart { emit(UiState.Loading) }
 
-fun <T> Flow<T>.runCatchingToUiState(): Flow<UiState<T>> {
-    return this.map<T, UiState<T>> { UiState.Success(it) }
-        .onStart { emit(UiState.Loading) }
-        .catch { emit(UiState.Error(it.message ?: "Unknown error")) }
-}
+fun <T> Flow<T>.runCatchingToUiState(): Flow<UiState<T>> = this.map<T, UiState<T>> { UiState.Success(it) }
+    .onStart { emit(UiState.Loading) }
+    .catch { emit(UiState.Error(it.message ?: "Unknown error")) }

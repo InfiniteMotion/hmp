@@ -11,10 +11,10 @@ import kotlinx.serialization.Serializable
 /** 一天中的时段（minuteTickLoop 每分钟检测，用于 ANCHOR 卡 + RECOMMEND 时段匹配） */
 @Serializable
 enum class TimePhase {
-    NIGHT,           // 0-6  深夜
+    NIGHT, // 0-6  深夜
     MORNING_COMMUTE, // 7-9  早高峰
-    WORK,            // 9-12 / 14-18 工作
-    LUNCH,           // 12-14 午休
+    WORK, // 9-12 / 14-18 工作
+    LUNCH, // 12-14 午休
     EVENING_COMMUTE, // 18-20 晚高峰
     EVENING_LEISURE, // 20-23 晚间休闲
     UNKNOWN,
@@ -69,15 +69,15 @@ fun daysToCutoffMs(days: Int): Long = when (days) {
 /** 卡的类型枚举 */
 @Serializable
 enum class SlideType {
-    ANCHOR,         // 正在听（常驻）
-    RADIO_STATUS,   // 电台运行态（0=常驻，Radio 停止时 pop）
-    GREETING,       // 问候 + DJ 衔接语（10s）
-    RECOMMEND,      // 可解释推荐（15s）
-    DISCOVER,       // 歌手/风格探索（12s）
-    FORGOTTEN,      // 遗忘唤醒（12s）
-    ANNIVERSARY,    // 纪念日（15s）
-    ENRICH_TRACKING,// Enrich 富化进度（活跃时显示，完成后隐藏）
-    NARRATIVE,      // 听歌报告叙事段（常驻；文案来自 hello_report_narrative）
+    ANCHOR, // 正在听（常驻）
+    RADIO_STATUS, // 电台运行态（0=常驻，Radio 停止时 pop）
+    GREETING, // 问候 + DJ 衔接语（10s）
+    RECOMMEND, // 可解释推荐（15s）
+    DISCOVER, // 歌手/风格探索（12s）
+    FORGOTTEN, // 遗忘唤醒（12s）
+    ANNIVERSARY, // 纪念日（15s）
+    ENRICH_TRACKING, // Enrich 富化进度（活跃时显示，完成后隐藏）
+    NARRATIVE, // 听歌报告叙事段（常驻；文案来自 hello_report_narrative）
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -208,10 +208,13 @@ data class ForgottenContent(
 enum class AnniversarySubtype {
     /** N 年前的今天，第一次播放这首歌 */
     FIRST_PLAY,
+
     /** 累计播放次数跨过里程碑（第 100/500/1000 次） */
     PLAY_MILESTONE,
+
     /** 累计听歌时长跨过里程碑（10h/50h/100h） */
     DURATION_MILESTONE,
+
     /** N 年前的今天，创建了这个歌单 */
     PLAYLIST_CREATE,
 }
@@ -307,14 +310,19 @@ data class RadioStatusContent(
 enum class GreetingType {
     /** 音乐名句/哲思 */
     QUOTE,
+
     /** 歌词金句 */
     LYRIC_GOLD,
+
     /** 音乐冷知识 */
     FACT,
+
     /** 歌曲/专辑/音乐家故事 */
     STORY,
+
     /** 音乐家轶事 */
     ARTIST,
+
     /** 听歌引导/应景推荐 */
     LISTEN,
 }
@@ -353,8 +361,8 @@ data class SlideCard(
     val cardId: String,
     val type: SlideType,
     val content: SlideContent,
-    val visible: Boolean = true,     // 引擎层决定：这张卡今天是否在 Pager 中展示
-    val focusedAt: Long = 0L,        // replace 时引擎层设为当前时间；>0 时 UI 聚焦展示并暂停轮播
+    val visible: Boolean = true, // 引擎层决定：这张卡今天是否在 Pager 中展示
+    val focusedAt: Long = 0L, // replace 时引擎层设为当前时间；>0 时 UI 聚焦展示并暂停轮播
 ) {
     companion object {
         /** KMP commonMain 没有 java.util.UUID，用计数器 + 时间戳 + 随机数生成唯一 ID */

@@ -1,12 +1,11 @@
 package com.hmp.domain.agent.runtime
-import com.hmp.domain.agent.tool.createBaseToolRegistry
-
 import com.hmp.domain.agent.port.CommandSource
 import com.hmp.domain.agent.port.FakeNowPlayingContextProvider
 import com.hmp.domain.agent.port.LlmEvent
 import com.hmp.domain.agent.port.PlaybackCommand
 import com.hmp.domain.agent.port.PlaybackCommandPort
 import com.hmp.domain.agent.tool.ToolDependencies
+import com.hmp.domain.agent.tool.createBaseToolRegistry
 import com.hmp.domain.agent.tool.spec.ToolRegistry
 import com.hmp.domain.enum.LabelName
 import com.hmp.domain.music.Music
@@ -29,8 +28,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
-private fun song(id: Long, title: String, artist: String) =
-    MusicInfo(Music(id, title, artist, "Album", 180_000, "/$id.mp3", ""), null, null)
+private fun song(id: Long, title: String, artist: String) = MusicInfo(Music(id, title, artist, "Album", 180_000, "/$id.mp3", ""), null, null)
 
 /**
  * MasterAgent 电台生命周期的确定性测试。
@@ -92,7 +90,7 @@ class MasterAgentRadioTest {
                     settingsRepository = FakeSettingsRepository(),
                     nowPlayingContextProvider = FakeNowPlayingContextProvider,
                     playbackCommandPort = playback,
-                )
+                ),
             ),
             radioTransport = transport,
             defaultLlmConfig = AiEndpointConfig(isConfigured = true),
@@ -106,7 +104,7 @@ class MasterAgentRadioTest {
 
         // 等开播 LLM 真的在途（此刻调用方取消 = 复现真机事故现场）
         withTimeout(10_000) { while (transport.calls.isEmpty()) delay(20) }
-        caller.cancel()   // "rememberCoroutineScope left the composition"
+        caller.cancel() // "rememberCoroutineScope left the composition"
 
         // 关键断言：节目照常开播 —— 开播结果落地，模型队列写入播放器
         withTimeout(15_000) {
@@ -153,7 +151,7 @@ class MasterAgentRadioTest {
                     settingsRepository = FakeSettingsRepository(),
                     nowPlayingContextProvider = FakeNowPlayingContextProvider,
                     playbackCommandPort = playback,
-                )
+                ),
             ),
             radioTransport = transport,
             defaultLlmConfig = AiEndpointConfig(isConfigured = true),
@@ -193,7 +191,7 @@ class MasterAgentRadioTest {
                     settingsRepository = FakeSettingsRepository(),
                     nowPlayingContextProvider = FakeNowPlayingContextProvider,
                     playbackCommandPort = playback,
-                )
+                ),
             ),
             radioTransport = transport,
             defaultLlmConfig = AiEndpointConfig(isConfigured = true),

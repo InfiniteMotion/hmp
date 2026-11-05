@@ -56,14 +56,14 @@ object PersonalityCardComposer {
     // ── 8 型命名表（PF10：中文 8 个命名 + 对应槽位匹配规则）──
     // 轴序固定为 时段 × 宽度 × 听法；名字都是"听音乐的方式"，不是"你是什么人"。
     private val NAMING_TABLE: Map<Triple<String, String, String>, String> = mapOf(
-        Triple(POLE_NIGHT, POLE_FOCUSED, POLE_IMMERSIVE) to "夜航者",      // 深夜 + 那一类 + 听到底
-        Triple(POLE_NIGHT, POLE_FOCUSED, POLE_FILTERING) to "夜巡者",      // 深夜 + 那一类 + 边听边挑
-        Triple(POLE_NIGHT, POLE_BROAD, POLE_IMMERSIVE) to "月下漫游者",    // 深夜 + 什么都听 + 听到底
-        Triple(POLE_NIGHT, POLE_BROAD, POLE_FILTERING) to "午夜调频师",    // 深夜 + 什么都听 + 边听边挑
-        Triple(POLE_DAY, POLE_FOCUSED, POLE_IMMERSIVE) to "老唱片",        // 白天 + 那一类 + 听到底
-        Triple(POLE_DAY, POLE_FOCUSED, POLE_FILTERING) to "点唱机",        // 白天 + 那一类 + 边听边挑
-        Triple(POLE_DAY, POLE_BROAD, POLE_IMMERSIVE) to "拾光者",          // 白天 + 什么都听 + 听到底
-        Triple(POLE_DAY, POLE_BROAD, POLE_FILTERING) to "冲浪者",          // 白天 + 什么都听 + 边听边挑
+        Triple(POLE_NIGHT, POLE_FOCUSED, POLE_IMMERSIVE) to "夜航者", // 深夜 + 那一类 + 听到底
+        Triple(POLE_NIGHT, POLE_FOCUSED, POLE_FILTERING) to "夜巡者", // 深夜 + 那一类 + 边听边挑
+        Triple(POLE_NIGHT, POLE_BROAD, POLE_IMMERSIVE) to "月下漫游者", // 深夜 + 什么都听 + 听到底
+        Triple(POLE_NIGHT, POLE_BROAD, POLE_FILTERING) to "午夜调频师", // 深夜 + 什么都听 + 边听边挑
+        Triple(POLE_DAY, POLE_FOCUSED, POLE_IMMERSIVE) to "老唱片", // 白天 + 那一类 + 听到底
+        Triple(POLE_DAY, POLE_FOCUSED, POLE_FILTERING) to "点唱机", // 白天 + 那一类 + 边听边挑
+        Triple(POLE_DAY, POLE_BROAD, POLE_IMMERSIVE) to "拾光者", // 白天 + 什么都听 + 听到底
+        Triple(POLE_DAY, POLE_BROAD, POLE_FILTERING) to "冲浪者", // 白天 + 什么都听 + 边听边挑
     )
 
     /**
@@ -119,11 +119,15 @@ object PersonalityCardComposer {
             // 退化近似：标签未就绪，用歌手集中度猜 —— 可以说，但要标"初步"（PF16）
             when (library?.get(PortraitType.ARTIST_CONCENTRATION)) {
                 LibraryModeler.CONCENTRATION_FOCUSED -> {
-                    breadthPole = POLE_FOCUSED; breadthPreliminary = true
+                    breadthPole = POLE_FOCUSED
+                    breadthPreliminary = true
                 }
+
                 LibraryModeler.CONCENTRATION_BROAD -> {
-                    breadthPole = POLE_BROAD; breadthPreliminary = true
+                    breadthPole = POLE_BROAD
+                    breadthPreliminary = true
                 }
+
                 else -> Unit
             }
         }
@@ -137,6 +141,7 @@ object PersonalityCardComposer {
                     sentences += "听的东西不杂，来来回回就是那一类。"
                     if (!breadthPreliminary) whys += "宽度——你的曲库标签显示类型很集中。"
                 }
+
                 POLE_BROAD -> {
                     sentences += "你听得杂，什么类型都能装进歌单。"
                     if (!breadthPreliminary) whys += "宽度——你的曲库标签显示类型相当宽。"

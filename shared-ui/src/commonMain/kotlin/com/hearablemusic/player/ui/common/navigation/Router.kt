@@ -1,9 +1,9 @@
 package com.hearablemusic.player.ui.common.navigation
 
-import androidx.navigation3.runtime.NavBackStack
-import androidx.navigation3.runtime.NavKey
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.navigation3.runtime.NavBackStack
+import androidx.navigation3.runtime.NavKey
 
 /**
  * 统一的路由导航接口
@@ -21,45 +21,45 @@ interface RouteNavigator {
      * @param route 目标路由键
      */
     fun navigateTo(route: NavKey)
-    
+
     /**
      * 导航到指定路由，并替换当前页面
      * @param route 目标路由键
      */
     fun navigateReplace(route: NavKey)
-    
+
     /**
      * 导航到指定路由，并清空返回栈（除了新路由）
      * @param route 目标路由键
      */
     fun navigateSingleTop(route: NavKey)
-    
+
     /**
      * 返回上一个页面
      * @return 是否成功返回（如果已经是第一个页面则返回 false）
      */
     fun popBackStack(): Boolean
-    
+
     /**
      * 返回到指定路由
      * @param route 目标路由键
      * @param inclusive 是否包含目标路由本身（true 表示弹出目标路由）
      */
     fun popBackStackTo(route: NavKey, inclusive: Boolean = false): Boolean
-    
+
     /**
      * 获取当前路由
      * @return 当前路由键，如果返回栈为空则返回 null
      */
     fun currentRoute(): NavKey?
-    
+
     /**
      * 检查指定路由是否在返回栈中
      * @param route 要检查的路由键
      * @return 如果路由在返回栈中则返回 true
      */
     fun containsRoute(route: NavKey): Boolean
-    
+
     /**
      * 清空返回栈（只保留第一个路由）
      */
@@ -74,19 +74,19 @@ interface RouteNavigator {
  * 注意：该类不处理动画，动画由 NavigationGraph 配置。
  */
 class Router(
-    private val navBackStack: NavBackStack<NavKey>
+    private val navBackStack: NavBackStack<NavKey>,
 ) : RouteNavigator {
     override fun navigateTo(route: NavKey) {
         navBackStack.add(route)
     }
-    
+
     override fun navigateReplace(route: NavKey) {
         if (navBackStack.size > 0) {
             navBackStack.removeLastOrNull()
         }
         navBackStack.add(route)
     }
-    
+
     override fun navigateSingleTop(route: NavKey) {
         // 检查是否已经在栈顶
         if (navBackStack.lastOrNull() == route) {
@@ -105,11 +105,9 @@ class Router(
         // 添加新路由
         navBackStack.add(route)
     }
-    
-    override fun popBackStack(): Boolean {
-        return navBackStack.removeLastOrNull() != null
-    }
-    
+
+    override fun popBackStack(): Boolean = navBackStack.removeLastOrNull() != null
+
     override fun popBackStackTo(route: NavKey, inclusive: Boolean): Boolean {
         val index = navBackStack.indexOfFirst { key -> key == route }
         if (index < 0) {
@@ -121,15 +119,11 @@ class Router(
         }
         return true
     }
-    
-    override fun currentRoute(): NavKey? {
-        return navBackStack.lastOrNull()
-    }
-    
-    override fun containsRoute(route: NavKey): Boolean {
-        return navBackStack.any { key -> key == route }
-    }
-    
+
+    override fun currentRoute(): NavKey? = navBackStack.lastOrNull()
+
+    override fun containsRoute(route: NavKey): Boolean = navBackStack.any { key -> key == route }
+
     override fun clearBackStack() {
         while (navBackStack.size > 1) {
             navBackStack.removeLastOrNull()
@@ -147,6 +141,4 @@ class Router(
  * @return 与 navBackStack 关联的 Router 实例
  */
 @Composable
-fun rememberRouter(navBackStack: NavBackStack<NavKey>): Router {
-    return remember(navBackStack) { Router(navBackStack) }
-}
+fun rememberRouter(navBackStack: NavBackStack<NavKey>): Router = remember(navBackStack) { Router(navBackStack) }

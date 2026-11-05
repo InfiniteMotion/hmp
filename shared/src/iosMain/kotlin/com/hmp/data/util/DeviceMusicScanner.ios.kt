@@ -6,9 +6,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import platform.Foundation.NSDocumentDirectory
 import platform.Foundation.NSFileManager
+import platform.Foundation.NSFileSize
 import platform.Foundation.NSURL
 import platform.Foundation.NSUserDomainMask
-import platform.Foundation.NSFileSize
 
 /**
  * iOS 的 NSFileManager 目录遍历（**不是** expect/actual 成员，D2-10）。
@@ -32,7 +32,7 @@ object DeviceMusicScanner {
             NSUserDomainMask,
             null,
             true,
-            null
+            null,
         ) ?: return musicList
 
         // 白名单的唯一真源在 commonMain（D2-09）：原先 iOS 自备一份 7 项、少 opus / wma，
@@ -45,7 +45,7 @@ object DeviceMusicScanner {
     private fun scanDirectory(
         directory: String,
         results: MutableList<ScannedMusicFile>,
-        fileManager: NSFileManager
+        fileManager: NSFileManager,
     ) {
         val contents = fileManager.contentsOfDirectoryAtPath(directory, null) ?: return
 
@@ -82,7 +82,9 @@ object DeviceMusicScanner {
                     is Double -> sizeValue.toLong()
                     else -> null
                 }
-            } else null
+            } else {
+                null
+            }
         } catch (_: Exception) {
             null
         }
@@ -102,7 +104,7 @@ object DeviceMusicScanner {
             sampleRate = metadata?.sampleRate,
             fileSize = fileSize,
             format = metadata?.format ?: path.substringAfterLast(".").uppercase(),
-            lyrics = metadata?.lyrics
+            lyrics = metadata?.lyrics,
         )
     }
 }

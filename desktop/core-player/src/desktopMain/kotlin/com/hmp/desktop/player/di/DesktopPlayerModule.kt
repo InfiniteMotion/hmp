@@ -14,7 +14,7 @@ val desktopPlayerModule = module {
             playbackHistoryUseCase = get(),
             timerUseCase = get(),
             managePlaylistUseCase = get(),
-            settingsRepository = get()
+            settingsRepository = get(),
         )
     }
 }

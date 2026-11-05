@@ -19,7 +19,7 @@ class PlaybackErrorReportingTest {
                 isActive = true,
                 generation = 7,
                 currentGeneration = 7,
-            )
+            ),
         )
     }
 
@@ -32,7 +32,7 @@ class PlaybackErrorReportingTest {
                 isActive = true,
                 generation = 7,
                 currentGeneration = 7,
-            )
+            ),
         )
     }
 
@@ -46,7 +46,7 @@ class PlaybackErrorReportingTest {
                 generation = 6,
                 currentGeneration = 7,
             ),
-            "seek 已开启新一代播放，旧协程的异常必须丢弃"
+            "seek 已开启新一代播放，旧协程的异常必须丢弃",
         )
     }
 
@@ -59,7 +59,7 @@ class PlaybackErrorReportingTest {
                 isActive = true,
                 generation = 7,
                 currentGeneration = 7,
-            )
+            ),
         )
         assertFalse(
             shouldReportPlaybackError(
@@ -68,7 +68,7 @@ class PlaybackErrorReportingTest {
                 isActive = false,
                 generation = 7,
                 currentGeneration = 7,
-            )
+            ),
         )
     }
 }

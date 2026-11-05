@@ -3,8 +3,8 @@ package com.hmp.desktop.player
 import com.hmp.data.database.currentTimeMillis
 import com.hmp.domain.enum.PlaybackMode
 import com.hmp.domain.music.MusicInfo
-import com.hmp.domain.music.PlaybackSources
 import com.hmp.domain.music.MusicLabel
+import com.hmp.domain.music.PlaybackSources
 import com.hmp.domain.playlist.usecase.ManagePlaylistUseCase
 import com.hmp.domain.setting.SettingsRepository
 import com.hmp.domain.setting.model.AudioEffectSettings
@@ -44,7 +44,7 @@ class DesktopMusicController(
     private val playbackHistoryUseCase: PlaybackHistoryUseCase,
     private val timerUseCase: TimerUseCase,
     private val managePlaylistUseCase: ManagePlaylistUseCase,
-    private val settingsRepository: SettingsRepository
+    private val settingsRepository: SettingsRepository,
 ) {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
@@ -52,6 +52,7 @@ class DesktopMusicController(
     private companion object {
         /** 播放进度采集间隔：保证逐字（卡拉 OK）渐变足够平滑 */
         const val PROGRESS_TRACKING_INTERVAL_MS = 100L
+
         /** 播放位置持久化节流间隔 */
         const val PROGRESS_PERSIST_INTERVAL_MS = 5_000L
     }
@@ -64,7 +65,7 @@ class DesktopMusicController(
     private val _toastEvent = MutableSharedFlow<UiEvent.ShowToast>(
         replay = 0,
         extraBufferCapacity = 1,
-        onBufferOverflow = BufferOverflow.DROP_OLDEST
+        onBufferOverflow = BufferOverflow.DROP_OLDEST,
     )
     val toastEvent = _toastEvent.asSharedFlow()
 
@@ -105,7 +106,7 @@ class DesktopMusicController(
     val currentPlayingMusic: StateFlow<MusicInfo?> = combine(
         _currentPlayingMusicOverride,
         currentPlaylist,
-        currentIndex
+        currentIndex,
     ) { override, playlist, index ->
         override ?: playlist.getOrNull(index)
     }.stateIn(scope, SharingStarted.WhileSubscribed(5000), null)
@@ -139,10 +140,12 @@ class DesktopMusicController(
 
     /** 退出结算只做一次：标题栏关闭与 onDispose 会各调一次。 */
     private val releaseMutex = Mutex()
+
     @Volatile private var released = false
 
     private var playStartTime: Long = 0L
     private var lastDurationRecordTime: Long = 0L
+
     /**
      * 本次会话累计实听毫秒（D5-04 的单一口径）。
      *
@@ -311,7 +314,9 @@ class DesktopMusicController(
 
         val nextIndex = when (_playbackMode.value) {
             PlaybackMode.REPEAT_ONE -> _currentIndex.value
+
             PlaybackMode.SHUFFLE -> generateRandomIndex(_currentIndex.value, playlist.size)
+
             PlaybackMode.SEQUENTIAL -> {
                 val next = _currentIndex.value + 1
                 if (next >= playlist.size) 0 else next
@@ -329,7 +334,9 @@ class DesktopMusicController(
 
         val prevIndex = when (_playbackMode.value) {
             PlaybackMode.REPEAT_ONE -> _currentIndex.value
+
             PlaybackMode.SHUFFLE -> generateRandomIndex(_currentIndex.value, playlist.size)
+
             PlaybackMode.SEQUENTIAL -> {
                 val prev = _currentIndex.value - 1
                 if (prev < 0) playlist.size - 1 else prev
@@ -401,8 +408,8 @@ class DesktopMusicController(
 
     /** 返回写入句柄：退出路径要等它（D5-07）。其他调用点不关心，忽略返回值即可。 */
     private fun persistCurrentPosition(position: Long): Job = scope.launch {
-            try {
-                settingsRepository.saveCurrentPosition(position)
+        try {
+            settingsRepository.saveCurrentPosition(position)
         } catch (_: Exception) {}
     }
 
@@ -515,6 +522,7 @@ class DesktopMusicController(
                 PlaybackMode.REPEAT_ONE -> {
                     music?.let { playMusic(it) }
                 }
+
                 PlaybackMode.SHUFFLE, PlaybackMode.SEQUENTIAL -> {
                     playNext()
                 }
@@ -570,15 +578,15 @@ class DesktopMusicController(
      * 系统歌单行缺失，DefaultPlaylistGuard 的自愈事件应与此日志对照排查。
      */
     private fun persistCurrentPlaylistToDatabase(snapshot: List<MusicInfo>): Job = scope.launch {
-            try {
-                val playlistId = currentPlayListId.filterNotNull().first()
-                managePlaylistUseCase.resetPlaylistItems(playlistId, snapshot)
-            } catch (e: Exception) {
-                HmpLog.w(LogTag.PlayerCore, e) {
-                    "播放队列持久化失败 size=${snapshot.size}（目标歌单行缺失或 DB 异常）"
-                }
+        try {
+            val playlistId = currentPlayListId.filterNotNull().first()
+            managePlaylistUseCase.resetPlaylistItems(playlistId, snapshot)
+        } catch (e: Exception) {
+            HmpLog.w(LogTag.PlayerCore, e) {
+                "播放队列持久化失败 size=${snapshot.size}（目标歌单行缺失或 DB 异常）"
             }
         }
+    }
 
     private fun addToRecent(musicInfo: MusicInfo) {
         scope.launch {
@@ -674,7 +682,7 @@ class DesktopMusicController(
                 try {
                     val similarSongs = currentPlaybackUseCase.getSimilarSongsByWeightedLabels(
                         currentMusic.music.id,
-                        limit = 10
+                        limit = 10,
                     )
                     if (similarSongs.isNotEmpty()) {
                         val newList = listOf(currentMusic) + similarSongs
@@ -804,9 +812,13 @@ class DesktopMusicController(
         if (playStartTime == 0L) return null
         val now = currentTimeMillis()
         val pending = now - lastDurationRecordTime
-        val job = if (pending > 0) scope.launch {
-            runCatching { playbackHistoryUseCase.recordListeningDuration(pending) }
-        } else null
+        val job = if (pending > 0) {
+            scope.launch {
+                runCatching { playbackHistoryUseCase.recordListeningDuration(pending) }
+            }
+        } else {
+            null
+        }
         lastDurationRecordTime = now
         return job
     }

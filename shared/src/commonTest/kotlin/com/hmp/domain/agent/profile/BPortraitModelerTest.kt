@@ -33,8 +33,7 @@ class BPortraitModelerTest {
         avgTracksPerSession = avgTracksPerSession,
     )
 
-    private fun slotValue(drafts: List<EvidenceDraft>, type: PortraitType, slot: String): String? =
-        drafts.firstOrNull { it.predicate == PortraitType.predicateOf(type, slot) }?.value
+    private fun slotValue(drafts: List<EvidenceDraft>, type: PortraitType, slot: String): String? = drafts.firstOrNull { it.predicate == PortraitType.predicateOf(type, slot) }?.value
 
     // ── 注意力模式 ──────────────────────────────────────────────────
 

@@ -166,16 +166,24 @@ class AgentContextBudget internal constructor(
         flow.collect { event ->
             when (event) {
                 is LlmEvent.TextDelta -> textBuffer.append(event.text)
+
                 is LlmEvent.Failed -> failedMessage = event.message
-                is LlmEvent.Usage -> Unit // 计量已在 callLlm 收口
+
+                is LlmEvent.Usage -> Unit
+
+                // 计量已在 callLlm 收口
                 is LlmEvent.Completed -> Unit
+
                 is LlmEvent.ToolCall -> Unit // 非流式场景忽略 tool calls
             }
         }
         return if (failedMessage != null) {
             HmpLog.e(LogTag.AgentContext) {
-                if (isOverWindowFailure(failedMessage)) "📐 $failedMessage"
-                else "📐 [$agentId] callLlmText failed: $failedMessage"
+                if (isOverWindowFailure(failedMessage)) {
+                    "📐 $failedMessage"
+                } else {
+                    "📐 [$agentId] callLlmText failed: $failedMessage"
+                }
             }
             null
         } else {
@@ -256,7 +264,7 @@ class AgentContextBudget internal constructor(
             "（当前保留最近 ${history.size} 条）"
         historySummary = if (historySummary.isNullOrBlank()) summary else "$historySummary\n$summary"
         HmpLog.i(LogTag.AgentContext) {
-            "📐 [$agentId] $summary (窗口假设 ${maxContextTokens}，估算占用 ${estimatePromptTokens(buildMessages(""), null)})"
+            "📐 [$agentId] $summary (窗口假设 $maxContextTokens，估算占用 ${estimatePromptTokens(buildMessages(""), null)})"
         }
         return summary
     }
@@ -288,10 +296,9 @@ class AgentContextBudget internal constructor(
     }
 
     /** 超窗失败的统一措辞 —— 让日志/错误能一眼区分"超窗"与"模型判定 none"。 */
-    private fun overWindowMessage(need: Int, cap: Int): String =
-        "$OVER_WINDOW_PREFIX agent=$agentId 需 $need > 有效上限 $cap" +
-            "（窗口假设 ${maxContextTokens} × 安全系数 $windowSafetyFactor）→ 已拒绝并降级；" +
-            "该模型窗口可能 <${maxContextTokens / 1000}K，本应用不支持"
+    private fun overWindowMessage(need: Int, cap: Int): String = "$OVER_WINDOW_PREFIX agent=$agentId 需 $need > 有效上限 $cap" +
+        "（窗口假设 $maxContextTokens × 安全系数 $windowSafetyFactor）→ 已拒绝并降级；" +
+        "该模型窗口可能 <${maxContextTokens / 1000}K，本应用不支持"
 
     companion object {
         /** 超窗失败消息前缀（调用方据此区分"超窗"与其它失败）。 */
@@ -301,7 +308,6 @@ class AgentContextBudget internal constructor(
         private const val MESSAGE_OVERHEAD_TOKENS = 4
 
         /** 判断一次失败是否由"超窗前置拒绝"造成。 */
-        fun isOverWindowFailure(message: String?): Boolean =
-            message?.startsWith(OVER_WINDOW_PREFIX) == true
+        fun isOverWindowFailure(message: String?): Boolean = message?.startsWith(OVER_WINDOW_PREFIX) == true
     }
 }

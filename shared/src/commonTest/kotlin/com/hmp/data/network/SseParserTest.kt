@@ -2,9 +2,9 @@ package com.hmp.data.network
 
 import io.ktor.utils.io.ByteChannel
 import io.ktor.utils.io.writeStringUtf8
+import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlinx.coroutines.test.runTest
 
 /**
  * 手动 SSE 解析器单测（任务书 M2-T2）：事件边界/注释/CRLF/分片写入/流尾无空行/畸形行容忍。

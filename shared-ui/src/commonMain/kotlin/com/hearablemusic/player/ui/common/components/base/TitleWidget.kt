@@ -18,13 +18,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
 import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
+import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
 
 @Composable
 fun TitleWidget(
     title: String,
-    content: @Composable () -> Unit
+    content: @Composable () -> Unit,
 ) {
     val metrics = LocalHmpMetrics.current
     val typo = LocalHmpTypo.current
@@ -42,11 +42,11 @@ fun TitleWidget(
                         brush = Brush.verticalGradient(
                             colors = listOf(
                                 MaterialTheme.colorScheme.primary,
-                                MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
-                            )
+                                MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
+                            ),
                         ),
-                        shape = RoundedCornerShape(metrics.hair)
-                    )
+                        shape = RoundedCornerShape(metrics.hair),
+                    ),
             )
 
             Spacer(modifier = Modifier.width(metrics.cozy))
@@ -56,14 +56,14 @@ fun TitleWidget(
                 style = typo.headline,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier
+                modifier = Modifier,
             )
         }
 
         // Content Section with subtle top padding
         Box(
             modifier = Modifier.fillMaxWidth()
-                .padding(vertical = metrics.cozy)
+                .padding(vertical = metrics.cozy),
         ) {
             content()
         }

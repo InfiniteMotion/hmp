@@ -1,5 +1,7 @@
 package com.hmp.desktop.player
 
+import com.hmp.log.HmpLog
+import com.hmp.log.LogTag
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -17,8 +19,6 @@ import javax.sound.sampled.AudioFormat
 import javax.sound.sampled.AudioSystem
 import javax.sound.sampled.DataLine
 import javax.sound.sampled.SourceDataLine
-import com.hmp.log.HmpLog
-import com.hmp.log.LogTag
 
 class FFmpegAudioEngine : AudioEngine {
 
@@ -63,7 +63,9 @@ class FFmpegAudioEngine : AudioEngine {
         // Bundled ffmpeg (inside packaged distribution's runtime/bin)
         val bundledCandidates = if (javaHome.isNotEmpty()) {
             listOf(File(javaHome, "bin/$ffmpegName"))
-        } else emptyList()
+        } else {
+            emptyList()
+        }
 
         // Common install locations.
         // macOS 显式列出 /opt/homebrew/bin：jpackage 应用从 Finder 启动时拿到的是 launchd
@@ -76,14 +78,14 @@ class FFmpegAudioEngine : AudioEngine {
                 File("C:/ffmpeg/bin/$ffmpegName"),
                 if (localAppData.isNotEmpty()) File("$localAppData/ffmpeg/bin/$ffmpegName") else null,
                 if (programFiles.isNotEmpty()) File("$programFiles/ffmpeg/bin/$ffmpegName") else null,
-                if (programFilesX86.isNotEmpty()) File("$programFilesX86/ffmpeg/bin/$ffmpegName") else null
+                if (programFilesX86.isNotEmpty()) File("$programFilesX86/ffmpeg/bin/$ffmpegName") else null,
             )
         } else {
             listOf(
                 File("/opt/homebrew/bin/$ffmpegName"),
                 File("/usr/local/bin/$ffmpegName"),
                 File("/usr/bin/$ffmpegName"),
-                File("${System.getProperty("user.home")}/ffmpeg/bin/$ffmpegName")
+                File("${System.getProperty("user.home")}/ffmpeg/bin/$ffmpegName"),
             )
         }
 
@@ -229,8 +231,12 @@ class FFmpegAudioEngine : AudioEngine {
         try {
             HmpLog.d(LogTag.PlayerFfmpeg) { "🎬 probing: $ffmpegPath -i $path" }
             process = ProcessBuilder(
-                ffmpegPath, "-i", path,
-                "-f", "null", "-"
+                ffmpegPath,
+                "-i",
+                path,
+                "-f",
+                "null",
+                "-",
             )
                 .redirectErrorStream(true)
                 .start()
@@ -264,7 +270,9 @@ class FFmpegAudioEngine : AudioEngine {
                 val layout = match.groupValues[1].trim()
                 channels = when {
                     layout == "mono" -> 1
+
                     layout == "stereo" -> 2
+
                     layout.contains("channel") -> {
                         // "5.1 channels" -> 6, "7.1 channels" -> 8
                         val numStr = layout.substringBefore("channel").trim()
@@ -274,8 +282,11 @@ class FFmpegAudioEngine : AudioEngine {
                             val base = num.toInt()
                             val hasSubwoofer = num > base
                             (base + if (hasSubwoofer) 1 else 0).coerceIn(1, 8)
-                        } else 2
+                        } else {
+                            2
+                        }
                     }
+
                     else -> 2
                 }
             }
@@ -313,7 +324,7 @@ class FFmpegAudioEngine : AudioEngine {
                     "-acodec", "pcm_s16le",
                     "-ar", sampleRate.toInt().toString(),
                     "-ac", channels.toString(),
-                    "-"
+                    "-",
                 )
 
                 HmpLog.d(LogTag.PlayerFfmpeg) { "🎬 command: ${command.joinToString(" ")}" }
@@ -342,7 +353,7 @@ class FFmpegAudioEngine : AudioEngine {
                     channels,
                     frameSize,
                     sampleRate,
-                    false
+                    false,
                 )
                 val info = DataLine.Info(SourceDataLine::class.java, format)
                 HmpLog.d(LogTag.PlayerFfmpeg) { "🎬 format: ${sampleRate.toInt()}Hz ${channels}ch 16bit frameSize=$frameSize" }

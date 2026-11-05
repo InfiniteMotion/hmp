@@ -14,3 +14,15 @@ skills/**/*.md text eol=lf
 
 # 文档同样统一 LF，避免跨平台 diff 整屏飘红
 *.md text eol=lf
+
+# 7.4 ktlint 引入：Kotlin 源码统一 LF 入库。
+# .editorconfig 的 end_of_line = lf 否则会把 CRLF 文件整体改写，
+# 产生「零内容改动、全文件重写」的幽灵 diff。
+*.kt text eol=lf
+# ktlint 的 editorconfig 解析库对格式敏感，配置本身也必须 LF 入库，
+# 否则 Windows 检出成 CRLF 后规则有静默失效的风险
+.editorconfig text eol=lf
+# 根目录无扩展名的 POSIX 包装脚本必须 LF；CRLF shebang 在 Linux runner 上会失败
+ktlint text eol=lf
+# Windows 批处理在 cmd.exe 下需 CRLF（行尾续行符对 LF 敏感）
+*.bat text eol=crlf

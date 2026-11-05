@@ -1,6 +1,4 @@
 package com.hearablemusic.player.ui.agent.shell
-import com.hearablemusic.player.ui.generated.resources.agent_notice_undo
-
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -26,15 +24,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.hearablemusic.player.ui.common.design.animation.HmpMotion
+import com.hearablemusic.player.ui.common.design.metrics.LayoutConstraints
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
 import com.hearablemusic.player.ui.common.layout.LocalWindowSizeInfo
 import com.hearablemusic.player.ui.common.util.rememberHapticFeedback
 import com.hearablemusic.player.ui.generated.resources.Res
+import com.hearablemusic.player.ui.generated.resources.agent_notice_undo
 import kotlinx.coroutines.delay
 import org.jetbrains.compose.resources.stringResource
-import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
-import com.hearablemusic.player.ui.common.design.metrics.LayoutConstraints
-import com.hearablemusic.player.ui.common.design.animation.HmpMotion
 
 /**
  * R-T6 / M5-T3 AgentNoticeBar —— 伙伴通知侧条（总纲 5.4）。
@@ -96,7 +95,10 @@ fun AgentNoticeBar(
                     modifier = Modifier.widthIn(max = textMaxWidth).weight(1f, fill = false),
                 )
                 if (n.showUndo && onUndo != null) {
-                    TextButton(onClick = { haptic.performConfirm(); onUndo() }) {
+                    TextButton(onClick = {
+                        haptic.performConfirm()
+                        onUndo()
+                    }) {
                         Text(n.undoLabel ?: stringResource(Res.string.agent_notice_undo), color = MaterialTheme.colorScheme.primary)
                     }
                 }

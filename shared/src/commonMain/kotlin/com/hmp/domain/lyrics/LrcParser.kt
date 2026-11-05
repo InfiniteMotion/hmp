@@ -9,7 +9,7 @@ data class LyricLineData(
     /** 原文逐字（卡拉 OK）时间片段；普通 LRC 为空，由 LyricsTimingGenerator 生成 */
     val charTimings: List<CharTiming> = emptyList(),
     /** 译文逐字时间片段；普通 LRC 为空，由 LyricsTimingGenerator 按同一行区间生成 */
-    val translatedCharTimings: List<CharTiming> = emptyList()
+    val translatedCharTimings: List<CharTiming> = emptyList(),
 )
 
 fun findCurrentLyricIndex(parsedLyrics: List<LyricLineData>, currentPosition: Long): Int {
@@ -22,6 +22,7 @@ fun findCurrentLyricIndex(parsedLyrics: List<LyricLineData>, currentPosition: Lo
 object LrcParser {
 
     private val timeRegex = """^\[(\d{2}):(\d{2})\.(\d{2,3})]""".toRegex()
+
     /** 非锚定版本：用于逐段吃行首连续时间戳（`[t1][t2]text`）。 */
     private val anyTimeRegex = """\[(\d{2}):(\d{2})\.(\d{2,3})]""".toRegex()
     private val inlineTimeRegex =
@@ -58,19 +59,23 @@ object LrcParser {
                 val text = lineGroup.joinToString(" ") { it.text }.trim()
                 val timings = lineGroup.flatMap { it.charTimings }
                 parsedLines.add(LyricLineData(timestamp, text, null, timings))
-            } else when (lineGroup.size) {
-                1 -> {
-                    val line = lineGroup[0]
-                    val result = DualLanguageAnalyzer.analyzeSingleLine(line.text)
-                    parsedLines.add(LyricLineData(timestamp, result.first, result.second))
-                }
-                2 -> {
-                    val result = DualLanguageAnalyzer.analyzeDualLines(lineGroup[0].text, lineGroup[1].text)
-                    parsedLines.add(LyricLineData(timestamp, result.first, result.second))
-                }
-                else -> {
-                    val result = MultiLineProcessor.extractBestPair(lineGroup.map { it.text })
-                    parsedLines.add(LyricLineData(timestamp, result.first, result.second))
+            } else {
+                when (lineGroup.size) {
+                    1 -> {
+                        val line = lineGroup[0]
+                        val result = DualLanguageAnalyzer.analyzeSingleLine(line.text)
+                        parsedLines.add(LyricLineData(timestamp, result.first, result.second))
+                    }
+
+                    2 -> {
+                        val result = DualLanguageAnalyzer.analyzeDualLines(lineGroup[0].text, lineGroup[1].text)
+                        parsedLines.add(LyricLineData(timestamp, result.first, result.second))
+                    }
+
+                    else -> {
+                        val result = MultiLineProcessor.extractBestPair(lineGroup.map { it.text })
+                        parsedLines.add(LyricLineData(timestamp, result.first, result.second))
+                    }
                 }
             }
         }
@@ -78,10 +83,9 @@ object LrcParser {
         return parsedLines
     }
 
-    private fun parseTime(minutes: String, seconds: String, millis: String): Long =
-        minutes.toLong() * 60000 +
-                seconds.toLong() * 1000 +
-                millis.padEnd(3, '0').take(3).toLong()
+    private fun parseTime(minutes: String, seconds: String, millis: String): Long = minutes.toLong() * 60000 +
+        seconds.toLong() * 1000 +
+        millis.padEnd(3, '0').take(3).toLong()
 
     /**
      * 行首连续的 `[mm:ss.xx]` 前缀，返回 `(时间戳, 该前缀之后的字符下标)`。
@@ -96,7 +100,7 @@ object LrcParser {
             val timestamp = parseTime(
                 minutes = match.groupValues[1],
                 seconds = match.groupValues[2],
-                millis = match.groupValues[3]
+                millis = match.groupValues[3],
             )
             val next = match.range.last + 1
             result.add(timestamp to next)
@@ -166,7 +170,7 @@ object LrcParser {
         val isMarker: Boolean,
         val text: String = "",
         val startMs: Long = 0L,
-        val endMs: Long? = null
+        val endMs: Long? = null,
     )
 
     private fun tokenize(content: String): List<Token> {
@@ -208,9 +212,9 @@ object LrcParser {
                             startMs = parseTime(
                                 minutes = match.groupValues[1],
                                 seconds = match.groupValues[2],
-                                millis = match.groupValues[3]
-                            )
-                        )
+                                millis = match.groupValues[3],
+                            ),
+                        ),
                     )
                     i = match.range.last + 1
                     continue
@@ -349,5 +353,11 @@ object MultiLineProcessor {
 }
 
 enum class Language {
-    ENGLISH, CHINESE, JAPANESE, KOREAN, RUSSIAN, MIXED, UNKNOWN
+    ENGLISH,
+    CHINESE,
+    JAPANESE,
+    KOREAN,
+    RUSSIAN,
+    MIXED,
+    UNKNOWN,
 }

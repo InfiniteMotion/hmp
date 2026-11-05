@@ -33,9 +33,10 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
 import com.hearablemusic.player.ui.common.components.base.TitleWidget
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
+import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
 import com.hearablemusic.player.ui.common.dialogs.controller.DialogManager
 import com.hearablemusic.player.ui.common.dialogs.viewmodel.DialogManagerViewModel
-import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
 import com.hearablemusic.player.ui.common.layout.LocalWindowSizeInfo
 import com.hearablemusic.player.ui.common.pages.base.SubScreen
 import com.hearablemusic.player.ui.common.util.activityViewModel
@@ -68,13 +69,12 @@ import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
-import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 
 @Composable
 fun BackupSettingsScreen(
     navController: NavBackStack<NavKey>,
     backupViewModel: BackupViewModel = koinViewModel(),
-    dialogManagerViewModel: DialogManagerViewModel = activityViewModel()
+    dialogManagerViewModel: DialogManagerViewModel = activityViewModel(),
 ) {
     val metrics = LocalHmpMetrics.current
     val dialogManager = dialogManagerViewModel.dialogManager
@@ -82,7 +82,7 @@ fun BackupSettingsScreen(
 
     SubScreen(
         onBackClick = { navController.removeLastOrNull() },
-        title = stringResource(Res.string.backup_settings)
+        title = stringResource(Res.string.backup_settings),
     ) {
         val isLandscape = LocalWindowSizeInfo.current.isLandscape
         Column(
@@ -90,21 +90,21 @@ fun BackupSettingsScreen(
                 .verticalScroll(rememberScrollState())
                 .fillMaxWidth()
                 .padding(metrics.section),
-            verticalArrangement = Arrangement.spacedBy(metrics.section)
+            verticalArrangement = Arrangement.spacedBy(metrics.section),
         ) {
             if (isLandscape) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(metrics.section)
+                    horizontalArrangement = Arrangement.spacedBy(metrics.section),
                 ) {
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(metrics.section)) {
                         ExportBackupSection(
                             onExportBackup = backupViewModel::exportBackup,
-                            dialogManager = dialogManager
+                            dialogManager = dialogManager,
                         )
                         ImportBackupSection(
                             onRestoreBackup = backupViewModel::restoreBackup,
-                            dialogManager = dialogManager
+                            dialogManager = dialogManager,
                         )
                     }
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(metrics.section)) {
@@ -113,31 +113,31 @@ fun BackupSettingsScreen(
                             onRestoreBackup = backupViewModel::restoreBackup,
                             onDeleteBackup = backupViewModel::deleteLocalBackup,
                             onRefreshBackups = backupViewModel::loadLocalBackups,
-                            dialogManager = dialogManager
+                            dialogManager = dialogManager,
                         )
                     }
                 }
             } else {
-            // 1. 生成备份
-            ExportBackupSection(
-                onExportBackup = backupViewModel::exportBackup,
-                dialogManager = dialogManager
-            )
+                // 1. 生成备份
+                ExportBackupSection(
+                    onExportBackup = backupViewModel::exportBackup,
+                    dialogManager = dialogManager,
+                )
 
-            // 2. 导入备份
-            ImportBackupSection(
-                onRestoreBackup = backupViewModel::restoreBackup,
-                dialogManager = dialogManager
-            )
+                // 2. 导入备份
+                ImportBackupSection(
+                    onRestoreBackup = backupViewModel::restoreBackup,
+                    dialogManager = dialogManager,
+                )
 
-            // 3. 备份管理
-            ManageBackupsSection(
-                localBackups = localBackups,
-                onRestoreBackup = backupViewModel::restoreBackup,
-                onDeleteBackup = backupViewModel::deleteLocalBackup,
-                onRefreshBackups = backupViewModel::loadLocalBackups,
-                dialogManager = dialogManager
-            )
+                // 3. 备份管理
+                ManageBackupsSection(
+                    localBackups = localBackups,
+                    onRestoreBackup = backupViewModel::restoreBackup,
+                    onDeleteBackup = backupViewModel::deleteLocalBackup,
+                    onRefreshBackups = backupViewModel::loadLocalBackups,
+                    dialogManager = dialogManager,
+                )
             } // else
             MiniPlayerSafeSpacer(height = metrics.bar)
         }
@@ -147,7 +147,7 @@ fun BackupSettingsScreen(
 @Composable
 private fun ExportBackupSection(
     onExportBackup: ((String) -> Unit, (String) -> Unit) -> Unit,
-    dialogManager: DialogManager
+    dialogManager: DialogManager,
 ) {
     val metrics = LocalHmpMetrics.current
     val platformServices: PlatformServices = koinInject()
@@ -158,14 +158,14 @@ private fun ExportBackupSection(
         Column(
             modifier = Modifier.fillMaxWidth().padding(metrics.cozy),
             verticalArrangement = Arrangement.spacedBy(metrics.cozy),
-            horizontalAlignment = Alignment.CenterHorizontally
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Text(
                 text = stringResource(Res.string.export_backup_desc),
                 style = typo.body,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Start,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
             )
 
             // D7-12③：把"备份里有什么、没有什么"写在导出按钮上方。
@@ -176,7 +176,7 @@ private fun ExportBackupSection(
                 style = typo.caption,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Start,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
             )
 
             Button(
@@ -187,7 +187,7 @@ private fun ExportBackupSection(
                     }, { error ->
                         dialogManager.showMessage(error)
                     })
-                }
+                },
             ) {
                 Icon(painter = painterResource(Res.drawable.externaldrive), contentDescription = null)
                 Spacer(modifier = Modifier.width(metrics.compact))
@@ -200,7 +200,7 @@ private fun ExportBackupSection(
 @Composable
 private fun ImportBackupSection(
     onRestoreBackup: (String, () -> Unit, (String) -> Unit) -> Unit,
-    dialogManager: DialogManager
+    dialogManager: DialogManager,
 ) {
     val metrics = LocalHmpMetrics.current
     val typo = LocalHmpTypo.current
@@ -213,14 +213,14 @@ private fun ImportBackupSection(
         Column(
             modifier = Modifier.fillMaxWidth().padding(metrics.cozy),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(metrics.cozy)
+            verticalArrangement = Arrangement.spacedBy(metrics.cozy),
         ) {
             Text(
                 text = stringResource(Res.string.restore_backup_desc),
                 style = typo.body,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Start,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
             )
 
             Button(
@@ -234,7 +234,7 @@ private fun ImportBackupSection(
                             showRestoreDialog = true
                         }
                     }
-                }
+                },
             ) {
                 Icon(painter = painterResource(Res.drawable.ic_gallery_material_select_checkbox), contentDescription = null)
                 Spacer(modifier = Modifier.width(metrics.compact))
@@ -253,7 +253,7 @@ private fun ImportBackupSection(
                 })
                 showRestoreDialog = false
             },
-            onDismiss = { showRestoreDialog = false }
+            onDismiss = { showRestoreDialog = false },
         )
     }
 }
@@ -264,7 +264,7 @@ private fun ManageBackupsSection(
     onRestoreBackup: (String, () -> Unit, (String) -> Unit) -> Unit,
     onDeleteBackup: (String) -> Unit,
     onRefreshBackups: () -> Unit,
-    dialogManager: DialogManager
+    dialogManager: DialogManager,
 ) {
     val metrics = LocalHmpMetrics.current
     val typo = LocalHmpTypo.current
@@ -275,25 +275,25 @@ private fun ManageBackupsSection(
     TitleWidget(title = stringResource(Res.string.local_backup)) {
         Column(
             modifier = Modifier.fillMaxWidth().padding(metrics.cozy),
-            verticalArrangement = Arrangement.spacedBy(metrics.compact)
+            verticalArrangement = Arrangement.spacedBy(metrics.compact),
         ) {
             Text(
                 text = stringResource(Res.string.local_backup_desc),
                 style = typo.body,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Start,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
             )
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.Start
+                horizontalArrangement = Arrangement.Start,
             ) {
                 IconButton(onClick = onRefreshBackups) {
                     Icon(
                         painter = painterResource(Res.drawable.externaldrive),
                         contentDescription = stringResource(Res.string.refresh),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }
@@ -303,7 +303,7 @@ private fun ManageBackupsSection(
                     text = stringResource(Res.string.no_local_backups),
                     style = typo.body,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.align(Alignment.CenterHorizontally).padding(metrics.cozy)
+                    modifier = Modifier.align(Alignment.CenterHorizontally).padding(metrics.cozy),
                 )
             } else {
                 localBackups.forEach { filePath ->
@@ -313,7 +313,7 @@ private fun ManageBackupsSection(
                             selectedBackupFilePath = filePath
                             showRestoreDialog = true
                         },
-                        onDelete = { onDeleteBackup(filePath) }
+                        onDelete = { onDeleteBackup(filePath) },
                     )
                 }
             }
@@ -330,7 +330,7 @@ private fun ManageBackupsSection(
                 })
                 showRestoreDialog = false
             },
-            onDismiss = { showRestoreDialog = false }
+            onDismiss = { showRestoreDialog = false },
         )
     }
 }
@@ -339,7 +339,7 @@ private fun ManageBackupsSection(
 private fun BackupItem(
     filePath: String,
     onRestore: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
 ) {
     val metrics = LocalHmpMetrics.current
     val typo = LocalHmpTypo.current
@@ -352,12 +352,12 @@ private fun BackupItem(
     Surface(
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
         shape = RoundedCornerShape(metrics.base),
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier.fillMaxWidth(),
     ) {
         Row(
             modifier = Modifier.padding(metrics.base),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(metrics.compact)
+            horizontalArrangement = Arrangement.spacedBy(metrics.compact),
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
@@ -365,26 +365,26 @@ private fun BackupItem(
                     style = typo.body,
                     color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    overflow = TextOverflow.Ellipsis,
                 )
                 Text(
                     text = fileDate,
                     style = typo.caption,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
             IconButton(onClick = onRestore) {
                 Icon(
                     painter = painterResource(Res.drawable.ic_gallery_material_select_checkbox),
                     contentDescription = stringResource(Res.string.restore_action),
-                    tint = MaterialTheme.colorScheme.primary
+                    tint = MaterialTheme.colorScheme.primary,
                 )
             }
             IconButton(onClick = onDelete) {
                 Icon(
                     painter = painterResource(Res.drawable.trash),
                     contentDescription = stringResource(Res.string.delete),
-                    tint = MaterialTheme.colorScheme.error
+                    tint = MaterialTheme.colorScheme.error,
                 )
             }
         }
@@ -394,7 +394,7 @@ private fun BackupItem(
 @Composable
 private fun RestoreConfirmDialog(
     onConfirm: () -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -411,6 +411,6 @@ private fun RestoreConfirmDialog(
             TextButton(onClick = onDismiss) {
                 Text(stringResource(Res.string.cancel_action))
             }
-        }
+        },
     )
 }

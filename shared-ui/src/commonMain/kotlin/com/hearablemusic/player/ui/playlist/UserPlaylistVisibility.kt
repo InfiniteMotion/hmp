@@ -31,5 +31,4 @@ fun userVisiblePlaylists(all: List<Playlist>): List<Playlist> = all
  *
  * @param systemIds 由 `ManagePlaylistUseCase` / `SystemPlaylists` 给出的当前 / 心动 / 最近 id。
  */
-fun manageablePlaylists(all: List<Playlist>, systemIds: Set<Long>): List<Playlist> =
-    userVisiblePlaylists(all).filter { it.id !in systemIds }
+fun manageablePlaylists(all: List<Playlist>, systemIds: Set<Long>): List<Playlist> = userVisiblePlaylists(all).filter { it.id !in systemIds }

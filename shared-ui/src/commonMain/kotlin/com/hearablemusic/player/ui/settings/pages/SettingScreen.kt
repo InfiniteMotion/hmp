@@ -24,11 +24,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
 import com.hearablemusic.player.ui.common.design.typography.medium
-import com.hearablemusic.player.ui.common.pages.base.SubScreen
 import com.hearablemusic.player.ui.common.layout.LocalWindowSizeInfo
 import com.hearablemusic.player.ui.common.navigation.Routes
+import com.hearablemusic.player.ui.common.pages.base.SubScreen
 import com.hearablemusic.player.ui.common.util.rememberHapticFeedback
 import com.hearablemusic.player.ui.generated.resources.Res
 import com.hearablemusic.player.ui.generated.resources.backup_desc
@@ -45,16 +46,15 @@ import com.hearablemusic.player.ui.generated.resources.title_settings
 import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
-import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 
 @Composable
 fun SettingScreen(
-    navController: NavBackStack<NavKey>
+    navController: NavBackStack<NavKey>,
 ) {
     val metrics = LocalHmpMetrics.current
     SubScreen(
         onBackClick = { navController.removeLastOrNull() },
-        title = stringResource(Res.string.title_settings)
+        title = stringResource(Res.string.title_settings),
     ) {
         val haptic = rememberHapticFeedback()
         val isLandscape = LocalWindowSizeInfo.current.isLandscape
@@ -63,12 +63,12 @@ fun SettingScreen(
                 .verticalScroll(rememberScrollState())
                 .fillMaxWidth()
                 .padding(metrics.section),
-            verticalArrangement = Arrangement.spacedBy(metrics.cozy)
+            verticalArrangement = Arrangement.spacedBy(metrics.cozy),
         ) {
             if (isLandscape) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(metrics.cozy)
+                    horizontalArrangement = Arrangement.spacedBy(metrics.cozy),
                 ) {
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(metrics.cozy)) {
                         SettingItem(
@@ -78,7 +78,7 @@ fun SettingScreen(
                             onClick = {
                                 haptic.performClick()
                                 navController.add(Routes.Settings.ProfileSettings)
-                            }
+                            },
                         )
                         SettingItem(
                             title = stringResource(Res.string.backup_settings),
@@ -87,7 +87,7 @@ fun SettingScreen(
                             onClick = {
                                 haptic.performClick()
                                 navController.add(Routes.Settings.BackupSettings)
-                            }
+                            },
                         )
                     }
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(metrics.cozy)) {
@@ -98,7 +98,7 @@ fun SettingScreen(
                             onClick = {
                                 haptic.performClick()
                                 navController.add(Routes.Settings.LibrarySettings)
-                            }
+                            },
                         )
                     }
                 }
@@ -110,7 +110,7 @@ fun SettingScreen(
                     onClick = {
                         haptic.performClick()
                         navController.add(Routes.Settings.ProfileSettings)
-                    }
+                    },
                 )
                 SettingItem(
                     title = stringResource(Res.string.backup_settings),
@@ -119,7 +119,7 @@ fun SettingScreen(
                     onClick = {
                         haptic.performClick()
                         navController.add(Routes.Settings.BackupSettings)
-                    }
+                    },
                 )
                 SettingItem(
                     title = stringResource(Res.string.library_settings),
@@ -128,7 +128,7 @@ fun SettingScreen(
                     onClick = {
                         haptic.performClick()
                         navController.add(Routes.Settings.LibrarySettings)
-                    }
+                    },
                 )
             }
         }
@@ -140,7 +140,7 @@ fun SettingItem(
     title: String,
     description: String,
     icon: DrawableResource,
-    onClick: () -> Unit
+    onClick: () -> Unit,
 ) {
     val metrics = LocalHmpMetrics.current
     val typo = LocalHmpTypo.current
@@ -151,38 +151,38 @@ fun SettingItem(
             .clickable(onClick = onClick),
         shape = androidx.compose.foundation.shape.RoundedCornerShape(metrics.base),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-        )
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+        ),
     ) {
         Row(
             modifier = Modifier
                 .padding(metrics.cozy)
                 .fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
                 painter = painterResource(icon),
                 contentDescription = null,
                 modifier = Modifier.size(metrics.block),
-                tint = MaterialTheme.colorScheme.primary
+                tint = MaterialTheme.colorScheme.primary,
             )
             Spacer(modifier = Modifier.width(metrics.cozy))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = title,
                     style = typo.subtitle,
-                    color = MaterialTheme.colorScheme.onSurface
+                    color = MaterialTheme.colorScheme.onSurface,
                 )
                 Text(
                     text = description,
                     style = typo.footnote.medium(),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
             Icon(
                 painter = painterResource(Res.drawable.chevron_right),
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }

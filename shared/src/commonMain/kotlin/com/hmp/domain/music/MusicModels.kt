@@ -29,22 +29,22 @@ data class Music(
 data class MusicExtra(
     val id: Long,
     val lyrics: String? = null,
-    val bitRate: Int? = null,           // 比特率 kbps
-    val sampleRate: Int? = null,        // 采样率 Hz
-    val fileSize: Long? = null,         // 文件大小 Byte
-    val format: String? = null,         // 文件格式 mp3/flac
-    val language: String? = null,       // 语言
+    val bitRate: Int? = null, // 比特率 kbps
+    val sampleRate: Int? = null, // 采样率 Hz
+    val fileSize: Long? = null, // 文件大小 Byte
+    val format: String? = null, // 文件格式 mp3/flac
+    val language: String? = null, // 语言
     /**  app 首次读取该歌曲的时间（毫秒时间戳），用于排序与年月索引 */
     val date: Long? = null,
-    val recommendationIds: String? = null,  // 推荐关联的音乐ID列表
+    val recommendationIds: String? = null, // 推荐关联的音乐ID列表
     // 其他额外信息
-    val isGetExtraInfo : Boolean,
-    val rewards : String? = null,
-    val popLyric : String? = null,
-    val singerIntroduce : String? = null,
-    val backgroundIntroduce : String? = null,
-    val description : String? = null,
-    val relevantMusic : String? = null
+    val isGetExtraInfo: Boolean,
+    val rewards: String? = null,
+    val popLyric: String? = null,
+    val singerIntroduce: String? = null,
+    val backgroundIntroduce: String? = null,
+    val description: String? = null,
+    val relevantMusic: String? = null,
 )
 
 /**
@@ -78,13 +78,13 @@ data class MusicExtraTexts(
 data class MusicInfo(
     val music: Music,
     val extra: MusicExtra?,
-    val userInfo: UserInfo?
+    val userInfo: UserInfo?,
 )
 
 data class MusicLabel(
     val musicId: Long,
     val type: LabelCategory,
-    val label: LabelName
+    val label: LabelName,
 )
 
 /**

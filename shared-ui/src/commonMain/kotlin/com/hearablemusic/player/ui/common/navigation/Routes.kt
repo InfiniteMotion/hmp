@@ -23,20 +23,20 @@ object Routes {
     object Main {
         /** Tabs 容器页路由（Home/Gallery/List/User 的统一承载） */
         @Serializable object Tabs : NavKey
-        
+
         /** 主页路由 */
         @Serializable object Home : NavKey
-        
+
         /** 画廊页路由 */
         @Serializable object Gallery : NavKey
-        
+
         /** 列表页路由 */
         @Serializable object List : NavKey
-        
+
         /** 用户页路由 */
         @Serializable object User : NavKey
     }
-    
+
     /**
      * 播放器模块路由
      * 包含播放器界面、歌词显示和音频效果调节
@@ -44,14 +44,14 @@ object Routes {
     object Player {
         /** 播放器页路由 */
         @Serializable object Player : NavKey
-        
+
         /** 歌词页路由 */
         @Serializable object Lyrics : NavKey
-        
+
         /** 音频效果页路由 */
         @Serializable object AudioEffects : NavKey
     }
-    
+
     /**
      * 音乐库模块路由
      * 包含搜索、歌曲详情、艺术家和专辑浏览功能
@@ -59,7 +59,7 @@ object Routes {
     object Library {
         /** 搜索页路由 */
         @Serializable object Search : NavKey
-        
+
         /**
          * 歌曲详情页路由
          * @param musicId 歌曲的唯一标识符
@@ -71,20 +71,20 @@ object Routes {
          * @param musicId 歌曲的唯一标识符
          */
         @Serializable data class EditMusicTags(val musicId: Long) : NavKey
-        
+
         /**
          * 艺术家页路由
          * @param name 艺术家名称
          */
         @Serializable data class Artist(val name: String) : NavKey
-        
+
         /**
          * 专辑页路由
          * @param name 专辑名称
          */
         @Serializable data class Album(val name: String) : NavKey
     }
-    
+
     /**
      * 播放列表模块路由
      * 包含按名称的标签播放列表、自定义播放列表（按ID）和用户歌单管理
@@ -95,17 +95,17 @@ object Routes {
          * @param name 播放列表名称
          */
         @Serializable data class Playlist(val name: String) : NavKey
-        
+
         /**
          * 用户自定义播放列表详情页路由（按 ID）
          * @param playlistId 播放列表的唯一标识符
          */
         @Serializable data class CustomPlaylist(val playlistId: Long) : NavKey
-        
+
         /** 用户歌单管理页路由 */
         @Serializable object UserPlaylistManage : NavKey
     }
-    
+
     /**
      * 设置模块路由
      * 包含应用设置、个人资料、备份和音乐库设置
@@ -132,7 +132,7 @@ object Routes {
         /** W1-P4：Agent 运行态监控 + 撤销（当前占位，P4 实施时接 AuditLog Screen） */
         @Serializable object AgentMonitor : NavKey
     }
-    
+
     /**
      * AI 模块路由
      * 包含 AI 推荐和智能播放列表生成功能
@@ -140,10 +140,11 @@ object Routes {
     object AI {
         /** AI页路由 */
         @Serializable object AI : NavKey
+
         /** 通用 Agent 配置页——按 agentRole 参数决定渲染 Master/Hello/Enrich/Radio 哪个 Agent 的配置表单 */
         @Serializable data class AgentConfig(val agentRole: String) : NavKey
     }
-    
+
     /**
      * 自定义模块路由
      * 包含用户自定义主题和界面配置功能
@@ -152,7 +153,7 @@ object Routes {
         /** 自定义页路由 */
         @Serializable object Custom : NavKey
     }
-    
+
     /**
      * 用户数据模块路由
      * 包含用户使用数据统计和分析功能

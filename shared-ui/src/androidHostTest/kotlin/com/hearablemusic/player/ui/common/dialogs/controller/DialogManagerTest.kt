@@ -1,8 +1,8 @@
 package com.hearablemusic.player.ui.common.dialogs.controller
 
+import com.hearablemusic.player.ui.common.dialogs.viewmodel.DialogEvent
 import com.hmp.domain.agent.port.ConfirmDecision
 import com.hmp.domain.agent.port.ConfirmStep
-import com.hearablemusic.player.ui.common.dialogs.viewmodel.DialogEvent
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async

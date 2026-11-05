@@ -6,18 +6,18 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import org.jetbrains.compose.resources.painterResource
-import org.jetbrains.compose.resources.stringResource
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
-import com.hearablemusic.player.ui.generated.resources.Res
 import com.hearablemusic.player.ui.generated.resources.*
+import com.hearablemusic.player.ui.generated.resources.Res
+import org.jetbrains.compose.resources.painterResource
+import org.jetbrains.compose.resources.stringResource
 
 @Composable
 fun Avatar(
     aSize: Int,
     imageUri: String?,
-){
+) {
     val avatarDesc = stringResource(Res.string.user_avatar_desc)
     if (!imageUri.isNullOrEmpty()) {
         AsyncImage(
@@ -25,7 +25,7 @@ fun Avatar(
             contentDescription = avatarDesc,
             modifier = Modifier
                 .size(aSize.dp)
-                .clip(CircleShape)
+                .clip(CircleShape),
         )
     } else {
         Image(
@@ -33,7 +33,7 @@ fun Avatar(
             contentDescription = avatarDesc,
             modifier = Modifier
                 .size(aSize.dp)
-                .clip(CircleShape)
+                .clip(CircleShape),
         )
     }
 }

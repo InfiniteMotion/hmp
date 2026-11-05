@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.ui.draw.clip
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -16,21 +15,25 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.type
-import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.WindowPosition
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
-import com.hmp.data.database.AppDatabaseGuard
-import com.hmp.data.database.hmpDatabasePath
-import com.hmp.desktop.player.DesktopMusicController
+import androidx.navigationevent.DirectNavigationEventInput
+import androidx.navigationevent.compose.LocalNavigationEventDispatcherOwner
+import androidx.navigationevent.compose.rememberNavigationEventDispatcherOwner
+import co.touchlab.kermit.Severity
 import com.hearablemusic.player.ui.AppRoot
+import com.hearablemusic.player.ui.common.design.metrics.HMPMetricTokens
+import com.hearablemusic.player.ui.common.design.metrics.LayoutConstraints
 import com.hearablemusic.player.ui.common.design.theme.HearableMusicPlayerTheme
 import com.hearablemusic.player.ui.common.layout.LocalTitleBarInset
 import com.hearablemusic.player.ui.common.pages.IntroScreen
@@ -39,11 +42,15 @@ import com.hearablemusic.player.ui.common.util.activityViewModel
 import com.hearablemusic.player.ui.library.viewmodel.LibraryViewModel
 import com.hearablemusic.player.ui.settings.viewmodel.RecommendationViewModel
 import com.hearablemusic.player.ui.settings.viewmodel.SettingsViewModel
+import com.hmp.data.database.AppDatabaseGuard
+import com.hmp.data.database.hmpDatabasePath
 import com.hmp.desktop.DwmHelper
+import com.hmp.desktop.player.DesktopMusicController
+import com.hmp.initKermit
+import com.hmp.log.HmpLog
+import com.hmp.log.LogTag
 import com.sun.jna.platform.win32.WinDef
-import androidx.navigationevent.DirectNavigationEventInput
-import androidx.navigationevent.compose.LocalNavigationEventDispatcherOwner
-import androidx.navigationevent.compose.rememberNavigationEventDispatcherOwner
+import kotlinx.coroutines.awaitCancellation
 import org.koin.core.context.GlobalContext
 import java.awt.EventQueue
 import java.io.File
@@ -51,13 +58,6 @@ import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.concurrent.CountDownLatch
 import kotlin.concurrent.thread
-import com.hmp.initKermit
-import co.touchlab.kermit.Severity
-import com.hmp.log.HmpLog
-import com.hmp.log.LogTag
-import com.hearablemusic.player.ui.common.design.metrics.HMPMetricTokens
-import com.hearablemusic.player.ui.common.design.metrics.LayoutConstraints
-import kotlinx.coroutines.awaitCancellation
 
 /**
  * 退出前先把播放会话与进度落完（一-3 / D5-07）。
@@ -121,16 +121,20 @@ fun main() {
     stamp("Koin init done")
 
     // MasterAgent 生命周期绑定：进程退出时清理 SubAgent（正常退出 + 杀进程都覆盖）
-    Runtime.getRuntime().addShutdownHook(Thread {
-        runCatching {
-            GlobalContext.get().get<com.hmp.domain.agent.runtime.MasterAgent>().close()
-        }
-    })
+    Runtime.getRuntime().addShutdownHook(
+        Thread {
+            runCatching {
+                GlobalContext.get().get<com.hmp.domain.agent.runtime.MasterAgent>().close()
+            }
+        },
+    )
 
     // Pre-warm JNA native library on background thread so the first
     // DwmHelper call in detectSystemDarkMode() doesn't pay the DLL load cost.
     thread(name = "hmp-jna-prewarm", isDaemon = true) {
-        try { DwmHelper.isSystemDark() } catch (_: Throwable) {}
+        try {
+            DwmHelper.isSystemDark()
+        } catch (_: Throwable) {}
         stamp("JNA pre-warm done")
     }
 
@@ -154,7 +158,7 @@ fun main() {
         stamp("pre-warm completed, entering composition")
         val state = rememberWindowState(
             size = DpSize(LayoutConstraints.WindowInitialWidth, LayoutConstraints.WindowInitialHeight),
-            position = WindowPosition(Alignment.Center)
+            position = WindowPosition(Alignment.Center),
         )
 
         // nav3 desktop 返回接线——
@@ -174,7 +178,10 @@ fun main() {
 
         // Live system dark mode state — updated by platform theme watcher
         var systemIsDark by remember { mutableStateOf(detectSystemDarkMode()) }
-        val timed0 = remember { stamp("detectSystemDarkMode() called"); 0 }
+        val timed0 = remember {
+            stamp("detectSystemDarkMode() called")
+            0
+        }
 
         // User theme preference ("light" / "dark" / "default")
         val settingsRepo = remember {
@@ -219,14 +226,18 @@ fun main() {
                             backInput.backCompleted()
                             true
                         }
+
                         else -> false
                     }
                 } else {
                     false
                 }
-            }
+            },
         ) {
-            val timedContent = remember { stamp("Window content first composition"); 0 }
+            val timedContent = remember {
+                stamp("Window content first composition")
+                0
+            }
 
             // Deferred platform theme setup — runs after first frame, avoiding
             // ~149ms composition delay for AWT lookup and DWM watcher registration.
@@ -255,108 +266,111 @@ fun main() {
             // Clip entire window content to rounded corners.
             val cornerRadius = HMPMetricTokens.Compact.cozy
             HearableMusicPlayerTheme(darkTheme = appIsDark) {
-                val timedMT = remember { stamp("Theme scope entered (first composition)"); 0 }
+                val timedMT = remember {
+                    stamp("Theme scope entered (first composition)")
+                    0
+                }
                 val shape = RoundedCornerShape(cornerRadius)
                 Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .clip(shape)
-                    .border(HMPMetricTokens.Compact.hair, MaterialTheme.colorScheme.outlineVariant, shape)
-                    .background(MaterialTheme.colorScheme.background)
-            ) {
-                Box(modifier = Modifier.fillMaxSize()) {
-                    // musicController is already resolved — no LoadingScreen needed
-                    DisposableEffect(Unit) {
-                        onDispose { settlePlaybackBeforeExit(musicController) }
-                    }
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clip(shape)
+                        .border(HMPMetricTokens.Compact.hair, MaterialTheme.colorScheme.outlineVariant, shape)
+                        .background(MaterialTheme.colorScheme.background),
+                ) {
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        // musicController is already resolved — no LoadingScreen needed
+                        DisposableEffect(Unit) {
+                            onDispose { settlePlaybackBeforeExit(musicController) }
+                        }
 
-                    // Initialize system tray with playback controls
-                    LaunchedEffect(Unit) {
-                        val window = java.awt.Window.getWindows().firstOrNull()
-                        SystemTrayManager.init(
-                            onPlayPause = { musicController.togglePlayPause() },
-                            onNext = { musicController.playNext() },
-                            onPrev = { musicController.playPrevious() },
-                            onShowWindow = {
-                                EventQueue.invokeLater {
-                                    window?.let {
-                                        it.isVisible = true
-                                        it.toFront()
-                                        it.repaint()
+                        // Initialize system tray with playback controls
+                        LaunchedEffect(Unit) {
+                            val window = java.awt.Window.getWindows().firstOrNull()
+                            SystemTrayManager.init(
+                                onPlayPause = { musicController.togglePlayPause() },
+                                onNext = { musicController.playNext() },
+                                onPrev = { musicController.playPrevious() },
+                                onShowWindow = {
+                                    EventQueue.invokeLater {
+                                        window?.let {
+                                            it.isVisible = true
+                                            it.toFront()
+                                            it.repaint()
+                                        }
                                     }
-                                }
+                                },
+                                onExit = {
+                                    settlePlaybackBeforeExit(musicController)
+                                    SystemTrayManager.dispose()
+                                    SingleInstanceGuard.release()
+                                    exitApplication()
+                                },
+                            )
+                        }
+
+                        // Update tray tooltip when current song changes
+                        val currentMusic by musicController.currentPlayingMusic.collectAsState()
+                        LaunchedEffect(currentMusic) {
+                            currentMusic?.let { music ->
+                                val title = music.music.title.ifBlank { File(music.music.path).name }
+                                val artist = music.music.artist.ifBlank { "Unknown Artist" }
+                                SystemTrayManager.updateTooltip("$title - $artist")
+                            }
+                        }
+
+                        // 入口 commonMain 共享层 AppRoot——
+                        // 双 provides：应用级 VM owner（activityViewModel 契约）+ nav3 返回 dispatcher
+                        // （NavDisplay 的 NavigationBackHandler 在非 Android 上从该 CompositionLocal 发现 dispatcher）
+                        // LocalTitleBarInset：CustomTitleBar 悬浮叠加在 AppRoot 之上，内容需为其让位
+                        androidx.compose.runtime.CompositionLocalProvider(
+                            LocalAppViewModelStoreOwner provides appViewModelStoreOwner,
+                            LocalNavigationEventDispatcherOwner provides navEventOwner,
+                            LocalTitleBarInset provides TITLE_BAR_HEIGHT,
+                        ) {
+                            // 首启分流（与 Android MainActivity / iOS IosAppRoot 对齐）。
+                            // 桌面无运行时权限体系 → skipPermissionStep，直接从「扫描」步开始
+                            // （旧桌面 UI 层那份未接线的 IntroScreen 也是这个取舍）。
+                            val settingsViewModel: SettingsViewModel = activityViewModel()
+                            val isFirstLaunch by settingsViewModel.isFirstLaunch.collectAsState(true)
+                            if (isFirstLaunch) {
+                                val libraryViewModel: LibraryViewModel = activityViewModel()
+                                val recommendationViewModel: RecommendationViewModel = activityViewModel()
+                                IntroScreen(
+                                    settingsViewModel = settingsViewModel,
+                                    libraryViewModel = libraryViewModel,
+                                    recommendationViewModel = recommendationViewModel,
+                                    onFinished = {
+                                        settingsViewModel.saveIsFirstLaunchStatus(false)
+                                    },
+                                    skipPermissionStep = true,
+                                )
+                            } else {
+                                AppRoot(darkTheme = appIsDark)
+                            }
+                        }
+
+                        // Collect playback state reactively for immersive title bar
+                        // Uses collectAsState to stay in sync with MainScreen's same underlying StateFlow
+                        val isPlaying by musicController.isPlaying.collectAsState()
+
+                        // Title bar overlays on top — transparent when playing for immersive look
+                        CustomTitleBar(
+                            isDarkTheme = appIsDark,
+                            isPlaying = isPlaying,
+                            onMinimize = {
+                                val awtWindow = java.awt.Window.getWindows().firstOrNull()
+                                awtWindow?.let { WindowHelper.minimizeAwt(it) }
                             },
-                            onExit = {
+                            onClose = {
                                 settlePlaybackBeforeExit(musicController)
                                 SystemTrayManager.dispose()
                                 SingleInstanceGuard.release()
                                 exitApplication()
-                            }
+                            },
                         )
                     }
-
-                    // Update tray tooltip when current song changes
-                    val currentMusic by musicController.currentPlayingMusic.collectAsState()
-                    LaunchedEffect(currentMusic) {
-                        currentMusic?.let { music ->
-                            val title = music.music.title.ifBlank { File(music.music.path).name }
-                            val artist = music.music.artist.ifBlank { "Unknown Artist" }
-                            SystemTrayManager.updateTooltip("$title - $artist")
-                        }
-                    }
-
-                    // 入口 commonMain 共享层 AppRoot——
-                    // 双 provides：应用级 VM owner（activityViewModel 契约）+ nav3 返回 dispatcher
-                    //（NavDisplay 的 NavigationBackHandler 在非 Android 上从该 CompositionLocal 发现 dispatcher）
-                    // LocalTitleBarInset：CustomTitleBar 悬浮叠加在 AppRoot 之上，内容需为其让位
-                    androidx.compose.runtime.CompositionLocalProvider(
-                        LocalAppViewModelStoreOwner provides appViewModelStoreOwner,
-                        LocalNavigationEventDispatcherOwner provides navEventOwner,
-                        LocalTitleBarInset provides TITLE_BAR_HEIGHT,
-                    ) {
-                        // 首启分流（与 Android MainActivity / iOS IosAppRoot 对齐）。
-                        // 桌面无运行时权限体系 → skipPermissionStep，直接从「扫描」步开始
-                        //（旧桌面 UI 层那份未接线的 IntroScreen 也是这个取舍）。
-                        val settingsViewModel: SettingsViewModel = activityViewModel()
-                        val isFirstLaunch by settingsViewModel.isFirstLaunch.collectAsState(true)
-                        if (isFirstLaunch) {
-                            val libraryViewModel: LibraryViewModel = activityViewModel()
-                            val recommendationViewModel: RecommendationViewModel = activityViewModel()
-                            IntroScreen(
-                                settingsViewModel = settingsViewModel,
-                                libraryViewModel = libraryViewModel,
-                                recommendationViewModel = recommendationViewModel,
-                                onFinished = {
-                                    settingsViewModel.saveIsFirstLaunchStatus(false)
-                                },
-                                skipPermissionStep = true
-                            )
-                        } else {
-                            AppRoot(darkTheme = appIsDark)
-                        }
-                    }
-
-                    // Collect playback state reactively for immersive title bar
-                    // Uses collectAsState to stay in sync with MainScreen's same underlying StateFlow
-                    val isPlaying by musicController.isPlaying.collectAsState()
-
-                    // Title bar overlays on top — transparent when playing for immersive look
-                    CustomTitleBar(
-                        isDarkTheme = appIsDark,
-                        isPlaying = isPlaying,
-                        onMinimize = {
-                            val awtWindow = java.awt.Window.getWindows().firstOrNull()
-                            awtWindow?.let { WindowHelper.minimizeAwt(it) }
-                        },
-                        onClose = {
-                            settlePlaybackBeforeExit(musicController)
-                            SystemTrayManager.dispose()
-                            SingleInstanceGuard.release()
-                            exitApplication()
-                        }
-                    )
                 }
-            }
             }
         }
     }
@@ -374,14 +388,22 @@ private fun detectSystemDarkMode(): Boolean {
     val os = System.getProperty("os.name", "").lowercase()
     return when {
         os.contains("win") -> {
-            try { DwmHelper.isSystemDark() } catch (_: Throwable) { false }
+            try {
+                DwmHelper.isSystemDark()
+            } catch (_: Throwable) {
+                false
+            }
         }
+
         os.contains("mac") -> {
             try {
                 val proc = ProcessBuilder("defaults", "read", "-g", "AppleInterfaceStyle").start()
                 proc.inputStream.bufferedReader().readText().trim() == "Dark"
-            } catch (_: Throwable) { false }
+            } catch (_: Throwable) {
+                false
+            }
         }
+
         else -> false
     }
 }

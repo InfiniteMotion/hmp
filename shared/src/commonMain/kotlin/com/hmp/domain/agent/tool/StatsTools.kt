@@ -1,23 +1,20 @@
 package com.hmp.domain.agent.tool
-import com.hmp.domain.agent.tool.spec.DEFAULT_RESULT_LIMIT
-import com.hmp.domain.agent.tool.spec.ToolParam
-import com.hmp.domain.agent.tool.spec.AgentTool
-import com.hmp.domain.agent.tool.spec.ToolResult
-import com.hmp.domain.agent.tool.spec.ToolNames
-import com.hmp.domain.agent.tool.spec.ToolArgs
-import com.hmp.domain.agent.tool.spec.IntParam
-
 import com.hmp.domain.agent.port.ToolPermissionLevel
-
+import com.hmp.domain.agent.tool.spec.AgentTool
+import com.hmp.domain.agent.tool.spec.DEFAULT_RESULT_LIMIT
+import com.hmp.domain.agent.tool.spec.IntParam
+import com.hmp.domain.agent.tool.spec.ToolArgs
+import com.hmp.domain.agent.tool.spec.ToolNames
+import com.hmp.domain.agent.tool.spec.ToolParam
+import com.hmp.domain.agent.tool.spec.ToolResult
 import com.hmp.domain.setting.model.PlaybackHistory
 import kotlinx.coroutines.flow.first
 
 /** 播放历史的静态展示：标题 - 艺术家（数量上限）。
  *  时间戳不格式化（避免跨平台 now 依赖），附原始时间便于粗粒度排序。 */
-internal fun List<PlaybackHistory>.historyLines(limit: Int): String =
-    take(limit.coerceAtLeast(1)).mapIndexed { i, h ->
-        "#${i + 1} musicId=${h.musicId} 播放时长=${h.playDuration / 1000}s completed=${h.isCompleted} 时间戳=${h.playedAt}"
-    }.joinToString("\n")
+internal fun List<PlaybackHistory>.historyLines(limit: Int): String = take(limit.coerceAtLeast(1)).mapIndexed { i, h ->
+    "#${i + 1} musicId=${h.musicId} 播放时长=${h.playDuration / 1000}s completed=${h.isCompleted} 时间戳=${h.playedAt}"
+}.joinToString("\n")
 
 // ---------------- library_stats (read/silent) ----------------
 

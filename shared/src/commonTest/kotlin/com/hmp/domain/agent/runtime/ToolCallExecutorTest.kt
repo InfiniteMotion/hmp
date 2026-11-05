@@ -17,8 +17,8 @@ import com.hmp.test.fakes.RecordingTool
 import com.hmp.test.fakes.ThrowingTool
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
-import kotlin.test.assertFailsWith
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
@@ -39,8 +39,7 @@ class ToolCallExecutorTest {
         trackMessages = trackMessages,
     )
 
-    private fun toolCall(name: String, args: String = "{}") =
-        LlmEvent.ToolCall(id = "id_$name", name = name, argumentsJson = args)
+    private fun toolCall(name: String, args: String = "{}") = LlmEvent.ToolCall(id = "id_$name", name = name, argumentsJson = args)
 
     // ===== 批量权限确认 =====
 
@@ -101,8 +100,7 @@ class ToolCallExecutorTest {
         override val description = "cancels on run"
         override val params: List<com.hmp.domain.agent.tool.spec.ToolParam> = emptyList()
         override val permissionLevel = ToolPermissionLevel.SILENT
-        override suspend fun run(args: com.hmp.domain.agent.tool.spec.ToolArgs): ToolResult =
-            throw kotlinx.coroutines.CancellationException("cancelled")
+        override suspend fun run(args: com.hmp.domain.agent.tool.spec.ToolArgs): ToolResult = throw kotlinx.coroutines.CancellationException("cancelled")
     }
 
     // ===== 单工具执行 =====

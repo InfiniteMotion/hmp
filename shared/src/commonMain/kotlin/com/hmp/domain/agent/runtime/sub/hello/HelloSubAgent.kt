@@ -1,16 +1,13 @@
 package com.hmp.domain.agent.runtime.sub.hello
 
-import com.hmp.domain.agent.card.zhName
-
-import com.hmp.domain.agent.card.cardType
-import com.hmp.domain.agent.card.detectTimePhase
-
-import com.hmp.domain.agent.config.EngineDefaults
-import com.hmp.domain.agent.runtime.JsonText
-import com.hmp.domain.agent.runtime.sub.shared.SubAgent
-
+import com.hmp.data.database.HelloCardCache
+import com.hmp.data.database.HelloCardCacheDao
+import com.hmp.data.database.HelloReportNarrativeDao
+import com.hmp.data.database.HelloReportNarrativeEntity
+import com.hmp.data.database.currentTimeMillis
+import com.hmp.data.util.localDateString
+import com.hmp.data.util.localHourOfDay
 import com.hmp.domain.agent.card.AnchorContent
-import com.hmp.domain.agent.card.toDays
 import com.hmp.domain.agent.card.AnniversaryContent
 import com.hmp.domain.agent.card.AnniversarySubtype
 import com.hmp.domain.agent.card.CardPool
@@ -22,7 +19,6 @@ import com.hmp.domain.agent.card.GreetingType
 import com.hmp.domain.agent.card.NarrativeContent
 import com.hmp.domain.agent.card.NarrativeTimeRange
 import com.hmp.domain.agent.card.RadioStatusContent
-import com.hmp.domain.agent.runtime.sub.shared.RadioTrack
 import com.hmp.domain.agent.card.RecommendContent
 import com.hmp.domain.agent.card.RecommendItemRecord
 import com.hmp.domain.agent.card.RecommendListPayload
@@ -31,41 +27,42 @@ import com.hmp.domain.agent.card.SlideCard
 import com.hmp.domain.agent.card.SlideContent
 import com.hmp.domain.agent.card.SlideType
 import com.hmp.domain.agent.card.TimePhase
-
-import com.hmp.data.database.HelloCardCache
-import com.hmp.log.HmpLog
-import com.hmp.log.LogTag
-import com.hmp.data.database.HelloCardCacheDao
-import com.hmp.data.database.HelloReportNarrativeDao
-import com.hmp.data.database.HelloReportNarrativeEntity
-import com.hmp.data.database.currentTimeMillis
-import com.hmp.data.util.localDateString
-import com.hmp.data.util.localHourOfDay
-import com.hmp.domain.enum.LabelCategory
-import com.hmp.domain.playlist.algorithm.core.SmartWeights
+import com.hmp.domain.agent.card.cardType
+import com.hmp.domain.agent.card.detectTimePhase
+import com.hmp.domain.agent.card.toDays
+import com.hmp.domain.agent.card.zhName
+import com.hmp.domain.agent.config.EngineDefaults
 import com.hmp.domain.agent.infra.PresenceBus
 import com.hmp.domain.agent.infra.PresenceEvent
-import com.hmp.domain.agent.port.NowPlayingContextProvider
-import com.hmp.domain.agent.port.TimeProvider
-import com.hmp.domain.agent.port.LlmMessage
-import com.hmp.domain.agent.runtime.AgentContextBudget
-import com.hmp.domain.agent.runtime.AgentRunState
 import com.hmp.domain.agent.port.Capability
 import com.hmp.domain.agent.port.CapabilityState
+import com.hmp.domain.agent.port.LlmMessage
+import com.hmp.domain.agent.port.NowPlayingContextProvider
+import com.hmp.domain.agent.port.TimeProvider
+import com.hmp.domain.agent.runtime.AgentContextBudget
+import com.hmp.domain.agent.runtime.AgentRunState
+import com.hmp.domain.agent.runtime.JsonText
 import com.hmp.domain.agent.runtime.StopSignal
-import com.hmp.domain.agent.runtime.i18n.resolvePrompt
 import com.hmp.domain.agent.runtime.ToolRegistryView
+import com.hmp.domain.agent.runtime.i18n.resolvePrompt
+import com.hmp.domain.agent.runtime.sub.shared.RadioTrack
+import com.hmp.domain.agent.runtime.sub.shared.SubAgent
+import com.hmp.domain.enum.LabelCategory
+import com.hmp.domain.enum.LabelName
+import com.hmp.domain.lyrics.LrcParser
 import com.hmp.domain.music.MusicInfo
 import com.hmp.domain.music.MusicRepository
 import com.hmp.domain.music.MusicSortKey
 import com.hmp.domain.music.SortDirection
-import com.hmp.domain.enum.LabelName
+import com.hmp.domain.playlist.algorithm.core.SmartWeights
 import com.hmp.domain.setting.model.AiEndpointConfig
-import com.hmp.domain.lyrics.LrcParser
+import com.hmp.log.HmpLog
+import com.hmp.log.LogTag
+import com.hmp.platform.Volatile
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -73,8 +70,6 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
-import com.hmp.data.database.currentTimeMillis
-import com.hmp.platform.Volatile
 
 /**
  * Hello 的**会话级可变状态** —— 跨轮演进、彼此关联的一组字段。
@@ -212,7 +207,8 @@ class HelloSubAgent internal constructor(
      * 才能断言"前进一天 → 次日刷新"；生产不传，默认系统时间。
      */
     private val timeProvider: TimeProvider = { currentTimeMillis() },
-) : SubAgent(agentId, contextBudget, toolRegistryView), Capability {
+) : SubAgent(agentId, contextBudget, toolRegistryView),
+    Capability {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
@@ -221,10 +217,10 @@ class HelloSubAgent internal constructor(
         val cfg = enrichConfig
         HmpLog.i(LogTag.AgentHello) {
             "👋 HelloSubAgent created | enableLlm=$enableLlm | temp=${llmTemperature ?: "(per-card default)"} | " +
-            "hasLLM=${cfg != null} | endpoint=${cfg?.endpoint?.take(40) ?: "(none)"} | " +
-            "model=${cfg?.selectedModel?.take(30) ?: "(default)"} | hasKey=${cfg?.apiKey?.isNotBlank() == true} | " +
-            "promptLang=${promptPreferredLang ?: "(global→$globalReplyLanguage)"} | " +
-            "promptOverrides=${promptOverrides.size} keys"
+                "hasLLM=${cfg != null} | endpoint=${cfg?.endpoint?.take(40) ?: "(none)"} | " +
+                "model=${cfg?.selectedModel?.take(30) ?: "(default)"} | hasKey=${cfg?.apiKey?.isNotBlank() == true} | " +
+                "promptLang=${promptPreferredLang ?: "(global→$globalReplyLanguage)"} | " +
+                "promptOverrides=${promptOverrides.size} keys"
         }
     }
 
@@ -238,6 +234,7 @@ class HelloSubAgent internal constructor(
     val cards: StateFlow<List<SlideCard>> get() = cardPool.cards
 
     // ═══ G6：每日推荐 / 私人推荐列表 ═══
+
     /** null=尚未生成（UI 视为"生成中"）；空 items=无数据（入口隐藏） */
     private val _dailyRecommendList = MutableStateFlow<RecommendListPayload?>(null)
     private val _privateRecommendList = MutableStateFlow<RecommendListPayload?>(null)
@@ -305,7 +302,7 @@ class HelloSubAgent internal constructor(
     override suspend fun shutdown() {
         isActive = false
         cardPool.clear()
-        scope.cancel()                              // D3: 取消所有子协程（timer 等）
+        scope.cancel() // D3: 取消所有子协程（timer 等）
         super.shutdown()
         HmpLog.i(LogTag.AgentHello) { "👋 shutdown complete" }
     }
@@ -319,13 +316,14 @@ class HelloSubAgent internal constructor(
         }
         HmpLog.i(LogTag.AgentHello) { "👋 collectPresenceEvents started" }
         bus.events.collect { event ->
-            if (session.agentPaused) return@collect  // D2: runLoop 暂停期间跳过事件
+            if (session.agentPaused) return@collect // D2: runLoop 暂停期间跳过事件
             when (event) {
                 is PresenceEvent.DjBlank -> {
                     HmpLog.d(LogTag.AgentHello) { "👋 DjBlank → maybe update GREETING" }
                     runCatching { refreshGreetingIfNeeded(30_000L, reason = "DjBlank") }
                         .onFailure { e -> HmpLog.w(LogTag.AgentHello, e) { "👋 DjBlank GREETING refresh failed" } }
                 }
+
                 // 注意：AgentProgress (RADIO_STATUS) 已拆到 UI 层直接订阅 radioState
                 else -> { /* 其他事件忽略 */ }
             }
@@ -347,6 +345,7 @@ class HelloSubAgent internal constructor(
     }
 
     /** 核心逻辑：检查今日是否需要跑 dailyRefreshOnce，需要则跑 */
+
     /** internal 仅为测试可见：跨天判定要能被 `TimeProvider` 驱动，见 `HelloDailyRefreshTest`。 */
     internal suspend fun checkAndRunDailyRefresh() {
         val today = todayString()
@@ -357,10 +356,10 @@ class HelloSubAgent internal constructor(
             emptySet()
         }
         val hasTodayCards = if (dao != null) {
-            SlideType.RECOMMEND.name in allTodayTypes
-                || SlideType.DISCOVER.name in allTodayTypes
-                || SlideType.FORGOTTEN.name in allTodayTypes
-                || SlideType.ANNIVERSARY.name in allTodayTypes
+            SlideType.RECOMMEND.name in allTodayTypes ||
+                SlideType.DISCOVER.name in allTodayTypes ||
+                SlideType.FORGOTTEN.name in allTodayTypes ||
+                SlideType.ANNIVERSARY.name in allTodayTypes
         } else {
             session.todayCardsGenerated
         }
@@ -444,7 +443,7 @@ class HelloSubAgent internal constructor(
                 cardCacheDao?.deleteSameDaySameType(card.type.name, today)
                 val cache = buildHelloCardCache(card, now, today, llmUsed = enableLlm)
                 cardCacheDao?.insert(cache)
-                memory.record(cache)  // 内存缓存同步更新（DAO=null 时也能工作）
+                memory.record(cache) // 内存缓存同步更新（DAO=null 时也能工作）
             }
         }.onFailure { e -> HmpLog.w(LogTag.AgentHello, e) { "👋 DAO insert failed (non-fatal)" } }
 
@@ -461,7 +460,7 @@ class HelloSubAgent internal constructor(
 
     private suspend fun minuteTickLoop() {
         HmpLog.i(LogTag.AgentHello) { "👋 minuteTickLoop started" }
-        var lastDate = todayString()  // 跨天检测
+        var lastDate = todayString() // 跨天检测
         while (scope.isActive && isActive && !session.agentPaused) {
             delay(60_000L)
 
@@ -575,7 +574,7 @@ class HelloSubAgent internal constructor(
         if (songId != null) session.lastGreetingSongId = songId
         cardPool.replace(
             SlideType.GREETING,
-            SlideCard(SlideCard.newId(), SlideType.GREETING, content)
+            SlideCard(SlideCard.newId(), SlideType.GREETING, content),
         )
         // GREETING 也写 DAO + memory：App 重启后 session.recentGreetingTypes 内存丢了，
         // 靠 Room 恢复 todayCache.greetingTypes 来避免重复同类型。
@@ -661,7 +660,11 @@ class HelloSubAgent internal constructor(
         // 惩罚：session.recentGreetingTypes 中出现过的类型降分
         val penaltyMap = mutableMapOf<GreetingType, Double>()
         session.recentGreetingTypes.forEachIndexed { idx, t ->
-            val factor = when (idx) { 0 -> 0.4; 1 -> 0.6; else -> 0.8 }
+            val factor = when (idx) {
+                0 -> 0.4
+                1 -> 0.6
+                else -> 0.8
+            }
             penaltyMap[t] = (penaltyMap[t] ?: 0.0) + factor
         }
         scores.forEach { (t, _) ->
@@ -699,10 +702,12 @@ class HelloSubAgent internal constructor(
         }
         val parts = today.split("-")
         val month = parts.getOrNull(1)?.toIntOrNull() ?: run {
-            session.cachedAnniversaryHint = null; return null
+            session.cachedAnniversaryHint = null
+            return null
         }
         val day = parts.getOrNull(2)?.toIntOrNull() ?: run {
-            session.cachedAnniversaryHint = null; return null
+            session.cachedAnniversaryHint = null
+            return null
         }
         val prompt = """今天是 $month 月 $day 日。请判断音乐史上今天是否有重要事件发生。
 
@@ -714,7 +719,7 @@ class HelloSubAgent internal constructor(
 - 如果不确定或没有，请返回 {"hasEvent": false}
 - 不要编造，不确定就说没有"""
         val hint = callHelloLlm(
-            cardType = null,  // ANNIVERSARY 不注入记忆：纪念日查询走 HelloMemory.isAnniversaryQueriedToday 独立短路（仅 dailyRefreshOnce 每日调一次），不依赖 cardType 注入
+            cardType = null, // ANNIVERSARY 不注入记忆：纪念日查询走 HelloMemory.isAnniversaryQueriedToday 独立短路（仅 dailyRefreshOnce 每日调一次），不依赖 cardType 注入
             systemPrompt = resolveIfConfigured("hello.greeting.history", "你是音乐史专家，擅长准确回忆具体日期的音乐事件。"),
             userPrompt = prompt,
             temperature = resolveTemperature(0.2f),
@@ -734,14 +739,17 @@ class HelloSubAgent internal constructor(
                             else -> "音乐事件"
                         }
                         "$month 月 $day 日 · $subject 的${typeZh}纪念日"
-                    } else null
-                } else null
+                    } else {
+                        null
+                    }
+                } else {
+                    null
+                }
             },
         )
         session.cachedAnniversaryHint = hint
         return hint
     }
-
 
     /** 按类型组装完整 LLM prompt */
     private fun buildGreetingPrompt(
@@ -780,11 +788,12 @@ class HelloSubAgent internal constructor(
     }
 
     /** 类型专属写作要求 */
+
     /** 类型专属写作要求（内容定义见 [HelloGreetingProfiles]）。 */
-    private fun typePromptRequirement(type: GreetingType): String =
-        HelloGreetingProfiles.of(type).requirement
+    private fun typePromptRequirement(type: GreetingType): String = HelloGreetingProfiles.of(type).requirement
 
     /** 类型专属 system prompt */
+
     /** 私有 helper：有 preferredLang 时走 resolvePrompt，否则回落硬编码。 */
     private fun resolveIfConfigured(key: String, fallback: String): String {
         val lang = promptPreferredLang ?: return fallback
@@ -802,8 +811,7 @@ class HelloSubAgent internal constructor(
     private fun resolveTemperature(cardSpecific: Float): Float = llmTemperature ?: cardSpecific
 
     /** 类型专属 temperature（兜底，config 未设时生效）。 */
-    private fun typeTemperature(type: GreetingType): Float =
-        HelloGreetingProfiles.of(type).temperature
+    private fun typeTemperature(type: GreetingType): Float = HelloGreetingProfiles.of(type).temperature
 
     /** 6 类型独立 fallback 模板库（LLM 不可用时的保底）—— 池子在 [HelloGreetingProfiles]，这里只做轮转。 */
     private fun fallbackForType(type: GreetingType): String {
@@ -811,7 +819,6 @@ class HelloSubAgent internal constructor(
         val idx = (session.greetingIndex++) % list.size
         return list[idx]
     }
-
 
     /** RECOMMEND：每日 + 时段切换，走 MusicRepository 接口 */
     private suspend fun generateRecommendCards(
@@ -949,7 +956,7 @@ class HelloSubAgent internal constructor(
         runCatching { repo.getAnniversaryTracks(today).firstOrNull() }
             .getOrNull()?.let { (id, firstPlayedAt, thatDayPlays) ->
                 val yearsAgo = ((now - firstPlayedAt) / (365.25 * 86_400_000L)).toInt()
-                if (yearsAgo <= 0) return@let  // 数据异常 guard：0 或负年数无意义
+                if (yearsAgo <= 0) return@let // 数据异常 guard：0 或负年数无意义
                 val score = 100 * yearsAgo
                 HmpLog.i(LogTag.AgentHello) { "👋 ANNIVERSARY A: FIRST_PLAY id=$id years=$yearsAgo score=$score" }
                 candidates += AnniversaryCandidate(
@@ -962,7 +969,7 @@ class HelloSubAgent internal constructor(
         runCatching { repo.getAnniversaryPlaylists(today).firstOrNull() }
             .getOrNull()?.let { row ->
                 val yearsAgo = ((now - row.createdAt) / (365.25 * 86_400_000L)).toInt()
-                if (yearsAgo <= 0) return@let  // 同上 guard
+                if (yearsAgo <= 0) return@let // 同上 guard
                 val score = 70 * yearsAgo
                 candidates += AnniversaryCandidate(
                     score = score,
@@ -981,7 +988,7 @@ class HelloSubAgent internal constructor(
                 val nearest = milestones
                     .mapIndexed { i, m -> Triple(m, i, kotlin.math.abs(m - totalPlays)) }
                     .minByOrNull { it.third } ?: continue
-                if (nearest.third > 10) continue  // 距离太远，不算"跨过"
+                if (nearest.third > 10) continue // 距离太远，不算"跨过"
                 val info = repo.getMusicInfoByIds(listOf(musicId)).firstOrNull() ?: continue
                 val idx = nearest.second
                 val score = 80 * idx
@@ -1007,7 +1014,7 @@ class HelloSubAgent internal constructor(
                 val crossed = thresholds.lastOrNull { row.totalMs >= it } ?: continue
                 val idx = thresholds.indexOf(crossed)
                 val score = 60 * idx
-                if (score <= 0) continue  // 10h 门槛 score=0 太弱，跳过等更高门槛
+                if (score <= 0) continue // 10h 门槛 score=0 太弱，跳过等更高门槛
                 val info = repo.getMusicInfoByIds(listOf(row.musicId)).firstOrNull() ?: continue
                 // ⚠️ P0 Bug 1 修复：比较 score 保留最高
                 if (bestDur == null || score > bestDur!!.score) {
@@ -1038,7 +1045,10 @@ class HelloSubAgent internal constructor(
 
     private suspend fun buildFirstPlayContent(
         repo: com.hmp.domain.music.MusicRepository,
-        id: Long, firstPlayedAt: Long, thatDayPlays: Int, yearsAgo: Int,
+        id: Long,
+        firstPlayedAt: Long,
+        thatDayPlays: Int,
+        yearsAgo: Int,
     ): AnniversaryContent {
         val info = runCatching { repo.getMusicInfoByIds(listOf(id)).firstOrNull() }.getOrNull()
         val durSec = (info?.music?.duration?.div(1000))?.toInt()?.coerceAtLeast(0) ?: 0
@@ -1060,7 +1070,8 @@ class HelloSubAgent internal constructor(
     }
 
     private suspend fun buildPlaylistCreateContent(
-        row: com.hmp.domain.music.PlaylistAnniversaryRow, yearsAgo: Int,
+        row: com.hmp.domain.music.PlaylistAnniversaryRow,
+        yearsAgo: Int,
     ): AnniversaryContent {
         val emotionText = generateAnniversaryEmotionText(AnniversarySubtype.PLAYLIST_CREATE, yearsAgo, row.playbackCount)
         return AnniversaryContent(
@@ -1076,7 +1087,11 @@ class HelloSubAgent internal constructor(
     }
 
     private suspend fun buildPlayMilestoneContent(
-        musicId: Long, title: String, milestoneValue: Int, totalPlays: Int, totalMs: Long,
+        musicId: Long,
+        title: String,
+        milestoneValue: Int,
+        totalPlays: Int,
+        totalMs: Long,
     ): AnniversaryContent {
         val emotionText = generateAnniversaryEmotionText(AnniversarySubtype.PLAY_MILESTONE, milestoneValue, totalPlays)
         return AnniversaryContent(
@@ -1092,7 +1107,11 @@ class HelloSubAgent internal constructor(
     }
 
     private suspend fun buildDurationMilestoneContent(
-        musicId: Long, title: String, milestoneHrs: Long, totalPlays: Int, totalMs: Long,
+        musicId: Long,
+        title: String,
+        milestoneHrs: Long,
+        totalPlays: Int,
+        totalMs: Long,
     ): AnniversaryContent {
         val emotionText = generateAnniversaryEmotionText(AnniversarySubtype.DURATION_MILESTONE, milestoneHrs.toInt(), totalPlays)
         return AnniversaryContent(
@@ -1170,9 +1189,13 @@ class HelloSubAgent internal constructor(
 
     /** 自适应频率：日均时长 → 更新频率（小时数） */
     private fun adaptiveFrequency(avgDailyMinutes: Float): Long = when {
-        avgDailyMinutes <= 30f -> 24 * 7   // ≤30min → 周更新
-        avgDailyMinutes <= 120f -> 24      // 30~120min → 日更新
-        else -> 24                          // ≥120min → 日更新（高活跃也日更）
+        avgDailyMinutes <= 30f -> 24 * 7
+
+        // ≤30min → 周更新
+        avgDailyMinutes <= 120f -> 24
+
+        // 30~120min → 日更新
+        else -> 24 // ≥120min → 日更新（高活跃也日更）
     }
 
     private fun isNarrativeExpired(entity: HelloReportNarrativeEntity, frequencyHours: Long): Boolean {
@@ -1198,7 +1221,7 @@ class HelloSubAgent internal constructor(
 
         // ① 时间维度差异化开场
         val (durationText, frequencyDesc) = timeRangeToLabel(timeRange, avgMinutes)
-        sb.append("${rangeLabel}${durationText}")
+        sb.append("${rangeLabel}$durationText")
         if (frequencyDesc != null) sb.append(frequencyDesc)
         sb.append("。")
 
@@ -1234,7 +1257,7 @@ class HelloSubAgent internal constructor(
         // ⑤ 画像侧写引用（可选，截断到 200 字避免过长）
         factsSnapshot?.takeIf { it.isNotBlank() }?.let { facts ->
             val truncated = facts.take(200)
-            sb.append("${truncated}")
+            sb.append("$truncated")
             if (facts.length > 200) sb.append("…")
         }
 
@@ -1253,10 +1276,15 @@ class HelloSubAgent internal constructor(
         }
         val duration = formatTotalMinutes(totalMinutes.toLong())
         val freqDesc = when (range) {
-            NarrativeTimeRange.DAY -> null  // "今日" + "听了 X 小时" 够了，不追加
+            NarrativeTimeRange.DAY -> null
+
+            // "今日" + "听了 X 小时" 够了，不追加
             NarrativeTimeRange.WEEK -> if (avgMinutes > 0f) "日均 ${avgMinutes.toInt()} 分钟" else null
+
             NarrativeTimeRange.MONTH -> if (avgMinutes > 0f) "日均 ${avgMinutes.toInt()} 分钟" else null
+
             NarrativeTimeRange.YEAR -> if (avgMinutes > 0f) "日均 ${avgMinutes.toInt()} 分钟" else null
+
             NarrativeTimeRange.ALL -> if (avgMinutes > 0f) "日均 ${avgMinutes.toInt()} 分钟" else null
         }
         return duration to freqDesc
@@ -1267,7 +1295,7 @@ class HelloSubAgent internal constructor(
         val totalMinutes = totalMinutes.coerceAtLeast(0)
         return when {
             totalMinutes == 0L -> "几乎没听歌"
-            totalMinutes < 60L -> "听了 ${totalMinutes} 分钟"
+            totalMinutes < 60L -> "听了 $totalMinutes 分钟"
             totalMinutes < 600L -> "听了 ${totalMinutes / 60} 小时"
             else -> "听了 ${totalMinutes / 60} 小时"
         }
@@ -1294,9 +1322,9 @@ class HelloSubAgent internal constructor(
         this.enrichConfig = enrichConfig
         HmpLog.i(LogTag.AgentHello) {
             "🔄 updateAiConfig | enableLlm=$enableLlm | hasLLM=${enrichConfig != null} | " +
-            "endpoint=${enrichConfig?.endpoint?.take(40) ?: "(none)"} | " +
-            "model=${enrichConfig?.selectedModel?.take(30) ?: "(default)"} | " +
-            "hasKey=${enrichConfig?.apiKey?.isNotBlank() == true}"
+                "endpoint=${enrichConfig?.endpoint?.take(40) ?: "(none)"} | " +
+                "model=${enrichConfig?.selectedModel?.take(30) ?: "(default)"} | " +
+                "hasKey=${enrichConfig?.apiKey?.isNotBlank() == true}"
         }
     }
 
@@ -1429,7 +1457,7 @@ class HelloSubAgent internal constructor(
                     generatedAt = timeProvider(),
                     generatedForDate = todayString(),
                     items = emptyList(),
-                )
+                ),
             )
             return
         }
@@ -1450,7 +1478,7 @@ class HelloSubAgent internal constructor(
     internal suspend fun persistRecommendSnapshot(cache: HelloCardCache) {
         cardCacheDao?.deleteByType(cache.cardType)
         cardCacheDao?.insert(cache)
-        memory.record(cache)  // 并入 recommend* 桶（跨列表 / 跨卡去重）
+        memory.record(cache) // 并入 recommend* 桶（跨列表 / 跨卡去重）
     }
 
     private fun emitRecommendList(payload: RecommendListPayload) {
@@ -1484,6 +1512,7 @@ class HelloSubAgent internal constructor(
             // 每日：与滑动卡 RECOMMEND 同源（同 label 取第一首）
             RecommendSource.DAILY ->
                 phaseLabel?.let { runCatching { repo.getMusicIdListByType(it, limit = 1).firstOrNull() }.getOrNull() }
+
             // 私人：收藏优先，其次近期高频播放
             RecommendSource.PRIVATE -> {
                 val liked = runCatching { repo.getLikedMusicIds() }.getOrDefault(emptyList())
@@ -1505,7 +1534,7 @@ class HelloSubAgent internal constructor(
             .getOrDefault(emptyList())
 
         val ordered = LinkedHashSet<Long>()
-        ordered += seedId  // 种子恒为首项
+        ordered += seedId // 种子恒为首项
         expanded.forEach { if (it.music.id !in excluded) ordered += it.music.id }
 
         // 兜底补齐：扩列不足时用当前时段 label 列表填充
@@ -1726,7 +1755,7 @@ class HelloSubAgent internal constructor(
             daysSince >= 365 -> "超过一年没听了"
             daysSince >= 180 -> "半年多没听了"
             daysSince >= 90 -> "三个月没听了"
-            else -> "${daysSince} 天没听了"
+            else -> "$daysSince 天没听了"
         }
         val prompt = buildString {
             appendLine("请生成一段中文怀旧文案，唤醒用户对一首老歌的记忆。")
@@ -1761,31 +1790,34 @@ class HelloSubAgent internal constructor(
         // 兜底——仍然结合歌曲名
         val artistSuffix = artist?.takeIf { it.isNotBlank() }?.let { " · $it" } ?: ""
         return when {
-            playCount > 0 && daysSince >= 180 -> "那年你循环了 $playCount 遍的「${trackTitle}」，还记得吗？"
-            playCount > 0 -> "「${trackTitle}」$artistSuffix，你曾经播放过 $playCount 次"
-            daysSince >= 90 -> "「${trackTitle}」$artistSuffix，好久没想起它了"
-            else -> "「${trackTitle}」$artistSuffix，再听一次？"
+            playCount > 0 && daysSince >= 180 -> "那年你循环了 $playCount 遍的「$trackTitle」，还记得吗？"
+            playCount > 0 -> "「$trackTitle」$artistSuffix，你曾经播放过 $playCount 次"
+            daysSince >= 90 -> "「$trackTitle」$artistSuffix，好久没想起它了"
+            else -> "「$trackTitle」$artistSuffix，再听一次？"
         }
     }
 
     /** ANNIVERSARY 情感化文案——按 subtype 分 4 种 prompt + 兜底模板。 */
     private suspend fun generateAnniversaryEmotionText(
         subtype: com.hmp.domain.agent.card.AnniversarySubtype,
-        value: Int,  // 含义随 subtype 变：yearsAgo / milestoneValue
-        total: Int,  // 累计播放
+        value: Int, // 含义随 subtype 变：yearsAgo / milestoneValue
+        total: Int, // 累计播放
     ): String {
         val prompt = when (subtype) {
             com.hmp.domain.agent.card.AnniversarySubtype.FIRST_PLAY ->
-                "用一句话（≤25字）庆祝「${value}年前的今天」第一次收藏一首歌。累计播放 ${total} 次。温暖带感动。"
+                "用一句话（≤25字）庆祝「${value}年前的今天」第一次收藏一首歌。累计播放 $total 次。温暖带感动。"
+
             com.hmp.domain.agent.card.AnniversarySubtype.PLAYLIST_CREATE ->
-                "用一句话（≤25字）庆祝「${value}年前的今天」创建了一个歌单。累计被播放 ${total} 次。温暖。"
+                "用一句话（≤25字）庆祝「${value}年前的今天」创建了一个歌单。累计被播放 $total 次。温暖。"
+
             com.hmp.domain.agent.card.AnniversarySubtype.PLAY_MILESTONE ->
-                "用一句话（≤25字）庆祝一首歌累计播放达到第 ${value} 次。当前共 ${total} 次。有成就感。"
+                "用一句话（≤25字）庆祝一首歌累计播放达到第 $value 次。当前共 $total 次。有成就感。"
+
             com.hmp.domain.agent.card.AnniversarySubtype.DURATION_MILESTONE ->
-                "用一句话（≤25字）庆祝一首歌累计听了 ${value} 小时。共播放 ${total} 次。有成就感。"
+                "用一句话（≤25字）庆祝一首歌累计听了 $value 小时。共播放 $total 次。有成就感。"
         }
         val llmText = callHelloLlm(
-            cardType = null,  // 里程碑文案，不参与跨卡协调
+            cardType = null, // 里程碑文案，不参与跨卡协调
             systemPrompt = resolveIfConfigured("hello.forgotten.card", "你是一个懂音乐的朋友，擅长用温暖简洁的文字唤起听众的回忆。"),
             userPrompt = prompt,
             temperature = resolveTemperature(0.6f),
@@ -1832,7 +1864,9 @@ class HelloSubAgent internal constructor(
                 if (cardType != null) {
                     val ctx = memory.buildContextForCard(cardType)
                     if (ctx.isNotBlank()) "$userPrompt\n\n$ctx" else userPrompt
-                } else userPrompt
+                } else {
+                    userPrompt
+                }
             }.getOrDefault(userPrompt)
             val raw = contextBudget.callLlmText(
                 config = cfg,
@@ -1842,7 +1876,7 @@ class HelloSubAgent internal constructor(
             ) ?: return@runCatching null
             postProcess(raw)
         }
-        contextBudget.clearHistory()  // Hello 各任务独立，清 history 防串味（无论成功失败）
+        contextBudget.clearHistory() // Hello 各任务独立，清 history 防串味（无论成功失败）
         return result.getOrNull()
     }
 
@@ -1854,23 +1888,29 @@ class HelloSubAgent internal constructor(
         isLenient = true
     }
 
-    private fun cardContentToString(content: SlideContent): String {
-        return runCatching { json.encodeToString(SlideContent.serializer(), content) }
-            .getOrElse { "" }
-    }
+    private fun cardContentToString(content: SlideContent): String = runCatching { json.encodeToString(SlideContent.serializer(), content) }
+        .getOrElse { "" }
 
     private fun stringToCardContent(type: SlideType, jsonStr: String): SlideContent? {
         if (jsonStr.isBlank()) return null
         return runCatching {
             when (type) {
                 SlideType.ANCHOR -> json.decodeFromString(AnchorContent.serializer(), jsonStr)
+
                 SlideType.RADIO_STATUS -> json.decodeFromString(RadioStatusContent.serializer(), jsonStr)
+
                 SlideType.GREETING -> json.decodeFromString(GreetingContent.serializer(), jsonStr)
+
                 SlideType.RECOMMEND -> json.decodeFromString(RecommendContent.serializer(), jsonStr)
+
                 SlideType.DISCOVER -> json.decodeFromString(DiscoverContent.serializer(), jsonStr)
+
                 SlideType.FORGOTTEN -> json.decodeFromString(ForgottenContent.serializer(), jsonStr)
+
                 SlideType.ANNIVERSARY -> json.decodeFromString(AnniversaryContent.serializer(), jsonStr)
+
                 SlideType.ENRICH_TRACKING -> json.decodeFromString(EnrichTrackingContent.serializer(), jsonStr)
+
                 // 叙事卡不进卡池 DAO（直接读 hello_report_narrative 表），此处不参与反序列化
                 SlideType.NARRATIVE -> json.decodeFromString(NarrativeContent.serializer(), jsonStr)
             }
@@ -1886,11 +1926,11 @@ class HelloSubAgent internal constructor(
         llmUsed: Boolean,
     ): HelloCardCache {
         val c = card.content
+
         // 按 trackId 反查歌手名（RECOMMEND/FORGOTTEN/ANNIVERSARY 用）；repo 为 null 或查不到时返回 null
-        suspend fun artistOf(trackId: Long): String? =
-            musicRepository?.getMusicInfoByIds(listOf(trackId))
-                ?.firstOrNull()?.music?.artist
-                ?.takeIf { it.isNotBlank() }
+        suspend fun artistOf(trackId: Long): String? = musicRepository?.getMusicInfoByIds(listOf(trackId))
+            ?.firstOrNull()?.music?.artist
+            ?.takeIf { it.isNotBlank() }
 
         val recommendTrackId = (c as? RecommendContent)?.trackId
         val forgottenTrackId = (c as? ForgottenContent)?.trackId
@@ -1928,7 +1968,7 @@ class HelloSubAgent internal constructor(
     /** 毫秒时间戳 → "MM.dd · N 年前" 格式。mmdd 为空时退化为 "N 年前"。 */
     private fun formatDate(ms: Long, yearsAgo: Int): String {
         val mmdd = runCatching { com.hmp.data.util.formatMmddFromMillis(ms) }.getOrDefault("")
-        return if (mmdd.isBlank()) "${yearsAgo} 年前" else "$mmdd · ${yearsAgo} 年前"
+        return if (mmdd.isBlank()) "$yearsAgo 年前" else "$mmdd · $yearsAgo 年前"
     }
 
     // ── Capability 接口实现（F9-A0） ──
@@ -1943,7 +1983,6 @@ class HelloSubAgent internal constructor(
                 else -> CapabilityState.Status.IDLE
             },
             detail = if (state() == AgentRunState.RUNNING) "运行中" else "未启动",
-        )
+        ),
     )
 }
-

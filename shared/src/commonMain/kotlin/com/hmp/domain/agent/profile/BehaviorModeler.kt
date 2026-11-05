@@ -37,9 +37,11 @@ object BehaviorModeler {
     const val EXPLORE_REPEAT = "REPEATER"
 
     // ── 阈值（契约 §13 PF4/PF5；先硬编码，待真实数据校准）──
+
     /** 低于这些量就不建模：三次播放推不出"习惯"，只能推出一晚的心情 */
     private const val MIN_PLAYS = 20
     private const val MIN_ACTIVE_DAYS = 3
+
     /** 跳过点结论至少要有这么多次跳过才说，否则样本噪声 */
     private const val MIN_SKIPS_FOR_POINT = 5
 
@@ -103,26 +105,28 @@ object BehaviorModeler {
                 val share = primary.value.toDouble() / total
                 add(
                     draft(
-                        PortraitType.TIME, PortraitType.PART_STABILITY,
+                        PortraitType.TIME,
+                        PortraitType.PART_STABILITY,
                         when {
                             share >= STABILITY_HIGH_SHARE -> STABILITY_HIGH
                             share >= STABILITY_MEDIUM_SHARE -> STABILITY_MEDIUM
                             else -> STABILITY_LOW
                         },
-                    )
+                    ),
                 )
             }
 
             // ── habits_portrait ──
             add(
                 draft(
-                    PortraitType.HABITS, PortraitType.COMPLETION_RATE,
+                    PortraitType.HABITS,
+                    PortraitType.COMPLETION_RATE,
                     when {
                         snapshot.completionRate >= COMPLETION_HIGH -> RATE_HIGH
                         snapshot.completionRate < COMPLETION_LOW -> RATE_LOW
                         else -> RATE_MEDIUM
                     },
-                )
+                ),
             )
             val skips = snapshot.skipPointBuckets.values.sum()
             if (skips >= MIN_SKIPS_FOR_POINT) {
@@ -133,36 +137,39 @@ object BehaviorModeler {
             }
             add(
                 draft(
-                    PortraitType.HABITS, PortraitType.REPEAT_RATE,
+                    PortraitType.HABITS,
+                    PortraitType.REPEAT_RATE,
                     when {
                         snapshot.playsPerTrack >= REPEAT_HIGH -> RATE_HIGH
                         snapshot.playsPerTrack <= REPEAT_LOW -> RATE_LOW
                         else -> RATE_MEDIUM
                     },
-                )
+                ),
             )
 
             // ── exploration_portrait ──
             add(
                 draft(
-                    PortraitType.EXPLORATION, PortraitType.NEW_RATIO,
+                    PortraitType.EXPLORATION,
+                    PortraitType.NEW_RATIO,
                     when {
                         snapshot.newRatio >= EXPLORE_HIGH_RATIO -> EXPLORE_HIGH
                         snapshot.newRatio < EXPLORE_REPEAT_RATIO -> EXPLORE_REPEAT
                         else -> EXPLORE_BALANCED
                     },
-                )
+                ),
             )
             val returnRatio = 1.0 - snapshot.newRatio
             add(
                 draft(
-                    PortraitType.EXPLORATION, PortraitType.RETURN_RATE,
+                    PortraitType.EXPLORATION,
+                    PortraitType.RETURN_RATE,
                     when {
                         returnRatio >= 0.9 -> RATE_HIGH
                         returnRatio < 0.5 -> RATE_LOW
                         else -> RATE_MEDIUM
                     },
-                )
+                ),
             )
         }
     }

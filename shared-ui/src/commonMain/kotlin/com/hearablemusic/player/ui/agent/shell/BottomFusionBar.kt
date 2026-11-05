@@ -5,17 +5,17 @@ import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.ContentTransform
 import androidx.compose.animation.SizeTransform
-import androidx.compose.animation.expandHorizontally
-import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
+import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -61,11 +61,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.hearablemusic.player.ui.common.design.animation.HmpMotion
+import com.hearablemusic.player.ui.common.design.metrics.HMPMetricTokens
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
+import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
+import com.hearablemusic.player.ui.common.design.typography.medium
 import com.hearablemusic.player.ui.common.text.UiText
 import com.hearablemusic.player.ui.common.text.asString
 import com.hearablemusic.player.ui.common.text.asUiText
-import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
-import com.hearablemusic.player.ui.common.design.typography.medium
 import com.hearablemusic.player.ui.common.util.hazeStyleForIntensity
 import com.hearablemusic.player.ui.common.util.hazeTintAlpha
 import com.hearablemusic.player.ui.common.util.rememberPlatformHaptics
@@ -98,22 +101,20 @@ import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import kotlin.math.pow
-import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
-import com.hearablemusic.player.ui.common.design.metrics.HMPMetricTokens
-import com.hearablemusic.player.ui.common.design.animation.HmpMotion
 
 /** 底部融合栏状态 */
 enum class FusionBarState {
     /** 默认：左侧导航展开（4 Tab），右侧播放折叠（仅圆形封面） */
     NavigationExpanded,
+
     /** 左侧导航折叠（单图标），右侧播放展开（封面 + 信息 + 控制） */
-    PlaybackExpanded
+    PlaybackExpanded,
 }
 
 private data class BottomTabItem(
     val label: UiText,
     val selectedIcon: DrawableResource,
-    val unselectedIcon: DrawableResource
+    val unselectedIcon: DrawableResource,
 )
 
 /**
@@ -123,7 +124,7 @@ private data class BottomTabItem(
 private val bottomTabs = listOf(
     BottomTabItem(Res.string.tab_gallery.asUiText(), Res.drawable.square_fill_grid_2x2, Res.drawable.square_grid_2x2),
     BottomTabItem(Res.string.tab_list.asUiText(), Res.drawable.list_bullet, Res.drawable.list_bullet),
-    BottomTabItem(Res.string.tab_user.asUiText(), Res.drawable.person_filled_viewfinder, Res.drawable.person)
+    BottomTabItem(Res.string.tab_user.asUiText(), Res.drawable.person_filled_viewfinder, Res.drawable.person),
 )
 
 /** 页索引 → Tab 索引：页 0（门面）无对应 Tab（-1 = 三 Tab 均不高亮）。internal 供单测（M1-T1）。 */
@@ -195,10 +196,10 @@ fun BottomFusionBar(
     val transitionSpec: AnimatedContentTransitionScope<FusionBarState>.() -> ContentTransform = {
         (
             fadeIn(animationSpec = HmpMotion.micro()) +
-            scaleIn(initialScale = 0.92f, animationSpec = HmpMotion.snappySpring())
-        ).togetherWith(
+                scaleIn(initialScale = 0.92f, animationSpec = HmpMotion.snappySpring())
+            ).togetherWith(
             fadeOut(animationSpec = HmpMotion.micro()) +
-            scaleOut(targetScale = 0.92f, animationSpec = HmpMotion.micro())
+                scaleOut(targetScale = 0.92f, animationSpec = HmpMotion.micro()),
         ).using(SizeTransform(clip = false))
     }
 
@@ -209,7 +210,7 @@ fun BottomFusionBar(
             .padding(horizontal = HMPMetricTokens.Compact.base) // 宽度压缩（设计总纲 2.2.1：外边距 16→12dp）
             .padding(bottom = HMPMetricTokens.Compact.cozy),
         horizontalArrangement = Arrangement.spacedBy(HMPMetricTokens.Compact.compact, Alignment.CenterHorizontally), // 压缩：间距 12→8dp
-        verticalAlignment = Alignment.CenterVertically
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         // ── 伙伴胶囊（常驻锚点：点按=门面；长按=电台开启时唤起控制台，否则直接进对话页）──
         CompanionCapsule(
@@ -241,11 +242,11 @@ fun BottomFusionBar(
                     MaterialTheme.colorScheme.surface.copy(alpha = hazeTintAlpha())
                 } else {
                     MaterialTheme.colorScheme.surface
-                }
+                },
             ),
             border = BorderStroke(
                 width = HMPMetricTokens.Compact.stroke.hairline,
-                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.14f)
+                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.14f),
             ),
             elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
             modifier = Modifier
@@ -255,40 +256,47 @@ fun BottomFusionBar(
                     if (fusionState == FusionBarState.PlaybackExpanded) {
                         Modifier.clickable(
                             interactionSource = remember { MutableInteractionSource() },
-                            indication = null
+                            indication = null,
                         ) {
                             haptic.perform(HapticEffect.TICK)
                             fusionState = FusionBarState.NavigationExpanded
                             resetTimer()
                         }
-                    } else Modifier
+                    } else {
+                        Modifier
+                    },
                 )
                 .then(
-                    if (hazeState != null) Modifier.hazeEffect(
-                        state = hazeState,
-                        style = hazeStyleForIntensity()
-                    ) else Modifier
-                )
+                    if (hazeState != null) {
+                        Modifier.hazeEffect(
+                            state = hazeState,
+                            style = hazeStyleForIntensity(),
+                        )
+                    } else {
+                        Modifier
+                    },
+                ),
         ) {
             AnimatedVisibility(
                 visible = showNavCapsule,
                 enter = expandHorizontally(animationSpec = HmpMotion.standard()) + fadeIn(animationSpec = HmpMotion.standard()),
                 exit = shrinkHorizontally(animationSpec = HmpMotion.standard()) + fadeOut(animationSpec = HmpMotion.standard()),
             ) {
-            AnimatedContent(
-                targetState = fusionState,
-                transitionSpec = transitionSpec,
-                label = "NavCapsule"
-            ) { state ->
-                when (state) {
-                    FusionBarState.NavigationExpanded ->
-                        NavigationExpandedContent(tabIndexForPage(selectedTabIndex), onTabSelected, haptic, showNavText)
-                    FusionBarState.PlaybackExpanded ->
-                        NavigationCollapsedContent(
-                            tabIndex = tabIndexForPage(selectedTabIndex)
-                        )
+                AnimatedContent(
+                    targetState = fusionState,
+                    transitionSpec = transitionSpec,
+                    label = "NavCapsule",
+                ) { state ->
+                    when (state) {
+                        FusionBarState.NavigationExpanded ->
+                            NavigationExpandedContent(tabIndexForPage(selectedTabIndex), onTabSelected, haptic, showNavText)
+
+                        FusionBarState.PlaybackExpanded ->
+                            NavigationCollapsedContent(
+                                tabIndex = tabIndexForPage(selectedTabIndex),
+                            )
+                    }
                 }
-            }
             }
         }
 
@@ -301,11 +309,11 @@ fun BottomFusionBar(
                         MaterialTheme.colorScheme.surface.copy(alpha = hazeTintAlpha())
                     } else {
                         MaterialTheme.colorScheme.surface
-                    }
+                    },
                 ),
                 border = BorderStroke(
                     width = HMPMetricTokens.Compact.stroke.hairline,
-                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.14f)
+                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.14f),
                 ),
                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                 modifier = Modifier
@@ -315,32 +323,39 @@ fun BottomFusionBar(
                         if (fusionState == FusionBarState.NavigationExpanded) {
                             Modifier.clickable(
                                 interactionSource = remember { MutableInteractionSource() },
-                                indication = null
+                                indication = null,
                             ) {
                                 haptic.perform(HapticEffect.TICK)
                                 fusionState = FusionBarState.PlaybackExpanded
                                 resetTimer()
                             }
-                        } else Modifier
+                        } else {
+                            Modifier
+                        },
                     )
                     .then(
-                        if (hazeState != null) Modifier.hazeEffect(
-                            state = hazeState,
-                            style = hazeStyleForIntensity()
-                        ) else Modifier
-                    )
+                        if (hazeState != null) {
+                            Modifier.hazeEffect(
+                                state = hazeState,
+                                style = hazeStyleForIntensity(),
+                            )
+                        } else {
+                            Modifier
+                        },
+                    ),
             ) {
                 AnimatedContent(
                     targetState = fusionState,
                     transitionSpec = transitionSpec,
-                    label = "PlaybackCapsule"
+                    label = "PlaybackCapsule",
                 ) { state ->
                     when (state) {
                         FusionBarState.NavigationExpanded ->
                             PlaybackCollapsedContent(
                                 musicInfo = musicInfo,
-                                isPlaying = isPlaying
+                                isPlaying = isPlaying,
                             )
+
                         FusionBarState.PlaybackExpanded ->
                             PlaybackExpandedContent(
                                 musicInfo = musicInfo,
@@ -362,7 +377,7 @@ fun BottomFusionBar(
                                     onOpenPlayer()
                                 },
                                 onResetTimer = { resetTimer() },
-                                haptic = haptic
+                                haptic = haptic,
                             )
                     }
                 }
@@ -378,7 +393,7 @@ private fun NavigationExpandedContent(
     selectedIndex: Int,
     onTabSelected: (Int) -> Unit,
     haptic: HapticService,
-    showNavText: Boolean = true
+    showNavText: Boolean = true,
 ) {
     val metrics = LocalHmpMetrics.current
     val typo = LocalHmpTypo.current
@@ -387,7 +402,7 @@ private fun NavigationExpandedContent(
             .padding(metrics.compact) // 与其他胶囊一致的围绕 padding：总高 8+48+8=64dp，与其他胶囊严格等高
             .height(metrics.bar), // 内容区恒定 48dp，图标 24dp 垂直居中（上下各 12dp 空隙）
         horizontalArrangement = Arrangement.spacedBy(metrics.compact),
-        verticalAlignment = Alignment.CenterVertically
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         bottomTabs.forEachIndexed { index, tab ->
             val isSelected = index == selectedIndex
@@ -401,27 +416,27 @@ private fun NavigationExpandedContent(
                 modifier = Modifier
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
-                        indication = null
+                        indication = null,
                     ) {
                         haptic.perform(HapticEffect.TICK)
                         onTabSelected(index)
                     }
                     .fillMaxHeight() // 点击区占满 48dp 行高（原 vertical padding 由行高接管）
                     .padding(horizontal = metrics.compact),
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 Icon(
                     painter = painterResource(if (isSelected) tab.selectedIcon else tab.unselectedIcon),
                     contentDescription = tab.label.asString(),
                     tint = contentColor,
-                    modifier = Modifier.size(metrics.section) // 宽度压缩：图标 28→24dp
+                    modifier = Modifier.size(metrics.section), // 宽度压缩：图标 28→24dp
                 )
                 if (showNavText) {
                     Spacer(modifier = Modifier.width(metrics.micro))
                     Text(
                         text = tab.label.asString(),
                         style = typo.body.medium(),
-                        color = contentColor
+                        color = contentColor,
                     )
                 }
             }
@@ -456,13 +471,13 @@ private fun NavigationCollapsedContent(tabIndex: Int) {
         modifier = Modifier
             .padding(metrics.compact)
             .size(metrics.bar), // 全局 48dp 体系：折叠图标区恒定
-        contentAlignment = Alignment.Center
+        contentAlignment = Alignment.Center,
     ) {
         Icon(
             painter = painterResource(iconRes),
             contentDescription = iconDesc.asString(),
             tint = tint,
-            modifier = Modifier.size(metrics.section)
+            modifier = Modifier.size(metrics.section),
         )
     }
 }
@@ -472,7 +487,7 @@ private fun NavigationCollapsedContent(tabIndex: Int) {
 @Composable
 private fun PlaybackCollapsedContent(
     musicInfo: MusicInfo,
-    isPlaying: Boolean
+    isPlaying: Boolean,
 ) {
     val metrics = LocalHmpMetrics.current
     val coverRotation = remember { Animatable(0f) }
@@ -485,7 +500,7 @@ private fun PlaybackCollapsedContent(
             val durationMillis = ((remaining / 360f) * 8000f).toInt().coerceAtLeast(1)
             coverRotation.animateTo(
                 targetValue = 360f,
-                animationSpec = tween(durationMillis = durationMillis, easing = LinearEasing)
+                animationSpec = tween(durationMillis = durationMillis, easing = LinearEasing),
             )
             coverRotation.snapTo(0f)
         }
@@ -495,7 +510,7 @@ private fun PlaybackCollapsedContent(
         modifier = Modifier
             .padding(metrics.compact)
             .clip(CircleShape),
-        contentAlignment = Alignment.Center
+        contentAlignment = Alignment.Center,
     ) {
         AlbumCover(
             uri = musicInfo.music.albumArtUri,
@@ -504,7 +519,7 @@ private fun PlaybackCollapsedContent(
             shadow = metrics.hair,
             modifier = Modifier.graphicsLayer {
                 rotationZ = coverRotation.value
-            }
+            },
         )
     }
 }
@@ -520,7 +535,7 @@ private fun PlaybackExpandedContent(
     onNext: () -> Unit,
     onOpenPlayer: () -> Unit,
     onResetTimer: () -> Unit,
-    haptic: HapticService
+    haptic: HapticService,
 ) {
     val metrics = LocalHmpMetrics.current
     val typo = LocalHmpTypo.current
@@ -540,7 +555,7 @@ private fun PlaybackExpandedContent(
             val durationMillis = ((remaining / 360f) * 8000f).toInt().coerceAtLeast(1)
             coverRotation.animateTo(
                 targetValue = 360f,
-                animationSpec = tween(durationMillis = durationMillis, easing = LinearEasing)
+                animationSpec = tween(durationMillis = durationMillis, easing = LinearEasing),
             )
             coverRotation.snapTo(0f)
         }
@@ -575,9 +590,9 @@ private fun PlaybackExpandedContent(
                             haptic.perform(HapticEffect.TICK)
                         }
                         wasPastThreshold = pastThreshold
-                    }
+                    },
                 )
-            }
+            },
     ) {
         // 左滑指示渐变（右边缘露出）
         if (animatedOffset < -10f) {
@@ -592,9 +607,9 @@ private fun PlaybackExpandedContent(
                         .background(
                             Brush.horizontalGradient(
                                 0f to Color.Transparent,
-                                1f to primaryColor.copy(alpha = linearIntensity * 0.4f)
-                            )
-                        )
+                                1f to primaryColor.copy(alpha = linearIntensity * 0.4f),
+                            ),
+                        ),
                 )
             }
         }
@@ -612,9 +627,9 @@ private fun PlaybackExpandedContent(
                         .background(
                             Brush.horizontalGradient(
                                 0f to primaryColor.copy(alpha = linearIntensity * 0.4f),
-                                1f to Color.Transparent
-                            )
-                        )
+                                1f to Color.Transparent,
+                            ),
+                        ),
                 )
             }
         }
@@ -623,7 +638,7 @@ private fun PlaybackExpandedContent(
         Row(
             modifier = Modifier
                 .padding(metrics.compact),
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             // 封面 + 播放暂停叠加
             Box(
@@ -631,12 +646,12 @@ private fun PlaybackExpandedContent(
                     .clip(CircleShape)
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
-                        indication = null
+                        indication = null,
                     ) {
                         haptic.perform(HapticEffect.TICK)
                         onPlayPause()
                     },
-                contentAlignment = Alignment.Center
+                contentAlignment = Alignment.Center,
             ) {
                 AlbumCover(
                     uri = musicInfo.music.albumArtUri,
@@ -645,15 +660,15 @@ private fun PlaybackExpandedContent(
                     shadow = metrics.micro,
                     modifier = Modifier.graphicsLayer {
                         rotationZ = coverRotation.value
-                    }
+                    },
                 )
                 Icon(
                     painter = painterResource(
-                        if (isPlaying) Res.drawable.pause else Res.drawable.play_fill
+                        if (isPlaying) Res.drawable.pause else Res.drawable.play_fill,
                     ),
                     contentDescription = if (isPlaying) stringResource(Res.string.pause_desc) else stringResource(Res.string.play_desc),
                     tint = Color.White,
-                    modifier = Modifier.size(metrics.section) // 宽度压缩：控制图标 28→24dp
+                    modifier = Modifier.size(metrics.section), // 宽度压缩：控制图标 28→24dp
                 )
             }
 
@@ -666,11 +681,11 @@ private fun PlaybackExpandedContent(
                     .padding(horizontal = metrics.base) // 宽度压缩：歌名列左右留白 16→12dp
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
-                        indication = null
+                        indication = null,
                     ) {
                         haptic.perform(HapticEffect.TICK)
                         onOpenPlayer()
-                    }
+                    },
             ) {
                 Text(
                     text = musicInfo.music.title,
@@ -678,7 +693,7 @@ private fun PlaybackExpandedContent(
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    overflow = TextOverflow.Ellipsis,
                 )
                 Spacer(modifier = Modifier.height(metrics.hair))
                 Text(
@@ -686,7 +701,7 @@ private fun PlaybackExpandedContent(
                     style = typo.footnote,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
         }

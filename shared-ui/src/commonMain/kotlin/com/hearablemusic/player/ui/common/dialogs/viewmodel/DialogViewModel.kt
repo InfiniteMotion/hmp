@@ -1,22 +1,11 @@
 package com.hearablemusic.player.ui.common.dialogs.viewmodel
 
-import com.hmp.domain.music.MusicSortKey
-import com.hmp.domain.music.SortDirection
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.hearablemusic.player.ui.common.dialogs.controller.DialogManager
+import com.hearablemusic.player.ui.common.navigation.Routes
 import com.hearablemusic.player.ui.common.text.UiText
 import com.hearablemusic.player.ui.common.text.asUiText
-import com.hmp.domain.music.MusicInfo
-import com.hmp.domain.music.UserInfo
-import com.hmp.domain.music.usecase.GetAllMusicUseCase
-import com.hmp.domain.music.usecase.RemoveFromLibraryUseCase
-import com.hmp.domain.playlist.Playlist
-import com.hmp.domain.playlist.PlaylistNameError
-import com.hmp.domain.playlist.usecase.ManagePlaylistUseCase
-import com.hmp.domain.setting.SettingsRepository
-import com.hearablemusic.player.ui.common.navigation.Routes
-import com.hearablemusic.player.ui.common.dialogs.controller.DialogManager
-import com.hearablemusic.player.ui.platform.PlaybackController
 import com.hearablemusic.player.ui.generated.resources.Res
 import com.hearablemusic.player.ui.generated.resources.add_songs_to_playlist_dialog
 import com.hearablemusic.player.ui.generated.resources.add_to_specific_playlist
@@ -31,12 +20,12 @@ import com.hearablemusic.player.ui.generated.resources.load_songs_failed
 import com.hearablemusic.player.ui.generated.resources.music
 import com.hearablemusic.player.ui.generated.resources.music_deleted
 import com.hearablemusic.player.ui.generated.resources.no_playlists_available
+import com.hearablemusic.player.ui.generated.resources.play_next
 import com.hearablemusic.player.ui.generated.resources.playlist_created
 import com.hearablemusic.player.ui.generated.resources.playlist_name_empty
 import com.hearablemusic.player.ui.generated.resources.playlist_name_exists
 import com.hearablemusic.player.ui.generated.resources.playlist_name_too_long
 import com.hearablemusic.player.ui.generated.resources.playlist_updated
-import com.hearablemusic.player.ui.generated.resources.play_next
 import com.hearablemusic.player.ui.generated.resources.plus_square
 import com.hearablemusic.player.ui.generated.resources.remove_from_current_playlist
 import com.hearablemusic.player.ui.generated.resources.removed_from_current_list
@@ -46,6 +35,17 @@ import com.hearablemusic.player.ui.generated.resources.share
 import com.hearablemusic.player.ui.generated.resources.title_song_detail
 import com.hearablemusic.player.ui.generated.resources.trash
 import com.hearablemusic.player.ui.generated.resources.update_playlist_failed
+import com.hearablemusic.player.ui.platform.PlaybackController
+import com.hmp.domain.music.MusicInfo
+import com.hmp.domain.music.MusicSortKey
+import com.hmp.domain.music.SortDirection
+import com.hmp.domain.music.UserInfo
+import com.hmp.domain.music.usecase.GetAllMusicUseCase
+import com.hmp.domain.music.usecase.RemoveFromLibraryUseCase
+import com.hmp.domain.playlist.Playlist
+import com.hmp.domain.playlist.PlaylistNameError
+import com.hmp.domain.playlist.usecase.ManagePlaylistUseCase
+import com.hmp.domain.setting.SettingsRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -70,7 +70,7 @@ class DialogViewModel(
     private val managePlaylistUseCase: ManagePlaylistUseCase,
     private val settingsRepository: SettingsRepository,
     private val dialogManager: DialogManager,
-    private val removeFromLibraryUseCase: RemoveFromLibraryUseCase
+    private val removeFromLibraryUseCase: RemoveFromLibraryUseCase,
 ) : ViewModel() {
 
     // 统一弹窗状态
@@ -114,7 +114,7 @@ class DialogViewModel(
         val submitError: String? = null,
         val isSubmitting: Boolean = false,
         val isEditing: Boolean = false,
-        val editingPlaylistId: Long? = null
+        val editingPlaylistId: Long? = null,
     ) {
         val canSubmit: Boolean
             get() = !isSubmitting && nameError == null && name.trim().isNotEmpty()
@@ -123,17 +123,17 @@ class DialogViewModel(
     data class MusicPickerDialogState(
         val allMusic: List<MusicInfo>,
         val selectedIds: Set<Long>,
-        val title: String
+        val title: String,
     )
 
     data class PlaylistPickerDialogState(
         val playlists: List<Playlist>,
-        val title: String
+        val title: String,
     )
 
     data class TimerDialogConfig(
         val onConfirm: (Int) -> Unit,
-        val onDismiss: () -> Unit = {}
+        val onDismiss: () -> Unit = {},
     )
 
     sealed class DialogUiState {
@@ -153,19 +153,19 @@ class DialogViewModel(
 
             val updatedMusicInfo = musicInfo.copy(
                 userInfo = musicInfo.userInfo?.copy(
-                    liked = isLiked
+                    liked = isLiked,
                 ) ?: UserInfo(
                     id = musicInfo.music.id,
-                    liked = isLiked
-                )
+                    liked = isLiked,
+                ),
             )
 
             _activeDialog.value = DialogUiState.MusicDetail(
                 MusicDetailState(
                     musicInfo = updatedMusicInfo,
                     isVisible = true,
-                    menuConfig = menuConfig
-                )
+                    menuConfig = menuConfig,
+                ),
             )
         }
     }
@@ -188,11 +188,11 @@ class DialogViewModel(
         // 更新本地状态
         val updatedMusicInfo = musicInfo.copy(
             userInfo = musicInfo.userInfo?.copy(
-                liked = newLiked
+                liked = newLiked,
             ) ?: UserInfo(
                 id = musicInfo.music.id,
-                liked = newLiked
-            )
+                liked = newLiked,
+            ),
         )
 
         // 更新ViewModel状态
@@ -232,7 +232,7 @@ class DialogViewModel(
             title = musicInfo.music.title,
             artist = musicInfo.music.artist,
             album = musicInfo.music.album,
-            filePath = musicInfo.music.path
+            filePath = musicInfo.music.path,
         )
         dismissMusicDetailDialog()
     }
@@ -266,9 +266,11 @@ class DialogViewModel(
         val menuOptions = mutableListOf<Triple<DrawableResource, UiText, () -> Unit>>()
         // 音乐详情
         if (menuConfig.showViewDetail) {
-            menuOptions.add(Triple(Res.drawable.music, Res.string.title_song_detail.asUiText()) {
-                viewDetail()
-            })
+            menuOptions.add(
+                Triple(Res.drawable.music, Res.string.title_song_detail.asUiText()) {
+                    viewDetail()
+                },
+            )
         }
 
         // 分享
@@ -278,18 +280,22 @@ class DialogViewModel(
 
         // 编辑标签
         if (menuConfig.showEditTags) {
-            menuOptions.add(Triple(Res.drawable.rename, Res.string.edit_music_tags.asUiText()) {
-                editTags()
-            })
+            menuOptions.add(
+                Triple(Res.drawable.rename, Res.string.edit_music_tags.asUiText()) {
+                    editTags()
+                },
+            )
         }
 
         // 添加到指定音乐列表
         if (menuConfig.showAddToSpecificPlaylist) {
-            menuOptions.add(Triple(Res.drawable.plus_square, Res.string.add_to_specific_playlist.asUiText()) {
-                addToSpecificPlaylist(
-                    onComplete
-                )
-            })
+            menuOptions.add(
+                Triple(Res.drawable.plus_square, Res.string.add_to_specific_playlist.asUiText()) {
+                    addToSpecificPlaylist(
+                        onComplete,
+                    )
+                },
+            )
         }
 
         // 下一首播放
@@ -299,11 +305,13 @@ class DialogViewModel(
 
         // 从当前列表移除
         if (menuConfig.showRemoveFromCurrentPlaylist) {
-            menuOptions.add(Triple(Res.drawable.trash, Res.string.remove_from_current_playlist.asUiText()) {
-                removeFromCurrentPlaylist(
-                    onComplete
-                )
-            })
+            menuOptions.add(
+                Triple(Res.drawable.trash, Res.string.remove_from_current_playlist.asUiText()) {
+                    removeFromCurrentPlaylist(
+                        onComplete,
+                    )
+                },
+            )
         }
 
         // 删除
@@ -355,7 +363,7 @@ class DialogViewModel(
                             dialogManager.showMessage(getString(Res.string.added_to_playlist))
                             onComplete()
                         }
-                    }
+                    },
                 )
             } catch (e: Exception) {
                 dialogManager.showMessage(e.message ?: getString(Res.string.load_playlists_failed))
@@ -412,7 +420,7 @@ class DialogViewModel(
 
     fun showEditPlaylistDialog(
         playlist: Playlist,
-        onUpdated: (Long) -> Unit
+        onUpdated: (Long) -> Unit,
     ) {
         onPlaylistCreated = onUpdated
         viewModelScope.launch {
@@ -422,8 +430,8 @@ class DialogViewModel(
                     description = playlist.description ?: "",
                     pinAfterCreate = playlist.isPinned,
                     isEditing = true,
-                    editingPlaylistId = playlist.id
-                )
+                    editingPlaylistId = playlist.id,
+                ),
             )
         }
     }
@@ -442,7 +450,7 @@ class DialogViewModel(
                 it.copy(
                     name = input,
                     nameError = validatePlaylistName(input),
-                    submitError = null
+                    submitError = null,
                 )
             }
         }
@@ -452,7 +460,7 @@ class DialogViewModel(
         updateCreatePlaylistState {
             it.copy(
                 description = input,
-                submitError = null
+                submitError = null,
             )
         }
     }
@@ -467,7 +475,7 @@ class DialogViewModel(
         updateCreatePlaylistState {
             it.copy(
                 selectedSongIds = selectedIds,
-                submitError = null
+                submitError = null,
             )
         }
     }
@@ -487,10 +495,10 @@ class DialogViewModel(
                         _activeDialog.value = DialogUiState.CreatePlaylist(
                             current.copy(
                                 selectedSongIds = selectedIds,
-                                submitError = null
-                            )
+                                submitError = null,
+                            ),
                         )
-                    }
+                    },
                 )
             } catch (e: Exception) {
                 dialogManager.showMessage(e.message ?: getString(Res.string.load_songs_failed))
@@ -502,15 +510,15 @@ class DialogViewModel(
         allMusic: List<MusicInfo>,
         selectedIds: Set<Long> = emptySet(),
         title: String,
-        onConfirm: (Set<Long>) -> Unit
+        onConfirm: (Set<Long>) -> Unit,
     ) {
         onMusicPickerConfirm = onConfirm
         _activeDialog.value = DialogUiState.MusicPicker(
             MusicPickerDialogState(
                 allMusic = allMusic,
                 selectedIds = selectedIds,
-                title = title
-            )
+                title = title,
+            ),
         )
     }
 
@@ -536,14 +544,14 @@ class DialogViewModel(
     fun showPlaylistPickerDialog(
         playlists: List<Playlist>,
         title: String,
-        onConfirm: (Playlist) -> Unit
+        onConfirm: (Playlist) -> Unit,
     ) {
         onPlaylistPickerConfirm = onConfirm
         _activeDialog.value = DialogUiState.PlaylistPicker(
             PlaylistPickerDialogState(
                 playlists = playlists,
-                title = title
-            )
+                title = title,
+            ),
         )
     }
 
@@ -609,7 +617,7 @@ class DialogViewModel(
                     }
                     addSelectedSongsToPlaylist(
                         playlistId = id,
-                        selectedSongIds = current.selectedSongIds
+                        selectedSongIds = current.selectedSongIds,
                     )
                     onPlaylistCreated?.invoke(id)
                     dialogManager.showMessage(getString(Res.string.playlist_created))
@@ -619,7 +627,7 @@ class DialogViewModel(
                 updateCreatePlaylistState {
                     it.copy(
                         isSubmitting = false,
-                        submitError = e.message ?: if (current.isEditing) getString(Res.string.update_playlist_failed) else getString(Res.string.create_playlist_failed)
+                        submitError = e.message ?: if (current.isEditing) getString(Res.string.update_playlist_failed) else getString(Res.string.create_playlist_failed),
                     )
                 }
             }
@@ -627,14 +635,14 @@ class DialogViewModel(
     }
 
     private inline fun updateMusicDetailState(
-        transform: (MusicDetailState) -> MusicDetailState
+        transform: (MusicDetailState) -> MusicDetailState,
     ) {
         val current = (_activeDialog.value as? DialogUiState.MusicDetail)?.state ?: return
         _activeDialog.value = DialogUiState.MusicDetail(transform(current))
     }
 
     private inline fun updateCreatePlaylistState(
-        transform: (CreatePlaylistDialogState) -> CreatePlaylistDialogState
+        transform: (CreatePlaylistDialogState) -> CreatePlaylistDialogState,
     ) {
         val current = (_activeDialog.value as? DialogUiState.CreatePlaylist)?.state ?: return
         _activeDialog.value = DialogUiState.CreatePlaylist(transform(current))
@@ -646,18 +654,16 @@ class DialogViewModel(
      *
      * @param excludeId 重命名时传自己的 id，否则「改成原名」会被判成重名。
      */
-    private suspend fun validatePlaylistName(input: String, excludeId: Long? = null): String? {
-        return when (managePlaylistUseCase.validateName(input, excludeId)) {
-            PlaylistNameError.EMPTY -> getString(Res.string.playlist_name_empty)
-            PlaylistNameError.TOO_LONG -> getString(Res.string.playlist_name_too_long)
-            PlaylistNameError.DUPLICATE -> getString(Res.string.playlist_name_exists)
-            null -> null
-        }
+    private suspend fun validatePlaylistName(input: String, excludeId: Long? = null): String? = when (managePlaylistUseCase.validateName(input, excludeId)) {
+        PlaylistNameError.EMPTY -> getString(Res.string.playlist_name_empty)
+        PlaylistNameError.TOO_LONG -> getString(Res.string.playlist_name_too_long)
+        PlaylistNameError.DUPLICATE -> getString(Res.string.playlist_name_exists)
+        null -> null
     }
 
     private suspend fun addSelectedSongsToPlaylist(
         playlistId: Long,
-        selectedSongIds: Set<Long>
+        selectedSongIds: Set<Long>,
     ) {
         if (selectedSongIds.isEmpty()) return
         // 不再为"取路径"多查一次曲目：条目只存 id，路径是 music 表的事（D3-15 收尾）
@@ -673,7 +679,7 @@ class DialogViewModel(
     data class MusicDetailState(
         val musicInfo: MusicInfo,
         val isVisible: Boolean,
-        val menuConfig: MusicDetailMenuConfig = MusicDetailMenuConfig()
+        val menuConfig: MusicDetailMenuConfig = MusicDetailMenuConfig(),
     )
 
     // 音乐详情弹窗菜单配置
@@ -684,6 +690,6 @@ class DialogViewModel(
         val showEditTags: Boolean = true,
         val showPlayNext: Boolean = false,
         val showRemoveFromCurrentPlaylist: Boolean = false,
-        val showDelete: Boolean = false
+        val showDelete: Boolean = false,
     )
 }

@@ -48,7 +48,7 @@ enum class DirectorySelectionMode {
      * 从**已知文件夹**中挑选，平台无法给出任意路径
      * （Android —— SAF 的 tree Uri 转不成路径，故改为从媒体库已有文件夹中选择）。
      */
-    KNOWN_FOLDERS
+    KNOWN_FOLDERS,
 }
 
 /** 文件选择（ActivityResultContracts 的平台无关形态）。 */
@@ -104,7 +104,7 @@ enum class MusicWriteAccessResult {
     DENIED,
 
     /** MediaStore 中查不到该曲目文件（旧流程 music_not_found 提示场景）。 */
-    NOT_FOUND
+    NOT_FOUND,
 }
 
 /** 音乐标签编辑页平台桥：封面选图/解码 + MediaStore 写权限请求 + SAF Uri 写入（EditMusicTagsScreen 迁移引入）。 */
@@ -142,14 +142,14 @@ interface MusicTagEditService {
 
 /** 触觉反馈效果（对应 Android HapticFeedbackConstants）。 */
 enum class HapticEffect {
-    TICK,          // CLOCK_TICK：微调/刻度
-    VIRTUAL_KEY,   // 虚拟按键
-    LONG_PRESS,    // 长按
+    TICK, // CLOCK_TICK：微调/刻度
+    VIRTUAL_KEY, // 虚拟按键
+    LONG_PRESS, // 长按
     CONTEXT_CLICK, // 上下文点击
-    KEYBOARD_PRESS,// 键盘按压
-    CONFIRM,       // 确认
-    REJECT,        // 拒绝/失败
-    DRAG_START,    // 拖拽起始
+    KEYBOARD_PRESS, // 键盘按压
+    CONFIRM, // 确认
+    REJECT, // 拒绝/失败
+    DRAG_START, // 拖拽起始
 }
 
 /** 触觉反馈（现 HapticFeedbackHelper 的平台无关形态；Desktop 空实现）。 */

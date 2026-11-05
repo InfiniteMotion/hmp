@@ -93,7 +93,7 @@ class MusicRepositoryScanAndroidTest {
                             MediaStore.Audio.Media.SIZE -> r.size
                             else -> null
                         }
-                    }
+                    },
                 )
             }
             return cursor
@@ -140,8 +140,7 @@ class MusicRepositoryScanAndroidTest {
         db.close()
     }
 
-    private fun createInMemoryDatabase(): AppDatabase =
-        // 不设 BundledSQLiteDriver：它的 JVM 原生库（sqliteJni）在 android 变体的单测 classpath 里
+    private fun createInMemoryDatabase(): AppDatabase = // 不设 BundledSQLiteDriver：它的 JVM 原生库（sqliteJni）在 android 变体的单测 classpath 里
         // 没有（那批 .so/.dll 只随 desktop 的 -jvm 构件分发），会 UnsatisfiedLinkError。
         // 不设驱动时 Room 在 Android 目标用默认的框架驱动，Robolectric 在 JVM 上原生模拟
         // android.database.sqlite —— 测试跑的是真的 SQL，只是由 Robolectric 的 SQLite 接管。
@@ -176,12 +175,12 @@ class MusicRepositoryScanAndroidTest {
     @Test
     fun loadMusicFromDevice_appliesWhitelistAndFiveSecondFloor() = runTest {
         provider.rows = listOf(
-            row(id = 1, path = "/music/six-seconds.mp3", duration = 6_000L),      // 进
-            row(id = 2, path = "/music/four-nine.flac", duration = 4_900L),       // 挡：下限
-            row(id = 3, path = "/music/boundary.m4a", duration = 5_000L),         // 进：压线
-            row(id = 4, path = "/music/not-audio.txt", duration = 60_000L),       // 挡：白名单
-            row(id = 5, path = "/music/uppercase.WMA", duration = 20_000L),       // 进：扩展名按小写比较
-            row(id = 6, path = "/music/long.aiff", duration = 120_000L),          // 挡：名单外（修前 Android 能看见）
+            row(id = 1, path = "/music/six-seconds.mp3", duration = 6_000L), // 进
+            row(id = 2, path = "/music/four-nine.flac", duration = 4_900L), // 挡：下限
+            row(id = 3, path = "/music/boundary.m4a", duration = 5_000L), // 进：压线
+            row(id = 4, path = "/music/not-audio.txt", duration = 60_000L), // 挡：白名单
+            row(id = 5, path = "/music/uppercase.WMA", duration = 20_000L), // 进：扩展名按小写比较
+            row(id = 6, path = "/music/long.aiff", duration = 120_000L), // 挡：名单外（修前 Android 能看见）
         )
 
         repo.loadMusicFromDevice().getOrThrow()
@@ -198,9 +197,14 @@ class MusicRepositoryScanAndroidTest {
     fun loadMusicFromDevice_mapsMediaStoreRowIntoThreeTables() = runTest {
         provider.rows = listOf(
             row(
-                id = 7, path = "/music/seven.mp3", duration = 30_000L,
-                title = "Song Seven", albumId = 42, mimeType = "audio/mpeg", size = 123_456L,
-            )
+                id = 7,
+                path = "/music/seven.mp3",
+                duration = 30_000L,
+                title = "Song Seven",
+                albumId = 42,
+                mimeType = "audio/mpeg",
+                size = 123_456L,
+            ),
         )
 
         repo.loadMusicFromDevice().getOrThrow()

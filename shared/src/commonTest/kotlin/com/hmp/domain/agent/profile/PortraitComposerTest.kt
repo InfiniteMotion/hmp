@@ -85,7 +85,7 @@ class PortraitComposerTest {
                 id = 1,
                 createdAt = old,
                 updatedAt = old,
-            )
+            ),
         )
         assertEquals(
             0.4,
@@ -169,7 +169,7 @@ class PortraitComposerTest {
                 createdAt = now - 10 * oneWeek,
                 updatedAt = now,
                 distinctSessions = 1,
-            )
+            ),
         )
         assertEquals(PortraitTier.L2, PortraitComposer.compose(evidence, now).single().tier)
     }
@@ -186,7 +186,7 @@ class PortraitComposerTest {
                 createdAt = now - 10 * oneWeek,
                 updatedAt = now,
                 distinctSessions = ProfileConfig.PROMOTE_MIN_SESSIONS,
-            )
+            ),
         )
         assertEquals(PortraitTier.L3, PortraitComposer.compose(evidence, now).single().tier)
     }
@@ -204,7 +204,7 @@ class PortraitComposerTest {
                 createdAt = now - 20 * oneWeek,
                 updatedAt = stale,
                 distinctSessions = 5,
-            )
+            ),
         )
         val composed = PortraitComposer.compose(evidence, now)
         assertEquals(1, composed.size, "降权不等于删除 —— 设置页仍要看得见")
@@ -237,7 +237,7 @@ class PortraitComposerTest {
                 id = 1,
                 createdAt = now,
                 updatedAt = now,
-            )
+            ),
         )
         val portraits = PortraitComposer.compose(evidence, now)
         assertEquals(1, portraits.size)

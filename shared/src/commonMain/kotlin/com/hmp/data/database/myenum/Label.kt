@@ -66,40 +66,37 @@ enum class LabelName {
     TWENTY_TENS,
     TWENTY_TWENTIES,
 
-    UNKNOWN;
+    UNKNOWN,
+
+    ;
 
     companion object {
-        fun match(value: String): LabelName? {
-            return entries.find {
-                it.name.equals(value, ignoreCase = true)
-            }
+        fun match(value: String): LabelName? = entries.find {
+            it.name.equals(value, ignoreCase = true)
         }
 
-        fun LabelName.getIconResourceName(): String {
-            return this.name.lowercase()
-        }
+        fun LabelName.getIconResourceName(): String = this.name.lowercase()
     }
 }
 
 enum class LabelCategory {
-    GENRE, MOOD, SCENARIO, LANGUAGE, ERA
+    GENRE,
+    MOOD,
+    SCENARIO,
+    LANGUAGE,
+    ERA,
 }
 
 class LabelConverters {
     @TypeConverter
-    fun fromLabelCategory(category: LabelCategory): String {
-        return category.name
-    }
+    fun fromLabelCategory(category: LabelCategory): String = category.name
+
     @TypeConverter
-    fun toLabelCategory(value: String): LabelCategory {
-        return LabelCategory.valueOf(value)
-    }
+    fun toLabelCategory(value: String): LabelCategory = LabelCategory.valueOf(value)
+
     @TypeConverter
-    fun fromLabelName(label: LabelName): String {
-        return label.name
-    }
+    fun fromLabelName(label: LabelName): String = label.name
+
     @TypeConverter
-    fun toLabelName(value: String): LabelName {
-        return LabelName.valueOf(value)
-    }
+    fun toLabelName(value: String): LabelName = LabelName.valueOf(value)
 }

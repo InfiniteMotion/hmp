@@ -1,6 +1,4 @@
 package com.hmp.domain.agent.runtime
-import com.hmp.domain.agent.tool.createBaseToolRegistry
-
 import com.hmp.domain.agent.port.AgentKeepAlivePort
 import com.hmp.domain.agent.port.CommandSource
 import com.hmp.domain.agent.port.FakeNowPlayingContextProvider
@@ -9,6 +7,7 @@ import com.hmp.domain.agent.port.LlmEvent
 import com.hmp.domain.agent.port.PlaybackCommand
 import com.hmp.domain.agent.port.PlaybackCommandPort
 import com.hmp.domain.agent.tool.ToolDependencies
+import com.hmp.domain.agent.tool.createBaseToolRegistry
 import com.hmp.domain.agent.tool.spec.ToolRegistry
 import com.hmp.domain.enum.LabelName
 import com.hmp.domain.music.Music
@@ -24,8 +23,7 @@ import kotlinx.coroutines.withTimeout
 import kotlin.test.Test
 import kotlin.test.assertTrue
 
-private fun song(id: Long, title: String, artist: String) =
-    MusicInfo(Music(id, title, artist, "Album", 180_000, "/$id.mp3", ""), null, null)
+private fun song(id: Long, title: String, artist: String) = MusicInfo(Music(id, title, artist, "Album", 180_000, "/$id.mp3", ""), null, null)
 
 /**
  * 记录型保活端口——验证 MasterAgent 在电台启停时正确声明 / 撤销 RADIO_ACTIVE（F11-L1 接线）。
@@ -95,7 +93,7 @@ class F11LifecycleTest {
                     settingsRepository = FakeSettingsRepository(),
                     nowPlayingContextProvider = FakeNowPlayingContextProvider,
                     playbackCommandPort = playback,
-                )
+                ),
             ),
             radioTransport = transport,
             defaultLlmConfig = AiEndpointConfig(isConfigured = true),

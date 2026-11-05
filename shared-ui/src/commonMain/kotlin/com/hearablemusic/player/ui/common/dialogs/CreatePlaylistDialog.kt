@@ -1,19 +1,5 @@
 package com.hearablemusic.player.ui.common.dialogs
 
-import com.hearablemusic.player.ui.generated.resources.Res
-import org.jetbrains.compose.resources.stringResource
-
-import com.hearablemusic.player.ui.generated.resources.add_songs_to_playlist
-import com.hearablemusic.player.ui.generated.resources.cancel
-import com.hearablemusic.player.ui.generated.resources.edit_playlist
-import com.hearablemusic.player.ui.generated.resources.new_playlist
-import com.hearablemusic.player.ui.generated.resources.new_playlist_dialog_title
-import com.hearablemusic.player.ui.generated.resources.ok
-import com.hearablemusic.player.ui.generated.resources.pin_playlist
-import com.hearablemusic.player.ui.generated.resources.playlist_description_hint
-import com.hearablemusic.player.ui.generated.resources.playlist_name_hint
-import com.hearablemusic.player.ui.generated.resources.selected_n_songs
-
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -35,25 +21,37 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
-import com.hearablemusic.player.ui.common.dialogs.base.ScrimDialog
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
+import com.hearablemusic.player.ui.common.dialogs.base.ScrimDialog
+import com.hearablemusic.player.ui.common.dialogs.viewmodel.DialogViewModel
 import com.hearablemusic.player.ui.common.util.HazeRenderSettings
 import com.hearablemusic.player.ui.common.util.LocalHazeRenderSettings
 import com.hearablemusic.player.ui.common.util.ProvideHazeRenderSettings
 import com.hearablemusic.player.ui.common.util.hazeStyleForIntensity
 import com.hearablemusic.player.ui.common.util.hazeTintAlpha
-import com.hearablemusic.player.ui.common.dialogs.viewmodel.DialogViewModel
+import com.hearablemusic.player.ui.generated.resources.Res
+import com.hearablemusic.player.ui.generated.resources.add_songs_to_playlist
+import com.hearablemusic.player.ui.generated.resources.cancel
+import com.hearablemusic.player.ui.generated.resources.edit_playlist
+import com.hearablemusic.player.ui.generated.resources.new_playlist
+import com.hearablemusic.player.ui.generated.resources.new_playlist_dialog_title
+import com.hearablemusic.player.ui.generated.resources.ok
+import com.hearablemusic.player.ui.generated.resources.pin_playlist
+import com.hearablemusic.player.ui.generated.resources.playlist_description_hint
+import com.hearablemusic.player.ui.generated.resources.playlist_name_hint
+import com.hearablemusic.player.ui.generated.resources.selected_n_songs
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
-import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
+import org.jetbrains.compose.resources.stringResource
 
 @OptIn(ExperimentalHazeMaterialsApi::class)
 @Composable
 fun CreatePlaylistDialog(
     dialogViewModel: DialogViewModel,
     hazeState: HazeState? = null,
-    hazeRenderSettings: HazeRenderSettings? = null
+    hazeRenderSettings: HazeRenderSettings? = null,
 ) {
     val metrics = LocalHmpMetrics.current
     val state by dialogViewModel.createPlaylistState.collectAsState()
@@ -67,7 +65,7 @@ fun CreatePlaylistDialog(
                 if (!uiState.isSubmitting) {
                     dialogViewModel.dismissCreatePlaylistDialog()
                 }
-            }
+            },
         ) {
             val dialogShape = RoundedCornerShape(metrics.section)
             Card(
@@ -79,11 +77,11 @@ fun CreatePlaylistDialog(
                         if (hazeState != null) {
                             Modifier.hazeEffect(
                                 state = hazeState,
-                                style = hazeStyleForIntensity()
+                                style = hazeStyleForIntensity(),
                             )
                         } else {
                             Modifier
-                        }
+                        },
                     ),
                 shape = dialogShape,
                 colors = CardDefaults.cardColors(
@@ -91,23 +89,27 @@ fun CreatePlaylistDialog(
                         MaterialTheme.colorScheme.surface.copy(alpha = hazeTintAlpha())
                     } else {
                         MaterialTheme.colorScheme.surface.copy(alpha = 0.95f)
-                    }
+                    },
                 ),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
             ) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(metrics.section),
-                    verticalArrangement = Arrangement.spacedBy(metrics.cozy)
+                    verticalArrangement = Arrangement.spacedBy(metrics.cozy),
                 ) {
                     Text(
-                        text = if (uiState.isEditing) stringResource(Res.string.edit_playlist) else stringResource(
-                            Res.string.new_playlist_dialog_title
-                        ),
+                        text = if (uiState.isEditing) {
+                            stringResource(Res.string.edit_playlist)
+                        } else {
+                            stringResource(
+                                Res.string.new_playlist_dialog_title,
+                            )
+                        },
                         style = typo.subtitle,
                         color = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.padding(bottom = metrics.micro)
+                        modifier = Modifier.padding(bottom = metrics.micro),
                     )
                     OutlinedTextField(
                         value = uiState.name,
@@ -120,14 +122,14 @@ fun CreatePlaylistDialog(
                             uiState.nameError?.let {
                                 Text(
                                     text = it,
-                                    color = MaterialTheme.colorScheme.error
+                                    color = MaterialTheme.colorScheme.error,
                                 )
                             }
                         },
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = MaterialTheme.colorScheme.primary,
-                            errorBorderColor = MaterialTheme.colorScheme.error
-                        )
+                            errorBorderColor = MaterialTheme.colorScheme.error,
+                        ),
                     )
                     OutlinedTextField(
                         value = uiState.description,
@@ -138,44 +140,44 @@ fun CreatePlaylistDialog(
                         maxLines = 3,
                         modifier = Modifier.fillMaxWidth(),
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = MaterialTheme.colorScheme.primary
-                        )
+                            focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        ),
                     )
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
+                        horizontalArrangement = Arrangement.SpaceBetween,
                     ) {
                         Text(
                             text = stringResource(Res.string.pin_playlist),
                             style = typo.body,
-                            color = MaterialTheme.colorScheme.onSurface
+                            color = MaterialTheme.colorScheme.onSurface,
                         )
                         Switch(
                             checked = uiState.pinAfterCreate,
                             onCheckedChange = dialogViewModel::setCreatePlaylistPinned,
-                            enabled = !uiState.isSubmitting
+                            enabled = !uiState.isSubmitting,
                         )
                     }
                     if (!uiState.isEditing) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
+                            horizontalArrangement = Arrangement.SpaceBetween,
                         ) {
                             Text(
                                 text = stringResource(Res.string.selected_n_songs, uiState.selectedSongIds.size),
                                 style = typo.footnote,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                             TextButton(
                                 enabled = !uiState.isSubmitting,
                                 onClick = dialogViewModel::onCreatePlaylistAddSongsClick,
-                                modifier = Modifier.padding(horizontal = metrics.micro)
+                                modifier = Modifier.padding(horizontal = metrics.micro),
                             ) {
                                 Text(
                                     text = stringResource(Res.string.add_songs_to_playlist),
-                                    color = MaterialTheme.colorScheme.primary
+                                    color = MaterialTheme.colorScheme.primary,
                                 )
                             }
                         }
@@ -185,35 +187,39 @@ fun CreatePlaylistDialog(
                             text = it,
                             style = typo.footnote,
                             color = MaterialTheme.colorScheme.error,
-                            modifier = Modifier.padding(top = metrics.micro)
+                            modifier = Modifier.padding(top = metrics.micro),
                         )
                     }
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.End,
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
                         TextButton(
                             enabled = !uiState.isSubmitting,
                             onClick = dialogViewModel::dismissCreatePlaylistDialog,
-                            modifier = Modifier.padding(end = metrics.compact)
+                            modifier = Modifier.padding(end = metrics.compact),
                         ) {
                             Text(
                                 text = stringResource(Res.string.cancel),
-                                style = typo.body
+                                style = typo.body,
                             )
                         }
                         TextButton(
                             enabled = uiState.canSubmit && !uiState.isSubmitting,
-                            onClick = dialogViewModel::submitCreatePlaylist
+                            onClick = dialogViewModel::submitCreatePlaylist,
                         ) {
                             Text(
-                                text = if (uiState.isEditing) stringResource(Res.string.ok) else stringResource(
-                                    Res.string.new_playlist
-                                ),
+                                text = if (uiState.isEditing) {
+                                    stringResource(Res.string.ok)
+                                } else {
+                                    stringResource(
+                                        Res.string.new_playlist,
+                                    )
+                                },
                                 color = MaterialTheme.colorScheme.primary,
-                                style = typo.body
+                                style = typo.body,
                             )
                         }
                     }

@@ -1,7 +1,5 @@
 package com.hearablemusic.player
 
-import com.hmp.data.database.AppDatabaseGuard
-import com.hmp.data.database.hmpDatabasePath
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Bundle
@@ -30,6 +28,8 @@ import com.hearablemusic.player.ui.platform.AndroidPlatformServices
 import com.hearablemusic.player.ui.platform.PlatformServices
 import com.hearablemusic.player.ui.settings.viewmodel.RecommendationViewModel
 import com.hearablemusic.player.ui.settings.viewmodel.SettingsViewModel
+import com.hmp.data.database.AppDatabaseGuard
+import com.hmp.data.database.hmpDatabasePath
 import com.hmp.domain.setting.usecase.UserSettingsUseCase
 import kotlinx.coroutines.delay
 import org.koin.android.ext.android.inject
@@ -46,7 +46,6 @@ class MainActivity : ComponentActivity() {
     private val settingsViewModel: SettingsViewModel by viewModel()
     private val libraryViewModel: LibraryViewModel by viewModel()
     private val recommendationViewModel: RecommendationViewModel by viewModel()
-
 
     @OptIn(UnstableApi::class)
     override fun onStart() {
@@ -77,23 +76,23 @@ class MainActivity : ComponentActivity() {
         loadKoinModules(
             module {
                 single<PlatformServices> { platformServices }
-            }
+            },
         )
 
         enableEdgeToEdge(
             statusBarStyle = SystemBarStyle.auto(
                 android.graphics.Color.TRANSPARENT,
-                android.graphics.Color.TRANSPARENT
+                android.graphics.Color.TRANSPARENT,
             ),
             navigationBarStyle = SystemBarStyle.auto(
                 android.graphics.Color.TRANSPARENT,
-                android.graphics.Color.TRANSPARENT
-            )
+                android.graphics.Color.TRANSPARENT,
+            ),
         )
 
         setContent {
             androidx.compose.runtime.CompositionLocalProvider(
-                LocalAppViewModelStoreOwner provides this
+                LocalAppViewModelStoreOwner provides this,
             ) {
                 val customMode by settingsViewModel.customMode.collectAsState("default")
                 val darkTheme = when (customMode) {
@@ -114,7 +113,8 @@ class MainActivity : ComponentActivity() {
                 // （每日推荐生成的调度已由 MasterAgent → HelloSubAgent 的 dailyRefreshLoop 接管）
                 LaunchedEffect(Unit) {
                     val musicReadGranted = ContextCompat.checkSelfPermission(
-                        context, Manifest.permission.READ_MEDIA_AUDIO
+                        context,
+                        Manifest.permission.READ_MEDIA_AUDIO,
                     ) == PackageManager.PERMISSION_GRANTED
                     if (musicReadGranted) {
                         if (autoBatchProcess) {
@@ -132,7 +132,7 @@ class MainActivity : ComponentActivity() {
                             recommendationViewModel = recommendationViewModel,
                             onFinished = {
                                 settingsViewModel.saveIsFirstLaunchStatus(false)
-                            }
+                            },
                         )
                     }
                 } else {

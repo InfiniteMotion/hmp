@@ -21,19 +21,17 @@ import kotlinx.coroutines.flow.Flow
  * @property settingsRepository 设置数据仓库
  */
 class CurrentPlaybackUseCase(
-    
+
     private val musicRepository: MusicRepository,
     private val playlistRepository: PlaylistRepository,
-    private val settingsRepository: SettingsRepository
+    private val settingsRepository: SettingsRepository,
 ) {
     /**
      * 获取当前播放列表中的音乐
      * @param playlistId 播放列表ID
      * @return 音乐列表Flow
      */
-    fun getMusicInPlaylist(playlistId: Long): Flow<List<MusicInfo>> {
-        return playlistRepository.getMusicInfoInPlaylist(playlistId)
-    }
+    fun getMusicInPlaylist(playlistId: Long): Flow<List<MusicInfo>> = playlistRepository.getMusicInfoInPlaylist(playlistId)
 
     /**
      * 获取当前播放音乐ID
@@ -75,9 +73,7 @@ class CurrentPlaybackUseCase(
      * @param musicId 音乐ID
      * @return 是否喜欢
      */
-    suspend fun getLikedStatus(musicId: Long): Boolean {
-        return musicRepository.getLikedStatus(musicId)
-    }
+    suspend fun getLikedStatus(musicId: Long): Boolean = musicRepository.getLikedStatus(musicId)
 
     /**
      * 根据加权标签获取相似歌曲
@@ -85,7 +81,5 @@ class CurrentPlaybackUseCase(
      * @param limit 返回数量限制
      * @return 相似歌曲列表
      */
-    suspend fun getSimilarSongsByWeightedLabels(musicId: Long, limit: Int = 10): List<MusicInfo> {
-        return musicRepository.getSimilarSongsByWeightedLabels(musicId, limit)
-    }
+    suspend fun getSimilarSongsByWeightedLabels(musicId: Long, limit: Int = 10): List<MusicInfo> = musicRepository.getSimilarSongsByWeightedLabels(musicId, limit)
 }

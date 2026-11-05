@@ -9,7 +9,7 @@ import kotlin.test.assertFalse
 class TrustLedgerTest {
     @Test
     fun `escalates after 3 implicit accepts and caps at silent`() {
-        val cfg = AgentPolicyConfig()  // trustLevel 默认 0
+        val cfg = AgentPolicyConfig() // trustLevel 默认 0
         val l = TrustLedger(cfg, escalationThreshold = 3)
         assertEquals(TrustLevel.SUGGEST, cfg.trustLevel)
         l.onActionAccepted("createPlaylist")
@@ -17,7 +17,9 @@ class TrustLedgerTest {
         l.onActionAccepted("createPlaylist")
         assertEquals(TrustLevel.ACT, cfg.trustLevel)
         // 再 3 次 → SILENT（最高档）
-        l.onActionAccepted("createPlaylist"); l.onActionAccepted("createPlaylist"); l.onActionAccepted("createPlaylist")
+        l.onActionAccepted("createPlaylist")
+        l.onActionAccepted("createPlaylist")
+        l.onActionAccepted("createPlaylist")
         assertEquals(TrustLevel.SILENT, cfg.trustLevel)
         // 已到顶，继续接受不越界
         l.onActionAccepted("createPlaylist")
@@ -51,11 +53,9 @@ class TrustLedgerTest {
 }
 
 class PolicyGuardTest {
-    private fun guard(audit: FakeAuditLogPort = FakeAuditLogPort()) =
-        PolicyGuard(audit)
+    private fun guard(audit: FakeAuditLogPort = FakeAuditLogPort()) = PolicyGuard(audit)
 
-    private fun masterPolicy(config: AgentPolicyConfig = AgentPolicyConfig()) =
-        AgentPolicy.master(config = config)
+    private fun masterPolicy(config: AgentPolicyConfig = AgentPolicyConfig()) = AgentPolicy.master(config = config)
 
     @Test
     fun `silent tools always allow silent`() = kotlinx.coroutines.runBlocking {
@@ -87,8 +87,10 @@ class PolicyGuardTest {
     fun `strong confirm never relaxes regardless of trustLevel`() = kotlinx.coroutines.runBlocking {
         val g = PolicyGuard(FakeAuditLogPort())
         val policy = masterPolicy(AgentPolicyConfig(trustLevel = TrustLevel.SILENT))
-        assertEquals(PermissionDecision.RequireConfirm,
-            g.decide(policy, "removePlaylist", ToolPermissionLevel.STRONG_CONFIRM, null))
+        assertEquals(
+            PermissionDecision.RequireConfirm,
+            g.decide(policy, "removePlaylist", ToolPermissionLevel.STRONG_CONFIRM, null),
+        )
     }
 
     @Test
@@ -103,7 +105,7 @@ class PolicyGuardTest {
     fun `enrich agent denies confirm level tools via Phase1 agent identity gate`() = kotlinx.coroutines.runBlocking {
         val audit = FakeAuditLogPort()
         val g = PolicyGuard(audit)
-        val enrichPolicy = AgentPolicy.enrich()  // default maxLevel=1 (NOTIFY)
+        val enrichPolicy = AgentPolicy.enrich() // default maxLevel=1 (NOTIFY)
 
         assertEquals(PermissionDecision.Deny, g.decide(enrichPolicy, "createPlaylist", ToolPermissionLevel.CONFIRM, null))
         assertEquals(PermissionDecision.AllowSilent, g.decide(enrichPolicy, "searchLibrary", ToolPermissionLevel.SILENT, null))
@@ -117,7 +119,7 @@ class PolicyGuardTest {
             config = AgentPolicyConfig(
                 trustLevel = TrustLevel.SUGGEST,
                 alwaysAllow = mutableSetOf("editPlaylist"),
-            )
+            ),
         )
 
         // CONFIRM 级 + SUGGEST 档 → 本来 RequireConfirm，但白名单命中 → AllowSilent

@@ -33,7 +33,10 @@ import java.nio.file.Files
  */
 class AiKeyUnreadableTest {
 
-    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+    private val json = Json {
+        ignoreUnknownKeys = true
+        encodeDefaults = true
+    }
     private lateinit var file: File
     private lateinit var dataStore: DataStore<Preferences>
 
@@ -65,7 +68,7 @@ class AiKeyUnreadableTest {
     @Test
     fun customKey_thatCannotBeDecrypted_degradesToEmpty_andSaysRefill() = runTest {
         repoWithKey().saveCustomAiConfig(
-            AiEndpointConfig(endpoint = "https://api.test.com", apiKey = "sk-live", selectedModel = "gpt-4")
+            AiEndpointConfig(endpoint = "https://api.test.com", apiKey = "sk-live", selectedModel = "gpt-4"),
         )
 
         val config = repoWithKeyLost().getCustomAiConfig()
@@ -90,7 +93,8 @@ class AiKeyUnreadableTest {
     @Test
     fun agentKey_thatCannotBeDecrypted_degradesInsteadOfThrowing() = runTest {
         repoWithKey().saveAgentEndpointConfig(
-            "HELLO", AiEndpointConfig(endpoint = "https://api.test.com", apiKey = "sk-agent", selectedModel = "m")
+            "HELLO",
+            AiEndpointConfig(endpoint = "https://api.test.com", apiKey = "sk-agent", selectedModel = "m"),
         )
 
         val config = repoWithKeyLost().getAgentEndpointConfig("HELLO")

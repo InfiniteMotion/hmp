@@ -10,7 +10,10 @@ import kotlin.test.assertTrue
 
 class UserBackupSnapshotTest {
 
-    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+    private val json = Json {
+        ignoreUnknownKeys = true
+        encodeDefaults = true
+    }
 
     @Test
     fun defaultValues() {
@@ -45,7 +48,7 @@ class UserBackupSnapshotTest {
         val info = UserInfoSnapshot(
             id = 1,
             liked = true,
-            playCount = 42
+            playCount = 42,
         )
         assertEquals(1L, info.id)
         assertEquals(true, info.liked)
@@ -59,7 +62,7 @@ class UserBackupSnapshotTest {
         val label = MusicLabelSnapshot(
             musicId = 1,
             label = LabelName.ROCK,
-            category = LabelCategory.GENRE
+            category = LabelCategory.GENRE,
         )
         assertEquals(1L, label.musicId)
         assertEquals(LabelName.ROCK, label.label)
@@ -73,14 +76,14 @@ class UserBackupSnapshotTest {
             createdAt = 1700000000L,
             appSettings = AppSettingsSnapshot(
                 userName = "TestUser",
-                themeMode = "dark"
+                themeMode = "dark",
             ),
             musicUserState = MusicUserStateSnapshot(
                 userInfos = listOf(UserInfoSnapshot(id = 1, liked = true)),
-                labels = listOf(MusicLabelSnapshot(1, LabelName.POP, LabelCategory.GENRE))
+                labels = listOf(MusicLabelSnapshot(1, LabelName.POP, LabelCategory.GENRE)),
             ),
             playlists = PlaylistsSnapshot(),
-            listeningStats = ListeningStatsSnapshot()
+            listeningStats = ListeningStatsSnapshot(),
         )
 
         val jsonString = json.encodeToString(UserBackupSnapshot.serializer(), snapshot)

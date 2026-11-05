@@ -7,5 +7,5 @@ import kotlinx.serialization.Serializable
 data class ListeningDuration(
     val date: String,
     val duration: Long,
-    val updatedAt: Long = currentTimeMillis()
+    val updatedAt: Long = currentTimeMillis(),
 )

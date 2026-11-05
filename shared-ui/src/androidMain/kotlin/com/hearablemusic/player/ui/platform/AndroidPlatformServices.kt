@@ -24,15 +24,15 @@ import com.hmp.domain.backup.BackupFileRepository
 import com.hmp.domain.music.EditableMusicTags
 import com.hmp.log.HmpLog
 import com.hmp.log.LogTag
-import java.io.ByteArrayOutputStream
-import java.io.File
-import java.io.FileOutputStream
-import java.io.IOException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.ByteArrayOutputStream
+import java.io.File
+import java.io.FileOutputStream
+import java.io.IOException
 
 /**
  * PlatformServices 的 Android 实现（契约见 commonMain PlatformServices.kt）。
@@ -56,7 +56,7 @@ class ShareServiceImpl(private val context: Context) : ShareService {
         val fileUri = FileProvider.getUriForFile(
             context,
             "${context.packageName}.fileprovider",
-            file
+            file,
         )
         val shareIntent = Intent().apply {
             action = Intent.ACTION_SEND
@@ -83,7 +83,7 @@ class ShareServiceImpl(private val context: Context) : ShareService {
         val fileUri = FileProvider.getUriForFile(
             context,
             "${context.packageName}.fileprovider",
-            File(filePath)
+            File(filePath),
         )
         val shareIntent = Intent().apply {
             action = Intent.ACTION_SEND
@@ -146,19 +146,17 @@ class FilePickerServiceImpl(private val context: Context) : FilePickerService {
     }
 
     /** 旧 ProfileSettingsScreen 行为：复制到 filesDir/user_avatar.jpg，返回绝对路径。 */
-    private fun copyAvatarImage(uri: Uri): String? {
-        return try {
-            val inputStream = context.contentResolver.openInputStream(uri)
-            val file = File(context.filesDir, "user_avatar.jpg")
-            val outputStream = FileOutputStream(file)
-            inputStream?.copyTo(outputStream)
-            inputStream?.close()
-            outputStream.close()
-            file.absolutePath
-        } catch (e: IOException) {
-            HmpLog.w(LogTag.UiCommon, e) { "🎨 copyAvatarImage failed | non-fatal | reason=${e.message}" }
-            null
-        }
+    private fun copyAvatarImage(uri: Uri): String? = try {
+        val inputStream = context.contentResolver.openInputStream(uri)
+        val file = File(context.filesDir, "user_avatar.jpg")
+        val outputStream = FileOutputStream(file)
+        inputStream?.copyTo(outputStream)
+        inputStream?.close()
+        outputStream.close()
+        file.absolutePath
+    } catch (e: IOException) {
+        HmpLog.w(LogTag.UiCommon, e) { "🎨 copyAvatarImage failed | non-fatal | reason=${e.message}" }
+        null
     }
 
     /**
@@ -168,23 +166,21 @@ class FilePickerServiceImpl(private val context: Context) : FilePickerService {
      * 备份目录内的路径，落在 cacheDir 的副本会被自己的守卫拒掉；顺带把"同名覆盖"（连续两次
      * 导入互相踩）换成带时间戳的独立文件，导入的那份也就出现在"本地备份"列表里，可手工找回。
      */
-    private fun copyBackupForImport(uri: Uri): String? {
-        return try {
-            val dir = File(context.filesDir, "backups").apply { if (!exists()) mkdirs() }
-            val target = File(
-                dir,
-                "${BackupFileRepository.IMPORTED_PREFIX}-${System.currentTimeMillis()}.json"
-            )
-            val inputStream = context.contentResolver.openInputStream(uri)
-            val outputStream = FileOutputStream(target)
-            inputStream?.copyTo(outputStream)
-            inputStream?.close()
-            outputStream.close()
-            target.absolutePath
-        } catch (e: Exception) {
-            HmpLog.w(LogTag.UiSettings, e) { "⚙️ copyBackupForImport failed | non-fatal | reason=${e.message}" }
-            null
-        }
+    private fun copyBackupForImport(uri: Uri): String? = try {
+        val dir = File(context.filesDir, "backups").apply { if (!exists()) mkdirs() }
+        val target = File(
+            dir,
+            "${BackupFileRepository.IMPORTED_PREFIX}-${System.currentTimeMillis()}.json",
+        )
+        val inputStream = context.contentResolver.openInputStream(uri)
+        val outputStream = FileOutputStream(target)
+        inputStream?.copyTo(outputStream)
+        inputStream?.close()
+        outputStream.close()
+        target.absolutePath
+    } catch (e: Exception) {
+        HmpLog.w(LogTag.UiSettings, e) { "⚙️ copyBackupForImport failed | non-fatal | reason=${e.message}" }
+        null
     }
 
     companion object {
@@ -206,7 +202,7 @@ class PermissionServiceImpl(private val context: Context) : PermissionService {
         overlayLauncher?.unregister()
         overlayLauncher = host.activityResultRegistry.register(
             KEY_OVERLAY_PERMISSION,
-            ActivityResultContracts.StartActivityForResult()
+            ActivityResultContracts.StartActivityForResult(),
         ) {
             // 与旧 LyricsSettingsPage 一致：不看返回码，直接以 canDrawOverlays 判定
             val callback = overlayCallback
@@ -216,7 +212,7 @@ class PermissionServiceImpl(private val context: Context) : PermissionService {
         introPermissionsLauncher?.unregister()
         introPermissionsLauncher = host.activityResultRegistry.register(
             KEY_INTRO_PERMISSIONS,
-            ActivityResultContracts.RequestMultiplePermissions()
+            ActivityResultContracts.RequestMultiplePermissions(),
         ) { results ->
             val callback = introPermissionsCallback
             introPermissionsCallback = null
@@ -252,8 +248,8 @@ class PermissionServiceImpl(private val context: Context) : PermissionService {
         launcher.launch(
             arrayOf(
                 Manifest.permission.READ_MEDIA_AUDIO,
-                Manifest.permission.POST_NOTIFICATIONS
-            )
+                Manifest.permission.POST_NOTIFICATIONS,
+            ),
         )
     }
 
@@ -262,8 +258,8 @@ class PermissionServiceImpl(private val context: Context) : PermissionService {
         overlayLauncher?.launch(
             Intent(
                 Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                Uri.parse("package:" + context.packageName)
-            )
+                Uri.parse("package:" + context.packageName),
+            ),
         )
     }
 
@@ -276,8 +272,8 @@ class PermissionServiceImpl(private val context: Context) : PermissionService {
             context.startActivity(
                 Intent(
                     Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-                    Uri.parse("package:" + context.packageName)
-                ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    Uri.parse("package:" + context.packageName),
+                ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
             )
         } catch (e: Exception) {
             HmpLog.w(LogTag.UiCommon, e) { "🔐 打开应用设置页失败 | reason=${e.message}" }
@@ -296,8 +292,7 @@ class PermissionServiceImpl(private val context: Context) : PermissionService {
 }
 
 /** 音频读取权限是否已授予（Android 13+ 起为必需运行时权限；minSdk = 33 故无版本分支）。 */
-private fun Context.hasAudioReadPermission(): Boolean =
-    checkSelfPermission(Manifest.permission.READ_MEDIA_AUDIO) == PackageManager.PERMISSION_GRANTED
+private fun Context.hasAudioReadPermission(): Boolean = checkSelfPermission(Manifest.permission.READ_MEDIA_AUDIO) == PackageManager.PERMISSION_GRANTED
 
 /**
  * 音乐标签编辑页平台桥：
@@ -335,14 +330,17 @@ class MusicTagEditServiceImpl(private val context: Context) : MusicTagEditServic
         }
         writeRequestLauncher = registry.register(
             KEY_WRITE_REQUEST,
-            ActivityResultContracts.StartIntentSenderForResult()
+            ActivityResultContracts.StartIntentSenderForResult(),
         ) { result ->
             // 旧 EditMusicTagsScreen 行为：仅 RESULT_OK 继续保存，拒绝则静默
             val callback = writeRequestCallback
             writeRequestCallback = null
             callback?.invoke(
-                if (result.resultCode == Activity.RESULT_OK) MusicWriteAccessResult.GRANTED
-                else MusicWriteAccessResult.DENIED
+                if (result.resultCode == Activity.RESULT_OK) {
+                    MusicWriteAccessResult.GRANTED
+                } else {
+                    MusicWriteAccessResult.DENIED
+                },
             )
         }
     }
@@ -365,10 +363,10 @@ class MusicTagEditServiceImpl(private val context: Context) : MusicTagEditServic
                 writeRequestCallback = onResult
                 val pendingIntent = MediaStore.createWriteRequest(
                     context.contentResolver,
-                    listOf(uri)
+                    listOf(uri),
                 )
                 writeRequestLauncher?.launch(
-                    IntentSenderRequest.Builder(pendingIntent.intentSender).build()
+                    IntentSenderRequest.Builder(pendingIntent.intentSender).build(),
                 )
             }
         }
@@ -414,7 +412,7 @@ class MusicTagEditServiceImpl(private val context: Context) : MusicTagEditServic
     private fun calculateInSampleSize(
         options: BitmapFactory.Options,
         reqWidth: Int,
-        reqHeight: Int
+        reqHeight: Int,
     ): Int {
         var inSampleSize = 1
         var width = options.outWidth
@@ -440,18 +438,25 @@ class HapticServiceImpl(private val context: Context) : HapticService {
         val view = (context as? Activity)?.window?.decorView ?: return
         view.performHapticFeedback(
             toConstant(effect),
-            HapticFeedbackConstants.FLAG_IGNORE_VIEW_SETTING
+            HapticFeedbackConstants.FLAG_IGNORE_VIEW_SETTING,
         )
     }
 
     private fun toConstant(effect: HapticEffect): Int = when (effect) {
         HapticEffect.TICK -> HapticFeedbackConstants.CLOCK_TICK
+
         HapticEffect.VIRTUAL_KEY -> HapticFeedbackConstants.VIRTUAL_KEY
+
         HapticEffect.LONG_PRESS -> HapticFeedbackConstants.LONG_PRESS
+
         HapticEffect.CONTEXT_CLICK -> HapticFeedbackConstants.CONTEXT_CLICK
+
         HapticEffect.KEYBOARD_PRESS -> HapticFeedbackConstants.KEYBOARD_TAP
+
         HapticEffect.CONFIRM -> HapticFeedbackConstants.CONFIRM
+
         HapticEffect.REJECT -> HapticFeedbackConstants.REJECT
+
         HapticEffect.DRAG_START ->
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
                 HapticFeedbackConstants.DRAG_START
@@ -482,7 +487,7 @@ class FloatingLyricsServiceImpl(private val context: Context) : FloatingLyricsCo
  */
 class AndroidPlatformServices(
     context: Context,
-    activity: ComponentActivity
+    activity: ComponentActivity,
 ) : PlatformServices {
     override val share: ShareService = ShareServiceImpl(context)
     override val filePicker: FilePickerServiceImpl =

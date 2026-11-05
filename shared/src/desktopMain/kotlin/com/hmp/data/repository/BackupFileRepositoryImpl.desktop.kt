@@ -37,8 +37,7 @@ class BackupFileRepositoryImpl(
         return if (BackupPathPolicy.isDirectChildOf(file.path, dir)) file else null
     }
 
-    private fun timestamp(): String =
-        LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss"))
+    private fun timestamp(): String = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss"))
 
     /** 同秒内多次导入不覆盖前一份：`-2`、`-3`… 取第一个空位。 */
     private fun freeImportedFile(): File {
@@ -52,82 +51,80 @@ class BackupFileRepositoryImpl(
         return candidate
     }
 
-    override suspend fun saveBackup(snapshot: UserBackupSnapshot, filePrefix: String): Result<String> =
-        withContext(Dispatchers.IO) {
-            try {
-                val filename = "$filePrefix-v${snapshot.version}-${timestamp()}.json"
-                val file = File(backupDir, filename)
+    override suspend fun saveBackup(snapshot: UserBackupSnapshot, filePrefix: String): Result<String> = withContext(Dispatchers.IO) {
+        try {
+            val filename = "$filePrefix-v${snapshot.version}-${timestamp()}.json"
+            val file = File(backupDir, filename)
 
-                val jsonString = json.encodeToString(UserBackupSnapshot.serializer(), snapshot)
-                file.writeText(jsonString)
-                Result.success(file.absolutePath)
-            } catch (e: Exception) {
-                Result.failure(e)
-            }
+            val jsonString = json.encodeToString(UserBackupSnapshot.serializer(), snapshot)
+            file.writeText(jsonString)
+            Result.success(file.absolutePath)
+        } catch (e: Exception) {
+            Result.failure(e)
         }
+    }
 
-    override suspend fun loadBackup(filePath: String): Result<UserBackupSnapshot> =
-        withContext(Dispatchers.IO) {
-            try {
-                val file = ownedFile(filePath) ?: return@withContext Result.failure(
-                    IllegalArgumentException("拒绝读取备份目录之外的文件：$filePath")
-                )
-                if (!file.exists()) {
-                    return@withContext Result.failure(Exception("Backup file not found"))
-                }
-                val jsonString = file.readText()
-                val snapshot = json.decodeFromString(UserBackupSnapshot.serializer(), jsonString)
-                Result.success(snapshot)
-            } catch (e: Exception) {
-                Result.failure(e)
+    override suspend fun loadBackup(filePath: String): Result<UserBackupSnapshot> = withContext(Dispatchers.IO) {
+        try {
+            val file = ownedFile(filePath) ?: return@withContext Result.failure(
+                IllegalArgumentException("拒绝读取备份目录之外的文件：$filePath"),
+            )
+            if (!file.exists()) {
+                return@withContext Result.failure(Exception("Backup file not found"))
             }
+            val jsonString = file.readText()
+            val snapshot = json.decodeFromString(UserBackupSnapshot.serializer(), jsonString)
+            Result.success(snapshot)
+        } catch (e: Exception) {
+            Result.failure(e)
         }
+    }
 
-    override suspend fun getBackups(): Result<List<String>> =
-        withContext(Dispatchers.IO) {
-            try {
-                val files = backupDir.listFiles()
-                    ?.filter { BackupFileRepository.isBackupFileName(it.name) }
-                    ?.sortedByDescending { it.lastModified() }
-                    ?.map { it.absolutePath }
-                    ?: emptyList()
-                Result.success(files)
-            } catch (e: Exception) {
-                Result.failure(e)
+    override suspend fun getBackups(): Result<List<String>> = withContext(Dispatchers.IO) {
+        try {
+            val files = backupDir.listFiles()
+                ?.filter { BackupFileRepository.isBackupFileName(it.name) }
+                ?.sortedByDescending { it.lastModified() }
+                ?.map { it.absolutePath }
+                ?: emptyList()
+            Result.success(files)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun deleteBackup(filePath: String): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val file = ownedFile(filePath) ?: return@withContext Result.failure(
+                IllegalArgumentException("拒绝删除备份目录之外的文件：$filePath"),
+            )
+            if (!file.exists()) {
+                return@withContext Result.failure(Exception("File not found"))
             }
-        }
-
-    override suspend fun deleteBackup(filePath: String): Result<Unit> =
-        withContext(Dispatchers.IO) {
-            try {
-                val file = ownedFile(filePath) ?: return@withContext Result.failure(
-                    IllegalArgumentException("拒绝删除备份目录之外的文件：$filePath")
-                )
-                if (!file.exists()) {
-                    return@withContext Result.failure(Exception("File not found"))
-                }
-                if (file.delete()) Result.success(Unit)
-                else Result.failure(Exception("Failed to delete file"))
-            } catch (e: Exception) {
-                Result.failure(e)
+            if (file.delete()) {
+                Result.success(Unit)
+            } else {
+                Result.failure(Exception("Failed to delete file"))
             }
+        } catch (e: Exception) {
+            Result.failure(e)
         }
+    }
 
-    override suspend fun importExternalFile(filePath: String): Result<String> =
-        withContext(Dispatchers.IO) {
-            try {
-                // 幂等：列表里点"恢复"传进来的就是目录内路径，不该再复制一份。
-                ownedFile(filePath)?.let { return@withContext Result.success(it.absolutePath) }
+    override suspend fun importExternalFile(filePath: String): Result<String> = withContext(Dispatchers.IO) {
+        try {
+            // 幂等：列表里点"恢复"传进来的就是目录内路径，不该再复制一份。
+            ownedFile(filePath)?.let { return@withContext Result.success(it.absolutePath) }
 
-                val source = File(filePath)
-                if (!source.isFile) {
-                    return@withContext Result.failure(Exception("Backup file not found: $filePath"))
-                }
-                val target = freeImportedFile()
-                source.copyTo(target, overwrite = false)
-                Result.success(target.absolutePath)
-            } catch (e: Exception) {
-                Result.failure(e)
+            val source = File(filePath)
+            if (!source.isFile) {
+                return@withContext Result.failure(Exception("Backup file not found: $filePath"))
             }
+            val target = freeImportedFile()
+            source.copyTo(target, overwrite = false)
+            Result.success(target.absolutePath)
+        } catch (e: Exception) {
+            Result.failure(e)
         }
+    }
 }

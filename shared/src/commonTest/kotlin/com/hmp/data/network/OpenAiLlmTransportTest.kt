@@ -1,8 +1,8 @@
 package com.hmp.data.network
 
 import com.hmp.data.network.dto.OpenAiFunctionDelta
-import com.hmp.data.network.dto.OpenAiStreamChunk
 import com.hmp.data.network.dto.OpenAiStreamChoice
+import com.hmp.data.network.dto.OpenAiStreamChunk
 import com.hmp.data.network.dto.OpenAiStreamDelta
 import com.hmp.data.network.dto.OpenAiToolCallDelta
 import com.hmp.domain.agent.port.LlmEvent
@@ -20,12 +20,6 @@ import io.ktor.http.content.ByteArrayContent
 import io.ktor.http.content.TextContent
 import io.ktor.http.headersOf
 import io.ktor.serialization.kotlinx.json.json
-import kotlin.test.Test
-import kotlin.test.assertFailsWith
-import kotlin.test.assertEquals
-import kotlin.test.assertFalse
-import kotlin.test.assertNull
-import kotlin.test.assertTrue
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collect
@@ -36,6 +30,12 @@ import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
+import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 /**
  * LlmTransport 流式端到端测试（任务书 M2-T2，MockEngine 模拟端点）。
@@ -52,12 +52,13 @@ class OpenAiLlmTransportTest {
         isConfigured = true,
     )
 
-    private fun sse(vararg payloads: String): String =
-        payloads.joinToString("\n\n") { "data: $it" } + "\n\n"
+    private fun sse(vararg payloads: String): String = payloads.joinToString("\n\n") { "data: $it" } + "\n\n"
 
-    private fun sse(chunks: List<OpenAiStreamChunk>): String = sse(*chunks.map {
-        json.encodeToString(OpenAiStreamChunk.serializer(), it)
-    }.toTypedArray())
+    private fun sse(chunks: List<OpenAiStreamChunk>): String = sse(
+        *chunks.map {
+            json.encodeToString(OpenAiStreamChunk.serializer(), it)
+        }.toTypedArray(),
+    )
 
     private fun transport(
         captureBody: (String?) -> Unit = {},
@@ -71,7 +72,7 @@ class OpenAiLlmTransportTest {
                     is TextContent -> b.text
                     is ByteArrayContent -> b.bytes().decodeToString()
                     else -> null.also { println("[TEST] 未识别的请求体类型: ${b::class.simpleName}") }
-                }
+                },
             )
             respond(
                 content = body,
@@ -87,12 +88,14 @@ class OpenAiLlmTransportTest {
 
     @Test
     fun plainTextStream_emitsDeltasThenCompleted() = runTest {
-        val (llm, client) = transport(body = sse(
-            listOf(
-                OpenAiStreamChunk(choices = listOf(OpenAiStreamChoice(delta = OpenAiStreamDelta(content = "你好")))),
-                OpenAiStreamChunk(choices = listOf(OpenAiStreamChoice(delta = OpenAiStreamDelta(content = "，伙伴"), finishReason = "stop"))),
-            )
-        ))
+        val (llm, client) = transport(
+            body = sse(
+                listOf(
+                    OpenAiStreamChunk(choices = listOf(OpenAiStreamChoice(delta = OpenAiStreamDelta(content = "你好")))),
+                    OpenAiStreamChunk(choices = listOf(OpenAiStreamChoice(delta = OpenAiStreamDelta(content = "，伙伴"), finishReason = "stop"))),
+                ),
+            ),
+        )
         val events = llm.streamChat(config, listOf(LlmMessage("user", "hi"))).toList()
         client.close()
 
@@ -112,13 +115,15 @@ class OpenAiLlmTransportTest {
                             delta = OpenAiStreamDelta(
                                 toolCalls = listOf(
                                     OpenAiToolCallDelta(
-                                        index = 0, id = "call_7", type = "function",
+                                        index = 0,
+                                        id = "call_7",
+                                        type = "function",
                                         function = OpenAiFunctionDelta(name = "searchLibrary", arguments = "{\"query\":\"摇"),
-                                    )
-                                )
-                            )
-                        )
-                    )
+                                    ),
+                                ),
+                            ),
+                        ),
+                    ),
                 ),
                 OpenAiStreamChunk(
                     choices = listOf(
@@ -126,13 +131,13 @@ class OpenAiLlmTransportTest {
                             delta = OpenAiStreamDelta(
                                 toolCalls = listOf(
                                     OpenAiToolCallDelta(index = 0, function = OpenAiFunctionDelta(arguments = "滚\"}")),
-                                )
+                                ),
                             ),
                             finishReason = "tool_calls",
-                        )
-                    )
+                        ),
+                    ),
                 ),
-            )
+            ),
         )
         val (llm, client) = transport(body = body)
         val events = llm.streamChat(
@@ -163,7 +168,7 @@ class OpenAiLlmTransportTest {
                     name = "searchLibrary",
                     description = "搜索曲库",
                     parameters = buildJsonObject("type" to "object"),
-                )
+                ),
             ),
             temperature = 0.3f,
         ).toList()
@@ -250,8 +255,8 @@ class OpenAiLlmTransportTest {
             body = sse(
                 listOf(
                     OpenAiStreamChunk(choices = listOf(OpenAiStreamChoice(delta = OpenAiStreamDelta(content = "结果如下")))),
-                )
-            )
+                ),
+            ),
         )
         val events = llm.streamChat(
             config,
@@ -298,16 +303,17 @@ class OpenAiLlmTransportTest {
                                 delta = OpenAiStreamDelta(
                                     toolCalls = listOf(
                                         OpenAiToolCallDelta(
-                                            index = 0, id = "call_9",
+                                            index = 0,
+                                            id = "call_9",
                                             function = OpenAiFunctionDelta(name = "getNowPlayingContext", arguments = "{}"),
-                                        )
-                                    )
-                                )
-                            )
-                        )
+                                        ),
+                                    ),
+                                ),
+                            ),
+                        ),
                     ),
-                )
-            )
+                ),
+            ),
         )
         val events = llm.streamChat(
             config,
@@ -337,15 +343,15 @@ class OpenAiLlmTransportTest {
                                         OpenAiToolCallDelta(
                                             index = 0, // 无 id
                                             function = OpenAiFunctionDelta(name = "searchLibrary", arguments = "{}"),
-                                        )
-                                    )
+                                        ),
+                                    ),
                                 ),
                                 finishReason = "tool_calls",
-                            )
-                        )
+                            ),
+                        ),
                     ),
-                )
-            )
+                ),
+            ),
         )
         val events = llm.streamChat(
             config,
@@ -386,8 +392,8 @@ class OpenAiLlmTransportTest {
             body = sse(
                 listOf(
                     OpenAiStreamChunk(choices = listOf(OpenAiStreamChoice(delta = OpenAiStreamDelta(content = "部分")))),
-                )
-            )
+                ),
+            ),
         )
 
         val thrown = assertFailsWith<CancellationException> {
@@ -400,6 +406,5 @@ class OpenAiLlmTransportTest {
         assertEquals("budget cut", thrown.message)
     }
 
-    private fun buildJsonObject(vararg pairs: Pair<String, String>): JsonObject =
-        JsonObject(pairs.map { it.first to json.parseToJsonElement("\"${it.second}\"").jsonPrimitive }.toMap())
+    private fun buildJsonObject(vararg pairs: Pair<String, String>): JsonObject = JsonObject(pairs.map { it.first to json.parseToJsonElement("\"${it.second}\"").jsonPrimitive }.toMap())
 }

@@ -31,9 +31,8 @@ class BehaviorModelerTest {
         novelTracks = novelTracks,
     )
 
-    private fun slotsOf(s: BehaviorSnapshot): Map<String, String> =
-        BehaviorModeler.toEvidenceDrafts(s, sessionId = "behavior-1")
-            .associate { PortraitType.parse(it.predicate)!!.second to it.value }
+    private fun slotsOf(s: BehaviorSnapshot): Map<String, String> = BehaviorModeler.toEvidenceDrafts(s, sessionId = "behavior-1")
+        .associate { PortraitType.parse(it.predicate)!!.second to it.value }
 
     // ── 数据太少就不说 ─────────────────────────────────────────────────
 
@@ -87,7 +86,7 @@ class BehaviorModelerTest {
         )
 
         val many = slotsOf(
-            snapshot(skips = mapOf(BehaviorModeler.SKIP_INTRO to 30, BehaviorModeler.SKIP_MIDDLE to 5))
+            snapshot(skips = mapOf(BehaviorModeler.SKIP_INTRO to 30, BehaviorModeler.SKIP_MIDDLE to 5)),
         )
         assertEquals(BehaviorModeler.SKIP_INTRO, many[PortraitType.SKIP_POINT])
     }

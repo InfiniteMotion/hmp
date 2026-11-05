@@ -14,8 +14,6 @@ actual object DataStoreFactory {
         context = ctx.applicationContext
     }
 
-    actual fun create(): DataStore<Preferences> {
-        return context?.dataStore
-            ?: throw IllegalStateException("DataStoreFactory not initialized. Call init() first.")
-    }
+    actual fun create(): DataStore<Preferences> = context?.dataStore
+        ?: throw IllegalStateException("DataStoreFactory not initialized. Call init() first.")
 }

@@ -63,10 +63,11 @@ fun DesignPhilosophyPage(onBack: () -> Unit) {
         // 区块1: 纯本地优先
         ComponentShowcase(
             title = if (lang == AppLanguage.ZH) "纯本地优先" else "Local-First",
-            description = if (lang == AppLanguage.ZH)
+            description = if (lang == AppLanguage.ZH) {
                 "坚持纯本地路线，不做云同步、不引入账号、不做社交，尊重用户隐私"
-            else
-                "Committed to local-first: no cloud sync, no accounts, no social features, respecting user privacy",
+            } else {
+                "Committed to local-first: no cloud sync, no accounts, no social features, respecting user privacy"
+            },
         ) {
             LocalFirstSection(lang)
         }
@@ -74,10 +75,11 @@ fun DesignPhilosophyPage(onBack: () -> Unit) {
         // 区块2: 平台原生 UI
         ComponentShowcase(
             title = if (lang == AppLanguage.ZH) "平台原生 UI" else "Platform-Native UI",
-            description = if (lang == AppLanguage.ZH)
+            description = if (lang == AppLanguage.ZH) {
                 "共享核心逻辑，UI 保持平台原生，各取所长"
-            else
-                "Share core logic, keep UI platform-native, leverage each platform's strengths",
+            } else {
+                "Share core logic, keep UI platform-native, leverage each platform's strengths"
+            },
         ) {
             NativeUISection(lang)
         }
@@ -85,10 +87,11 @@ fun DesignPhilosophyPage(onBack: () -> Unit) {
         // 区块3: 渐进式演进
         ComponentShowcase(
             title = if (lang == AppLanguage.ZH) "渐进式演进" else "Progressive Evolution",
-            description = if (lang == AppLanguage.ZH)
+            description = if (lang == AppLanguage.ZH) {
                 "每次变迁都是在前一步基础上渐进演进，而非推倒重来"
-            else
-                "Each evolution builds incrementally on the previous step, never a complete rewrite",
+            } else {
+                "Each evolution builds incrementally on the previous step, never a complete rewrite"
+            },
         ) {
             ProgressiveEvolutionSection(lang)
         }
@@ -96,10 +99,11 @@ fun DesignPhilosophyPage(onBack: () -> Unit) {
         // 区块4: 先设计后编码
         ComponentShowcase(
             title = if (lang == AppLanguage.ZH) "先设计后编码" else "Design Before Code",
-            description = if (lang == AppLanguage.ZH)
+            description = if (lang == AppLanguage.ZH) {
                 "v5.10 重构方法论：先出设计文档，分阶段逐步执行"
-            else
-                "v5.10 refactoring methodology: design docs first, phased execution",
+            } else {
+                "v5.10 refactoring methodology: design docs first, phased execution"
+            },
         ) {
             DesignFirstSection(lang)
         }
@@ -107,10 +111,11 @@ fun DesignPhilosophyPage(onBack: () -> Unit) {
         // 区块5: AI 推荐策略
         ComponentShowcase(
             title = if (lang == AppLanguage.ZH) "AI 推荐策略" else "AI Recommendation Strategy",
-            description = if (lang == AppLanguage.ZH)
+            description = if (lang == AppLanguage.ZH) {
                 "唯一网络功能：用户自填 API Key 的多服务商 AI 推荐"
-            else
-                "The only network feature: multi-provider AI recommendations with user-supplied API keys",
+            } else {
+                "The only network feature: multi-provider AI recommendations with user-supplied API keys"
+            },
         ) {
             AIRecommendationSection(lang)
         }
@@ -118,10 +123,11 @@ fun DesignPhilosophyPage(onBack: () -> Unit) {
         // 区块6: 动态主题系统
         ComponentShowcase(
             title = if (lang == AppLanguage.ZH) "动态主题系统" else "Dynamic Theme System",
-            description = if (lang == AppLanguage.ZH)
+            description = if (lang == AppLanguage.ZH) {
                 "从专辑封面提取颜色，播放时动态切换，三种背景风格 + 毛玻璃效果"
-            else
-                "Extract colors from album covers, dynamic switching during playback, 3 background styles + blur effects",
+            } else {
+                "Extract colors from album covers, dynamic switching during playback, 3 background styles + blur effects"
+            },
         ) {
             DynamicThemeSection(lang)
         }
@@ -129,10 +135,11 @@ fun DesignPhilosophyPage(onBack: () -> Unit) {
         // 区块7: 视觉语言
         ComponentShowcase(
             title = if (lang == AppLanguage.ZH) "视觉语言" else "Visual Language",
-            description = if (lang == AppLanguage.ZH)
+            description = if (lang == AppLanguage.ZH) {
                 "品牌色、字体、动效、圆角体系构成完整的视觉识别系统"
-            else
-                "Brand colors, typography, motion, and corner radius form a complete visual identity system",
+            } else {
+                "Brand colors, typography, motion, and corner radius form a complete visual identity system"
+            },
         ) {
             VisualLanguageSection(lang)
         }
@@ -166,10 +173,11 @@ private fun LocalFirstSection(lang: AppLanguage) {
                 )
                 Spacer(modifier = Modifier.width(12.dp))
                 Text(
-                    text = if (lang == AppLanguage.ZH)
+                    text = if (lang == AppLanguage.ZH) {
                         "坚持纯本地路线：不做云同步、不引入账号、不做社交"
-                    else
-                        "Committed to local-first: no cloud sync, no accounts, no social features",
+                    } else {
+                        "Committed to local-first: no cloud sync, no accounts, no social features"
+                    },
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Medium,
                 )
@@ -287,10 +295,11 @@ private fun NativeUISection(lang: AppLanguage) {
         ) {
             Column(modifier = Modifier.padding(14.dp)) {
                 Text(
-                    text = if (lang == AppLanguage.ZH)
+                    text = if (lang == AppLanguage.ZH) {
                         "共享核心逻辑 (domain + data)，UI 保持平台原生实现"
-                    else
-                        "Share core logic (domain + data), keep UI platform-native",
+                    } else {
+                        "Share core logic (domain + data), keep UI platform-native"
+                    },
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Medium,
                 )
@@ -647,10 +656,11 @@ private fun AIRecommendationSection(lang: AppLanguage) {
                 )
                 Spacer(modifier = Modifier.width(10.dp))
                 Text(
-                    text = if (lang == AppLanguage.ZH)
+                    text = if (lang == AppLanguage.ZH) {
                         "AI 推荐是 HMP 唯一的网络功能，帮助用户发现新音乐"
-                    else
-                        "AI recommendation is HMP's only network feature, helping users discover new music",
+                    } else {
+                        "AI recommendation is HMP's only network feature, helping users discover new music"
+                    },
                     style = MaterialTheme.typography.bodyMedium,
                 )
             }
@@ -775,10 +785,11 @@ private fun AIRecommendationSection(lang: AppLanguage) {
             fontWeight = FontWeight.Bold,
         )
         Text(
-            text = if (lang == AppLanguage.ZH)
+            text = if (lang == AppLanguage.ZH) {
                 "基于用户音乐库和收听历史，通过 AI 生成个性化播放列表推荐"
-            else
-                "Generate personalized playlist recommendations based on user's music library and listening history via AI",
+            } else {
+                "Generate personalized playlist recommendations based on user's music library and listening history via AI"
+            },
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -809,19 +820,25 @@ private fun DynamicThemeSection(lang: AppLanguage) {
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = if (lang == AppLanguage.ZH)
+                    text = if (lang == AppLanguage.ZH) {
                         "从专辑封面提取 8 种颜色，构建完整的动态色彩方案"
-                    else
-                        "Extract 8 colors from album cover to build a complete dynamic color scheme",
+                    } else {
+                        "Extract 8 colors from album cover to build a complete dynamic color scheme"
+                    },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 // 颜色预览条
                 val paletteColors = listOf(
-                    Color(0xFF1A237E), Color(0xFF283593), Color(0xFF3949AB),
-                    Color(0xFF5C6BC0), Color(0xFF7986CB), Color(0xFF9FA8DA),
-                    Color(0xFFC5CAE9), Color(0xFFE8EAF6),
+                    Color(0xFF1A237E),
+                    Color(0xFF283593),
+                    Color(0xFF3949AB),
+                    Color(0xFF5C6BC0),
+                    Color(0xFF7986CB),
+                    Color(0xFF9FA8DA),
+                    Color(0xFFC5CAE9),
+                    Color(0xFFE8EAF6),
                 )
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -1090,10 +1107,11 @@ private fun VisualLanguageSection(lang: AppLanguage) {
                 }
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(
-                    text = if (lang == AppLanguage.ZH)
+                    text = if (lang == AppLanguage.ZH) {
                         "6 种字重：Thin / Light / Regular / Medium / Bold / Black"
-                    else
-                        "6 weights: Thin / Light / Regular / Medium / Bold / Black",
+                    } else {
+                        "6 weights: Thin / Light / Regular / Medium / Bold / Black"
+                    },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

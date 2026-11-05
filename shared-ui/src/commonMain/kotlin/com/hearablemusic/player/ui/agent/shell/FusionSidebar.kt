@@ -34,6 +34,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 import com.hearablemusic.player.ui.common.text.UiText
 import com.hearablemusic.player.ui.common.text.asString
 import com.hearablemusic.player.ui.common.text.asUiText
@@ -53,19 +54,18 @@ import com.hearablemusic.player.ui.generated.resources.tab_user
 import com.hmp.domain.music.MusicInfo
 import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.painterResource
-import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 
 private data class SidebarTabItem(
     val label: UiText,
     val selectedIcon: DrawableResource,
-    val unselectedIcon: DrawableResource
+    val unselectedIcon: DrawableResource,
 )
 
 private val sidebarTabs = listOf(
     SidebarTabItem(Res.string.tab_home.asUiText(), Res.drawable.house_fill, Res.drawable.house),
     SidebarTabItem(Res.string.tab_gallery.asUiText(), Res.drawable.square_fill_grid_2x2, Res.drawable.square_grid_2x2),
     SidebarTabItem(Res.string.tab_list.asUiText(), Res.drawable.list_bullet, Res.drawable.list_bullet),
-    SidebarTabItem(Res.string.tab_user.asUiText(), Res.drawable.person_filled_viewfinder, Res.drawable.person)
+    SidebarTabItem(Res.string.tab_user.asUiText(), Res.drawable.person_filled_viewfinder, Res.drawable.person),
 )
 
 /**
@@ -91,15 +91,16 @@ fun FusionSidebar(
             .fillMaxHeight()
             .padding(vertical = metrics.cozy),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.SpaceEvenly
+        verticalArrangement = Arrangement.SpaceEvenly,
     ) {
         // 导航 Tab 区域
         sidebarTabs.forEachIndexed { index, tab ->
             val isSelected = index == selectedTabIndex
-            val iconTint = if (isSelected)
+            val iconTint = if (isSelected) {
                 MaterialTheme.colorScheme.primary
-            else
+            } else {
                 MaterialTheme.colorScheme.onSurfaceVariant
+            }
 
             Box(
                 modifier = Modifier
@@ -107,61 +108,61 @@ fun FusionSidebar(
                     .clip(RoundedCornerShape(metrics.base))
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
-                        indication = null
+                        indication = null,
                     ) {
                         haptic.performClick()
                         onTabSelected(index)
                     },
-                contentAlignment = Alignment.Center
+                contentAlignment = Alignment.Center,
             ) {
                 Icon(
                     painter = painterResource(
-                        if (isSelected) tab.selectedIcon else tab.unselectedIcon
+                        if (isSelected) tab.selectedIcon else tab.unselectedIcon,
                     ),
                     contentDescription = tab.label.asString(),
                     tint = iconTint,
-                    modifier = Modifier.size(metrics.section)
+                    modifier = Modifier.size(metrics.section),
                 )
             }
         }
 
         // 迷你播放封面（无播放时隐藏）
         if (currentMusic != null) {
-        val coverRotation = remember { Animatable(0f) }
-        LaunchedEffect(isPlaying) {
-            if (!isPlaying) return@LaunchedEffect
-            while (true) {
-                val current = coverRotation.value % 360f
-                val remaining = 360f - current
-                val durationMillis = ((remaining / 360f) * 8000f).toInt().coerceAtLeast(1)
-                coverRotation.animateTo(
-                    targetValue = 360f,
-                    animationSpec = tween(durationMillis = durationMillis, easing = LinearEasing)
-                )
-                coverRotation.snapTo(0f)
+            val coverRotation = remember { Animatable(0f) }
+            LaunchedEffect(isPlaying) {
+                if (!isPlaying) return@LaunchedEffect
+                while (true) {
+                    val current = coverRotation.value % 360f
+                    val remaining = 360f - current
+                    val durationMillis = ((remaining / 360f) * 8000f).toInt().coerceAtLeast(1)
+                    coverRotation.animateTo(
+                        targetValue = 360f,
+                        animationSpec = tween(durationMillis = durationMillis, easing = LinearEasing),
+                    )
+                    coverRotation.snapTo(0f)
+                }
             }
-        }
 
-        Box(
-            modifier = Modifier
-                .size(metrics.block)
-                .clip(CircleShape)
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null
-                ) { onOpenPlayer() },
-            contentAlignment = Alignment.Center
-        ) {
-            AsyncImage(
-                model = currentMusic.music.albumArtUri,
-                contentDescription = currentMusic.music.title,
+            Box(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .background(MaterialTheme.colorScheme.surfaceVariant, CircleShape)
-                    .graphicsLayer { rotationZ = coverRotation.value },
-                contentScale = ContentScale.Crop
-            )
-        }
+                    .size(metrics.block)
+                    .clip(CircleShape)
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                    ) { onOpenPlayer() },
+                contentAlignment = Alignment.Center,
+            ) {
+                AsyncImage(
+                    model = currentMusic.music.albumArtUri,
+                    contentDescription = currentMusic.music.title,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(MaterialTheme.colorScheme.surfaceVariant, CircleShape)
+                        .graphicsLayer { rotationZ = coverRotation.value },
+                    contentScale = ContentScale.Crop,
+                )
+            }
         }
     }
 }

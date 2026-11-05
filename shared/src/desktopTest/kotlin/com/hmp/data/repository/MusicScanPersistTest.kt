@@ -34,7 +34,9 @@ class MusicScanPersistTest {
 
     /** 测试可控的扫描结果。三端各自的 `performMusicScan` 在真机上读设备，这里就是它的替身。 */
     private var scanResult = Triple<List<Music>, List<MusicExtra>, List<UserInfo>>(
-        emptyList(), emptyList(), emptyList()
+        emptyList(),
+        emptyList(),
+        emptyList(),
     )
 
     @BeforeTest
@@ -50,27 +52,28 @@ class MusicScanPersistTest {
     private fun repo() = ScanRepo()
 
     /** 只实现"扫描"这一件事的仓库替身，落库走 [MusicRepositoryBase] 的真实现。 */
-    private inner class ScanRepo(private val musicDaoOverride: MusicDao? = null) : MusicRepositoryBase(
-        musicDao = musicDaoOverride ?: db.musicDao(),
-        musicExtraDao = db.musicExtraDao(),
-        userInfoDao = db.userInfoDao(),
-        musicAllDao = db.musicAllDao(),
-        musicLabelDao = db.musicLabelDao(),
-        playbackHistoryDao = db.playbackHistoryDao(),
-        listeningDurationDao = db.listeningDurationDao(),
-        playlistDao = db.playlistDao(),
-        playlistItemDao = db.playlistItemDao(),
-        openAiCompatibleAdapter = OpenAiCompatibleAdapter(HttpClient(), Json),
-        json = Json,
-        agentAuditLogDao = db.agentAuditLogDao(),
-        forgottenDeliveryDao = db.forgottenDeliveryDao(),
-        transactionRunner = RoomTransactionRunner(db),
-    ) {
+    private inner class ScanRepo(private val musicDaoOverride: MusicDao? = null) :
+        MusicRepositoryBase(
+            musicDao = musicDaoOverride ?: db.musicDao(),
+            musicExtraDao = db.musicExtraDao(),
+            userInfoDao = db.userInfoDao(),
+            musicAllDao = db.musicAllDao(),
+            musicLabelDao = db.musicLabelDao(),
+            playbackHistoryDao = db.playbackHistoryDao(),
+            listeningDurationDao = db.listeningDurationDao(),
+            playlistDao = db.playlistDao(),
+            playlistItemDao = db.playlistItemDao(),
+            openAiCompatibleAdapter = OpenAiCompatibleAdapter(HttpClient(), Json),
+            json = Json,
+            agentAuditLogDao = db.agentAuditLogDao(),
+            forgottenDeliveryDao = db.forgottenDeliveryDao(),
+            transactionRunner = RoomTransactionRunner(db),
+        ) {
         override suspend fun performMusicScan() = scanResult
         override suspend fun getAllMusicInfoAsList(
             key: com.hmp.domain.music.MusicSortKey,
             direction: com.hmp.domain.music.SortDirection,
-        ): List<MusicInfo> = emptyList()   // 本用例只关心扫描落库
+        ): List<MusicInfo> = emptyList() // 本用例只关心扫描落库
         override suspend fun getDeletedMusicIdsGroupedByFolder(): List<Pair<String, List<Long>>> = emptyList()
     }
 
@@ -109,8 +112,8 @@ class MusicScanPersistTest {
                     lyrics = "用户改过的歌词",
                     isGetExtraInfo = true,
                     rewards = "已富化的文案",
-                )
-            )
+                ),
+            ),
         )
 
         // 同三首文件重扫一遍；扫描侧的 extra 是"标签里读到的东西"，不该盖掉库里的用户内容
@@ -181,7 +184,7 @@ class MusicScanPersistTest {
         assertEquals(
             countBefore,
             db.musicDao().getMusicCount().first(),
-            "第 1 批写进去又没回滚 —— 落库没有真的包在一个事务里"
+            "第 1 批写进去又没回滚 —— 落库没有真的包在一个事务里",
         )
         assertEquals(3, db.musicDao().getAllIds().size, "回滚后连『标记缺失』的写也不能留下")
     }
@@ -216,7 +219,7 @@ class MusicScanPersistTest {
         assertEquals(
             listOf(1L),
             db.musicDao().getRemovedMusicIdAndPath().map { it.id },
-            "「已移除」列表要按用户意图列，不能把『文件不在了』也算进来"
+            "「已移除」列表要按用户意图列，不能把『文件不在了』也算进来",
         )
     }
 

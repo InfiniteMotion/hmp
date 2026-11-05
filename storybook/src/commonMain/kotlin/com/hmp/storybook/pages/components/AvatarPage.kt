@@ -36,19 +36,21 @@ fun AvatarPage(onBack: () -> Unit) {
 
     StorybookPage(
         title = Strings.avatar(lang),
-        description = if (lang == AppLanguage.ZH)
+        description = if (lang == AppLanguage.ZH) {
             "头像组件 (Avatar)，CircleShape，参数 aSize (Int, dp值)，典型调用 UserScreen 中 aSize=100"
-        else
-            "Avatar component with CircleShape, parameter aSize (Int, dp value), typical call in UserScreen with aSize=100",
+        } else {
+            "Avatar component with CircleShape, parameter aSize (Int, dp value), typical call in UserScreen with aSize=100"
+        },
         onBack = onBack,
     ) {
         // 多种尺寸展示：32, 48, 64, 100 dp
         ComponentShowcase(
             title = if (lang == AppLanguage.ZH) "尺寸变体" else "Size Variants",
-            description = if (lang == AppLanguage.ZH)
+            description = if (lang == AppLanguage.ZH) {
                 "展示 32 / 48 / 64 / 100 dp 四种典型尺寸"
-            else
-                "Showing 4 typical sizes: 32 / 48 / 64 / 100 dp",
+            } else {
+                "Showing 4 typical sizes: 32 / 48 / 64 / 100 dp"
+            },
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -65,10 +67,11 @@ fun AvatarPage(onBack: () -> Unit) {
         // 有图片状态 (Coil AsyncImage)
         ComponentShowcase(
             title = if (lang == AppLanguage.ZH) "有图片状态" else "With Image",
-            description = if (lang == AppLanguage.ZH)
+            description = if (lang == AppLanguage.ZH) {
                 "使用 Coil AsyncImage 加载网络图片，CircleShape 裁剪"
-            else
-                "Using Coil AsyncImage to load network image, clipped with CircleShape",
+            } else {
+                "Using Coil AsyncImage to load network image, clipped with CircleShape"
+            },
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -84,10 +87,11 @@ fun AvatarPage(onBack: () -> Unit) {
         // 无图片状态 (占位图)
         ComponentShowcase(
             title = if (lang == AppLanguage.ZH) "无图片状态" else "Without Image",
-            description = if (lang == AppLanguage.ZH)
+            description = if (lang == AppLanguage.ZH) {
                 "无图片时显示渐变占位图 + Person 图标"
-            else
-                "Showing gradient placeholder with Person icon when no image is available",
+            } else {
+                "Showing gradient placeholder with Person icon when no image is available"
+            },
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -104,10 +108,11 @@ fun AvatarPage(onBack: () -> Unit) {
         // UserScreen 典型调用
         ComponentShowcase(
             title = if (lang == AppLanguage.ZH) "UserScreen 典型调用" else "UserScreen Typical Usage",
-            description = if (lang == AppLanguage.ZH)
+            description = if (lang == AppLanguage.ZH) {
                 "UserScreen 中 Avatar(aSize = 100)，居中显示"
-            else
-                "Avatar(aSize = 100) in UserScreen, centered display",
+            } else {
+                "Avatar(aSize = 100) in UserScreen, centered display"
+            },
         ) {
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,

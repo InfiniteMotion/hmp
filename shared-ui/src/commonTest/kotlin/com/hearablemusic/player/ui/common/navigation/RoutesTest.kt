@@ -1,14 +1,14 @@
 package com.hearablemusic.player.ui.common.navigation
 
+import androidx.navigation3.runtime.NavKey
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotEquals
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
-import androidx.navigation3.runtime.NavKey
-import kotlin.test.Test
 
 /**
  * 路由参数传递测试

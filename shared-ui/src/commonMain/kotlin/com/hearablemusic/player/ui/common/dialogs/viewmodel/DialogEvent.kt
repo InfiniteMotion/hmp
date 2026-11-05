@@ -1,20 +1,20 @@
 package com.hearablemusic.player.ui.common.dialogs.viewmodel
 
 import androidx.navigation3.runtime.NavKey
+import com.hearablemusic.player.ui.common.util.nowEpochMillis
 import com.hmp.domain.agent.port.ConfirmDecision
 import com.hmp.domain.agent.port.ConfirmStep
-import com.hearablemusic.player.ui.common.util.nowEpochMillis
 
 sealed class DialogEvent {
     data class Message(
         val message: String,
         val duration: MessageDuration = MessageDuration.Short,
-        val id: Long = nowEpochMillis()
+        val id: Long = nowEpochMillis(),
     ) : DialogEvent()
 
     data class ShowTimerDialog(
         val onConfirm: (Int) -> Unit,
-        val onDismiss: () -> Unit = {}
+        val onDismiss: () -> Unit = {},
     ) : DialogEvent()
 
     object DismissTimerDialog : DialogEvent()
@@ -23,7 +23,7 @@ sealed class DialogEvent {
         val title: String,
         val artist: String,
         val album: String,
-        val filePath: String
+        val filePath: String,
     ) : DialogEvent()
 
     /**
@@ -33,7 +33,7 @@ sealed class DialogEvent {
      */
     data class NavRequest(
         val route: NavKey,
-        val id: Long = nowEpochMillis()
+        val id: Long = nowEpochMillis(),
     ) : DialogEvent()
 
     /**
@@ -45,11 +45,11 @@ sealed class DialogEvent {
     data class ConfirmChain(
         val steps: List<ConfirmStep>,
         val stepIndex: Int = 0,
-        val id: Long = nowEpochMillis()
+        val id: Long = nowEpochMillis(),
     ) : DialogEvent()
 }
 
 enum class MessageDuration {
     Short,
-    Long
+    Long,
 }

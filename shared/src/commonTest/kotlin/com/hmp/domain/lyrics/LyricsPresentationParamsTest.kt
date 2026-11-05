@@ -54,5 +54,4 @@ class LyricsPresentationParamsTest {
         assertTrue(LyricsPresentationParams.EMPHASIS_MARGIN_FACTOR > 0f)
         assertTrue(LyricsPresentationParams.EMPHASIS_MARGIN_FACTOR < 0.5f)
     }
-
 }

@@ -1,18 +1,18 @@
 package com.hearablemusic.player.ui.library.pages.components.musiclist
 
-import com.hearablemusic.player.ui.common.util.epochMillisToYearMonth
-import com.hearablemusic.player.ui.common.util.commonFormat
-import com.hearablemusic.player.ui.common.util.nowEpochMillis
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.hearablemusic.player.ui.common.design.metrics.HMPMetricTokens
+import com.hearablemusic.player.ui.common.util.commonFormat
+import com.hearablemusic.player.ui.common.util.epochMillisToYearMonth
+import com.hearablemusic.player.ui.common.util.nowEpochMillis
+import com.hmp.data.util.stringToPinyinSortKey
+import com.hmp.domain.music.MusicInfo
 import com.hmp.domain.music.MusicSortKey
 import com.hmp.domain.music.SortDirection
-import com.hmp.domain.music.MusicInfo
-import com.hmp.data.util.stringToPinyinSortKey
-import androidx.compose.foundation.layout.PaddingValues
-import com.hearablemusic.player.ui.common.design.metrics.HMPMetricTokens
 
 /**
  * 增强版音乐列表的入口配置，驱动头部、单项形态、编辑模式、索引跳转、滚动条与当前播放等行为。
@@ -186,8 +186,11 @@ private fun titleToIndexLetter(title: String): Char {
     val c = title.firstOrNull() ?: return '#'
     return when {
         c in 'a'..'z' -> c.uppercaseChar()
+
         c in 'A'..'Z' -> c
+
         c in '0'..'9' -> '#'
+
         else -> {
             val pinyinKey = stringToPinyinSortKey(title)
             pinyinKey.firstOrNull()?.uppercaseChar() ?: '#'
@@ -199,8 +202,7 @@ private fun titleToIndexLetter(title: String): Char {
  * 按标题首字母/首字分组，返回「字母 -> 该组第一项在列表中的 index」映射。
  * 英文取首字母；中文取首字默认拼音首字母；数字及其他归为 #。依赖传入 [list] 的当前顺序。
  */
-fun defaultLetterToIndex(list: List<MusicInfo>): Map<Char, Int> =
-    letterToIndexByString(list) { it.music.title }
+fun defaultLetterToIndex(list: List<MusicInfo>): Map<Char, Int> = letterToIndexByString(list) { it.music.title }
 
 /**
  * 按 [getKey] 返回的字符串首字母分组，返回「字母 -> 该组第一项在列表中的 index」映射。
@@ -219,9 +221,11 @@ private const val SMART_ANCHOR_MIN = 8
 private const val SMART_ANCHOR_MAX = 16
 
 /** 升序时字母条从上到下 A–Z #，降序时 Z–A # */
-private fun lettersForOrderType(orderType: SortDirection): List<Char> =
-    if (orderType.isDescending) ('Z' downTo 'A').toList() + listOf('#')
-    else ('A'..'Z').toList() + listOf('#')
+private fun lettersForOrderType(orderType: SortDirection): List<Char> = if (orderType.isDescending) {
+    ('Z' downTo 'A').toList() + listOf('#')
+} else {
+    ('A'..'Z').toList() + listOf('#')
+}
 
 /**
  * 根据 [orderBy] 与 [orderType] 返回对应的索引配置。
@@ -239,18 +243,21 @@ fun indexJumpConfigForOrderBy(
             letterToIndex = ::defaultLetterToIndex,
             orderType = orderType,
         )
+
         MusicSortKey.ARTIST -> IndexJumpConfig(
             enabled = true,
             letters = letters,
             letterToIndex = { list -> letterToIndexByString(list) { it.music.artist } },
             orderType = orderType,
         )
+
         MusicSortKey.ALBUM -> IndexJumpConfig(
             enabled = true,
             letters = letters,
             letterToIndex = { list -> letterToIndexByString(list) { it.music.album } },
             orderType = orderType,
         )
+
         MusicSortKey.DURATION -> IndexJumpConfig(
             enabled = true,
             letterToIndex = { emptyMap() },
@@ -259,6 +266,7 @@ fun indexJumpConfigForOrderBy(
             },
             orderType = orderType,
         )
+
         MusicSortKey.FILE_SIZE -> IndexJumpConfig(
             enabled = true,
             letterToIndex = { emptyMap() },
@@ -271,6 +279,7 @@ fun indexJumpConfigForOrderBy(
             },
             orderType = orderType,
         )
+
         MusicSortKey.PLAY_COUNT -> IndexJumpConfig(
             enabled = true,
             letterToIndex = { emptyMap() },
@@ -283,17 +292,22 @@ fun indexJumpConfigForOrderBy(
             },
             orderType = orderType,
         )
+
         MusicSortKey.ID -> IndexJumpConfig(
             enabled = true,
             letterToIndex = { emptyMap() },
             smartAnchor = { list ->
                 val dateResult = computeDateSmartAnchors(list, orderType)
                 val (labels, _) = dateResult
-                if (labels.size <= 1 && labels.getOrNull(0) == "未知") computeDateStylePositionAnchors(list, orderType)
-                else dateResult
+                if (labels.size <= 1 && labels.getOrNull(0) == "未知") {
+                    computeDateStylePositionAnchors(list, orderType)
+                } else {
+                    dateResult
+                }
             },
             orderType = orderType,
         )
+
         MusicSortKey.DATE -> IndexJumpConfig(
             enabled = true,
             letterToIndex = { emptyMap() },
@@ -324,7 +338,9 @@ private fun buildAnchorToIndex(
         val v = getValue(info)
         val bucket = when {
             v < anchorValues.first() -> 0
+
             v >= anchorValues.last() -> anchorValues.lastIndex
+
             else -> {
                 val i = anchorValues.indexOfFirst { it > v }
                 if (i <= 0) 0 else i - 1
@@ -378,6 +394,7 @@ private fun formatFileSize(bytes: Long): String = when {
  * 智能锚点：id（添加顺序）按位置分位，锚点数量随列表长度调整。
  * [orderType] 为 DESC 时列表为「新→旧」，锚点「早」应对应列表末尾、「末」对应列表头，故反转映射。
  */
+
 /**
  * 智能锚点标签（`早` / `1/4` / `1/2` / `3/4` / `末`）与「未知」哨兵。
  *
@@ -393,15 +410,19 @@ private fun computeIdSmartAnchors(
     if (list.isEmpty()) return Pair(emptyList(), emptyMap())
     val n = list.size
     if (n <= 1) return Pair(listOf("早"), mapOf(0 to 0))
-    val anchorCount = if (n > 100) SMART_ANCHOR_MAX else when {
-        n < 20 -> 8
-        n < 40 -> 10
-        n < 60 -> 12
-        else -> SMART_ANCHOR_MAX
-    }.coerceIn(SMART_ANCHOR_MIN, SMART_ANCHOR_MAX)
+    val anchorCount = if (n > 100) {
+        SMART_ANCHOR_MAX
+    } else {
+        when {
+            n < 20 -> 8
+            n < 40 -> 10
+            n < 60 -> 12
+            else -> SMART_ANCHOR_MAX
+        }.coerceIn(SMART_ANCHOR_MIN, SMART_ANCHOR_MAX)
+    }
     val positionLabels = listOf("早", "1/4", "1/2", "3/4", "末")
     val labels = (0 until anchorCount).map { i ->
-        positionLabels.getOrElse(i) { "${i + 1}/${anchorCount}" }
+        positionLabels.getOrElse(i) { "${i + 1}/$anchorCount" }
     }
     val desc = orderType.isDescending
     val map = (0 until anchorCount).associate { i ->
@@ -465,7 +486,9 @@ private fun computeAddOrderYearMonthAnchors(
     val spanMs = (endMs - startMs).toDouble().coerceAtLeast(1.0)
     val desc = orderType.isDescending
     fun virtualYearMonth(listIndex: Int): Pair<Int, Int> {
-        val ratio = if (n <= 1) 1.0 else {
+        val ratio = if (n <= 1) {
+            1.0
+        } else {
             val r = listIndex.toDouble() / (n - 1).coerceAtLeast(1)
             if (desc) 1.0 - r else r
         }
@@ -474,8 +497,11 @@ private fun computeAddOrderYearMonthAnchors(
     }
     val indexToYm = (0 until n).map { i -> i to virtualYearMonth(i) }
     val ordered = indexToYm.map { it.second }.distinct().let { distinct ->
-        if (desc) distinct.sortedWith(compareBy({ -it.first }, { -it.second }))
-        else distinct.sortedWith(compareBy({ it.first }, { it.second }))
+        if (desc) {
+            distinct.sortedWith(compareBy({ -it.first }, { -it.second }))
+        } else {
+            distinct.sortedWith(compareBy({ it.first }, { it.second }))
+        }
     }
     if (ordered.isEmpty()) return Pair(emptyList(), emptyMap())
     val labels = ordered.map { (y, m) -> if (m == 1) y.toString() else commonFormat("%02d", m) }
@@ -602,11 +628,10 @@ fun playlistPresetMusicListConfig(
 /**
  * 图库/简洁列表预设：无头部、Gallery 单项、无编辑。
  */
-fun galleryPresetMusicListConfig(callbacks: MusicListCallbacks): MusicListConfig =
-    defaultMusicListConfig(callbacks).copy(
-        header = HeaderConfig.None,
-        item = ItemConfig(variant = ItemVariant.Gallery, galleryOptions = GalleryItemOptions()),
-    )
+fun galleryPresetMusicListConfig(callbacks: MusicListCallbacks): MusicListConfig = defaultMusicListConfig(callbacks).copy(
+    header = HeaderConfig.None,
+    item = ItemConfig(variant = ItemVariant.Gallery, galleryOptions = GalleryItemOptions()),
+)
 
 /**
  * 曲库/列表页预设：Full 头部（排序筛选）、Full 单项、可编辑、可选索引与滚动条。

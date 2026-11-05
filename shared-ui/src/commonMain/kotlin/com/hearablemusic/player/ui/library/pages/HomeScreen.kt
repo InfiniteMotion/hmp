@@ -1,11 +1,4 @@
 package com.hearablemusic.player.ui.library.pages
-import com.hearablemusic.player.ui.generated.resources.home_explore
-import com.hearablemusic.player.ui.generated.resources.home_private_reco
-import com.hearablemusic.player.ui.generated.resources.home_reco_unavailable
-import com.hearablemusic.player.ui.generated.resources.home_recommended
-import com.hearablemusic.player.ui.generated.resources.home_today_reco
-import com.hearablemusic.player.ui.generated.resources.play_all
-
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -23,8 +16,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -46,7 +39,30 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
-import com.hmp.domain.agent.card.SlideCard
+import com.hearablemusic.player.ui.agent.cards.CardStackTuning
+import com.hearablemusic.player.ui.agent.cards.HelloCardCoverflow
+import com.hearablemusic.player.ui.agent.cards.HelloSlideCardStack
+import com.hearablemusic.player.ui.common.components.base.HMPCard
+import com.hearablemusic.player.ui.common.components.base.HMPTextField
+import com.hearablemusic.player.ui.common.design.metrics.LayoutConstraints
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
+import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
+import com.hearablemusic.player.ui.common.layout.LocalWindowSizeInfo
+import com.hearablemusic.player.ui.common.pages.base.TabScreen
+import com.hearablemusic.player.ui.common.util.activityViewModel
+import com.hearablemusic.player.ui.generated.resources.Res
+import com.hearablemusic.player.ui.generated.resources.home_explore
+import com.hearablemusic.player.ui.generated.resources.home_private_reco
+import com.hearablemusic.player.ui.generated.resources.home_reco_unavailable
+import com.hearablemusic.player.ui.generated.resources.home_recommended
+import com.hearablemusic.player.ui.generated.resources.home_today_reco
+import com.hearablemusic.player.ui.generated.resources.magnifyingglass
+import com.hearablemusic.player.ui.generated.resources.play_all
+import com.hearablemusic.player.ui.generated.resources.play_fill
+import com.hearablemusic.player.ui.generated.resources.search_placeholder
+import com.hearablemusic.player.ui.library.pages.components.FeatureEntryRow
+import com.hearablemusic.player.ui.library.pages.components.RadioCard
+import com.hearablemusic.player.ui.player.viewmodel.PlaylistQueueViewModel
 import com.hmp.domain.agent.card.AnchorContent
 import com.hmp.domain.agent.card.AnniversaryContent
 import com.hmp.domain.agent.card.DiscoverContent
@@ -55,36 +71,19 @@ import com.hmp.domain.agent.card.RadioStatusContent
 import com.hmp.domain.agent.card.RecommendContent
 import com.hmp.domain.agent.card.RecommendListPayload
 import com.hmp.domain.agent.card.RecommendSource
+import com.hmp.domain.agent.card.SlideCard
 import com.hmp.domain.agent.runtime.MasterAgent
 import com.hmp.domain.music.MusicRepository
-import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
-import com.hearablemusic.player.ui.common.components.base.HMPCard
-import com.hearablemusic.player.ui.common.components.base.HMPTextField
-import com.hearablemusic.player.ui.common.layout.LocalWindowSizeInfo
-import com.hearablemusic.player.ui.common.pages.base.TabScreen
-import com.hearablemusic.player.ui.generated.resources.Res
-import com.hearablemusic.player.ui.generated.resources.magnifyingglass
-import com.hearablemusic.player.ui.generated.resources.play_fill
-import com.hearablemusic.player.ui.generated.resources.search_placeholder
-import com.hearablemusic.player.ui.library.pages.components.FeatureEntryRow
-import com.hearablemusic.player.ui.agent.cards.CardStackTuning
-import com.hearablemusic.player.ui.agent.cards.HelloCardCoverflow
-import com.hearablemusic.player.ui.agent.cards.HelloSlideCardStack
-import com.hearablemusic.player.ui.library.pages.components.RadioCard
-import com.hearablemusic.player.ui.player.viewmodel.PlaylistQueueViewModel
-import com.hearablemusic.player.ui.common.util.activityViewModel
-import com.hearablemusic.player.ui.common.navigation.Routes as NavRoutes
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
-import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
-import com.hearablemusic.player.ui.common.design.metrics.LayoutConstraints
+import com.hearablemusic.player.ui.common.navigation.Routes as NavRoutes
 
 @Composable
 fun HomeScreen(
     playlistQueueViewModel: PlaylistQueueViewModel = activityViewModel(),
-    navController: NavBackStack<NavKey>
+    navController: NavBackStack<NavKey>,
 ) {
     val metrics = LocalHmpMetrics.current
     val windowSize = LocalWindowSizeInfo.current
@@ -144,17 +143,23 @@ fun HomeScreen(
         }
         when (val content = card.content) {
             is RecommendContent -> playIds(listOf(content.trackId))
+
             is ForgottenContent -> playIds(listOf(content.trackId))
+
             // 纪念日：PLAYLIST_CREATE 无单曲（trackId=0），其余直接播
             is AnniversaryContent ->
                 if (content.trackId > 0L) playIds(listOf(content.trackId))
+
             // 探索卡：整组入队，从第一首播起
             is DiscoverContent -> playIds(content.trackIds)
+
             // 正在听卡 / 电台卡：进播放页
             is AnchorContent ->
                 navController.add(NavRoutes.Player.Player)
+
             is RadioStatusContent ->
                 navController.add(NavRoutes.Player.Player)
+
             // GREETING / ENRICH_TRACKING / NARRATIVE：暂不响应
             else -> Unit
         }
@@ -214,7 +219,7 @@ fun HomeScreen(
                                 Text(
                                     text = stringResource(Res.string.home_recommended),
                                     style = typo.headline,
-                                    color = MaterialTheme.colorScheme.onBackground
+                                    color = MaterialTheme.colorScheme.onBackground,
                                 )
                                 // 组内
                                 Spacer(modifier = Modifier.height(metrics.cozy))
@@ -256,7 +261,7 @@ fun HomeScreen(
                                 Text(
                                     text = stringResource(Res.string.home_explore),
                                     style = typo.headline,
-                                    color = MaterialTheme.colorScheme.onBackground
+                                    color = MaterialTheme.colorScheme.onBackground,
                                 )
                                 Spacer(modifier = Modifier.height(metrics.base))
                                 FeatureEntryRow(navController = navController)
@@ -287,7 +292,7 @@ fun HomeScreen(
                             text = stringResource(Res.string.home_recommended),
                             modifier = Modifier,
                             style = typo.headline,
-                            color = MaterialTheme.colorScheme.onBackground
+                            color = MaterialTheme.colorScheme.onBackground,
                         )
                         Spacer(modifier = Modifier.height(metrics.cozy))
                         Row(
@@ -335,7 +340,7 @@ fun HomeScreen(
 @Composable
 private fun HomeSearchBar(
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     val metrics = LocalHmpMetrics.current
     HMPTextField(
@@ -347,7 +352,7 @@ private fun HomeSearchBar(
                 painter = painterResource(Res.drawable.magnifyingglass),
                 contentDescription = null,
                 modifier = Modifier.padding(end = metrics.compact).size(metrics.cozy),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         },
     )
@@ -387,7 +392,7 @@ private fun RecommendEntryCard(
     HMPCard(
         modifier = modifier
             .clickable(enabled = actionable) { onOpen() },
-        contentPadding = Modifier.padding(horizontal = metrics.base, vertical = metrics.base)
+        contentPadding = Modifier.padding(horizontal = metrics.base, vertical = metrics.base),
     ) {
         // 撑满卡片可用区并垂直居中：卡高由调用方决定（宽窗 70dp / Compact 70dp），
         // 内容只有一行标题 + 圆形按钮，居中后上下留白对称。

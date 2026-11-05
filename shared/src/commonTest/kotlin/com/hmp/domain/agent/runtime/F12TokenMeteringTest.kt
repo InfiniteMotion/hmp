@@ -26,26 +26,27 @@ private class FakeTokenLedgerDao : TokenLedgerDao {
     override suspend fun count(): Long = inserted.size.toLong()
     override suspend fun earliestMs(): Long? = inserted.minOfOrNull { it.createdAt }
     override suspend fun sumByAgent(sinceMs: Long): List<TokenAggregateRow> = emptyList()
-    override suspend fun sumByAgentForMode(sinceMs: Long, mode: String): List<TokenAggregateRow> =
-        inserted.filter { it.accessMode == mode && it.createdAt >= sinceMs }
-            .groupBy { it.agentId }
-            .map { (agent, rows) ->
-                TokenAggregateRow(
-                    label = agent,
-                    promptTokens = rows.sumOf { it.promptTokens.toLong() },
-                    completionTokens = rows.sumOf { it.completionTokens.toLong() },
-                    totalTokens = rows.sumOf { (it.promptTokens + it.completionTokens).toLong() },
-                    estimatedRows = rows.count { !it.measured }.toLong(),
-                    calls = rows.size.toLong(),
-                )
-            }
+    override suspend fun sumByAgentForMode(sinceMs: Long, mode: String): List<TokenAggregateRow> = inserted.filter { it.accessMode == mode && it.createdAt >= sinceMs }
+        .groupBy { it.agentId }
+        .map { (agent, rows) ->
+            TokenAggregateRow(
+                label = agent,
+                promptTokens = rows.sumOf { it.promptTokens.toLong() },
+                completionTokens = rows.sumOf { it.completionTokens.toLong() },
+                totalTokens = rows.sumOf { (it.promptTokens + it.completionTokens).toLong() },
+                estimatedRows = rows.count { !it.measured }.toLong(),
+                calls = rows.size.toLong(),
+            )
+        }
     override suspend fun sumByEndpoint(sinceMs: Long): List<TokenAggregateRow> = emptyList()
     override suspend fun sumByHour(sinceMs: Long): List<TokenTimeBucket> = emptyList()
     override suspend fun sumByDay(sinceMs: Long): List<TokenTimeBucket> = emptyList()
     override suspend fun sumByHourForAgent(sinceMs: Long, agentId: String): List<TokenTimeBucket> = emptyList()
     override suspend fun sumTotal(): Long = inserted.sumOf { (it.promptTokens + it.completionTokens).toLong() }
     override suspend fun sumTotalSince(sinceMs: Long): Long = sumTotal()
-    override suspend fun deleteAll() { inserted.clear() }
+    override suspend fun deleteAll() {
+        inserted.clear()
+    }
 }
 
 /**

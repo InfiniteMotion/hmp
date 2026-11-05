@@ -1,14 +1,14 @@
 package com.hmp.data.repository
 
 import android.content.Context
+import com.hmp.domain.backup.BackupFileRepository
+import com.hmp.domain.backup.UserBackupSnapshot
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
-import com.hmp.domain.backup.BackupFileRepository
-import com.hmp.domain.backup.UserBackupSnapshot
 import java.io.File
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
@@ -153,7 +153,7 @@ class BackupFileRepositoryAndroidTest {
 
         assertTrue(result.isFailure)
         assertFalse(
-            backupDir().listFiles()?.any { it.name.startsWith(BackupFileRepository.IMPORTED_PREFIX) } ?: false
+            backupDir().listFiles()?.any { it.name.startsWith(BackupFileRepository.IMPORTED_PREFIX) } ?: false,
         )
     }
 }

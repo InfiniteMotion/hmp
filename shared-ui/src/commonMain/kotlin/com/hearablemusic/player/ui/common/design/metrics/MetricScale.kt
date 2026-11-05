@@ -16,26 +16,37 @@ import com.hearablemusic.player.ui.common.layout.WindowWidthSizeClass
 enum class MetricStep {
     /** 2dp 贴合间距 / 描边 */
     HAIR,
+
     /** 4dp 图标与文字、极小内边距 */
     MICRO,
+
     /** 8dp 组内相邻 */
     COMPACT,
+
     /** 12dp 常规组内 / 卡片小内边距 */
     BASE,
+
     /** 16dp 组间 / 页面内边距 */
     COZY,
+
     /** 24dp 分区之间 */
     SECTION,
+
     /** 32dp 大按钮 / 卡片圆角 */
     BLOCK,
+
     /** 48dp 底栏 / 控件高 */
     BAR,
+
     /** 80dp 列表行高 */
     ROW,
+
     /** 120dp 小面板 */
     PANEL,
+
     /** 200dp 封面卡 */
     CARD,
+
     /** 320dp 主视觉 */
     HERO,
 }
@@ -70,8 +81,10 @@ fun scaleWidthClassFor(
     isPhoneLandscape: Boolean,
 ): WindowWidthSizeClass = when {
     isPhoneLandscape -> WindowWidthSizeClass.Compact
+
     widthSizeClass == WindowWidthSizeClass.Expanded &&
         heightSizeClass == WindowHeightSizeClass.Compact -> WindowWidthSizeClass.Medium
+
     else -> widthSizeClass
 }
 

@@ -1,15 +1,14 @@
 package com.hmp.domain.agent.tool
-import com.hmp.domain.agent.tool.ToolDependencies
-import com.hmp.domain.agent.tool.createBaseToolRegistry
-import com.hmp.domain.agent.tool.spec.ToolRegistry
-import com.hmp.domain.agent.tool.spec.ToolParamError
-import com.hmp.domain.agent.tool.spec.ToolNotFoundException
-import com.hmp.domain.agent.tool.spec.ToolNames
-
-import com.hmp.domain.enum.LabelCategory
-import com.hmp.domain.enum.LabelName
 import com.hmp.domain.agent.port.FakeNowPlayingContextProvider
 import com.hmp.domain.agent.port.FakePlaybackCommandPort
+import com.hmp.domain.agent.tool.ToolDependencies
+import com.hmp.domain.agent.tool.createBaseToolRegistry
+import com.hmp.domain.agent.tool.spec.ToolNames
+import com.hmp.domain.agent.tool.spec.ToolNotFoundException
+import com.hmp.domain.agent.tool.spec.ToolParamError
+import com.hmp.domain.agent.tool.spec.ToolRegistry
+import com.hmp.domain.enum.LabelCategory
+import com.hmp.domain.enum.LabelName
 import com.hmp.domain.music.Music
 import com.hmp.domain.music.MusicInfo
 import com.hmp.domain.music.MusicLabel
@@ -22,25 +21,30 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
-import kotlin.test.assertFailsWith
 
 class AgentToolsTest {
-    private fun song(id: Long, title: String, artist: String, path: String = "/$id.mp3") =
-        MusicInfo(Music(id, title, artist, "Album", 180_000, path, ""), null, null)
+    private fun song(id: Long, title: String, artist: String, path: String = "/$id.mp3") = MusicInfo(Music(id, title, artist, "Album", 180_000, path, ""), null, null)
 
     private fun jsonArgs(vararg pairs: Pair<String, Any>): JsonObject = buildJsonObject {
         pairs.forEach { (k, v) ->
             when (v) {
                 is Long -> put(k, JsonPrimitive(v))
+
                 is Int -> put(k, JsonPrimitive(v))
+
                 is String -> put(k, JsonPrimitive(v))
-                is List<*> -> put(k, kotlinx.serialization.json.buildJsonArray {
-                    v.forEach { add(JsonPrimitive((it as Long).toString())) }
-                })
+
+                is List<*> -> put(
+                    k,
+                    kotlinx.serialization.json.buildJsonArray {
+                        v.forEach { add(JsonPrimitive((it as Long).toString())) }
+                    },
+                )
             }
         }
     }
@@ -280,6 +284,7 @@ class AgentToolsTest {
     }
 
     // ---------- reorderPlaylist / controlPlayback ----------
+
     /**
      * D3-04：`playlist_reorder` 的入参必须是完整排列。
      *

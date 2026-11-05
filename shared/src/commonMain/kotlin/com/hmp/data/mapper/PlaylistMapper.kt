@@ -1,9 +1,9 @@
 package com.hmp.data.mapper
 
-import com.hmp.data.database.Playlist as PlaylistEntity
-import com.hmp.data.database.PlaylistItem as PlaylistItemEntity
 import com.hmp.domain.playlist.Playlist
 import com.hmp.domain.playlist.PlaylistItem
+import com.hmp.data.database.Playlist as PlaylistEntity
+import com.hmp.data.database.PlaylistItem as PlaylistItemEntity
 
 fun PlaylistEntity.toDomain(): Playlist = Playlist(
     id = id,
@@ -16,7 +16,7 @@ fun PlaylistEntity.toDomain(): Playlist = Playlist(
     description = description,
     songCount = songCount,
     totalDurationMs = totalDurationMs,
-    isPinned = isPinned
+    isPinned = isPinned,
 )
 
 fun Playlist.toEntity(): PlaylistEntity = PlaylistEntity(
@@ -30,13 +30,13 @@ fun Playlist.toEntity(): PlaylistEntity = PlaylistEntity(
     description = description,
     songCount = songCount,
     totalDurationMs = totalDurationMs,
-    isPinned = isPinned
+    isPinned = isPinned,
 )
 
 fun PlaylistItemEntity.toDomain(): PlaylistItem = PlaylistItem(
     songId = songId,
     playlistId = playlistId,
-    itemOrder = itemOrder
+    itemOrder = itemOrder,
 )
 
 /**

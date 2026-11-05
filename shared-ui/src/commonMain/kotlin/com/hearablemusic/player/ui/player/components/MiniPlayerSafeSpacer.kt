@@ -14,11 +14,11 @@ import com.hearablemusic.player.ui.common.design.metrics.HMPMetricTokens
  */
 @Composable
 fun MiniPlayerSafeSpacer(
-    height: Dp = HMPMetricTokens.Compact.row
+    height: Dp = HMPMetricTokens.Compact.row,
 ) {
     Spacer(
         modifier = Modifier
             .fillMaxWidth()
-            .height(height)
+            .height(height),
     )
 }

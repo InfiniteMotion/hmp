@@ -33,8 +33,7 @@ class PlaylistDaoTest {
         db.close()
     }
 
-    private fun music(id: Long, title: String = "Song$id", path: String = "/$id.mp3") =
-        Music(id = id, title = title, artist = "A", album = "B", duration = 100L, path = path, albumArtUri = "")
+    private fun music(id: Long, title: String = "Song$id", path: String = "/$id.mp3") = Music(id = id, title = title, artist = "A", album = "B", duration = 100L, path = path, albumArtUri = "")
 
     // ===== PlaylistDao =====
 
@@ -237,7 +236,7 @@ class PlaylistDaoTest {
             listOf(
                 music(1).copy(albumArtUri = "cover-1"),
                 music(2).copy(albumArtUri = "cover-2"),
-            )
+            ),
         )
 
         playlistItemDao.addSongAndRefresh(playlistId, 1, 1000L)

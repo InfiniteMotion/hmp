@@ -8,14 +8,17 @@ import kotlin.test.assertTrue
 
 class ApiDtosTest {
 
-    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+    private val json = Json {
+        ignoreUnknownKeys = true
+        encodeDefaults = true
+    }
 
     @Test
     fun openAiStyleRequest_serialization() {
         val request = OpenAiStyleRequest(
             model = "gpt-4o",
             messages = listOf(OpenAiMessage(role = "user", content = "Hello")),
-            temperature = 0.7f
+            temperature = 0.7f,
         )
         val jsonStr = json.encodeToString(OpenAiStyleRequest.serializer(), request)
         assertTrue(jsonStr.contains("gpt-4o"))

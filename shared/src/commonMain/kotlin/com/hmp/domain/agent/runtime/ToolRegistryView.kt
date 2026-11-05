@@ -20,14 +20,10 @@ class ToolRegistryView(
     private val allowedPrefixes: Set<String>,
 ) {
     /** 按前缀匹配判断工具是否可见 */
-    fun isToolVisible(toolName: String): Boolean {
-        return allowedPrefixes.any { prefix -> toolName.startsWith(prefix) }
-    }
+    fun isToolVisible(toolName: String): Boolean = allowedPrefixes.any { prefix -> toolName.startsWith(prefix) }
 
     /** 获取所有可见工具 */
-    fun allTools(): List<AgentTool> {
-        return delegate.all().filter { isToolVisible(it.name) }
-    }
+    fun allTools(): List<AgentTool> = delegate.all().filter { isToolVisible(it.name) }
 
     /** 按名称查找（仅当在白名单内返回） */
     fun find(name: String): AgentTool? {
@@ -48,7 +44,7 @@ class ToolRegistryView(
                 "library_",
                 "song_tag_",
                 "song_enrich_",
-            )
+            ),
         )
 
         /** Radio SubAgent 视图：playback_* + playlist_* + library_*（电台自循环 runLoop 拉歌单用） */
@@ -58,7 +54,7 @@ class ToolRegistryView(
                 "playback_",
                 "playlist_",
                 "library_",
-            )
+            ),
         )
 
         /** Master Agent 视图：全量工具（所有前缀） */
@@ -74,7 +70,7 @@ class ToolRegistryView(
                 // SubAgent 管理工具（Master 的 LLM 通过这些管理子 Agent）
                 "enrich_",
                 "radio_",
-            )
+            ),
         )
 
         /** 自定义前缀（扩展用） */

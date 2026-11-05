@@ -88,11 +88,14 @@ fun commonFormat(pattern: String, vararg args: Any?): String {
                 val raw = v.toString()
                 if (zeroPad && raw.length < width) "0".repeat(width - raw.length) + raw else raw
             }
+
             's' -> arg?.toString() ?: "null"
+
             'f' -> {
                 val v = (arg as? Number)?.toDouble() ?: 0.0
                 formatFixed(v, if (precision >= 0) precision else 0)
             }
+
             else -> "%$conv"
         }
         sb.append(text)

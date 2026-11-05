@@ -1,15 +1,13 @@
 package com.hmp.domain.agent.runtime.sub.hello
 
-import com.hmp.domain.agent.card.cardType
-
-import com.hmp.domain.agent.card.RecommendSource
-
 import com.hmp.data.database.HelloCardCache
 import com.hmp.data.database.HelloCardCacheDao
 import com.hmp.data.database.currentTimeMillis
 import com.hmp.data.util.millisUntilNextLocalMidnight
 import com.hmp.data.util.parseDateToMillis
 import com.hmp.data.util.todayDateString
+import com.hmp.domain.agent.card.RecommendSource
+import com.hmp.domain.agent.card.cardType
 
 /**
  * HelloSubAgent 记忆协调层。
@@ -46,7 +44,7 @@ internal class HelloMemory(
     /** App 启动时从 Room 恢复今日缓存 */
     suspend fun loadToday() {
         val today = todayDateString()
-        val d = dao ?: return  // 局部 val 确保 lambda 内 smart cast
+        val d = dao ?: return // 局部 val 确保 lambda 内 smart cast
         val startOfDay = startOfDayMillis()
         val entities = runCatching { d.getTodayAllEntities(startOfDay) }.getOrDefault(emptyList())
         todayCache = entities.fold(TodayCache()) { acc, e -> acc.mergeWith(e) }
@@ -124,13 +122,17 @@ internal class HelloMemory(
         // ── 卡片类型专属协调信息 ──
         when (cardType) {
             "RECOMMEND" -> buildRecommendContext(sb)
+
             "DISCOVER" -> buildDiscoverContext(sb)
+
             "FORGOTTEN" -> buildForgottenContext(sb)
+
             "ANNIVERSARY" -> {
                 if (isAnniversaryQueriedToday()) {
                     return "[跳过] 今日已查询过 ANNIVERSARY 事件，不需要重复查询。"
                 }
             }
+
             "GREETING" -> buildGreetingContext(sb)
         }
 
@@ -244,25 +246,32 @@ internal class HelloMemory(
                 recommendArtists = recommendArtists + artists,
                 recommendLabels = recommendLabels + labels,
             )
+
             // G6：两个推荐列表并入 recommend* 同桶（跨列表去重，避免次日/其他卡重复）
             RecommendSource.DAILY.cardType(),
-            RecommendSource.PRIVATE.cardType() -> copy(
+            RecommendSource.PRIVATE.cardType(),
+            -> copy(
                 recommendSongIds = recommendSongIds + songIds,
                 recommendArtists = recommendArtists + artists,
             )
+
             "GREETING" -> copy(
                 greetingTypes = greetingTypes + (e.greetingType?.let { listOf(it) } ?: emptyList()),
                 greetingMentionedArtists = greetingMentionedArtists + greetingArtists,
             )
+
             "DISCOVER" -> copy(discoverLabels = discoverLabels + discoverLbls)
+
             "FORGOTTEN" -> copy(
                 forgottenArtists = forgottenArtists + forgottenArt,
                 forgottenSongIds = forgottenSongIds + forgottenSongs,
             )
+
             "ANNIVERSARY" -> copy(
                 anniversaryQueried = true,
                 anniversaryArtist = e.anniversaryArtist ?: anniversaryArtist,
             )
+
             else -> this
         }
     }

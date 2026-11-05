@@ -2,6 +2,12 @@ package com.hearablemusic.player.ui.platform
 
 import com.hmp.data.util.MusicTagEditor
 import com.hmp.domain.music.EditableMusicTags
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
+import org.jetbrains.skia.EncodedImageFormat
+import org.jetbrains.skia.Image
 import java.awt.Desktop
 import java.awt.Toolkit
 import java.awt.datatransfer.StringSelection
@@ -9,12 +15,6 @@ import java.io.File
 import javax.swing.JFileChooser
 import javax.swing.SwingUtilities
 import javax.swing.filechooser.FileNameExtensionFilter
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.launch
-import org.jetbrains.skia.EncodedImageFormat
-import org.jetbrains.skia.Image
 
 /**
  * PlatformServices 的 Desktop 实现（契约见 commonMain PlatformServices.kt）。
@@ -177,7 +177,10 @@ class DesktopMusicTagEditServiceImpl : MusicTagEditService {
                 fileSelectionMode = JFileChooser.FILES_ONLY
                 fileFilter = FileNameExtensionFilter(
                     "Image Files (*.jpg, *.jpeg, *.png, *.webp)",
-                    "jpg", "jpeg", "png", "webp"
+                    "jpg",
+                    "jpeg",
+                    "png",
+                    "webp",
                 )
                 isMultiSelectionEnabled = false
             }

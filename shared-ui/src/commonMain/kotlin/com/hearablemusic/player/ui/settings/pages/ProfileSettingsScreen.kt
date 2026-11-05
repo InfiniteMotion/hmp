@@ -39,9 +39,11 @@ import androidx.navigation3.runtime.NavKey
 import coil3.compose.AsyncImage
 import com.hearablemusic.player.ui.common.components.Avatar
 import com.hearablemusic.player.ui.common.components.base.TitleWidget
+import com.hearablemusic.player.ui.common.design.metrics.LayoutConstraints
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
+import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
 import com.hearablemusic.player.ui.common.dialogs.controller.DialogManager
 import com.hearablemusic.player.ui.common.dialogs.viewmodel.DialogManagerViewModel
-import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
 import com.hearablemusic.player.ui.common.layout.LocalWindowSizeInfo
 import com.hearablemusic.player.ui.common.pages.base.SubScreen
 import com.hearablemusic.player.ui.common.util.activityViewModel
@@ -64,14 +66,12 @@ import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.getString
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
-import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
-import com.hearablemusic.player.ui.common.design.metrics.LayoutConstraints
 
 @Composable
 fun ProfileSettingsScreen(
     navController: NavBackStack<NavKey>,
     settingsViewModel: SettingsViewModel = activityViewModel(),
-    dialogManagerViewModel: DialogManagerViewModel = activityViewModel()
+    dialogManagerViewModel: DialogManagerViewModel = activityViewModel(),
 ) {
     val metrics = LocalHmpMetrics.current
     val dialogManager = dialogManagerViewModel.dialogManager
@@ -80,7 +80,7 @@ fun ProfileSettingsScreen(
 
     SubScreen(
         onBackClick = { navController.removeLastOrNull() },
-        title = stringResource(Res.string.profile_settings)
+        title = stringResource(Res.string.profile_settings),
     ) {
         val isLandscape = LocalWindowSizeInfo.current.isLandscape
         Column(
@@ -88,24 +88,24 @@ fun ProfileSettingsScreen(
                 .verticalScroll(rememberScrollState())
                 .fillMaxWidth()
                 .padding(metrics.section),
-            verticalArrangement = Arrangement.spacedBy(metrics.section)
+            verticalArrangement = Arrangement.spacedBy(metrics.section),
         ) {
             if (isLandscape) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(metrics.section)
+                    horizontalArrangement = Arrangement.spacedBy(metrics.section),
                 ) {
                     Box(Modifier.weight(1f)) {
                         UpdateAvatar(
                             avatarUri = avatarUri,
                             updateAvatar = settingsViewModel::saveAvatarUri,
-                            dialogManager = dialogManager
+                            dialogManager = dialogManager,
                         )
                     }
                     Box(Modifier.weight(1f)) {
                         UpdateUserName(
                             userName = userName,
-                            updateUserName = settingsViewModel::saveUserName
+                            updateUserName = settingsViewModel::saveUserName,
                         )
                     }
                 }
@@ -113,11 +113,11 @@ fun ProfileSettingsScreen(
                 UpdateAvatar(
                     avatarUri = avatarUri,
                     updateAvatar = settingsViewModel::saveAvatarUri,
-                    dialogManager = dialogManager
+                    dialogManager = dialogManager,
                 )
                 UpdateUserName(
                     userName = userName,
-                    updateUserName = settingsViewModel::saveUserName
+                    updateUserName = settingsViewModel::saveUserName,
                 )
             }
             MiniPlayerSafeSpacer(height = metrics.bar)
@@ -129,26 +129,26 @@ fun ProfileSettingsScreen(
 private fun UpdateAvatar(
     avatarUri: String,
     updateAvatar: (String) -> Unit,
-    dialogManager: DialogManager
-){
+    dialogManager: DialogManager,
+) {
     val metrics = LocalHmpMetrics.current
     val scope = rememberCoroutineScope()
     val platformServices: PlatformServices = koinInject()
     TitleWidget(
         title = stringResource(Res.string.avatar),
     ) {
-        Column (
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(metrics.cozy),
             verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             val uriImg = remember { mutableStateOf("") }
 
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
             ) {
                 Spacer(modifier = Modifier.height(metrics.cozy))
                 // 如果 uriImg 有值（用户刚选了新图），优先显示预览
@@ -163,7 +163,7 @@ private fun UpdateAvatar(
                     .fillMaxWidth()
                     .padding(metrics.cozy),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceEvenly
+                horizontalArrangement = Arrangement.SpaceEvenly,
             ) {
                 if (uriImg.value == "") {
                     Button(
@@ -173,7 +173,7 @@ private fun UpdateAvatar(
                             platformServices.filePicker.pickImage { path ->
                                 if (path != null) uriImg.value = path
                             }
-                        }
+                        },
                     ) {
                         Text(text = stringResource(Res.string.change_avatar), color = MaterialTheme.colorScheme.onPrimary)
                     }
@@ -183,14 +183,14 @@ private fun UpdateAvatar(
                         contentDescription = stringResource(Res.string.user_avatar_desc),
                         modifier = Modifier
                             .size(metrics.bar)
-                            .clip(RoundedCornerShape(metrics.base))
+                            .clip(RoundedCornerShape(metrics.base)),
                     )
                     Spacer(modifier = Modifier.width(metrics.block))
                     Button(
                         onClick = {
                             updateAvatar(uriImg.value)
                             scope.launch { dialogManager.showMessage(getString(Res.string.avatar_changed)) }
-                        }
+                        },
                     ) {
                         Text(text = stringResource(Res.string.change), color = MaterialTheme.colorScheme.onPrimary)
                     }
@@ -198,7 +198,7 @@ private fun UpdateAvatar(
                         onClick = {
                             uriImg.value = ""
                             scope.launch { dialogManager.showMessage(getString(Res.string.avatar_change_cancelled)) }
-                        }
+                        },
                     ) {
                         Text(text = stringResource(Res.string.cancel), color = MaterialTheme.colorScheme.onPrimary)
                     }
@@ -212,29 +212,29 @@ private fun UpdateAvatar(
 private fun UpdateUserName(
     userName: String?,
     updateUserName: (String) -> Unit,
-){
+) {
     val metrics = LocalHmpMetrics.current
     val typo = LocalHmpTypo.current
     TitleWidget(
         title = stringResource(Res.string.user_name),
     ) {
-        Column (
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(metrics.cozy),
             verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             var name by rememberSaveable { mutableStateOf("") }
             Text(
-                text = userName?:stringResource(Res.string.user_name),
+                text = userName ?: stringResource(Res.string.user_name),
                 style = typo.displayL,
                 modifier = Modifier.padding(metrics.cozy),
-                color = MaterialTheme.colorScheme.onBackground
+                color = MaterialTheme.colorScheme.onBackground,
             )
             Row(
                 modifier = Modifier.fillMaxWidth(),
-            ){
+            ) {
                 TextField(
                     value = name,
                     onValueChange = {
@@ -243,17 +243,17 @@ private fun UpdateUserName(
                     label = { Text(stringResource(Res.string.enter_new_user_name)) },
                     keyboardOptions = KeyboardOptions(
                         keyboardType = KeyboardType.Text,
-                        imeAction = ImeAction.Default
+                        imeAction = ImeAction.Default,
                     ),
                     singleLine = true,
                     colors = TextFieldDefaults.colors(
                         focusedIndicatorColor = Transparent, // 聚焦时下划线颜色
                         unfocusedIndicatorColor = Transparent, // 未聚焦时下划线颜色
-                        disabledIndicatorColor = Transparent // 禁用时下划线颜色
+                        disabledIndicatorColor = Transparent, // 禁用时下划线颜色
                     ),
                     shape = RoundedCornerShape(metrics.section),
                     modifier = Modifier.width(LayoutConstraints.PanelHeight)
-                        .padding(vertical = metrics.cozy)
+                        .padding(vertical = metrics.cozy),
                 )
             }
 
@@ -263,7 +263,7 @@ private fun UpdateUserName(
                 modifier = Modifier.width(metrics.card),
                 onClick = {
                     updateUserName(name)
-                }
+                },
             ) {
                 Text(text = stringResource(Res.string.change_user_name), color = MaterialTheme.colorScheme.onPrimary)
             }

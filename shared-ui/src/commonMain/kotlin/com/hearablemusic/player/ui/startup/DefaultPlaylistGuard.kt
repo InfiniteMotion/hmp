@@ -30,24 +30,23 @@ class DefaultPlaylistGuard(
      * 若交错，会各建一条同名歌单行，DataStore 只留住最后写入的那个 id，另一条成孤儿。
      * 锁是**进程级**的（companion），因为各调用方各自 new 一个 Guard，实例锁不起作用。
      */
-    suspend fun ensureAll(currentName: String, likedName: String, recentName: String) =
-        GUARD_LOCK.withLock {
-            ensure(
-                displayName = currentName,
-                getId = { settingsRepository.getCurrentPlaylistId() },
-                saveId = { settingsRepository.saveCurrentPlaylistId(it) },
-            )
-            ensure(
-                displayName = likedName,
-                getId = { settingsRepository.getLikedPlaylistId() },
-                saveId = { settingsRepository.saveLikedPlaylistId(it) },
-            )
-            ensure(
-                displayName = recentName,
-                getId = { settingsRepository.getRecentPlaylistId() },
-                saveId = { settingsRepository.saveRecentPlaylistId(it) },
-            )
-        }
+    suspend fun ensureAll(currentName: String, likedName: String, recentName: String) = GUARD_LOCK.withLock {
+        ensure(
+            displayName = currentName,
+            getId = { settingsRepository.getCurrentPlaylistId() },
+            saveId = { settingsRepository.saveCurrentPlaylistId(it) },
+        )
+        ensure(
+            displayName = likedName,
+            getId = { settingsRepository.getLikedPlaylistId() },
+            saveId = { settingsRepository.saveLikedPlaylistId(it) },
+        )
+        ensure(
+            displayName = recentName,
+            getId = { settingsRepository.getRecentPlaylistId() },
+            saveId = { settingsRepository.saveRecentPlaylistId(it) },
+        )
+    }
 
     private companion object {
         val GUARD_LOCK = Mutex()

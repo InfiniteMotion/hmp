@@ -1,5 +1,6 @@
 package com.hmp.data.di
 
+import com.hmp.data.database.RoomTransactionRunner
 import com.hmp.data.database.TokenLedgerDao
 import com.hmp.data.database.currentTimeMillis
 import com.hmp.data.network.OpenAiCompatibleAdapter
@@ -16,34 +17,33 @@ import com.hmp.domain.agent.port.TimeProvider
 import com.hmp.domain.agent.quota.TokenQuotaGate
 import com.hmp.domain.agent.runtime.MasterAgent
 import com.hmp.domain.agent.runtime.TokenMeter
-import com.hmp.domain.setting.SettingsRepository
-import com.hmp.log.HmpLog
-import com.hmp.log.LogTag
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.launch
+import com.hmp.domain.backup.TransactionRunner
+import com.hmp.domain.backup.usecase.DeleteBackupUseCase
+import com.hmp.domain.backup.usecase.ExportUserDataBackupUseCase
+import com.hmp.domain.backup.usecase.GetBackupsUseCase
+import com.hmp.domain.backup.usecase.ImportUserDataBackupUseCase
+import com.hmp.domain.music.usecase.EditMusicTagsUseCase
 import com.hmp.domain.music.usecase.GetAllMusicUseCase
 import com.hmp.domain.music.usecase.GetDailyMusicRecommendationUseCase
 import com.hmp.domain.music.usecase.GetDeletedMusicIdsGroupedByFolderUseCase
 import com.hmp.domain.music.usecase.LoadMusicFromDeviceUseCase
-import com.hmp.domain.music.usecase.EditMusicTagsUseCase
 import com.hmp.domain.music.usecase.MusicLabelUseCase
 import com.hmp.domain.music.usecase.RemoveFromLibraryUseCase
 import com.hmp.domain.music.usecase.RestoreToLibraryUseCase
 import com.hmp.domain.music.usecase.SearchMusicUseCase
 import com.hmp.domain.music.usecase.SyncMusicFromDeviceIncrementalUseCase
 import com.hmp.domain.playlist.usecase.ManagePlaylistUseCase
+import com.hmp.domain.setting.SettingsRepository
 import com.hmp.domain.setting.usecase.CurrentPlaybackUseCase
 import com.hmp.domain.setting.usecase.GetUserUsageDataUseCase
 import com.hmp.domain.setting.usecase.LyricsSettingsUseCase
 import com.hmp.domain.setting.usecase.PlaybackHistoryUseCase
 import com.hmp.domain.setting.usecase.TimerUseCase
 import com.hmp.domain.setting.usecase.UserSettingsUseCase
-import com.hmp.domain.backup.usecase.DeleteBackupUseCase
-import com.hmp.data.database.RoomTransactionRunner
-import com.hmp.domain.backup.TransactionRunner
-import com.hmp.domain.backup.usecase.ExportUserDataBackupUseCase
-import com.hmp.domain.backup.usecase.GetBackupsUseCase
-import com.hmp.domain.backup.usecase.ImportUserDataBackupUseCase
+import com.hmp.log.HmpLog
+import com.hmp.log.LogTag
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.launch
 import org.koin.core.module.dsl.singleOf
 import org.koin.core.qualifier.named
 import org.koin.dsl.module
@@ -212,7 +212,7 @@ val sharedModule = module {
     }
 
     // 一-2 / D2-03 前置端口：UI 只发「库变了」这一个命令，依赖接口而不是 MasterAgent 具体类
-    //（挂住具体类会让 LibraryViewModel 在测试里构造不出来）
+    // （挂住具体类会让 LibraryViewModel 在测试里构造不出来）
     single<LibraryMutatedNotifier> { get<MasterAgent>() }
 
     // Use Cases

@@ -63,10 +63,11 @@ fun ProductJourneyPage(onBack: () -> Unit) {
         // 区块1: 架构演进
         ComponentShowcase(
             title = if (lang == AppLanguage.ZH) "架构演进" else "Architecture Evolution",
-            description = if (lang == AppLanguage.ZH)
+            description = if (lang == AppLanguage.ZH) {
                 "从单体到模块化再到跨平台，三次架构变迁的时间线"
-            else
-                "Timeline of three architectural shifts: monolith -> modular -> cross-platform",
+            } else {
+                "Timeline of three architectural shifts: monolith -> modular -> cross-platform"
+            },
         ) {
             ArchitectureEvolutionSection(lang)
         }
@@ -74,10 +75,11 @@ fun ProductJourneyPage(onBack: () -> Unit) {
         // 区块2: 重大技术决策
         ComponentShowcase(
             title = if (lang == AppLanguage.ZH) "重大技术决策" else "Major Technical Decisions",
-            description = if (lang == AppLanguage.ZH)
+            description = if (lang == AppLanguage.ZH) {
                 "6 个关键决策及其背后的原因"
-            else
-                "6 key decisions and the reasoning behind them",
+            } else {
+                "6 key decisions and the reasoning behind them"
+            },
         ) {
             MajorDecisionsSection(lang)
         }
@@ -85,10 +87,11 @@ fun ProductJourneyPage(onBack: () -> Unit) {
         // 区块3: KMP 跨平台迁移
         ComponentShowcase(
             title = if (lang == AppLanguage.ZH) "KMP 跨平台迁移" else "KMP Cross-Platform Migration",
-            description = if (lang == AppLanguage.ZH)
+            description = if (lang == AppLanguage.ZH) {
                 "7 个阶段的实施过程，从 Monorepo 骨架到 iOS 端基础"
-            else
-                "7-phase implementation from Monorepo scaffold to iOS foundation",
+            } else {
+                "7-phase implementation from Monorepo scaffold to iOS foundation"
+            },
         ) {
             KmpMigrationSection(lang)
         }
@@ -96,10 +99,11 @@ fun ProductJourneyPage(onBack: () -> Unit) {
         // 区块4: 关键数字
         ComponentShowcase(
             title = if (lang == AppLanguage.ZH) "关键数字" else "Key Numbers",
-            description = if (lang == AppLanguage.ZH)
+            description = if (lang == AppLanguage.ZH) {
                 "v5.10 KMP 跨平台重构的量化成果"
-            else
-                "Quantified results of the v5.10 KMP cross-platform refactoring",
+            } else {
+                "Quantified results of the v5.10 KMP cross-platform refactoring"
+            },
         ) {
             KeyNumbersSection(lang)
         }
@@ -107,10 +111,11 @@ fun ProductJourneyPage(onBack: () -> Unit) {
         // 区块5: 未来规划
         ComponentShowcase(
             title = if (lang == AppLanguage.ZH) "未来规划" else "Future Roadmap",
-            description = if (lang == AppLanguage.ZH)
+            description = if (lang == AppLanguage.ZH) {
                 "短期、中期、长期三阶段规划"
-            else
-                "Short-term, mid-term, and long-term roadmap",
+            } else {
+                "Short-term, mid-term, and long-term roadmap"
+            },
         ) {
             FutureRoadmapSection(lang)
         }
@@ -576,8 +581,12 @@ private fun KeyNumbersSection(lang: AppLanguage) {
     }
 
     val colors = listOf(
-        HDBlue, Color(0xFF4CAF50), Color(0xFF2196F3),
-        Color(0xFF9C27B0), Color(0xFFFF9800), HDRed,
+        HDBlue,
+        Color(0xFF4CAF50),
+        Color(0xFF2196F3),
+        Color(0xFF9C27B0),
+        Color(0xFFFF9800),
+        HDRed,
     )
 
     // 3x2 grid

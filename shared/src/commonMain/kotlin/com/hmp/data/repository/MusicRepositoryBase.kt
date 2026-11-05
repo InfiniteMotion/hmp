@@ -1,10 +1,6 @@
 package com.hmp.data.repository
 
 import com.hmp.data.database.AgentAuditLog
-import com.hmp.data.util.CoverArtStore
-import com.hmp.data.util.CoverArtWriter
-import com.hmp.data.util.UNKNOWN_FOLDER
-import com.hmp.data.util.parentPathOf
 import com.hmp.data.database.AgentAuditLogDao
 import com.hmp.data.database.ListeningDuration
 import com.hmp.data.database.ListeningDurationDao
@@ -14,36 +10,37 @@ import com.hmp.data.database.MusicDao
 import com.hmp.data.database.MusicExtra
 import com.hmp.data.database.MusicExtraDao
 import com.hmp.data.database.MusicLabelDao
-import com.hmp.domain.agent.profile.BehaviorModeler
-import com.hmp.domain.agent.profile.BehaviorSnapshot
-import com.hmp.domain.agent.profile.LibraryContentSnapshot
-import com.hmp.domain.agent.profile.LibraryStateSnapshot
 import com.hmp.data.database.PlaybackHistoryDao
 import com.hmp.data.database.PlaylistDao
 import com.hmp.data.database.PlaylistItemDao
 import com.hmp.data.database.UserInfo
 import com.hmp.data.database.UserInfoDao
 import com.hmp.data.database.currentTimeMillis
-import com.hmp.domain.music.MusicSortKey
-import com.hmp.domain.music.SortDirection
-import com.hmp.data.database.myenum.LabelCategory as DataLabelCategory
-import com.hmp.data.database.myenum.LabelName as DataLabelName
 import com.hmp.data.mapper.toDomain
 import com.hmp.data.mapper.toEntity
 import com.hmp.data.network.AiApiResult
 import com.hmp.data.network.OpenAiCompatibleAdapter
 import com.hmp.data.network.dto.MusicInfoResponse
+import com.hmp.data.util.CoverArtStore
+import com.hmp.data.util.CoverArtWriter
 import com.hmp.data.util.MusicTagEditor
-import com.hmp.data.util.parseDateToMillis
+import com.hmp.data.util.UNKNOWN_FOLDER
 import com.hmp.data.util.formatMmddFromMillis
-import com.hmp.data.util.stringToPinyinSortKey
-import com.hmp.data.util.localDayRange
 import com.hmp.data.util.localDateString
+import com.hmp.data.util.localDayRange
 import com.hmp.data.util.localHourOfDay
+import com.hmp.data.util.parentPathOf
+import com.hmp.data.util.parseDateToMillis
+import com.hmp.data.util.stringToPinyinSortKey
 import com.hmp.data.util.todayDateString
+import com.hmp.domain.agent.card.daysToCutoffMs
 import com.hmp.domain.agent.enrich.EnrichBatchResult
 import com.hmp.domain.agent.enrich.EnrichHealth
 import com.hmp.domain.agent.enrich.EnrichWorkUnit
+import com.hmp.domain.agent.profile.BehaviorModeler
+import com.hmp.domain.agent.profile.BehaviorSnapshot
+import com.hmp.domain.agent.profile.LibraryContentSnapshot
+import com.hmp.domain.agent.profile.LibraryStateSnapshot
 import com.hmp.domain.backup.ListeningStatsSnapshot
 import com.hmp.domain.backup.MusicExtraUserSnapshot
 import com.hmp.domain.backup.MusicLabelSnapshot
@@ -55,23 +52,25 @@ import com.hmp.domain.enum.LabelName
 import com.hmp.domain.music.EditableMusicTags
 import com.hmp.domain.music.HourlyDistributionRow
 import com.hmp.domain.music.MusicDurationRow
-import com.hmp.domain.music.MusicInfo
-import com.hmp.domain.music.PlaylistAnniversaryRow
-import com.hmp.domain.music.MusicLabel
 import com.hmp.domain.music.MusicExtraTexts
+import com.hmp.domain.music.MusicInfo
+import com.hmp.domain.music.MusicLabel
 import com.hmp.domain.music.MusicRepository
+import com.hmp.domain.music.MusicSortKey
+import com.hmp.domain.music.PlaylistAnniversaryRow
+import com.hmp.domain.music.SortDirection
 import com.hmp.domain.setting.model.AiEndpointConfig
 import com.hmp.domain.setting.model.ArtistCountEntry
 import com.hmp.domain.setting.model.LabelCountEntry
-import com.hmp.domain.setting.model.ListeningDuration as ListeningDurationDomain
 import com.hmp.domain.setting.model.PlaybackHistory
 import com.hmp.domain.setting.model.RecentPlaybackEntry
 import com.hmp.domain.setting.model.TopPlayedEntry
 import com.hmp.domain.setting.model.UserUsageAnalytics
 import com.hmp.domain.setting.model.WindowedUsageAnalytics
-import com.hmp.domain.agent.card.daysToCutoffMs
-import kotlinx.coroutines.Dispatchers
+import com.hmp.log.HmpLog
+import com.hmp.log.LogTag
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -80,8 +79,9 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
-import com.hmp.log.HmpLog
-import com.hmp.log.LogTag
+import com.hmp.data.database.myenum.LabelCategory as DataLabelCategory
+import com.hmp.data.database.myenum.LabelName as DataLabelName
+import com.hmp.domain.setting.model.ListeningDuration as ListeningDurationDomain
 
 /**
  * MusicRepository 三端共享基类（设计总纲 B0 去重）。
@@ -143,31 +143,40 @@ abstract class MusicRepositoryBase(
         val comparator: Comparator<MusicInfo> = when (key) {
             MusicSortKey.TITLE ->
                 compareBy<MusicInfo>({ stringToPinyinSortKey(it.music.title) }, { it.music.title }).oriented(desc)
+
             MusicSortKey.ARTIST ->
                 compareBy<MusicInfo>({ stringToPinyinSortKey(it.music.artist) }, { it.music.artist }).oriented(desc)
+
             MusicSortKey.ALBUM ->
                 compareBy<MusicInfo>({ stringToPinyinSortKey(it.music.album) }, { it.music.album }).oriented(desc)
+
             MusicSortKey.DURATION ->
                 compareBy<MusicInfo> { it.music.duration }.oriented(desc)
+
             MusicSortKey.FILE_SIZE ->
                 compareBy<MusicInfo> { it.extra?.fileSize ?: 0L }.oriented(desc)
+
             MusicSortKey.PLAY_COUNT ->
                 compareBy<MusicInfo> { it.userInfo?.playCount ?: 0 }.thenBy { it.music.id }.oriented(desc)
+
             MusicSortKey.DATE ->
                 compareBy<MusicInfo> { it.extra?.date == null }
                     .then(
-                        if (desc) compareByDescending { it.extra?.date ?: 0L }
-                        else compareBy { it.extra?.date ?: 0L }
+                        if (desc) {
+                            compareByDescending { it.extra?.date ?: 0L }
+                        } else {
+                            compareBy { it.extra?.date ?: 0L }
+                        },
                     )
                     .thenBy { it.music.id }
+
             MusicSortKey.ID -> compareBy<MusicInfo> { it.music.id }.oriented(desc)
         }
         return list.sortedWith(comparator)
     }
 
     /** 降序就是把比较器整个反过来；收成一个助手，免得八个分支各写一遍 `reversed()`。 */
-    private fun <T : Any> Comparator<T>.oriented(descending: Boolean): Comparator<T> =
-        if (descending) reversed() else this
+    private fun <T : Any> Comparator<T>.oriented(descending: Boolean): Comparator<T> = if (descending) reversed() else this
 
     // endregion
 
@@ -284,8 +293,7 @@ abstract class MusicRepositoryBase(
 
     // region Query
 
-    override suspend fun getRandomMusicInfoWithMissingExtra(): MusicInfo? =
-        musicAllDao.getRandomMusicInfoWithMissingExtra()?.toDomain()
+    override suspend fun getRandomMusicInfoWithMissingExtra(): MusicInfo? = musicAllDao.getRandomMusicInfoWithMissingExtra()?.toDomain()
 
     override fun getMusicCount(): Flow<Int> = musicDao.getMusicCount()
 
@@ -293,20 +301,19 @@ abstract class MusicRepositoryBase(
 
     override fun getMusicWithMissingExtraCount(): Flow<Int> = musicAllDao.getMusicWithMissingExtraCount()
 
-    override fun getMusicInfoById(musicId: Long): Flow<MusicInfo?> =
-        musicAllDao.getMusicInfoById(musicId).map { it?.toDomain() }
+    override fun getMusicInfoById(musicId: Long): Flow<MusicInfo?> = musicAllDao.getMusicInfoById(musicId).map { it?.toDomain() }
 
     override suspend fun getMusicListByArtist(artistName: String): List<MusicInfo> {
         val list = musicAllDao.getMusicInfoByArtist(artistName).map { it.toDomain() }
         return list.sortedWith(
-            compareBy<MusicInfo> { stringToPinyinSortKey(it.music.title) }.thenBy { it.music.title }
+            compareBy<MusicInfo> { stringToPinyinSortKey(it.music.title) }.thenBy { it.music.title },
         )
     }
 
     override suspend fun getMusicListByAlbum(albumName: String): List<MusicInfo> {
         val list = musicAllDao.getMusicInfoByAlbum(albumName).map { it.toDomain() }
         return list.sortedWith(
-            compareBy<MusicInfo> { stringToPinyinSortKey(it.music.title) }.thenBy { it.music.title }
+            compareBy<MusicInfo> { stringToPinyinSortKey(it.music.title) }.thenBy { it.music.title },
         )
     }
 
@@ -315,14 +322,11 @@ abstract class MusicRepositoryBase(
      *
      * 并列破序改成按名字，见 DAO 上那段注释 —— 这是本条唯一一处对外可见的顺序变化。
      */
-    override suspend fun getAllArtistsSummary(limit: Int): List<Pair<String, Int>> =
-        musicAllDao.getTopArtistSummary(limit).map { it.name to it.count }
+    override suspend fun getAllArtistsSummary(limit: Int): List<Pair<String, Int>> = musicAllDao.getTopArtistSummary(limit).map { it.name to it.count }
 
-    override suspend fun getAllAlbumsSummary(limit: Int): List<Pair<String, Int>> =
-        musicAllDao.getTopAlbumSummary(limit).map { it.name to it.count }
+    override suspend fun getAllAlbumsSummary(limit: Int): List<Pair<String, Int>> = musicAllDao.getTopAlbumSummary(limit).map { it.name to it.count }
 
-    override suspend fun searchMusic(query: String): List<MusicInfo> =
-        musicAllDao.searchMusic(query.toLikeContainsPattern()).map { it.toDomain() }
+    override suspend fun searchMusic(query: String): List<MusicInfo> = musicAllDao.searchMusic(query.toLikeContainsPattern()).map { it.toDomain() }
 
     /**
      * 「已隐藏文件夹」的分组（D2-13）：三端原先各写一份，Desktop 那份在 Windows 上切不出父目录。
@@ -330,11 +334,10 @@ abstract class MusicRepositoryBase(
      * 分组口径只在这里有一份，平台只声明**本端路径用哪些分隔符**（[pathSeparators]）——
      * 分隔符是参数不是写死的 `/`，所以这条能在任意操作系统上用反斜杠路径验。
      */
-    override suspend fun getDeletedMusicIdsGroupedByFolder(): List<Pair<String, List<Long>>> =
-        musicDao.getRemovedMusicIdAndPath()
-            .groupBy { (_, path) -> parentPathOf(path, pathSeparators) ?: UNKNOWN_FOLDER }
-            .map { (folder, entries) -> folder to entries.map { it.id } }
-            .sortedByDescending { it.second.size }
+    override suspend fun getDeletedMusicIdsGroupedByFolder(): List<Pair<String, List<Long>>> = musicDao.getRemovedMusicIdAndPath()
+        .groupBy { (_, path) -> parentPathOf(path, pathSeparators) ?: UNKNOWN_FOLDER }
+        .map { (folder, entries) -> folder to entries.map { it.id } }
+        .sortedByDescending { it.second.size }
 
     /** 本端路径的分隔符集合；POSIX 是 `/`，Desktop 在 Windows 上还要认 `\`（D2-13）。 */
     protected open val pathSeparators: String = "/"
@@ -407,8 +410,8 @@ abstract class MusicRepositoryBase(
                 source = SOURCE_LLM,
                 confidence = existing?.confidence ?: DEFAULT_MODEL_CONFIDENCE,
                 createdAt = existing?.createdAt ?: now,
-                updatedAt = now
-            )
+                updatedAt = now,
+            ),
         )
         if (existing != null) {
             // 主数据先落库、审计后留痕：insert 失败时不再产生孤儿留痕（review 2026-08-28）
@@ -427,8 +430,8 @@ abstract class MusicRepositoryBase(
                 source = SOURCE_USER,
                 confidence = confidence,
                 createdAt = existing?.createdAt ?: now,
-                updatedAt = now
-            )
+                updatedAt = now,
+            ),
         )
         if (existing != null) {
             // 主数据先落库、审计后留痕：insert 失败时不再产生孤儿留痕（review 2026-08-28）
@@ -436,10 +439,9 @@ abstract class MusicRepositoryBase(
         }
     }
 
-    private suspend fun findExistingLabel(label: MusicLabel): com.hmp.data.database.MusicLabel? =
-        musicLabelDao.getLabelsById(label.musicId).firstOrNull {
-            it.type.name == label.type.name && it.label.name == label.label.name
-        }
+    private suspend fun findExistingLabel(label: MusicLabel): com.hmp.data.database.MusicLabel? = musicLabelDao.getLabelsById(label.musicId).firstOrNull {
+        it.type.name == label.type.name && it.label.name == label.label.name
+    }
 
     /** 规则③留痕：被覆盖的旧认识写入 agent_audit_log（label_correction），快照放 reason（args_hash 待 M4 审计体系接入）。 */
     private suspend fun recordLabelSuperseded(
@@ -456,7 +458,7 @@ abstract class MusicRepositoryBase(
                 outcome = "superseded",
                 reason = "$reason；旧认识快照：$snapshot",
                 createdAt = currentTimeMillis(),
-            )
+            ),
         )
     }
 
@@ -486,12 +488,10 @@ abstract class MusicRepositoryBase(
         return musicLabelDao.getMusicIdListByType(dataLabel, limit)
     }
 
-    override suspend fun getMusicLabels(musicId: Long): List<MusicLabel> =
-        musicLabelDao.getLabelsById(musicId).map { it.toDomain() }
+    override suspend fun getMusicLabels(musicId: Long): List<MusicLabel> = musicLabelDao.getLabelsById(musicId).map { it.toDomain() }
 
-    override suspend fun getAllMusicLabels(): Map<Long, List<MusicLabel>> =
-        musicLabelDao.getAllLabels()
-            .groupBy({ it.musicId }, { it.toDomain() })
+    override suspend fun getAllMusicLabels(): Map<Long, List<MusicLabel>> = musicLabelDao.getAllLabels()
+        .groupBy({ it.musicId }, { it.toDomain() })
 
     override suspend fun removeUserMusicLabel(musicId: Long, label: LabelName) {
         val dataLabel = try {
@@ -503,61 +503,59 @@ abstract class MusicRepositoryBase(
     }
 
     /** 编辑单曲标签（ID3 元数据）：文件写入委托平台 [MusicTagEditor]（expect/actual），本地曲库记录同步在此。 */
-    override suspend fun updateMusicTags(musicId: Long, tags: EditableMusicTags): Result<Unit> =
-        withContext(Dispatchers.Default) {
-            try {
-                val music = musicDao.getMusicById(musicId).firstOrNull()
-                    ?: return@withContext Result.failure(
-                        IllegalArgumentException("Music not found: $musicId")
-                    )
-                MusicTagEditor.writeTags(music.path, tags).fold(
-                    onSuccess = {
-                        val newTitle = tags.title?.takeIf { it.isNotBlank() } ?: music.title
-                        val newArtist = tags.artist?.takeIf { it.isNotBlank() } ?: music.artist
-                        val newAlbum = tags.album?.takeIf { it.isNotBlank() } ?: music.album
-                        musicDao.updateMusicTags(musicId, newTitle, newArtist, newAlbum)
-                        tags.lyrics?.takeIf { it.isNotBlank() }?.let { newLyrics ->
-                            val existing = musicExtraDao.getExtraFieldsById(musicId)
-                            musicExtraDao.insert(
-                                (existing ?: MusicExtra(id = musicId, isGetExtraInfo = false))
-                                    .copy(lyrics = newLyrics)
-                            )
-                        }
-                        applyCoverArtIfPresent(musicId, tags)
-                        Result.success(Unit)
-                    },
-                    onFailure = { Result.failure(it) }
+    override suspend fun updateMusicTags(musicId: Long, tags: EditableMusicTags): Result<Unit> = withContext(Dispatchers.Default) {
+        try {
+            val music = musicDao.getMusicById(musicId).firstOrNull()
+                ?: return@withContext Result.failure(
+                    IllegalArgumentException("Music not found: $musicId"),
                 )
-            } catch (e: Exception) {
-                Result.failure(e)
-            }
+            MusicTagEditor.writeTags(music.path, tags).fold(
+                onSuccess = {
+                    val newTitle = tags.title?.takeIf { it.isNotBlank() } ?: music.title
+                    val newArtist = tags.artist?.takeIf { it.isNotBlank() } ?: music.artist
+                    val newAlbum = tags.album?.takeIf { it.isNotBlank() } ?: music.album
+                    musicDao.updateMusicTags(musicId, newTitle, newArtist, newAlbum)
+                    tags.lyrics?.takeIf { it.isNotBlank() }?.let { newLyrics ->
+                        val existing = musicExtraDao.getExtraFieldsById(musicId)
+                        musicExtraDao.insert(
+                            (existing ?: MusicExtra(id = musicId, isGetExtraInfo = false))
+                                .copy(lyrics = newLyrics),
+                        )
+                    }
+                    applyCoverArtIfPresent(musicId, tags)
+                    Result.success(Unit)
+                },
+                onFailure = { Result.failure(it) },
+            )
+        } catch (e: Exception) {
+            Result.failure(e)
         }
+    }
 
     /** 标签文件已由调用方写入（如 Android SAF 授权），仅同步本地曲库记录。 */
-    override suspend fun refreshMusicTags(musicId: Long, tags: EditableMusicTags): Result<Unit> =
-        withContext(Dispatchers.Default) {
-            try {
-                val music = musicDao.getMusicById(musicId).firstOrNull()
-                    ?: return@withContext Result.failure(
-                        IllegalArgumentException("Music not found: $musicId")
-                    )
-                val newTitle = tags.title?.takeIf { it.isNotBlank() } ?: music.title
-                val newArtist = tags.artist?.takeIf { it.isNotBlank() } ?: music.artist
-                val newAlbum = tags.album?.takeIf { it.isNotBlank() } ?: music.album
-                musicDao.updateMusicTags(musicId, newTitle, newArtist, newAlbum)
-                tags.lyrics?.takeIf { it.isNotBlank() }?.let { newLyrics ->
-                    val existing = musicExtraDao.getExtraFieldsById(musicId)
-                    musicExtraDao.insert(
-                        (existing ?: MusicExtra(id = musicId, isGetExtraInfo = false))
-                            .copy(lyrics = newLyrics)
-                    )
-                }
-                applyCoverArtIfPresent(musicId, tags)
-                Result.success(Unit)
-            } catch (e: Exception) {
-                Result.failure(e)
+    override suspend fun refreshMusicTags(musicId: Long, tags: EditableMusicTags): Result<Unit> = withContext(Dispatchers.Default) {
+        try {
+            val music = musicDao.getMusicById(musicId).firstOrNull()
+                ?: return@withContext Result.failure(
+                    IllegalArgumentException("Music not found: $musicId"),
+                )
+            val newTitle = tags.title?.takeIf { it.isNotBlank() } ?: music.title
+            val newArtist = tags.artist?.takeIf { it.isNotBlank() } ?: music.artist
+            val newAlbum = tags.album?.takeIf { it.isNotBlank() } ?: music.album
+            musicDao.updateMusicTags(musicId, newTitle, newArtist, newAlbum)
+            tags.lyrics?.takeIf { it.isNotBlank() }?.let { newLyrics ->
+                val existing = musicExtraDao.getExtraFieldsById(musicId)
+                musicExtraDao.insert(
+                    (existing ?: MusicExtra(id = musicId, isGetExtraInfo = false))
+                        .copy(lyrics = newLyrics),
+                )
             }
+            applyCoverArtIfPresent(musicId, tags)
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
         }
+    }
 
     /**
      * 随标签一起提交的新封面要落盘并把 `music.albumArtUri` 指过去（D2-17）。
@@ -596,22 +594,18 @@ abstract class MusicRepositoryBase(
             singerIntroduce = texts.singerIntroduce,
             backgroundIntroduce = texts.backgroundIntroduce,
             description = texts.description,
-            relevantMusic = texts.relevantMusic
+            relevantMusic = texts.relevantMusic,
         )
     }
 
-    override suspend fun validateProviderApiKey(config: AiEndpointConfig): Result<Boolean> {
-        return when (val result = openAiCompatibleAdapter.testConnection(config)) {
-            is AiApiResult.Success -> Result.success(true)
-            is AiApiResult.Error -> Result.failure(Exception(result.error.toDisplayMessage()))
-        }
+    override suspend fun validateProviderApiKey(config: AiEndpointConfig): Result<Boolean> = when (val result = openAiCompatibleAdapter.testConnection(config)) {
+        is AiApiResult.Success -> Result.success(true)
+        is AiApiResult.Error -> Result.failure(Exception(result.error.toDisplayMessage()))
     }
 
-    override suspend fun fetchAvailableModels(config: AiEndpointConfig): Result<List<String>> {
-        return when (val result = openAiCompatibleAdapter.fetchModels(config)) {
-            is AiApiResult.Success -> Result.success(result.data)
-            is AiApiResult.Error -> Result.failure(Exception(result.error.toDisplayMessage()))
-        }
+    override suspend fun fetchAvailableModels(config: AiEndpointConfig): Result<List<String>> = when (val result = openAiCompatibleAdapter.fetchModels(config)) {
+        is AiApiResult.Success -> Result.success(result.data)
+        is AiApiResult.Error -> Result.failure(Exception(result.error.toDisplayMessage()))
     }
 
     // endregion
@@ -634,7 +628,7 @@ abstract class MusicRepositoryBase(
         LabelCategory.MOOD to 4,
         LabelCategory.SCENARIO to 2,
         LabelCategory.LANGUAGE to 1,
-        LabelCategory.ERA to 1
+        LabelCategory.ERA to 1,
     )
 
     /** 默认权重的 Double 版（避免每次相似度计算都做一次 map 转换）。 */
@@ -644,7 +638,7 @@ abstract class MusicRepositoryBase(
     private fun calcSimilarity(
         baseLabels: List<MusicLabel>,
         targetLabels: List<MusicLabel>,
-        weights: Map<LabelCategory, Double>? = null
+        weights: Map<LabelCategory, Double>? = null,
     ): Double {
         val effective = weights ?: defaultSimilarityWeights
         var score = 0.0
@@ -673,7 +667,7 @@ abstract class MusicRepositoryBase(
     override suspend fun getSimilarSongsByWeightedLabels(
         musicId: Long,
         limit: Int,
-        weights: Map<com.hmp.domain.enum.LabelCategory, Double>?
+        weights: Map<com.hmp.domain.enum.LabelCategory, Double>?,
     ): List<MusicInfo> {
         val baseLabels = getMusicLabels(musicId)
         if (baseLabels.isEmpty()) return emptyList()
@@ -701,8 +695,7 @@ abstract class MusicRepositoryBase(
 
     // region Playback & Stats
 
-    override suspend fun insertPlayback(history: PlaybackHistory): Long =
-        playbackHistoryDao.insert(history.toEntity())
+    override suspend fun insertPlayback(history: PlaybackHistory): Long = playbackHistoryDao.insert(history.toEntity())
 
     override suspend fun updatePlaybackRecord(id: Long, duration: Long, isCompleted: Boolean) {
         playbackHistoryDao.updatePlaybackRecord(id, duration, isCompleted)
@@ -717,26 +710,23 @@ abstract class MusicRepositoryBase(
                 ListeningDuration(
                     date = today,
                     duration = duration,
-                    updatedAt = currentTimeMillis()
-                )
+                    updatedAt = currentTimeMillis(),
+                ),
             )
         } else {
             listeningDurationDao.updateDuration(
                 date = today,
                 additionalDuration = duration,
-                updateTime = currentTimeMillis()
+                updateTime = currentTimeMillis(),
             )
         }
     }
 
-    override fun getRecentListeningDurations(limit: Int): Flow<List<ListeningDurationDomain>> =
-        listeningDurationDao.getRecentDurations(limit).map { list -> list.map { it.toDomain() } }
+    override fun getRecentListeningDurations(limit: Int): Flow<List<ListeningDurationDomain>> = listeningDurationDao.getRecentDurations(limit).map { list -> list.map { it.toDomain() } }
 
-    override fun getPlaybackHistory(musicId: Long, limit: Int): Flow<List<PlaybackHistory>> =
-        playbackHistoryDao.getHistoryForMusic(musicId, limit).map { list -> list.map { it.toDomain() } }
+    override fun getPlaybackHistory(musicId: Long, limit: Int): Flow<List<PlaybackHistory>> = playbackHistoryDao.getHistoryForMusic(musicId, limit).map { list -> list.map { it.toDomain() } }
 
-    override suspend fun getRecentPlaybackHistoryGlobal(limit: Int): List<PlaybackHistory> =
-        playbackHistoryDao.getRecentHistory(limit).map { it.toDomain() }
+    override suspend fun getRecentPlaybackHistoryGlobal(limit: Int): List<PlaybackHistory> = playbackHistoryDao.getRecentHistory(limit).map { it.toDomain() }
 
     override suspend fun getUserUsageAnalytics(): UserUsageAnalytics = withContext(Dispatchers.Default) {
         val userInfos = userInfoDao.getAllUserInfos().filter { !it.isDeleted }
@@ -791,7 +781,7 @@ abstract class MusicRepositoryBase(
                 musicId = id,
                 title = info.music.title,
                 artist = info.music.artist,
-                playCount = userInfoMap[id]?.playCount ?: 0
+                playCount = userInfoMap[id]?.playCount ?: 0,
             )
         }
 
@@ -807,7 +797,7 @@ abstract class MusicRepositoryBase(
                 playedAt = h.playedAt,
                 playDuration = h.playDuration,
                 isCompleted = h.isCompleted,
-                source = h.source
+                source = h.source,
             )
         }
 
@@ -858,7 +848,7 @@ abstract class MusicRepositoryBase(
                 musicId = id,
                 title = info.music.title,
                 artist = info.music.artist,
-                playCount = songIdToPlaylistCount[id] ?: 0
+                playCount = songIdToPlaylistCount[id] ?: 0,
             )
         }
 
@@ -880,7 +870,7 @@ abstract class MusicRepositoryBase(
             topScenarios = topScenarios,
             topArtists = topArtists,
             customPlaylistCount = customPlaylistCount,
-            topSongsInPlaylists = topSongsInPlaylists
+            topSongsInPlaylists = topSongsInPlaylists,
         )
     }
 
@@ -910,7 +900,7 @@ abstract class MusicRepositoryBase(
                 playCount = it.playCount,
                 skippedCount = it.skippedCount,
                 userRating = it.userRating,
-                inCustomPlaylistCount = it.inCustomPlaylistCount
+                inCustomPlaylistCount = it.inCustomPlaylistCount,
             )
         }
 
@@ -923,7 +913,7 @@ abstract class MusicRepositoryBase(
                 singerIntroduce = it.singerIntroduce,
                 backgroundIntroduce = it.backgroundIntroduce,
                 description = it.description,
-                relevantMusic = it.relevantMusic
+                relevantMusic = it.relevantMusic,
             )
         }
 
@@ -935,14 +925,14 @@ abstract class MusicRepositoryBase(
                 source = it.source,
                 confidence = it.confidence,
                 createdAt = it.createdAt,
-                updatedAt = it.updatedAt
+                updatedAt = it.updatedAt,
             )
         }
 
         return MusicUserStateSnapshot(
             userInfos = userInfos,
             extras = extras,
-            labels = labels
+            labels = labels,
         )
     }
 
@@ -957,7 +947,7 @@ abstract class MusicRepositoryBase(
                 skippedCount = it.skippedCount,
                 userRating = it.userRating,
                 inCustomPlaylistCount = it.inCustomPlaylistCount,
-                isDeleted = false
+                isDeleted = false,
             )
         }
         userInfoDao.insertAll(userInfos)
@@ -973,7 +963,7 @@ abstract class MusicRepositoryBase(
                 singerIntroduce = snapshotExtra.singerIntroduce,
                 backgroundIntroduce = snapshotExtra.backgroundIntroduce,
                 description = snapshotExtra.description,
-                relevantMusic = snapshotExtra.relevantMusic
+                relevantMusic = snapshotExtra.relevantMusic,
             )
                 ?: MusicExtra(
                     id = snapshotExtra.id,
@@ -984,7 +974,7 @@ abstract class MusicRepositoryBase(
                     backgroundIntroduce = snapshotExtra.backgroundIntroduce,
                     description = snapshotExtra.description,
                     relevantMusic = snapshotExtra.relevantMusic,
-                    isDeleted = false
+                    isDeleted = false,
                 )
         }
         musicExtraDao.insertAll(mergedExtras)
@@ -999,7 +989,7 @@ abstract class MusicRepositoryBase(
                 source = it.source,
                 confidence = it.confidence,
                 createdAt = it.createdAt ?: now,
-                updatedAt = it.updatedAt ?: now
+                updatedAt = it.updatedAt ?: now,
             )
         }
         musicLabelDao.insertAll(musicLabels)
@@ -1009,7 +999,7 @@ abstract class MusicRepositoryBase(
         val durations = listeningDurationDao.getAllDurations().map {
             ListeningDurationDomain(
                 date = it.date,
-                duration = it.duration
+                duration = it.duration,
             )
         }
 
@@ -1019,13 +1009,13 @@ abstract class MusicRepositoryBase(
                 playedAt = it.playedAt,
                 playDuration = it.playDuration,
                 isCompleted = it.isCompleted,
-                source = it.source
+                source = it.source,
             )
         }
 
         return ListeningStatsSnapshot(
             listeningDurations = durations,
-            playbackHistories = history
+            playbackHistories = history,
         )
     }
 
@@ -1034,7 +1024,7 @@ abstract class MusicRepositoryBase(
             ListeningDuration(
                 date = it.date,
                 duration = it.duration,
-                updatedAt = currentTimeMillis()
+                updatedAt = currentTimeMillis(),
             )
         }
         // 一-2 / D5-13：恢复必须是"先清后写"。原先只 insertAll —— listeningDuration 按日期主键
@@ -1048,7 +1038,7 @@ abstract class MusicRepositoryBase(
                 playedAt = it.playedAt,
                 playDuration = it.playDuration,
                 isCompleted = it.isCompleted,
-                source = it.source
+                source = it.source,
             )
         }
         playbackHistoryDao.replaceAll(history)
@@ -1229,14 +1219,12 @@ abstract class MusicRepositoryBase(
     }
 
     /** 所有歌的累计时长 + 播放次数（DAO 层 GROUP BY SQL，单次查询，避免全表拉取）。 */
-    override suspend fun getAllMusicDurations(): List<MusicDurationRow> {
-        return runCatching { playbackHistoryDao.getAllMusicDurationsGrouped() }.getOrDefault(emptyList()).map { daoRow ->
-            MusicDurationRow(
-                musicId = daoRow.musicId,
-                totalMs = daoRow.totalMs,
-                playCount = daoRow.playCount,
-            )
-        }
+    override suspend fun getAllMusicDurations(): List<MusicDurationRow> = runCatching { playbackHistoryDao.getAllMusicDurationsGrouped() }.getOrDefault(emptyList()).map { daoRow ->
+        MusicDurationRow(
+            musicId = daoRow.musicId,
+            totalMs = daoRow.totalMs,
+            playCount = daoRow.playCount,
+        )
     }
 
     /** 今日有新播放的 musicId（DAO strftime SQL，单次查询）。 */
@@ -1250,17 +1238,14 @@ abstract class MusicRepositoryBase(
     }
 
     /** 某歌单累计被播放次数。 */
-    override suspend fun getPlaybackCountForPlaylist(playlistName: String): Int =
-        runCatching { playlistDao.countPlaybackForPlaylist(playlistName) }.getOrDefault(0)
+    override suspend fun getPlaybackCountForPlaylist(playlistName: String): Int = runCatching { playlistDao.countPlaybackForPlaylist(playlistName) }.getOrDefault(0)
 
     /** 全局 top N 风格 label（DISCOVER 卡 + RadioSubAgent 共用）—— SQL GROUP BY 替代全表拉取。 */
-    override suspend fun getGlobalTopLabels(limit: Int): List<LabelName> {
-        return runCatching { musicLabelDao.getTopLabels(limit) }
-            .getOrDefault(emptyList())
-            .mapNotNull { pair ->
-                runCatching { LabelName.valueOf(pair.label.name) }.getOrNull()
-            }
-    }
+    override suspend fun getGlobalTopLabels(limit: Int): List<LabelName> = runCatching { musicLabelDao.getTopLabels(limit) }
+        .getOrDefault(emptyList())
+        .mapNotNull { pair ->
+            runCatching { LabelName.valueOf(pair.label.name) }.getOrNull()
+        }
 
     /** 按 ID 批量查 MusicInfo（替代 RadioSubAgent + HelloSubAgent 原 private 扩展函数）。 */
     override suspend fun getMusicInfoByIds(ids: List<Long>): List<MusicInfo> {
@@ -1315,15 +1300,13 @@ abstract class MusicRepositoryBase(
             com.hmp.data.database.ForgottenDeliveryEntity(
                 musicId = musicId,
                 deliveredAt = currentTimeMillis(),
-            )
+            ),
         )
         val cutoff = currentTimeMillis() - 30 * 86_400_000L
         runCatching { forgottenDeliveryDao.cleanupExpired(cutoff) }
     }
 
-    override suspend fun isForgottenDelivered(musicId: Long): Boolean {
-        return forgottenDeliveryDao.exists(musicId) > 0
-    }
+    override suspend fun isForgottenDelivered(musicId: Long): Boolean = forgottenDeliveryDao.exists(musicId) > 0
 
     // endregion
 
@@ -1347,11 +1330,10 @@ abstract class MusicRepositoryBase(
             .size
 
         // ⚠️ 用实体侧的 myenum.LabelCategory —— 项目里存在两个同名枚举
-        //（`data.database.myenum` 给 Room 实体用，`domain.enum` 给业务用），不比会编译错
-        fun distribution(category: DataLabelCategory): Map<String, Int> =
-            labels.filter { it.type == category }
-                .groupBy { it.label.name }
-                .mapValues { (_, rows) -> rows.map { it.musicId }.distinct().size }
+        // （`data.database.myenum` 给 Room 实体用，`domain.enum` 给业务用），不比会编译错
+        fun distribution(category: DataLabelCategory): Map<String, Int> = labels.filter { it.type == category }
+            .groupBy { it.label.name }
+            .mapValues { (_, rows) -> rows.map { it.musicId }.distinct().size }
 
         return LibraryContentSnapshot(
             totalSongs = total,
@@ -1431,10 +1413,16 @@ abstract class MusicRepositoryBase(
             distinctTracks = distinctTracks.size,
             novelTracks = novelTracks,
             sessionCount = sessionTrackCounts.size,
-            avgSessionMinutes = if (sessionTrackCounts.isEmpty()) 0f else
-                (sessionDurationsMs.sum().toFloat() / sessionTrackCounts.size) / 60_000f,
-            avgTracksPerSession = if (sessionTrackCounts.isEmpty()) 0f else
-                sessionTrackCounts.average().toFloat(),
+            avgSessionMinutes = if (sessionTrackCounts.isEmpty()) {
+                0f
+            } else {
+                (sessionDurationsMs.sum().toFloat() / sessionTrackCounts.size) / 60_000f
+            },
+            avgTracksPerSession = if (sessionTrackCounts.isEmpty()) {
+                0f
+            } else {
+                sessionTrackCounts.average().toFloat()
+            },
         )
     }
 
@@ -1465,7 +1453,7 @@ abstract class MusicRepositoryBase(
     override suspend fun getWindowedTopLabels(
         days: Int,
         category: com.hmp.data.database.myenum.LabelCategory,
-        limit: Int
+        limit: Int,
     ): List<LabelCountEntry> {
         val cutoff = daysToCutoffMs(days)
         val pairs = musicLabelDao.getTopLabelsSince(cutoff, category, limit)
@@ -1560,5 +1548,4 @@ abstract class MusicRepositoryBase(
  * 与 `MusicRepositoryImpl.android.kt` 里 `toMediaStoreLikePattern()` 同一套转义口径
  * （那处是给 MediaStore 的目录前缀匹配用的，同样配 `ESCAPE '\'`），所以两处行为一致。
  */
-internal fun String.toLikeContainsPattern(): String =
-    "%" + replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
+internal fun String.toLikeContainsPattern(): String = "%" + replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"

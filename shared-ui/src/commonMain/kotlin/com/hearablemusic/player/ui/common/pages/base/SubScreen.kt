@@ -26,20 +26,20 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.hearablemusic.player.ui.common.components.base.BackButton
+import com.hearablemusic.player.ui.common.design.animation.HmpMotion
+import com.hearablemusic.player.ui.common.design.metrics.LayoutConstraints
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
 import com.hearablemusic.player.ui.common.layout.LocalWindowSizeInfo
 import com.hearablemusic.player.ui.common.layout.WindowWidthSizeClass
-import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
-import com.hearablemusic.player.ui.common.design.metrics.LayoutConstraints
-import com.hearablemusic.player.ui.common.design.animation.HmpMotion
 
 @Composable
 fun SubScreen(
     onBackClick: () -> Unit,
     title: String? = null,
     trailingContent: @Composable (() -> Unit)? = null,
-    content: @Composable () -> Unit
-){
+    content: @Composable () -> Unit,
+) {
     val metrics = LocalHmpMetrics.current
     val typo = LocalHmpTypo.current
     val horizontalPadding = when (LocalWindowSizeInfo.current.widthSizeClass) {
@@ -60,18 +60,18 @@ fun SubScreen(
     AnimatedVisibility(
         visible = visible,
         enter = fadeIn(
-            animationSpec = HmpMotion.enter()
+            animationSpec = HmpMotion.enter(),
         ),
         exit = fadeOut(
-            animationSpec = HmpMotion.exit()
-        )
+            animationSpec = HmpMotion.exit(),
+        ),
     ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .navigationBarsPadding()
                 .padding(top = metrics.cozy),
-            horizontalAlignment = Alignment.CenterHorizontally
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Box(
                 modifier = Modifier
@@ -82,7 +82,7 @@ fun SubScreen(
                 Box(modifier = Modifier.align(Alignment.CenterStart)) {
                     BackButton(onClick = onBackClick)
                 }
-                
+
                 // 标题（如果提供）
                 currentTitle?.let {
                     Text(
@@ -92,7 +92,7 @@ fun SubScreen(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.sizeIn(maxWidth = LayoutConstraints.PanelMaxWidth)
-                            .align(Alignment.Center)
+                            .align(Alignment.Center),
                     )
                 }
                 // 右侧与返回按钮对称的操作按钮（可选）
@@ -100,16 +100,16 @@ fun SubScreen(
                     Box(modifier = Modifier.align(Alignment.CenterEnd)) { content() }
                 }
             }
-            
+
             // 主内容区域
             Box(
                 modifier = Modifier
                     .weight(1f)
-                    .fillMaxWidth()
+                    .fillMaxWidth(),
             ) {
                 Column(
                     verticalArrangement = Arrangement.Top,
-                    modifier = Modifier.fillMaxSize()
+                    modifier = Modifier.fillMaxSize(),
                 ) {
                     currentContent()
                 }

@@ -1,7 +1,7 @@
 package com.hmp.domain.agent.tool
 
-import com.hmp.domain.agent.port.ToolPermissionLevel
 import com.hmp.domain.agent.port.Capability
+import com.hmp.domain.agent.port.ToolPermissionLevel
 import com.hmp.domain.agent.tool.spec.AgentTool
 import com.hmp.domain.agent.tool.spec.StringParam
 import com.hmp.domain.agent.tool.spec.ToolArgs
@@ -27,47 +27,47 @@ import com.hmp.domain.agent.tool.spec.ToolResult
 fun createBaseToolRegistry(deps: ToolDependencies): ToolRegistry {
     val baseTools = listOf(
         // ── Playback ──
-        GetNowPlayingContextTool(deps),   // playback_state
-        PlaybackControlTool(deps),        // playback_control
-        PlaybackPlayAtTool(deps),         // playback_play_at
+        GetNowPlayingContextTool(deps), // playback_state
+        PlaybackControlTool(deps), // playback_control
+        PlaybackPlayAtTool(deps), // playback_play_at
 
         // ── Playlist 实体 CRUD ──
-        PlaylistListTool(deps),           // playlist_list
-        PlaylistDetailTool(deps),         // playlist_detail
-        PlaylistCreateTool(deps),         // playlist_create
-        PlaylistRenameTool(deps),         // playlist_rename
-        PlaylistDeleteTool(deps),         // playlist_delete
+        PlaylistListTool(deps), // playlist_list
+        PlaylistDetailTool(deps), // playlist_detail
+        PlaylistCreateTool(deps), // playlist_create
+        PlaylistRenameTool(deps), // playlist_rename
+        PlaylistDeleteTool(deps), // playlist_delete
 
         // ── Playlist 曲目管理 ──
-        PlaylistAddSongTool(deps),        // playlist_add_song
-        PlaylistRemoveSongTool(deps),     // playlist_remove_song
-        PlaylistReorderTool(deps),        // playlist_reorder
+        PlaylistAddSongTool(deps), // playlist_add_song
+        PlaylistRemoveSongTool(deps), // playlist_remove_song
+        PlaylistReorderTool(deps), // playlist_reorder
 
         // ── Library ──
-        SearchLibraryTool(deps),          // library_search
-        GetSimilarSongsTool(deps),        // library_similar
-        GetListenStatsTool(deps),         // library_stats
-        GetRecentHistoryTool(deps),       // library_recent_history
+        SearchLibraryTool(deps), // library_search
+        GetSimilarSongsTool(deps), // library_similar
+        GetListenStatsTool(deps), // library_stats
+        GetRecentHistoryTool(deps), // library_recent_history
 
         // ── 用户认识模块（画像）：1 只读 + 2 写入（CONFIRM）──
-        ProfileReadTool(deps),            // profile_read
-        ProfileNoteTool(deps),            // profile_note
-        ProfileForgetTool(deps),          // profile_forget
+        ProfileReadTool(deps), // profile_read
+        ProfileNoteTool(deps), // profile_note
+        ProfileForgetTool(deps), // profile_forget
 
         // ── Song 标签 ──
-        SongTagsGetTool(deps),            // song_tags_get
+        SongTagsGetTool(deps), // song_tags_get
         // song_enrich_llm 已移除：EnrichSubAgent 富化管道内化到自循环
         // ── Batch B ──
-        PlaybackEnqueueTool(deps),       // playback_enqueue
-        LibraryTagsTool(deps),           // library_tags
-        LibrarySongsByTagTool(deps),     // library_songs_by_tag
-        LibrarySongsByArtistTool(deps),  // library_songs_by_artist
-        LibrarySongsByAlbumTool(deps),   // library_songs_by_album
-        LibraryArtistsTool(deps),        // library_artists
-        LibraryAlbumsTool(deps),         // library_albums
-        AgentBudgetTool(deps),           // agent_budget
-        SongTagUserAddTool(deps),        // song_tag_user_add
-        SongTagUserRemoveTool(deps),      // song_tag_user_remove
+        PlaybackEnqueueTool(deps), // playback_enqueue
+        LibraryTagsTool(deps), // library_tags
+        LibrarySongsByTagTool(deps), // library_songs_by_tag
+        LibrarySongsByArtistTool(deps), // library_songs_by_artist
+        LibrarySongsByAlbumTool(deps), // library_songs_by_album
+        LibraryArtistsTool(deps), // library_artists
+        LibraryAlbumsTool(deps), // library_albums
+        AgentBudgetTool(deps), // agent_budget
+        SongTagUserAddTool(deps), // song_tag_user_add
+        SongTagUserRemoveTool(deps), // song_tag_user_remove
         // Dj 工具已在 F9-A0 删除——电台控制权完全收归 RadioSubAgent runLoop
     )
     return ToolRegistry(baseTools)

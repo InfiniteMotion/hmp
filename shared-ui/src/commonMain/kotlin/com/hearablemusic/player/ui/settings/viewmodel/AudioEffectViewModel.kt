@@ -1,12 +1,12 @@
 package com.hearablemusic.player.ui.settings.viewmodel
 
 import androidx.lifecycle.ViewModel
-import com.hmp.domain.setting.model.AudioEffectSettings
 import com.hearablemusic.player.ui.platform.PlaybackController
+import com.hmp.domain.setting.model.AudioEffectSettings
 import kotlinx.coroutines.flow.StateFlow
 
 class AudioEffectViewModel(
-    private val musicController: PlaybackController
+    private val musicController: PlaybackController,
 ) : ViewModel() {
 
     val audioEffectSettings: StateFlow<AudioEffectSettings> = musicController.audioEffectSettings

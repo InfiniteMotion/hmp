@@ -1,17 +1,11 @@
 package com.hearablemusic.player.ui.agent.chat
-import com.hearablemusic.player.ui.common.text.UiText
-import com.hearablemusic.player.ui.common.text.asString
-import com.hearablemusic.player.ui.generated.resources.agent_chat_always_allow
-import com.hearablemusic.player.ui.generated.resources.agent_chat_always_allow_mark
-import com.hearablemusic.player.ui.generated.resources.agent_chat_confirm_prompt
-import com.hearablemusic.player.ui.generated.resources.agent_chat_do_it
-import com.hearablemusic.player.ui.generated.resources.agent_chat_my_plan
-import com.hearablemusic.player.ui.generated.resources.agent_chat_play_all
-import com.hearablemusic.player.ui.generated.resources.agent_chat_skip
-
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.foundation.background
+import androidx.compose.animation.expandIn
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkOut
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -27,10 +21,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
-import com.hearablemusic.player.ui.common.design.typography.medium
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.ui.draw.clip
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
@@ -50,10 +41,26 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.hearablemusic.player.ui.common.design.animation.HmpMotion
+import com.hearablemusic.player.ui.common.design.metrics.HMPMetricTokens
+import com.hearablemusic.player.ui.common.design.metrics.LayoutConstraints
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
+import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
+import com.hearablemusic.player.ui.common.design.typography.medium
+import com.hearablemusic.player.ui.common.text.UiText
+import com.hearablemusic.player.ui.common.text.asString
 import com.hearablemusic.player.ui.generated.resources.Res
+import com.hearablemusic.player.ui.generated.resources.agent_chat_always_allow
+import com.hearablemusic.player.ui.generated.resources.agent_chat_always_allow_mark
+import com.hearablemusic.player.ui.generated.resources.agent_chat_confirm_prompt
+import com.hearablemusic.player.ui.generated.resources.agent_chat_do_it
+import com.hearablemusic.player.ui.generated.resources.agent_chat_my_plan
+import com.hearablemusic.player.ui.generated.resources.agent_chat_play_all
+import com.hearablemusic.player.ui.generated.resources.agent_chat_skip
 import com.hearablemusic.player.ui.generated.resources.chevron_down
 import com.hearablemusic.player.ui.generated.resources.lightbulb
 import com.hearablemusic.player.ui.generated.resources.more
@@ -64,22 +71,14 @@ import com.hearablemusic.player.ui.library.pages.components.musiclist.CurrentPla
 import com.hearablemusic.player.ui.library.pages.components.musiclist.EditConfig
 import com.hearablemusic.player.ui.library.pages.components.musiclist.FixedMusicList
 import com.hearablemusic.player.ui.library.pages.components.musiclist.FullItemOptions
+import com.hearablemusic.player.ui.library.pages.components.musiclist.HeaderConfig
 import com.hearablemusic.player.ui.library.pages.components.musiclist.ItemConfig
 import com.hearablemusic.player.ui.library.pages.components.musiclist.ItemVariant
 import com.hearablemusic.player.ui.library.pages.components.musiclist.MusicListCallbacksAdapter
 import com.hearablemusic.player.ui.library.pages.components.musiclist.defaultMusicListConfig
-import com.hearablemusic.player.ui.library.pages.components.musiclist.HeaderConfig
 import com.hmp.domain.music.MusicInfo
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
-import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
-import com.hearablemusic.player.ui.common.design.metrics.HMPMetricTokens
-import com.hearablemusic.player.ui.common.design.metrics.LayoutConstraints
-import com.hearablemusic.player.ui.common.design.animation.HmpMotion
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.expandIn
-import androidx.compose.animation.shrinkOut
 
 /** 气泡内交互回调（由 ChatScreen 透穿，默认空实现便于快照渲染）。 */
 data class CompanionCallbacks(
@@ -118,12 +117,21 @@ fun CompanionBubble(
 @Composable
 private fun BubbleContainer(message: CompanionMessage, callbacks: CompanionCallbacks, user: Boolean) {
     val metrics = LocalHmpMetrics.current
-    val shape = if (user) RoundedCornerShape(metrics.cozy, metrics.micro, metrics.cozy, metrics.cozy)
-    else RoundedCornerShape(metrics.micro, metrics.cozy, metrics.cozy, metrics.cozy)
-    val bg = if (user) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
-    else MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.15f)
-    val border = if (user) BorderStroke(metrics.stroke.thin, MaterialTheme.colorScheme.primary.copy(alpha = 0.6f))
-    else BorderStroke(metrics.stroke.thin, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+    val shape = if (user) {
+        RoundedCornerShape(metrics.cozy, metrics.micro, metrics.cozy, metrics.cozy)
+    } else {
+        RoundedCornerShape(metrics.micro, metrics.cozy, metrics.cozy, metrics.cozy)
+    }
+    val bg = if (user) {
+        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
+    } else {
+        MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.15f)
+    }
+    val border = if (user) {
+        BorderStroke(metrics.stroke.thin, MaterialTheme.colorScheme.primary.copy(alpha = 0.6f))
+    } else {
+        BorderStroke(metrics.stroke.thin, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+    }
     val content = if (user) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
     Column(
         modifier = Modifier
@@ -135,9 +143,13 @@ private fun BubbleContainer(message: CompanionMessage, callbacks: CompanionCallb
         CompositionLocalProvider(LocalContentColor provides content) {
             when (message.renderHint) {
                 CompanionRenderHint.TEXT -> TextBubbleContent(message)
+
                 CompanionRenderHint.SONG -> SongBubbleContent(message, callbacks)
+
                 CompanionRenderHint.SONGLIST -> SongListBubbleContent(message, callbacks)
+
                 CompanionRenderHint.EXPLAIN -> ExplainBubbleContent(message)
+
                 CompanionRenderHint.CONFIRM -> ConfirmMatrixCard(
                     items = message.confirmItems,
                     submitted = true,
@@ -174,7 +186,7 @@ fun ConfirmMatrixCard(
                 Box(
                     Modifier
                         .size(metrics.compact)
-                        .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(metrics.micro))
+                        .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(metrics.micro)),
                 )
                 Spacer(Modifier.width(metrics.compact))
                 Text(
@@ -196,8 +208,11 @@ fun ConfirmMatrixCard(
                         modifier = Modifier
                             .weight(1f)
                             .then(
-                                if (submitted) Modifier
-                                else Modifier.clickable { callbacks.onToggleConfirm(item.id) }
+                                if (submitted) {
+                                    Modifier
+                                } else {
+                                    Modifier.clickable { callbacks.onToggleConfirm(item.id) }
+                                },
                             ),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
@@ -236,17 +251,18 @@ fun ConfirmMatrixCard(
 
                     // 右侧："总是允许" checkbox（仅未提交时可操作；不可逆项不提供永久放行）
                     if (!submitted && !item.permanentAllowForbidden) {
-                        val labelColor = if (item.alwaysAllow)
+                        val labelColor = if (item.alwaysAllow) {
                             MaterialTheme.colorScheme.tertiary
-                        else
+                        } else {
                             MaterialTheme.colorScheme.onSurfaceVariant
+                        }
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.clickable { callbacks.onToggleAlwaysAllow(item.id) },
                         ) {
                             Checkbox(
                                 checked = item.alwaysAllow,
-                                onCheckedChange = null,  // 整个 Row clickable，Checkbox 自身不消费点击
+                                onCheckedChange = null, // 整个 Row clickable，Checkbox 自身不消费点击
                                 modifier = Modifier.size(metrics.section),
                             )
                             Text(
@@ -362,7 +378,7 @@ private fun SongListBubbleContent(message: CompanionMessage, callbacks: Companio
             callbacks = object : MusicListCallbacksAdapter() {
                 override fun onItemClick(musicInfo: MusicInfo, index: Int) = callbacks.onSongClick(musicInfo)
                 override fun onMenuClick(musicInfo: MusicInfo) = callbacks.onSongMenu(musicInfo)
-            }
+            },
         ).copy(
             header = HeaderConfig.None,
             item = ItemConfig(

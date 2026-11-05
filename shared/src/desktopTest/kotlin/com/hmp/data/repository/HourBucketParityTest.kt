@@ -49,13 +49,12 @@ class HourBucketParityTest {
     }
 
     /** 本地时区某一天的 HH:mm → epoch 毫秒（刻意不用被测函数族构造输入）。 */
-    private fun atLocal(dayOffset: Long, hour: Int, minute: Int = 0): Long =
-        LocalDate.now(zone).plusDays(dayOffset).atTime(hour, minute).atZone(zone).toInstant().toEpochMilli()
+    private fun atLocal(dayOffset: Long, hour: Int, minute: Int = 0): Long = LocalDate.now(zone).plusDays(dayOffset).atTime(hour, minute).atZone(zone).toInstant().toEpochMilli()
 
     private suspend fun seedHistory(vararg playedAtMs: Long) {
         playedAtMs.forEachIndexed { index, ms ->
             db.playbackHistoryDao().insert(
-                PlaybackHistory(musicId = 100L + index, playedAt = ms, playDuration = 60_000L, isCompleted = true)
+                PlaybackHistory(musicId = 100L + index, playedAt = ms, playDuration = 60_000L, isCompleted = true),
             )
         }
     }
@@ -85,7 +84,7 @@ class HourBucketParityTest {
         assertEquals(
             mapOf(23 to 1, 22 to 1),
             snapshot.hourHistogram,
-            "hourHistogram 喂给画像的『夜猫子』判定，旧实现是 UTC 小时（会整体偏移一个时区）"
+            "hourHistogram 喂给画像的『夜猫子』判定，旧实现是 UTC 小时（会整体偏移一个时区）",
         )
     }
 
@@ -95,11 +94,11 @@ class HourBucketParityTest {
      */
     @Test
     fun activeDays_countsLocalCalendarDays() = runTest {
-        seedHistory(atLocal(0, 0, 30), atLocal(0, 1, 30))   // 同一本地日的两条
+        seedHistory(atLocal(0, 0, 30), atLocal(0, 1, 30)) // 同一本地日的两条
 
         assertEquals(1, repo.getBehaviorSnapshot(90).activeDays, "本地同一天该只算 1 天")
 
-        seedHistory(atLocal(-1, 23, 30))                   // 昨天夜里 23:30 → 另一个本地日
+        seedHistory(atLocal(-1, 23, 30)) // 昨天夜里 23:30 → 另一个本地日
         assertEquals(2, repo.getBehaviorSnapshot(90).activeDays, "跨了本地零点才算第二天")
     }
 
@@ -118,12 +117,17 @@ class HourBucketParityTest {
         ids.forEachIndexed { index, id ->
             db.musicDao().insert(
                 com.hmp.data.database.Music(
-                    id = id, title = "t$index", artist = "a", album = "b",
-                    duration = 100L, path = "/$id.mp3", albumArtUri = "",
-                )
+                    id = id,
+                    title = "t$index",
+                    artist = "a",
+                    album = "b",
+                    duration = 100L,
+                    path = "/$id.mp3",
+                    albumArtUri = "",
+                ),
             )
             db.playbackHistoryDao().insert(
-                PlaybackHistory(musicId = id, playedAt = atLocal(0, 0, 30), playDuration = 1L)
+                PlaybackHistory(musicId = id, playedAt = atLocal(0, 0, 30), playDuration = 1L),
             )
         }
 
@@ -136,16 +140,16 @@ class HourBucketParityTest {
     @Test
     fun hourlyDistribution_honoursAllWindow() = runTest {
         val recent = atLocal(-3, 12)
-        val ancient = atLocal(-730, 12)   // 两年前
+        val ancient = atLocal(-730, 12) // 两年前
         seedHistory(recent, ancient)
 
-        val buckets = repo.getHourlyDistribution(windowDays = -1)   // NarrativeTimeRange.ALL.toDays()
+        val buckets = repo.getHourlyDistribution(windowDays = -1) // NarrativeTimeRange.ALL.toDays()
 
         assertEquals(2, buckets.sumOf { it.playCount }, "「全部」窗口该覆盖两年前的记录，而不是只有最近 24 小时")
         assertEquals(
             2,
             repo.getWindowedAnalytics(days = -1).totalPlayCount,
-            "时段维度与其余四个维度必须是同一批记录"
+            "时段维度与其余四个维度必须是同一批记录",
         )
     }
 
@@ -167,7 +171,7 @@ class HourBucketParityTest {
                 ListeningDuration(date = localDateString(atLocal(-1, 12)), duration = 60 * 60_000L, updatedAt = 2L),
                 // 400 天前的一条巨量记录：旧实现会把整张表加起来除以 7
                 ListeningDuration(date = localDateString(atLocal(-400, 12)), duration = 60_000 * 60_000L, updatedAt = 3L),
-            )
+            ),
         )
 
         val week = repo.getAvgDailyListeningMinutes(7)
@@ -181,7 +185,7 @@ class HourBucketParityTest {
     @Test
     fun avgDailyListening_emptyWindow_returnsZero_notHistoricalTotal() = runTest {
         db.listeningDurationDao().insertAll(
-            listOf(ListeningDuration(date = localDateString(atLocal(-400, 12)), duration = 60 * 60_000L, updatedAt = 1L))
+            listOf(ListeningDuration(date = localDateString(atLocal(-400, 12)), duration = 60 * 60_000L, updatedAt = 1L)),
         )
 
         assertEquals(0f, repo.getAvgDailyListeningMinutes(7), "窗口内没听歌就是 0，不该拿历史总量顶替")

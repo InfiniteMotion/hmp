@@ -21,5 +21,4 @@ val LocalAppViewModelStoreOwner = staticCompositionLocalOf<ViewModelStoreOwner> 
 }
 
 @Composable
-inline fun <reified T : ViewModel> activityViewModel(): T =
-    koinViewModel(viewModelStoreOwner = LocalAppViewModelStoreOwner.current)
+inline fun <reified T : ViewModel> activityViewModel(): T = koinViewModel(viewModelStoreOwner = LocalAppViewModelStoreOwner.current)

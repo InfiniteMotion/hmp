@@ -1,14 +1,5 @@
 package com.hearablemusic.player.ui.common.dialogs
 
-import com.hearablemusic.player.ui.generated.resources.Res
-import org.jetbrains.compose.resources.stringResource
-
-import com.hearablemusic.player.ui.generated.resources.cancel
-import com.hearablemusic.player.ui.generated.resources.custom_minutes
-import com.hearablemusic.player.ui.generated.resources.ok
-import com.hearablemusic.player.ui.generated.resources.sleep_timer
-import com.hearablemusic.player.ui.generated.resources.timer_off
-
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -38,19 +29,26 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.hearablemusic.player.ui.common.components.SegmentedControl
 import com.hearablemusic.player.ui.common.components.SegmentedOption
-import com.hearablemusic.player.ui.common.dialogs.base.ScrimDialog
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
 import com.hearablemusic.player.ui.common.design.typography.medium
+import com.hearablemusic.player.ui.common.dialogs.base.ScrimDialog
 import com.hearablemusic.player.ui.common.util.HazeRenderSettings
 import com.hearablemusic.player.ui.common.util.LocalHazeRenderSettings
 import com.hearablemusic.player.ui.common.util.ProvideHazeRenderSettings
 import com.hearablemusic.player.ui.common.util.hazeStyleForIntensity
 import com.hearablemusic.player.ui.common.util.hazeTintAlpha
 import com.hearablemusic.player.ui.common.util.rememberHapticFeedback
+import com.hearablemusic.player.ui.generated.resources.Res
+import com.hearablemusic.player.ui.generated.resources.cancel
+import com.hearablemusic.player.ui.generated.resources.custom_minutes
+import com.hearablemusic.player.ui.generated.resources.ok
+import com.hearablemusic.player.ui.generated.resources.sleep_timer
+import com.hearablemusic.player.ui.generated.resources.timer_off
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
-import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
+import org.jetbrains.compose.resources.stringResource
 
 @OptIn(ExperimentalHazeMaterialsApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -58,13 +56,13 @@ fun TimerDialog(
     onDismiss: () -> Unit,
     onConfirm: (Int) -> Unit,
     hazeState: HazeState? = null,
-    hazeRenderSettings: HazeRenderSettings? = null
+    hazeRenderSettings: HazeRenderSettings? = null,
 ) {
     val metrics = LocalHmpMetrics.current
     val haptic = rememberHapticFeedback()
     val resolvedHazeRenderSettings = hazeRenderSettings ?: LocalHazeRenderSettings.current
     val typo = LocalHmpTypo.current
-    
+
     // State
     var selectedOption by remember { mutableStateOf("0") }
     var customMinutesInput by remember { mutableStateOf("") }
@@ -74,7 +72,7 @@ fun TimerDialog(
         SegmentedOption("0", stringResource(Res.string.timer_off)),
         SegmentedOption("15", "15 min"),
         SegmentedOption("30", "30 min"),
-        SegmentedOption("60", "60 min")
+        SegmentedOption("60", "60 min"),
     )
 
     ProvideHazeRenderSettings(settings = resolvedHazeRenderSettings) {
@@ -88,9 +86,11 @@ fun TimerDialog(
                         if (hazeState != null) {
                             Modifier.hazeEffect(
                                 state = hazeState,
-                                style = hazeStyleForIntensity()
+                                style = hazeStyleForIntensity(),
                             )
-                        } else Modifier
+                        } else {
+                            Modifier
+                        },
                     ),
                 shape = dialogShape,
                 colors = CardDefaults.cardColors(
@@ -98,20 +98,20 @@ fun TimerDialog(
                         MaterialTheme.colorScheme.surface.copy(alpha = hazeTintAlpha())
                     } else {
                         MaterialTheme.colorScheme.surface
-                    }
+                    },
                 ),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
             ) {
                 Column(
                     modifier = Modifier
                         .padding(metrics.section)
-                        .fillMaxWidth()
+                        .fillMaxWidth(),
                 ) {
                     Text(
                         text = stringResource(Res.string.sleep_timer),
                         style = typo.title,
                         color = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.padding(bottom = metrics.section)
+                        modifier = Modifier.padding(bottom = metrics.section),
                     )
 
                     // Segmented Control
@@ -125,7 +125,7 @@ fun TimerDialog(
                             if (optionId != "custom") {
                                 customMinutesInput = ""
                             }
-                        }
+                        },
                     )
 
                     Spacer(modifier = Modifier.height(metrics.section))
@@ -134,7 +134,7 @@ fun TimerDialog(
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(metrics.cozy)
+                        horizontalArrangement = Arrangement.spacedBy(metrics.cozy),
                     ) {
                         OutlinedTextField(
                             value = customMinutesInput,
@@ -151,7 +151,7 @@ fun TimerDialog(
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(metrics.base)
+                            shape = RoundedCornerShape(metrics.base),
                         )
                     }
 
@@ -159,18 +159,18 @@ fun TimerDialog(
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.End
+                        horizontalArrangement = Arrangement.End,
                     ) {
                         TextButton(
                             onClick = {
                                 haptic.performClick()
                                 onDismiss()
                             },
-                            shape = RoundedCornerShape(metrics.base)
+                            shape = RoundedCornerShape(metrics.base),
                         ) {
                             Text(
                                 text = stringResource(Res.string.cancel),
-                                style = typo.body.medium()
+                                style = typo.body.medium(),
                             )
                         }
                         Spacer(modifier = Modifier.width(metrics.compact))
@@ -185,11 +185,11 @@ fun TimerDialog(
                                 }
                                 onConfirm(minutes)
                             },
-                            shape = RoundedCornerShape(metrics.base)
+                            shape = RoundedCornerShape(metrics.base),
                         ) {
                             Text(
                                 text = stringResource(Res.string.ok),
-                                style = typo.body.medium()
+                                style = typo.body.medium(),
                             )
                         }
                     }

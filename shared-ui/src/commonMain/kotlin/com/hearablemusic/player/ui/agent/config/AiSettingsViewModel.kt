@@ -2,16 +2,16 @@ package com.hearablemusic.player.ui.agent.config
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.hmp.domain.music.usecase.GetDailyMusicRecommendationUseCase
-import com.hmp.domain.setting.model.AiAccessMode
-import com.hmp.domain.setting.model.AiEndpointConfig
-import com.hmp.domain.setting.usecase.UserSettingsUseCase
 import com.hearablemusic.player.ui.generated.resources.Res
 import com.hearablemusic.player.ui.generated.resources.api_key_invalid
 import com.hearablemusic.player.ui.generated.resources.connected
 import com.hearablemusic.player.ui.generated.resources.fetch_models_failed
 import com.hearablemusic.player.ui.generated.resources.fetched_n_models
 import com.hearablemusic.player.ui.generated.resources.test_failed
+import com.hmp.domain.music.usecase.GetDailyMusicRecommendationUseCase
+import com.hmp.domain.setting.model.AiAccessMode
+import com.hmp.domain.setting.model.AiEndpointConfig
+import com.hmp.domain.setting.usecase.UserSettingsUseCase
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -95,7 +95,7 @@ class AiSettingsViewModel(
                 endpoint = endpoint,
                 apiKey = apiKey,
                 selectedModel = model,
-                isConfigured = endpoint.isNotBlank() && apiKey.isNotBlank()
+                isConfigured = endpoint.isNotBlank() && apiKey.isNotBlank(),
             )
             userSettingsUseCase.saveCustomAiConfig(config)
             _customAiConfig.value = config
@@ -143,7 +143,7 @@ class AiSettingsViewModel(
                 val config = AiEndpointConfig(
                     endpoint = endpoint,
                     apiKey = apiKey,
-                    isConfigured = true
+                    isConfigured = true,
                 )
 
                 val isValid = getDailyRecommendationUseCase.validateProviderApiKey(config)

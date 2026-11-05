@@ -1,6 +1,5 @@
 package com.hearablemusic.player.ui.agent.cards
 
-import com.hearablemusic.player.ui.common.design.colors.HelloCardPalette
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -23,6 +22,8 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.hearablemusic.player.ui.common.design.colors.HelloCardPalette
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
 import com.hearablemusic.player.ui.common.text.asString
 import com.hearablemusic.player.ui.generated.resources.Res
@@ -30,9 +31,6 @@ import com.hearablemusic.player.ui.generated.resources.card_greeting_phase
 import com.hmp.domain.agent.card.GreetingContent
 import com.hmp.domain.agent.card.SlideCard
 import org.jetbrains.compose.resources.stringResource
-import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
-
-
 
 // ═══════════════════════════════════════════════════════════════════
 // 家族 E：GREETING —— 纯文案（去封面槽）
@@ -56,7 +54,9 @@ internal fun FamilyGreetingCard(
                     onTap = { /* 短按留给 Pager 手势 */ },
                 )
             }
+
             onCardClick != null -> m.clickable { onCardClick.invoke(card) }
+
             else -> m
         }
     }
@@ -71,15 +71,15 @@ internal fun FamilyGreetingCard(
                 .fillMaxSize()
                 .background(
                     brush = Brush.linearGradient(
-                        colors = listOf(HelloCardPalette.Greeting.Start.copy(alpha = 0.95f), HelloCardPalette.Greeting.End.copy(alpha = 0.90f))
-                    )
+                        colors = listOf(HelloCardPalette.Greeting.Start.copy(alpha = 0.95f), HelloCardPalette.Greeting.End.copy(alpha = 0.90f)),
+                    ),
                 )
                 .padding(metrics.section),
             contentAlignment = Alignment.Center,
         ) {
             Column(
                 horizontalAlignment = Alignment.Start,
-                verticalArrangement = Arrangement.Top
+                verticalArrangement = Arrangement.Top,
             ) {
                 // 时段感知问候
                 Text(

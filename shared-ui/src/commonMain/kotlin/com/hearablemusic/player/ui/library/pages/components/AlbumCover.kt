@@ -11,12 +11,12 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.Dp
 import coil3.compose.AsyncImage
+import com.hearablemusic.player.ui.common.design.animation.HmpMotion
 import com.hearablemusic.player.ui.generated.resources.Res
 import com.hearablemusic.player.ui.generated.resources.album_art_desc
 import com.hearablemusic.player.ui.generated.resources.none
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
-import com.hearablemusic.player.ui.common.design.animation.HmpMotion
 
 @Composable
 fun AlbumCover(
@@ -38,7 +38,7 @@ fun AlbumCover(
             contentScale = ContentScale.Crop,
             placeholder = painterResource(Res.drawable.none),
             error = painterResource(Res.drawable.none),
-            fallback = painterResource(Res.drawable.none)
+            fallback = painterResource(Res.drawable.none),
         )
     }
 }

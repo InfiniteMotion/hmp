@@ -1,24 +1,28 @@
 package com.hearablemusic.player.ui.player.components
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -30,9 +34,12 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.hmp.domain.music.MusicInfo
+import com.hearablemusic.player.ui.common.design.metrics.LayoutConstraints
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
 import com.hearablemusic.player.ui.common.design.typography.medium
+import com.hearablemusic.player.ui.common.util.hazeStyleForIntensity
+import com.hearablemusic.player.ui.common.util.hazeTintAlpha
 import com.hearablemusic.player.ui.common.util.rememberHapticFeedback
 import com.hearablemusic.player.ui.generated.resources.Res
 import com.hearablemusic.player.ui.generated.resources.artist_placeholder
@@ -45,20 +52,13 @@ import com.hearablemusic.player.ui.generated.resources.pause_desc
 import com.hearablemusic.player.ui.generated.resources.play_desc
 import com.hearablemusic.player.ui.generated.resources.play_fill
 import com.hearablemusic.player.ui.generated.resources.previous
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.tween
-import androidx.compose.foundation.layout.height
+import com.hearablemusic.player.ui.library.pages.components.AlbumCover
+import com.hmp.domain.music.MusicInfo
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
-import com.hearablemusic.player.ui.common.util.hazeStyleForIntensity
-import com.hearablemusic.player.ui.common.util.hazeTintAlpha
-import com.hearablemusic.player.ui.library.pages.components.AlbumCover
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
-import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
-import com.hearablemusic.player.ui.common.design.metrics.LayoutConstraints
 
 /**
  * 悬浮迷你播放器组件
@@ -75,7 +75,7 @@ fun MiniPlayerBar(
     onPlayPause: () -> Unit,
     onNext: () -> Unit,
     onPrev: () -> Unit,
-    onOpenPlayer: () -> Unit
+    onOpenPlayer: () -> Unit,
 ) {
     val metrics = LocalHmpMetrics.current
     val typo = LocalHmpTypo.current
@@ -95,7 +95,7 @@ fun MiniPlayerBar(
             val durationMillis = ((remaining / 360f) * 8000f).toInt().coerceAtLeast(1)
             coverRotation.animateTo(
                 targetValue = 360f,
-                animationSpec = tween(durationMillis = durationMillis, easing = LinearEasing)
+                animationSpec = tween(durationMillis = durationMillis, easing = LinearEasing),
             )
             coverRotation.snapTo(0f)
         }
@@ -110,14 +110,16 @@ fun MiniPlayerBar(
                 if (hazeState != null) {
                     Modifier.hazeEffect(
                         state = hazeState,
-                        style = hazeStyleForIntensity()
+                        style = hazeStyleForIntensity(),
                     )
-                } else Modifier
+                } else {
+                    Modifier
+                },
             )
             .semantics {
                 progressBarRangeInfo = ProgressBarRangeInfo(
                     current = normalizedProgress,
-                    range = 0f..1f
+                    range = 0f..1f,
                 )
             }
             .clickable {
@@ -130,20 +132,20 @@ fun MiniPlayerBar(
                 MaterialTheme.colorScheme.surface.copy(alpha = hazeTintAlpha())
             } else {
                 MaterialTheme.colorScheme.surface
-            }
+            },
         ),
         border = BorderStroke(
             width = metrics.stroke.hairline,
-            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.14f)
+            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.14f),
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = metrics.compact, vertical = metrics.compact),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+            horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             // 专辑封面
             AlbumCover(
@@ -153,7 +155,7 @@ fun MiniPlayerBar(
                 shadow = metrics.micro,
                 modifier = Modifier.graphicsLayer {
                     rotationZ = coverRotation.value
-                }
+                },
             )
 
             Spacer(modifier = Modifier.width(metrics.cozy))
@@ -166,7 +168,7 @@ fun MiniPlayerBar(
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    overflow = TextOverflow.Ellipsis,
                 )
                 Spacer(modifier = Modifier.height(metrics.compact))
                 Text(
@@ -174,7 +176,7 @@ fun MiniPlayerBar(
                     style = typo.footnote,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
 
@@ -183,7 +185,7 @@ fun MiniPlayerBar(
             // 控制按钮组
             Row(
                 horizontalArrangement = Arrangement.spacedBy(0.dp),
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 // 上一首按钮
                 IconButton(
@@ -191,13 +193,13 @@ fun MiniPlayerBar(
                         haptic.performLightClick()
                         onPrev()
                     },
-                    modifier = Modifier.size(metrics.block)
+                    modifier = Modifier.size(metrics.block),
                 ) {
                     Icon(
                         painter = painterResource(Res.drawable.backward_end_fill),
                         contentDescription = stringResource(Res.string.previous),
                         tint = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.size(metrics.section)
+                        modifier = Modifier.size(metrics.section),
                     )
                 }
 
@@ -207,7 +209,7 @@ fun MiniPlayerBar(
                         haptic.performLightClick()
                         onPlayPause()
                     },
-                    modifier = Modifier.size(metrics.bar)
+                    modifier = Modifier.size(metrics.bar),
                 ) {
                     Icon(
                         painter = if (isPlaying) {
@@ -217,7 +219,7 @@ fun MiniPlayerBar(
                         },
                         contentDescription = if (isPlaying) stringResource(Res.string.pause_desc) else stringResource(Res.string.play_desc),
                         tint = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.size(LayoutConstraints.CompactIconSize)
+                        modifier = Modifier.size(LayoutConstraints.CompactIconSize),
                     )
                 }
 
@@ -227,13 +229,13 @@ fun MiniPlayerBar(
                         haptic.performLightClick()
                         onNext()
                     },
-                    modifier = Modifier.size(metrics.block)
+                    modifier = Modifier.size(metrics.block),
                 ) {
                     Icon(
                         painter = painterResource(Res.drawable.forward_end_fill),
                         contentDescription = stringResource(Res.string.next_desc),
                         tint = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.size(metrics.section)
+                        modifier = Modifier.size(metrics.section),
                     )
                 }
             }

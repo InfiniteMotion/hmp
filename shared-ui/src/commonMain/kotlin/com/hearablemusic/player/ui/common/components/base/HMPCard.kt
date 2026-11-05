@@ -15,8 +15,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.dp
-import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 import com.hearablemusic.player.ui.common.design.metrics.HMPMetricTokens
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 
 /**
  * 应用标准卡片容器。
@@ -42,7 +42,7 @@ fun HMPCard(
             .clip(shape)
             .then(modifier)
             .border(metrics.stroke.thin, borderColor, shape)
-            .background(containerColor, shape)
+            .background(containerColor, shape),
     ) {
         Column(
             modifier = Modifier

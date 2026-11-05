@@ -1,6 +1,5 @@
 package com.hearablemusic.player.ui.agent.cards
 
-import com.hearablemusic.player.ui.common.design.colors.HelloCardPalette
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -20,8 +19,10 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -32,6 +33,8 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
+import com.hearablemusic.player.ui.common.design.colors.HelloCardPalette
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
 import com.hearablemusic.player.ui.common.design.typography.medium
 import com.hearablemusic.player.ui.common.text.UiText
@@ -50,12 +53,6 @@ import com.hmp.domain.agent.card.SlideCard
 import com.hmp.domain.music.MusicRepository
 import org.jetbrains.compose.resources.painterResource
 import org.koin.compose.koinInject
-
-
-
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 // ═══════════════════════════════════════════════════════════════════
 // 家族 B：单曲展示卡（RECOMMEND / FORGOTTEN 共用骨架）
 // ═══════════════════════════════════════════════════════════════════
@@ -76,7 +73,9 @@ internal fun FamilySingleTrackCard(
                     onTap = { /* 短按留给 Pager 手势 */ },
                 )
             }
+
             onCardClick != null -> m.clickable { onCardClick.invoke(card) }
+
             else -> m
         }
     }
@@ -106,10 +105,10 @@ internal fun FamilySingleTrackCard(
                 .fillMaxSize()
                 .background(
                     brush = Brush.linearGradient(
-                        colors = listOf(meta.themeColor.copy(alpha = 0.95f), meta.themeColor.copy(alpha = 0.80f))
-                    )
+                        colors = listOf(meta.themeColor.copy(alpha = 0.95f), meta.themeColor.copy(alpha = 0.80f)),
+                    ),
                 )
-                .padding(metrics.cozy)
+                .padding(metrics.cozy),
         ) {
             // 主体：文字 Column（填满空间）
             Column(
@@ -158,7 +157,7 @@ internal fun FamilySingleTrackCard(
                         .fillMaxWidth()
                         .padding(vertical = metrics.compact)
                         .height(metrics.stroke.thin)
-                        .background(Color.White.copy(alpha = 0.2f))
+                        .background(Color.White.copy(alpha = 0.2f)),
                 )
 
                 // 补充文案（LLM 生成的推荐语 / 怀旧随笔）
@@ -169,7 +168,7 @@ internal fun FamilySingleTrackCard(
                 // 中间留下大块空白 —— 这正是宽窗下卡片"一大坨死紫"的直接成因。
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.weight(1f, fill = false)
+                    modifier = Modifier.weight(1f, fill = false),
                 ) {
                     meta.subtitle?.let {
                         Text(
@@ -222,46 +221,46 @@ private data class SingleTrackMeta(
     val trackId: Long,
     val label: UiText,
     val title: UiText,
-    val subtitle: UiText?,       // 补充文案（LLM 产出 → Raw）
-    val footer: UiText?,          // 底部数字条文本
+    val subtitle: UiText?, // 补充文案（LLM 产出 → Raw）
+    val footer: UiText?, // 底部数字条文本
     val durationSec: Int,
     val themeColor: Color,
 )
 
-private fun buildSingleTrackMeta(card: SlideCard): SingleTrackMeta {
-    return when (val c = card.content) {
-        is RecommendContent -> SingleTrackMeta(
-            trackId = c.trackId,
-            label = UiText.Res(Res.string.card_label_recommend_phase, listOf(c.currentPhase.label)),
-            title = UiText.Raw(c.trackTitle),
-            subtitle = c.reason?.let { UiText.Raw(it) },
-            footer = if (!c.sourceLabel.isNullOrEmpty()) {
-                UiText.Res(Res.string.card_single_source_ai, listOf(c.sourceLabel.orEmpty()))
-            } else {
-                UiText.Res(Res.string.card_single_ai_pick)
-            },
-            durationSec = c.durationSec,
-            themeColor = HelloCardPalette.SingleTrack.Recommend,
-        )
+private fun buildSingleTrackMeta(card: SlideCard): SingleTrackMeta = when (val c = card.content) {
+    is RecommendContent -> SingleTrackMeta(
+        trackId = c.trackId,
+        label = UiText.Res(Res.string.card_label_recommend_phase, listOf(c.currentPhase.label)),
+        title = UiText.Raw(c.trackTitle),
+        subtitle = c.reason?.let { UiText.Raw(it) },
+        footer = if (!c.sourceLabel.isNullOrEmpty()) {
+            UiText.Res(Res.string.card_single_source_ai, listOf(c.sourceLabel.orEmpty()))
+        } else {
+            UiText.Res(Res.string.card_single_ai_pick)
+        },
+        durationSec = c.durationSec,
+        themeColor = HelloCardPalette.SingleTrack.Recommend,
+    )
 
-        is ForgottenContent -> SingleTrackMeta(
-            trackId = c.trackId,
-            label = UiText.Res(Res.string.card_single_days_ago, listOf(c.daysSince)),
-            title = UiText.Raw(c.trackTitle),
-            subtitle = c.emotionText?.let { UiText.Raw(it) },
-            footer = UiText.Res(Res.string.card_total_plays, listOf(c.playCount)),
-            durationSec = c.durationSec,
-            themeColor = HelloCardPalette.SingleTrack.Forgotten,
-        )
+    is ForgottenContent -> SingleTrackMeta(
+        trackId = c.trackId,
+        label = UiText.Res(Res.string.card_single_days_ago, listOf(c.daysSince)),
+        title = UiText.Raw(c.trackTitle),
+        subtitle = c.emotionText?.let { UiText.Raw(it) },
+        footer = UiText.Res(Res.string.card_total_plays, listOf(c.playCount)),
+        durationSec = c.durationSec,
+        themeColor = HelloCardPalette.SingleTrack.Forgotten,
+    )
 
-        else -> SingleTrackMeta(
-            trackId = 0,
-            label = UiText.Res(Res.string.card_single_unknown),
-            title = UiText.Res(Res.string.card_single_unknown),
-            subtitle = null, footer = null, durationSec = 0,
-            themeColor = Color.Gray,
-        )
-    }
+    else -> SingleTrackMeta(
+        trackId = 0,
+        label = UiText.Res(Res.string.card_single_unknown),
+        title = UiText.Res(Res.string.card_single_unknown),
+        subtitle = null,
+        footer = null,
+        durationSec = 0,
+        themeColor = Color.Gray,
+    )
 }
 
 // ═══════════════════════════════════════════════════════════════════

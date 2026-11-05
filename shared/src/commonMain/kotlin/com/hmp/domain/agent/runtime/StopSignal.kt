@@ -1,7 +1,7 @@
 package com.hmp.domain.agent.runtime
 
-import kotlinx.coroutines.sync.Mutex
 import com.hmp.platform.Volatile
+import kotlinx.coroutines.sync.Mutex
 
 /**
  * Agent 停止/暂停信号——每个 Agent 构造时选一个实现。
@@ -21,7 +21,7 @@ internal interface StopSignal {
 /** MasterAgent 用——永不暂停。配额耗尽由 ReActLoop 对 `quotaExhausted` 的分支处理（不发请求 + 可行动话术）。 */
 internal class AlwaysRunningStopSignal : StopSignal {
     override fun shouldSoftStop(): Boolean = false
-    override suspend fun waitResume() {}  // Master 永不暂停，空实现
+    override suspend fun waitResume() {} // Master 永不暂停，空实现
 }
 
 /**
@@ -70,7 +70,7 @@ internal class SchedulerStopSignal(
     override suspend fun waitResume() {
         while (pauseRequested) {
             try {
-                pauseMutex.lock()  // ← 真正挂起，直到 Scheduler 调 onSchedulerResumed()
+                pauseMutex.lock() // ← 真正挂起，直到 Scheduler 调 onSchedulerResumed()
             } finally {
                 // lock/unlock 配对：立即释放，绝不持锁跨批次（旧版死锁根因）
                 runCatching { pauseMutex.unlock() }
@@ -92,6 +92,8 @@ internal class SchedulerStopSignal(
     /** Scheduler 状态变 RUNNING 时调（通过 AgentRegistration.onResume 回调） */
     fun onSchedulerResumed() {
         pauseRequested = false
-        try { pauseMutex.unlock() } catch (_: IllegalStateException) { /* already unlocked */ }
+        try {
+            pauseMutex.unlock()
+        } catch (_: IllegalStateException) { /* already unlocked */ }
     }
 }

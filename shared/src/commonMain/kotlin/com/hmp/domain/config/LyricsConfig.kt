@@ -22,7 +22,7 @@ data class LyricsConfig(
     val displayMode: DisplayMode = DisplayMode.DUAL,
 
     // 对齐配置
-    val alignment: LyricsAlignment = LyricsAlignment.CENTER
+    val alignment: LyricsAlignment = LyricsAlignment.CENTER,
 )
 
 /**
@@ -30,9 +30,9 @@ data class LyricsConfig(
  */
 @Serializable
 enum class DisplayMode {
-    LANG1,  // 只显示语言一
-    LANG2,  // 只显示语言二
-    DUAL    // 双语显示
+    LANG1, // 只显示语言一
+    LANG2, // 只显示语言二
+    DUAL, // 双语显示
 }
 
 /**
@@ -40,7 +40,7 @@ enum class DisplayMode {
  */
 @Serializable
 enum class LyricsAlignment {
-    LEFT,   // 左对齐
+    LEFT, // 左对齐
     CENTER, // 居中对齐
-    RIGHT   // 右对齐
+    RIGHT, // 右对齐
 }

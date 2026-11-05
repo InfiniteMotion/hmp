@@ -1,8 +1,8 @@
 package com.hmp.data.repository
 
-import com.hmp.data.database.ListeningDuration
 import com.hmp.data.database.AgentAuditLogDao
 import com.hmp.data.database.ForgottenDeliveryDao
+import com.hmp.data.database.ListeningDuration
 import com.hmp.data.database.ListeningDurationDao
 import com.hmp.data.database.Music
 import com.hmp.data.database.MusicAllDao
@@ -21,18 +21,18 @@ import com.hmp.data.network.OpenAiCompatibleAdapter
 import com.hmp.data.util.DeviceMusicScanner
 import com.hmp.data.util.FileCoverArtWriter
 import com.hmp.data.util.stringToPinyinSortKey
+import com.hmp.domain.backup.TransactionRunner
 import com.hmp.domain.music.MusicInfo
 import com.hmp.domain.music.MusicRepository
-import com.hmp.domain.backup.TransactionRunner
 import com.hmp.domain.setting.SettingsRepository
+import com.hmp.log.HmpLog
+import com.hmp.log.LogTag
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import java.io.File
-import com.hmp.log.HmpLog
-import com.hmp.log.LogTag
 
 /**
  * Desktop 播放器仓库实现（B0 去重后仅保留平台分叉）：文件系统扫描（DeviceMusicScanner +
@@ -53,7 +53,7 @@ class MusicRepositoryImpl(
     agentAuditLogDao: AgentAuditLogDao,
     forgottenDeliveryDao: ForgottenDeliveryDao,
     transactionRunner: TransactionRunner,
-    private val settingsRepository: SettingsRepository
+    private val settingsRepository: SettingsRepository,
 ) : MusicRepositoryBase(
     musicDao = musicDao,
     musicExtraDao = musicExtraDao,
@@ -70,64 +70,62 @@ class MusicRepositoryImpl(
     json = json,
     transactionRunner = transactionRunner,
     // 标签写入换封面时要能把新封面落盘并跟上 uri（D2-17）—— 这一端有文件缓存，所以有写手
-    coverArtWriter = FileCoverArtWriter()
+    coverArtWriter = FileCoverArtWriter(),
 ) {
-
 
     // region Scan & Persist
 
-    override suspend fun performMusicScan(): Triple<List<Music>, List<MusicExtra>, List<UserInfo>> =
-        withContext(Dispatchers.Default) {
-            val config = settingsRepository.scanDirectoryConfig.first()
-            if (config.scanDirectories.isNotEmpty()) {
-                DeviceMusicScanner.setScanDirectories(config.scanDirectories.map { File(it) })
-            }
-            DeviceMusicScanner.setBlockedDirectories(config.blockedDirectories)
-            val scannedFiles = DeviceMusicScanner.scanMusic()
-
-            val musicList = mutableListOf<Music>()
-            val musicExtraList = mutableListOf<MusicExtra>()
-            val userInfoList = mutableListOf<UserInfo>()
-
-            for (file in scannedFiles) {
-                try {
-                    musicList.add(
-                        Music(
-                            id = file.id,
-                            title = file.title,
-                            artist = file.artist,
-                            album = file.album,
-                            duration = file.duration,
-                            path = file.path,
-                            albumArtUri = file.albumArtUri
-                        )
-                    )
-
-                    musicExtraList.add(
-                        MusicExtra(
-                            id = file.id,
-                            lyrics = file.lyrics,
-                            bitRate = file.bitRate,
-                            sampleRate = file.sampleRate,
-                            fileSize = file.fileSize,
-                            format = file.format,
-                            isGetExtraInfo = false
-                        )
-                    )
-
-                    userInfoList.add(UserInfo(id = file.id))
-                } catch (e: Exception) {
-                    HmpLog.e(LogTag.DataMusicRepo, e) { "🎵 MusicRepository: Error processing music item: ${e.message}" }
-                }
-            }
-
-            val existingDates = musicExtraDao.getAllIdAndDate().associate { it.id to it.date }
-            val extrasWithDate = musicExtraList.map { e ->
-                e.copy(date = existingDates[e.id] ?: currentTimeMillis())
-            }
-
-            Triple(musicList, extrasWithDate, userInfoList)
+    override suspend fun performMusicScan(): Triple<List<Music>, List<MusicExtra>, List<UserInfo>> = withContext(Dispatchers.Default) {
+        val config = settingsRepository.scanDirectoryConfig.first()
+        if (config.scanDirectories.isNotEmpty()) {
+            DeviceMusicScanner.setScanDirectories(config.scanDirectories.map { File(it) })
         }
+        DeviceMusicScanner.setBlockedDirectories(config.blockedDirectories)
+        val scannedFiles = DeviceMusicScanner.scanMusic()
+
+        val musicList = mutableListOf<Music>()
+        val musicExtraList = mutableListOf<MusicExtra>()
+        val userInfoList = mutableListOf<UserInfo>()
+
+        for (file in scannedFiles) {
+            try {
+                musicList.add(
+                    Music(
+                        id = file.id,
+                        title = file.title,
+                        artist = file.artist,
+                        album = file.album,
+                        duration = file.duration,
+                        path = file.path,
+                        albumArtUri = file.albumArtUri,
+                    ),
+                )
+
+                musicExtraList.add(
+                    MusicExtra(
+                        id = file.id,
+                        lyrics = file.lyrics,
+                        bitRate = file.bitRate,
+                        sampleRate = file.sampleRate,
+                        fileSize = file.fileSize,
+                        format = file.format,
+                        isGetExtraInfo = false,
+                    ),
+                )
+
+                userInfoList.add(UserInfo(id = file.id))
+            } catch (e: Exception) {
+                HmpLog.e(LogTag.DataMusicRepo, e) { "🎵 MusicRepository: Error processing music item: ${e.message}" }
+            }
+        }
+
+        val existingDates = musicExtraDao.getAllIdAndDate().associate { it.id to it.date }
+        val extrasWithDate = musicExtraList.map { e ->
+            e.copy(date = existingDates[e.id] ?: currentTimeMillis())
+        }
+
+        Triple(musicList, extrasWithDate, userInfoList)
+    }
 
     // endregion
 
@@ -141,5 +139,4 @@ class MusicRepositoryImpl(
     protected override val pathSeparators: String = "\\/"
 
     // endregion
-
 }

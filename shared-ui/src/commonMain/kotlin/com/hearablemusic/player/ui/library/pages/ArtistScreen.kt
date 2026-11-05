@@ -9,13 +9,16 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
-import org.koin.compose.viewmodel.koinViewModel
-import com.hearablemusic.player.ui.common.util.activityViewModel
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
-import com.hmp.domain.music.MusicInfo
 import com.hearablemusic.player.ui.common.components.base.PlayControlButtonTwo
 import com.hearablemusic.player.ui.common.components.base.UiStateContent
+import com.hearablemusic.player.ui.common.dialogs.viewmodel.DialogViewModel
+import com.hearablemusic.player.ui.common.navigation.Routes
+import com.hearablemusic.player.ui.common.pages.base.SubScreen
+import com.hearablemusic.player.ui.common.util.UiState
+import com.hearablemusic.player.ui.common.util.activityViewModel
+import com.hearablemusic.player.ui.common.util.rememberHapticFeedback
 import com.hearablemusic.player.ui.library.pages.components.musiclist.CurrentPlayingConfig
 import com.hearablemusic.player.ui.library.pages.components.musiclist.EditConfig
 import com.hearablemusic.player.ui.library.pages.components.musiclist.FullItemOptions
@@ -25,15 +28,12 @@ import com.hearablemusic.player.ui.library.pages.components.musiclist.ItemVarian
 import com.hearablemusic.player.ui.library.pages.components.musiclist.MusicList
 import com.hearablemusic.player.ui.library.pages.components.musiclist.MusicListCallbacksAdapter
 import com.hearablemusic.player.ui.library.pages.components.musiclist.defaultMusicListConfig
-import com.hearablemusic.player.ui.common.util.UiState
-import com.hearablemusic.player.ui.common.util.rememberHapticFeedback
-import com.hearablemusic.player.ui.common.dialogs.viewmodel.DialogViewModel
 import com.hearablemusic.player.ui.player.viewmodel.PlaybackViewModel
 import com.hearablemusic.player.ui.player.viewmodel.PlaylistQueueViewModel
 import com.hearablemusic.player.ui.playlist.viewmodel.ArtistAlbumViewModel
+import com.hmp.domain.music.MusicInfo
 import kotlinx.coroutines.launch
-import com.hearablemusic.player.ui.common.pages.base.SubScreen
-import com.hearablemusic.player.ui.common.navigation.Routes
+import org.koin.compose.viewmodel.koinViewModel
 
 @Composable
 fun ArtistScreen(
@@ -67,7 +67,7 @@ fun ArtistScreen(
         },
         playWith = playlistQueueViewModel::playWith,
         addToPlaylist = playlistQueueViewModel::addToPlaylist,
-        onShowMusicDetailDialog = dialogViewModel::showMusicDetailDialog
+        onShowMusicDetailDialog = dialogViewModel::showMusicDetailDialog,
     )
 }
 
@@ -82,13 +82,13 @@ fun ArtistScreenContent(
     onOrderPlay: (List<MusicInfo>) -> Unit,
     playWith: suspend (MusicInfo) -> Unit,
     addToPlaylist: (MusicInfo) -> Unit,
-    onShowMusicDetailDialog: (MusicInfo) -> Unit
+    onShowMusicDetailDialog: (MusicInfo) -> Unit,
 ) {
     val haptic = rememberHapticFeedback()
     val scope = rememberCoroutineScope()
     SubScreen(
         onBackClick = onBackClick,
-        title = artistName
+        title = artistName,
     ) {
         Column(
             modifier = Modifier
@@ -97,7 +97,7 @@ fun ArtistScreenContent(
         ) {
             UiStateContent(
                 state = artistMusicListState,
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f),
             ) { artistMusicList ->
                 val currentPlayingIndex = artistMusicList.indexOfFirst { it.music.id == currentPlayingMusic?.music?.id }.takeIf { it >= 0 }
                 val callbacks = object : MusicListCallbacksAdapter() {
@@ -105,8 +105,12 @@ fun ArtistScreenContent(
                         haptic.performClick()
                         scope.launch { playWith(musicInfo) }
                     }
-                    override fun onAddToPlaylist(musicInfo: MusicInfo) { addToPlaylist(musicInfo) }
-                    override fun onMenuClick(musicInfo: MusicInfo) { onShowMusicDetailDialog(musicInfo) }
+                    override fun onAddToPlaylist(musicInfo: MusicInfo) {
+                        addToPlaylist(musicInfo)
+                    }
+                    override fun onMenuClick(musicInfo: MusicInfo) {
+                        onShowMusicDetailDialog(musicInfo)
+                    }
                 }
                 val config = defaultMusicListConfig(callbacks).copy(
                     header = HeaderConfig.None,
@@ -123,12 +127,12 @@ fun ArtistScreenContent(
                     edit = EditConfig(enabled = false),
                     currentPlaying = CurrentPlayingConfig(
                         index = currentPlayingIndex,
-                        autoScrollToCurrent = false
+                        autoScrollToCurrent = false,
                     ),
                 )
                 PlayControlButtonTwo(
                     onShufflePlay = { onShufflePlay(artistMusicList) },
-                    onOrderPlay = { onOrderPlay(artistMusicList) }
+                    onOrderPlay = { onOrderPlay(artistMusicList) },
                 )
                 MusicList(
                     musicInfoList = artistMusicList,

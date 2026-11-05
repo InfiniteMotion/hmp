@@ -50,16 +50,14 @@ object CoverArtStore {
      *
      * 空数组不是一种封面（调用方用它表示"移除封面"），因此在这里就不该走到命名这一步。
      */
-    fun fileNameFor(coverBytes: ByteArray): String =
-        "cover_" + fnv1a64(coverBytes).toString(16) + ".jpg"
+    fun fileNameFor(coverBytes: ByteArray): String = "cover_" + fnv1a64(coverBytes).toString(16) + ".jpg"
 
     /**
      * 落盘并返回可存的 uri；写不进（IO 失败）返回 null，调用方保留原 uri 而不是抹成空。
      *
      * @param writer 平台的落盘实现（Android 不在此列：它的封面是 `content://media/.../albumart`，不落盘）
      */
-    fun store(coverBytes: ByteArray, writer: CoverArtWriter): String? =
-        writer.write(fileNameFor(coverBytes), coverBytes)
+    fun store(coverBytes: ByteArray, writer: CoverArtWriter): String? = writer.write(fileNameFor(coverBytes), coverBytes)
 }
 
 /** 把已经算好名字的封面字节写到本端该放的地方，返回可直接存进 `music.albumArtUri` 的字符串。 */

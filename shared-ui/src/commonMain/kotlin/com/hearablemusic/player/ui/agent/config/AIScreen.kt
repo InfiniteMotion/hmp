@@ -1,4 +1,84 @@
 package com.hearablemusic.player.ui.agent.config
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuAnchorType
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Switch
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color.Companion.Transparent
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.navigation3.runtime.NavBackStack
+import androidx.navigation3.runtime.NavKey
+import com.hearablemusic.player.ui.agent.agentIcon
+import com.hearablemusic.player.ui.agent.config.AiSettingsViewModel
+import com.hearablemusic.player.ui.common.components.SectionHeader
+import com.hearablemusic.player.ui.common.components.SegmentedControl
+import com.hearablemusic.player.ui.common.components.SegmentedOption
+import com.hearablemusic.player.ui.common.components.base.HMPCard
+import com.hearablemusic.player.ui.common.components.base.TitleWidget
+import com.hearablemusic.player.ui.common.design.metrics.LayoutConstraints
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
+import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
+import com.hearablemusic.player.ui.common.design.typography.medium
+import com.hearablemusic.player.ui.common.dialogs.controller.DialogManager
+import com.hearablemusic.player.ui.common.dialogs.viewmodel.DialogManagerViewModel
+import com.hearablemusic.player.ui.common.layout.LocalWindowSizeInfo
+import com.hearablemusic.player.ui.common.navigation.Routes
+import com.hearablemusic.player.ui.common.pages.base.SubScreen
+import com.hearablemusic.player.ui.common.util.activityViewModel
+import com.hearablemusic.player.ui.generated.resources.Res
 import com.hearablemusic.player.ui.generated.resources.agent_ai_access_header
 import com.hearablemusic.player.ui.generated.resources.agent_ai_agent_mgmt_header
 import com.hearablemusic.player.ui.generated.resources.agent_ai_collapse
@@ -7,12 +87,6 @@ import com.hearablemusic.player.ui.generated.resources.agent_ai_custom_endpoint
 import com.hearablemusic.player.ui.generated.resources.agent_ai_endpoint_prereq
 import com.hearablemusic.player.ui.generated.resources.agent_ai_expand
 import com.hearablemusic.player.ui.generated.resources.agent_ai_free_remaining
-import com.hearablemusic.player.ui.generated.resources.agent_token_limits_title
-import com.hearablemusic.player.ui.generated.resources.agent_token_limits_enable
-import com.hearablemusic.player.ui.generated.resources.agent_token_limits_global
-import com.hearablemusic.player.ui.generated.resources.agent_token_limits_per_agent
-import com.hearablemusic.player.ui.generated.resources.agent_token_limits_save
-
 import com.hearablemusic.player.ui.generated.resources.agent_ai_free_tier
 import com.hearablemusic.player.ui.generated.resources.agent_ai_lang_auto
 import com.hearablemusic.player.ui.generated.resources.agent_ai_lang_en
@@ -43,90 +117,11 @@ import com.hearablemusic.player.ui.generated.resources.agent_ai_reset_dialog_tit
 import com.hearablemusic.player.ui.generated.resources.agent_ai_voice_desc
 import com.hearablemusic.player.ui.generated.resources.agent_ai_voice_locked
 import com.hearablemusic.player.ui.generated.resources.agent_ai_voice_title
-
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuAnchorType
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Switch
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.TextField
-import androidx.compose.material3.TextFieldDefaults
-import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
-import com.hearablemusic.player.ui.common.design.typography.medium
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.material3.Icon
-import androidx.compose.ui.draw.clip
-import com.hearablemusic.player.ui.agent.agentIcon
-import com.hearablemusic.player.ui.common.components.SectionHeader
-import org.jetbrains.compose.resources.painterResource
-import androidx.compose.ui.graphics.Color.Companion.Transparent
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.input.VisualTransformation
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.navigation3.runtime.NavBackStack
-import androidx.navigation3.runtime.NavKey
-import com.hmp.domain.agent.runtime.MasterAgent
-import com.hmp.domain.enum.AiPresetEndpoints
-import com.hmp.domain.setting.model.AiAccessMode
-import com.hmp.domain.setting.model.AiEndpointConfig
-import com.hmp.domain.agent.profile.PortraitDraft
-import com.hearablemusic.player.ui.common.components.SegmentedControl
-import com.hearablemusic.player.ui.common.components.SegmentedOption
-import com.hearablemusic.player.ui.common.components.base.HMPCard
-import com.hearablemusic.player.ui.common.components.base.TitleWidget
-import com.hearablemusic.player.ui.common.dialogs.controller.DialogManager
-import com.hearablemusic.player.ui.common.dialogs.viewmodel.DialogManagerViewModel
-import com.hearablemusic.player.ui.common.layout.LocalWindowSizeInfo
-import com.hearablemusic.player.ui.common.navigation.Routes
-import com.hearablemusic.player.ui.common.pages.base.SubScreen
-import com.hearablemusic.player.ui.common.util.activityViewModel
-import com.hearablemusic.player.ui.generated.resources.Res
+import com.hearablemusic.player.ui.generated.resources.agent_token_limits_enable
+import com.hearablemusic.player.ui.generated.resources.agent_token_limits_global
+import com.hearablemusic.player.ui.generated.resources.agent_token_limits_per_agent
+import com.hearablemusic.player.ui.generated.resources.agent_token_limits_save
+import com.hearablemusic.player.ui.generated.resources.agent_token_limits_title
 import com.hearablemusic.player.ui.generated.resources.ai_endpoint
 import com.hearablemusic.player.ui.generated.resources.ai_fetch_models
 import com.hearablemusic.player.ui.generated.resources.ai_free_exhausted
@@ -134,10 +129,10 @@ import com.hearablemusic.player.ui.generated.resources.ai_free_hint
 import com.hearablemusic.player.ui.generated.resources.ai_free_remaining
 import com.hearablemusic.player.ui.generated.resources.ai_free_unavailable
 import com.hearablemusic.player.ui.generated.resources.ai_free_used
+import com.hearablemusic.player.ui.generated.resources.ai_key_needs_refill
 import com.hearablemusic.player.ui.generated.resources.ai_paid_coming_soon
 import com.hearablemusic.player.ui.generated.resources.ai_paid_description
 import com.hearablemusic.player.ui.generated.resources.ai_preset_quick_fill
-import com.hearablemusic.player.ui.generated.resources.ai_key_needs_refill
 import com.hearablemusic.player.ui.generated.resources.ai_tab_custom
 import com.hearablemusic.player.ui.generated.resources.ai_tab_free
 import com.hearablemusic.player.ui.generated.resources.ai_tab_paid
@@ -158,15 +153,18 @@ import com.hearablemusic.player.ui.generated.resources.save
 import com.hearablemusic.player.ui.generated.resources.test
 import com.hearablemusic.player.ui.generated.resources.title_ai
 import com.hearablemusic.player.ui.library.viewmodel.LibraryViewModel
-import com.hearablemusic.player.ui.agent.config.AiSettingsViewModel
 import com.hearablemusic.player.ui.settings.viewmodel.RecommendationViewModel
+import com.hmp.domain.agent.profile.PortraitDraft
+import com.hmp.domain.agent.runtime.MasterAgent
+import com.hmp.domain.enum.AiPresetEndpoints
+import com.hmp.domain.setting.model.AiAccessMode
+import com.hmp.domain.setting.model.AiEndpointConfig
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.getString
+import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
-import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
-import com.hearablemusic.player.ui.common.design.metrics.LayoutConstraints
 
 @Composable
 fun AIScreen(
@@ -174,7 +172,7 @@ fun AIScreen(
     recommendationViewModel: RecommendationViewModel = activityViewModel(),
     libraryViewModel: LibraryViewModel = activityViewModel(),
     masterAgent: MasterAgent = koinInject(),
-    navController: NavBackStack<NavKey>
+    navController: NavBackStack<NavKey>,
 ) {
     val dialogManager = activityViewModel<DialogManagerViewModel>().dialogManager
     val scope = rememberCoroutineScope()
@@ -221,7 +219,7 @@ fun AIScreen(
         dialogManager = dialogManager,
         navController = navController,
         masterAgent = masterAgent,
-        onBackClick = { navController.removeLastOrNull() }
+        onBackClick = { navController.removeLastOrNull() },
     )
 }
 
@@ -254,7 +252,7 @@ private fun AIScreenContent(
     dialogManager: DialogManager,
     navController: NavBackStack<NavKey>,
     masterAgent: MasterAgent,
-    onBackClick: () -> Unit
+    onBackClick: () -> Unit,
 ) {
     val metrics = LocalHmpMetrics.current
     // 显示测试结果 Toast
@@ -271,7 +269,7 @@ private fun AIScreenContent(
 
     SubScreen(
         onBackClick = onBackClick,
-        title = stringResource(Res.string.title_ai)
+        title = stringResource(Res.string.title_ai),
     ) {
         // F14-T1 自适应：竖屏/窄窗单栏限宽居中（~600dp）；横屏（手机横屏 / 平板、桌面宽窗）
         // 改双栏 —— 左栏 = 接入方式 + 语言语音，右栏 = Agent 管理 + 记忆管理。
@@ -284,120 +282,120 @@ private fun AIScreenContent(
             modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.TopCenter,
         ) {
-        if (isLandscape) {
-        // ── 横屏双栏 ──
-        Row(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = metrics.block, vertical = metrics.cozy),
-            horizontalArrangement = Arrangement.spacedBy(metrics.block),
-            verticalAlignment = Alignment.Top,
-        ) {
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxHeight()
-                    .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(metrics.section),
-            ) {
-                // 分区 1：AI 接入方式
-                SectionHeader(stringResource(Res.string.agent_ai_access_header))
-                AiAccessSection(
-                    aiAccessMode = aiAccessMode,
-                    freeQuota = freeQuota,
-        freeAvailable = freeAvailable,
-                    customConfig = customConfig,
-                    availableModels = availableModels,
-                    isTestingApi = isTestingApi,
-                    pendingCount = pendingCount,
-                    onModeChange = onModeChange,
-                    onSaveConfig = onSaveCustomConfig,
-                    onFetchModels = onFetchModels,
-                    onTestConnection = onTestConnection,
-                    dialogManager = dialogManager,
-                )
-                if (aiAccessMode == AiAccessMode.CUSTOM) {
-                    TokenLimitsCard(aiSettingsViewModel)
+            if (isLandscape) {
+                // ── 横屏双栏 ──
+                Row(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = metrics.block, vertical = metrics.cozy),
+                    horizontalArrangement = Arrangement.spacedBy(metrics.block),
+                    verticalAlignment = Alignment.Top,
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(metrics.section),
+                    ) {
+                        // 分区 1：AI 接入方式
+                        SectionHeader(stringResource(Res.string.agent_ai_access_header))
+                        AiAccessSection(
+                            aiAccessMode = aiAccessMode,
+                            freeQuota = freeQuota,
+                            freeAvailable = freeAvailable,
+                            customConfig = customConfig,
+                            availableModels = availableModels,
+                            isTestingApi = isTestingApi,
+                            pendingCount = pendingCount,
+                            onModeChange = onModeChange,
+                            onSaveConfig = onSaveCustomConfig,
+                            onFetchModels = onFetchModels,
+                            onTestConnection = onTestConnection,
+                            dialogManager = dialogManager,
+                        )
+                        if (aiAccessMode == AiAccessMode.CUSTOM) {
+                            TokenLimitsCard(aiSettingsViewModel)
+                        }
+                        // 分区 3：语言和语音
+                        SectionHeader(stringResource(Res.string.agent_ai_lang_voice_header))
+                        ReplyLanguageSection(masterAgent = masterAgent)
+                        VoiceSection()
+                    }
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(metrics.section),
+                    ) {
+                        // 分区 2：Agent 管理
+                        SectionHeader(stringResource(Res.string.agent_ai_agent_mgmt_header))
+                        AgentQuickEntries(
+                            masterAgent = masterAgent,
+                            onAgentClick = { role -> navController.add(Routes.AI.AgentConfig(role)) },
+                        )
+                        // 分区 4：记忆管理
+                        SectionHeader(stringResource(Res.string.agent_ai_memory_header))
+                        MemoryManagementSection(
+                            masterAgent = masterAgent,
+                            navController = navController,
+                            onClearAllMemory = onClearAllMemory,
+                        )
+                    }
                 }
-                // 分区 3：语言和语音
-                SectionHeader(stringResource(Res.string.agent_ai_lang_voice_header))
-                ReplyLanguageSection(masterAgent = masterAgent)
-                VoiceSection()
+            } else {
+                Column(
+                    modifier = Modifier
+                        .widthIn(max = formMaxWidth)
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState())
+                        .padding(metrics.section),
+                    verticalArrangement = Arrangement.spacedBy(metrics.section),
+                ) {
+                    // ═══ 分区 1：AI 接入方式（折叠态只显示概要，展开才配细节）═══
+                    SectionHeader(stringResource(Res.string.agent_ai_access_header))
+                    AiAccessSection(
+                        aiAccessMode = aiAccessMode,
+                        freeQuota = freeQuota,
+                        freeAvailable = freeAvailable,
+                        customConfig = customConfig,
+                        availableModels = availableModels,
+                        isTestingApi = isTestingApi,
+                        pendingCount = pendingCount,
+                        onModeChange = onModeChange,
+                        onSaveConfig = onSaveCustomConfig,
+                        onFetchModels = onFetchModels,
+                        onTestConnection = onTestConnection,
+                        dialogManager = dialogManager,
+                    )
+                    if (aiAccessMode == AiAccessMode.CUSTOM) {
+                        TokenLimitsCard(aiSettingsViewModel)
+                    }
+
+                    // ═══ 分区 2：Agent 管理 —— 监控看板 + 配置入口 ═══
+                    SectionHeader(stringResource(Res.string.agent_ai_agent_mgmt_header))
+                    AgentQuickEntries(
+                        masterAgent = masterAgent,
+                        onAgentClick = { role -> navController.add(Routes.AI.AgentConfig(role)) },
+                    )
+
+                    // ═══ 分区 3：语言和语音 —— 回复语言（可配）+ 语音对话（M7 gate 占位）═══
+                    SectionHeader(stringResource(Res.string.agent_ai_lang_voice_header))
+                    ReplyLanguageSection(masterAgent = masterAgent)
+                    VoiceSection()
+
+                    // ═══ 分区 4：记忆管理 —— 侧写展示 / 重置 / 操作日志 ═══
+                    SectionHeader(stringResource(Res.string.agent_ai_memory_header))
+                    MemoryManagementSection(
+                        masterAgent = masterAgent,
+                        navController = navController,
+                        onClearAllMemory = onClearAllMemory,
+                    )
+
+                    Spacer(modifier = Modifier.height(metrics.row))
+                }
             }
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxHeight()
-                    .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(metrics.section),
-            ) {
-                // 分区 2：Agent 管理
-                SectionHeader(stringResource(Res.string.agent_ai_agent_mgmt_header))
-                AgentQuickEntries(
-                    masterAgent = masterAgent,
-                    onAgentClick = { role -> navController.add(Routes.AI.AgentConfig(role)) }
-                )
-                // 分区 4：记忆管理
-                SectionHeader(stringResource(Res.string.agent_ai_memory_header))
-                MemoryManagementSection(
-                    masterAgent = masterAgent,
-                    navController = navController,
-                    onClearAllMemory = onClearAllMemory
-                )
-            }
-        }
-        } else {
-        Column(
-            modifier = Modifier
-                .widthIn(max = formMaxWidth)
-                .fillMaxWidth()
-                .verticalScroll(rememberScrollState())
-                .padding(metrics.section),
-            verticalArrangement = Arrangement.spacedBy(metrics.section)
-        ) {
-            // ═══ 分区 1：AI 接入方式（折叠态只显示概要，展开才配细节）═══
-            SectionHeader(stringResource(Res.string.agent_ai_access_header))
-            AiAccessSection(
-                aiAccessMode = aiAccessMode,
-                freeQuota = freeQuota,
-        freeAvailable = freeAvailable,
-                customConfig = customConfig,
-                availableModels = availableModels,
-                isTestingApi = isTestingApi,
-                pendingCount = pendingCount,
-                onModeChange = onModeChange,
-                onSaveConfig = onSaveCustomConfig,
-                onFetchModels = onFetchModels,
-                onTestConnection = onTestConnection,
-                dialogManager = dialogManager,
-            )
-            if (aiAccessMode == AiAccessMode.CUSTOM) {
-                TokenLimitsCard(aiSettingsViewModel)
-            }
-
-            // ═══ 分区 2：Agent 管理 —— 监控看板 + 配置入口 ═══
-            SectionHeader(stringResource(Res.string.agent_ai_agent_mgmt_header))
-            AgentQuickEntries(
-                masterAgent = masterAgent,
-                onAgentClick = { role -> navController.add(Routes.AI.AgentConfig(role)) }
-            )
-
-            // ═══ 分区 3：语言和语音 —— 回复语言（可配）+ 语音对话（M7 gate 占位）═══
-            SectionHeader(stringResource(Res.string.agent_ai_lang_voice_header))
-            ReplyLanguageSection(masterAgent = masterAgent)
-            VoiceSection()
-
-            // ═══ 分区 4：记忆管理 —— 侧写展示 / 重置 / 操作日志 ═══
-            SectionHeader(stringResource(Res.string.agent_ai_memory_header))
-            MemoryManagementSection(
-                masterAgent = masterAgent,
-                navController = navController,
-                onClearAllMemory = onClearAllMemory
-            )
-
-            Spacer(modifier = Modifier.height(metrics.row))
-        }
-        }
         }
     }
 }
@@ -416,9 +414,13 @@ private fun accessSummary(
 ): AccessSummary = when (mode) {
     AiAccessMode.FREE -> AccessSummary(
         stringResource(Res.string.agent_ai_free_tier),
-        if (!freeAvailable) stringResource(Res.string.ai_free_unavailable)
-        else stringResource(Res.string.agent_ai_free_remaining, fmtTokens(freeQuota.remaining)),
+        if (!freeAvailable) {
+            stringResource(Res.string.ai_free_unavailable)
+        } else {
+            stringResource(Res.string.agent_ai_free_remaining, fmtTokens(freeQuota.remaining))
+        },
     )
+
     AiAccessMode.CUSTOM -> {
         val detail = when {
             config.selectedModel.isNotBlank() -> config.selectedModel
@@ -427,6 +429,7 @@ private fun accessSummary(
         }
         AccessSummary(stringResource(Res.string.agent_ai_custom_endpoint), detail)
     }
+
     AiAccessMode.PAID -> AccessSummary(stringResource(Res.string.agent_ai_paid_mode), stringResource(Res.string.agent_ai_coming_soon))
 }
 
@@ -458,33 +461,33 @@ private fun AiAccessSection(
     Column(verticalArrangement = Arrangement.spacedBy(metrics.base)) {
         // 概要行：始终可见，点击切换展开/折叠
         HMPCard(
-            modifier = Modifier.clickable { expanded = !expanded }
+            modifier = Modifier.clickable { expanded = !expanded },
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.SpaceBetween,
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         summary.title,
                         style = typo.body,
                         fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.onBackground
+                        color = MaterialTheme.colorScheme.onBackground,
                     )
                     Text(
                         summary.detail,
                         style = typo.footnote,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        overflow = TextOverflow.Ellipsis,
                     )
                 }
                 Spacer(Modifier.width(metrics.compact))
                 Text(
                     if (expanded) stringResource(Res.string.agent_ai_collapse) else stringResource(Res.string.agent_ai_expand),
                     style = typo.footnote.medium(),
-                    color = MaterialTheme.colorScheme.primary
+                    color = MaterialTheme.colorScheme.primary,
                 )
             }
         }
@@ -501,18 +504,19 @@ private fun AiAccessSection(
                                 AiAccessMode.FREE -> Res.string.ai_tab_free
                                 AiAccessMode.CUSTOM -> Res.string.ai_tab_custom
                                 AiAccessMode.PAID -> Res.string.ai_tab_paid
-                            }
-                        )
+                            },
+                        ),
                     )
                 },
                 selectedOption = aiAccessMode.name,
-                onOptionSelected = { id -> onModeChange(AiAccessMode.valueOf(id)) }
+                onOptionSelected = { id -> onModeChange(AiAccessMode.valueOf(id)) },
             )
             when (aiAccessMode) {
                 AiAccessMode.FREE -> FreeTrialContent(
                     freeQuota = freeQuota,
                     freeAvailable = freeAvailable,
                 )
+
                 AiAccessMode.CUSTOM -> CustomConfigContent(
                     customConfig = customConfig,
                     availableModels = availableModels,
@@ -520,8 +524,9 @@ private fun AiAccessSection(
                     onSaveConfig = onSaveConfig,
                     onFetchModels = onFetchModels,
                     onTestConnection = onTestConnection,
-                    dialogManager = dialogManager
+                    dialogManager = dialogManager,
                 )
+
                 AiAccessMode.PAID -> PaidModeContent()
             }
         }
@@ -543,7 +548,7 @@ private fun FreeTrialContent(
                 .fillMaxWidth()
                 .padding(metrics.cozy),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(metrics.cozy)
+            verticalArrangement = Arrangement.spacedBy(metrics.cozy),
         ) {
             // 免费入口的显示条件是「有没有可用的内置端点」，不是平台
             if (!freeAvailable) {
@@ -551,14 +556,14 @@ private fun FreeTrialContent(
                     text = stringResource(Res.string.ai_free_unavailable),
                     style = typo.body,
                     color = MaterialTheme.colorScheme.error,
-                    textAlign = TextAlign.Center
+                    textAlign = TextAlign.Center,
                 )
             } else {
                 val remaining = freeQuota.remaining
                 Text(
                     text = stringResource(Res.string.ai_free_remaining, fmtTokens(remaining)),
                     style = typo.headline,
-                    color = if (remaining > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                    color = if (remaining > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
                 )
                 LinearProgressIndicator(
                     progress = { freeQuota.rate },
@@ -567,26 +572,26 @@ private fun FreeTrialContent(
                         .height(metrics.micro)
                         .clip(RoundedCornerShape(metrics.hair)),
                     color = if (remaining > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
-                    trackColor = MaterialTheme.colorScheme.surfaceVariant
+                    trackColor = MaterialTheme.colorScheme.surfaceVariant,
                 )
                 Text(
                     text = stringResource(Res.string.ai_free_used, fmtTokens(freeQuota.used), fmtTokens(freeQuota.quota)),
                     style = typo.footnote,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 if (remaining <= 0) {
                     Text(
                         text = stringResource(Res.string.ai_free_exhausted),
                         style = typo.body,
                         color = MaterialTheme.colorScheme.error,
-                        textAlign = TextAlign.Center
+                        textAlign = TextAlign.Center,
                     )
                 } else {
                     Text(
                         text = stringResource(Res.string.ai_free_hint),
                         style = typo.footnote,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center
+                        textAlign = TextAlign.Center,
                     )
                 }
             }
@@ -612,7 +617,7 @@ private fun CustomConfigContent(
     onSaveConfig: (String, String, String) -> Unit,
     onFetchModels: (String, String) -> Unit,
     onTestConnection: (String, String) -> Unit,
-    dialogManager: DialogManager
+    dialogManager: DialogManager,
 ) {
     val metrics = LocalHmpMetrics.current
     val typo = LocalHmpTypo.current
@@ -640,7 +645,7 @@ private fun CustomConfigContent(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(metrics.cozy),
-            verticalArrangement = Arrangement.spacedBy(metrics.base)
+            verticalArrangement = Arrangement.spacedBy(metrics.base),
         ) {
             // D7-01：Android 换机 / 云备份恢复后，DataStore 里的密文回来了、KeyStore 密钥没回来，
             // 解密必然失败。以前这条路会直接抛到 viewModelScope 上（打开 AI 页即崩溃），
@@ -649,17 +654,17 @@ private fun CustomConfigContent(
                 Text(
                     text = stringResource(Res.string.ai_key_needs_refill),
                     style = typo.body,
-                    color = MaterialTheme.colorScheme.error
+                    color = MaterialTheme.colorScheme.error,
                 )
             }
             // 预设快捷按钮
             Text(
                 text = stringResource(Res.string.ai_preset_quick_fill),
                 style = typo.body,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Row(
-                horizontalArrangement = Arrangement.spacedBy(metrics.compact)
+                horizontalArrangement = Arrangement.spacedBy(metrics.compact),
             ) {
                 AiPresetEndpoints.ALL.forEach { preset ->
                     Button(
@@ -668,7 +673,7 @@ private fun CustomConfigContent(
                             modelValue = preset.defaultModel
                         },
                         modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.outlinedButtonColors()
+                        colors = ButtonDefaults.outlinedButtonColors(),
                     ) {
                         Text(preset.displayName, style = typo.footnote.medium())
                     }
@@ -685,14 +690,14 @@ private fun CustomConfigContent(
                 placeholder = { Text("https://api.example.com/v1") },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(metrics.base)
+                shape = RoundedCornerShape(metrics.base),
             )
 
             // F12-T3：端点窗口前提声明（无法配置时探测，故显式告知用户前提是 ≥64K）
             Text(
                 stringResource(Res.string.agent_ai_endpoint_prereq),
                 style = typo.caption,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
             // API Key 输入
@@ -707,10 +712,10 @@ private fun CustomConfigContent(
                 colors = TextFieldDefaults.colors(
                     focusedIndicatorColor = Transparent,
                     unfocusedIndicatorColor = Transparent,
-                    disabledIndicatorColor = Transparent
+                    disabledIndicatorColor = Transparent,
                 ),
                 shape = RoundedCornerShape(LayoutConstraints.ShadowElevation),
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
             )
 
             // 获取模型按钮
@@ -723,7 +728,7 @@ private fun CustomConfigContent(
                     }
                 },
                 enabled = endpointValue.isNotBlank() && apiKeyValue.isNotBlank() && !isTestingApi,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
             ) {
                 if (isTestingApi) {
                     CircularProgressIndicator(modifier = Modifier.size(metrics.cozy), strokeWidth = metrics.hair, color = MaterialTheme.colorScheme.onPrimary)
@@ -736,7 +741,7 @@ private fun CustomConfigContent(
             if (availableModels.isNotEmpty()) {
                 ExposedDropdownMenuBox(
                     expanded = modelExpanded,
-                    onExpandedChange = { modelExpanded = !modelExpanded }
+                    onExpandedChange = { modelExpanded = !modelExpanded },
                 ) {
                     TextField(
                         value = modelValue.ifBlank { availableModels.firstOrNull() ?: "" },
@@ -750,13 +755,13 @@ private fun CustomConfigContent(
                         colors = TextFieldDefaults.colors(
                             focusedIndicatorColor = Transparent,
                             unfocusedIndicatorColor = Transparent,
-                            disabledIndicatorColor = Transparent
+                            disabledIndicatorColor = Transparent,
                         ),
-                        shape = RoundedCornerShape(metrics.base)
+                        shape = RoundedCornerShape(metrics.base),
                     )
                     ExposedDropdownMenu(
                         expanded = modelExpanded,
-                        onDismissRequest = { modelExpanded = false }
+                        onDismissRequest = { modelExpanded = false },
                     ) {
                         availableModels.forEach { model ->
                             DropdownMenuItem(
@@ -764,7 +769,7 @@ private fun CustomConfigContent(
                                 onClick = {
                                     modelValue = model
                                     modelExpanded = false
-                                }
+                                },
                             )
                         }
                     }
@@ -776,14 +781,14 @@ private fun CustomConfigContent(
                     label = { Text(stringResource(Res.string.model_name)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(metrics.base)
+                    shape = RoundedCornerShape(metrics.base),
                 )
             }
 
             // 测试 + 保存按钮
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(metrics.cozy)
+                horizontalArrangement = Arrangement.spacedBy(metrics.cozy),
             ) {
                 Button(
                     onClick = {
@@ -792,7 +797,7 @@ private fun CustomConfigContent(
                         }
                     },
                     enabled = endpointValue.isNotBlank() && apiKeyValue.isNotBlank() && !isTestingApi,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f),
                 ) {
                     if (isTestingApi) {
                         CircularProgressIndicator(modifier = Modifier.size(metrics.cozy), strokeWidth = metrics.hair, color = MaterialTheme.colorScheme.onPrimary)
@@ -810,7 +815,7 @@ private fun CustomConfigContent(
                         }
                     },
                     enabled = endpointValue.isNotBlank() && apiKeyValue.isNotBlank(),
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f),
                 ) {
                     Text(stringResource(Res.string.save), color = MaterialTheme.colorScheme.onPrimary)
                 }
@@ -821,10 +826,9 @@ private fun CustomConfigContent(
                 Text(
                     text = stringResource(Res.string.configured),
                     style = typo.footnote,
-                    color = MaterialTheme.colorScheme.primary
+                    color = MaterialTheme.colorScheme.primary,
                 )
             }
-
         }
     }
 }
@@ -869,13 +873,19 @@ private fun TokenLimitsCard(vm: AiSettingsViewModel) {
                 text = stringResource(Res.string.agent_token_limits_enable),
                 style = typo.body,
             )
-            Switch(checked = enabled, onCheckedChange = { enabled = it; saved = false })
+            Switch(checked = enabled, onCheckedChange = {
+                enabled = it
+                saved = false
+            })
         }
 
         if (enabled) {
             OutlinedTextField(
                 value = globalLimit,
-                onValueChange = { globalLimit = it.filter(Char::isDigit); saved = false },
+                onValueChange = {
+                    globalLimit = it.filter(Char::isDigit)
+                    saved = false
+                },
                 label = { Text(stringResource(Res.string.agent_token_limits_global)) },
                 singleLine = true,
                 keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
@@ -886,7 +896,10 @@ private fun TokenLimitsCard(vm: AiSettingsViewModel) {
             listOf("master", "radio", "enrich", "hello").forEach { key ->
                 OutlinedTextField(
                     value = perAgent[key].orEmpty(),
-                    onValueChange = { value -> perAgent[key] = value.filter(Char::isDigit); saved = false },
+                    onValueChange = { value ->
+                        perAgent[key] = value.filter(Char::isDigit)
+                        saved = false
+                    },
                     label = { Text("${key.replaceFirstChar { it.uppercase() }} · ${stringResource(Res.string.agent_token_limits_per_agent)}") },
                     singleLine = true,
                     keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
@@ -938,19 +951,19 @@ private fun PaidModeContent() {
                 .fillMaxWidth()
                 .padding(metrics.block),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(metrics.cozy)
+            verticalArrangement = Arrangement.spacedBy(metrics.cozy),
         ) {
             Text(
                 text = stringResource(Res.string.ai_paid_coming_soon),
                 style = typo.subtitle,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center
+                textAlign = TextAlign.Center,
             )
             Text(
                 text = stringResource(Res.string.ai_paid_description),
                 style = typo.body,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center
+                textAlign = TextAlign.Center,
             )
         }
     }
@@ -978,7 +991,7 @@ private fun ReplyLanguageSection(
     Column(verticalArrangement = Arrangement.spacedBy(metrics.compact)) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
         ) {
             SegmentedControl(
                 modifier = Modifier.weight(1f),
@@ -993,7 +1006,7 @@ private fun ReplyLanguageSection(
                     scope.launch {
                         masterAgent.saveGlobalAgentConfig(globalConfig.copy(replyLanguage = key))
                     }
-                }
+                },
             )
         }
         Text(
@@ -1002,7 +1015,6 @@ private fun ReplyLanguageSection(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
-
 }
 
 // ==================== 从 HEAD 恢复（误删函数，已还原）====================
@@ -1016,17 +1028,17 @@ private fun VoiceSection() {
             Text(
                 text = stringResource(Res.string.agent_ai_voice_title),
                 style = typo.body,
-                color = MaterialTheme.colorScheme.onSurface
+                color = MaterialTheme.colorScheme.onSurface,
             )
             Text(
                 text = stringResource(Res.string.agent_ai_voice_desc),
                 style = typo.footnote,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Text(
                 text = stringResource(Res.string.agent_ai_voice_locked),
                 style = typo.footnote,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
             )
         }
     }
@@ -1037,6 +1049,7 @@ private fun VoiceSection() {
  * 三档 SegmentedControl + alwaysAllow 重置按钮。
  */
 /** 来源分档 → 友好标签（契约 §2.5 五档）。 */
+
 /**
  * 分区 6：记忆管理 —— 把"伙伴对你的认识"透明化：
  * ① 概览（已有几条侧写）② 每条侧写可单独"忘记"
@@ -1046,7 +1059,7 @@ private fun VoiceSection() {
 private fun MemoryManagementSection(
     masterAgent: MasterAgent,
     navController: NavBackStack<NavKey>,
-    onClearAllMemory: () -> Unit
+    onClearAllMemory: () -> Unit,
 ) {
     val metrics = LocalHmpMetrics.current
     val typo = LocalHmpTypo.current
@@ -1067,18 +1080,18 @@ private fun MemoryManagementSection(
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 Column {
                     Text(
                         text = stringResource(Res.string.agent_ai_memory_feature),
                         style = typo.body,
-                        color = MaterialTheme.colorScheme.onSurface
+                        color = MaterialTheme.colorScheme.onSurface,
                     )
                     Text(
                         text = stringResource(Res.string.agent_ai_memory_off_desc),
                         style = typo.footnote,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
                 Switch(
@@ -1087,148 +1100,153 @@ private fun MemoryManagementSection(
                         memoryEnabled = enabled
                         scope.launch {
                             masterAgent.saveGlobalAgentConfig(
-                                masterAgent.getGlobalAgentConfig().copy(memoryEnabled = enabled)
+                                masterAgent.getGlobalAgentConfig().copy(memoryEnabled = enabled),
                             )
                             load()
                         }
-                    }
+                    },
                 )
             }
 
             if (memoryEnabled) {
-            // ① 概览
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = stringResource(Res.string.agent_ai_memory_about_you),
-                    style = typo.body,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Text(
-                    text = stringResource(Res.string.agent_ai_memory_count, portraits.size),
-                    style = typo.caption,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
+                // ① 概览
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = stringResource(Res.string.agent_ai_memory_about_you),
+                        style = typo.body,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    Text(
+                        text = stringResource(Res.string.agent_ai_memory_count, portraits.size),
+                        style = typo.caption,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
 
-            if (portraits.isEmpty()) {
-                Text(
-                    text = stringResource(Res.string.agent_ai_memory_empty),
-                    style = typo.footnote,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            } else {
-                // ② 每条认识 + 可单独"忘记"
-                portraits.take(6).forEach { p ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = p.type.displayName + if (p.type.weakEvidence) stringResource(Res.string.agent_ai_memory_inferred) else "",
-                                style = typo.footnote,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            val detail = p.slots.values.filter { it.isNotBlank() }.joinToString("、")
-                            if (detail.isNotBlank()) {
+                if (portraits.isEmpty()) {
+                    Text(
+                        text = stringResource(Res.string.agent_ai_memory_empty),
+                        style = typo.footnote,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                } else {
+                    // ② 每条认识 + 可单独"忘记"
+                    portraits.take(6).forEach { p ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = detail,
-                                    style = typo.caption,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
+                                    text = p.type.displayName + if (p.type.weakEvidence) stringResource(Res.string.agent_ai_memory_inferred) else "",
+                                    style = typo.footnote,
+                                    color = MaterialTheme.colorScheme.onSurface,
                                 )
+                                val detail = p.slots.values.filter { it.isNotBlank() }.joinToString("、")
+                                if (detail.isNotBlank()) {
+                                    Text(
+                                        text = detail,
+                                        style = typo.caption,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                }
                             }
+                            Text(
+                                text = stringResource(Res.string.agent_ai_memory_forget),
+                                style = typo.footnote.medium(),
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier
+                                    .clickable {
+                                        scope.launch {
+                                            masterAgent.forgetPortrait(p.type.id)
+                                            load()
+                                        }
+                                    }
+                                    .padding(metrics.compact),
+                            )
                         }
+                    }
+                    if (portraits.size > 6) {
                         Text(
-                            text = stringResource(Res.string.agent_ai_memory_forget),
-                            style = typo.footnote.medium(),
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier
-                                .clickable { scope.launch { masterAgent.forgetPortrait(p.type.id); load() } }
-                                .padding(metrics.compact)
+                            text = stringResource(Res.string.agent_ai_memory_more, portraits.size - 6),
+                            style = typo.caption,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                 }
-                if (portraits.size > 6) {
-                    Text(
-                        text = stringResource(Res.string.agent_ai_memory_more, portraits.size - 6),
-                        style = typo.caption,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
 
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
 
-            // ③ 重置认识（按钮与描述同一行，带二次确认）
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = stringResource(Res.string.agent_ai_memory_reset),
-                        style = typo.body,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        text = stringResource(Res.string.agent_ai_memory_reset_desc),
-                        style = typo.footnote,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                Button(
-                    onClick = { showConfirmClear = true },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.error
-                    )
+                // ③ 重置认识（按钮与描述同一行，带二次确认）
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text(stringResource(Res.string.agent_ai_memory_reset_btn), color = MaterialTheme.colorScheme.onError)
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = stringResource(Res.string.agent_ai_memory_reset),
+                            style = typo.body,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        Text(
+                            text = stringResource(Res.string.agent_ai_memory_reset_desc),
+                            style = typo.footnote,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Button(
+                        onClick = { showConfirmClear = true },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.error,
+                        ),
+                    ) {
+                        Text(stringResource(Res.string.agent_ai_memory_reset_btn), color = MaterialTheme.colorScheme.onError)
+                    }
                 }
-            }
 
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
 
-            // ④ 伙伴操作日志入口（移到最后）
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(metrics.compact))
-                    .clickable { navController.add(Routes.Settings.AuditLog) }
-                    .padding(vertical = metrics.compact, horizontal = metrics.micro),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column {
+                // ④ 伙伴操作日志入口（移到最后）
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(metrics.compact))
+                        .clickable { navController.add(Routes.Settings.AuditLog) }
+                        .padding(vertical = metrics.compact, horizontal = metrics.micro),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column {
+                        Text(
+                            text = stringResource(Res.string.agent_ai_memory_log_title),
+                            style = typo.body,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        Text(
+                            text = stringResource(Res.string.agent_ai_memory_log_desc),
+                            style = typo.footnote,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                     Text(
-                        text = stringResource(Res.string.agent_ai_memory_log_title),
-                        style = typo.body,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        text = stringResource(Res.string.agent_ai_memory_log_desc),
-                        style = typo.footnote,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        text = stringResource(Res.string.agent_ai_memory_log_view),
+                        style = typo.footnote.medium(),
+                        color = MaterialTheme.colorScheme.primary,
                     )
                 }
-                Text(
-                    text = stringResource(Res.string.agent_ai_memory_log_view),
-                    style = typo.footnote.medium(),
-                    color = MaterialTheme.colorScheme.primary
-                )
-            }
             } else {
                 Text(
                     text = stringResource(Res.string.agent_ai_memory_disabled_note),
                     style = typo.footnote,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }
@@ -1243,14 +1261,14 @@ private fun MemoryManagementSection(
                         showConfirmClear = false
                         onClearAllMemory()
                         portraits = emptyList()
-                    }
+                    },
                 ) { Text(stringResource(Res.string.agent_ai_reset_confirm_btn), color = MaterialTheme.colorScheme.error) }
             },
             dismissButton = {
                 TextButton(onClick = { showConfirmClear = false }) { Text(stringResource(Res.string.cancel)) }
             },
             title = { Text(stringResource(Res.string.agent_ai_reset_dialog_title)) },
-            text = { Text(stringResource(Res.string.agent_ai_reset_dialog_text)) }
+            text = { Text(stringResource(Res.string.agent_ai_reset_dialog_text)) },
         )
     }
 }
@@ -1270,7 +1288,7 @@ private fun AgentQuickEntries(
     )
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(metrics.compact)
+        horizontalArrangement = Arrangement.spacedBy(metrics.compact),
     ) {
         agents.forEach { entry ->
             HMPCard(
@@ -1281,7 +1299,7 @@ private fun AgentQuickEntries(
                 Column(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(metrics.micro)
+                    verticalArrangement = Arrangement.spacedBy(metrics.micro),
                 ) {
                     val icon = agentIcon(entry.role)
                     if (icon != null) {
@@ -1289,7 +1307,7 @@ private fun AgentQuickEntries(
                             painter = painterResource(icon),
                             contentDescription = null,
                             modifier = Modifier.size(metrics.block),
-                            tint = MaterialTheme.colorScheme.onBackground
+                            tint = MaterialTheme.colorScheme.onBackground,
                         )
                     }
                     Text(
@@ -1298,7 +1316,7 @@ private fun AgentQuickEntries(
                         color = MaterialTheme.colorScheme.onBackground,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
-                        textAlign = TextAlign.Center
+                        textAlign = TextAlign.Center,
                     )
                 }
             }

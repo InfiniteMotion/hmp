@@ -49,7 +49,7 @@ class MusicControllerTest {
             playbackHistoryUseCase = mockk(relaxed = true),
             timerUseCase = mockk(relaxed = true),
             managePlaylistUseCase = mockk(relaxed = true),
-            settingsRepository = mockk(relaxed = true)
+            settingsRepository = mockk(relaxed = true),
         )
     }
 

@@ -1,10 +1,10 @@
 package com.hmp.data.mapper
 
-import com.hmp.data.database.Playlist as PlaylistEntity
-import com.hmp.data.database.PlaylistItem as PlaylistItemEntity
 import com.hmp.domain.playlist.Playlist
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import com.hmp.data.database.Playlist as PlaylistEntity
+import com.hmp.data.database.PlaylistItem as PlaylistItemEntity
 
 class PlaylistMapperTest {
 
@@ -21,7 +21,7 @@ class PlaylistMapperTest {
             description = "Test description",
             songCount = 25,
             totalDurationMs = 5400000L,
-            isPinned = true
+            isPinned = true,
         )
         val domain = entity.toDomain()
         assertEquals(1L, domain.id)
@@ -50,7 +50,7 @@ class PlaylistMapperTest {
             description = null,
             songCount = 0,
             totalDurationMs = 0L,
-            isPinned = false
+            isPinned = false,
         )
         val entity = domain.toEntity()
         assertEquals(2L, entity.id)
@@ -75,7 +75,7 @@ class PlaylistMapperTest {
             description = "desc",
             songCount = 50,
             totalDurationMs = 100000L,
-            isPinned = true
+            isPinned = true,
         )
         val entity = original.toEntity()
         val restored = entity.toDomain()
@@ -87,7 +87,7 @@ class PlaylistMapperTest {
         val entity = PlaylistItemEntity(
             songId = 42,
             playlistId = 1,
-            itemOrder = 3
+            itemOrder = 3,
         )
         val domain = entity.toDomain()
         assertEquals(42L, domain.songId)

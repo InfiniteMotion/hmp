@@ -49,8 +49,13 @@ class SearchDebounceTest {
 
     private fun music(title: String) = MusicInfo(
         music = Music(
-            id = title.hashCode().toLong(), title = title, artist = "A", album = "B",
-            duration = 1L, path = "/$title.mp3", albumArtUri = ""
+            id = title.hashCode().toLong(),
+            title = title,
+            artist = "A",
+            album = "B",
+            duration = 1L,
+            path = "/$title.mp3",
+            albumArtUri = "",
         ),
         extra = null,
         userInfo = null,

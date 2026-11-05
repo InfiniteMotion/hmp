@@ -72,13 +72,27 @@ object IosPlaybackController : PlaybackController {
         IosPlaybackCommands.playWith?.invoke(music)
     }
 
-    override fun playOrResume() { IosPlaybackCommands.playOrResume?.invoke() }
-    override fun pauseMusic() { IosPlaybackCommands.pauseMusic?.invoke() }
-    override fun playNext() { IosPlaybackCommands.playNext?.invoke() }
-    override fun playPrevious() { IosPlaybackCommands.playPrevious?.invoke() }
-    override fun seekTo(positionMs: Long) { IosPlaybackCommands.seekTo?.invoke(positionMs) }
-    override fun togglePlaybackModeByOrder() { IosPlaybackCommands.togglePlaybackModeByOrder?.invoke() }
-    override fun setMiniPlayerVisible(visible: Boolean) { IosPlaybackCommands.setMiniPlayerVisible?.invoke(visible) }
+    override fun playOrResume() {
+        IosPlaybackCommands.playOrResume?.invoke()
+    }
+    override fun pauseMusic() {
+        IosPlaybackCommands.pauseMusic?.invoke()
+    }
+    override fun playNext() {
+        IosPlaybackCommands.playNext?.invoke()
+    }
+    override fun playPrevious() {
+        IosPlaybackCommands.playPrevious?.invoke()
+    }
+    override fun seekTo(positionMs: Long) {
+        IosPlaybackCommands.seekTo?.invoke(positionMs)
+    }
+    override fun togglePlaybackModeByOrder() {
+        IosPlaybackCommands.togglePlaybackModeByOrder?.invoke()
+    }
+    override fun setMiniPlayerVisible(visible: Boolean) {
+        IosPlaybackCommands.setMiniPlayerVisible?.invoke(visible)
+    }
 
     // ── 队列管理 ──
 
@@ -97,14 +111,18 @@ object IosPlaybackController : PlaybackController {
     override fun moveToTop(music: MusicInfo) {
         IosPlaybackCommands.moveToTop?.invoke(music)
     }
-    override fun clearPlaylist() { IosPlaybackCommands.clearPlaylist?.invoke() }
+    override fun clearPlaylist() {
+        IosPlaybackCommands.clearPlaylist?.invoke()
+    }
     override fun addAllToPlaylistInOrder(playlist: List<MusicInfo>) {
         IosPlaybackCommands.addAllToPlaylistInOrder?.invoke(playlist)
     }
     override fun addAllToPlaylistByShuffle(playlist: List<MusicInfo>) {
         IosPlaybackCommands.addAllToPlaylistByShuffle?.invoke(playlist)
     }
-    override fun playHeartMode() { IosPlaybackCommands.playHeartMode?.invoke() }
+    override fun playHeartMode() {
+        IosPlaybackCommands.playHeartMode?.invoke()
+    }
 
     // ── 收藏 ──
 
@@ -130,8 +148,12 @@ object IosPlaybackController : PlaybackController {
 
     // ── 定时关闭 ──
 
-    override fun startTimer(minutes: Int) { IosPlaybackCommands.startTimer?.invoke(minutes) }
-    override fun cancelTimer() { IosPlaybackCommands.cancelTimer?.invoke() }
+    override fun startTimer(minutes: Int) {
+        IosPlaybackCommands.startTimer?.invoke(minutes)
+    }
+    override fun cancelTimer() {
+        IosPlaybackCommands.cancelTimer?.invoke()
+    }
 
     // ── 音效控制（iOS stub，与 Desktop 同构） ──
 

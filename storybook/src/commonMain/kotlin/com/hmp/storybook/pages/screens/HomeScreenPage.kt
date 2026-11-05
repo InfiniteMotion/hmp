@@ -67,18 +67,20 @@ fun HomeScreenPage(onBack: () -> Unit) {
 
     StorybookPage(
         title = Strings.homeScreen(lang),
-        description = if (lang == AppLanguage.ZH)
+        description = if (lang == AppLanguage.ZH) {
             "HMP 首页，TabScreen 包装，包含每日推荐 DailyHeroCard、心动歌单 FixedMusicList 和一键播放入口"
-        else
-            "HMP Home screen wrapped in TabScreen, with DailyHeroCard, FixedMusicList favorites and one-tap play",
+        } else {
+            "HMP Home screen wrapped in TabScreen, with DailyHeroCard, FixedMusicList favorites and one-tap play"
+        },
         onBack = onBack,
     ) {
         ComponentShowcase(
             title = if (lang == AppLanguage.ZH) "首页预览" else "Home Preview",
-            description = if (lang == AppLanguage.ZH)
+            description = if (lang == AppLanguage.ZH) {
                 "TabScreen 包装，displayLarge 标题，右上角刷新按钮，底部 NavigationBar 4 Tab"
-            else
-                "TabScreen wrapper, displayLarge title, refresh button, bottom NavigationBar with 4 tabs",
+            } else {
+                "TabScreen wrapper, displayLarge title, refresh button, bottom NavigationBar with 4 tabs"
+            },
         ) {
             PhoneFramePreview {
                 HomeScreenContent(lang)
@@ -145,10 +147,11 @@ private fun HomeScreenContent(lang: AppLanguage) {
                                     icon,
                                     contentDescription = label,
                                     modifier = Modifier.size(if (selectedTab == index) 28.dp else 24.dp),
-                                    tint = if (selectedTab == index)
+                                    tint = if (selectedTab == index) {
                                         MaterialTheme.colorScheme.primary
-                                    else
-                                        MaterialTheme.colorScheme.onSurfaceVariant,
+                                    } else {
+                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                    },
                                 )
                                 // TabPageIndicator: 选中时底部显示指示器圆点
                                 if (selectedTab == index) {
@@ -170,10 +173,11 @@ private fun HomeScreenContent(lang: AppLanguage) {
                                 label,
                                 fontSize = 11.sp,
                                 fontWeight = if (selectedTab == index) FontWeight.Bold else FontWeight.Normal,
-                                color = if (selectedTab == index)
+                                color = if (selectedTab == index) {
                                     MaterialTheme.colorScheme.primary
-                                else
-                                    MaterialTheme.colorScheme.onSurfaceVariant,
+                                } else {
+                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                },
                             )
                         },
                         selected = selectedTab == index,
@@ -211,7 +215,7 @@ private fun HomeScreenContent(lang: AppLanguage) {
                                     Color(0xFF1A237E),
                                     Color(0xFF4A148C),
                                 ),
-                            )
+                            ),
                         ),
                 ) {
                     // 底部渐变遮罩
@@ -226,7 +230,7 @@ private fun HomeScreenContent(lang: AppLanguage) {
                                         Color.Transparent,
                                         Color.Black.copy(alpha = 0.7f),
                                     ),
-                                )
+                                ),
                             ),
                     )
                     // 文字内容
@@ -356,7 +360,7 @@ private fun FavoriteMusicItem(
                 .background(
                     Brush.linearGradient(
                         colors = listOf(HDBlue, Color(0xFF6C63FF)),
-                    )
+                    ),
                 ),
         )
         Spacer(modifier = Modifier.width(12.dp))

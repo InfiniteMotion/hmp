@@ -1,19 +1,4 @@
 package com.hearablemusic.player.ui.library.pages
-import org.jetbrains.compose.resources.stringResource
-import com.hearablemusic.player.ui.generated.resources.play_all
-import com.hearablemusic.player.ui.generated.resources.reco_empty_daily
-import com.hearablemusic.player.ui.generated.resources.reco_empty_private
-import com.hearablemusic.player.ui.generated.resources.reco_hero_private
-import com.hearablemusic.player.ui.generated.resources.reco_label_daily
-import com.hearablemusic.player.ui.generated.resources.reco_label_private
-import com.hearablemusic.player.ui.generated.resources.reco_phase_evening_commute
-import com.hearablemusic.player.ui.generated.resources.reco_phase_evening_leisure
-import com.hearablemusic.player.ui.generated.resources.reco_phase_lunch
-import com.hearablemusic.player.ui.generated.resources.reco_phase_morning_commute
-import com.hearablemusic.player.ui.generated.resources.reco_phase_night
-import com.hearablemusic.player.ui.generated.resources.reco_phase_today
-import com.hearablemusic.player.ui.generated.resources.reco_phase_work
-
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -53,29 +38,43 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
 import coil3.compose.AsyncImage
-import com.hmp.domain.agent.runtime.MasterAgent
-import com.hmp.domain.agent.card.RecommendItem
-import com.hmp.domain.agent.card.RecommendSource
-import com.hmp.domain.agent.card.TimePhase
-import com.hmp.domain.music.MusicRepository
 import com.hearablemusic.player.ui.common.components.base.BackButton
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
 import com.hearablemusic.player.ui.common.design.typography.medium
 import com.hearablemusic.player.ui.common.layout.LocalWindowSizeInfo
 import com.hearablemusic.player.ui.common.layout.WindowWidthSizeClass
-import com.hearablemusic.player.ui.common.navigation.Routes as NavRoutes
 import com.hearablemusic.player.ui.common.util.activityViewModel
 import com.hearablemusic.player.ui.common.viewmodel.PaletteColors
 import com.hearablemusic.player.ui.common.viewmodel.ThemeViewModel
 import com.hearablemusic.player.ui.generated.resources.Res
 import com.hearablemusic.player.ui.generated.resources.music_note_list
+import com.hearablemusic.player.ui.generated.resources.play_all
+import com.hearablemusic.player.ui.generated.resources.reco_empty_daily
+import com.hearablemusic.player.ui.generated.resources.reco_empty_private
+import com.hearablemusic.player.ui.generated.resources.reco_hero_private
+import com.hearablemusic.player.ui.generated.resources.reco_label_daily
+import com.hearablemusic.player.ui.generated.resources.reco_label_private
+import com.hearablemusic.player.ui.generated.resources.reco_phase_evening_commute
+import com.hearablemusic.player.ui.generated.resources.reco_phase_evening_leisure
+import com.hearablemusic.player.ui.generated.resources.reco_phase_lunch
+import com.hearablemusic.player.ui.generated.resources.reco_phase_morning_commute
+import com.hearablemusic.player.ui.generated.resources.reco_phase_night
+import com.hearablemusic.player.ui.generated.resources.reco_phase_today
+import com.hearablemusic.player.ui.generated.resources.reco_phase_work
 import com.hearablemusic.player.ui.platform.rememberStatusBarsController
 import com.hearablemusic.player.ui.player.viewmodel.PlaylistQueueViewModel
+import com.hmp.domain.agent.card.RecommendItem
+import com.hmp.domain.agent.card.RecommendSource
+import com.hmp.domain.agent.card.TimePhase
+import com.hmp.domain.agent.runtime.MasterAgent
+import com.hmp.domain.music.MusicRepository
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.painterResource
+import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
-import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
+import com.hearablemusic.player.ui.common.navigation.Routes as NavRoutes
 
 /**
  * G6 推荐列表二级页（每日推荐 / 私人推荐，同构）。
@@ -108,8 +107,11 @@ fun RecommendListScreen(
 
     // MasterAgent 持有的固定转发流（首帧即可拿到，不会缓存到 null / 旧实例）
     val payload by (
-        if (source == RecommendSource.DAILY) masterAgent.dailyRecommendList
-        else masterAgent.privateRecommendList
+        if (source == RecommendSource.DAILY) {
+            masterAgent.dailyRecommendList
+        } else {
+            masterAgent.privateRecommendList
+        }
         ).collectAsState()
 
     // hydrate：trackId → MusicInfo（列表只持久化 id + 按语）
@@ -170,7 +172,9 @@ fun RecommendListScreen(
     Box(Modifier.fillMaxSize().background(pageBg)) {
         when {
             payload == null -> LoadingState(ink)
+
             items.isEmpty() -> EmptyState(source, inkSecondary, inkTertiary)
+
             else -> {
                 // F14-T1 自适应：竖屏保持「全出血封面英雄区 + 下方列表」纵向堆叠；
                 // 横屏改「左栏封面英雄区（通高）+ 右栏曲目列表」—— 封面在竖版堆叠下横屏要滚出
@@ -205,7 +209,7 @@ fun RecommendListScreen(
                                             .padding(start = metrics.row, end = metrics.cozy)
                                             .fillMaxWidth()
                                             .height(metrics.stroke.hairline)
-                                            .background(dividerColor)
+                                            .background(dividerColor),
                                     )
                                 }
                             }
@@ -242,7 +246,7 @@ fun RecommendListScreen(
                                         .padding(start = metrics.row, end = metrics.cozy)
                                         .fillMaxWidth()
                                         .height(metrics.stroke.hairline)
-                                        .background(dividerColor)
+                                        .background(dividerColor),
                                 )
                             }
                         }
@@ -298,8 +302,8 @@ private fun RecommendHero(
                         0.42f to scrim.copy(alpha = 0.45f),
                         0.72f to scrim.copy(alpha = 0.85f),
                         1f to scrim,
-                    )
-                )
+                    ),
+                ),
         )
 
         // ③ 返回按钮：与其它二级页（SubScreen 头部）同款 —— BackButton + 相同内边距

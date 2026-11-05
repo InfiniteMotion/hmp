@@ -42,12 +42,11 @@ object PlatformSecureSecrets : SecureSecrets {
 
     override fun encrypt(plainText: String): String = SecureStorageHelper.encrypt(plainText)
 
-    override fun decryptOrNull(encrypted: String): String? =
-        runCatching { SecureStorageHelper.decrypt(encrypted) }.getOrElse {
-            // 只记 warn 不抛：这不是数据损坏，是"换机后需要重填"这一预期路径
-            HmpLog.w(LogTag.DataRepository, it) {
-                "密钥解密失败（换机 / 云备份恢复后 Keystore 密钥不迁移，属预期路径），需用户重填：${it.message}"
-            }
-            null
+    override fun decryptOrNull(encrypted: String): String? = runCatching { SecureStorageHelper.decrypt(encrypted) }.getOrElse {
+        // 只记 warn 不抛：这不是数据损坏，是"换机后需要重填"这一预期路径
+        HmpLog.w(LogTag.DataRepository, it) {
+            "密钥解密失败（换机 / 云备份恢复后 Keystore 密钥不迁移，属预期路径），需用户重填：${it.message}"
         }
+        null
+    }
 }

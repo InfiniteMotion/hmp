@@ -1,8 +1,8 @@
 package com.hmp.desktop
 
+import com.hearablemusic.player.ui.di.desktopUiModule
 import com.hmp.desktop.player.di.desktopPlayerModule
 import com.hmp.di.initKoinDesktop
-import com.hearablemusic.player.ui.di.desktopUiModule
 import com.hmp.log.HmpLog
 import com.hmp.log.LogTag
 

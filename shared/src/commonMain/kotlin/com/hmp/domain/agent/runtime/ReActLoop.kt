@@ -1,18 +1,18 @@
 package com.hmp.domain.agent.runtime
 
 import com.hmp.domain.agent.infra.PresenceBus
-import com.hmp.log.HmpLog
-import com.hmp.log.LogTag
+import com.hmp.domain.agent.policy.AgentPolicy
+import com.hmp.domain.agent.policy.PolicyGuard
 import com.hmp.domain.agent.port.AuditEntry
-import com.hmp.domain.agent.port.ConfirmGate
 import com.hmp.domain.agent.port.AuditLogPort
+import com.hmp.domain.agent.port.ConfirmGate
 import com.hmp.domain.agent.port.LlmMessage
 import com.hmp.domain.agent.port.LlmToolCall
 import com.hmp.domain.agent.port.LlmTransport
-import com.hmp.domain.agent.policy.AgentPolicy
-import com.hmp.domain.agent.policy.PolicyGuard
 import com.hmp.domain.agent.tool.spec.ToolRegistry
 import com.hmp.domain.setting.model.AiEndpointConfig
+import com.hmp.log.HmpLog
+import com.hmp.log.LogTag
 
 /**
  * ReAct 多步 LLM 循环执行器——MasterAgent 对话 / Radio 第 3 轮 diff 仲裁共用。
@@ -90,7 +90,7 @@ internal class ReActLoop(
             registry = registry,
             policyGuard = policyGuard,
             auditLog = auditLog,
-            trackMessages = true,  // ReAct 多步循环必需 tool result 回传给 LLM
+            trackMessages = true, // ReAct 多步循环必需 tool result 回传给 LLM
         )
 
         while (steps < stepBudget) {
@@ -98,10 +98,14 @@ internal class ReActLoop(
             if (stopSignal?.shouldSoftStop() == true) {
                 terminated = com.hmp.domain.agent.runtime.TerminationReason.CLOUD_QUOTA_EXHAUSTED
                 HmpLog.w(LogTag.AgentReActLoop) { "🔁 step $steps: soft stop (stopSignal=true)" }
-                auditLog?.record(AuditEntry(
-                    tool = "react.loop", outcome = "budget_exhausted",
-                    reason = "soft stop at step $steps", taskId = taskId,
-                ))
+                auditLog?.record(
+                    AuditEntry(
+                        tool = "react.loop",
+                        outcome = "budget_exhausted",
+                        reason = "soft stop at step $steps",
+                        taskId = taskId,
+                    ),
+                )
                 break
             }
 
@@ -129,20 +133,28 @@ internal class ReActLoop(
             if (turn.quotaExhausted) {
                 terminated = com.hmp.domain.agent.runtime.TerminationReason.CLOUD_QUOTA_EXHAUSTED
                 finalText = "（AI 用量额度已用完，可在设置里配置自己的 API Key 或调整用量上限）"
-                auditLog?.record(AuditEntry(
-                    tool = "react.loop", outcome = "denied",
-                    reason = "quota_exhausted; steps=$steps", taskId = taskId,
-                ))
+                auditLog?.record(
+                    AuditEntry(
+                        tool = "react.loop",
+                        outcome = "denied",
+                        reason = "quota_exhausted; steps=$steps",
+                        taskId = taskId,
+                    ),
+                )
                 break
             }
 
             if (turn.failed) {
                 terminated = com.hmp.domain.agent.runtime.TerminationReason.FAILED
                 finalText = "（对话中断，请稍后再试）"
-                auditLog?.record(AuditEntry(
-                    tool = "react.loop", outcome = "failed",
-                    reason = "LLM 流式错误; steps=$steps msg=${turn.failedMessage}", taskId = taskId,
-                ))
+                auditLog?.record(
+                    AuditEntry(
+                        tool = "react.loop",
+                        outcome = "failed",
+                        reason = "LLM 流式错误; steps=$steps msg=${turn.failedMessage}",
+                        taskId = taskId,
+                    ),
+                )
                 break
             }
 
@@ -172,10 +184,14 @@ internal class ReActLoop(
             if (steps >= stepBudget) {
                 terminated = com.hmp.domain.agent.runtime.TerminationReason.STEP_BUDGET_EXHAUSTED
                 HmpLog.w(LogTag.AgentReActLoop) { "🔁 step $steps: step budget exhausted ($steps/$stepBudget)" }
-                auditLog?.record(AuditEntry(
-                    tool = "react.loop", outcome = "circuit_break",
-                    reason = "步数预算耗尽 steps=$steps/$stepBudget", taskId = taskId,
-                ))
+                auditLog?.record(
+                    AuditEntry(
+                        tool = "react.loop",
+                        outcome = "circuit_break",
+                        reason = "步数预算耗尽 steps=$steps/$stepBudget",
+                        taskId = taskId,
+                    ),
+                )
                 break
             }
         }
@@ -187,8 +203,10 @@ internal class ReActLoop(
 
         val finalTextOut = when (terminated) {
             com.hmp.domain.agent.runtime.TerminationReason.ANSWERED -> finalText
+
             com.hmp.domain.agent.runtime.TerminationReason.STEP_BUDGET_EXHAUSTED ->
                 finalText.ifBlank { "（已尽力而为，但步骤较多，为了稳健我停止了。可以让我继续。）" }
+
             else -> finalText.ifBlank { "（对话中断，请稍后再试）" }
         }
 

@@ -9,16 +9,14 @@ object LyricsConfigResolver {
      * 仅允许一层跳转（A→B 后 B 必须为 null），防止循环。
      */
     fun resolveAll(
-        configs: Map<LyricsComponent, LyricsComponentConfig>
-    ): Map<LyricsComponent, LyricsConfig> {
-        return LyricsComponent.entries.associateWith { component ->
-            resolve(component, configs)
-        }
+        configs: Map<LyricsComponent, LyricsComponentConfig>,
+    ): Map<LyricsComponent, LyricsConfig> = LyricsComponent.entries.associateWith { component ->
+        resolve(component, configs)
     }
 
     fun resolve(
         component: LyricsComponent,
-        configs: Map<LyricsComponent, LyricsComponentConfig>
+        configs: Map<LyricsComponent, LyricsComponentConfig>,
     ): LyricsConfig {
         val own = configs[component] ?: LyricsComponentConfig.DEFAULT
 

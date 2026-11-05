@@ -43,19 +43,21 @@ fun AlbumCoverPage(onBack: () -> Unit) {
 
     StorybookPage(
         title = Strings.albumCover(lang),
-        description = if (lang == AppLanguage.ZH)
+        description = if (lang == AppLanguage.ZH) {
             "专辑封面组件 (AlbumCover)，展示各场景下的典型调用参数"
-        else
-            "Album cover component (AlbumCover) with typical parameters for each usage scenario",
+        } else {
+            "Album cover component (AlbumCover) with typical parameters for each usage scenario"
+        },
         onBack = onBack,
     ) {
         // MiniPlayerBar 封面
         ComponentShowcase(
             title = if (lang == AppLanguage.ZH) "MiniPlayerBar 封面" else "MiniPlayerBar Cover",
-            description = if (lang == AppLanguage.ZH)
+            description = if (lang == AppLanguage.ZH) {
                 "size=56.dp, corner=28.dp, shadow=5.dp"
-            else
-                "size=56.dp, corner=28.dp, shadow=5.dp",
+            } else {
+                "size=56.dp, corner=28.dp, shadow=5.dp"
+            },
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -80,10 +82,11 @@ fun AlbumCoverPage(onBack: () -> Unit) {
         // MusicListItem Full/Gallery 封面
         ComponentShowcase(
             title = if (lang == AppLanguage.ZH) "MusicListItem Full/Gallery 封面" else "MusicListItem Full/Gallery Cover",
-            description = if (lang == AppLanguage.ZH)
+            description = if (lang == AppLanguage.ZH) {
                 "size=56.dp, corner=10.dp, shadow=3.dp"
-            else
-                "size=56.dp, corner=10.dp, shadow=3.dp",
+            } else {
+                "size=56.dp, corner=10.dp, shadow=3.dp"
+            },
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -114,10 +117,11 @@ fun AlbumCoverPage(onBack: () -> Unit) {
         // PlayContent 封面页
         ComponentShowcase(
             title = if (lang == AppLanguage.ZH) "PlayContent 封面页" else "PlayContent Cover Page",
-            description = if (lang == AppLanguage.ZH)
+            description = if (lang == AppLanguage.ZH) {
                 "size=300.dp, corner=20.dp, shadow=10.dp"
-            else
-                "size=300.dp, corner=20.dp, shadow=10.dp",
+            } else {
+                "size=300.dp, corner=20.dp, shadow=10.dp"
+            },
         ) {
             AlbumCoverPreview(
                 size = 300.dp,
@@ -130,10 +134,11 @@ fun AlbumCoverPage(onBack: () -> Unit) {
         // PlaylistHeader 封面
         ComponentShowcase(
             title = if (lang == AppLanguage.ZH) "PlaylistHeader 封面" else "PlaylistHeader Cover",
-            description = if (lang == AppLanguage.ZH)
+            description = if (lang == AppLanguage.ZH) {
                 "size=280.dp, corner=25.dp, shadow=15.dp"
-            else
-                "size=280.dp, corner=25.dp, shadow=15.dp",
+            } else {
+                "size=280.dp, corner=25.dp, shadow=15.dp"
+            },
         ) {
             AlbumCoverPreview(
                 size = 280.dp,
@@ -146,10 +151,11 @@ fun AlbumCoverPage(onBack: () -> Unit) {
         // Crossfade 动画过渡说明
         ComponentShowcase(
             title = if (lang == AppLanguage.ZH) "Crossfade 动画过渡" else "Crossfade Animation Transition",
-            description = if (lang == AppLanguage.ZH)
+            description = if (lang == AppLanguage.ZH) {
                 "封面切换时使用 Crossfade 动画实现平滑过渡效果，避免突兀的图片跳变"
-            else
-                "Crossfade animation is used for smooth cover transitions, avoiding abrupt image changes",
+            } else {
+                "Crossfade animation is used for smooth cover transitions, avoiding abrupt image changes"
+            },
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,

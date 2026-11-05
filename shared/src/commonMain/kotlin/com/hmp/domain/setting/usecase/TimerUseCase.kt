@@ -5,7 +5,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 class TimerUseCase(
-    private val settingsRepository: com.hmp.domain.setting.SettingsRepository
+    private val settingsRepository: com.hmp.domain.setting.SettingsRepository,
 ) {
 
     private val _timerRemaining = MutableStateFlow<Long?>(null)
@@ -38,14 +38,10 @@ class TimerUseCase(
     /**
      * 检查定时器是否已过期
      */
-    fun isTimerExpired(): Boolean {
-        return _timerRemaining.value?.let { it <= 0 } ?: false
-    }
+    fun isTimerExpired(): Boolean = _timerRemaining.value?.let { it <= 0 } ?: false
 
     /**
      * 检查定时器是否活跃
      */
-    fun isTimerActive(): Boolean {
-        return _timerRemaining.value != null && _timerRemaining.value!! > 0
-    }
+    fun isTimerActive(): Boolean = _timerRemaining.value != null && _timerRemaining.value!! > 0
 }

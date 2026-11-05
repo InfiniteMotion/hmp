@@ -38,23 +38,27 @@ class MusicLabelDaoTest {
 
     @Test
     fun getLabelsById_multiple() = runTest {
-        labelDao.insertAll(listOf(
-            MusicLabel(musicId = 1, type = LabelCategory.GENRE, label = LabelName.POP),
-            MusicLabel(musicId = 1, type = LabelCategory.MOOD, label = LabelName.HAPPY),
-            MusicLabel(musicId = 1, type = LabelCategory.SCENARIO, label = LabelName.WORKOUT)
-        ))
+        labelDao.insertAll(
+            listOf(
+                MusicLabel(musicId = 1, type = LabelCategory.GENRE, label = LabelName.POP),
+                MusicLabel(musicId = 1, type = LabelCategory.MOOD, label = LabelName.HAPPY),
+                MusicLabel(musicId = 1, type = LabelCategory.SCENARIO, label = LabelName.WORKOUT),
+            ),
+        )
         val labels = labelDao.getLabelsById(1)
         assertEquals(3, labels.size)
     }
 
     @Test
     fun getLabelsByType() = runTest {
-        labelDao.insertAll(listOf(
-            MusicLabel(musicId = 1, type = LabelCategory.GENRE, label = LabelName.POP),
-            MusicLabel(musicId = 2, type = LabelCategory.GENRE, label = LabelName.POP),
-            MusicLabel(musicId = 3, type = LabelCategory.GENRE, label = LabelName.ROCK),
-            MusicLabel(musicId = 4, type = LabelCategory.MOOD, label = LabelName.HAPPY)
-        ))
+        labelDao.insertAll(
+            listOf(
+                MusicLabel(musicId = 1, type = LabelCategory.GENRE, label = LabelName.POP),
+                MusicLabel(musicId = 2, type = LabelCategory.GENRE, label = LabelName.POP),
+                MusicLabel(musicId = 3, type = LabelCategory.GENRE, label = LabelName.ROCK),
+                MusicLabel(musicId = 4, type = LabelCategory.MOOD, label = LabelName.HAPPY),
+            ),
+        )
         val genreLabels = labelDao.getLabelsByType(LabelCategory.GENRE).first()
         assertEquals(2, genreLabels.size)
         // POP should be first (count=2 > count=1)
@@ -63,21 +67,25 @@ class MusicLabelDaoTest {
 
     @Test
     fun getMusicIdListByType() = runTest {
-        labelDao.insertAll(listOf(
-            MusicLabel(musicId = 1, type = LabelCategory.GENRE, label = LabelName.POP),
-            MusicLabel(musicId = 2, type = LabelCategory.GENRE, label = LabelName.ROCK),
-            MusicLabel(musicId = 3, type = LabelCategory.GENRE, label = LabelName.POP)
-        ))
+        labelDao.insertAll(
+            listOf(
+                MusicLabel(musicId = 1, type = LabelCategory.GENRE, label = LabelName.POP),
+                MusicLabel(musicId = 2, type = LabelCategory.GENRE, label = LabelName.ROCK),
+                MusicLabel(musicId = 3, type = LabelCategory.GENRE, label = LabelName.POP),
+            ),
+        )
         val popIds = labelDao.getMusicIdListByType(LabelName.POP)
         assertEquals(setOf(1L, 3L), popIds.toSet())
     }
 
     @Test
     fun getAllLabels() = runTest {
-        labelDao.insertAll(listOf(
-            MusicLabel(musicId = 1, type = LabelCategory.GENRE, label = LabelName.POP),
-            MusicLabel(musicId = 2, type = LabelCategory.MOOD, label = LabelName.HAPPY)
-        ))
+        labelDao.insertAll(
+            listOf(
+                MusicLabel(musicId = 1, type = LabelCategory.GENRE, label = LabelName.POP),
+                MusicLabel(musicId = 2, type = LabelCategory.MOOD, label = LabelName.HAPPY),
+            ),
+        )
         assertEquals(2, labelDao.getAllLabels().size)
     }
 

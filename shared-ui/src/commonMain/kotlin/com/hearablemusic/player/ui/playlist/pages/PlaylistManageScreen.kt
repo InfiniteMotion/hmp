@@ -36,14 +36,18 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.hearablemusic.player.ui.common.util.activityViewModel
-import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
-import com.hearablemusic.player.ui.common.design.typography.medium
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
 import coil3.compose.AsyncImage
-import com.hmp.domain.playlist.Playlist
-import com.hmp.domain.playlist.PlaylistNameError
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
+import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
+import com.hearablemusic.player.ui.common.design.typography.medium
+import com.hearablemusic.player.ui.common.dialogs.viewmodel.DialogViewModel
+import com.hearablemusic.player.ui.common.navigation.Routes
+import com.hearablemusic.player.ui.common.pages.base.SubScreen
+import com.hearablemusic.player.ui.common.util.UiState
+import com.hearablemusic.player.ui.common.util.activityViewModel
+import com.hearablemusic.player.ui.common.util.rememberHapticFeedback
 import com.hearablemusic.player.ui.generated.resources.Res
 import com.hearablemusic.player.ui.generated.resources.cancel
 import com.hearablemusic.player.ui.generated.resources.chevron_right
@@ -70,22 +74,18 @@ import com.hearablemusic.player.ui.generated.resources.star_fill
 import com.hearablemusic.player.ui.generated.resources.title_manage_user_playlists
 import com.hearablemusic.player.ui.generated.resources.trash
 import com.hearablemusic.player.ui.generated.resources.unpin_playlist
-import com.hearablemusic.player.ui.common.pages.base.SubScreen
-import com.hearablemusic.player.ui.common.navigation.Routes
-import com.hearablemusic.player.ui.common.util.UiState
-import com.hearablemusic.player.ui.common.util.rememberHapticFeedback
-import com.hearablemusic.player.ui.common.dialogs.viewmodel.DialogViewModel
 import com.hearablemusic.player.ui.playlist.manageablePlaylists
 import com.hearablemusic.player.ui.playlist.viewmodel.PlaylistViewModel
+import com.hmp.domain.playlist.Playlist
+import com.hmp.domain.playlist.PlaylistNameError
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
-import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 
 @Composable
 fun PlaylistManageScreen(
     playlistViewModel: PlaylistViewModel = activityViewModel(),
     dialogViewModel: DialogViewModel = activityViewModel(),
-    navController: NavBackStack<NavKey>
+    navController: NavBackStack<NavKey>,
 ) {
     val metrics = LocalHmpMetrics.current
     val userCustomPlaylistsState by playlistViewModel.userCustomPlaylistsState.collectAsState()
@@ -108,7 +108,7 @@ fun PlaylistManageScreen(
         userCustomPlaylists.sortedWith(
             compareByDescending<Playlist> { it.isPinned }
                 .thenByDescending { it.lastPlayedAt ?: 0L }
-                .thenByDescending { it.updatedAt }
+                .thenByDescending { it.updatedAt },
         )
     }
 
@@ -123,7 +123,7 @@ fun PlaylistManageScreen(
                     onClick = {
                         playlistViewModel.deletePlaylist(p.id)
                         playlistToDelete = null
-                    }
+                    },
                 ) {
                     Text(stringResource(Res.string.delete_playlist), color = MaterialTheme.colorScheme.error)
                 }
@@ -132,7 +132,7 @@ fun PlaylistManageScreen(
                 TextButton(onClick = { playlistToDelete = null }) {
                     Text(stringResource(Res.string.cancel))
                 }
-            }
+            },
         )
     }
 
@@ -142,7 +142,11 @@ fun PlaylistManageScreen(
         // 过去这个对话框只判非空，能改出超长名和大小写重名。
         var renameError by remember { mutableStateOf<PlaylistNameError?>(null) }
         AlertDialog(
-            onDismissRequest = { playlistToRename = null; renameValue = ""; renameError = null },
+            onDismissRequest = {
+                playlistToRename = null
+                renameValue = ""
+                renameError = null
+            },
             title = { Text(stringResource(Res.string.rename_playlist)) },
             text = {
                 OutlinedTextField(
@@ -158,7 +162,7 @@ fun PlaylistManageScreen(
                         null
                     } else {
                         { Text(playlistNameErrorText(renameError!!), color = MaterialTheme.colorScheme.error) }
-                    }
+                    },
                 )
             },
             confirmButton = {
@@ -173,16 +177,20 @@ fun PlaylistManageScreen(
                                 renameError = error
                             }
                         }
-                    }
+                    },
                 ) {
                     Text(stringResource(Res.string.ok), color = MaterialTheme.colorScheme.primary)
                 }
             },
             dismissButton = {
-                TextButton(onClick = { playlistToRename = null; renameValue = ""; renameError = null }) {
+                TextButton(onClick = {
+                    playlistToRename = null
+                    renameValue = ""
+                    renameError = null
+                }) {
                     Text(stringResource(Res.string.cancel))
                 }
-            }
+            },
         )
     }
 
@@ -198,39 +206,39 @@ fun PlaylistManageScreen(
                 modifier = Modifier.size(metrics.block),
                 colors = IconButtonDefaults.filledIconButtonColors(
                     containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary
-                )
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                ),
             ) {
                 Icon(
                     painter = painterResource(if (isEditMode) Res.drawable.ic_gallery_material_select_checkbox else Res.drawable.gearshape),
                     contentDescription = stringResource(Res.string.edit_list),
-                    modifier = Modifier.size(metrics.cozy)
+                    modifier = Modifier.size(metrics.cozy),
                 )
             }
-        }
+        },
     ) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(metrics.cozy)
+                .padding(metrics.cozy),
         ) {
             // 系统歌单不再列出后，只有系统歌单时这里会空 —— 给一句提示，别让页面看起来像坏了
             if (sortedList.isEmpty()) {
                 Box(
                     modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
+                    contentAlignment = Alignment.Center,
                 ) {
                     Text(
                         text = stringResource(Res.string.no_playlists_available),
                         style = LocalHmpTypo.current.body,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(vertical = metrics.compact),
-                verticalArrangement = Arrangement.spacedBy(metrics.micro)
+                verticalArrangement = Arrangement.spacedBy(metrics.micro),
             ) {
                 items(sortedList, key = { it.id }) { playlist ->
                     UserPlaylistRow(
@@ -248,7 +256,7 @@ fun PlaylistManageScreen(
                         onSetPinned = { pinned ->
                             haptic.performClick()
                             playlistViewModel.setPlaylistPinned(playlist.id, pinned)
-                        }
+                        },
                     )
                 }
             }
@@ -268,13 +276,13 @@ fun PlaylistManageScreen(
                     .size(metrics.bar),
                 colors = IconButtonDefaults.filledIconButtonColors(
                     containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary
-                )
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                ),
             ) {
                 Icon(
                     painter = painterResource(Res.drawable.plus),
                     contentDescription = stringResource(Res.string.edit_list),
-                    modifier = Modifier.size(metrics.section)
+                    modifier = Modifier.size(metrics.section),
                 )
             }
         }
@@ -288,7 +296,7 @@ private fun UserPlaylistRow(
     onClick: () -> Unit,
     onDelete: () -> Unit,
     onRename: () -> Unit,
-    onSetPinned: (Boolean) -> Unit
+    onSetPinned: (Boolean) -> Unit,
 ) {
     val metrics = LocalHmpMetrics.current
     val typo = LocalHmpTypo.current
@@ -300,32 +308,32 @@ private fun UserPlaylistRow(
             .clickable(onClick = onClick)
             .padding(vertical = metrics.compact, horizontal = metrics.micro),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(metrics.cozy)
+        horizontalArrangement = Arrangement.spacedBy(metrics.cozy),
     ) {
         Box(
             modifier = Modifier
                 .size(metrics.bar)
-                .clip(RoundedCornerShape(metrics.compact))
+                .clip(RoundedCornerShape(metrics.compact)),
         ) {
             if (playlist.coverUri != null && playlist.coverUri!!.isNotBlank()) {
                 AsyncImage(
                     model = playlist.coverUri,
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize()
+                    modifier = Modifier.fillMaxSize(),
                 )
             } else {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
                         .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.8f)),
-                    contentAlignment = Alignment.Center
+                    contentAlignment = Alignment.Center,
                 ) {
                     Icon(
                         painter = painterResource(Res.drawable.music_note_list),
                         contentDescription = null,
                         modifier = Modifier.size(metrics.block),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                     )
                 }
             }
@@ -336,7 +344,7 @@ private fun UserPlaylistRow(
                 style = typo.subtitle,
                 color = MaterialTheme.colorScheme.onBackground,
                 maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+                overflow = TextOverflow.Ellipsis,
             )
             if (playlist.songCount > 0 || playlist.totalDurationMs > 0 || playlist.playCount > 0) {
                 val parts = mutableListOf<String>()
@@ -357,7 +365,7 @@ private fun UserPlaylistRow(
                         color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.padding(top = metrics.hair)
+                        modifier = Modifier.padding(top = metrics.hair),
                     )
                 }
             }
@@ -367,7 +375,7 @@ private fun UserPlaylistRow(
                 painter = painterResource(Res.drawable.chevron_right),
                 contentDescription = null,
                 modifier = Modifier.size(metrics.cozy),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         } else {
             Row(horizontalArrangement = Arrangement.spacedBy(metrics.micro)) {
@@ -375,30 +383,36 @@ private fun UserPlaylistRow(
                     onClick = {
                         haptic.performClick()
                         onSetPinned(!playlist.isPinned)
-                    }
+                    },
                 ) {
                     Icon(
                         painter = painterResource(
-                            if (playlist.isPinned) Res.drawable.star_fill else Res.drawable.star
+                            if (playlist.isPinned) Res.drawable.star_fill else Res.drawable.star,
                         ),
                         contentDescription = stringResource(
-                            if (playlist.isPinned) Res.string.unpin_playlist else Res.string.pin_playlist
+                            if (playlist.isPinned) Res.string.unpin_playlist else Res.string.pin_playlist,
                         ),
                         modifier = Modifier.size(metrics.section),
-                        tint = MaterialTheme.colorScheme.primary
+                        tint = MaterialTheme.colorScheme.primary,
                     )
                 }
-                TextButton(onClick = { haptic.performClick(); onRename() }) {
+                TextButton(onClick = {
+                    haptic.performClick()
+                    onRename()
+                }) {
                     Text(stringResource(Res.string.rename_playlist), style = typo.footnote.medium())
                 }
                 IconButton(
-                    onClick = { haptic.performClick(); onDelete() }
+                    onClick = {
+                        haptic.performClick()
+                        onDelete()
+                    },
                 ) {
                     Icon(
                         painter = painterResource(Res.drawable.trash),
                         contentDescription = stringResource(Res.string.delete_playlist),
                         modifier = Modifier.size(metrics.section),
-                        tint = MaterialTheme.colorScheme.error
+                        tint = MaterialTheme.colorScheme.error,
                     )
                 }
             }

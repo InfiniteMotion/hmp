@@ -1,5 +1,7 @@
 package com.hmp.desktop
 
+import com.hmp.log.HmpLog
+import com.hmp.log.LogTag
 import com.sun.jna.NativeLibrary
 import com.sun.jna.Structure
 import com.sun.jna.Structure.FieldOrder
@@ -7,8 +9,6 @@ import com.sun.jna.platform.win32.Advapi32Util
 import com.sun.jna.platform.win32.WinDef
 import com.sun.jna.platform.win32.WinReg
 import com.sun.jna.ptr.IntByReference
-import com.hmp.log.HmpLog
-import com.hmp.log.LogTag
 
 /**
  * Windows DWM API helper — disables Mica/Acrylic, sets solid title bar color,
@@ -112,9 +112,13 @@ object DwmHelper {
         if (!isWindows()) return false
         return try {
             Advapi32Util.registryGetIntValue(
-                WinReg.HKEY_CURRENT_USER, THEME_KEY, THEME_VALUE
+                WinReg.HKEY_CURRENT_USER,
+                THEME_KEY,
+                THEME_VALUE,
             ) == 0
-        } catch (_: Throwable) { false }
+        } catch (_: Throwable) {
+            false
+        }
     }
 
     /**
@@ -146,8 +150,7 @@ object DwmHelper {
 
     // ── internal ──────────────────────────────────────────────────────
 
-    private fun isWindows(): Boolean =
-        System.getProperty("os.name", "").lowercase().contains("win")
+    private fun isWindows(): Boolean = System.getProperty("os.name", "").lowercase().contains("win")
 
     private fun findWindowByPid(): WinDef.HWND? {
         val pid = ProcessHandle.current().pid().toInt()
@@ -159,7 +162,9 @@ object DwmHelper {
             if (wPid.value == pid && com.sun.jna.platform.win32.User32.INSTANCE.IsWindowVisible(hwnd)) {
                 found[0] = hwnd
                 false
-            } else true
+            } else {
+                true
+            }
         }, null)
 
         return found[0]
@@ -199,7 +204,10 @@ object DwmHelper {
 @FieldOrder("cxLeftWidth", "cxRightWidth", "cyTopHeight", "cyBottomHeight")
 class MARGINS : Structure() {
     @JvmField var cxLeftWidth: Int = 0
+
     @JvmField var cxRightWidth: Int = 0
+
     @JvmField var cyTopHeight: Int = 0
+
     @JvmField var cyBottomHeight: Int = 0
 }

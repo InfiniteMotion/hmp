@@ -7,8 +7,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 /** 测试用曲目构造。 */
-private fun song(id: Long, title: String = "曲目$id") =
-    MusicInfo(Music(id, title, "歌手$id", "专辑", 180_000, "/$id.mp3", ""), null, null)
+private fun song(id: Long, title: String = "曲目$id") = MusicInfo(Music(id, title, "歌手$id", "专辑", 180_000, "/$id.mp3", ""), null, null)
 
 /** 测试用富化结果构造（全字段可注入，默认值是"空富化"形态）。 */
 private fun draft(
@@ -69,7 +68,7 @@ class EnrichResponseParserTest {
         val songs = listOf(song(1), song(2), song(3))
         val text = """[{"genre":["A"],"mood":[],"scenario":[]},{"genre":["B"],"mood":[],"scenario":[]}]"""
         val r = EnrichResponseParser.parseEnumBatch(text, songs, agentId)
-        assertEquals(setOf(1L, 2L), r.keys)  // 第 3 首没有结果，交给上层重试
+        assertEquals(setOf(1L, 2L), r.keys) // 第 3 首没有结果，交给上层重试
     }
 
     @Test
@@ -102,7 +101,9 @@ class EnrichResponseParserTest {
         // 裸对象里必然含 `[` ⇒ 被误判成"有数组包装" → 切出 0 个对象、兜底分支永不执行。
         val songs = listOf(song(1))
         val r = EnrichResponseParser.parseEnumBatch(
-            """{"genre":["民谣"],"mood":[],"scenario":[]}""", songs, agentId,
+            """{"genre":["民谣"],"mood":[],"scenario":[]}""",
+            songs,
+            agentId,
         )
         assertEquals(listOf("民谣"), r.getValue(1L).genre)
     }
@@ -126,21 +127,27 @@ class EnrichResponseParserTest {
         val songs = listOf(song(1))
         val original = mutableMapOf(
             1L to EnumOnlyResult(
-                genre = listOf("摇滚"), mood = listOf("躁"), scenario = listOf("开车"),
-                language = "华语", era = "90s",
+                genre = listOf("摇滚"),
+                mood = listOf("躁"),
+                scenario = listOf("开车"),
+                language = "华语",
+                era = "90s",
             ),
         )
         val patch = mapOf(
             1L to EnumOnlyResult(
-                genre = listOf("后摇"), mood = emptyList(), scenario = emptyList(),
-                language = "", era = "00s",
+                genre = listOf("后摇"),
+                mood = emptyList(),
+                scenario = emptyList(),
+                language = "",
+                era = "00s",
             ),
         )
         EnrichResponseParser.applyEnumReplacements(original, patch, songs)
 
         val merged = original.getValue(1L)
-        assertEquals(listOf("后摇"), merged.genre)   // patch 给了 → 覆盖
-        assertEquals(listOf("躁"), merged.mood)      // patch 空 → 保留
+        assertEquals(listOf("后摇"), merged.genre) // patch 给了 → 覆盖
+        assertEquals(listOf("躁"), merged.mood) // patch 空 → 保留
         assertEquals(listOf("开车"), merged.scenario)
         assertEquals("华语", merged.language)
         assertEquals("00s", merged.era)
@@ -206,7 +213,9 @@ class EnrichResponseParserTest {
         // 模型按 prompt 里的 1-based 序号回，这里必须规整成 0-based
         val songs = listOf(song(1), song(2))
         val patches = EnrichResponseParser.parseReflectionPatches(
-            """[{"index":2,"field":"lyric","fix":"新歌词"}]""", songs, agentId,
+            """[{"index":2,"field":"lyric","fix":"新歌词"}]""",
+            songs,
+            agentId,
         )
         assertEquals(1, patches.size)
         assertEquals(1, patches.first().index)
@@ -216,7 +225,9 @@ class EnrichResponseParserTest {
     fun parseReflectionPatches_dropsOutOfRangeIndex() {
         val songs = listOf(song(1))
         val patches = EnrichResponseParser.parseReflectionPatches(
-            """[{"index":5,"field":"lyric","fix":"x"}]""", songs, agentId,
+            """[{"index":5,"field":"lyric","fix":"x"}]""",
+            songs,
+            agentId,
         )
         assertTrue(patches.isEmpty())
     }
@@ -225,7 +236,9 @@ class EnrichResponseParserTest {
     fun parseReflectionPatches_skipsMalformedElement() {
         val songs = listOf(song(1))
         val patches = EnrichResponseParser.parseReflectionPatches(
-            """[{"index":1,"field":"lyric","fix":"好的"},{"nonsense":true}]""", songs, agentId,
+            """[{"index":1,"field":"lyric","fix":"好的"},{"nonsense":true}]""",
+            songs,
+            agentId,
         )
         assertEquals(1, patches.size)
         assertEquals("好的", patches.first().fix)
@@ -291,7 +304,7 @@ class EnrichResponseParserTest {
             drafts,
             listOf(
                 ReflectionPatch(index = 0, field = "lyric", fix = "新"),
-                ReflectionPatch(index = 1, field = "lyric", fix = "不该出现"),  // 第 2 首没有 draft
+                ReflectionPatch(index = 1, field = "lyric", fix = "不该出现"), // 第 2 首没有 draft
             ),
             songs,
         )

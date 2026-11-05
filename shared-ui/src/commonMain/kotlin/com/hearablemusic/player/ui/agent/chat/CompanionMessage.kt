@@ -11,10 +11,9 @@ import com.hmp.domain.music.MusicInfo
 import com.hmp.domain.playlist.Playlist
 
 /** 清洗模型回复中的 Markdown 标记与 ASCII 引号（Compose Text 不解析 Markdown；裸露的 ** / * / ` 显破碎）。 */
-internal fun cleanAgentMarkdown(text: String): String =
-    text.replace("**", "").replace("__", "").replace("`", "").replace("*", "")
-        // ASCII 双引号对 → 中文引号（「」更贴合中文排版）
-        .replace(Regex("\"([^\"]*)\"")) { m -> "「${m.groupValues[1]}」" }
+internal fun cleanAgentMarkdown(text: String): String = text.replace("**", "").replace("__", "").replace("`", "").replace("*", "")
+    // ASCII 双引号对 → 中文引号（「」更贴合中文排版）
+    .replace(Regex("\"([^\"]*)\"")) { m -> "「${m.groupValues[1]}」" }
 
 /**
  * M5-T2 五类气泡渲染类型（CompanionBubble 按 renderHint 分发）。
@@ -26,12 +25,16 @@ internal fun cleanAgentMarkdown(text: String): String =
 enum class CompanionRenderHint {
     /** 纯文字答复（默认；也承载用户气泡）。 */
     TEXT,
+
     /** 单曲卡片（AlbumCover + 题名 + 菜单）。 */
     SONG,
+
     /** 歌单列表（FixedMusicList 复用 + 尾部动作行）。 */
     SONGLIST,
+
     /** 计划轨迹（可折叠展开）。 */
     EXPLAIN,
+
     /** 确认矩阵（逐项勾选 + 照做/跳过）。 */
     CONFIRM,
 }
@@ -99,10 +102,12 @@ internal fun buildAssistantBubbles(
         val skipped = confirmItems.size - accepted.size
         val receipt: UiText = when {
             accepted.isEmpty() -> UiText.Res(Res.string.agent_chat_receipt_all_skipped)
+
             skipped > 0 -> UiText.Res(
                 Res.string.agent_chat_receipt_done_skipped,
                 listOf(accepted.size, skipped),
             )
+
             else -> UiText.Res(Res.string.agent_chat_receipt_done, listOf(accepted.size))
         }
         out += CompanionMessage(

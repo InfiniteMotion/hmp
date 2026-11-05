@@ -30,12 +30,16 @@ class SessionStore(
 
     fun currentSessionId(): Long? = currentId
 
-    fun append(vararg msg: LlmMessage) { messages.addAll(msg) }
+    fun append(vararg msg: LlmMessage) {
+        messages.addAll(msg)
+    }
 
     fun history(): List<LlmMessage> = messages.toList()
 
     /** 记录一条挂起确认（M5 确认卡片流的引擎侧语义）。 */
-    fun setPendingConfirm(confirm: PendingConfirm) { pendingConfirmTask = confirm }
+    fun setPendingConfirm(confirm: PendingConfirm) {
+        pendingConfirmTask = confirm
+    }
     fun takePendingConfirm(): PendingConfirm? = pendingConfirmTask?.also { pendingConfirmTask = null }
 
     fun clear() {

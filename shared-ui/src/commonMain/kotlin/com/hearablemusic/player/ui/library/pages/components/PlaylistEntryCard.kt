@@ -1,16 +1,12 @@
 package com.hearablemusic.player.ui.library.pages.components
-import org.jetbrains.compose.resources.stringResource
-import com.hearablemusic.player.ui.generated.resources.no_data_available
-import com.hearablemusic.player.ui.generated.resources.songs_count
-
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -29,16 +25,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.hearablemusic.player.ui.common.util.HapticFeedbackHelper
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
+import com.hearablemusic.player.ui.common.util.HapticFeedbackHelper
 import com.hearablemusic.player.ui.common.util.rememberHapticFeedback
 import com.hearablemusic.player.ui.generated.resources.Res
 import com.hearablemusic.player.ui.generated.resources.chevron_right
+import com.hearablemusic.player.ui.generated.resources.no_data_available
 import com.hearablemusic.player.ui.generated.resources.play_fill
+import com.hearablemusic.player.ui.generated.resources.songs_count
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.painterResource
-import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
+import org.jetbrains.compose.resources.stringResource
 
 /**
  * 通用歌单入口卡。
@@ -76,8 +75,11 @@ fun PlaylistEntryCard(
             },
         shape = RoundedCornerShape(metrics.cozy),
         colors = CardDefaults.cardColors(
-            containerColor = if (isEmpty) MaterialTheme.colorScheme.surface.copy(alpha = 0.5f)
-                             else MaterialTheme.colorScheme.surface
+            containerColor = if (isEmpty) {
+                MaterialTheme.colorScheme.surface.copy(alpha = 0.5f)
+            } else {
+                MaterialTheme.colorScheme.surface
+            },
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = if (isEmpty) metrics.hair else metrics.micro),
     ) {
@@ -87,12 +89,18 @@ fun PlaylistEntryCard(
                 .background(
                     Brush.linearGradient(
                         listOf(
-                            if (isEmpty) MaterialTheme.colorScheme.surface.copy(alpha = 0.5f)
-                                       else MaterialTheme.colorScheme.surface,
-                            if (isEmpty) MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f)
-                                       else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
-                        )
-                    )
+                            if (isEmpty) {
+                                MaterialTheme.colorScheme.surface.copy(alpha = 0.5f)
+                            } else {
+                                MaterialTheme.colorScheme.surface
+                            },
+                            if (isEmpty) {
+                                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f)
+                            } else {
+                                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+                            },
+                        ),
+                    ),
                 )
                 .padding(horizontal = metrics.cozy),
         ) {
@@ -106,8 +114,11 @@ fun PlaylistEntryCard(
                     Icon(
                         painter = painterResource(icon),
                         contentDescription = null,
-                        tint = if (isEmpty) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
-                               else MaterialTheme.colorScheme.primary,
+                        tint = if (isEmpty) {
+                            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                        } else {
+                            MaterialTheme.colorScheme.primary
+                        },
                     )
                 }
 
@@ -119,8 +130,11 @@ fun PlaylistEntryCard(
                     Text(
                         text = if (isEmpty) stringResource(Res.string.no_data_available) else title,
                         style = typo.subtitle,
-                        color = if (isEmpty) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-                               else MaterialTheme.colorScheme.onSurface,
+                        color = if (isEmpty) {
+                            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                        } else {
+                            MaterialTheme.colorScheme.onSurface
+                        },
                         fontWeight = FontWeight.Bold,
                     )
                     if (!isEmpty) {
@@ -158,7 +172,7 @@ fun PlaylistEntryCard(
                         onClick = {
                             haptic.performClick()
                             onClickDetails()
-                        }
+                        },
                     ) {
                         Icon(
                             painter = painterResource(Res.drawable.chevron_right),

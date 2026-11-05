@@ -1,11 +1,4 @@
 package com.hearablemusic.player.ui.agent.cards
-import com.hearablemusic.player.ui.generated.resources.card_enrich_mixed_group
-import com.hearablemusic.player.ui.generated.resources.card_enrich_paused
-import com.hearablemusic.player.ui.generated.resources.card_enrich_progress
-import com.hearablemusic.player.ui.generated.resources.card_enrich_running
-import com.hearablemusic.player.ui.generated.resources.Res
-import org.jetbrains.compose.resources.stringResource
-
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -31,12 +24,16 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
+import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
+import com.hearablemusic.player.ui.generated.resources.Res
+import com.hearablemusic.player.ui.generated.resources.card_enrich_mixed_group
+import com.hearablemusic.player.ui.generated.resources.card_enrich_paused
+import com.hearablemusic.player.ui.generated.resources.card_enrich_progress
+import com.hearablemusic.player.ui.generated.resources.card_enrich_running
 import com.hmp.domain.agent.card.EnrichTrackingContent
 import com.hmp.domain.agent.card.SlideCard
-import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
-import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
-
-
+import org.jetbrains.compose.resources.stringResource
 
 // ═══════════════════════════════════════════════════════════════════
 // 家族 E：ENRICH_TRACKING —— 富化进度追踪卡
@@ -66,7 +63,9 @@ internal fun FamilyEnrichTrackingCard(
                     onTap = { /* 短按留给 Pager 手势 */ },
                 )
             }
+
             onCardClick != null -> m.clickable { onCardClick.invoke(card) }
+
             else -> m
         }
     }
@@ -91,8 +90,8 @@ internal fun FamilyEnrichTrackingCard(
                                 MaterialTheme.colorScheme.outline.copy(alpha = 0.12f),
                                 MaterialTheme.colorScheme.outline.copy(alpha = 0.04f),
                             )
-                        }
-                    )
+                        },
+                    ),
                 )
                 .padding(horizontal = metrics.cozy, vertical = metrics.cozy),
         ) {

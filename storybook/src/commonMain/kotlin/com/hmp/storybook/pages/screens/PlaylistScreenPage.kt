@@ -55,18 +55,20 @@ fun PlaylistScreenPage(onBack: () -> Unit) {
 
     StorybookPage(
         title = Strings.playlistScreen(lang),
-        description = if (lang == AppLanguage.ZH)
+        description = if (lang == AppLanguage.ZH) {
             "HMP 播放列表页面，SubScreen 包装，可折叠 PlaylistHeader(最大折叠偏移 160.dp)，头部封面 280.dp/圆角 25.dp/阴影 15.dp，统计信息，ExtendedFloatingActionButton 播放全部"
-        else
-            "HMP Playlist screen with SubScreen wrapper, collapsible PlaylistHeader (max offset 160.dp), 280.dp cover with 25.dp radius and 15.dp shadow, stats, ExtendedFloatingActionButton",
+        } else {
+            "HMP Playlist screen with SubScreen wrapper, collapsible PlaylistHeader (max offset 160.dp), 280.dp cover with 25.dp radius and 15.dp shadow, stats, ExtendedFloatingActionButton"
+        },
         onBack = onBack,
     ) {
         ComponentShowcase(
             title = if (lang == AppLanguage.ZH) "播放列表预览" else "Playlist Preview",
-            description = if (lang == AppLanguage.ZH)
+            description = if (lang == AppLanguage.ZH) {
                 "SubScreen(返回+标题) + PlaylistHeader(可折叠 160.dp) + 封面(280.dp, 25.dp圆角, 15.dp阴影) + 统计信息 + EFA 播放全部"
-            else
-                "SubScreen(back+title) + PlaylistHeader(collapsible 160.dp) + Cover(280.dp, 25.dp radius, 15.dp shadow) + Stats + EFA Play All",
+            } else {
+                "SubScreen(back+title) + PlaylistHeader(collapsible 160.dp) + Cover(280.dp, 25.dp radius, 15.dp shadow) + Stats + EFA Play All"
+            },
         ) {
             PhoneFramePreview {
                 PlaylistScreenContent(lang)
@@ -131,7 +133,7 @@ private fun PlaylistScreenContent(lang: AppLanguage) {
                                 Color(0xFF6C63FF),
                                 Color(0xFFE040FB),
                             ),
-                        )
+                        ),
                     ),
                 contentAlignment = Alignment.Center,
             ) {
@@ -336,8 +338,8 @@ private fun PlaylistSongItem(
                         colors = listOf(
                             HDBlue,
                             Color(0xFF6C63FF),
-                        )
-                    )
+                        ),
+                    ),
                 ),
         )
         Spacer(modifier = Modifier.width(12.dp))

@@ -12,6 +12,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -21,10 +23,8 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
+import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
 
 /**
  * HMP 基础搜索/输入框组件。
@@ -55,7 +55,7 @@ fun HMPTextField(
     singleLine: Boolean = true,
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
     textStyle: TextStyle = LocalHmpTypo.current.body.copy(
-        color = MaterialTheme.colorScheme.onSurface
+        color = MaterialTheme.colorScheme.onSurface,
     ),
 ) {
     val metrics = LocalHmpMetrics.current
@@ -74,13 +74,17 @@ fun HMPTextField(
 
     Box(
         modifier = modifier
-            .then(if (onClick != null) {
-                Modifier.clickable(
-                    indication = null,
-                    interactionSource = remember { MutableInteractionSource() },
-                    onClick = onClick,
-                )
-            } else Modifier)
+            .then(
+                if (onClick != null) {
+                    Modifier.clickable(
+                        indication = null,
+                        interactionSource = remember { MutableInteractionSource() },
+                        onClick = onClick,
+                    )
+                } else {
+                    Modifier
+                },
+            )
             .then(innerBox),
         contentAlignment = Alignment.CenterStart,
     ) {

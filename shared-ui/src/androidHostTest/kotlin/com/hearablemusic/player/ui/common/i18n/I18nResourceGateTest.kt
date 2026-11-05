@@ -87,13 +87,12 @@ class I18nResourceGateTest {
         error("找不到 shared-ui/src/commonMain/composeResources（user.dir=${System.getProperty("user.dir")}）")
     }
 
-    private fun loadCatalogs(resources: File): Map<String, Map<String, String>> =
-        resources.listFiles()
-            .orEmpty()
-            .filter { it.isDirectory && it.name.startsWith("values") }
-            .associate { dir ->
-                dir.name to parseStrings(File(dir, "strings.xml"))
-            }
+    private fun loadCatalogs(resources: File): Map<String, Map<String, String>> = resources.listFiles()
+        .orEmpty()
+        .filter { it.isDirectory && it.name.startsWith("values") }
+        .associate { dir ->
+            dir.name to parseStrings(File(dir, "strings.xml"))
+        }
 
     private fun parseStrings(file: File): Map<String, String> {
         assertTrue(file.isFile, "缺少字符串资源：${file.path}")
@@ -108,10 +107,9 @@ class I18nResourceGateTest {
     }
 
     /** 占位符按多重集比较：`%1$s` 与 `%1$d` 不同，出现两次就要对两次；`%%` 是转义不算。 */
-    private fun placeholders(text: String): List<String> =
-        Regex("""%(?:\d+\$)?[a-zA-Z]""")
-            .findAll(text.replace("%%", ""))
-            .map { it.value }
-            .sorted()
-            .toList()
+    private fun placeholders(text: String): List<String> = Regex("""%(?:\d+\$)?[a-zA-Z]""")
+        .findAll(text.replace("%%", ""))
+        .map { it.value }
+        .sorted()
+        .toList()
 }

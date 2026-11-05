@@ -17,7 +17,8 @@ class PlaybackHistoryUseCaseTest {
 
     private fun musicInfo(id: Long) = MusicInfo(
         music = Music(id = id, title = "Song$id", artist = "A", album = "B", duration = 100, path = "/$id.mp3", albumArtUri = ""),
-        extra = null, userInfo = null
+        extra = null,
+        userInfo = null,
     )
 
     @Test

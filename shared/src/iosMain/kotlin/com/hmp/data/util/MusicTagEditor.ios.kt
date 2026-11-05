@@ -14,7 +14,7 @@ actual object MusicTagEditor {
             }
         }
         return Result.failure(
-            UnsupportedOperationException("Tag editing is not supported on this platform yet")
+            UnsupportedOperationException("Tag editing is not supported on this platform yet"),
         )
     }
 }

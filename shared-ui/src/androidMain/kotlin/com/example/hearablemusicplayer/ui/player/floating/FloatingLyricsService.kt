@@ -27,7 +27,9 @@ import kotlinx.coroutines.launch
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.get
 
-class FloatingLyricsService : Service(), KoinComponent {
+class FloatingLyricsService :
+    Service(),
+    KoinComponent {
 
     private var overlayView: android.view.View? = null
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
@@ -55,12 +57,13 @@ class FloatingLyricsService : Service(), KoinComponent {
         val height = (80 * metrics.density).toInt()
 
         val params = WindowManager.LayoutParams(
-            width, height,
+            width,
+            height,
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                    WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
-                    WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
-            PixelFormat.TRANSLUCENT
+                WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
+                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+            PixelFormat.TRANSLUCENT,
         ).apply {
             gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
             x = 0
@@ -82,7 +85,7 @@ class FloatingLyricsService : Service(), KoinComponent {
                     onClose = {
                         serviceScope.launch { lyricsSettingsUseCase.saveFloatingLyricsEnabled(false) }
                         hideOverlay()
-                    }
+                    },
                 )
             }
         }
@@ -113,7 +116,9 @@ class FloatingLyricsService : Service(), KoinComponent {
     override fun onBind(intent: Intent?): IBinder? = null
 }
 
-private class ServiceLifecycleOwner : LifecycleOwner, SavedStateRegistryOwner {
+private class ServiceLifecycleOwner :
+    LifecycleOwner,
+    SavedStateRegistryOwner {
     private val lifecycleRegistry = LifecycleRegistry(this)
     private val savedStateRegistryController = SavedStateRegistryController.create(this)
 

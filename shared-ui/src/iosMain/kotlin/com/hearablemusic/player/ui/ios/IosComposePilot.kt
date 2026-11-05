@@ -13,9 +13,9 @@ import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
-import com.hearablemusic.player.ui.common.design.theme.ThemeManager
 import com.hearablemusic.player.ui.common.design.metrics.HMPMetricTokens
 import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
+import com.hearablemusic.player.ui.common.design.theme.ThemeManager
 import com.hearablemusic.player.ui.common.design.typography.HMPTypoTokens
 import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
 import com.hearablemusic.player.ui.common.design.typography.m3ComponentTypography
@@ -66,7 +66,7 @@ fun settingsPilotGraph(navController: NavBackStack<NavKey>) = entryProvider<NavK
         val useCase: LyricsSettingsUseCase = koinInject()
         LyricsSettingsPage(
             lyricsSettingsUseCase = useCase,
-            onBack = { navController.removeLastOrNull() }
+            onBack = { navController.removeLastOrNull() },
         )
     }
 }
@@ -89,12 +89,12 @@ fun IosSettingsPilotRoot() {
     CompositionLocalProvider(LocalAppViewModelStoreOwner provides storeOwner) {
         MaterialTheme(
             colorScheme = ThemeManager.getLightColorScheme(),
-            typography = m3ComponentTypography(typo)
+            typography = m3ComponentTypography(typo),
         ) {
             CompositionLocalProvider(
                 LocalWindowSizeInfo provides windowSizeInfo,
                 LocalHmpTypo provides typo,
-                LocalHmpMetrics provides metrics
+                LocalHmpMetrics provides metrics,
             ) {
                 val navController = rememberHmpNavBackStack(Routes.Settings.Setting)
                 NavDisplay(
@@ -102,9 +102,9 @@ fun IosSettingsPilotRoot() {
                     onBack = { navController.removeLastOrNull() },
                     entryDecorators = listOf(
                         rememberSaveableStateHolderNavEntryDecorator(),
-                        rememberViewModelStoreNavEntryDecorator()
+                        rememberViewModelStoreNavEntryDecorator(),
                     ),
-                    entryProvider = settingsPilotGraph(navController)
+                    entryProvider = settingsPilotGraph(navController),
                 )
             }
         }
@@ -120,5 +120,4 @@ fun IosSettingsPilotRoot() {
  * present(vc, animated: true)
  * ```
  */
-fun createSettingsPilotViewController(): UIViewController =
-    ComposeUIViewController { IosSettingsPilotRoot() }
+fun createSettingsPilotViewController(): UIViewController = ComposeUIViewController { IosSettingsPilotRoot() }

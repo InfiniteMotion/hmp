@@ -1,8 +1,8 @@
 package com.hmp.data.util
 
 import androidx.datastore.core.DataStore
-import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
+import androidx.datastore.preferences.core.Preferences
 import kotlinx.cinterop.ExperimentalForeignApi
 import okio.Path.Companion.toPath
 import platform.Foundation.NSDocumentDirectory
@@ -17,11 +17,11 @@ actual object DataStoreFactory {
             NSUserDomainMask,
             null,
             true,
-            null
+            null,
         )!!.path!!
 
         return PreferenceDataStoreFactory.createWithPath(
-            produceFile = { documentDirectory.toPath() / "player_preferences.preferences_pb" }
+            produceFile = { documentDirectory.toPath() / "player_preferences.preferences_pb" },
         )
     }
 }

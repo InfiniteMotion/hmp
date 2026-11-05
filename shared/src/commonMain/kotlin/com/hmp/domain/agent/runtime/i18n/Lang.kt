@@ -85,7 +85,7 @@ internal val L10N_PROMPTS: Map<String, Map<Lang, String>> = mapOf(
 {{library_overview}}
 {{now_playing}}
 {{task_status}}
-""".trimIndent(),
+        """.trimIndent(),
         Lang.EN to """
 You are the user's music companion.
 
@@ -104,7 +104,7 @@ Here is your dynamic context (injected at runtime):
 {{library_overview}}
 {{now_playing}}
 {{task_status}}
-""".trimIndent(),
+        """.trimIndent(),
     ),
 
     // 三个 persona
@@ -154,7 +154,7 @@ Here is your dynamic context (injected at runtime):
 - whys 与 musicIds 一一对应、长度一致：每首歌一句主播按语（不超过 16 字），写给听众看——这首歌为什么排在这里、它和前后曲目怎么接。这是电台卡片上唯一展示你的话的地方，好好写。
 - 开播且上下文里标注了「正在播（电台起点）」时，额外给 seedWhy：为这首正在播的歌写一句按语（不超过 16 字），同样展示给听众
 - reason 是写给节目档案的编排思路——你之后每一轮都会看到它，用它记住"我为什么这么排"
-""".trimIndent(),
+        """.trimIndent(),
         Lang.EN to """
 You are the host of this music radio station. From the moment the listener tunes in, you are in charge of this session:
 Sense every one of their actions and every movement from the player, orchestrate the playlist into something they'll want to keep listening to.
@@ -186,7 +186,7 @@ Output format:
 - whys must match musicIds one-to-one, same length: one host note per song (≤16 words), shown to the listener on the radio card — why this song is here, how it connects to the ones before and after. This is the only place your voice appears to the listener — write them well.
 - When the session starts and context marks "Now Playing (radio start)", add a seedWhy: one note for the currently playing song (≤16 words), also shown to the listener
 - reason is your programming memo — you'll see it every round after, use it to remember "why did I arrange it this way"
-""".trimIndent(),
+        """.trimIndent(),
     ),
 
     // Enrich system（buildSystemPrompt）
@@ -203,7 +203,7 @@ Output format:
 
 Master 当前任务：
 - 目标覆盖率：{{target_coverage}}%
-""".trimIndent(),
+        """.trimIndent(),
         Lang.EN to """
 You are a professional music editor, well-versed in all music styles, genre history, and artist backgrounds.
 
@@ -216,7 +216,7 @@ You will perform 5 rounds of progressive enrichment on a batch of songs: enum ta
 
 Current task from Master:
 - Target coverage: {{target_coverage}}%
-""".trimIndent(),
+        """.trimIndent(),
     ),
 
     // ────────────────────────
@@ -293,7 +293,7 @@ Current task from Master:
 - 风格演变或标志性的声音元素
 
 这是后面分析 {{artist}} 多首歌曲的共同背景，请尽量准确。如果这个歌手你不太熟悉，简短说你知道的就行，不要编造。
-""".trimIndent(),
+        """.trimIndent(),
         Lang.EN to """
 Please give a 2-3 paragraph introduction to "{{artist}}" the artist/band:
 - Musical style and genre positioning
@@ -301,7 +301,7 @@ Please give a 2-3 paragraph introduction to "{{artist}}" the artist/band:
 - Style evolution or distinctive sonic elements
 
 This is shared context for analyzing multiple songs by {{artist}} later, so be as accurate as possible. If you're not very familiar with this artist, briefly state what you know — do not fabricate.
-""".trimIndent(),
+        """.trimIndent(),
     ),
 
     "enrich.enum" to mapOf(
@@ -329,7 +329,7 @@ This is shared context for analyzing multiple songs by {{artist}} later, so be a
 ]
 
 只返回 JSON，不要加任何解释或 markdown。
-""".trimIndent(),
+        """.trimIndent(),
         Lang.EN to """
 {{group_context}}
 
@@ -354,7 +354,7 @@ Strictly return a JSON array in order:
 ]
 
 Return ONLY JSON, no explanations or markdown.
-""".trimIndent(),
+        """.trimIndent(),
     ),
 
     "enrich.enum_self_check" to mapOf(
@@ -378,7 +378,7 @@ Return ONLY JSON, no explanations or markdown.
 ]
 
 只返回 JSON。
-""".trimIndent(),
+        """.trimIndent(),
         Lang.EN to """
 Please go back and check the enums you just tagged for these {{song_count}} songs for obvious errors.
 
@@ -399,7 +399,7 @@ Strictly return a JSON array in order (return ALL {{song_count}} elements even i
 ]
 
 Return ONLY JSON.
-""".trimIndent(),
+        """.trimIndent(),
     ),
 
     "enrich.free_text_easy" to mapOf(
@@ -420,7 +420,7 @@ Return ONLY JSON.
 ]
 
 字段拿不准就留 null。只返回 JSON。
-""".trimIndent(),
+        """.trimIndent(),
         Lang.EN to """
 Now supplement each song with free-text fields. This round only covers easily obtainable facts:
 - year (release year, 4-digit number)
@@ -438,7 +438,7 @@ Strictly return a JSON array in order:
 ]
 
 Leave fields as null when unsure. Return ONLY JSON.
-""".trimIndent(),
+        """.trimIndent(),
     ),
 
     "enrich.free_text_facts" to mapOf(
@@ -460,7 +460,7 @@ Leave fields as null when unsure. Return ONLY JSON.
 ]
 
 拿不准就留 null。bpm 估算合理范围即可。只返回 JSON。
-""".trimIndent(),
+        """.trimIndent(),
         Lang.EN to """
 Now supplement each song with fact fields that require verification:
 - songwriter (lyricist/composer distinction, merge if unsure)
@@ -479,7 +479,7 @@ Strictly return a JSON array:
 ]
 
 Leave null when unsure. BPM is reasonable range estimation only. Return ONLY JSON.
-""".trimIndent(),
+        """.trimIndent(),
     ),
 
     "enrich.reflection" to mapOf(
@@ -498,7 +498,7 @@ Leave null when unsure. BPM is reasonable range estimation only. Return ONLY JSO
 {"needs_retry": true/false, "retry_fields": ["genre", "mood", ...], "notes": "..."}
 
 needs_retry 只在发现系统性问题时置 true，小问题不用重试。
-""".trimIndent(),
+        """.trimIndent(),
         Lang.EN to """
 Please do an overall reflection and quality check on the enrichment results for this batch of songs.
 
@@ -514,7 +514,7 @@ Return JSON assessment:
 {"needs_retry": true/false, "retry_fields": ["genre", "mood", ...], "notes": "..."}
 
 Set needs_retry=true only for systemic issues, not minor problems.
-""".trimIndent(),
+        """.trimIndent(),
     ),
 )
 

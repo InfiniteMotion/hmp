@@ -7,8 +7,7 @@ import java.time.format.DateTimeFormatter
 
 private val dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
 
-actual fun todayDateString(): String =
-    LocalDate.now().format(dateFormatter)
+actual fun todayDateString(): String = LocalDate.now().format(dateFormatter)
 
 actual fun parseDateToMillis(date: String): Long? = try {
     LocalDate.parse(date, dateFormatter)
@@ -28,18 +27,15 @@ actual fun millisUntilNextLocalMidnight(): Long {
 }
 
 private val mmddFormatter = DateTimeFormatter.ofPattern("MM-dd")
-actual fun formatMmddFromMillis(epochMs: Long): String =
-    java.time.Instant.ofEpochMilli(epochMs)
-        .atZone(ZoneId.systemDefault())
-        .toLocalDate()
-        .format(mmddFormatter)
+actual fun formatMmddFromMillis(epochMs: Long): String = java.time.Instant.ofEpochMilli(epochMs)
+    .atZone(ZoneId.systemDefault())
+    .toLocalDate()
+    .format(mmddFormatter)
 private val localZone: java.time.ZoneId get() = java.time.ZoneId.systemDefault()
 
-actual fun localHourOfDay(epochMs: Long): Int =
-    java.time.Instant.ofEpochMilli(epochMs).atZone(localZone).hour
+actual fun localHourOfDay(epochMs: Long): Int = java.time.Instant.ofEpochMilli(epochMs).atZone(localZone).hour
 
-actual fun localDateString(epochMs: Long): String =
-    java.time.Instant.ofEpochMilli(epochMs).atZone(localZone).toLocalDate().format(dateFormatter)
+actual fun localDateString(epochMs: Long): String = java.time.Instant.ofEpochMilli(epochMs).atZone(localZone).toLocalDate().format(dateFormatter)
 
 actual fun localDayRange(date: String): Pair<Long, Long>? = try {
     val day = java.time.LocalDate.parse(date, dateFormatter)
@@ -50,5 +46,4 @@ actual fun localDayRange(date: String): Pair<Long, Long>? = try {
     null
 }
 
-actual fun localDayOfWeekIso(epochMs: Long): Int =
-    java.time.Instant.ofEpochMilli(epochMs).atZone(localZone).dayOfWeek.value
+actual fun localDayOfWeekIso(epochMs: Long): Int = java.time.Instant.ofEpochMilli(epochMs).atZone(localZone).dayOfWeek.value

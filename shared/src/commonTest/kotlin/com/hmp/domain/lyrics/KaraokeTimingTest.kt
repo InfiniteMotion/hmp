@@ -40,7 +40,7 @@ class LyricsTimingGeneratorTest {
     fun lineEndMs_usesNextLineTimestamp() {
         val lines = listOf(
             LyricLineData(0L, "A"),
-            LyricLineData(1000L, "B")
+            LyricLineData(1000L, "B"),
         )
         assertEquals(1000L, LyricsTimingGenerator.lineEndMs(lines, 0, 5000L))
     }
@@ -61,7 +61,7 @@ class LyricsTimingGeneratorTest {
     fun resolve_fillsUniformTimingsAndTranslation() {
         val parsed = listOf(
             LyricLineData(0L, "Hello", "你好"),
-            LyricLineData(1000L, "World")
+            LyricLineData(1000L, "World"),
         )
         val resolved = LyricsTimingGenerator.resolve(parsed, 5000L)
         assertEquals(2, resolved.size)
@@ -79,9 +79,9 @@ class LyricsTimingGeneratorTest {
             LyricLineData(
                 timestamp = 0L,
                 originalText = "我",
-                charTimings = listOf(CharTiming("我", 100L, -1L))
+                charTimings = listOf(CharTiming("我", 100L, -1L)),
             ),
-            LyricLineData(1000L, "Next")
+            LyricLineData(1000L, "Next"),
         )
         val resolved = LyricsTimingGenerator.resolve(parsed, 5000L)
         assertEquals(1, resolved[0].charTimings.size)
@@ -139,7 +139,7 @@ class KaraokePositionInterpolatorTest {
             lastPositionMs = 10_000L,
             lastTimestampNanos = 1_000_000_000L,
             nowNanos = 1_500_000_000L,
-            isPlaying = true
+            isPlaying = true,
         )
         assertEquals(10_500L, position)
     }
@@ -150,7 +150,7 @@ class KaraokePositionInterpolatorTest {
             lastPositionMs = 10_000L,
             lastTimestampNanos = 1_000_000_000L,
             nowNanos = 2_000_000_000L,
-            isPlaying = false
+            isPlaying = false,
         )
         assertEquals(10_000L, position)
     }
@@ -161,7 +161,7 @@ class KaraokePositionInterpolatorTest {
             lastPositionMs = 7_000L,
             lastTimestampNanos = 5_000_000_000L,
             nowNanos = 5_000_000_000L,
-            isPlaying = true
+            isPlaying = true,
         )
         assertEquals(7_000L, position)
     }
@@ -173,7 +173,7 @@ class KaraokePositionInterpolatorTest {
             lastTimestampNanos = 1_000_000_000L,
             nowNanos = 1_500_000_000L,
             isPlaying = true,
-            speed = 2f
+            speed = 2f,
         )
         assertEquals(11_000L, position)
     }
@@ -185,7 +185,7 @@ class KaraokePositionInterpolatorTest {
             lastPositionMs = 10_000L,
             lastTimestampNanos = 2_000_000_000L,
             nowNanos = 1_000_000_000L,
-            isPlaying = true
+            isPlaying = true,
         )
         assertEquals(10_000L, position)
     }

@@ -12,5 +12,5 @@ class BackupVersionTooNewException(
     val supportedVersion: Int,
 ) : Exception(
     "备份格式版本过新（v$backupVersion），当前应用最高支持 v$supportedVersion。" +
-        "请先升级应用再恢复；本次未改动任何数据。"
+        "请先升级应用再恢复；本次未改动任何数据。",
 )

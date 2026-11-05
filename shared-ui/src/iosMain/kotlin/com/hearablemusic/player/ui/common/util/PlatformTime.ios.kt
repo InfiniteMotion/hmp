@@ -17,14 +17,13 @@ actual fun epochMillisToYearMonth(epochMillis: Long): Pair<Int, Int> {
     return comps.year.toInt() to comps.month.toInt()
 }
 
-actual fun nowEpochMillis(): Long =
-    ((NSDate().timeIntervalSinceReferenceDate + NSTimeIntervalSince1970) * 1000.0).toLong()
+actual fun nowEpochMillis(): Long = ((NSDate().timeIntervalSinceReferenceDate + NSTimeIntervalSince1970) * 1000.0).toLong()
 
 actual fun formatEpochMillis(epochMillis: Long, pattern: String): String {
     val formatter = NSDateFormatter().apply {
         dateFormat = pattern
     }
     return formatter.stringFromDate(
-        NSDate(timeIntervalSinceReferenceDate = epochMillis / 1000.0 - NSTimeIntervalSince1970)
+        NSDate(timeIntervalSinceReferenceDate = epochMillis / 1000.0 - NSTimeIntervalSince1970),
     )
 }

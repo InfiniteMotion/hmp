@@ -78,6 +78,7 @@ object PortraitSlots {
     const val PART_STABILITY = "partStability"
     const val LEADING_GENRE = "leadingGenre"
     const val TOP_ARTISTS = "topArtists"
+
     /** 用户不喜欢听的风格（T0b 新增，供对话抽取；value 是自由短语，如"快歌"） */
     const val DISLIKED_STYLES = "dislikedStyles"
     const val COMPLETION_RATE = "completionRate"

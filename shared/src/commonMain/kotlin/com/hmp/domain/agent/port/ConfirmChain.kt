@@ -15,8 +15,10 @@ data class ConfirmStep(
 sealed interface ConfirmDecision {
     /** 全部步骤确认通过。 */
     data object Approved : ConfirmDecision
+
     /** 某一步主动拒绝（整条链中断 → 返回 Denied）。 */
     data object Denied : ConfirmDecision
+
     /** 弹窗被关闭或系统取消。 */
     data object Cancelled : ConfirmDecision
 }

@@ -1,10 +1,10 @@
 package com.hearablemusic.player.ui.library.pages
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -45,10 +45,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
-import com.hearablemusic.player.ui.common.dialogs.controller.DialogManager
-import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
-import com.hearablemusic.player.ui.common.pages.base.SubScreen
 import com.hearablemusic.player.ui.common.components.base.TitleWidget
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
+import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
+import com.hearablemusic.player.ui.common.dialogs.controller.DialogManager
+import com.hearablemusic.player.ui.common.pages.base.SubScreen
 import com.hearablemusic.player.ui.common.util.decodeToImageBitmap
 import com.hearablemusic.player.ui.generated.resources.Res
 import com.hearablemusic.player.ui.generated.resources.chevron_down
@@ -87,13 +88,12 @@ import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
-import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 
 @Composable
 fun EditMusicTagsScreen(
     navController: NavBackStack<NavKey>,
     musicId: Long,
-    viewModel: EditMusicTagsViewModel = koinViewModel()
+    viewModel: EditMusicTagsViewModel = koinViewModel(),
 ) {
     val metrics = LocalHmpMetrics.current
     val platformServices: PlatformServices = koinInject()
@@ -116,12 +116,14 @@ fun EditMusicTagsScreen(
                 viewModel.clearSaveResult()
                 navController.removeLastOrNull()
             }
+
             is SaveTagsResult.Error -> {
                 dialogManager.showMessage(
-                    getString(Res.string.tags_save_failed, result.message.orEmpty())
+                    getString(Res.string.tags_save_failed, result.message.orEmpty()),
                 )
                 viewModel.clearSaveResult()
             }
+
             null -> {}
         }
     }
@@ -137,7 +139,9 @@ fun EditMusicTagsScreen(
             viewModel.requestWriteAccess { result ->
                 when (result) {
                     MusicWriteAccessResult.GRANTED -> viewModel.saveAfterWriteAccessGranted()
+
                     MusicWriteAccessResult.DENIED -> {}
+
                     MusicWriteAccessResult.NOT_FOUND -> scope.launch {
                         dialogManager.showMessage(getString(Res.string.music_not_found))
                     }
@@ -155,42 +159,44 @@ fun EditMusicTagsScreen(
             if (formPolicy.showSaveAction) {
                 TextButton(
                     enabled = !uiState.isLoading && !isSaving && uiState.hasChanges,
-                    onClick = onSaveClick
+                    onClick = onSaveClick,
                 ) {
                     if (isSaving) {
                         CircularProgressIndicator(
                             modifier = Modifier.size(metrics.cozy),
-                            strokeWidth = metrics.hair
+                            strokeWidth = metrics.hair,
                         )
                     } else {
                         Text(stringResource(Res.string.save))
                     }
                 }
             }
-        }
+        },
     ) {
         Column(
             modifier = Modifier
                 .verticalScroll(rememberScrollState())
                 .fillMaxWidth()
                 .padding(horizontal = metrics.section, vertical = metrics.cozy),
-            verticalArrangement = Arrangement.spacedBy(metrics.cozy)
+            verticalArrangement = Arrangement.spacedBy(metrics.cozy),
         ) {
             when {
                 uiState.isLoading -> {
                     CircularProgressIndicator(modifier = Modifier.align(Alignment.CenterHorizontally))
                 }
+
                 uiState.error != null -> {
                     Text(
                         text = uiState.error.orEmpty(),
                         color = MaterialTheme.colorScheme.error,
-                        style = typo.body
+                        style = typo.body,
                     )
                     Spacer(modifier = Modifier.height(metrics.compact))
                     Button(onClick = { viewModel.retry() }) {
                         Text(stringResource(Res.string.retry))
                     }
                 }
+
                 else -> {
                     if (uiState.hasChanges) {
                         UnsavedChangesHint()
@@ -206,7 +212,7 @@ fun EditMusicTagsScreen(
                                 viewModel.onCoverSelected(bytes)
                             }
                         },
-                        onRemoveCover = { viewModel.onRemoveCover() }
+                        onRemoveCover = { viewModel.onRemoveCover() },
                     )
 
                     TitleWidget(title = stringResource(Res.string.section_basic_info)) {
@@ -217,7 +223,7 @@ fun EditMusicTagsScreen(
                                 label = { Text(stringResource(Res.string.tag_title)) },
                                 singleLine = true,
                                 enabled = !isSaving && formPolicy.fieldsEditable,
-                                modifier = Modifier.fillMaxWidth()
+                                modifier = Modifier.fillMaxWidth(),
                             )
                             OutlinedTextField(
                                 value = uiState.artist,
@@ -225,7 +231,7 @@ fun EditMusicTagsScreen(
                                 label = { Text(stringResource(Res.string.tag_artist)) },
                                 singleLine = true,
                                 enabled = !isSaving && formPolicy.fieldsEditable,
-                                modifier = Modifier.fillMaxWidth()
+                                modifier = Modifier.fillMaxWidth(),
                             )
                             OutlinedTextField(
                                 value = uiState.album,
@@ -233,7 +239,7 @@ fun EditMusicTagsScreen(
                                 label = { Text(stringResource(Res.string.tag_album)) },
                                 singleLine = true,
                                 enabled = !isSaving && formPolicy.fieldsEditable,
-                                modifier = Modifier.fillMaxWidth()
+                                modifier = Modifier.fillMaxWidth(),
                             )
                         }
                     }
@@ -248,7 +254,7 @@ fun EditMusicTagsScreen(
                                     singleLine = true,
                                     enabled = !isSaving && formPolicy.fieldsEditable,
                                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                    modifier = Modifier.weight(1f)
+                                    modifier = Modifier.weight(1f),
                                 )
                                 OutlinedTextField(
                                     value = uiState.track,
@@ -257,7 +263,7 @@ fun EditMusicTagsScreen(
                                     singleLine = true,
                                     enabled = !isSaving && formPolicy.fieldsEditable,
                                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                    modifier = Modifier.weight(1f)
+                                    modifier = Modifier.weight(1f),
                                 )
                             }
                             OutlinedTextField(
@@ -266,7 +272,7 @@ fun EditMusicTagsScreen(
                                 label = { Text(stringResource(Res.string.tag_genre)) },
                                 singleLine = true,
                                 enabled = !isSaving && formPolicy.fieldsEditable,
-                                modifier = Modifier.fillMaxWidth()
+                                modifier = Modifier.fillMaxWidth(),
                             )
                         }
                     }
@@ -274,17 +280,20 @@ fun EditMusicTagsScreen(
                     LyricsSection(
                         lyrics = uiState.lyrics,
                         onLyricsChange = viewModel::onLyricsChange,
-                        enabled = !isSaving && formPolicy.fieldsEditable
+                        enabled = !isSaving && formPolicy.fieldsEditable,
                     )
                     Text(
                         text = stringResource(
                             // 不支持时把那句"留空表示不修改"换成一句明确的申报（D2-12）：
                             // 否则表单只读、按钮消失，用户只会以为页面坏了
-                            if (!formPolicy.showUnsupportedHint) Res.string.edit_tags_hint
-                            else Res.string.edit_tags_unsupported
+                            if (!formPolicy.showUnsupportedHint) {
+                                Res.string.edit_tags_hint
+                            } else {
+                                Res.string.edit_tags_unsupported
+                            },
                         ),
                         style = typo.footnote,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
 
                     Spacer(modifier = Modifier.height(metrics.micro))
@@ -292,13 +301,13 @@ fun EditMusicTagsScreen(
                         Button(
                             onClick = onSaveClick,
                             enabled = !isSaving && uiState.hasChanges,
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier.fillMaxWidth(),
                         ) {
                             if (isSaving) {
                                 CircularProgressIndicator(
                                     modifier = Modifier.size(metrics.cozy),
                                     strokeWidth = metrics.hair,
-                                    color = MaterialTheme.colorScheme.onPrimary
+                                    color = MaterialTheme.colorScheme.onPrimary,
                                 )
                             } else {
                                 Text(stringResource(Res.string.save))
@@ -310,7 +319,6 @@ fun EditMusicTagsScreen(
             }
         }
     }
-
 }
 
 @Composable
@@ -321,7 +329,7 @@ private fun SongHeaderCard(
     artist: String,
     album: String,
     onChooseCover: () -> Unit,
-    onRemoveCover: () -> Unit
+    onRemoveCover: () -> Unit,
 ) {
     val metrics = LocalHmpMetrics.current
     val typo = LocalHmpTypo.current
@@ -329,18 +337,18 @@ private fun SongHeaderCard(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(metrics.cozy),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
-        )
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+        ),
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(metrics.cozy),
-            verticalArrangement = Arrangement.spacedBy(metrics.base)
+            verticalArrangement = Arrangement.spacedBy(metrics.base),
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(metrics.cozy)
+                horizontalArrangement = Arrangement.spacedBy(metrics.cozy),
             ) {
                 if (newCoverBytes != null && newCoverBytes.isNotEmpty()) {
                     val bitmap = remember(newCoverBytes) {
@@ -353,14 +361,14 @@ private fun SongHeaderCard(
                             contentScale = ContentScale.Crop,
                             modifier = Modifier
                                 .size(metrics.row)
-                                .clip(RoundedCornerShape(metrics.base))
+                                .clip(RoundedCornerShape(metrics.base)),
                         )
                     } else {
                         AlbumCover(
                             uri = albumArtUri,
                             size = metrics.row,
                             corner = metrics.base,
-                            shadow = metrics.micro
+                            shadow = metrics.micro,
                         )
                     }
                 } else {
@@ -368,45 +376,45 @@ private fun SongHeaderCard(
                         uri = albumArtUri,
                         size = metrics.row,
                         corner = metrics.base,
-                        shadow = metrics.micro
+                        shadow = metrics.micro,
                     )
                 }
                 Column(
                     modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(metrics.micro)
+                    verticalArrangement = Arrangement.spacedBy(metrics.micro),
                 ) {
                     Text(
                         text = title,
                         style = typo.subtitle,
                         maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        overflow = TextOverflow.Ellipsis,
                     )
                     Text(
                         text = artist,
                         style = typo.body,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        overflow = TextOverflow.Ellipsis,
                     )
                     Text(
                         text = album,
                         style = typo.footnote,
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                         maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        overflow = TextOverflow.Ellipsis,
                     )
                 }
             }
             Row(
                 horizontalArrangement = Arrangement.spacedBy(metrics.base),
-                modifier = Modifier.align(Alignment.CenterHorizontally)
+                modifier = Modifier.align(Alignment.CenterHorizontally),
             ) {
                 OutlinedButton(onClick = onChooseCover) {
                     Text(stringResource(Res.string.choose_cover))
                 }
                 OutlinedButton(
                     onClick = onRemoveCover,
-                    enabled = newCoverBytes != null || albumArtUri != null
+                    enabled = newCoverBytes != null || albumArtUri != null,
                 ) {
                     Text(stringResource(Res.string.remove_cover))
                 }
@@ -419,7 +427,7 @@ private fun SongHeaderCard(
 private fun LyricsSection(
     lyrics: String,
     onLyricsChange: (String) -> Unit,
-    enabled: Boolean
+    enabled: Boolean,
 ) {
     val metrics = LocalHmpMetrics.current
     val typo = LocalHmpTypo.current
@@ -434,7 +442,7 @@ private fun LyricsSection(
                     .clickable { expanded = !expanded }
                     .padding(vertical = metrics.micro),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.SpaceBetween,
             ) {
                 Text(
                     text = if (lyrics.isNotBlank()) lyrics else stringResource(Res.string.no_lyrics),
@@ -446,14 +454,14 @@ private fun LyricsSection(
                     },
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f),
                 )
                 Icon(
                     painter = painterResource(
-                        if (expanded) Res.drawable.chevron_up else Res.drawable.chevron_down
+                        if (expanded) Res.drawable.chevron_up else Res.drawable.chevron_down,
                     ),
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
             if (expanded) {
@@ -463,7 +471,7 @@ private fun LyricsSection(
                     label = { Text(stringResource(Res.string.tag_lyrics)) },
                     minLines = 6,
                     enabled = enabled,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
                 )
             }
         }
@@ -476,18 +484,18 @@ private fun UnsavedChangesHint() {
     val typo = LocalHmpTypo.current
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(metrics.compact)
+        horizontalArrangement = Arrangement.spacedBy(metrics.compact),
     ) {
         Box(
             modifier = Modifier
                 .size(metrics.compact)
                 .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.primary)
+                .background(MaterialTheme.colorScheme.primary),
         )
         Text(
             text = stringResource(Res.string.unsaved_changes),
             style = typo.footnote,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }

@@ -19,10 +19,10 @@ enum class AgentRole { MASTER, RADIO, ENRICH, HELLO }
 
 /** Agent 身份门硬编码：role → 允许访问的最高 ToolPermissionLevel ordinal */
 private val AGENT_MAX_LEVEL: Map<AgentRole, Int> = mapOf(
-    AgentRole.MASTER to ToolPermissionLevel.entries.last().ordinal,  // STRONG_CONFIRM = 3
-    AgentRole.RADIO  to ToolPermissionLevel.NOTIFY.ordinal,           // 1
-    AgentRole.ENRICH to ToolPermissionLevel.NOTIFY.ordinal,           // 1
-    AgentRole.HELLO  to ToolPermissionLevel.NOTIFY.ordinal,           // 1
+    AgentRole.MASTER to ToolPermissionLevel.entries.last().ordinal, // STRONG_CONFIRM = 3
+    AgentRole.RADIO to ToolPermissionLevel.NOTIFY.ordinal, // 1
+    AgentRole.ENRICH to ToolPermissionLevel.NOTIFY.ordinal, // 1
+    AgentRole.HELLO to ToolPermissionLevel.NOTIFY.ordinal, // 1
 )
 
 /**
@@ -81,17 +81,15 @@ data class AgentPolicyConfig(
      * 注意：preferredLang="global" 不在此展开——留给 `runtime/i18n` 的 resolvePrompt()
      * 根据 GlobalAgentConfig 或系统语言统一解析，避免 resolvedFor 跨模块依赖。
      */
-    fun resolvedFor(role: String): ResolvedAgentConfig {
-        return ResolvedAgentConfig(
-            role = role,
-            trustLevel = trustLevel,
-            alwaysAllow = alwaysAllow.toSet(),
-            temperature = temperature ?: EngineDefaults.defaultTemperatureFor(role),
-            runtimeParams = RuntimeParams.resolve(role, runtimeParams),
-            promptOverrides = promptOverrides.toMap(),
-            preferredLang = preferredLang,  // 原样传递，"global" 留给 resolvePrompt 展开
-        )
-    }
+    fun resolvedFor(role: String): ResolvedAgentConfig = ResolvedAgentConfig(
+        role = role,
+        trustLevel = trustLevel,
+        alwaysAllow = alwaysAllow.toSet(),
+        temperature = temperature ?: EngineDefaults.defaultTemperatureFor(role),
+        runtimeParams = RuntimeParams.resolve(role, runtimeParams),
+        promptOverrides = promptOverrides.toMap(),
+        preferredLang = preferredLang, // 原样传递，"global" 留给 resolvePrompt 展开
+    )
 }
 
 /**
@@ -103,7 +101,7 @@ data class AgentPolicyConfig(
 data class AgentPolicy(
     val role: AgentRole,
     val config: AgentPolicyConfig,
-    val trustLedger: TrustLedger? = null,  // 驱动 config.trustLevel 自动升降档；run() 过程中动态回调
+    val trustLedger: TrustLedger? = null, // 驱动 config.trustLevel 自动升降档；run() 过程中动态回调
     val confirmGate: ConfirmGate? = null,
 ) {
     /** 此 Agent 允许访问的最高 ToolPermissionLevel ordinal（Phase 1 Agent 身份门） */

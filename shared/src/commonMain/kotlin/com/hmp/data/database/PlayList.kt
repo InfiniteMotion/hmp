@@ -9,7 +9,6 @@ import androidx.room.PrimaryKey
 import androidx.room.Query
 import kotlinx.coroutines.flow.Flow
 
-
 @Entity(
     tableName = "playlist",
     // v10（D3-05，决策 2）：歌单名唯一性改由数据库保证 —— 此前只在创建弹窗里查一次，
@@ -29,8 +28,9 @@ data class Playlist(
     val description: String? = null,
     val songCount: Int = 0,
     val totalDurationMs: Long = 0L,
-    val isPinned: Boolean = false
+    val isPinned: Boolean = false,
 )
+
 @Dao
 interface PlaylistDao {
     @Insert
@@ -84,11 +84,13 @@ interface PlaylistDao {
     fun getAllPlaylistsFlow(): Flow<List<Playlist>>
 
     /** 歌单创建纪念日候选：createdAt 的月-日匹配今天，按 createdAt 升序（最久在前）。 */
-    @Query("""
+    @Query(
+        """
         SELECT * FROM playlist
         WHERE strftime('%m-%d', createdAt / 1000, 'unixepoch', 'localtime') = :mmdd
         ORDER BY createdAt ASC
-    """)
+    """,
+    )
     suspend fun getAnniversaryPlaylists(mmdd: String): List<Playlist>
 
     /** 某歌单累计被播放次数（PlaybackHistory.source == 歌单名）。 */

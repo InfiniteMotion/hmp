@@ -23,8 +23,6 @@ import com.hmp.domain.agent.card.SlideCard
 import com.hmp.domain.agent.card.SlideType
 import com.hmp.domain.agent.card.TimePhase
 
-
-
 internal fun formatGeneratedAgo(generatedAt: Long): UiText? {
     if (generatedAt <= 0L) return null
     val diffMs = currentTimeMillis() - generatedAt
@@ -40,9 +38,11 @@ internal fun formatGeneratedAgo(generatedAt: Long): UiText? {
 }
 
 /** 日均听歌分钟 → "48 分钟" / "1.5 小时" */
-internal fun formatAvgMinutes(minutes: Float): UiText =
-    if (minutes < 60f) UiText.Res(Res.string.card_avg_minutes, listOf(minutes.toInt()))
-    else UiText.Res(Res.string.card_avg_hours, listOf((minutes / 6f).toInt() / 10f))
+internal fun formatAvgMinutes(minutes: Float): UiText = if (minutes < 60f) {
+    UiText.Res(Res.string.card_avg_minutes, listOf(minutes.toInt()))
+} else {
+    UiText.Res(Res.string.card_avg_hours, listOf((minutes / 6f).toInt() / 10f))
+}
 
 // ═══════════════════════════════════════════════════════════════════
 // 工具函数

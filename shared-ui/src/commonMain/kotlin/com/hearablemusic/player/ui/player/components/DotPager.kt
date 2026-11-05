@@ -22,23 +22,23 @@ import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 fun DotPager(
     pageContent: List<@Composable () -> Unit>,
     modifier: Modifier = Modifier,
-    initialPage: Int = 0
+    initialPage: Int = 0,
 ) {
     val metrics = LocalHmpMetrics.current
     val pageCount = pageContent.size
     // 基础滑动页
     val pagerState = rememberPagerState(
         initialPage = initialPage,
-        pageCount = { pageCount }
+        pageCount = { pageCount },
     )
-    Column (modifier = modifier) {
+    Column(modifier = modifier) {
         HorizontalPager(
             state = pagerState,
-            modifier = Modifier.weight(1f)
+            modifier = Modifier.weight(1f),
         ) { page ->
             Box(
                 Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
+                contentAlignment = Alignment.Center,
             ) {
                 pageContent[page]()
             }
@@ -51,23 +51,24 @@ fun DotPager(
                     .fillMaxWidth()
                     .padding(vertical = metrics.compact),
                 horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 Row(
                     modifier = Modifier,
-                    horizontalArrangement = Arrangement.spacedBy(metrics.micro)
+                    horizontalArrangement = Arrangement.spacedBy(metrics.micro),
                 ) {
                     repeat(pageCount) { index ->
                         val size = metrics.micro
-                        val color = if (pagerState.currentPage == index)
+                        val color = if (pagerState.currentPage == index) {
                             MaterialTheme.colorScheme.onSurface
-                        else
+                        } else {
                             MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f)
+                        }
 
                         Box(
                             modifier = Modifier
                                 .size(size)
-                                .background(color, CircleShape)
+                                .background(color, CircleShape),
                         )
                     }
                 }

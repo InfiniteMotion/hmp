@@ -404,7 +404,17 @@ open HMP.xcworkspace
 
 项目遵循 Kotlin 官方代码风格指南，但**目前没有任何机械化风格闸门**：仓库里**不存在** `.editorconfig`、`ktlint.gradle`，也没有 detekt / spotless，`.git/hooks` 下无 `core.hooksPath` 配置。全仓 `*.kts/toml/yml/properties` 里 grep `ktlint|detekt|spotless` 零命中。
 
-方案与落地步骤写在 [docs/ktlint-integration.md](docs/ktlint-integration.md)（**2026-11-05 已移出 v7.3 待办**，见 TODO **R50**；方案本身有效，卡的是「工作区收口」这个前置）。在那之前，新代码靠人工保持一致。
+**2026-11-05 范围决议：7.4 期只做 ktlint。** 正式规划见 [docs/7_4/plan.md](docs/7_4/plan.md)，落地方案与全仓实测数据见 [docs/ktlint-integration.md](docs/ktlint-integration.md)（7.4 范围内的改判与施工顺序以规划为准）。
+
+```bash
+./ktlint            # 全量检查（Windows: ktlint.bat）
+./ktlint format     # 全量自动格式化
+./ktlint staged     # 只查暂存区 .kt，供 pre-commit hook 用
+```
+
+包装脚本自动下载并校验 ktlint CLI 1.8.0 的 jar 到 `tools/ktlint/`（已 gitignore，版本与 SHA256 写在脚本顶部）；规则集由仓库根 `.editorconfig` 单一定义，Android Studio 的 Reformat Code 与 CI 的 lint job 共用它，不需要装 IDE 插件。CI 侧是 `pr-check.yml` 的 `lint` job（对所有非 draft PR 生效，只 check 不 `-F`）。
+
+**当前状态（2026-11-05）**：全量格式化已完成，`./ktlint check` 为 **0 处**（POSIX / Windows 双端一致）；格式化后 `compileAll testCore testUi` 为 `BUILD SUCCESSFUL`，格式化未破坏代码。工作区改动尚未提交（用户决议：T0 收口先不考虑）；`.git-blame-ignore-revs` 与 CI 首跑验收待提交后补，详见 [docs/7_4/plan.md](docs/7_4/plan.md) §四。
 
 ### 测试流程
 

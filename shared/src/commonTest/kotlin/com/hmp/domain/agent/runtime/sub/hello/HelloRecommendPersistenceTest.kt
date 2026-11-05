@@ -23,7 +23,10 @@ import kotlin.test.assertNotNull
  */
 class HelloRecommendPersistenceTest {
 
-    private val json = Json { ignoreUnknownKeys = true; isLenient = true }
+    private val json = Json {
+        ignoreUnknownKeys = true
+        isLenient = true
+    }
 
     private fun newAgent(dao: HelloCardCacheDao): HelloSubAgent = HelloSubAgent(
         contextBudget = AgentContextBudget(agentId = "hello", llmClient = null),
@@ -31,15 +34,14 @@ class HelloRecommendPersistenceTest {
         cardCacheDao = dao,
     )
 
-    private fun payload(source: RecommendSource, date: String, trackId: Long): RecommendListPayload =
-        RecommendListPayload(
-            source = source,
-            overview = "测试总述",
-            phase = TimePhase.NIGHT,
-            generatedAt = 1L,
-            generatedForDate = date,
-            items = listOf(RecommendItemRecord(trackId = trackId, reason = "测试按语")),
-        )
+    private fun payload(source: RecommendSource, date: String, trackId: Long): RecommendListPayload = RecommendListPayload(
+        source = source,
+        overview = "测试总述",
+        phase = TimePhase.NIGHT,
+        generatedAt = 1L,
+        generatedForDate = date,
+        items = listOf(RecommendItemRecord(trackId = trackId, reason = "测试按语")),
+    )
 
     private fun cache(source: RecommendSource, date: String, at: Long, trackId: Long): HelloCardCache {
         val p = payload(source, date, trackId)
@@ -105,14 +107,11 @@ private class RecordingCardDao : HelloCardCacheDao {
         return id
     }
 
-    override suspend fun getLatestOfAnyDate(type: String): HelloCardCache? =
-        rows.filter { it.cardType == type }.maxByOrNull { it.generatedAt }
+    override suspend fun getLatestOfAnyDate(type: String): HelloCardCache? = rows.filter { it.cardType == type }.maxByOrNull { it.generatedAt }
 
-    override suspend fun getLatest(type: String, date: String): HelloCardCache? =
-        rows.filter { it.cardType == type && it.generatedForDate == date }.maxByOrNull { it.generatedAt }
+    override suspend fun getLatest(type: String, date: String): HelloCardCache? = rows.filter { it.cardType == type && it.generatedForDate == date }.maxByOrNull { it.generatedAt }
 
-    override suspend fun getLatestCardTypesByDate(date: String): List<String> =
-        rows.filter { it.generatedForDate == date }.map { it.cardType }.distinct()
+    override suspend fun getLatestCardTypesByDate(date: String): List<String> = rows.filter { it.generatedForDate == date }.map { it.cardType }.distinct()
 
     override suspend fun deleteSameDaySameType(type: String, date: String) {
         rows.removeAll { it.cardType == type && it.generatedForDate == date }
@@ -126,14 +125,11 @@ private class RecordingCardDao : HelloCardCacheDao {
         rows.clear()
     }
 
-    override suspend fun countToday(type: String, startOfDay: Long): Int =
-        rows.count { it.cardType == type && it.generatedAt >= startOfDay }
+    override suspend fun countToday(type: String, startOfDay: Long): Int = rows.count { it.cardType == type && it.generatedAt >= startOfDay }
 
-    override suspend fun getTodayAllEntities(startOfDay: Long): List<HelloCardCache> =
-        rows.filter { it.generatedAt >= startOfDay }
+    override suspend fun getTodayAllEntities(startOfDay: Long): List<HelloCardCache> = rows.filter { it.generatedAt >= startOfDay }
 
-    override suspend fun getYesterdayRecommends(yesterdayStart: Long, yesterdayEnd: Long): List<HelloCardCache> =
-        rows.filter { it.cardType == "RECOMMEND" && it.generatedAt in yesterdayStart until yesterdayEnd }
+    override suspend fun getYesterdayRecommends(yesterdayStart: Long, yesterdayEnd: Long): List<HelloCardCache> = rows.filter { it.cardType == "RECOMMEND" && it.generatedAt in yesterdayStart until yesterdayEnd }
 
     override suspend fun getWeeklyDiscoverCards(sevenDaysAgo: Long): List<HelloCardCache> = emptyList()
 

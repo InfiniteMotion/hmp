@@ -51,14 +51,20 @@ fun LocalMoment.dayPart(): DayPart = when (hourOfDay) {
     in 11 until 14 -> DayPart.MIDDAY
     in 14 until 18 -> DayPart.AFTERNOON
     in 18 until 23 -> DayPart.EVENING
-    else -> DayPart.LATE_NIGHT   // 23:00-04:59
+    else -> DayPart.LATE_NIGHT // 23:00-04:59
 }
 
 /** 渲染给模型看的时刻描述（例：「周六 · 深夜」）。只描述事实，不做偏好推断。 */
 fun LocalMoment.describe(): String {
     val week = when (dayOfWeek) {
-        1 -> "周一"; 2 -> "周二"; 3 -> "周三"; 4 -> "周四"
-        5 -> "周五"; 6 -> "周六"; 7 -> "周日"; else -> "未知"
+        1 -> "周一"
+        2 -> "周二"
+        3 -> "周三"
+        4 -> "周四"
+        5 -> "周五"
+        6 -> "周六"
+        7 -> "周日"
+        else -> "未知"
     }
     return "$week · ${dayPart().label}（${hourOfDay}点）"
 }

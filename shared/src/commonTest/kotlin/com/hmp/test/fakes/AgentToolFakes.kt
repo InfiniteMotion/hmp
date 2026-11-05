@@ -2,18 +2,18 @@ package com.hmp.test.fakes
 
 import com.hmp.domain.agent.enrich.EnrichBatchResult
 import com.hmp.domain.agent.enrich.EnrichHealth
+import com.hmp.domain.agent.profile.BehaviorSnapshot
+import com.hmp.domain.agent.profile.LibraryContentSnapshot
+import com.hmp.domain.agent.profile.LibraryStateSnapshot
 import com.hmp.domain.backup.ListeningStatsSnapshot
 import com.hmp.domain.backup.MusicUserStateSnapshot
+import com.hmp.domain.enum.LabelCategory
+import com.hmp.domain.enum.LabelName
 import com.hmp.domain.music.EditableMusicTags
 import com.hmp.domain.music.MusicExtraTexts
 import com.hmp.domain.music.MusicInfo
 import com.hmp.domain.music.MusicLabel
-import com.hmp.domain.agent.profile.BehaviorSnapshot
-import com.hmp.domain.agent.profile.LibraryContentSnapshot
-import com.hmp.domain.agent.profile.LibraryStateSnapshot
 import com.hmp.domain.music.MusicRepository
-import com.hmp.domain.enum.LabelCategory
-import com.hmp.domain.enum.LabelName
 import com.hmp.domain.playlist.Playlist
 import com.hmp.domain.playlist.PlaylistRepository
 import com.hmp.domain.setting.model.AiEndpointConfig
@@ -32,6 +32,7 @@ open class FakeAgentMusicRepository : MusicRepository {
     val history = mutableListOf<PlaybackHistory>()
     val recentHistoryResult = mutableListOf<PlaybackHistory>()
     val playbacks: MutableList<PlaybackHistory> = history
+
     /** 标签 → 曲目 id（供 searchLibrary 标签过滤测试）。 */
     val musicIdsByLabel = mutableMapOf<LabelName, List<Long>>()
 
@@ -46,18 +47,15 @@ open class FakeAgentMusicRepository : MusicRepository {
     override fun getMusicInfoById(musicId: Long): Flow<MusicInfo?> = flowOf(songs[musicId])
     override suspend fun getMusicListByArtist(artistName: String): List<MusicInfo> = songs.values.filter { it.music.artist == artistName }
     override suspend fun getMusicListByAlbum(albumName: String): List<MusicInfo> = songs.values.filter { it.music.album == albumName }
-    override suspend fun getAllArtistsSummary(limit: Int): List<Pair<String, Int>> =
-        songs.values.filter { !it.music.artist.isBlank() }
-            .groupBy { it.music.artist }.mapValues { it.value.size }.toList()
-            .sortedByDescending { it.second }.take(limit)
-    override suspend fun getAllAlbumsSummary(limit: Int): List<Pair<String, Int>> =
-        songs.values.filter { !it.music.album.isBlank() }
-            .groupBy { it.music.album }.mapValues { it.value.size }.toList()
-            .sortedByDescending { it.second }.take(limit)
-    override suspend fun searchMusic(query: String): List<MusicInfo> =
-        songs.values.filter {
-            it.music.title.contains(query, ignoreCase = true) || it.music.artist.contains(query, ignoreCase = true)
-        }
+    override suspend fun getAllArtistsSummary(limit: Int): List<Pair<String, Int>> = songs.values.filter { !it.music.artist.isBlank() }
+        .groupBy { it.music.artist }.mapValues { it.value.size }.toList()
+        .sortedByDescending { it.second }.take(limit)
+    override suspend fun getAllAlbumsSummary(limit: Int): List<Pair<String, Int>> = songs.values.filter { !it.music.album.isBlank() }
+        .groupBy { it.music.album }.mapValues { it.value.size }.toList()
+        .sortedByDescending { it.second }.take(limit)
+    override suspend fun searchMusic(query: String): List<MusicInfo> = songs.values.filter {
+        it.music.title.contains(query, ignoreCase = true) || it.music.artist.contains(query, ignoreCase = true)
+    }
     override suspend fun getRandomMusicInfoWithMissingExtra(): MusicInfo? = null
     override suspend fun updateLikedStatus(id: Long, liked: Boolean) {}
     override suspend fun getLikedStatus(id: Long): Boolean = false
@@ -65,14 +63,16 @@ open class FakeAgentMusicRepository : MusicRepository {
     override suspend fun removeFromLibrary(ids: List<Long>) {}
     override suspend fun restoreToLibrary(ids: List<Long>) {}
     override suspend fun getDeletedMusicIdsGroupedByFolder(): List<Pair<String, List<Long>>> = emptyList()
-    override suspend fun addMusicLabel(label: MusicLabel) { musicLabels += label }
+    override suspend fun addMusicLabel(label: MusicLabel) {
+        musicLabels += label
+    }
     override suspend fun addUserMusicLabel(label: MusicLabel, confidence: Double) {}
     override fun getLabelNamesByType(type: LabelCategory): Flow<List<LabelName>> = flowOf(emptyList())
     override suspend fun getMusicIdListByType(label: LabelName, limit: Int): List<Long> = (musicIdsByLabel[label] ?: emptyList()).take(limit)
+
     /** 允许测试注入标签（结构化标签的真实归宿；富化写入路径同生产 `addMusicLabel`）。 */
     val musicLabels = mutableListOf<MusicLabel>()
-    override suspend fun getMusicLabels(musicId: Long): List<MusicLabel> =
-        musicLabels.filter { it.musicId == musicId }
+    override suspend fun getMusicLabels(musicId: Long): List<MusicLabel> = musicLabels.filter { it.musicId == musicId }
     override suspend fun removeUserMusicLabel(musicId: Long, label: LabelName) {}
     override suspend fun updateMusicTags(musicId: Long, tags: EditableMusicTags): Result<Unit> = Result.success(Unit)
     override suspend fun refreshMusicTags(musicId: Long, tags: EditableMusicTags): Result<Unit> = Result.success(Unit)
@@ -81,9 +81,8 @@ open class FakeAgentMusicRepository : MusicRepository {
     override suspend fun getSimilarSongsByWeightedLabels(
         musicId: Long,
         limit: Int,
-        weights: Map<com.hmp.domain.enum.LabelCategory, Double>?
-    ): List<MusicInfo> =
-        songs.values.take(limit)
+        weights: Map<com.hmp.domain.enum.LabelCategory, Double>?,
+    ): List<MusicInfo> = songs.values.take(limit)
     override fun getRecentListeningDurations(limit: Int): Flow<List<ListeningDuration>> = flowOf(emptyList())
     override suspend fun getMusicLyrics(musicId: Long): String? = null
     override suspend fun updateMusicExtraTexts(musicId: Long, texts: MusicExtraTexts) {}
@@ -92,7 +91,10 @@ open class FakeAgentMusicRepository : MusicRepository {
     override suspend fun syncMusicFromDeviceIncremental(): Result<Unit> = Result.success(Unit)
     override suspend fun validateProviderApiKey(config: AiEndpointConfig): Result<Boolean> = Result.success(true)
     override suspend fun fetchAvailableModels(config: AiEndpointConfig): Result<List<String>> = Result.success(emptyList())
-    override suspend fun insertPlayback(newRecord: PlaybackHistory): Long { history += newRecord; return newRecord.id.takeIf { it != 0L } ?: history.size.toLong() }
+    override suspend fun insertPlayback(newRecord: PlaybackHistory): Long {
+        history += newRecord
+        return newRecord.id.takeIf { it != 0L } ?: history.size.toLong()
+    }
     override suspend fun updatePlaybackRecord(id: Long, duration: Long, isCompleted: Boolean) {}
     override suspend fun recordListeningDuration(duration: Long) {}
     override fun getPlaybackHistory(musicId: Long, limit: Int): Flow<List<PlaybackHistory>> = flowOf(emptyList())
@@ -129,8 +131,7 @@ open class FakeAgentMusicRepository : MusicRepository {
     override suspend fun getForgottenTracks(days: Int, limit: Int): List<Pair<Long, Long?>> = emptyList()
     override suspend fun getAnniversaryTracks(date: String): List<Triple<Long, Long, Int>> = emptyList()
     override suspend fun getGlobalTopLabels(limit: Int): List<com.hmp.domain.enum.LabelName> = emptyList()
-    override suspend fun getMusicInfoByIds(ids: List<Long>): List<MusicInfo> =
-        ids.mapNotNull { songs[it] }
+    override suspend fun getMusicInfoByIds(ids: List<Long>): List<MusicInfo> = ids.mapNotNull { songs[it] }
     override suspend fun getAvgDailyListeningMinutes(days: Int): Float = 0f
     override suspend fun getHourlyDistribution(windowDays: Int): List<com.hmp.domain.music.HourlyDistributionRow> = emptyList()
     override suspend fun markForgottenDelivered(musicId: Long) {}
@@ -138,27 +139,23 @@ open class FakeAgentMusicRepository : MusicRepository {
 
     // ── 用户认识模块（画像）快照：替身默认返回空，忘传即等于测"无数据退化" ──
 
-    override suspend fun getLibraryContentSnapshot(): LibraryContentSnapshot =
-        LibraryContentSnapshot(totalSongs = 0, enrichedSongs = 0)
+    override suspend fun getLibraryContentSnapshot(): LibraryContentSnapshot = LibraryContentSnapshot(totalSongs = 0, enrichedSongs = 0)
 
-    override suspend fun getLibraryStateSnapshot(): LibraryStateSnapshot =
-        LibraryStateSnapshot(totalSongs = 0, likedCount = 0, dislikedCount = 0, hiddenFolderCount = 0)
+    override suspend fun getLibraryStateSnapshot(): LibraryStateSnapshot = LibraryStateSnapshot(totalSongs = 0, likedCount = 0, dislikedCount = 0, hiddenFolderCount = 0)
 
-    override suspend fun getBehaviorSnapshot(windowDays: Int): BehaviorSnapshot =
-        BehaviorSnapshot(windowDays = windowDays, totalPlays = 0, activeDays = 0)
+    override suspend fun getBehaviorSnapshot(windowDays: Int): BehaviorSnapshot = BehaviorSnapshot(windowDays = windowDays, totalPlays = 0, activeDays = 0)
     override suspend fun getAnniversaryPlaylists(date: String): List<com.hmp.domain.music.PlaylistAnniversaryRow> = emptyList()
     override suspend fun getAllMusicDurations(): List<com.hmp.domain.music.MusicDurationRow> = emptyList()
     override suspend fun getMusicIdsPlayedOn(date: String): List<Long> = emptyList()
     override suspend fun getPlaybackCountForPlaylist(playlistName: String): Int = 0
 
     // ═══ Windowed 查询 stub（UserUsageDataScreen 双轴筛选重构）═══
-    override suspend fun getWindowedAnalytics(days: Int): com.hmp.domain.setting.model.WindowedUsageAnalytics =
-        com.hmp.domain.setting.model.WindowedUsageAnalytics(0, 0f, 0f, 0, 0)
+    override suspend fun getWindowedAnalytics(days: Int): com.hmp.domain.setting.model.WindowedUsageAnalytics = com.hmp.domain.setting.model.WindowedUsageAnalytics(0, 0f, 0f, 0, 0)
     override suspend fun getWindowedSourceBreakdown(days: Int): Map<String, Int> = emptyMap()
     override suspend fun getWindowedTopLabels(
         days: Int,
         category: com.hmp.data.database.myenum.LabelCategory,
-        limit: Int
+        limit: Int,
     ): List<com.hmp.domain.setting.model.LabelCountEntry> = emptyList()
     override suspend fun getWindowedTopSongs(days: Int, limit: Int): List<com.hmp.domain.setting.model.TopPlayedEntry> = emptyList()
     override suspend fun getWindowedRecentPlayback(days: Int, limit: Int): List<com.hmp.domain.setting.model.RecentPlaybackEntry> = emptyList()
@@ -177,17 +174,35 @@ class FakeAgentPlaylistRepository : PlaylistRepository {
         return id
     }
     override suspend fun getPlaylistByName(name: String): Playlist? = playlists.values.firstOrNull { it.name == name }
-    override suspend fun removePlaylistById(id: Long) { playlists.remove(id); playlistItems.remove(id) }
+    override suspend fun removePlaylistById(id: Long) {
+        playlists.remove(id)
+        playlistItems.remove(id)
+    }
     override suspend fun getAllPlaylists(): List<Playlist> = playlists.values.toList()
     override suspend fun getPlaylistMeta(id: Long): Playlist? = playlists[id]
-    override suspend fun renamePlaylist(id: Long, newName: String) { playlists[id]?.let { playlists[id] = it.copy(name = newName) } }
-    override suspend fun updatePlaylistDescription(id: Long, description: String?) { playlists[id]?.let { playlists[id] = it.copy(description = description) } }
-    override suspend fun setPlaylistPinned(id: Long, isPinned: Boolean) { playlists[id]?.let { playlists[id] = it.copy(isPinned = isPinned) } }
-    override suspend fun incrementPlaylistPlayCount(id: Long) { playlists[id]?.let { playlists[id] = it.copy(playCount = it.playCount + 1) } }
-    override suspend fun setPlaylistLastPlayedAt(id: Long, timestamp: Long) { playlists[id]?.let { playlists[id] = it.copy(lastPlayedAt = timestamp) } }
-    override suspend fun addToPlaylist(playlistId: Long, musicId: Long) { playlistItems.getOrPut(playlistId) { mutableListOf() } += musicId }
-    override suspend fun removeItemFromPlaylist(musicId: Long, playlistId: Long) { playlistItems[playlistId]?.remove(musicId) }
+    override suspend fun renamePlaylist(id: Long, newName: String) {
+        playlists[id]?.let { playlists[id] = it.copy(name = newName) }
+    }
+    override suspend fun updatePlaylistDescription(id: Long, description: String?) {
+        playlists[id]?.let { playlists[id] = it.copy(description = description) }
+    }
+    override suspend fun setPlaylistPinned(id: Long, isPinned: Boolean) {
+        playlists[id]?.let { playlists[id] = it.copy(isPinned = isPinned) }
+    }
+    override suspend fun incrementPlaylistPlayCount(id: Long) {
+        playlists[id]?.let { playlists[id] = it.copy(playCount = it.playCount + 1) }
+    }
+    override suspend fun setPlaylistLastPlayedAt(id: Long, timestamp: Long) {
+        playlists[id]?.let { playlists[id] = it.copy(lastPlayedAt = timestamp) }
+    }
+    override suspend fun addToPlaylist(playlistId: Long, musicId: Long) {
+        playlistItems.getOrPut(playlistId) { mutableListOf() } += musicId
+    }
+    override suspend fun removeItemFromPlaylist(musicId: Long, playlistId: Long) {
+        playlistItems[playlistId]?.remove(musicId)
+    }
     override suspend fun resetPlaylistItems(playlistId: Long, musicList: List<com.hmp.domain.music.MusicInfo>) { }
+
     /** 与真仓库同契约（D3-04）：入参不是当前内容的完整排列就返回 false，且不改动任何东西。 */
     override suspend fun reorderPlaylistItems(playlistId: Long, orderedMusicIds: List<Long>): Boolean {
         val current = playlistItems.getOrPut(playlistId) { mutableListOf() }
@@ -197,21 +212,25 @@ class FakeAgentPlaylistRepository : PlaylistRepository {
         return true
     }
     override fun getMusicInfoInPlaylist(playlistId: Long): Flow<List<MusicInfo>> = flowOf(emptyList())
+
     /** 要反映真实成员：`playlist_remove_song` 现在先查成员再删（D3-12），空实现会让那条判据恒绿。 */
-    override suspend fun getPlaylistById(playlistId: Long): List<MusicInfo> =
-        (playlistItems[playlistId] ?: listOf()).map { id ->
-            MusicInfo(
-                music = com.hmp.domain.music.Music(
-                    id = id, title = "song-$id", artist = "a", album = "b",
-                    duration = 0L, path = "/$id.mp3", albumArtUri = ""
-                ),
-                extra = null,
-                userInfo = null,
-            )
-        }
+    override suspend fun getPlaylistById(playlistId: Long): List<MusicInfo> = (playlistItems[playlistId] ?: listOf()).map { id ->
+        MusicInfo(
+            music = com.hmp.domain.music.Music(
+                id = id,
+                title = "song-$id",
+                artist = "a",
+                album = "b",
+                duration = 0L,
+                path = "/$id.mp3",
+                albumArtUri = "",
+            ),
+            extra = null,
+            userInfo = null,
+        )
+    }
     override suspend fun getPlaylistByIdList(playlistIdList: List<Long>): List<MusicInfo> = emptyList()
     override fun getAllPlaylistsFlow(): Flow<List<Playlist>> = flowOf(playlists.values.toList())
     override suspend fun exportPlaylistsSnapshot(): com.hmp.domain.backup.PlaylistsSnapshot = com.hmp.domain.backup.PlaylistsSnapshot()
     override suspend fun restoreFromSnapshot(snapshot: com.hmp.domain.backup.PlaylistsSnapshot) {}
 }
-

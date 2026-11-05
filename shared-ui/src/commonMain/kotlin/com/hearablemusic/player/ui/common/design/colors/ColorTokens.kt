@@ -6,11 +6,12 @@ object ColorTokens {
     // 品牌颜色
     val HDBlue = Color(0xFF002FA7)
     val HDRed = Color(0xFFC92C2C)
+
     // 列表页标签分区强调色
     val HDGreen = Color(0xFF4E6E45)
     val HDPurple = Color(0xFF6A0DAD)
     val HDOrange = Color(0xFFFFBF00)
-    
+
     // 浅色主题颜色
     val LightPrimary = HDRed
     val LightOnPrimary = Color(0xFFFFFFFF)
@@ -20,7 +21,7 @@ object ColorTokens {
     val LightBackground = Color(0xFFFFFFFF)
     val LightSurface = Color(0xFFFFFFFF)
     val LightError = Color(0xFF1976D2)
-    
+
     // 深色主题颜色
     val DarkPrimary = Color(0xFF90CAF9)
     val DarkOnPrimary = Color(0xFF000000)

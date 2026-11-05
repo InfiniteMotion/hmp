@@ -1,16 +1,13 @@
 package com.hmp.domain.agent.tool
-import com.hmp.domain.agent.tool.spec.DEFAULT_RESULT_LIMIT
-import com.hmp.domain.agent.tool.spec.DEFAULT_RESULT_LIMIT
-import com.hmp.domain.agent.tool.spec.AgentTool
-import com.hmp.domain.agent.tool.spec.ToolResult
-import com.hmp.domain.agent.tool.spec.ToolNames
-import com.hmp.domain.agent.tool.spec.ToolArgs
-import com.hmp.domain.agent.tool.spec.StringParam
-import com.hmp.domain.agent.tool.spec.IntParam
-import com.hmp.domain.agent.tool.spec.EnumParam
-
 import com.hmp.domain.agent.port.ToolPermissionLevel
-
+import com.hmp.domain.agent.tool.spec.AgentTool
+import com.hmp.domain.agent.tool.spec.DEFAULT_RESULT_LIMIT
+import com.hmp.domain.agent.tool.spec.EnumParam
+import com.hmp.domain.agent.tool.spec.IntParam
+import com.hmp.domain.agent.tool.spec.StringParam
+import com.hmp.domain.agent.tool.spec.ToolArgs
+import com.hmp.domain.agent.tool.spec.ToolNames
+import com.hmp.domain.agent.tool.spec.ToolResult
 import com.hmp.domain.enum.LabelCategory
 import kotlinx.coroutines.flow.first
 
@@ -50,8 +47,11 @@ class LibraryTagsTool(
                 LabelCategory.SCENARIO -> "场景"
                 else -> c.name
             }
-            lineList += if (labels.isEmpty()) "  （${catZh}：暂无）"
-            else "  ${catZh}：${labels.take(10).joinToString("、") { it.displayCn() }}"
+            lineList += if (labels.isEmpty()) {
+                "  （$catZh：暂无）"
+            } else {
+                "  $catZh：${labels.take(10).joinToString("、") { it.displayCn() }}"
+            }
         }
         return ToolResult.success("标签概览：\n${lineList.joinToString("\n")}")
     }

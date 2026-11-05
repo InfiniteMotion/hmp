@@ -44,9 +44,9 @@ internal data class FreeTextFactsResult(
 /** Round 3 总体反思 patch —— 只修单字段 */
 @Serializable
 internal data class ReflectionPatch(
-    val index: Int = 0,     // 歌曲在组内的序号（prompt 里从 1 开始；parse 后会规整为 0-based）
-    val field: String = "",  // 字段名
-    val fix: String = "",    // 修正值；"-暂无" 或 blank 表示置空
+    val index: Int = 0, // 歌曲在组内的序号（prompt 里从 1 开始；parse 后会规整为 0-based）
+    val field: String = "", // 字段名
+    val fix: String = "", // 修正值；"-暂无" 或 blank 表示置空
 )
 
 /**
@@ -167,21 +167,19 @@ internal object EnrichResponseParser {
         enum: EnumOnlyResult?,
         easy: FreeTextEasyResult?,
         facts: FreeTextFactsResult?,
-    ): EnrichDraft {
-        return EnrichDraft(
-            genre = enum?.genre ?: emptyList(),
-            mood = enum?.mood ?: emptyList(),
-            scenario = enum?.scenario ?: emptyList(),
-            language = enum?.language?.ifBlank { "UNKNOWN" } ?: "UNKNOWN",
-            era = enum?.era?.ifBlank { "UNKNOWN" } ?: "UNKNOWN",
-            description = easy?.description ?: "",
-            singerIntroduce = easy?.singerIntroduce ?: "",
-            rewards = facts?.rewards?.normalizeFacts() ?: "",
-            lyric = facts?.lyric?.normalizeFacts() ?: "",
-            backgroundIntroduce = facts?.backgroundIntroduce?.normalizeFacts() ?: "",
-            relevantMusic = facts?.relevantMusic?.normalizeFacts() ?: "",
-        )
-    }
+    ): EnrichDraft = EnrichDraft(
+        genre = enum?.genre ?: emptyList(),
+        mood = enum?.mood ?: emptyList(),
+        scenario = enum?.scenario ?: emptyList(),
+        language = enum?.language?.ifBlank { "UNKNOWN" } ?: "UNKNOWN",
+        era = enum?.era?.ifBlank { "UNKNOWN" } ?: "UNKNOWN",
+        description = easy?.description ?: "",
+        singerIntroduce = easy?.singerIntroduce ?: "",
+        rewards = facts?.rewards?.normalizeFacts() ?: "",
+        lyric = facts?.lyric?.normalizeFacts() ?: "",
+        backgroundIntroduce = facts?.backgroundIntroduce?.normalizeFacts() ?: "",
+        relevantMusic = facts?.relevantMusic?.normalizeFacts() ?: "",
+    )
 
     /** Round 3 总体反思 patch 列表 */
     fun parseReflectionPatches(text: String, songs: List<MusicInfo>, agentId: String): List<ReflectionPatch> {
@@ -223,16 +221,27 @@ internal object EnrichResponseParser {
         val isEmptyMarker = fix.isBlank() || EMPTY_FACT_MARKERS.any { fix.equals(it, ignoreCase = true) }
         return when (patch.field.lowercase()) {
             "genre" -> current.copy(genre = if (isEmptyMarker) emptyList() else fix.split(',').map { it.trim() }.filter { it.isNotBlank() })
+
             "mood" -> current.copy(mood = if (isEmptyMarker) emptyList() else fix.split(',').map { it.trim() }.filter { it.isNotBlank() })
+
             "scenario" -> current.copy(scenario = if (isEmptyMarker) emptyList() else fix.split(',').map { it.trim() }.filter { it.isNotBlank() })
+
             "language" -> current.copy(language = if (isEmptyMarker) "UNKNOWN" else fix.trim())
+
             "era" -> current.copy(era = if (isEmptyMarker) "UNKNOWN" else fix.trim())
+
             "description" -> current.copy(description = if (isEmptyMarker) "" else fix)
+
             "singerintroduce" -> current.copy(singerIntroduce = if (isEmptyMarker) "" else fix)
+
             "rewards" -> current.copy(rewards = if (isEmptyMarker) "" else fix)
+
             "lyric" -> current.copy(lyric = if (isEmptyMarker) "" else fix)
+
             "backgroundintroduce" -> current.copy(backgroundIntroduce = if (isEmptyMarker) "" else fix)
+
             "relevantmusic" -> current.copy(relevantMusic = if (isEmptyMarker) "" else fix)
+
             else -> {
                 HmpLog.w(LogTag.AgentEnrich) { "📚 [$agentId] Round 3 unknown patch field: ${patch.field} — ignoring" }
                 current
@@ -280,7 +289,9 @@ internal object EnrichResponseParser {
         val fallback = when {
             cleaned.startsWith('{') ->
                 JsonText.splitJsonObjects(cleaned).ifEmpty { listOf(cleaned) }
+
             cleaned.contains('}') && cleaned.contains('{') -> JsonText.splitJsonObjects(cleaned)
+
             else -> emptyList()
         }
         HmpLog.w(LogTag.AgentEnrich) { "📚 [$agentId] extractJsonArrayElements: NO array wrapper! cleaned(prefix)=${cleaned.take(200)}, fallback → ${fallback.size} objects" }
@@ -299,14 +310,12 @@ internal object EnrichResponseParser {
         val jsonText = JsonText.extractJsonBlock(text)
         return runCatching {
             val obj = singleSongJson.parseToJsonElement(jsonText).jsonObject
-            fun arr(key: String): List<String> =
-                obj[key]?.let { it as? kotlinx.serialization.json.JsonArray }
-                    ?.mapNotNull { (it as? kotlinx.serialization.json.JsonPrimitive)?.contentOrNull }
-                    ?.filter { it.isNotBlank() }
-                    ?: emptyList()
+            fun arr(key: String): List<String> = obj[key]?.let { it as? kotlinx.serialization.json.JsonArray }
+                ?.mapNotNull { (it as? kotlinx.serialization.json.JsonPrimitive)?.contentOrNull }
+                ?.filter { it.isNotBlank() }
+                ?: emptyList()
 
-            fun str(key: String): String =
-                (obj[key] as? kotlinx.serialization.json.JsonPrimitive)?.contentOrNull?.trim().orEmpty()
+            fun str(key: String): String = (obj[key] as? kotlinx.serialization.json.JsonPrimitive)?.contentOrNull?.trim().orEmpty()
 
             EnrichDraft(
                 genre = arr("genre"),
@@ -321,5 +330,4 @@ internal object EnrichResponseParser {
             HmpLog.w(LogTag.AgentEnrich) { "📚 [$agentId] single-song JSON parse failed: ${text.take(120)}" }
         }.getOrNull()
     }
-
 }

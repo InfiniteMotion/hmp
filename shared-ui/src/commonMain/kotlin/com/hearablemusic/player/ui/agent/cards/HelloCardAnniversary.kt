@@ -1,6 +1,5 @@
 package com.hearablemusic.player.ui.agent.cards
 
-import com.hearablemusic.player.ui.common.design.colors.HelloCardPalette
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -28,6 +27,9 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.hearablemusic.player.ui.common.design.colors.HelloCardPalette
+import com.hearablemusic.player.ui.common.design.metrics.LayoutConstraints
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
 import com.hearablemusic.player.ui.common.design.typography.medium
 import com.hearablemusic.player.ui.common.text.UiText
@@ -46,10 +48,6 @@ import com.hearablemusic.player.ui.generated.resources.card_total_plays
 import com.hmp.domain.agent.card.AnniversaryContent
 import com.hmp.domain.agent.card.AnniversarySubtype
 import com.hmp.domain.agent.card.SlideCard
-import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
-import com.hearablemusic.player.ui.common.design.metrics.LayoutConstraints
-
-
 
 // ═══════════════════════════════════════════════════════════════════
 // 家族 B-new：ANNIVERSARY 专用卡——4 种子类型差异化视觉
@@ -58,10 +56,10 @@ import com.hearablemusic.player.ui.common.design.metrics.LayoutConstraints
 /** ANNIVERSARY 子类型 → 视觉配置（颜色、emoji、徽章文本、标签）。 */
 private data class AnniversaryVisual(
     val themeColor: Color,
-    val label: UiText,        // 顶部小标签（如 "N 年前的今天"）
-    val badgeMain: UiText,    // 徽章主文本（如 "3" / "100" / "50h"）
-    val badgeSub: UiText?,    // 徽章副文本（如 "年前" / "次" / null）
-    val footerParts: List<UiText>,  // 底部数字条分片
+    val label: UiText, // 顶部小标签（如 "N 年前的今天"）
+    val badgeMain: UiText, // 徽章主文本（如 "3" / "100" / "50h"）
+    val badgeSub: UiText?, // 徽章副文本（如 "年前" / "次" / null）
+    val footerParts: List<UiText>, // 底部数字条分片
 )
 
 private fun AnniversaryContent.resolveVisual(): AnniversaryVisual = when (subtype) {
@@ -78,6 +76,7 @@ private fun AnniversaryContent.resolveVisual(): AnniversaryVisual = when (subtyp
             totalListenHours?.let { if (it > 0) add(UiText.Raw("${it}h")) }
         },
     )
+
     AnniversarySubtype.PLAYLIST_CREATE -> AnniversaryVisual(
         themeColor = HelloCardPalette.Anniversary.PlaylistCreate,
         label = UiText.Res(Res.string.card_ann_years_ago_playlist, listOf(yearsAgo ?: 1)),
@@ -88,6 +87,7 @@ private fun AnniversaryContent.resolveVisual(): AnniversaryVisual = when (subtyp
             add(UiText.Res(Res.string.card_ann_times_played, listOf(totalPlays)))
         },
     )
+
     AnniversarySubtype.PLAY_MILESTONE -> AnniversaryVisual(
         themeColor = HelloCardPalette.Anniversary.PlayMilestone,
         label = UiText.Res(Res.string.card_ann_milestone),
@@ -99,6 +99,7 @@ private fun AnniversaryContent.resolveVisual(): AnniversaryVisual = when (subtyp
             totalListenHours?.let { if (it > 0) add(UiText.Raw("${it}h")) }
         },
     )
+
     AnniversarySubtype.DURATION_MILESTONE -> AnniversaryVisual(
         themeColor = HelloCardPalette.Anniversary.DurationMilestone,
         label = UiText.Res(Res.string.card_ann_milestone),
@@ -132,7 +133,9 @@ internal fun FamilyAnniversaryCard(
                     onTap = { /* 短按留给 Pager 手势 */ },
                 )
             }
+
             onCardClick != null -> m.clickable { onCardClick.invoke(card) }
+
             else -> m
         }
     }
@@ -148,9 +151,9 @@ internal fun FamilyAnniversaryCard(
                 .background(
                     brush = Brush.linearGradient(
                         colors = listOf(visual.themeColor.copy(alpha = 0.95f), visual.themeColor.copy(alpha = 0.75f)),
-                    )
+                    ),
                 )
-                .padding(metrics.cozy)
+                .padding(metrics.cozy),
         ) {
             // 装饰性圆斑（右上角）
             Box(
@@ -158,14 +161,14 @@ internal fun FamilyAnniversaryCard(
                     .align(Alignment.TopEnd)
                     .size(metrics.row)
                     .clip(RoundedCornerShape(metrics.block))
-                    .background(Color.White.copy(alpha = 0.08f))
+                    .background(Color.White.copy(alpha = 0.08f)),
             )
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomStart)
                     .size(metrics.bar)
                     .clip(RoundedCornerShape(metrics.section))
-                    .background(Color.White.copy(alpha = 0.06f))
+                    .background(Color.White.copy(alpha = 0.06f)),
             )
 
             Row(
@@ -209,7 +212,7 @@ internal fun FamilyAnniversaryCard(
                             .fillMaxWidth()
                             .height(metrics.stroke.thin)
                             .background(Color.White.copy(alpha = 0.2f))
-                            .padding(vertical = metrics.compact)
+                            .padding(vertical = metrics.compact),
                     )
 
                     // 情感文案（Llm 生成的那句话）

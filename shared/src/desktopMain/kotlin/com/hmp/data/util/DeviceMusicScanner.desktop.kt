@@ -28,9 +28,15 @@ object DeviceMusicScanner {
 
     fun setBlockedDirectories(dirs: List<String>) {
         blockedDirectories.clear()
-        blockedDirectories.addAll(dirs.map {
-            try { File(it).canonicalPath } catch (_: Exception) { File(it).absolutePath }
-        })
+        blockedDirectories.addAll(
+            dirs.map {
+                try {
+                    File(it).canonicalPath
+                } catch (_: Exception) {
+                    File(it).absolutePath
+                }
+            },
+        )
     }
 
     suspend fun scanMusic(): List<ScannedMusicFile> = withContext(Dispatchers.IO) {
@@ -57,7 +63,11 @@ object DeviceMusicScanner {
     }
 
     private fun scanDirectory(dir: File, results: MutableList<ScannedMusicFile>) {
-        val canonicalPath = try { dir.canonicalPath } catch (_: Exception) { dir.absolutePath }
+        val canonicalPath = try {
+            dir.canonicalPath
+        } catch (_: Exception) {
+            dir.absolutePath
+        }
         if (blockedDirectories.any { canonicalPath.startsWith(it) }) return
         dir.listFiles()?.forEach { file ->
             if (file.isDirectory) {
@@ -95,7 +105,7 @@ object DeviceMusicScanner {
             sampleRate = metadata?.sampleRate,
             fileSize = file.length(),
             format = metadata?.format ?: file.extension.uppercase(),
-            lyrics = metadata?.lyrics
+            lyrics = metadata?.lyrics,
         )
     }
 }

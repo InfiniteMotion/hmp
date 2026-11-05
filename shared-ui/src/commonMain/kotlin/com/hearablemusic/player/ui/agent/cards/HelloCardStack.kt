@@ -3,31 +3,28 @@ package com.hearablemusic.player.ui.agent.cards
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.hearablemusic.player.ui.platform.PlaybackController
 import com.hmp.data.database.currentTimeMillis
-import com.hmp.domain.agent.runtime.AgentRunState
 import com.hmp.domain.agent.card.AnchorContent
 import com.hmp.domain.agent.card.DiscoverContent
-import com.hmp.domain.agent.runtime.sub.enrich.EnrichProgress
 import com.hmp.domain.agent.card.EnrichTrackingContent
 import com.hmp.domain.agent.card.NarrativeContent
 import com.hmp.domain.agent.card.NarrativeTimeRange
 import com.hmp.domain.agent.card.SlideCard
 import com.hmp.domain.agent.card.SlideType
 import com.hmp.domain.agent.port.NowPlayingContext
+import com.hmp.domain.agent.runtime.AgentRunState
 import com.hmp.domain.agent.runtime.MasterAgent
+import com.hmp.domain.agent.runtime.sub.enrich.EnrichProgress
 import com.hmp.domain.agent.runtime.sub.radio.RadioState
 import com.hmp.domain.agent.runtime.sub.shared.RadioTrack
 import kotlinx.coroutines.flow.MutableStateFlow
 import org.koin.compose.koinInject
-
-
-
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
 
 // ═══════════════════════════════════════════════════════════════════
 // Hello 卡堆 —— 数据组装与渲染解耦
@@ -83,7 +80,7 @@ internal fun rememberHelloCardsState(): HelloCardsState {
                 isPlaying = isPlayingNow,
                 currentPositionMs = positionMs,
                 durationMs = durationMs,
-            )
+            ),
         )
         val ac = newCard.content as? AnchorContent
         val songKey = "${ac?.trackTitle}|${ac?.artistName}"
@@ -140,7 +137,9 @@ internal fun rememberHelloCardsState(): HelloCardsState {
                 phase = enrichProgress.phase,
             ),
         )
-    } else null
+    } else {
+        null
+    }
 
     // ⑤ NARRATIVE — 报告叙事段（DAO 缓存；首帧 null，异步拉取后入卡）
     //    取 MONTH 维度：原设计「月度叙事卡融入此处」，报告页可切其他维度。
@@ -183,7 +182,7 @@ internal fun rememberHelloCardsState(): HelloCardsState {
                     it.type != SlideType.ENRICH_TRACKING &&
                     // DISCOVER trackIds 为空时跳过
                     !(it.type == SlideType.DISCOVER && (it.content as? DiscoverContent)?.trackIds?.isEmpty() == true)
-            }
+            },
         )
         radioStatusCard?.let { add(it) }
         enrichTrackingCard?.let { add(it) }

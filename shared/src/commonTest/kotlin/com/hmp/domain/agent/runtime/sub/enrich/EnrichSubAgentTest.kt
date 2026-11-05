@@ -3,17 +3,15 @@ package com.hmp.domain.agent.runtime.sub.enrich
 import com.hmp.domain.agent.enrich.EnrichHealth
 import com.hmp.domain.agent.enrich.EnrichWorkUnit
 import com.hmp.domain.agent.port.CapabilityState
+import com.hmp.domain.agent.port.LlmEvent
 import com.hmp.domain.agent.runtime.AgentContextBudget
 import com.hmp.domain.agent.runtime.AgentRunState
 import com.hmp.domain.agent.runtime.ToolRegistryView
 import com.hmp.domain.music.Music
 import com.hmp.domain.music.MusicExtraTexts
 import com.hmp.domain.music.MusicInfo
-import com.hmp.domain.agent.port.LlmEvent
 import com.hmp.domain.setting.model.AiAccessMode
 import com.hmp.domain.setting.model.AiEndpointConfig
-import kotlin.test.assertNull
-import kotlin.test.assertTrue
 import com.hmp.test.fakes.FakeAgentMusicRepository
 import com.hmp.test.fakes.FakeLlmTransport
 import kotlinx.coroutines.launch
@@ -21,6 +19,7 @@ import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 /**
  * EnrichSubAgent 自循环编排测试（不碰真实 LLM/DB）。
@@ -62,8 +61,7 @@ class EnrichSubAgentTest {
         }
     }
 
-    private fun song(id: Long, title: String, artist: String) =
-        MusicInfo(Music(id, title, artist, "Album", 180_000, "/$id.mp3", ""), null, null)
+    private fun song(id: Long, title: String, artist: String) = MusicInfo(Music(id, title, artist, "Album", 180_000, "/$id.mp3", ""), null, null)
 
     private fun agent(
         repo: ScriptedEnrichRepo,
@@ -134,7 +132,7 @@ class EnrichSubAgentTest {
             ),
             health = EnrichHealth(2, 2, 0),
         )
-        val agent = agent(repo)   // enrichConfig = null
+        val agent = agent(repo) // enrichConfig = null
 
         val job = launch { agent.runLoop() }
         job.join()
@@ -192,81 +190,80 @@ class EnrichSubAgentTest {
     }
 
 /**
- * FREE / PAID 模式（内置 Key）：单首随机 + 精简提示词。
- *
- * 与批量路径的分界点：**每首歌只发 1 次请求**，system prompt 是精简版，
- * 不再有预热/自检/反思；CUSTOM 走 [EnrichSubAgentTest] 覆盖的完整 6 轮。
- */
-class EnrichSubAgentFreeModeTest {
+     * FREE / PAID 模式（内置 Key）：单首随机 + 精简提示词。
+     *
+     * 与批量路径的分界点：**每首歌只发 1 次请求**，system prompt 是精简版，
+     * 不再有预热/自检/反思；CUSTOM 走 [EnrichSubAgentTest] 覆盖的完整 6 轮。
+     */
+    class EnrichSubAgentFreeModeTest {
 
-    private class PoolRepo(
-        private val queue: MutableList<MusicInfo>,
-        private val health: EnrichHealth,
-    ) : FakeAgentMusicRepository() {
-        val extraWrites = mutableListOf<Long>()
-        override suspend fun getUnenrichedSongs(limit: Int): List<MusicInfo> {
-            val next = queue.removeFirstOrNull() ?: return emptyList()
-            return listOf(next)
+        private class PoolRepo(
+            private val queue: MutableList<MusicInfo>,
+            private val health: EnrichHealth,
+        ) : FakeAgentMusicRepository() {
+            val extraWrites = mutableListOf<Long>()
+            override suspend fun getUnenrichedSongs(limit: Int): List<MusicInfo> {
+                val next = queue.removeFirstOrNull() ?: return emptyList()
+                return listOf(next)
+            }
+            override suspend fun getEnrichHealth(): EnrichHealth = health
+            override suspend fun updateMusicExtraTexts(musicId: Long, texts: MusicExtraTexts) {
+                extraWrites += musicId
+            }
         }
-        override suspend fun getEnrichHealth(): EnrichHealth = health
-        override suspend fun updateMusicExtraTexts(musicId: Long, texts: MusicExtraTexts) {
-            extraWrites += musicId
-        }
-    }
 
-    private fun song(id: Long, title: String) =
-        MusicInfo(Music(id, title, "周杰伦", "Album", 180_000, "/$id.mp3", ""), null, null)
+        private fun song(id: Long, title: String) = MusicInfo(Music(id, title, "周杰伦", "Album", 180_000, "/$id.mp3", ""), null, null)
 
-    private fun agent(repo: PoolRepo, transport: FakeLlmTransport) = EnrichSubAgent(
-        agentId = "enrich",
-        contextBudget = AgentContextBudget(agentId = "enrich", llmClient = transport),
-        toolRegistryView = ToolRegistryView.empty(null),
-        systemPrompt = "long-batch-system-prompt",
-        musicRepository = repo,
-        presenceBus = null,
-        enrichConfig = AiEndpointConfig(isConfigured = true),
-        targetCoverage = 0.9f,
-        stopSignal = null,
-        accessModeProvider = { AiAccessMode.FREE },
-    )
-
-    @Test
-    fun freeMode_sendsOneCompactRequest_andWritesExtra() = runTest {
-        val json = """{"genre":["摇滚"],"mood":["热血"],"scenario":["运动"],"language":"华语","era":"2000s","description":"简介","singerIntroduce":"歌手"}"""
-        val transport = FakeLlmTransport(script = listOf(LlmEvent.TextDelta(json), LlmEvent.Completed))
-        val repo = PoolRepo(mutableListOf(song(9, "晴天")), EnrichHealth(1, 1, 0))
-
-        launch { agent(repo, transport).runLoop() }.join()
-
-        assertEquals(1, transport.calls.size, "FREE 模式：一首歌只发 1 次请求")
-        assertEquals(listOf(9L), repo.extraWrites)
-        val call = transport.calls.single()
-        assertNull(call.tools, "不带工具 schema")
-        assertTrue(call.messages.first().content.orEmpty().contains("只输出一个 JSON"), "用精简 system prompt")
-    }
-
-    @Test
-    fun freeMode_withoutConfig_countsFailure_andExits() = runTest {
-        val transport = FakeLlmTransport(script = emptyList())
-        val repo = PoolRepo(mutableListOf(song(1, "晴天")), EnrichHealth(1, 1, 0))
-        val agent = EnrichSubAgent(
+        private fun agent(repo: PoolRepo, transport: FakeLlmTransport) = EnrichSubAgent(
             agentId = "enrich",
-            contextBudget = AgentContextBudget(agentId = "enrich", llmClient = null),
+            contextBudget = AgentContextBudget(agentId = "enrich", llmClient = transport),
             toolRegistryView = ToolRegistryView.empty(null),
-            systemPrompt = "s",
+            systemPrompt = "long-batch-system-prompt",
             musicRepository = repo,
             presenceBus = null,
-            enrichConfig = null,
+            enrichConfig = AiEndpointConfig(isConfigured = true),
             targetCoverage = 0.9f,
             stopSignal = null,
             accessModeProvider = { AiAccessMode.FREE },
         )
 
-        launch { agent.runLoop() }.join()
+        @Test
+        fun freeMode_sendsOneCompactRequest_andWritesExtra() = runTest {
+            val json = """{"genre":["摇滚"],"mood":["热血"],"scenario":["运动"],"language":"华语","era":"2000s","description":"简介","singerIntroduce":"歌手"}"""
+            val transport = FakeLlmTransport(script = listOf(LlmEvent.TextDelta(json), LlmEvent.Completed))
+            val repo = PoolRepo(mutableListOf(song(9, "晴天")), EnrichHealth(1, 1, 0))
 
-        assertEquals(1, agent.getProgress().failed)
-        assertEquals(0, agent.getProgress().success)
-        assertEquals(0, transport.calls.size, "没配置就不该发请求")
+            launch { agent(repo, transport).runLoop() }.join()
+
+            assertEquals(1, transport.calls.size, "FREE 模式：一首歌只发 1 次请求")
+            assertEquals(listOf(9L), repo.extraWrites)
+            val call = transport.calls.single()
+            assertNull(call.tools, "不带工具 schema")
+            assertTrue(call.messages.first().content.orEmpty().contains("只输出一个 JSON"), "用精简 system prompt")
+        }
+
+        @Test
+        fun freeMode_withoutConfig_countsFailure_andExits() = runTest {
+            val transport = FakeLlmTransport(script = emptyList())
+            val repo = PoolRepo(mutableListOf(song(1, "晴天")), EnrichHealth(1, 1, 0))
+            val agent = EnrichSubAgent(
+                agentId = "enrich",
+                contextBudget = AgentContextBudget(agentId = "enrich", llmClient = null),
+                toolRegistryView = ToolRegistryView.empty(null),
+                systemPrompt = "s",
+                musicRepository = repo,
+                presenceBus = null,
+                enrichConfig = null,
+                targetCoverage = 0.9f,
+                stopSignal = null,
+                accessModeProvider = { AiAccessMode.FREE },
+            )
+
+            launch { agent.runLoop() }.join()
+
+            assertEquals(1, agent.getProgress().failed)
+            assertEquals(0, agent.getProgress().success)
+            assertEquals(0, transport.calls.size, "没配置就不该发请求")
+        }
     }
-}
 }

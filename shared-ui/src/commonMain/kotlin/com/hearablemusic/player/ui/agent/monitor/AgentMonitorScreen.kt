@@ -1,41 +1,17 @@
 package com.hearablemusic.player.ui.agent.monitor
-import com.hearablemusic.player.ui.generated.resources.agent_monitor_token_line
-import com.hearablemusic.player.ui.generated.resources.agent_monitor_active
-import com.hearablemusic.player.ui.generated.resources.agent_monitor_log_count
-import com.hearablemusic.player.ui.generated.resources.agent_monitor_log_dialog_title
-import com.hearablemusic.player.ui.generated.resources.agent_monitor_log_meta
-import com.hearablemusic.player.ui.generated.resources.agent_monitor_no_data
-import com.hearablemusic.player.ui.generated.resources.agent_monitor_no_logs
-import com.hearablemusic.player.ui.generated.resources.agent_monitor_quota_line
-import com.hearablemusic.player.ui.generated.resources.agent_monitor_run_logs
-import com.hearablemusic.player.ui.generated.resources.agent_monitor_title
-import com.hearablemusic.player.ui.generated.resources.agent_monitor_token_usage
-import com.hearablemusic.player.ui.generated.resources.agent_monitor_total_usage
-import com.hearablemusic.player.ui.generated.resources.agent_monitor_token_clear_confirm
-import com.hearablemusic.player.ui.generated.resources.cancel
-import com.hearablemusic.player.ui.generated.resources.clear
-import com.hearablemusic.player.ui.generated.resources.confirm
-
-import com.hearablemusic.player.ui.common.design.colors.AgentStatusColors
-import com.hearablemusic.player.ui.agent.agentDetailOf
-import com.hearablemusic.player.ui.agent.agentIcon
-import com.hearablemusic.player.ui.agent.agentStatusColor
-import com.hearablemusic.player.ui.agent.agentStatusLabel
-import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
-
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.IntrinsicSize
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -53,29 +29,17 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.hazeEffect
-import dev.chrisbanes.haze.hazeSource
-import dev.chrisbanes.haze.rememberHazeState
-import com.hearablemusic.player.ui.generated.resources.Res
-import com.hearablemusic.player.ui.generated.resources.enrich
-import com.hearablemusic.player.ui.generated.resources.hello
-import com.hearablemusic.player.ui.generated.resources.master
-import com.hearablemusic.player.ui.generated.resources.radiowaves
-import org.jetbrains.compose.resources.DrawableResource
-import org.jetbrains.compose.resources.painterResource
-import org.jetbrains.compose.resources.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -83,27 +47,61 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
+import co.touchlab.kermit.Severity
+import com.hearablemusic.player.ui.agent.agentDetailOf
+import com.hearablemusic.player.ui.agent.agentIcon
+import com.hearablemusic.player.ui.agent.agentStatusColor
+import com.hearablemusic.player.ui.agent.agentStatusLabel
+import com.hearablemusic.player.ui.common.components.base.HMPCard
+import com.hearablemusic.player.ui.common.design.colors.AgentStatusColors
+import com.hearablemusic.player.ui.common.design.metrics.LayoutConstraints
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
+import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
+import com.hearablemusic.player.ui.common.dialogs.base.ScrimDialog
+import com.hearablemusic.player.ui.common.layout.LocalWindowSizeInfo
+import com.hearablemusic.player.ui.common.navigation.Routes
+import com.hearablemusic.player.ui.common.pages.base.SubScreen
+import com.hearablemusic.player.ui.common.util.hazeStyleForIntensity
+import com.hearablemusic.player.ui.common.util.hazeTintAlpha
+import com.hearablemusic.player.ui.generated.resources.Res
+import com.hearablemusic.player.ui.generated.resources.agent_monitor_active
+import com.hearablemusic.player.ui.generated.resources.agent_monitor_log_count
+import com.hearablemusic.player.ui.generated.resources.agent_monitor_log_dialog_title
+import com.hearablemusic.player.ui.generated.resources.agent_monitor_log_meta
+import com.hearablemusic.player.ui.generated.resources.agent_monitor_no_data
+import com.hearablemusic.player.ui.generated.resources.agent_monitor_no_logs
+import com.hearablemusic.player.ui.generated.resources.agent_monitor_quota_line
+import com.hearablemusic.player.ui.generated.resources.agent_monitor_run_logs
+import com.hearablemusic.player.ui.generated.resources.agent_monitor_title
+import com.hearablemusic.player.ui.generated.resources.agent_monitor_token_clear_confirm
+import com.hearablemusic.player.ui.generated.resources.agent_monitor_token_line
+import com.hearablemusic.player.ui.generated.resources.agent_monitor_token_usage
+import com.hearablemusic.player.ui.generated.resources.agent_monitor_total_usage
+import com.hearablemusic.player.ui.generated.resources.cancel
+import com.hearablemusic.player.ui.generated.resources.clear
+import com.hearablemusic.player.ui.generated.resources.confirm
+import com.hearablemusic.player.ui.generated.resources.enrich
+import com.hearablemusic.player.ui.generated.resources.hello
+import com.hearablemusic.player.ui.generated.resources.master
+import com.hearablemusic.player.ui.generated.resources.radiowaves
+import com.hmp.data.database.TokenLedgerDao
+import com.hmp.data.util.localDateString
 import com.hmp.domain.agent.port.CapabilityState
+import com.hmp.domain.agent.quota.TokenLedgerMaintenance
+import com.hmp.domain.agent.quota.TokenLedgerSnapshot
 import com.hmp.domain.agent.runtime.MasterAgent
 import com.hmp.log.LogEntry
 import com.hmp.log.MemLogWriter
 import com.hmp.memLogWriter
-import com.hmp.data.database.TokenLedgerDao
-import com.hmp.data.util.localDateString
-import com.hmp.domain.agent.quota.TokenLedgerMaintenance
-import com.hmp.domain.agent.quota.TokenLedgerSnapshot
-import com.hearablemusic.player.ui.common.components.base.HMPCard
-import com.hearablemusic.player.ui.common.dialogs.base.ScrimDialog
-import com.hearablemusic.player.ui.common.util.hazeStyleForIntensity
-import com.hearablemusic.player.ui.common.util.hazeTintAlpha
-import co.touchlab.kermit.Severity
-import com.hearablemusic.player.ui.common.layout.LocalWindowSizeInfo
-import com.hearablemusic.player.ui.common.navigation.Routes
-import com.hearablemusic.player.ui.common.pages.base.SubScreen
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.hazeEffect
+import dev.chrisbanes.haze.hazeSource
+import dev.chrisbanes.haze.rememberHazeState
 import kotlinx.coroutines.launch
+import org.jetbrains.compose.resources.DrawableResource
+import org.jetbrains.compose.resources.painterResource
+import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
-import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
-import com.hearablemusic.player.ui.common.design.metrics.LayoutConstraints
 
 /**
  * Agent 看板 — 顶部 Token 总用量；下方每行两个 Agent 卡片、同行等高。
@@ -151,57 +149,57 @@ fun AgentMonitorScreen(
         val maxBoardWidth = if (isExpanded || window.isLandscape) LayoutConstraints.BoardMaxWidth else Dp.Unspecified
 
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
-        Column(
-            modifier = Modifier
-                .widthIn(max = maxBoardWidth)
-                .fillMaxWidth()
-                .fillMaxHeight()
-                .hazeSource(state = hazeState)
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = metrics.cozy, vertical = metrics.cozy),
-            verticalArrangement = Arrangement.spacedBy(metrics.base)
-        ) {
-            TokenMonitorCard(
-                masterAgent = masterAgent,
-                snapshot = ledgerSnap,
-                onReload = { reloadAgentTokens() },
-                onClear = {
-                    scope.launch {
-                        runCatching { ledger.clearAll() }
-                        reloadAgentTokens()
-                    }
-                },
-            )
-
-            // 网格：每行 [columns] 张，同行等高。
-            // 等高靠 Row 的 IntrinsicSize.Max 取同行最高内容作为行高（约束的是**纵轴**），
-            // 卡宽则用横轴的 weight(1f) 均分 —— 两个方向互不干扰，故可同时使用。
-            // 末尾行不足一列时用 Spacer(weight) 补位，避免最后一张被拉宽。
-            val cards: List<@Composable (Modifier) -> Unit> = listOf(
-                { m -> MasterMonitorCard(masterAgent = masterAgent, tokenText = tokenTextFor("master"), hazeState = hazeState, onClick = { navController.add(Routes.AI.AgentConfig("master")) }, modifier = m) },
-                { m -> RadioMonitorCard(masterAgent = masterAgent, tokenText = tokenTextFor("radio"), hazeState = hazeState, onClick = { navController.add(Routes.AI.AgentConfig("radio")) }, modifier = m) },
-                { m -> EnrichMonitorCard(masterAgent = masterAgent, tokenText = tokenTextFor("enrich"), hazeState = hazeState, onClick = { navController.add(Routes.AI.AgentConfig("enrich")) }, modifier = m) },
-                { m -> HelloMonitorCard(masterAgent = masterAgent, tokenText = tokenTextFor("hello"), hazeState = hazeState, onClick = { navController.add(Routes.AI.AgentConfig("hello")) }, modifier = m) },
-            )
-            val groups = cards.chunked(columns)
-
-            Column(verticalArrangement = Arrangement.spacedBy(metrics.compact)) {
-                groups.forEach { group ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Max),
-                        horizontalArrangement = Arrangement.spacedBy(metrics.compact)
-                    ) {
-                        group.forEach { card ->
-                            card(Modifier.weight(1f))
+            Column(
+                modifier = Modifier
+                    .widthIn(max = maxBoardWidth)
+                    .fillMaxWidth()
+                    .fillMaxHeight()
+                    .hazeSource(state = hazeState)
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = metrics.cozy, vertical = metrics.cozy),
+                verticalArrangement = Arrangement.spacedBy(metrics.base),
+            ) {
+                TokenMonitorCard(
+                    masterAgent = masterAgent,
+                    snapshot = ledgerSnap,
+                    onReload = { reloadAgentTokens() },
+                    onClear = {
+                        scope.launch {
+                            runCatching { ledger.clearAll() }
+                            reloadAgentTokens()
                         }
-                        // 末行不足一列时补位
-                        repeat(columns - group.size) {
-                            Spacer(Modifier.weight(1f))
+                    },
+                )
+
+                // 网格：每行 [columns] 张，同行等高。
+                // 等高靠 Row 的 IntrinsicSize.Max 取同行最高内容作为行高（约束的是**纵轴**），
+                // 卡宽则用横轴的 weight(1f) 均分 —— 两个方向互不干扰，故可同时使用。
+                // 末尾行不足一列时用 Spacer(weight) 补位，避免最后一张被拉宽。
+                val cards: List<@Composable (Modifier) -> Unit> = listOf(
+                    { m -> MasterMonitorCard(masterAgent = masterAgent, tokenText = tokenTextFor("master"), hazeState = hazeState, onClick = { navController.add(Routes.AI.AgentConfig("master")) }, modifier = m) },
+                    { m -> RadioMonitorCard(masterAgent = masterAgent, tokenText = tokenTextFor("radio"), hazeState = hazeState, onClick = { navController.add(Routes.AI.AgentConfig("radio")) }, modifier = m) },
+                    { m -> EnrichMonitorCard(masterAgent = masterAgent, tokenText = tokenTextFor("enrich"), hazeState = hazeState, onClick = { navController.add(Routes.AI.AgentConfig("enrich")) }, modifier = m) },
+                    { m -> HelloMonitorCard(masterAgent = masterAgent, tokenText = tokenTextFor("hello"), hazeState = hazeState, onClick = { navController.add(Routes.AI.AgentConfig("hello")) }, modifier = m) },
+                )
+                val groups = cards.chunked(columns)
+
+                Column(verticalArrangement = Arrangement.spacedBy(metrics.compact)) {
+                    groups.forEach { group ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Max),
+                            horizontalArrangement = Arrangement.spacedBy(metrics.compact),
+                        ) {
+                            group.forEach { card ->
+                                card(Modifier.weight(1f))
+                            }
+                            // 末行不足一列时补位
+                            repeat(columns - group.size) {
+                                Spacer(Modifier.weight(1f))
+                            }
                         }
                     }
                 }
             }
-        }
         }
     }
 }
@@ -233,25 +231,28 @@ private fun TokenMonitorCard(
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 SectionLabel(stringResource(Res.string.agent_monitor_token_usage))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         stringResource(Res.string.clear),
                         style = typo.caption,
-                        color = if (totalRows > 0) MaterialTheme.colorScheme.primary
-                        else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                        color = if (totalRows > 0) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                        },
                         modifier = Modifier
                             .clip(RoundedCornerShape(metrics.micro))
                             .clickable(enabled = totalRows > 0) { showClearConfirm = true }
-                            .padding(horizontal = metrics.compact, vertical = metrics.micro)
+                            .padding(horizontal = metrics.compact, vertical = metrics.micro),
                     )
                     IconButton(onClick = onReload, modifier = Modifier.size(metrics.section)) {
                         Text(
                             "↻",
                             style = typo.subtitle,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                 }
@@ -261,13 +262,13 @@ private fun TokenMonitorCard(
             Text(
                 fmtTokens(total),
                 style = typo.subtitle,
-                color = MaterialTheme.colorScheme.primary
+                color = MaterialTheme.colorScheme.primary,
             )
             Spacer(Modifier.height(metrics.hair))
             Text(
                 stringResource(Res.string.agent_monitor_total_usage),
                 style = typo.caption,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             // 配额进度：只有真的存在上限时才画。
             // CUSTOM 且用户没开限额时 quota=0 —— 画一条 0% 的进度条 +「剩余 0」是在骗人。
@@ -278,7 +279,7 @@ private fun TokenMonitorCard(
                 Text(
                     stringResource(Res.string.agent_monitor_quota_line, snap.used, snap.remaining, (snap.rate * 100).toInt()),
                     style = typo.caption,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
 
@@ -296,14 +297,20 @@ private fun TokenMonitorCard(
                         Text(
                             text = bucket.bucketId.replaceFirstChar { it.uppercase() },
                             style = typo.caption,
-                            color = if (drained) MaterialTheme.colorScheme.error
-                            else MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = if (drained) {
+                                MaterialTheme.colorScheme.error
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            },
                         )
                         Text(
                             text = "${fmtTokens(used)} / ${fmtTokens(cap)}",
                             style = typo.caption,
-                            color = if (drained) MaterialTheme.colorScheme.error
-                            else MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = if (drained) {
+                                MaterialTheme.colorScheme.error
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            },
                         )
                     }
                 }
@@ -319,12 +326,12 @@ private fun TokenMonitorCard(
                     Text(
                         stringResource(Res.string.agent_monitor_token_clear_confirm, totalRows.toString(), earliestText),
                         style = typo.footnote,
-                        color = MaterialTheme.colorScheme.onSurface
+                        color = MaterialTheme.colorScheme.onSurface,
                     )
                     Spacer(Modifier.height(metrics.base))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.End
+                        horizontalArrangement = Arrangement.End,
                     ) {
                         TextButton(onClick = { showClearConfirm = false }) {
                             Text(stringResource(Res.string.cancel))
@@ -373,20 +380,21 @@ private fun CardLogSection(
             .clickable { showDetail = true }
             .padding(horizontal = metrics.compact, vertical = metrics.micro),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
+        horizontalArrangement = Arrangement.SpaceBetween,
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
             Text(
                 stringResource(Res.string.agent_monitor_run_logs),
                 style = typo.caption,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1, overflow = TextOverflow.Ellipsis
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
         }
         Text(
             stringResource(Res.string.agent_monitor_log_count, entries.size),
             style = typo.caption,
-            color = MaterialTheme.colorScheme.primary
+            color = MaterialTheme.colorScheme.primary,
         )
     }
 
@@ -425,13 +433,13 @@ private fun LogDetailDialog(
                 Text(
                     title,
                     style = typo.body.copy(letterSpacing = 0.4.sp), // design-token-exception: 字距，非字号
-                    color = MaterialTheme.colorScheme.onBackground
+                    color = MaterialTheme.colorScheme.onBackground,
                 )
                 Spacer(Modifier.height(metrics.hair))
                 Text(
                     stringResource(Res.string.agent_monitor_log_meta, entries.size),
                     style = typo.caption,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Spacer(Modifier.height(metrics.compact))
                 // 极浅分隔线：弹窗内只留这一条，起锚定作用
@@ -439,14 +447,14 @@ private fun LogDetailDialog(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(metrics.stroke.thin)
-                        .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                        .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
                 )
                 Spacer(Modifier.height(metrics.compact))
                 if (entries.isEmpty()) {
                     Text(
                         stringResource(Res.string.agent_monitor_no_logs),
                         style = typo.footnote,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 } else {
                     LazyColumn(
@@ -475,14 +483,14 @@ private fun LogLine(entry: LogEntry) {
         Text(
             "[${entry.tag}] ",
             style = typo.caption,
-            color = MaterialTheme.colorScheme.primary
+            color = MaterialTheme.colorScheme.primary,
         )
         Text(
             entry.message,
             style = typo.footnote,
             color = color,
             maxLines = 6,
-            overflow = TextOverflow.Ellipsis
+            overflow = TextOverflow.Ellipsis,
         )
     }
 }
@@ -617,7 +625,7 @@ private fun SectionLabel(text: String) {
     Text(
         text,
         style = typo.caption.copy(letterSpacing = 0.6.sp), // design-token-exception: 字距，非字号
-        color = MaterialTheme.colorScheme.onSurfaceVariant
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
 }
 
@@ -631,7 +639,8 @@ private fun CardTitle(text: String) {
         textAlign = TextAlign.Center,
         style = typo.body.copy(letterSpacing = 0.4.sp), // design-token-exception: 字距，非字号
         color = MaterialTheme.colorScheme.onBackground,
-        maxLines = 1, overflow = TextOverflow.Ellipsis
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
     )
 }
 
@@ -647,7 +656,8 @@ private fun CardRow(text: String?) {
         text = text?.takeIf { it.isNotBlank() } ?: stringResource(Res.string.agent_monitor_no_data),
         style = typo.caption,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
-        maxLines = 1, overflow = TextOverflow.Ellipsis
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
     )
 }
 
@@ -662,14 +672,14 @@ private fun CardIcon(icon: DrawableResource?) {
     val metrics = LocalHmpMetrics.current
     Box(
         modifier = Modifier.fillMaxWidth(),
-        contentAlignment = Alignment.Center
+        contentAlignment = Alignment.Center,
     ) {
         if (icon != null) {
             Icon(
                 painter = painterResource(icon),
                 contentDescription = null,
                 modifier = Modifier.size(metrics.bar),
-                tint = MaterialTheme.colorScheme.onBackground
+                tint = MaterialTheme.colorScheme.onBackground,
             )
         } else {
             Spacer(Modifier.size(metrics.bar))
@@ -714,9 +724,13 @@ private fun AgentStatusCard(
                 Text(
                     statusText,
                     style = typo.caption,
-                    color = if (status == CapabilityState.Status.ERROR) AgentStatusColors.Error
-                    else MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1, overflow = TextOverflow.Ellipsis
+                    color = if (status == CapabilityState.Status.ERROR) {
+                        AgentStatusColors.Error
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
             Spacer(Modifier.height(metrics.micro))
@@ -737,7 +751,7 @@ private fun SlimProgress(progress: Float) {
         modifier = Modifier
             .fillMaxWidth()
             .height(metrics.micro)
-            .clip(RoundedCornerShape(metrics.hair))
+            .clip(RoundedCornerShape(metrics.hair)),
     )
 }
 
@@ -748,6 +762,6 @@ private fun StatusDot(status: CapabilityState.Status?) {
         modifier = Modifier
             .size(LayoutConstraints.StatusDotSize)
             .clip(CircleShape)
-            .background(agentStatusColor(status))
+            .background(agentStatusColor(status)),
     )
 }

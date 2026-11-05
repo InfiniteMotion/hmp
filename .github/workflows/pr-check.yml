@@ -159,11 +159,48 @@ jobs:
           echo "=== 正文结束 ==="
 
   # ============================================================
-  # ③ 结论汇总 —— 让 PR 页面一眼能读到「能不能合」
+  # ③ ktlint 代码风格门禁（7.4 引入）
+  #
+  # 所有非 draft PR 都跑，与 release-info 一致。不能只在 release/* 上跑 ——
+  # 功能 PR 才是风格漂移的主要来源（TODO 六 决议 ① 第 4 点）。
+  # 只做 check，不在 CI 里 -F：自动改写会产生无人负责的提交。
+  # 规则集由仓库根 .editorconfig 单一定义；jar 版本与 SHA256 在 ./ktlint 里。
+  # ============================================================
+  lint:
+    name: ktlint
+    if: >-
+      github.event_name == 'workflow_dispatch'
+      || github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # 与 ktlint-integration.md 的实测环境（CLI 1.8.0 + JDK 21）对齐
+      - name: Setup JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      # jar 内容由 SHA256 保证不变；key 带版本与哈希前缀，换版本自动失效
+      - name: Cache ktlint jar
+        uses: actions/cache@v4
+        with:
+          path: tools/ktlint
+          key: ktlint-1.8.0-369ad2b789f9
+
+      - name: Check Kotlin code style
+        run: bash ./ktlint check
+
+  # ============================================================
+  # ④ 结论汇总 —— 让 PR 页面一眼能读到「能不能合」
+  # lint 必须进 needs，否则它红了也拦不住合入（等于装饰）。
   # ============================================================
   preflight:
     name: Verdict
-    needs: [version, ffmpeg-assets, release-info]
+    needs: [version, ffmpeg-assets, release-info, lint]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -172,6 +209,7 @@ jobs:
           VERSION: ${{ needs.version.result }}
           RELEASE_INFO: ${{ needs.release-info.result }}
           FFMPEG: ${{ needs.ffmpeg-assets.result }}
+          LINT: ${{ needs.lint.result }}
         run: |
           set -euo pipefail
           mark() { case "$1" in success) echo "✅ 通过";; failure) echo "❌ 失败";; cancelled) echo "⏹ 取消";; *) echo "⏭ 跳过（非 release 分支）";; esac; }
@@ -184,10 +222,11 @@ jobs:
             echo "| 版本号自洽与多端声明一致 | $(mark "$VERSION") |"
             echo "| release.toml → 派生点一致 + 说明预渲染 | $(mark "$RELEASE_INFO") |"
             echo "| FFmpeg 资产可用性与架构 | $(mark "$FFMPEG") |"
+            echo "| Kotlin 代码风格（ktlint） | $(mark "$LINT") |"
             echo ""
           } >> "$GITHUB_STEP_SUMMARY"
 
-          if [ "$VERSION" = failure ] || [ "$RELEASE_INFO" = failure ] || [ "$FFMPEG" = failure ]; then
+          if [ "$VERSION" = failure ] || [ "$RELEASE_INFO" = failure ] || [ "$FFMPEG" = failure ] || [ "$LINT" = failure ]; then
             {
               echo "**不允许合入**：上述检查有失败项，合入后会卡在 \`release.yml\` 的 validate 或打包阶段。"
               echo ""
@@ -196,6 +235,7 @@ jobs:
               echo './gradlew checkVersion checkReleaseConsistency'
               echo 'python scripts/sync-release.py sync --check'
               echo 'python3 .github/scripts/check-ffmpeg-assets.py'
+              echo './ktlint check'
               echo '```'
             } >> "$GITHUB_STEP_SUMMARY"
             exit 1

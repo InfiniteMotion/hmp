@@ -1,19 +1,4 @@
 package com.hearablemusic.player.ui.library.pages
-import com.hearablemusic.player.ui.generated.resources.search_empty_ask
-import com.hearablemusic.player.ui.generated.resources.search_intent_ask
-import com.hearablemusic.player.ui.generated.resources.search_intent_hint
-import com.hearablemusic.player.ui.generated.resources.search_intent_just_search
-
-import com.hearablemusic.player.ui.generated.resources.Res
-import org.jetbrains.compose.resources.painterResource
-import org.jetbrains.compose.resources.stringResource
-
-import com.hearablemusic.player.ui.generated.resources.magnifyingglass
-import com.hearablemusic.player.ui.generated.resources.no_results_found
-import com.hearablemusic.player.ui.generated.resources.search
-import com.hearablemusic.player.ui.generated.resources.search_hint
-import com.hearablemusic.player.ui.generated.resources.search_placeholder
-
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -31,28 +16,37 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import org.koin.compose.viewmodel.koinViewModel
-import org.koin.compose.koinInject
-import com.hearablemusic.player.ui.agent.chat.ChatEntryBroker
-import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
-import com.hearablemusic.player.ui.common.navigation.Routes as NavRoutes
-import com.hearablemusic.player.ui.common.components.base.HMPTextField
-import com.hmp.domain.agent.funnel.CommandLexicon
-import com.hmp.domain.agent.funnel.FunnelResult
-import com.hearablemusic.player.ui.common.util.activityViewModel
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.text.style.TextAlign
-import com.hmp.domain.music.MusicInfo
+import com.hearablemusic.player.ui.agent.chat.ChatEntryBroker
+import com.hearablemusic.player.ui.common.components.base.HMPTextField
 import com.hearablemusic.player.ui.common.components.base.UiStateContent
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
+import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
+import com.hearablemusic.player.ui.common.dialogs.viewmodel.DialogViewModel
+import com.hearablemusic.player.ui.common.pages.base.SubScreen
+import com.hearablemusic.player.ui.common.util.UiState
+import com.hearablemusic.player.ui.common.util.activityViewModel
+import com.hearablemusic.player.ui.common.util.rememberHapticFeedback
+import com.hearablemusic.player.ui.generated.resources.Res
+import com.hearablemusic.player.ui.generated.resources.magnifyingglass
+import com.hearablemusic.player.ui.generated.resources.no_results_found
+import com.hearablemusic.player.ui.generated.resources.search
+import com.hearablemusic.player.ui.generated.resources.search_empty_ask
+import com.hearablemusic.player.ui.generated.resources.search_hint
+import com.hearablemusic.player.ui.generated.resources.search_intent_ask
+import com.hearablemusic.player.ui.generated.resources.search_intent_hint
+import com.hearablemusic.player.ui.generated.resources.search_intent_just_search
+import com.hearablemusic.player.ui.generated.resources.search_placeholder
 import com.hearablemusic.player.ui.library.pages.components.musiclist.CurrentPlayingConfig
 import com.hearablemusic.player.ui.library.pages.components.musiclist.EditConfig
 import com.hearablemusic.player.ui.library.pages.components.musiclist.FullItemOptions
@@ -62,16 +56,18 @@ import com.hearablemusic.player.ui.library.pages.components.musiclist.ItemVarian
 import com.hearablemusic.player.ui.library.pages.components.musiclist.MusicList
 import com.hearablemusic.player.ui.library.pages.components.musiclist.MusicListCallbacksAdapter
 import com.hearablemusic.player.ui.library.pages.components.musiclist.defaultMusicListConfig
-import kotlinx.coroutines.launch
-import com.hearablemusic.player.ui.common.util.rememberHapticFeedback
-import com.hearablemusic.player.ui.common.util.UiState
-import com.hearablemusic.player.ui.common.dialogs.viewmodel.DialogViewModel
+import com.hearablemusic.player.ui.library.viewmodel.SearchViewModel
 import com.hearablemusic.player.ui.player.viewmodel.PlaybackViewModel
 import com.hearablemusic.player.ui.player.viewmodel.PlaylistQueueViewModel
-import com.hearablemusic.player.ui.library.viewmodel.SearchViewModel
-
-import com.hearablemusic.player.ui.common.pages.base.SubScreen
-import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
+import com.hmp.domain.agent.funnel.CommandLexicon
+import com.hmp.domain.agent.funnel.FunnelResult
+import com.hmp.domain.music.MusicInfo
+import kotlinx.coroutines.launch
+import org.jetbrains.compose.resources.painterResource
+import org.jetbrains.compose.resources.stringResource
+import org.koin.compose.koinInject
+import org.koin.compose.viewmodel.koinViewModel
+import com.hearablemusic.player.ui.common.navigation.Routes as NavRoutes
 
 @Composable
 fun SearchScreen(
@@ -81,7 +77,7 @@ fun SearchScreen(
     dialogViewModel: DialogViewModel = activityViewModel(),
     navController: NavBackStack<NavKey>,
     chatEntryBroker: ChatEntryBroker = koinInject(),
-){
+) {
     val isPlaying by playbackViewModel.isPlaying.collectAsState()
     var searchQuery by rememberSaveable { mutableStateOf("") }
     val searchState by searchViewModel.searchState.collectAsState()
@@ -112,7 +108,7 @@ fun SearchScreen(
                 showViewDetail = true,
                 showPlayNext = true,
                 showRemoveFromCurrentPlaylist = false,
-                showDelete = false
+                showDelete = false,
             )
             dialogViewModel.showMusicDetailDialog(musicInfo, menuConfig)
         },
@@ -149,12 +145,12 @@ fun SearchScreenContent(
         CommandLexicon.classify(searchQuery) is FunnelResult.Upgrade
     SubScreen(
         onBackClick = onBackClick,
-        title = stringResource(Res.string.search)
+        title = stringResource(Res.string.search),
     ) {
         Column(
             modifier = Modifier.fillMaxSize()
                 .padding(top = metrics.cozy),
-            verticalArrangement = Arrangement.spacedBy(metrics.section)
+            verticalArrangement = Arrangement.spacedBy(metrics.section),
         ) {
             HMPTextField(
                 value = searchQuery,
@@ -173,7 +169,7 @@ fun SearchScreenContent(
                 },
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Text,
-                    imeAction = ImeAction.Search
+                    imeAction = ImeAction.Search,
                 ),
             )
             // 两级漏斗第一级未命中 + 意图特征 → 伙伴条带（交给伙伴 / 只是搜索）
@@ -183,13 +179,13 @@ fun SearchScreenContent(
                         .fillMaxWidth()
                         .padding(horizontal = metrics.cozy),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(metrics.compact)
+                    horizontalArrangement = Arrangement.spacedBy(metrics.compact),
                 ) {
                     Text(
                         text = stringResource(Res.string.search_intent_hint),
                         style = typo.footnote,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.weight(1f),
                     )
                     TextButton(onClick = { onTalkToCompanion(searchQuery) }) {
                         Text(stringResource(Res.string.search_intent_ask), color = MaterialTheme.colorScheme.primary)
@@ -203,26 +199,26 @@ fun SearchScreenContent(
                 Column(
                     modifier = Modifier.fillMaxSize().weight(1f),
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
+                    verticalArrangement = Arrangement.Center,
                 ) {
                     Icon(
                         painter = painterResource(Res.drawable.magnifyingglass),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         contentDescription = stringResource(Res.string.search),
-                        modifier = Modifier.size(metrics.row)
+                        modifier = Modifier.size(metrics.row),
                     )
                     Text(
                         text = stringResource(Res.string.search_placeholder),
                         style = typo.subtitle,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(top = metrics.cozy)
+                        modifier = Modifier.padding(top = metrics.cozy),
                     )
                     Text(
                         text = stringResource(Res.string.search_hint),
                         style = typo.body,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(top = metrics.compact, start = metrics.block, end = metrics.block),
-                        textAlign = TextAlign.Center
+                        textAlign = TextAlign.Center,
                     )
                 }
             } else {
@@ -233,53 +229,57 @@ fun SearchScreenContent(
                         Column(
                             modifier = Modifier.fillMaxSize(),
                             horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Center
+                            verticalArrangement = Arrangement.Center,
                         ) {
                             Text(
                                 text = stringResource(Res.string.no_results_found),
                                 style = typo.body,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                             TextButton(onClick = { onTalkToCompanion(searchQuery) }) {
                                 Text(stringResource(Res.string.search_empty_ask), color = MaterialTheme.colorScheme.primary)
                             }
                         }
-                    }
+                    },
                 ) { searchResults ->
-                val currentPlayingIndex = searchResults.indexOfFirst { it.music.id == currentPlayingMusic?.music?.id }.takeIf { it >= 0 }
-                val callbacks = object : MusicListCallbacksAdapter() {
-                    override fun onItemClick(musicInfo: MusicInfo, index: Int) {
-                        haptic.performClick()
-                        scope.launch { playWith(musicInfo) }
+                    val currentPlayingIndex = searchResults.indexOfFirst { it.music.id == currentPlayingMusic?.music?.id }.takeIf { it >= 0 }
+                    val callbacks = object : MusicListCallbacksAdapter() {
+                        override fun onItemClick(musicInfo: MusicInfo, index: Int) {
+                            haptic.performClick()
+                            scope.launch { playWith(musicInfo) }
+                        }
+                        override fun onAddToPlaylist(musicInfo: MusicInfo) {
+                            addToPlaylist(musicInfo)
+                        }
+                        override fun onMenuClick(musicInfo: MusicInfo) {
+                            onShowMusicDetailDialog(musicInfo)
+                        }
                     }
-                    override fun onAddToPlaylist(musicInfo: MusicInfo) { addToPlaylist(musicInfo) }
-                    override fun onMenuClick(musicInfo: MusicInfo) { onShowMusicDetailDialog(musicInfo) }
-                }
-                val config = defaultMusicListConfig(callbacks).copy(
-                    header = HeaderConfig.None,
-                    item = ItemConfig(
-                        variant = ItemVariant.Full,
-                        showIndex = true,
-                        fullOptions = FullItemOptions(
-                            showPinButton = false,
-                            showRemoveButton = false,
-                            showMenuButton = true,
-                            showAddToPlaylistInMenu = false,
+                    val config = defaultMusicListConfig(callbacks).copy(
+                        header = HeaderConfig.None,
+                        item = ItemConfig(
+                            variant = ItemVariant.Full,
+                            showIndex = true,
+                            fullOptions = FullItemOptions(
+                                showPinButton = false,
+                                showRemoveButton = false,
+                                showMenuButton = true,
+                                showAddToPlaylistInMenu = false,
+                            ),
                         ),
-                    ),
-                    edit = EditConfig(enabled = false),
-                    currentPlaying = CurrentPlayingConfig(
-                        index = currentPlayingIndex,
-                        autoScrollToCurrent = false
-                    ),
-                )
+                        edit = EditConfig(enabled = false),
+                        currentPlaying = CurrentPlayingConfig(
+                            index = currentPlayingIndex,
+                            autoScrollToCurrent = false,
+                        ),
+                    )
                     MusicList(
                         musicInfoList = searchResults,
                         config = config,
                         modifier = Modifier.fillMaxWidth(),
                         isPlaying = isPlaying,
                     )
-            }
+                }
             }
         }
     }

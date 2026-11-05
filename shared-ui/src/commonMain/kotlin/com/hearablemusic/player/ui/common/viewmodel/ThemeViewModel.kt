@@ -3,9 +3,9 @@ package com.hearablemusic.player.ui.common.viewmodel
 import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.hmp.domain.music.MusicInfo
 import com.hearablemusic.player.ui.platform.AlbumArtPixelsLoader
 import com.hearablemusic.player.ui.platform.PlaybackController
+import com.hmp.domain.music.MusicInfo
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -26,7 +26,7 @@ import kotlin.math.pow
  */
 class ThemeViewModel(
     private val pixelsLoader: AlbumArtPixelsLoader,
-    playbackController: PlaybackController
+    playbackController: PlaybackController,
 ) : ViewModel() {
 
     private val paletteCache = mutableMapOf<String, PaletteColors>()
@@ -103,53 +103,61 @@ class ThemeViewModel(
     // ── 3D 颜色直方图 + 峰值检测 ─────────────────────────────────
 
     private data class ColorPeak(
-        val r: Int, val g: Int, val b: Int,
-        val weight: Float
+        val r: Int,
+        val g: Int,
+        val b: Int,
+        val weight: Float,
     )
 
     private fun analyzeColors(pixels: IntArray): PaletteColors {
         val total = pixels.size
         if (total == 0) return PaletteColors()
 
-        val BINS = 24
-        val hist = FloatArray(BINS * BINS * BINS)
+        val bins = 24
+        val hist = FloatArray(bins * bins * bins)
         for (px in pixels) {
             if ((px ushr 24) <= 0x40) continue
-            val r = ((px shr 16) and 0xFF) * BINS / 256
-            val g = ((px shr 8) and 0xFF) * BINS / 256
-            val b = (px and 0xFF) * BINS / 256
-            val idx = (r * BINS * BINS) + (g * BINS) + b
+            val r = ((px shr 16) and 0xFF) * bins / 256
+            val g = ((px shr 8) and 0xFF) * bins / 256
+            val b = (px and 0xFF) * bins / 256
+            val idx = (r * bins * bins) + (g * bins) + b
             hist[idx] += 1f
         }
 
         val rawPeaks = mutableListOf<ColorPeak>()
-        for (r in 0 until BINS) {
-            for (g in 0 until BINS) {
-                for (b in 0 until BINS) {
-                    val idx = (r * BINS * BINS) + (g * BINS) + b
+        for (r in 0 until bins) {
+            for (g in 0 until bins) {
+                for (b in 0 until bins) {
+                    val idx = (r * bins * bins) + (g * bins) + b
                     val v = hist[idx]
                     if (v <= 0f) continue
                     var isPeak = true
                     check@ for (dr in -1..1) {
-                        val nr = r + dr; if (nr !in 0 until BINS) continue
+                        val nr = r + dr
+                        if (nr !in 0 until bins) continue
                         for (dg in -1..1) {
-                            val ng = g + dg; if (ng !in 0 until BINS) continue
+                            val ng = g + dg
+                            if (ng !in 0 until bins) continue
                             for (db in -1..1) {
                                 if (dr == 0 && dg == 0 && db == 0) continue
-                                val nb = b + db; if (nb !in 0 until BINS) continue
-                                if (hist[(nr * BINS * BINS) + (ng * BINS) + nb] >= v) {
-                                    isPeak = false; break@check
+                                val nb = b + db
+                                if (nb !in 0 until bins) continue
+                                if (hist[(nr * bins * bins) + (ng * bins) + nb] >= v) {
+                                    isPeak = false
+                                    break@check
                                 }
                             }
                         }
                     }
                     if (isPeak) {
-                        rawPeaks.add(ColorPeak(
-                            r = (r * 256 + 128) / BINS,
-                            g = (g * 256 + 128) / BINS,
-                            b = (b * 256 + 128) / BINS,
-                            weight = v / total.toFloat()
-                        ))
+                        rawPeaks.add(
+                            ColorPeak(
+                                r = (r * 256 + 128) / bins,
+                                g = (g * 256 + 128) / bins,
+                                b = (b * 256 + 128) / bins,
+                                weight = v / total.toFloat(),
+                            ),
+                        )
                     }
                 }
             }
@@ -167,8 +175,11 @@ class ThemeViewModel(
 
         val threshold = 0.006f
         val filtered = merged.filter { it.weight >= threshold }
-        var detected = if (filtered.size >= 2) filtered
-            else merged.take(2).ifEmpty { filtered }
+        var detected = if (filtered.size >= 2) {
+            filtered
+        } else {
+            merged.take(2).ifEmpty { filtered }
+        }
 
         if (detected.size < 3) {
             val padded = detected.toMutableList()
@@ -236,12 +247,14 @@ class ThemeViewModel(
             peakWeights = peakWeights,
             primary = primary,
             background = background,
-            accent = accent
+            accent = accent,
         )
     }
 
     private fun rgbDist(a: ColorPeak, b: ColorPeak): Float {
-        val dr = a.r - b.r; val dg = a.g - b.g; val db = a.b - b.b
+        val dr = a.r - b.r
+        val dg = a.g - b.g
+        val db = a.b - b.b
         return kotlin.math.sqrt((dr * dr + dg * dg + db * db).toFloat())
     }
 
@@ -249,12 +262,14 @@ class ThemeViewModel(
 
     private fun linearize(c: Float): Float {
         val s = c / 255f
-        return if (s <= 0.04045f) s / 12.92f
-        else ((s + 0.055f) / 1.055f).pow(2.4f).toFloat()
+        return if (s <= 0.04045f) {
+            s / 12.92f
+        } else {
+            ((s + 0.055f) / 1.055f).pow(2.4f).toFloat()
+        }
     }
 
-    private fun relativeLuminance(r: Int, g: Int, b: Int): Float =
-        0.2126f * linearize(r.toFloat()) + 0.7152f * linearize(g.toFloat()) + 0.0722f * linearize(b.toFloat())
+    private fun relativeLuminance(r: Int, g: Int, b: Int): Float = 0.2126f * linearize(r.toFloat()) + 0.7152f * linearize(g.toFloat()) + 0.0722f * linearize(b.toFloat())
 
     private fun relativeLuminance(color: Color): Float {
         val r = (color.red * 255f).toInt().coerceIn(0, 255)
@@ -269,8 +284,7 @@ class ThemeViewModel(
         return (lighter + 0.05f) / (darker + 0.05f)
     }
 
-    private fun contrastRatio(color: Color, bgLum: Float): Float =
-        contrastRatio(relativeLuminance(color), bgLum)
+    private fun contrastRatio(color: Color, bgLum: Float): Float = contrastRatio(relativeLuminance(color), bgLum)
 
     private fun ensureContrast(color: Color, background: Color, target: Float): Color {
         val bgR = (background.red * 255f).toInt()
@@ -285,7 +299,9 @@ class ThemeViewModel(
             r += ((r - bgR) * 0.15f).toInt().coerceIn(1, 30) * if (r > bgR) 1 else -1
             g += ((g - bgG) * 0.15f).toInt().coerceIn(1, 30) * if (g > bgG) 1 else -1
             b += ((b - bgB) * 0.15f).toInt().coerceIn(1, 30) * if (b > bgB) 1 else -1
-            r = r.coerceIn(0, 255); g = g.coerceIn(0, 255); b = b.coerceIn(0, 255)
+            r = r.coerceIn(0, 255)
+            g = g.coerceIn(0, 255)
+            b = b.coerceIn(0, 255)
         }
         return Color(0xFF000000L or (r.toLong() shl 16) or (g.toLong() shl 8) or b.toLong()) // design-token-exception: ARGB 位掩码，不是设计色
     }
@@ -314,7 +330,8 @@ class ThemeViewModel(
         return Triple(
             ((r1 + m) * 255f).toInt().coerceIn(0, 255),
             ((g1 + m) * 255f).toInt().coerceIn(0, 255),
-            ((b1 + m) * 255f).toInt().coerceIn(0, 255))
+            ((b1 + m) * 255f).toInt().coerceIn(0, 255),
+        )
     }
 
     private fun rgbToHsl(r: Int, g: Int, b: Int): FloatArray {

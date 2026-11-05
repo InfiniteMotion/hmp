@@ -1,20 +1,4 @@
 package com.hearablemusic.player.ui.agent.monitor
-import com.hearablemusic.player.ui.common.text.UiText
-import com.hearablemusic.player.ui.common.text.asString
-import com.hearablemusic.player.ui.common.text.asUiText
-import com.hearablemusic.player.ui.generated.resources.Res
-import org.jetbrains.compose.resources.stringResource
-import com.hearablemusic.player.ui.generated.resources.agent_audit_title
-import com.hearablemusic.player.ui.generated.resources.agent_audit_empty
-import com.hearablemusic.player.ui.generated.resources.agent_audit_empty_detail
-import com.hearablemusic.player.ui.generated.resources.agent_audit_filter_all
-import com.hearablemusic.player.ui.generated.resources.agent_audit_filter_radio
-import com.hearablemusic.player.ui.generated.resources.agent_audit_filter_reorder
-import com.hearablemusic.player.ui.generated.resources.agent_audit_no_detail
-import com.hearablemusic.player.ui.generated.resources.agent_audit_args_hash
-import com.hearablemusic.player.ui.generated.resources.agent_audit_task_id
-import com.hearablemusic.player.ui.generated.resources.agent_audit_record_id
-
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -40,9 +24,6 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import com.hearablemusic.player.ui.common.components.base.DefaultEmpty
-import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
-import com.hearablemusic.player.ui.common.design.typography.medium
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -57,14 +38,32 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
-import com.hmp.data.database.AgentAuditLog
-import com.hmp.data.database.AgentAuditLogDao
+import com.hearablemusic.player.ui.common.components.base.DefaultEmpty
+import com.hearablemusic.player.ui.common.design.metrics.LayoutConstraints
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
+import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
+import com.hearablemusic.player.ui.common.design.typography.medium
 import com.hearablemusic.player.ui.common.layout.LocalWindowSizeInfo
 import com.hearablemusic.player.ui.common.pages.base.SubScreen
+import com.hearablemusic.player.ui.common.text.UiText
+import com.hearablemusic.player.ui.common.text.asString
+import com.hearablemusic.player.ui.common.text.asUiText
 import com.hearablemusic.player.ui.common.util.formatEpochMillis
+import com.hearablemusic.player.ui.generated.resources.Res
+import com.hearablemusic.player.ui.generated.resources.agent_audit_args_hash
+import com.hearablemusic.player.ui.generated.resources.agent_audit_empty
+import com.hearablemusic.player.ui.generated.resources.agent_audit_empty_detail
+import com.hearablemusic.player.ui.generated.resources.agent_audit_filter_all
+import com.hearablemusic.player.ui.generated.resources.agent_audit_filter_radio
+import com.hearablemusic.player.ui.generated.resources.agent_audit_filter_reorder
+import com.hearablemusic.player.ui.generated.resources.agent_audit_no_detail
+import com.hearablemusic.player.ui.generated.resources.agent_audit_record_id
+import com.hearablemusic.player.ui.generated.resources.agent_audit_task_id
+import com.hearablemusic.player.ui.generated.resources.agent_audit_title
+import com.hmp.data.database.AgentAuditLog
+import com.hmp.data.database.AgentAuditLogDao
+import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
-import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
-import com.hearablemusic.player.ui.common.design.metrics.LayoutConstraints
 
 /**
  * M6-T4：Agent 操作审计日志页面。
@@ -98,69 +97,69 @@ fun AuditLogScreen(
             modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.TopCenter,
         ) {
-        if (isLandscape) {
-        Row(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = metrics.block, vertical = metrics.cozy),
-            horizontalArrangement = Arrangement.spacedBy(metrics.section),
-        ) {
-            // 左：筛选 rail（竖排）
-            FilterRail(
-                currentFilter = currentFilter,
-                onFilterSelected = { viewModel.applyFilter(it) },
-                modifier = Modifier.width(LayoutConstraints.CoverHeightSmall).fillMaxHeight(),
-            )
-            // 右：列表吃满剩余宽度
-            Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
-                if (logs.isEmpty()) {
-                    DefaultEmpty(
-                        message = stringResource(Res.string.agent_audit_empty),
-                        detail = stringResource(Res.string.agent_audit_empty_detail),
-                        modifier = Modifier.fillMaxSize(),
-                    )
-                } else {
-                    LazyColumn(verticalArrangement = Arrangement.spacedBy(metrics.compact)) {
-                        items(logs, key = { it.id }) { log -> AuditLogRow(log) }
-                        item { Spacer(Modifier.height(metrics.block)) }
-                    }
-                }
-            }
-        }
-        } else {
-        Column(
-            modifier = Modifier
-                .widthIn(max = listMaxWidth)
-                .fillMaxWidth()
-                .fillMaxSize()
-                .padding(horizontal = metrics.section, vertical = metrics.compact),
-        ) {
-            // 筛选 Tab
-            FilterRow(
-                currentFilter = currentFilter,
-                onFilterSelected = { viewModel.applyFilter(it) }
-            )
-
-            Spacer(Modifier.height(metrics.compact))
-
-            if (logs.isEmpty()) {
-                DefaultEmpty(
-                    message = stringResource(Res.string.agent_audit_empty),
-                    detail = stringResource(Res.string.agent_audit_empty_detail),
-                    modifier = Modifier.fillMaxSize(),
-                )
-            } else {
-                LazyColumn(
-                    verticalArrangement = Arrangement.spacedBy(metrics.compact),
+            if (isLandscape) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = metrics.block, vertical = metrics.cozy),
+                    horizontalArrangement = Arrangement.spacedBy(metrics.section),
                 ) {
-                    items(logs, key = { it.id }) { log ->
-                        AuditLogRow(log)
+                    // 左：筛选 rail（竖排）
+                    FilterRail(
+                        currentFilter = currentFilter,
+                        onFilterSelected = { viewModel.applyFilter(it) },
+                        modifier = Modifier.width(LayoutConstraints.CoverHeightSmall).fillMaxHeight(),
+                    )
+                    // 右：列表吃满剩余宽度
+                    Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
+                        if (logs.isEmpty()) {
+                            DefaultEmpty(
+                                message = stringResource(Res.string.agent_audit_empty),
+                                detail = stringResource(Res.string.agent_audit_empty_detail),
+                                modifier = Modifier.fillMaxSize(),
+                            )
+                        } else {
+                            LazyColumn(verticalArrangement = Arrangement.spacedBy(metrics.compact)) {
+                                items(logs, key = { it.id }) { log -> AuditLogRow(log) }
+                                item { Spacer(Modifier.height(metrics.block)) }
+                            }
+                        }
                     }
-                    item { Spacer(Modifier.height(metrics.block)) }
+                }
+            } else {
+                Column(
+                    modifier = Modifier
+                        .widthIn(max = listMaxWidth)
+                        .fillMaxWidth()
+                        .fillMaxSize()
+                        .padding(horizontal = metrics.section, vertical = metrics.compact),
+                ) {
+                    // 筛选 Tab
+                    FilterRow(
+                        currentFilter = currentFilter,
+                        onFilterSelected = { viewModel.applyFilter(it) },
+                    )
+
+                    Spacer(Modifier.height(metrics.compact))
+
+                    if (logs.isEmpty()) {
+                        DefaultEmpty(
+                            message = stringResource(Res.string.agent_audit_empty),
+                            detail = stringResource(Res.string.agent_audit_empty_detail),
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                    } else {
+                        LazyColumn(
+                            verticalArrangement = Arrangement.spacedBy(metrics.compact),
+                        ) {
+                            items(logs, key = { it.id }) { log ->
+                                AuditLogRow(log)
+                            }
+                            item { Spacer(Modifier.height(metrics.block)) }
+                        }
+                    }
                 }
             }
-        }
-        }
         }
     }
 }
@@ -341,12 +340,16 @@ private fun OutcomeBadge(outcome: String) {
     val (bg, fg) = when (outcome) {
         "success", "allowed_silent", "allowed_notify" ->
             MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) to MaterialTheme.colorScheme.primary
+
         "failed" ->
             MaterialTheme.colorScheme.error.copy(alpha = 0.15f) to MaterialTheme.colorScheme.error
+
         "denied", "refused", "rejected" ->
             MaterialTheme.colorScheme.error.copy(alpha = 0.15f) to MaterialTheme.colorScheme.error
+
         "pending_confirm" ->
             MaterialTheme.colorScheme.tertiary.copy(alpha = 0.15f) to MaterialTheme.colorScheme.tertiary
+
         else ->
             MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f) to MaterialTheme.colorScheme.onSurfaceVariant
     }
@@ -364,5 +367,4 @@ private fun OutcomeBadge(outcome: String) {
     }
 }
 
-private fun formatTimestamp(ts: Long): String =
-    runCatching { formatEpochMillis(ts, "yyyy-MM-dd HH:mm:ss") }.getOrDefault("timestamp=$ts")
+private fun formatTimestamp(ts: Long): String = runCatching { formatEpochMillis(ts, "yyyy-MM-dd HH:mm:ss") }.getOrDefault("timestamp=$ts")

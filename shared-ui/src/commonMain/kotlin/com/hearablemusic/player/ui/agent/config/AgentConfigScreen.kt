@@ -1,101 +1,4 @@
 package com.hearablemusic.player.ui.agent.config
-import com.hearablemusic.player.ui.common.text.UiText
-import com.hearablemusic.player.ui.common.text.asString
-import com.hearablemusic.player.ui.common.text.asUiText
-import com.hearablemusic.player.ui.generated.resources.agent_ai_collapse
-import com.hearablemusic.player.ui.generated.resources.agent_ai_lang_auto
-import com.hearablemusic.player.ui.generated.resources.agent_ai_lang_en
-import com.hearablemusic.player.ui.generated.resources.agent_ai_lang_zh
-import com.hearablemusic.player.ui.generated.resources.agent_cfg_all_default
-import com.hearablemusic.player.ui.generated.resources.agent_cfg_always_allow_count
-import com.hearablemusic.player.ui.generated.resources.agent_cfg_auto_renew
-import com.hearablemusic.player.ui.generated.resources.agent_cfg_builtin
-import com.hearablemusic.player.ui.generated.resources.agent_cfg_change_global_hint
-import com.hearablemusic.player.ui.generated.resources.agent_cfg_config_suffix
-import com.hearablemusic.player.ui.generated.resources.agent_cfg_count_tracks
-import com.hearablemusic.player.ui.generated.resources.agent_cfg_customized_count
-import com.hearablemusic.player.ui.generated.resources.agent_cfg_daily_count
-import com.hearablemusic.player.ui.generated.resources.agent_cfg_daily_count_value
-import com.hearablemusic.player.ui.generated.resources.agent_cfg_desc_enrich
-import com.hearablemusic.player.ui.generated.resources.agent_cfg_desc_hello
-import com.hearablemusic.player.ui.generated.resources.agent_cfg_desc_master
-import com.hearablemusic.player.ui.generated.resources.agent_cfg_desc_radio
-import com.hearablemusic.player.ui.generated.resources.agent_cfg_disabled_hint
-import com.hearablemusic.player.ui.generated.resources.agent_cfg_discard_changes
-import com.hearablemusic.player.ui.generated.resources.agent_cfg_edit
-import com.hearablemusic.player.ui.generated.resources.agent_cfg_effective_lang
-import com.hearablemusic.player.ui.generated.resources.agent_cfg_endpoint_config
-import com.hearablemusic.player.ui.generated.resources.agent_cfg_endpoint_custom
-import com.hearablemusic.player.ui.generated.resources.agent_cfg_endpoint_url_label
-import com.hearablemusic.player.ui.generated.resources.agent_cfg_endpoint_value
-import com.hearablemusic.player.ui.generated.resources.agent_cfg_following_global
-import com.hearablemusic.player.ui.generated.resources.agent_cfg_hello_prompt_desc
-import com.hearablemusic.player.ui.generated.resources.agent_cfg_lang_desc
-import com.hearablemusic.player.ui.generated.resources.agent_cfg_global_unavailable
-import com.hearablemusic.player.ui.generated.resources.agent_cfg_lang_follow_global
-import com.hearablemusic.player.ui.generated.resources.agent_cfg_lang_follow_global_default
-import com.hearablemusic.player.ui.generated.resources.agent_cfg_lang_follow_system
-import com.hearablemusic.player.ui.generated.resources.agent_cfg_lang_global_auto
-import com.hearablemusic.player.ui.generated.resources.agent_cfg_lang_global_en
-import com.hearablemusic.player.ui.generated.resources.agent_cfg_lang_global_zh
-import com.hearablemusic.player.ui.generated.resources.agent_cfg_language
-import com.hearablemusic.player.ui.generated.resources.agent_cfg_loading
-import com.hearablemusic.player.ui.generated.resources.agent_cfg_missing_placeholder
-import com.hearablemusic.player.ui.generated.resources.agent_cfg_model_label
-import com.hearablemusic.player.ui.generated.resources.agent_cfg_model_value
-import com.hearablemusic.player.ui.generated.resources.agent_cfg_placeholder_default
-import com.hearablemusic.player.ui.generated.resources.agent_cfg_placeholders_needed
-import com.hearablemusic.player.ui.generated.resources.agent_cfg_playlist_len
-import com.hearablemusic.player.ui.generated.resources.agent_cfg_prompt_desc
-import com.hearablemusic.player.ui.generated.resources.agent_cfg_radio_params
-import com.hearablemusic.player.ui.generated.resources.agent_cfg_reco_params
-import com.hearablemusic.player.ui.generated.resources.agent_cfg_restore_default
-import com.hearablemusic.player.ui.generated.resources.agent_cfg_restore_factory
-import com.hearablemusic.player.ui.generated.resources.agent_cfg_save
-import com.hearablemusic.player.ui.generated.resources.agent_cfg_status_default
-import com.hearablemusic.player.ui.generated.resources.agent_cfg_status_overridden
-import com.hearablemusic.player.ui.generated.resources.agent_cfg_status_unsaved
-import com.hearablemusic.player.ui.generated.resources.agent_cfg_step_budget
-import com.hearablemusic.player.ui.generated.resources.agent_cfg_step_budget_value
-import com.hearablemusic.player.ui.generated.resources.agent_cfg_target_count
-import com.hearablemusic.player.ui.generated.resources.agent_cfg_target_cov
-import com.hearablemusic.player.ui.generated.resources.agent_cfg_temperature
-import com.hearablemusic.player.ui.generated.resources.agent_cfg_trust_act
-import com.hearablemusic.player.ui.generated.resources.agent_cfg_trust_desc
-import com.hearablemusic.player.ui.generated.resources.agent_cfg_trust_silent
-import com.hearablemusic.player.ui.generated.resources.agent_cfg_trust_suggest
-import com.hearablemusic.player.ui.generated.resources.agent_cfg_trust_title
-import com.hearablemusic.player.ui.generated.resources.Res
-import com.hearablemusic.player.ui.generated.resources.agent_hello_forgotten_card
-import com.hearablemusic.player.ui.generated.resources.agent_hello_forgotten_card_hint
-import com.hearablemusic.player.ui.generated.resources.agent_hello_forgotten_essay
-import com.hearablemusic.player.ui.generated.resources.agent_hello_forgotten_essay_hint
-import com.hearablemusic.player.ui.generated.resources.agent_hello_greeting_artist
-import com.hearablemusic.player.ui.generated.resources.agent_hello_greeting_artist_hint
-import com.hearablemusic.player.ui.generated.resources.agent_hello_greeting_fact
-import com.hearablemusic.player.ui.generated.resources.agent_hello_greeting_fact_hint
-import com.hearablemusic.player.ui.generated.resources.agent_hello_greeting_history
-import com.hearablemusic.player.ui.generated.resources.agent_hello_greeting_history_hint
-import com.hearablemusic.player.ui.generated.resources.agent_hello_greeting_listen
-import com.hearablemusic.player.ui.generated.resources.agent_hello_greeting_listen_hint
-import com.hearablemusic.player.ui.generated.resources.agent_hello_greeting_lyric_gold
-import com.hearablemusic.player.ui.generated.resources.agent_hello_greeting_lyric_gold_hint
-import com.hearablemusic.player.ui.generated.resources.agent_hello_greeting_quote
-import com.hearablemusic.player.ui.generated.resources.agent_hello_greeting_quote_hint
-import com.hearablemusic.player.ui.generated.resources.agent_hello_greeting_story
-import com.hearablemusic.player.ui.generated.resources.agent_hello_greeting_story_hint
-import com.hearablemusic.player.ui.generated.resources.agent_hello_group_forgotten
-import com.hearablemusic.player.ui.generated.resources.agent_hello_group_greeting
-import com.hearablemusic.player.ui.generated.resources.agent_hello_group_recommend
-import com.hearablemusic.player.ui.generated.resources.agent_hello_recommend_full
-import com.hearablemusic.player.ui.generated.resources.agent_hello_recommend_full_hint
-import com.hearablemusic.player.ui.generated.resources.agent_hello_recommend_list
-import com.hearablemusic.player.ui.generated.resources.agent_hello_recommend_list_hint
-import com.hearablemusic.player.ui.generated.resources.agent_hello_recommend_short
-import com.hearablemusic.player.ui.generated.resources.agent_hello_recommend_short_hint
-import org.jetbrains.compose.resources.StringResource
-import org.jetbrains.compose.resources.stringResource
-
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -138,22 +41,118 @@ import androidx.navigation3.runtime.NavKey
 import com.hearablemusic.player.ui.common.components.SegmentedControl
 import com.hearablemusic.player.ui.common.components.SegmentedOption
 import com.hearablemusic.player.ui.common.components.base.HMPCard
+import com.hearablemusic.player.ui.common.design.metrics.LayoutConstraints
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
 import com.hearablemusic.player.ui.common.design.typography.medium
 import com.hearablemusic.player.ui.common.layout.LocalWindowSizeInfo
 import com.hearablemusic.player.ui.common.pages.base.SubScreen
+import com.hearablemusic.player.ui.common.text.UiText
+import com.hearablemusic.player.ui.common.text.asString
+import com.hearablemusic.player.ui.common.text.asUiText
+import com.hearablemusic.player.ui.generated.resources.Res
+import com.hearablemusic.player.ui.generated.resources.agent_ai_collapse
+import com.hearablemusic.player.ui.generated.resources.agent_ai_lang_auto
+import com.hearablemusic.player.ui.generated.resources.agent_ai_lang_en
+import com.hearablemusic.player.ui.generated.resources.agent_ai_lang_zh
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_all_default
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_always_allow_count
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_auto_renew
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_builtin
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_change_global_hint
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_config_suffix
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_count_tracks
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_customized_count
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_daily_count
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_daily_count_value
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_desc_enrich
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_desc_hello
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_desc_master
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_desc_radio
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_disabled_hint
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_discard_changes
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_edit
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_effective_lang
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_endpoint_config
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_endpoint_custom
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_endpoint_url_label
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_endpoint_value
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_following_global
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_global_unavailable
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_hello_prompt_desc
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_lang_desc
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_lang_follow_global
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_lang_follow_global_default
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_lang_follow_system
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_lang_global_auto
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_lang_global_en
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_lang_global_zh
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_language
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_loading
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_missing_placeholder
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_model_label
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_model_value
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_placeholder_default
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_placeholders_needed
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_playlist_len
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_prompt_desc
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_radio_params
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_reco_params
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_restore_default
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_restore_factory
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_save
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_status_default
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_status_overridden
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_status_unsaved
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_step_budget
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_step_budget_value
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_target_count
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_target_cov
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_temperature
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_trust_act
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_trust_desc
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_trust_silent
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_trust_suggest
+import com.hearablemusic.player.ui.generated.resources.agent_cfg_trust_title
+import com.hearablemusic.player.ui.generated.resources.agent_hello_forgotten_card
+import com.hearablemusic.player.ui.generated.resources.agent_hello_forgotten_card_hint
+import com.hearablemusic.player.ui.generated.resources.agent_hello_forgotten_essay
+import com.hearablemusic.player.ui.generated.resources.agent_hello_forgotten_essay_hint
+import com.hearablemusic.player.ui.generated.resources.agent_hello_greeting_artist
+import com.hearablemusic.player.ui.generated.resources.agent_hello_greeting_artist_hint
+import com.hearablemusic.player.ui.generated.resources.agent_hello_greeting_fact
+import com.hearablemusic.player.ui.generated.resources.agent_hello_greeting_fact_hint
+import com.hearablemusic.player.ui.generated.resources.agent_hello_greeting_history
+import com.hearablemusic.player.ui.generated.resources.agent_hello_greeting_history_hint
+import com.hearablemusic.player.ui.generated.resources.agent_hello_greeting_listen
+import com.hearablemusic.player.ui.generated.resources.agent_hello_greeting_listen_hint
+import com.hearablemusic.player.ui.generated.resources.agent_hello_greeting_lyric_gold
+import com.hearablemusic.player.ui.generated.resources.agent_hello_greeting_lyric_gold_hint
+import com.hearablemusic.player.ui.generated.resources.agent_hello_greeting_quote
+import com.hearablemusic.player.ui.generated.resources.agent_hello_greeting_quote_hint
+import com.hearablemusic.player.ui.generated.resources.agent_hello_greeting_story
+import com.hearablemusic.player.ui.generated.resources.agent_hello_greeting_story_hint
+import com.hearablemusic.player.ui.generated.resources.agent_hello_group_forgotten
+import com.hearablemusic.player.ui.generated.resources.agent_hello_group_greeting
+import com.hearablemusic.player.ui.generated.resources.agent_hello_group_recommend
+import com.hearablemusic.player.ui.generated.resources.agent_hello_recommend_full
+import com.hearablemusic.player.ui.generated.resources.agent_hello_recommend_full_hint
+import com.hearablemusic.player.ui.generated.resources.agent_hello_recommend_list
+import com.hearablemusic.player.ui.generated.resources.agent_hello_recommend_list_hint
+import com.hearablemusic.player.ui.generated.resources.agent_hello_recommend_short
+import com.hearablemusic.player.ui.generated.resources.agent_hello_recommend_short_hint
 import com.hearablemusic.player.ui.player.components.MiniPlayerSafeSpacer
+import com.hmp.domain.agent.config.EngineDefaults
 import com.hmp.domain.agent.policy.AgentPolicyConfig
 import com.hmp.domain.agent.policy.TrustLevel
-import com.hmp.domain.agent.config.EngineDefaults
 import com.hmp.domain.agent.runtime.MasterAgent
 import com.hmp.domain.agent.runtime.i18n.resolvePrompt
 import com.hmp.domain.setting.SettingsRepository
 import com.hmp.domain.setting.model.AiEndpointConfig
 import kotlinx.coroutines.launch
+import org.jetbrains.compose.resources.StringResource
+import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
-import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
-import com.hearablemusic.player.ui.common.design.metrics.LayoutConstraints
 
 /**
  * 通用 Agent 配置页——按 agentRole 参数决定渲染哪个 Agent 的配置表单。
@@ -216,7 +215,7 @@ fun AgentConfigScreen(
             role = agentRole,
             preferredLang = preferredLang,
             globalReplyLang = globalReplyLang,
-            promptOverrides = emptyMap(),  // 强制取出厂默认，不受用户覆盖影响
+            promptOverrides = emptyMap(), // 强制取出厂默认，不受用户覆盖影响
         )
     }
     val hasOverride = !resolved.promptOverrides[defaultPromptKeyFor(agentRole)].isNullOrBlank()
@@ -227,7 +226,7 @@ fun AgentConfigScreen(
                 preferredLang = resolved.preferredLang,
                 globalReplyLang = globalReplyLang,
                 promptOverrides = resolved.promptOverrides,
-            )
+            ),
         )
     }
     // 用户是否已经动过编辑框（用于区分"未改动"与"改回原样的空"）
@@ -239,7 +238,7 @@ fun AgentConfigScreen(
     }
     var multiPromptTexts by remember(agentRole) {
         mutableStateOf(
-            helloEntries.associate { it.key to effectivePromptFor(it.key, resolved.preferredLang, globalReplyLang, resolved.promptOverrides) }
+            helloEntries.associate { it.key to effectivePromptFor(it.key, resolved.preferredLang, globalReplyLang, resolved.promptOverrides) },
         )
     }
     // 哪些项被用户手动改过（决定保存时是否落覆盖）
@@ -270,11 +269,16 @@ fun AgentConfigScreen(
             "master" -> {
                 cfg.runtimeParams["stepBudget"] = stepBudget.toString()
             }
+
             "hello" -> {
                 cfg.runtimeParams["dailyRecommendCount"] = dailyRecommendCount.toString()
                 cfg.runtimeParams["recommendListSize"] = recommendListSize.toString()
             }
-            "enrich" -> { cfg.runtimeParams["targetCoverage"] = targetCoverage.toString() }
+
+            "enrich" -> {
+                cfg.runtimeParams["targetCoverage"] = targetCoverage.toString()
+            }
+
             "radio" -> {
                 cfg.runtimeParams["targetCount"] = targetCount.toString()
                 cfg.runtimeParams["autoRenew"] = autoRenew.toString()
@@ -306,6 +310,7 @@ fun AgentConfigScreen(
             when {
                 systemPrompt.isBlank() || missing.isNotEmpty() || sameAsFactory ->
                     cfg.promptOverrides.remove(promptKey)
+
                 else -> cfg.promptOverrides[promptKey] = systemPrompt
             }
         }
@@ -319,23 +324,24 @@ fun AgentConfigScreen(
                         endpoint = customEndpoint.trim(),
                         apiKey = customApiKey,
                         selectedModel = customModel.trim(),
-                        isConfigured = customEndpoint.isNotBlank() && customApiKey.isNotBlank()
-                    )
+                        isConfigured = customEndpoint.isNotBlank() && customApiKey.isNotBlank(),
+                    ),
                 )
             } else {
-                settingsRepo.saveAgentEndpointConfig(agentRole, null)  // 清除 → 跟随全局
+                settingsRepo.saveAgentEndpointConfig(agentRole, null) // 清除 → 跟随全局
             }
             // 热更新所有 Agent 的 config（从 SettingsRepository 重读）
             masterAgent.updateAiConfig()
             // 回填 UI 持有的实例引用，保证展示值（信任档位/免确认项数）与落盘一致
             policyConfig = masterAgent.getAgentPolicyConfig(agentRole)
-        }; Unit
+        }
+        Unit
     }
 
     val reset = {
         val original = masterAgent.getAgentPolicyConfig(agentRole)
         val cfg = AgentPolicyConfig()
-        cfg.temperature = null  // 回落默认
+        cfg.temperature = null // 回落默认
         cfg.runtimeParams.clear()
         cfg.promptOverrides.clear()
         cfg.preferredLang = "global"
@@ -344,12 +350,13 @@ fun AgentConfigScreen(
         cfg.alwaysAllow.addAll(original.alwaysAllow)
         scope.launch {
             masterAgent.saveAgentPolicyConfig(agentRole, cfg)
-            settingsRepo.saveAgentEndpointConfig(agentRole, null)  // 清除 per-Agent endpoint → 跟随全局
+            settingsRepo.saveAgentEndpointConfig(agentRole, null) // 清除 per-Agent endpoint → 跟随全局
             masterAgent.updateAiConfig()
             // 关键：saveAgentPolicyConfig 已把 MasterAgent 内部字段换成新实例，
             // 此处必须回填，否则 UI 仍指着旧实例（重置后展示值与再次保存都会错乱）
             policyConfig = masterAgent.getAgentPolicyConfig(agentRole)
-        }; Unit
+        }
+        Unit
         // 本地状态也重置
         temperature = EngineDefaults.defaultTemperatureFor(agentRole)
         stepBudget = EngineDefaults.STEP_BUDGET
@@ -399,632 +406,658 @@ fun AgentConfigScreen(
             modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.TopCenter,
         ) {
-        if (isLandscape) {
-        // ── 横屏双栏 ──
-        Row(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = metrics.section, vertical = metrics.section),
-            horizontalArrangement = Arrangement.spacedBy(metrics.section),
-            verticalAlignment = Alignment.Top,
-        ) {
-            Column(
-                modifier = Modifier
-                    .weight(0.85f)
-                    .fillMaxHeight()
-                    .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(metrics.cozy),
-            ) {
-                ConfigFormLeftColumn(
-                    agentRole = agentRole,
-                    agentEnabled = agentEnabled,
-                    onAgentEnabledChange = { agentEnabled = it },
-                    preferredLang = preferredLang,
-                    onPreferredLangSelected = { newLang ->
-                        preferredLang = newLang
-                        if (multiPrompt) {
-                            multiPromptTexts = helloEntries.associate { entry ->
-                                val keepEdited = multiPromptDirty.contains(entry.key)
-                                entry.key to if (keepEdited) {
-                                    multiPromptTexts[entry.key].orEmpty()
-                                } else {
-                                    effectivePromptFor(entry.key, newLang, globalReplyLang, emptyMap())
-                                }
-                            }
-                        } else if (!promptDirty && !hasOverride) {
-                            systemPrompt = resolveEffectivePrompt(
-                                role = agentRole,
-                                preferredLang = newLang,
-                                globalReplyLang = globalReplyLang,
-                                promptOverrides = emptyMap(),
-                            )
-                        }
-                    },
-                    temperature = temperature,
-                    onTemperatureChange = { temperature = (it * 100).toInt() / 100f },
-                    useCustomEndpoint = useCustomEndpoint,
-                    onUseCustomEndpointChange = { useCustomEndpoint = it },
-                    customEndpoint = customEndpoint,
-                    onCustomEndpointChange = { customEndpoint = it },
-                    customApiKey = customApiKey,
-                    onCustomApiKeyChange = { customApiKey = it },
-                    customModel = customModel,
-                    onCustomModelChange = { customModel = it },
-                    endpointLoaded = endpointLoaded,
-                    globalEndpoint = globalEndpoint,
-                    trustLevel = trustLevel,
-                    onTrustLevelChange = { trustLevel = it },
-                    alwaysAllowCount = policyConfig.alwaysAllow.size,
-                    stepBudget = stepBudget,
-                    onStepBudgetChange = { stepBudget = it },
-                    dailyRecommendCount = dailyRecommendCount,
-                    onDailyRecommendCountChange = { dailyRecommendCount = it },
-                    recommendListSize = recommendListSize,
-                    onRecommendListSizeChange = { recommendListSize = it },
-                    targetCoverage = targetCoverage,
-                    onTargetCoverageChange = { targetCoverage = (it * 100).toInt() / 100f },
-                    targetCount = targetCount,
-                    onTargetCountChange = { targetCount = it },
-                    autoRenew = autoRenew,
-                    onAutoRenewChange = { autoRenew = it },
-                )
-            }
-            Column(
-                modifier = Modifier
-                    .weight(1.15f)
-                    .fillMaxHeight(),
-            ) {
-                Column(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth()
-                        .verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(metrics.cozy),
-                ) {
-                    SystemPromptSection(
-                        multiPrompt = multiPrompt,
-                        helloEntries = helloEntries,
-                        resolvedOverrides = resolved.promptOverrides,
-                        expandedPromptKey = expandedPromptKey,
-                        onExpandedPromptKeyChange = { expandedPromptKey = it },
-                        multiPromptTexts = multiPromptTexts,
-                        onMultiPromptTextsChange = { multiPromptTexts = it },
-                        multiPromptDirty = multiPromptDirty,
-                        onMultiPromptDirtyChange = { multiPromptDirty = it },
-                        preferredLang = preferredLang,
-                        globalReplyLang = globalReplyLang,
-                        systemPrompt = systemPrompt,
-                        onSystemPromptChange = { systemPrompt = it; promptDirty = true },
-                        onRestoreFactoryPrompt = { systemPrompt = factoryPrompt; promptDirty = true },
-                        onDiscardPromptChanges = { systemPrompt = factoryPrompt; promptDirty = false },
-                        promptDirty = promptDirty,
-                        hasOverride = hasOverride,
-                        factoryPrompt = factoryPrompt,
-                    )
-                }
-                Spacer(Modifier.height(metrics.cozy))
+            if (isLandscape) {
+                // ── 横屏双栏 ──
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(metrics.compact),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = metrics.section, vertical = metrics.section),
+                    horizontalArrangement = Arrangement.spacedBy(metrics.section),
+                    verticalAlignment = Alignment.Top,
                 ) {
-                    Button(onClick = reset, modifier = Modifier.weight(1f)) { Text(stringResource(Res.string.agent_cfg_restore_default)) }
-                    Button(onClick = save, modifier = Modifier.weight(1f)) { Text(stringResource(Res.string.agent_cfg_save)) }
-                }
-            }
-        }
-        } else {
-        Column(
-            modifier = Modifier
-                .widthIn(max = formMaxWidth)
-                .verticalScroll(rememberScrollState())
-                .fillMaxWidth()
-                .padding(metrics.section),
-            verticalArrangement = Arrangement.spacedBy(metrics.section),
-        ) {
-            // ═══ ① 身份与启用 ═══
-            HMPCard {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(agentLabelFor(agentRole), style = typo.subtitle, fontWeight = FontWeight.Bold)
-                        Spacer(Modifier.height(metrics.micro))
-                        Text(agentDescFor(agentRole), style = typo.footnote, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                    Switch(checked = agentEnabled, onCheckedChange = { agentEnabled = it })
-                }
-                Spacer(Modifier.height(metrics.compact))
-                Text(stringResource(Res.string.agent_cfg_disabled_hint), style = typo.footnote, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-
-            // ═══ ② 模型与语言（所有 Agent 都有）═══
-            HMPCard {
-                Text(stringResource(Res.string.agent_cfg_language), style = typo.subtitle, fontWeight = FontWeight.Bold)
-                Spacer(Modifier.height(metrics.compact))
-                SegmentedControl(
-                    modifier = Modifier.fillMaxWidth(),
-                    options = listOf(
-                        SegmentedOption("global", stringResource(Res.string.agent_cfg_lang_follow_global)),
-                        SegmentedOption("zh", stringResource(Res.string.agent_ai_lang_zh)),
-                        SegmentedOption("en", stringResource(Res.string.agent_ai_lang_en)),
-                        SegmentedOption("auto", stringResource(Res.string.agent_ai_lang_auto)),
-                    ),
-                    selectedOption = preferredLang,
-                    onOptionSelected = { newLang ->
-                        preferredLang = newLang
-                        // 用户未手动改过 prompt 时，切换语言即刷新为对应语言的出厂默认，
-                        // 否则编辑框会停留在切换前的语言文本上，与实际生效内容不一致。
-                        if (multiPrompt) {
-                            // 多卡型：只刷新"未被手动改过"的项
-                            multiPromptTexts = helloEntries.associate { entry ->
-                                val keepEdited = multiPromptDirty.contains(entry.key)
-                                entry.key to if (keepEdited) {
-                                    multiPromptTexts[entry.key].orEmpty()
-                                } else {
-                                    effectivePromptFor(entry.key, newLang, globalReplyLang, emptyMap())
+                    Column(
+                        modifier = Modifier
+                            .weight(0.85f)
+                            .fillMaxHeight()
+                            .verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(metrics.cozy),
+                    ) {
+                        ConfigFormLeftColumn(
+                            agentRole = agentRole,
+                            agentEnabled = agentEnabled,
+                            onAgentEnabledChange = { agentEnabled = it },
+                            preferredLang = preferredLang,
+                            onPreferredLangSelected = { newLang ->
+                                preferredLang = newLang
+                                if (multiPrompt) {
+                                    multiPromptTexts = helloEntries.associate { entry ->
+                                        val keepEdited = multiPromptDirty.contains(entry.key)
+                                        entry.key to if (keepEdited) {
+                                            multiPromptTexts[entry.key].orEmpty()
+                                        } else {
+                                            effectivePromptFor(entry.key, newLang, globalReplyLang, emptyMap())
+                                        }
+                                    }
+                                } else if (!promptDirty && !hasOverride) {
+                                    systemPrompt = resolveEffectivePrompt(
+                                        role = agentRole,
+                                        preferredLang = newLang,
+                                        globalReplyLang = globalReplyLang,
+                                        promptOverrides = emptyMap(),
+                                    )
                                 }
-                            }
-                        } else if (!promptDirty && !hasOverride) {
-                            systemPrompt = resolveEffectivePrompt(
-                                role = agentRole,
-                                preferredLang = newLang,
+                            },
+                            temperature = temperature,
+                            onTemperatureChange = { temperature = (it * 100).toInt() / 100f },
+                            useCustomEndpoint = useCustomEndpoint,
+                            onUseCustomEndpointChange = { useCustomEndpoint = it },
+                            customEndpoint = customEndpoint,
+                            onCustomEndpointChange = { customEndpoint = it },
+                            customApiKey = customApiKey,
+                            onCustomApiKeyChange = { customApiKey = it },
+                            customModel = customModel,
+                            onCustomModelChange = { customModel = it },
+                            endpointLoaded = endpointLoaded,
+                            globalEndpoint = globalEndpoint,
+                            trustLevel = trustLevel,
+                            onTrustLevelChange = { trustLevel = it },
+                            alwaysAllowCount = policyConfig.alwaysAllow.size,
+                            stepBudget = stepBudget,
+                            onStepBudgetChange = { stepBudget = it },
+                            dailyRecommendCount = dailyRecommendCount,
+                            onDailyRecommendCountChange = { dailyRecommendCount = it },
+                            recommendListSize = recommendListSize,
+                            onRecommendListSizeChange = { recommendListSize = it },
+                            targetCoverage = targetCoverage,
+                            onTargetCoverageChange = { targetCoverage = (it * 100).toInt() / 100f },
+                            targetCount = targetCount,
+                            onTargetCountChange = { targetCount = it },
+                            autoRenew = autoRenew,
+                            onAutoRenewChange = { autoRenew = it },
+                        )
+                    }
+                    Column(
+                        modifier = Modifier
+                            .weight(1.15f)
+                            .fillMaxHeight(),
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxWidth()
+                                .verticalScroll(rememberScrollState()),
+                            verticalArrangement = Arrangement.spacedBy(metrics.cozy),
+                        ) {
+                            SystemPromptSection(
+                                multiPrompt = multiPrompt,
+                                helloEntries = helloEntries,
+                                resolvedOverrides = resolved.promptOverrides,
+                                expandedPromptKey = expandedPromptKey,
+                                onExpandedPromptKeyChange = { expandedPromptKey = it },
+                                multiPromptTexts = multiPromptTexts,
+                                onMultiPromptTextsChange = { multiPromptTexts = it },
+                                multiPromptDirty = multiPromptDirty,
+                                onMultiPromptDirtyChange = { multiPromptDirty = it },
+                                preferredLang = preferredLang,
                                 globalReplyLang = globalReplyLang,
-                                promptOverrides = emptyMap(),
+                                systemPrompt = systemPrompt,
+                                onSystemPromptChange = {
+                                    systemPrompt = it
+                                    promptDirty = true
+                                },
+                                onRestoreFactoryPrompt = {
+                                    systemPrompt = factoryPrompt
+                                    promptDirty = true
+                                },
+                                onDiscardPromptChanges = {
+                                    systemPrompt = factoryPrompt
+                                    promptDirty = false
+                                },
+                                promptDirty = promptDirty,
+                                hasOverride = hasOverride,
+                                factoryPrompt = factoryPrompt,
                             )
                         }
-                    },
-                )
-                Spacer(Modifier.height(metrics.micro))
-                Text(
-                    stringResource(Res.string.agent_cfg_lang_desc),
-                    style = typo.footnote,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(Modifier.height(metrics.cozy))
-                Text(stringResource(Res.string.agent_cfg_temperature), style = typo.subtitle, fontWeight = FontWeight.Bold)
-                Spacer(Modifier.height(metrics.compact))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Slider(
-                        value = temperature,
-                        onValueChange = { temperature = (it * 100).toInt() / 100f },
-                        valueRange = 0f..2f,
-                        modifier = Modifier.weight(1f),
-                    )
-                    Spacer(Modifier.width(metrics.compact))
-                    Text(temperature.toString(), modifier = Modifier.width(metrics.bar))
-                }
-            }
-
-            // ═══ ③ AI 端点配置（所有 Agent 都有 —— per-Agent 独立 endpoint）═══
-            HMPCard {
-                Text(stringResource(Res.string.agent_cfg_endpoint_config), style = typo.subtitle, fontWeight = FontWeight.Bold)
-                Spacer(Modifier.height(metrics.compact))
-                SegmentedControl(
-                    modifier = Modifier.fillMaxWidth(),
-                    options = listOf(
-                        SegmentedOption("global", stringResource(Res.string.agent_cfg_lang_follow_global_default)),
-                        SegmentedOption("custom", stringResource(Res.string.agent_cfg_endpoint_custom)),
-                    ),
-                    selectedOption = if (useCustomEndpoint) "custom" else "global",
-                    onOptionSelected = { useCustomEndpoint = it == "custom" },
-                )
-                Spacer(Modifier.height(metrics.compact))
-                if (useCustomEndpoint) {
-                    OutlinedTextField(
-                        value = customEndpoint,
-                        onValueChange = { customEndpoint = it },
-                        label = { Text(stringResource(Res.string.agent_cfg_endpoint_url_label)) },
-                        modifier = Modifier.fillMaxWidth(),
-                        placeholder = { Text("https://api.deepseek.com/v1") },
-                    )
-                    Spacer(Modifier.height(metrics.compact))
-                    OutlinedTextField(
-                        value = customApiKey,
-                        onValueChange = { customApiKey = it },
-                        label = { Text("API Key") },
-                        modifier = Modifier.fillMaxWidth(),
-                        placeholder = { Text("sk-...") },
-                    )
-                    Spacer(Modifier.height(metrics.compact))
-                    OutlinedTextField(
-                        value = customModel,
-                        onValueChange = { customModel = it },
-                        label = { Text(stringResource(Res.string.agent_cfg_model_label)) },
-                        modifier = Modifier.fillMaxWidth(),
-                        placeholder = { Text("deepseek-chat / gpt-4o-mini / ...") },
-                    )
-                } else {
-                    // 全局默认只读预览（异步加载，加载完成前显示占位）
-                    Text(
-                        stringResource(Res.string.agent_cfg_following_global),
-                        style = typo.body,
-                        fontWeight = FontWeight.Medium
-                    )
-                    Spacer(Modifier.height(metrics.micro))
-                    Text(
-                        if (!endpointLoaded) stringResource(Res.string.agent_cfg_loading)
-                        else buildString {
-                            append(stringResource(Res.string.agent_cfg_endpoint_value, if (globalEndpoint.endpoint.isNotBlank()) globalEndpoint.endpoint else stringResource(Res.string.agent_cfg_builtin)))
-                            if (globalEndpoint.selectedModel.isNotBlank()) append(stringResource(Res.string.agent_cfg_model_value, globalEndpoint.selectedModel))
-                        },
-                        style = typo.footnote,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    if (endpointLoaded && !globalEndpoint.isConfigured) {
-                        Spacer(Modifier.height(metrics.micro))
-                        Text(
-                            stringResource(Res.string.agent_cfg_global_unavailable),
-                            style = typo.footnote,
-                            color = MaterialTheme.colorScheme.error
-                        )
-                    }
-                    Spacer(Modifier.height(metrics.micro))
-                    Text(
-                        stringResource(Res.string.agent_cfg_change_global_hint),
-                        style = typo.footnote,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-
-            // ═══ ④ 信任与权限（所有 Agent 各自持有 trustLevel）═══
-            HMPCard {
-                Text(stringResource(Res.string.agent_cfg_trust_title), style = typo.subtitle, fontWeight = FontWeight.Bold)
-                Spacer(Modifier.height(metrics.compact))
-                Text(
-                    stringResource(Res.string.agent_cfg_trust_desc),
-                    style = typo.footnote,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(Modifier.height(metrics.compact))
-                SegmentedControl(
-                    modifier = Modifier.fillMaxWidth(),
-                    options = listOf(
-                        SegmentedOption(TrustLevel.SUGGEST.toString(), stringResource(Res.string.agent_cfg_trust_suggest)),
-                        SegmentedOption(TrustLevel.ACT.toString(), stringResource(Res.string.agent_cfg_trust_act)),
-                        SegmentedOption(TrustLevel.SILENT.toString(), stringResource(Res.string.agent_cfg_trust_silent)),
-                    ),
-                    selectedOption = trustLevel.toString(),
-                    onOptionSelected = { trustLevel = it.toIntOrNull() ?: TrustLevel.SUGGEST },
-                )
-                Spacer(Modifier.height(metrics.micro))
-                Text(
-                    stringResource(Res.string.agent_cfg_always_allow_count, policyConfig.alwaysAllow.size),
-                    style = typo.footnote,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-
-                // Master 专属：执行预算（并入本组 —— 同属"我可以自己做到什么程度"）
-                if (agentRole == "master") {
-                    Spacer(Modifier.height(metrics.cozy))
-                    Text(stringResource(Res.string.agent_cfg_step_budget), style = typo.subtitle, fontWeight = FontWeight.Bold)
-                    Spacer(Modifier.height(metrics.compact))
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Slider(
-                            value = stepBudget.toFloat(),
-                            onValueChange = { stepBudget = it.toInt() },
-                            valueRange = 3f..15f,
-                            steps = 11,
-                            modifier = Modifier.weight(1f),
-                        )
-                        Spacer(Modifier.width(metrics.compact))
-                        Text(stringResource(Res.string.agent_cfg_step_budget_value, stepBudget), modifier = Modifier.width(metrics.bar))
-                    }
-                }
-            }
-
-            // ═══ ⑤ 专属参数（按 agent 能力差异化）═══
-            if (agentRole == "hello") {
-                HMPCard {
-                    Text(stringResource(Res.string.agent_cfg_reco_params), style = typo.subtitle, fontWeight = FontWeight.Bold)
-                    Spacer(Modifier.height(metrics.base))
-                    Text(stringResource(Res.string.agent_cfg_daily_count))
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Slider(
-                            value = dailyRecommendCount.toFloat(),
-                            onValueChange = { dailyRecommendCount = it.toInt() },
-                            valueRange = 1f..5f,
-                            steps = 3,
-                            modifier = Modifier.weight(1f),
-                        )
-                        Text(stringResource(Res.string.agent_cfg_daily_count_value, dailyRecommendCount))
-                    }
-                    Spacer(Modifier.height(metrics.compact))
-                    Text(stringResource(Res.string.agent_cfg_playlist_len))
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Slider(
-                            value = recommendListSize.toFloat(),
-                            onValueChange = { recommendListSize = it.toInt() },
-                            valueRange = 5f..20f,
-                            steps = 14,
-                            modifier = Modifier.weight(1f),
-                        )
-                        Text(stringResource(Res.string.agent_cfg_count_tracks, recommendListSize))
-                    }
-                }
-            }
-
-            if (agentRole == "enrich") {
-                HMPCard {
-                    Text(stringResource(Res.string.agent_cfg_target_cov), style = typo.subtitle, fontWeight = FontWeight.Bold)
-                    Spacer(Modifier.height(metrics.compact))
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Slider(
-                            value = targetCoverage,
-                            onValueChange = { targetCoverage = (it * 100).toInt() / 100f },
-                            valueRange = 0.5f..1f,
-                            modifier = Modifier.weight(1f),
-                        )
-                        Spacer(Modifier.width(metrics.compact))
-                        Text("${(targetCoverage * 100).toInt()}%")
-                    }
-                }
-            }
-
-            if (agentRole == "radio") {
-                HMPCard {
-                    Text(stringResource(Res.string.agent_cfg_radio_params), style = typo.subtitle, fontWeight = FontWeight.Bold)
-                    Spacer(Modifier.height(metrics.base))
-                    Text(stringResource(Res.string.agent_cfg_target_count))
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Slider(
-                            value = targetCount.toFloat(),
-                            onValueChange = { targetCount = it.toInt() },
-                            valueRange = 8f..30f,
-                            steps = 21,
-                            modifier = Modifier.weight(1f),
-                        )
-                        Text(stringResource(Res.string.agent_cfg_count_tracks, targetCount))
-                    }
-                    Spacer(Modifier.height(metrics.base))
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text(stringResource(Res.string.agent_cfg_auto_renew))
-                        Switch(checked = autoRenew, onCheckedChange = { autoRenew = it })
-                    }
-                }
-            }
-
-            // ═══ ⑥ System Prompt ═══
-            // 值推导：生效语言提示 + 出厂默认（供恢复/比对）
-            val effectiveLang = when (preferredLang) {
-                "zh" -> stringResource(Res.string.agent_ai_lang_zh)
-                "en" -> stringResource(Res.string.agent_ai_lang_en)
-                "auto" -> stringResource(Res.string.agent_cfg_lang_follow_system)
-                else -> when (globalReplyLang) {  // "global"
-                    "en" -> stringResource(Res.string.agent_cfg_lang_global_en)
-                    "auto" -> stringResource(Res.string.agent_cfg_lang_global_auto)
-                    else -> stringResource(Res.string.agent_cfg_lang_global_zh)
-                }
-            }
-
-            if (multiPrompt) {
-                // ── hello：多卡型分组编辑器 ──
-                HMPCard {
-                    val overriddenCount = helloEntries.count { entry ->
-                        !resolved.promptOverrides[entry.key].isNullOrBlank()
-                    }
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                    ) {
-                        Text("System Prompt", style = typo.subtitle, fontWeight = FontWeight.Bold)
-                        Text(
-                            if (overriddenCount > 0) stringResource(Res.string.agent_cfg_customized_count, overriddenCount, helloEntries.size) else stringResource(Res.string.agent_cfg_all_default),
-                            style = typo.caption,
-                            color = if (overriddenCount > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                    Spacer(Modifier.height(metrics.micro))
-                    Text(
-                        stringResource(Res.string.agent_cfg_hello_prompt_desc, effectiveLang),
-                        style = typo.footnote,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-
-                    helloPromptGroups().forEach { (groupName, entries) ->
-                        Spacer(Modifier.height(metrics.base))
-                        Text(
-                            groupName.asString(),
-                            style = typo.footnote.medium(),
-                            color = MaterialTheme.colorScheme.onSurface,
-                        )
-                        Spacer(Modifier.height(metrics.micro))
-                        entries.forEach { entry ->
-                            val isOpen = expandedPromptKey == entry.key
-                            val edited = multiPromptTexts[entry.key].orEmpty()
-                            val factory = effectivePromptFor(entry.key, preferredLang, globalReplyLang, emptyMap())
-                            val overridden = !resolved.promptOverrides[entry.key].isNullOrBlank()
-                            val changed = multiPromptDirty.contains(entry.key)
-
-                            Column(modifier = Modifier.fillMaxWidth()) {
-                                // 条目行：点开/收起
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clip(RoundedCornerShape(metrics.compact))
-                                        .clickable { expandedPromptKey = if (isOpen) null else entry.key }
-                                        .padding(vertical = metrics.compact, horizontal = metrics.micro),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                ) {
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Text(entry.label.asString(), style = typo.body)
-                                            Spacer(Modifier.width(metrics.micro))
-                                            val badge = when {
-                                                changed -> stringResource(Res.string.agent_cfg_status_unsaved)
-                                                overridden -> stringResource(Res.string.agent_cfg_status_overridden)
-                                                else -> stringResource(Res.string.agent_cfg_status_default)
-                                            }
-                                            Text(
-                                                badge,
-                                                style = typo.caption,
-                                                color = when {
-                                                    changed -> MaterialTheme.colorScheme.error
-                                                    overridden -> MaterialTheme.colorScheme.primary
-                                                    else -> MaterialTheme.colorScheme.onSurfaceVariant
-                                                },
-                                            )
-                                        }
-                                        Text(
-                                            entry.hint.asString(),
-                                            style = typo.caption,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        )
-                                    }
-                                    Text(
-                                        if (isOpen) stringResource(Res.string.agent_ai_collapse) else stringResource(Res.string.agent_cfg_edit),
-                                        style = typo.footnote.medium(),
-                                        color = MaterialTheme.colorScheme.primary,
-                                    )
-                                }
-
-                                if (isOpen) {
-                                    Spacer(Modifier.height(metrics.micro))
-                                    OutlinedTextField(
-                                        value = edited,
-                                        onValueChange = { new ->
-                                            multiPromptTexts = multiPromptTexts + (entry.key to new)
-                                            multiPromptDirty = multiPromptDirty + entry.key
-                                        },
-                                        modifier = Modifier
-                                            .widthIn(max = wideRowMaxWidth)
-                                            .fillMaxWidth()
-                                            .height(LayoutConstraints.CardHeight),
-                                        placeholder = { Text(stringResource(Res.string.agent_cfg_placeholder_default)) },
-                                    )
-                                    Spacer(Modifier.height(metrics.micro))
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.spacedBy(metrics.compact),
-                                    ) {
-                                        androidx.compose.material3.TextButton(onClick = {
-                                            multiPromptTexts = multiPromptTexts + (entry.key to factory)
-                                            multiPromptDirty = multiPromptDirty + entry.key
-                                        }) { Text(stringResource(Res.string.agent_cfg_restore_default)) }
-                                        if (changed) {
-                                            androidx.compose.material3.TextButton(onClick = {
-                                                multiPromptTexts = multiPromptTexts +
-                                                    (entry.key to (resolved.promptOverrides[entry.key] ?: factory))
-                                                multiPromptDirty = multiPromptDirty - entry.key
-                                            }) { Text(stringResource(Res.string.agent_cfg_discard_changes)) }
-                                        }
-                                    }
-                                }
-                                Spacer(Modifier.height(metrics.micro))
-                            }
+                        Spacer(Modifier.height(metrics.cozy))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(metrics.compact),
+                        ) {
+                            Button(onClick = reset, modifier = Modifier.weight(1f)) { Text(stringResource(Res.string.agent_cfg_restore_default)) }
+                            Button(onClick = save, modifier = Modifier.weight(1f)) { Text(stringResource(Res.string.agent_cfg_save)) }
                         }
                     }
                 }
             } else {
-                // ── master / enrich / radio：单 prompt 编辑器 ──
-                HMPCard {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                    ) {
-                        Text("System Prompt", style = typo.subtitle, fontWeight = FontWeight.Bold)
-                        Text(
-                            if (hasOverride) stringResource(Res.string.agent_cfg_status_overridden) else stringResource(Res.string.agent_cfg_status_default),
-                            style = typo.caption,
-                            color = if (hasOverride) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
+                Column(
+                    modifier = Modifier
+                        .widthIn(max = formMaxWidth)
+                        .verticalScroll(rememberScrollState())
+                        .fillMaxWidth()
+                        .padding(metrics.section),
+                    verticalArrangement = Arrangement.spacedBy(metrics.section),
+                ) {
+                    // ═══ ① 身份与启用 ═══
+                    HMPCard {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(agentLabelFor(agentRole), style = typo.subtitle, fontWeight = FontWeight.Bold)
+                                Spacer(Modifier.height(metrics.micro))
+                                Text(agentDescFor(agentRole), style = typo.footnote, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            Switch(checked = agentEnabled, onCheckedChange = { agentEnabled = it })
+                        }
+                        Spacer(Modifier.height(metrics.compact))
+                        Text(stringResource(Res.string.agent_cfg_disabled_hint), style = typo.footnote, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-                    Spacer(Modifier.height(metrics.micro))
-                    Text(
-                        stringResource(Res.string.agent_cfg_prompt_desc),
-                        style = typo.footnote,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(Modifier.height(metrics.compact))
-                    Text(
-                        stringResource(Res.string.agent_cfg_effective_lang, effectiveLang),
-                        style = typo.footnote,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(Modifier.height(metrics.compact))
 
-                    OutlinedTextField(
-                        value = systemPrompt,
-                        onValueChange = { systemPrompt = it; promptDirty = true },
-                        modifier = Modifier
-                            .widthIn(max = wideRowMaxWidth)
-                            .fillMaxWidth()
-                            .height(LayoutConstraints.PanelHeightLarge),
-                        placeholder = { Text(stringResource(Res.string.agent_cfg_placeholder_default)) },
-                    )
+                    // ═══ ② 模型与语言（所有 Agent 都有）═══
+                    HMPCard {
+                        Text(stringResource(Res.string.agent_cfg_language), style = typo.subtitle, fontWeight = FontWeight.Bold)
+                        Spacer(Modifier.height(metrics.compact))
+                        SegmentedControl(
+                            modifier = Modifier.fillMaxWidth(),
+                            options = listOf(
+                                SegmentedOption("global", stringResource(Res.string.agent_cfg_lang_follow_global)),
+                                SegmentedOption("zh", stringResource(Res.string.agent_ai_lang_zh)),
+                                SegmentedOption("en", stringResource(Res.string.agent_ai_lang_en)),
+                                SegmentedOption("auto", stringResource(Res.string.agent_ai_lang_auto)),
+                            ),
+                            selectedOption = preferredLang,
+                            onOptionSelected = { newLang ->
+                                preferredLang = newLang
+                                // 用户未手动改过 prompt 时，切换语言即刷新为对应语言的出厂默认，
+                                // 否则编辑框会停留在切换前的语言文本上，与实际生效内容不一致。
+                                if (multiPrompt) {
+                                    // 多卡型：只刷新"未被手动改过"的项
+                                    multiPromptTexts = helloEntries.associate { entry ->
+                                        val keepEdited = multiPromptDirty.contains(entry.key)
+                                        entry.key to if (keepEdited) {
+                                            multiPromptTexts[entry.key].orEmpty()
+                                        } else {
+                                            effectivePromptFor(entry.key, newLang, globalReplyLang, emptyMap())
+                                        }
+                                    }
+                                } else if (!promptDirty && !hasOverride) {
+                                    systemPrompt = resolveEffectivePrompt(
+                                        role = agentRole,
+                                        preferredLang = newLang,
+                                        globalReplyLang = globalReplyLang,
+                                        promptOverrides = emptyMap(),
+                                    )
+                                }
+                            },
+                        )
+                        Spacer(Modifier.height(metrics.micro))
+                        Text(
+                            stringResource(Res.string.agent_cfg_lang_desc),
+                            style = typo.footnote,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Spacer(Modifier.height(metrics.cozy))
+                        Text(stringResource(Res.string.agent_cfg_temperature), style = typo.subtitle, fontWeight = FontWeight.Bold)
+                        Spacer(Modifier.height(metrics.compact))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Slider(
+                                value = temperature,
+                                onValueChange = { temperature = (it * 100).toInt() / 100f },
+                                valueRange = 0f..2f,
+                                modifier = Modifier.weight(1f),
+                            )
+                            Spacer(Modifier.width(metrics.compact))
+                            Text(temperature.toString(), modifier = Modifier.width(metrics.bar))
+                        }
+                    }
 
-                    // 占位符护栏（编辑时实时显示）—— 以出厂默认模板为基准
-                    if (systemPrompt.isNotBlank()) {
-                        val requiredPlaceholders = factoryPrompt.extractPlaceholders()
-                        if (requiredPlaceholders.isNotEmpty()) {
-                            val userHas = requiredPlaceholders.filter { systemPrompt.contains("{{$it}}") }
-                            val missing = requiredPlaceholders.filter { !systemPrompt.contains("{{$it}}") }
+                    // ═══ ③ AI 端点配置（所有 Agent 都有 —— per-Agent 独立 endpoint）═══
+                    HMPCard {
+                        Text(stringResource(Res.string.agent_cfg_endpoint_config), style = typo.subtitle, fontWeight = FontWeight.Bold)
+                        Spacer(Modifier.height(metrics.compact))
+                        SegmentedControl(
+                            modifier = Modifier.fillMaxWidth(),
+                            options = listOf(
+                                SegmentedOption("global", stringResource(Res.string.agent_cfg_lang_follow_global_default)),
+                                SegmentedOption("custom", stringResource(Res.string.agent_cfg_endpoint_custom)),
+                            ),
+                            selectedOption = if (useCustomEndpoint) "custom" else "global",
+                            onOptionSelected = { useCustomEndpoint = it == "custom" },
+                        )
+                        Spacer(Modifier.height(metrics.compact))
+                        if (useCustomEndpoint) {
+                            OutlinedTextField(
+                                value = customEndpoint,
+                                onValueChange = { customEndpoint = it },
+                                label = { Text(stringResource(Res.string.agent_cfg_endpoint_url_label)) },
+                                modifier = Modifier.fillMaxWidth(),
+                                placeholder = { Text("https://api.deepseek.com/v1") },
+                            )
+                            Spacer(Modifier.height(metrics.compact))
+                            OutlinedTextField(
+                                value = customApiKey,
+                                onValueChange = { customApiKey = it },
+                                label = { Text("API Key") },
+                                modifier = Modifier.fillMaxWidth(),
+                                placeholder = { Text("sk-...") },
+                            )
+                            Spacer(Modifier.height(metrics.compact))
+                            OutlinedTextField(
+                                value = customModel,
+                                onValueChange = { customModel = it },
+                                label = { Text(stringResource(Res.string.agent_cfg_model_label)) },
+                                modifier = Modifier.fillMaxWidth(),
+                                placeholder = { Text("deepseek-chat / gpt-4o-mini / ...") },
+                            )
+                        } else {
+                            // 全局默认只读预览（异步加载，加载完成前显示占位）
+                            Text(
+                                stringResource(Res.string.agent_cfg_following_global),
+                                style = typo.body,
+                                fontWeight = FontWeight.Medium,
+                            )
                             Spacer(Modifier.height(metrics.micro))
                             Text(
-                                stringResource(Res.string.agent_cfg_placeholders_needed, userHas.size, requiredPlaceholders.size),
-                                style = typo.footnote,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Text(
-                                requiredPlaceholders.joinToString("  ") { ph ->
-                                    val ok = ph in userHas
-                                    if (ok) "✓ {{$ph}}" else "✗ {{$ph}}"
+                                if (!endpointLoaded) {
+                                    stringResource(Res.string.agent_cfg_loading)
+                                } else {
+                                    buildString {
+                                        append(stringResource(Res.string.agent_cfg_endpoint_value, if (globalEndpoint.endpoint.isNotBlank()) globalEndpoint.endpoint else stringResource(Res.string.agent_cfg_builtin)))
+                                        if (globalEndpoint.selectedModel.isNotBlank()) append(stringResource(Res.string.agent_cfg_model_value, globalEndpoint.selectedModel))
+                                    }
                                 },
                                 style = typo.footnote,
-                                color = if (missing.isNotEmpty()) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
-                            if (missing.isNotEmpty()) {
+                            if (endpointLoaded && !globalEndpoint.isConfigured) {
+                                Spacer(Modifier.height(metrics.micro))
                                 Text(
-                                    stringResource(Res.string.agent_cfg_missing_placeholder, missing.joinToString(", ") { "{{$it}}" }),
+                                    stringResource(Res.string.agent_cfg_global_unavailable),
                                     style = typo.footnote,
-                                    color = MaterialTheme.colorScheme.error
+                                    color = MaterialTheme.colorScheme.error,
                                 )
+                            }
+                            Spacer(Modifier.height(metrics.micro))
+                            Text(
+                                stringResource(Res.string.agent_cfg_change_global_hint),
+                                style = typo.footnote,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+
+                    // ═══ ④ 信任与权限（所有 Agent 各自持有 trustLevel）═══
+                    HMPCard {
+                        Text(stringResource(Res.string.agent_cfg_trust_title), style = typo.subtitle, fontWeight = FontWeight.Bold)
+                        Spacer(Modifier.height(metrics.compact))
+                        Text(
+                            stringResource(Res.string.agent_cfg_trust_desc),
+                            style = typo.footnote,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Spacer(Modifier.height(metrics.compact))
+                        SegmentedControl(
+                            modifier = Modifier.fillMaxWidth(),
+                            options = listOf(
+                                SegmentedOption(TrustLevel.SUGGEST.toString(), stringResource(Res.string.agent_cfg_trust_suggest)),
+                                SegmentedOption(TrustLevel.ACT.toString(), stringResource(Res.string.agent_cfg_trust_act)),
+                                SegmentedOption(TrustLevel.SILENT.toString(), stringResource(Res.string.agent_cfg_trust_silent)),
+                            ),
+                            selectedOption = trustLevel.toString(),
+                            onOptionSelected = { trustLevel = it.toIntOrNull() ?: TrustLevel.SUGGEST },
+                        )
+                        Spacer(Modifier.height(metrics.micro))
+                        Text(
+                            stringResource(Res.string.agent_cfg_always_allow_count, policyConfig.alwaysAllow.size),
+                            style = typo.footnote,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+
+                        // Master 专属：执行预算（并入本组 —— 同属"我可以自己做到什么程度"）
+                        if (agentRole == "master") {
+                            Spacer(Modifier.height(metrics.cozy))
+                            Text(stringResource(Res.string.agent_cfg_step_budget), style = typo.subtitle, fontWeight = FontWeight.Bold)
+                            Spacer(Modifier.height(metrics.compact))
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Slider(
+                                    value = stepBudget.toFloat(),
+                                    onValueChange = { stepBudget = it.toInt() },
+                                    valueRange = 3f..15f,
+                                    steps = 11,
+                                    modifier = Modifier.weight(1f),
+                                )
+                                Spacer(Modifier.width(metrics.compact))
+                                Text(stringResource(Res.string.agent_cfg_step_budget_value, stepBudget), modifier = Modifier.width(metrics.bar))
                             }
                         }
                     }
 
-                    // 操作：恢复出厂默认 / 放弃改动
-                    Spacer(Modifier.height(metrics.compact))
+                    // ═══ ⑤ 专属参数（按 agent 能力差异化）═══
+                    if (agentRole == "hello") {
+                        HMPCard {
+                            Text(stringResource(Res.string.agent_cfg_reco_params), style = typo.subtitle, fontWeight = FontWeight.Bold)
+                            Spacer(Modifier.height(metrics.base))
+                            Text(stringResource(Res.string.agent_cfg_daily_count))
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Slider(
+                                    value = dailyRecommendCount.toFloat(),
+                                    onValueChange = { dailyRecommendCount = it.toInt() },
+                                    valueRange = 1f..5f,
+                                    steps = 3,
+                                    modifier = Modifier.weight(1f),
+                                )
+                                Text(stringResource(Res.string.agent_cfg_daily_count_value, dailyRecommendCount))
+                            }
+                            Spacer(Modifier.height(metrics.compact))
+                            Text(stringResource(Res.string.agent_cfg_playlist_len))
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Slider(
+                                    value = recommendListSize.toFloat(),
+                                    onValueChange = { recommendListSize = it.toInt() },
+                                    valueRange = 5f..20f,
+                                    steps = 14,
+                                    modifier = Modifier.weight(1f),
+                                )
+                                Text(stringResource(Res.string.agent_cfg_count_tracks, recommendListSize))
+                            }
+                        }
+                    }
+
+                    if (agentRole == "enrich") {
+                        HMPCard {
+                            Text(stringResource(Res.string.agent_cfg_target_cov), style = typo.subtitle, fontWeight = FontWeight.Bold)
+                            Spacer(Modifier.height(metrics.compact))
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Slider(
+                                    value = targetCoverage,
+                                    onValueChange = { targetCoverage = (it * 100).toInt() / 100f },
+                                    valueRange = 0.5f..1f,
+                                    modifier = Modifier.weight(1f),
+                                )
+                                Spacer(Modifier.width(metrics.compact))
+                                Text("${(targetCoverage * 100).toInt()}%")
+                            }
+                        }
+                    }
+
+                    if (agentRole == "radio") {
+                        HMPCard {
+                            Text(stringResource(Res.string.agent_cfg_radio_params), style = typo.subtitle, fontWeight = FontWeight.Bold)
+                            Spacer(Modifier.height(metrics.base))
+                            Text(stringResource(Res.string.agent_cfg_target_count))
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Slider(
+                                    value = targetCount.toFloat(),
+                                    onValueChange = { targetCount = it.toInt() },
+                                    valueRange = 8f..30f,
+                                    steps = 21,
+                                    modifier = Modifier.weight(1f),
+                                )
+                                Text(stringResource(Res.string.agent_cfg_count_tracks, targetCount))
+                            }
+                            Spacer(Modifier.height(metrics.base))
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                modifier = Modifier.fillMaxWidth(),
+                            ) {
+                                Text(stringResource(Res.string.agent_cfg_auto_renew))
+                                Switch(checked = autoRenew, onCheckedChange = { autoRenew = it })
+                            }
+                        }
+                    }
+
+                    // ═══ ⑥ System Prompt ═══
+                    // 值推导：生效语言提示 + 出厂默认（供恢复/比对）
+                    val effectiveLang = when (preferredLang) {
+                        "zh" -> stringResource(Res.string.agent_ai_lang_zh)
+
+                        "en" -> stringResource(Res.string.agent_ai_lang_en)
+
+                        "auto" -> stringResource(Res.string.agent_cfg_lang_follow_system)
+
+                        else -> when (globalReplyLang) { // "global"
+                            "en" -> stringResource(Res.string.agent_cfg_lang_global_en)
+
+                            "auto" -> stringResource(Res.string.agent_cfg_lang_global_auto)
+
+                            else -> stringResource(Res.string.agent_cfg_lang_global_zh)
+                        }
+                    }
+
+                    if (multiPrompt) {
+                        // ── hello：多卡型分组编辑器 ──
+                        HMPCard {
+                            val overriddenCount = helloEntries.count { entry ->
+                                !resolved.promptOverrides[entry.key].isNullOrBlank()
+                            }
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                            ) {
+                                Text("System Prompt", style = typo.subtitle, fontWeight = FontWeight.Bold)
+                                Text(
+                                    if (overriddenCount > 0) stringResource(Res.string.agent_cfg_customized_count, overriddenCount, helloEntries.size) else stringResource(Res.string.agent_cfg_all_default),
+                                    style = typo.caption,
+                                    color = if (overriddenCount > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                            Spacer(Modifier.height(metrics.micro))
+                            Text(
+                                stringResource(Res.string.agent_cfg_hello_prompt_desc, effectiveLang),
+                                style = typo.footnote,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+
+                            helloPromptGroups().forEach { (groupName, entries) ->
+                                Spacer(Modifier.height(metrics.base))
+                                Text(
+                                    groupName.asString(),
+                                    style = typo.footnote.medium(),
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                )
+                                Spacer(Modifier.height(metrics.micro))
+                                entries.forEach { entry ->
+                                    val isOpen = expandedPromptKey == entry.key
+                                    val edited = multiPromptTexts[entry.key].orEmpty()
+                                    val factory = effectivePromptFor(entry.key, preferredLang, globalReplyLang, emptyMap())
+                                    val overridden = !resolved.promptOverrides[entry.key].isNullOrBlank()
+                                    val changed = multiPromptDirty.contains(entry.key)
+
+                                    Column(modifier = Modifier.fillMaxWidth()) {
+                                        // 条目行：点开/收起
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .clip(RoundedCornerShape(metrics.compact))
+                                                .clickable { expandedPromptKey = if (isOpen) null else entry.key }
+                                                .padding(vertical = metrics.compact, horizontal = metrics.micro),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                        ) {
+                                            Column(modifier = Modifier.weight(1f)) {
+                                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                                    Text(entry.label.asString(), style = typo.body)
+                                                    Spacer(Modifier.width(metrics.micro))
+                                                    val badge = when {
+                                                        changed -> stringResource(Res.string.agent_cfg_status_unsaved)
+                                                        overridden -> stringResource(Res.string.agent_cfg_status_overridden)
+                                                        else -> stringResource(Res.string.agent_cfg_status_default)
+                                                    }
+                                                    Text(
+                                                        badge,
+                                                        style = typo.caption,
+                                                        color = when {
+                                                            changed -> MaterialTheme.colorScheme.error
+                                                            overridden -> MaterialTheme.colorScheme.primary
+                                                            else -> MaterialTheme.colorScheme.onSurfaceVariant
+                                                        },
+                                                    )
+                                                }
+                                                Text(
+                                                    entry.hint.asString(),
+                                                    style = typo.caption,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                )
+                                            }
+                                            Text(
+                                                if (isOpen) stringResource(Res.string.agent_ai_collapse) else stringResource(Res.string.agent_cfg_edit),
+                                                style = typo.footnote.medium(),
+                                                color = MaterialTheme.colorScheme.primary,
+                                            )
+                                        }
+
+                                        if (isOpen) {
+                                            Spacer(Modifier.height(metrics.micro))
+                                            OutlinedTextField(
+                                                value = edited,
+                                                onValueChange = { new ->
+                                                    multiPromptTexts = multiPromptTexts + (entry.key to new)
+                                                    multiPromptDirty = multiPromptDirty + entry.key
+                                                },
+                                                modifier = Modifier
+                                                    .widthIn(max = wideRowMaxWidth)
+                                                    .fillMaxWidth()
+                                                    .height(LayoutConstraints.CardHeight),
+                                                placeholder = { Text(stringResource(Res.string.agent_cfg_placeholder_default)) },
+                                            )
+                                            Spacer(Modifier.height(metrics.micro))
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.spacedBy(metrics.compact),
+                                            ) {
+                                                androidx.compose.material3.TextButton(onClick = {
+                                                    multiPromptTexts = multiPromptTexts + (entry.key to factory)
+                                                    multiPromptDirty = multiPromptDirty + entry.key
+                                                }) { Text(stringResource(Res.string.agent_cfg_restore_default)) }
+                                                if (changed) {
+                                                    androidx.compose.material3.TextButton(onClick = {
+                                                        multiPromptTexts = multiPromptTexts +
+                                                            (entry.key to (resolved.promptOverrides[entry.key] ?: factory))
+                                                        multiPromptDirty = multiPromptDirty - entry.key
+                                                    }) { Text(stringResource(Res.string.agent_cfg_discard_changes)) }
+                                                }
+                                            }
+                                        }
+                                        Spacer(Modifier.height(metrics.micro))
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        // ── master / enrich / radio：单 prompt 编辑器 ──
+                        HMPCard {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                            ) {
+                                Text("System Prompt", style = typo.subtitle, fontWeight = FontWeight.Bold)
+                                Text(
+                                    if (hasOverride) stringResource(Res.string.agent_cfg_status_overridden) else stringResource(Res.string.agent_cfg_status_default),
+                                    style = typo.caption,
+                                    color = if (hasOverride) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                            Spacer(Modifier.height(metrics.micro))
+                            Text(
+                                stringResource(Res.string.agent_cfg_prompt_desc),
+                                style = typo.footnote,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Spacer(Modifier.height(metrics.compact))
+                            Text(
+                                stringResource(Res.string.agent_cfg_effective_lang, effectiveLang),
+                                style = typo.footnote,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Spacer(Modifier.height(metrics.compact))
+
+                            OutlinedTextField(
+                                value = systemPrompt,
+                                onValueChange = {
+                                    systemPrompt = it
+                                    promptDirty = true
+                                },
+                                modifier = Modifier
+                                    .widthIn(max = wideRowMaxWidth)
+                                    .fillMaxWidth()
+                                    .height(LayoutConstraints.PanelHeightLarge),
+                                placeholder = { Text(stringResource(Res.string.agent_cfg_placeholder_default)) },
+                            )
+
+                            // 占位符护栏（编辑时实时显示）—— 以出厂默认模板为基准
+                            if (systemPrompt.isNotBlank()) {
+                                val requiredPlaceholders = factoryPrompt.extractPlaceholders()
+                                if (requiredPlaceholders.isNotEmpty()) {
+                                    val userHas = requiredPlaceholders.filter { systemPrompt.contains("{{$it}}") }
+                                    val missing = requiredPlaceholders.filter { !systemPrompt.contains("{{$it}}") }
+                                    Spacer(Modifier.height(metrics.micro))
+                                    Text(
+                                        stringResource(Res.string.agent_cfg_placeholders_needed, userHas.size, requiredPlaceholders.size),
+                                        style = typo.footnote,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                    Text(
+                                        requiredPlaceholders.joinToString("  ") { ph ->
+                                            val ok = ph in userHas
+                                            if (ok) "✓ {{$ph}}" else "✗ {{$ph}}"
+                                        },
+                                        style = typo.footnote,
+                                        color = if (missing.isNotEmpty()) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                    if (missing.isNotEmpty()) {
+                                        Text(
+                                            stringResource(Res.string.agent_cfg_missing_placeholder, missing.joinToString(", ") { "{{$it}}" }),
+                                            style = typo.footnote,
+                                            color = MaterialTheme.colorScheme.error,
+                                        )
+                                    }
+                                }
+                            }
+
+                            // 操作：恢复出厂默认 / 放弃改动
+                            Spacer(Modifier.height(metrics.compact))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(metrics.compact),
+                            ) {
+                                val templateLang = when (preferredLang) {
+                                    "en" -> stringResource(Res.string.agent_ai_lang_en)
+                                    else -> stringResource(Res.string.agent_ai_lang_zh)
+                                }
+                                androidx.compose.material3.TextButton(
+                                    onClick = {
+                                        systemPrompt = factoryPrompt
+                                        promptDirty = true
+                                    },
+                                ) {
+                                    Text(stringResource(Res.string.agent_cfg_restore_factory, templateLang))
+                                }
+                                if (promptDirty || hasOverride) {
+                                    androidx.compose.material3.TextButton(
+                                        onClick = {
+                                            systemPrompt = factoryPrompt
+                                            promptDirty = false
+                                        },
+                                    ) {
+                                        Text(stringResource(Res.string.agent_cfg_discard_changes))
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // ═══ ⑦ 底部操作（随内容滚动到底，不悬浮）═══
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(metrics.compact),
                     ) {
-                        val templateLang = when (preferredLang) {
-                            "en" -> stringResource(Res.string.agent_ai_lang_en)
-                            else -> stringResource(Res.string.agent_ai_lang_zh)
-                        }
-                        androidx.compose.material3.TextButton(
-                            onClick = { systemPrompt = factoryPrompt; promptDirty = true }
-                        ) {
-                            Text(stringResource(Res.string.agent_cfg_restore_factory, templateLang))
-                        }
-                        if (promptDirty || hasOverride) {
-                            androidx.compose.material3.TextButton(
-                                onClick = { systemPrompt = factoryPrompt; promptDirty = false }
-                            ) {
-                                Text(stringResource(Res.string.agent_cfg_discard_changes))
-                            }
-                        }
+                        Button(onClick = reset, modifier = Modifier.weight(1f)) { Text(stringResource(Res.string.agent_cfg_restore_default)) }
+                        Button(onClick = save, modifier = Modifier.weight(1f)) { Text(stringResource(Res.string.agent_cfg_save)) }
                     }
+                    // 给全局悬浮音乐胶囊预留底部空间
+                    MiniPlayerSafeSpacer(height = metrics.bar)
                 }
             }
-
-            // ═══ ⑦ 底部操作（随内容滚动到底，不悬浮）═══
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(metrics.compact),
-            ) {
-                Button(onClick = reset, modifier = Modifier.weight(1f)) { Text(stringResource(Res.string.agent_cfg_restore_default)) }
-                Button(onClick = save, modifier = Modifier.weight(1f)) { Text(stringResource(Res.string.agent_cfg_save)) }
-            }
-            // 给全局悬浮音乐胶囊预留底部空间
-            MiniPlayerSafeSpacer(height = metrics.bar)
-        }
-        }
         }
     }
 }
@@ -1107,7 +1140,7 @@ private fun ConfigFormLeftColumn(
         Text(
             stringResource(Res.string.agent_cfg_lang_desc),
             style = typo.footnote,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Spacer(Modifier.height(metrics.cozy))
         Text(stringResource(Res.string.agent_cfg_temperature), style = typo.subtitle, fontWeight = FontWeight.Bold)
@@ -1166,31 +1199,34 @@ private fun ConfigFormLeftColumn(
             Text(
                 stringResource(Res.string.agent_cfg_following_global),
                 style = typo.body,
-                fontWeight = FontWeight.Medium
+                fontWeight = FontWeight.Medium,
             )
             Spacer(Modifier.height(metrics.micro))
             Text(
-                if (!endpointLoaded) stringResource(Res.string.agent_cfg_loading)
-                else buildString {
-                    append(stringResource(Res.string.agent_cfg_endpoint_value, if (globalEndpoint.endpoint.isNotBlank()) globalEndpoint.endpoint else stringResource(Res.string.agent_cfg_builtin)))
-                    if (globalEndpoint.selectedModel.isNotBlank()) append(stringResource(Res.string.agent_cfg_model_value, globalEndpoint.selectedModel))
+                if (!endpointLoaded) {
+                    stringResource(Res.string.agent_cfg_loading)
+                } else {
+                    buildString {
+                        append(stringResource(Res.string.agent_cfg_endpoint_value, if (globalEndpoint.endpoint.isNotBlank()) globalEndpoint.endpoint else stringResource(Res.string.agent_cfg_builtin)))
+                        if (globalEndpoint.selectedModel.isNotBlank()) append(stringResource(Res.string.agent_cfg_model_value, globalEndpoint.selectedModel))
+                    }
                 },
                 style = typo.footnote,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             if (endpointLoaded && !globalEndpoint.isConfigured) {
                 Spacer(Modifier.height(metrics.micro))
                 Text(
                     stringResource(Res.string.agent_cfg_global_unavailable),
                     style = typo.footnote,
-                    color = MaterialTheme.colorScheme.error
+                    color = MaterialTheme.colorScheme.error,
                 )
             }
             Spacer(Modifier.height(metrics.micro))
             Text(
                 stringResource(Res.string.agent_cfg_change_global_hint),
                 style = typo.footnote,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }
@@ -1202,7 +1238,7 @@ private fun ConfigFormLeftColumn(
         Text(
             stringResource(Res.string.agent_cfg_trust_desc),
             style = typo.footnote,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Spacer(Modifier.height(metrics.compact))
         SegmentedControl(
@@ -1219,7 +1255,7 @@ private fun ConfigFormLeftColumn(
         Text(
             stringResource(Res.string.agent_cfg_always_allow_count, alwaysAllowCount),
             style = typo.footnote,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         if (agentRole == "master") {
             Spacer(Modifier.height(metrics.cozy))
@@ -1302,7 +1338,7 @@ private fun ConfigFormLeftColumn(
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
             ) {
                 Text(stringResource(Res.string.agent_cfg_auto_renew))
                 Switch(checked = autoRenew, onCheckedChange = onAutoRenewChange)
@@ -1344,8 +1380,11 @@ private fun SystemPromptSection(
     // 生效语言提示
     val effectiveLang = when (preferredLang) {
         "zh" -> stringResource(Res.string.agent_ai_lang_zh)
+
         "en" -> stringResource(Res.string.agent_ai_lang_en)
+
         "auto" -> stringResource(Res.string.agent_cfg_lang_follow_system)
+
         else -> when (globalReplyLang) {
             "en" -> stringResource(Res.string.agent_cfg_lang_global_en)
             "auto" -> stringResource(Res.string.agent_cfg_lang_global_auto)
@@ -1375,7 +1414,7 @@ private fun SystemPromptSection(
             Text(
                 stringResource(Res.string.agent_cfg_hello_prompt_desc, effectiveLang),
                 style = typo.footnote,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
             helloPromptGroups().forEach { (groupName, entries) ->
@@ -1460,7 +1499,7 @@ private fun SystemPromptSection(
                                 if (changed) {
                                     androidx.compose.material3.TextButton(onClick = {
                                         onMultiPromptTextsChange(
-                                            multiPromptTexts + (entry.key to (resolvedOverrides[entry.key] ?: factory))
+                                            multiPromptTexts + (entry.key to (resolvedOverrides[entry.key] ?: factory)),
                                         )
                                         onMultiPromptDirtyChange(multiPromptDirty - entry.key)
                                     }) { Text(stringResource(Res.string.agent_cfg_discard_changes)) }
@@ -1491,13 +1530,13 @@ private fun SystemPromptSection(
             Text(
                 stringResource(Res.string.agent_cfg_prompt_desc),
                 style = typo.footnote,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Spacer(Modifier.height(metrics.compact))
             Text(
                 stringResource(Res.string.agent_cfg_effective_lang, effectiveLang),
                 style = typo.footnote,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Spacer(Modifier.height(metrics.compact))
 
@@ -1520,7 +1559,7 @@ private fun SystemPromptSection(
                     Text(
                         stringResource(Res.string.agent_cfg_placeholders_needed, userHas.size, requiredPlaceholders.size),
                         style = typo.footnote,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Text(
                         requiredPlaceholders.joinToString("  ") { ph ->
@@ -1528,13 +1567,13 @@ private fun SystemPromptSection(
                             if (ok) "✓ {{$ph}}" else "✗ {{$ph}}"
                         },
                         style = typo.footnote,
-                        color = if (missing.isNotEmpty()) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
+                        color = if (missing.isNotEmpty()) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     if (missing.isNotEmpty()) {
                         Text(
                             stringResource(Res.string.agent_cfg_missing_placeholder, missing.joinToString(", ") { "{{$it}}" }),
                             style = typo.footnote,
-                            color = MaterialTheme.colorScheme.error
+                            color = MaterialTheme.colorScheme.error,
                         )
                     }
                 }
@@ -1551,13 +1590,13 @@ private fun SystemPromptSection(
                     else -> stringResource(Res.string.agent_ai_lang_zh)
                 }
                 androidx.compose.material3.TextButton(
-                    onClick = onRestoreFactoryPrompt
+                    onClick = onRestoreFactoryPrompt,
                 ) {
                     Text(stringResource(Res.string.agent_cfg_restore_factory, templateLang))
                 }
                 if (promptDirty || hasOverride) {
                     androidx.compose.material3.TextButton(
-                        onClick = onDiscardPromptChanges
+                        onClick = onDiscardPromptChanges,
                     ) {
                         Text(stringResource(Res.string.agent_cfg_discard_changes))
                     }
@@ -1600,7 +1639,7 @@ private fun defaultPromptKeyFor(role: String) = when (role) {
     "enrich" -> "enrich.system"
     "radio" -> "radio.host"
     "hello" -> "hello.greeting.quote"
-    else -> "${role}.system"
+    else -> "$role.system"
 }
 
 /**
@@ -1612,8 +1651,7 @@ private fun defaultPromptKeyFor(role: String) = when (role) {
 private data class PromptEntry(val key: String, val label: UiText, val hint: UiText)
 
 /** 目录项简写：label / hint 都是资源，包装成 [UiText] 以便渲染期解析。 */
-private fun promptEntry(key: String, label: StringResource, hint: StringResource) =
-    PromptEntry(key, label.asUiText(), hint.asUiText())
+private fun promptEntry(key: String, label: StringResource, hint: StringResource) = PromptEntry(key, label.asUiText(), hint.asUiText())
 
 private val HELLO_GREETING_PROMPTS = listOf(
     promptEntry("hello.greeting.quote", Res.string.agent_hello_greeting_quote, Res.string.agent_hello_greeting_quote_hint),

@@ -48,18 +48,22 @@ internal object JsonText {
                     current.append(char)
                     escapeNext = false
                 }
+
                 char == '\\' && inString -> {
                     current.append(char)
                     escapeNext = true
                 }
+
                 char == '"' -> {
                     inString = !inString
                     current.append(char)
                 }
+
                 !inString && char == '{' -> {
                     depth++
                     current.append(char)
                 }
+
                 !inString && char == '}' -> {
                     depth--
                     current.append(char)
@@ -68,9 +72,11 @@ internal object JsonText {
                         current.clear()
                     }
                 }
+
                 !inString && depth == 0 && char == ',' -> {
                     // 根级别逗号 —— 跳过
                 }
+
                 else -> current.append(char)
             }
         }

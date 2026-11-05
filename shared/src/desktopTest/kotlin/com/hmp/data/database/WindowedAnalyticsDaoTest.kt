@@ -5,13 +5,13 @@ import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import com.hmp.data.database.myenum.LabelCategory
 import com.hmp.data.database.myenum.LabelName
 import kotlinx.coroutines.test.runTest
+import java.io.File
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
-import java.io.File
 
 /**
  * 窗口统计（方案 B）6 条 SQL 的 DAO 级契约测试。
@@ -59,7 +59,7 @@ class WindowedAnalyticsDaoTest {
             listOf(
                 Music(id = 1, title = "Song A", artist = "Artist A", album = "Album A", duration = 200_000, path = "/a.mp3", albumArtUri = "", isDeleted = false),
                 Music(id = 2, title = "Song B", artist = "Artist B", album = "Album B", duration = 200_000, path = "/b.mp3", albumArtUri = "", isDeleted = false),
-            )
+            ),
         )
         db.playbackHistoryDao().insertAll(
             listOf(
@@ -71,14 +71,14 @@ class WindowedAnalyticsDaoTest {
                 PlaybackHistory(musicId = 1, playedAt = cutoff + 500, playDuration = 30_000, isCompleted = false, source = null),
                 // 窗口外（早于 cutoff）：不应计入任何窗口聚合
                 PlaybackHistory(musicId = 2, playedAt = cutoff - 2_000_000_000L, playDuration = 999_999, isCompleted = true, source = "USER"),
-            )
+            ),
         )
         db.musicLabelDao().insertAll(
             listOf(
                 MusicLabel(musicId = 1, type = LabelCategory.GENRE, label = LabelName.ROCK, source = "LLM"),
                 MusicLabel(musicId = 2, type = LabelCategory.GENRE, label = LabelName.POP, source = "LLM"),
                 MusicLabel(musicId = 2, type = LabelCategory.MOOD, label = LabelName.HAPPY, source = "LLM"),
-            )
+            ),
         )
     }
 

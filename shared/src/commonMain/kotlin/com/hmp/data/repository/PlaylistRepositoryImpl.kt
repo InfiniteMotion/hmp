@@ -41,20 +41,15 @@ class PlaylistRepositoryImpl(
         return playlistDao.insert(entity)
     }
 
-    override suspend fun getPlaylistByName(name: String): Playlist? =
-        playlistDao.getPlaylistByName(name)?.toDomain()
+    override suspend fun getPlaylistByName(name: String): Playlist? = playlistDao.getPlaylistByName(name)?.toDomain()
 
     override suspend fun removePlaylistById(id: Long) {
         playlistDao.deletePlaylistById(id)
     }
 
-    override suspend fun getAllPlaylists(): List<Playlist> {
-        return playlistDao.getAllPlaylists().map { it.toDomain() }
-    }
+    override suspend fun getAllPlaylists(): List<Playlist> = playlistDao.getAllPlaylists().map { it.toDomain() }
 
-    override suspend fun getPlaylistMeta(id: Long): Playlist? {
-        return playlistDao.getPlaylistById(id)?.toDomain()
-    }
+    override suspend fun getPlaylistMeta(id: Long): Playlist? = playlistDao.getPlaylistById(id)?.toDomain()
 
     override suspend fun renamePlaylist(id: Long, newName: String) {
         playlistDao.renamePlaylist(id, newName, currentTimeMillis())
@@ -90,24 +85,15 @@ class PlaylistRepositoryImpl(
         playlistItemDao.replaceItemsAndRefresh(playlistId, musicList.map { it.music.id }, currentTimeMillis())
     }
 
-    override suspend fun reorderPlaylistItems(playlistId: Long, orderedMusicIds: List<Long>): Boolean =
-        playlistItemDao.reorderAndRefresh(playlistId, orderedMusicIds, currentTimeMillis())
+    override suspend fun reorderPlaylistItems(playlistId: Long, orderedMusicIds: List<Long>): Boolean = playlistItemDao.reorderAndRefresh(playlistId, orderedMusicIds, currentTimeMillis())
 
-    override fun getMusicInfoInPlaylist(playlistId: Long): Flow<List<MusicInfo>> {
-        return playlistItemDao.getMusicInfoInPlaylist(playlistId).map { list -> list.map { it.toDomain() } }
-    }
+    override fun getMusicInfoInPlaylist(playlistId: Long): Flow<List<MusicInfo>> = playlistItemDao.getMusicInfoInPlaylist(playlistId).map { list -> list.map { it.toDomain() } }
 
-    override fun getAllPlaylistsFlow(): Flow<List<Playlist>> {
-        return playlistDao.getAllPlaylistsFlow().map { list -> list.map { it.toDomain() } }
-    }
+    override fun getAllPlaylistsFlow(): Flow<List<Playlist>> = playlistDao.getAllPlaylistsFlow().map { list -> list.map { it.toDomain() } }
 
-    override suspend fun getPlaylistById(playlistId: Long): List<MusicInfo> {
-        return playlistItemDao.getPlaylistById(playlistId).map { it.toDomain() }
-    }
+    override suspend fun getPlaylistById(playlistId: Long): List<MusicInfo> = playlistItemDao.getPlaylistById(playlistId).map { it.toDomain() }
 
-    override suspend fun getPlaylistByIdList(playlistIdList: List<Long>): List<MusicInfo> {
-        return musicAllDao.getPlaylistByIdList(playlistIdList).map { it.toDomain() }
-    }
+    override suspend fun getPlaylistByIdList(playlistIdList: List<Long>): List<MusicInfo> = musicAllDao.getPlaylistByIdList(playlistIdList).map { it.toDomain() }
 
     override suspend fun exportPlaylistsSnapshot(): PlaylistsSnapshot {
         val playlists = playlistDao.getAllPlaylists().map { it.toDomain() }

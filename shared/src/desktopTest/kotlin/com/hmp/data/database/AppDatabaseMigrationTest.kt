@@ -8,18 +8,18 @@ import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import androidx.sqlite.execSQL
 import com.hmp.data.database.myenum.LabelCategory
 import com.hmp.data.database.myenum.LabelName
-import kotlin.test.AfterTest
-import kotlin.test.BeforeTest
-import kotlin.test.Test
-import kotlin.test.assertEquals
-import kotlin.test.assertNotNull
-import kotlin.test.assertTrue
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.Rule
 import java.io.File
 import java.nio.file.Path
 import java.util.concurrent.atomic.AtomicInteger
+import kotlin.test.AfterTest
+import kotlin.test.BeforeTest
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
+import kotlin.test.assertTrue
 
 /**
  * Room 迁移链测试：逐环（1→2 / 5→6 / 6→7 / 7→8 / 8→9）+ 1→9 全链 + 链连续性门禁。
@@ -69,11 +69,11 @@ class AppDatabaseMigrationTest {
         // 1. 以 v1 schema 建库并写入存量数据
         val v1 = helper.createDatabase(1)
         v1.execSQL(
-            "INSERT INTO `musicLabel` (musicId, type, label) VALUES (7, 'GENRE', 'ROCK')"
+            "INSERT INTO `musicLabel` (musicId, type, label) VALUES (7, 'GENRE', 'ROCK')",
         )
         v1.execSQL(
             "INSERT INTO `music` (id, title, artist, album, duration, path, albumArtUri, isDeleted) " +
-                "VALUES (7, 'Song', 'Artist', 'Album', 200000, '/m/1.mp3', '', 0)"
+                "VALUES (7, 'Song', 'Artist', 'Album', 200000, '/m/1.mp3', '', 0)",
         )
         v1.close()
 
@@ -95,7 +95,7 @@ class AppDatabaseMigrationTest {
 
         // 4. 新列可写（实体层行为）
         v2.execSQL(
-            "UPDATE `musicLabel` SET source='USER', confidence=0.95, created_at=1000, updated_at=2000 WHERE musicId=7"
+            "UPDATE `musicLabel` SET source='USER', confidence=0.95, created_at=1000, updated_at=2000 WHERE musicId=7",
         )
         v2.prepare("SELECT source, confidence FROM musicLabel WHERE musicId = 7").use { stmt ->
             assertTrue(stmt.step())
@@ -106,7 +106,7 @@ class AppDatabaseMigrationTest {
         // 5. 三张新表存在且可写入
         v2.execSQL(
             "INSERT INTO `agent_task` (trigger_type, status, budget_used, result, created_at) " +
-                "VALUES ('manual', 'completed', 3, '{\"ok\":true}', 1000)"
+                "VALUES ('manual', 'completed', 3, '{\"ok\":true}', 1000)",
         )
         v2.prepare("SELECT COUNT(*) FROM agent_task").use { stmt ->
             assertTrue(stmt.step())
@@ -114,11 +114,11 @@ class AppDatabaseMigrationTest {
         }
         v2.execSQL(
             "INSERT INTO `agent_audit_log` (task_id, tool, args_hash, outcome, reason, created_at) " +
-                "VALUES (1, 'searchLibrary', 'abc123', 'success', 'test', 1000)"
+                "VALUES (1, 'searchLibrary', 'abc123', 'success', 'test', 1000)",
         )
         v2.execSQL(
             "INSERT INTO `agent_message` (session_id, role, content, render_hint, created_at) " +
-                "VALUES ('s1', 'agent', '你好', 'text', 1000)"
+                "VALUES ('s1', 'agent', '你好', 'text', 1000)",
         )
         v2.close()
     }
@@ -136,7 +136,7 @@ class AppDatabaseMigrationTest {
         val v1 = helper.createDatabase(1)
         v1.execSQL(
             "INSERT INTO `music` (id, title, artist, album, duration, path, albumArtUri, isDeleted) " +
-                "VALUES (97, 'Song', 'Artist', 'Album', 200000, '/m/97.mp3', '', 0)"
+                "VALUES (97, 'Song', 'Artist', 'Album', 200000, '/m/97.mp3', '', 0)",
         )
         v1.close()
 
@@ -167,7 +167,7 @@ class AppDatabaseMigrationTest {
                     cachedTokens = 0,
                     measured = true,
                     taskId = null,
-                )
+                ),
             )
             assertEquals(1L, db.tokenLedgerDao().count(), "v9 新增表应可写")
         } finally {
@@ -187,7 +187,7 @@ class AppDatabaseMigrationTest {
         val v5 = helper.createDatabase(5)
         v5.execSQL(
             "INSERT INTO `music` (id, title, artist, album, duration, path, albumArtUri, isDeleted) " +
-                "VALUES (11, 'Song', 'Artist', 'Album', 200000, '/m/11.mp3', '', 0)"
+                "VALUES (11, 'Song', 'Artist', 'Album', 200000, '/m/11.mp3', '', 0)",
         )
         v5.close()
 
@@ -205,7 +205,7 @@ class AppDatabaseMigrationTest {
             "INSERT INTO `user_profile_evidence` " +
                 "(subject, predicate, value, source, confidence, created_at, updated_at, " +
                 "evidence_count, distinct_sessions, last_session_id) " +
-                "VALUES ('USER', 'time_portrait.primaryPart', 'NIGHT', 'T0_BEHAVIOR', 0.6, 1000, 1000, 1, 1, 's1')"
+                "VALUES ('USER', 'time_portrait.primaryPart', 'NIGHT', 'T0_BEHAVIOR', 0.6, 1000, 1000, 1, 1, 's1')",
         )
         v6.prepare("SELECT id FROM `user_profile_evidence` WHERE predicate = 'time_portrait.primaryPart'")
             .use { stmt ->
@@ -219,7 +219,7 @@ class AppDatabaseMigrationTest {
                 "INSERT INTO `user_profile_evidence` " +
                     "(subject, predicate, value, source, confidence, created_at, updated_at, " +
                     "evidence_count, distinct_sessions, last_session_id) " +
-                    "VALUES ('USER', 'time_portrait.primaryPart', 'NIGHT', 'T0_BEHAVIOR', 0.7, 2000, 2000, 1, 1, 's2')"
+                    "VALUES ('USER', 'time_portrait.primaryPart', 'NIGHT', 'T0_BEHAVIOR', 0.7, 2000, 2000, 1, 1, 's2')",
             )
         }
         assertTrue(duplicate.isFailure, "重复的三元组应被唯一索引拒绝（违反则说明索引没建成）")
@@ -229,7 +229,7 @@ class AppDatabaseMigrationTest {
             "INSERT INTO `user_profile_evidence` " +
                 "(subject, predicate, value, source, confidence, created_at, updated_at, " +
                 "evidence_count, distinct_sessions, last_session_id) " +
-                "VALUES ('USER', 'time_portrait.secondaryPart', 'EVENING', 'T0_BEHAVIOR', 0.5, 1000, 1000, 1, 1, 's1')"
+                "VALUES ('USER', 'time_portrait.secondaryPart', 'EVENING', 'T0_BEHAVIOR', 0.5, 1000, 1000, 1, 1, 's1')",
         )
         v6.prepare("SELECT COUNT(*) FROM `user_profile_evidence`").use { stmt ->
             assertTrue(stmt.step())
@@ -240,7 +240,7 @@ class AppDatabaseMigrationTest {
         v6.execSQL(
             "INSERT INTO `user_profile_portrait` " +
                 "(type, tier, slots_json, evidence_refs, confidence, created_at, updated_at, coverage_at_modeling) " +
-                "VALUES ('time_portrait', 'L2', '{\"primaryPart\":\"NIGHT\"}', '1', 0.6, 1000, 1000, NULL)"
+                "VALUES ('time_portrait', 'L2', '{\"primaryPart\":\"NIGHT\"}', '1', 0.6, 1000, 1000, NULL)",
         )
         v6.prepare("SELECT coverage_at_modeling IS NULL, evidence_refs FROM `user_profile_portrait`")
             .use { stmt ->
@@ -253,7 +253,7 @@ class AppDatabaseMigrationTest {
         v6.execSQL(
             "INSERT OR REPLACE INTO `user_profile_portrait` " +
                 "(type, tier, slots_json, evidence_refs, confidence, created_at, updated_at, coverage_at_modeling) " +
-                "VALUES ('time_portrait', 'L3', '{}', '1,2', 0.7, 1000, 3000, 0.9)"
+                "VALUES ('time_portrait', 'L3', '{}', '1,2', 0.7, 1000, 3000, 0.9)",
         )
         v6.prepare("SELECT COUNT(*), tier FROM `user_profile_portrait` WHERE type = 'time_portrait'")
             .use { stmt ->
@@ -270,7 +270,7 @@ class AppDatabaseMigrationTest {
         val v6 = helper.createDatabase(6)
         v6.execSQL(
             "INSERT INTO `music` (id, title, artist, album, duration, path, albumArtUri, isDeleted) " +
-                "VALUES (21, 'Song', 'Artist', 'Album', 200000, '/m/21.mp3', '', 0)"
+                "VALUES (21, 'Song', 'Artist', 'Album', 200000, '/m/21.mp3', '', 0)",
         )
         v6.close()
 
@@ -284,7 +284,7 @@ class AppDatabaseMigrationTest {
         // 叙事表可写，指纹与时间戳原样读回
         v7.execSQL(
             "INSERT INTO `user_profile_narrative` (id, text, facts_hash, generated_at) " +
-                "VALUES (1, '你常在夜里听歌，很少中途跳过。', 42, 1000)"
+                "VALUES (1, '你常在夜里听歌，很少中途跳过。', 42, 1000)",
         )
         v7.prepare("SELECT text, facts_hash, generated_at FROM `user_profile_narrative` WHERE id = 1")
             .use { stmt ->
@@ -297,7 +297,7 @@ class AppDatabaseMigrationTest {
         // 单行表：同 id REPLACE 覆盖，不产生第二行
         v7.execSQL(
             "INSERT OR REPLACE INTO `user_profile_narrative` (id, text, facts_hash, generated_at) " +
-                "VALUES (1, '你听得杂而广，经常听一段就切走。', 43, 2000)"
+                "VALUES (1, '你听得杂而广，经常听一段就切走。', 43, 2000)",
         )
         v7.prepare("SELECT COUNT(*), text, facts_hash FROM `user_profile_narrative`").use { stmt ->
             assertTrue(stmt.step())
@@ -353,12 +353,12 @@ class AppDatabaseMigrationTest {
         v9.execSQL(
             "INSERT INTO `token_ledger` (created_at, agent_id, endpoint_host, model, " +
                 "prompt_tokens, completion_tokens, cached_tokens, measured) " +
-                "VALUES (1000, 'master', 'api.example.com', 'gpt-test', 10, 20, 0, 1)"
+                "VALUES (1000, 'master', 'api.example.com', 'gpt-test', 10, 20, 0, 1)",
         )
         v9.execSQL(
             "INSERT INTO `token_ledger` (created_at, agent_id, endpoint_host, model, " +
                 "prompt_tokens, completion_tokens, cached_tokens, measured) " +
-                "VALUES (2000, 'radio', 'api.example.com', 'gpt-test', 5, 7, 1, 0)"
+                "VALUES (2000, 'radio', 'api.example.com', 'gpt-test', 5, 7, 1, 0)",
         )
         v9.prepare("SELECT COUNT(*) FROM `token_ledger`").use { stmt ->
             assertTrue(stmt.step())
@@ -370,7 +370,7 @@ class AppDatabaseMigrationTest {
             v9.execSQL(
                 "INSERT INTO `token_ledger` (created_at, agent_id, endpoint_host, model, " +
                     "prompt_tokens, completion_tokens, cached_tokens, measured) " +
-                    "VALUES (3000, 'hello', 'api.example.com', 'gpt-test', NULL, 7, 1, 1)"
+                    "VALUES (3000, 'hello', 'api.example.com', 'gpt-test', NULL, 7, 1, 1)",
             )
         }
         assertTrue(nullTokens.isFailure, "prompt_tokens 应拒绝 NULL")
@@ -394,14 +394,14 @@ class AppDatabaseMigrationTest {
         listOf("混搭", "混搭", "混搭", "Rock'n", "Rock'n").forEachIndexed { index, name ->
             v9.execSQL(
                 "INSERT INTO `playlist` (id, name, coverUri, playCount, createdAt, updatedAt, songCount, totalDurationMs, isPinned) " +
-                    "VALUES (${index + 1}, ${sqlLiteral(name)}, NULL, 0, ${1000 + index}, ${1000 + index}, 0, 0, 0)"
+                    "VALUES (${index + 1}, ${sqlLiteral(name)}, NULL, 0, ${1000 + index}, ${1000 + index}, 0, 0, 0)",
             )
         }
         // 一个歌单内三条 itemOrder 全为 0（并发 addToPlaylist 造出的存量形态）
         listOf(3L, 1L, 2L).forEach { songId ->
             v9.execSQL(
                 "INSERT INTO `playlist_item` (songUrl, songId, playlistId, itemOrder) " +
-                    "VALUES ('/m/$songId.mp3', $songId, 1, 0)"
+                    "VALUES ('/m/$songId.mp3', $songId, 1, 0)",
             )
         }
         v9.execSQL("INSERT INTO `playlist_item` (songUrl, songId, playlistId, itemOrder) VALUES ('/m/9.mp3', 9, 2, 7)")
@@ -409,7 +409,7 @@ class AppDatabaseMigrationTest {
         // 账本存量行：T1 加了 access_mode 列，迁移后必须给存量行补上默认值 FREE
         v9.execSQL(
             "INSERT INTO `token_ledger` (created_at, agent_id, endpoint_host, model, prompt_tokens, completion_tokens, cached_tokens, measured) " +
-                "VALUES (1000, ${sqlLiteral("master")}, ${sqlLiteral("api.deepseek.com")}, ${sqlLiteral("m")}, 10, 5, 0, 1)"
+                "VALUES (1000, ${sqlLiteral("master")}, ${sqlLiteral("api.deepseek.com")}, ${sqlLiteral("m")}, 10, 5, 0, 1)",
         )
         val itemsBefore = countRows(v9, "`playlist_item`")
         v9.close()
@@ -465,14 +465,14 @@ class AppDatabaseMigrationTest {
 
         val duplicateOrder = runCatching {
             v10.execSQL(
-                "INSERT INTO `playlist_item` (songId, playlistId, itemOrder) VALUES (55, 2, 0)"
+                "INSERT INTO `playlist_item` (songId, playlistId, itemOrder) VALUES (55, 2, 0)",
             )
         }
         assertTrue(duplicateOrder.isFailure, "同一歌单内重复 itemOrder 应被唯一索引拒绝")
         val duplicateName = runCatching {
             v10.execSQL(
                 "INSERT INTO `playlist` (name, playCount, createdAt, updatedAt, songCount, totalDurationMs, isPinned) " +
-                    "VALUES ('混搭', 0, 1, 1, 0, 0, 0)"
+                    "VALUES ('混搭', 0, 1, 1, 0, 0, 0)",
             )
         }
         assertTrue(duplicateName.isFailure, "重名歌单应被唯一索引拒绝")
@@ -480,7 +480,7 @@ class AppDatabaseMigrationTest {
         // ⑤ D5-11 的判据形态：窗口查询的执行计划走索引，而不是 SCAN TABLE
         val plan = StringBuilder()
         v10.prepare(
-            "EXPLAIN QUERY PLAN SELECT COUNT(*) FROM PlaybackHistory WHERE playedAt >= 1000"
+            "EXPLAIN QUERY PLAN SELECT COUNT(*) FROM PlaybackHistory WHERE playedAt >= 1000",
         ).use { stmt ->
             while (stmt.step()) plan.append(stmt.getText(3)).append('\n')
         }
@@ -555,7 +555,7 @@ class AppDatabaseMigrationTest {
         assertEquals(
             latestSchemaVersion,
             AppDatabase.CODE_SCHEMA_VERSION,
-            "CODE_SCHEMA_VERSION 与 latestSchemaVersion 不同值：守卫会拿旧版本判定（bump 版本要改的地方比想象的多）"
+            "CODE_SCHEMA_VERSION 与 latestSchemaVersion 不同值：守卫会拿旧版本判定（bump 版本要改的地方比想象的多）",
         )
 
         assertEquals(1, chain.first().startVersion, "迁移链必须从 v1 起")
@@ -588,7 +588,7 @@ class AppDatabaseMigrationTest {
     private fun insertMusic(connection: SQLiteConnection, id: Long) {
         connection.execSQL(
             "INSERT INTO `music` (id, title, artist, album, duration, path, albumArtUri, isDeleted) " +
-                "VALUES ($id, 'Song$id', 'Artist', 'Album', 200000, '/m/$id.mp3', '', 0)"
+                "VALUES ($id, 'Song$id', 'Artist', 'Album', 200000, '/m/$id.mp3', '', 0)",
         )
     }
 
@@ -654,7 +654,10 @@ class AppDatabaseMigrationTest {
          */
         val EXPECTED_V10_INDEXES = mapOf(
             "music" to listOf(
-                "index_music_isDeleted", "index_music_title", "index_music_artist", "index_music_album",
+                "index_music_isDeleted",
+                "index_music_title",
+                "index_music_artist",
+                "index_music_album",
             ),
             "musicExtra" to listOf("index_musicExtra_isGetExtraInfo_isDeleted"),
             "userInfo" to listOf("index_userInfo_isDeleted"),

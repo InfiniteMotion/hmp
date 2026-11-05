@@ -6,8 +6,8 @@ import com.hmp.domain.playlist.Playlist
 import com.hmp.domain.playlist.PlaylistRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
 
 class FakePlaylistRepository : PlaylistRepository {
 
@@ -38,8 +38,7 @@ class FakePlaylistRepository : PlaylistRepository {
 
     override suspend fun getAllPlaylists(): List<Playlist> = playlists.toList()
 
-    override suspend fun getPlaylistMeta(id: Long): Playlist? =
-        playlists.find { it.id == id }
+    override suspend fun getPlaylistMeta(id: Long): Playlist? = playlists.find { it.id == id }
 
     override suspend fun renamePlaylist(id: Long, newName: String) {
         val index = playlists.indexOfFirst { it.id == id }
@@ -87,11 +86,17 @@ class FakePlaylistRepository : PlaylistRepository {
         items.add(
             MusicInfo(
                 music = com.hmp.domain.music.Music(
-                    id = musicId, title = "", artist = "", album = "",
-                    duration = 0L, path = "/$musicId.mp3", albumArtUri = ""
+                    id = musicId,
+                    title = "",
+                    artist = "",
+                    album = "",
+                    duration = 0L,
+                    path = "/$musicId.mp3",
+                    albumArtUri = "",
                 ),
-                extra = null, userInfo = null
-            )
+                extra = null,
+                userInfo = null,
+            ),
         )
         val index = playlists.indexOfFirst { it.id == playlistId }
         if (index >= 0) {
@@ -132,20 +137,15 @@ class FakePlaylistRepository : PlaylistRepository {
         return true
     }
 
-    override fun getMusicInfoInPlaylist(playlistId: Long): Flow<List<MusicInfo>> {
-        return _playlistsFlow.map { playlistItems[playlistId]?.toList() ?: emptyList() }
-    }
+    override fun getMusicInfoInPlaylist(playlistId: Long): Flow<List<MusicInfo>> = _playlistsFlow.map { playlistItems[playlistId]?.toList() ?: emptyList() }
 
-    override suspend fun getPlaylistById(playlistId: Long): List<MusicInfo> =
-        playlistItems[playlistId]?.toList() ?: emptyList()
+    override suspend fun getPlaylistById(playlistId: Long): List<MusicInfo> = playlistItems[playlistId]?.toList() ?: emptyList()
 
-    override suspend fun getPlaylistByIdList(playlistIdList: List<Long>): List<MusicInfo> =
-        playlistIdList.flatMap { playlistItems[it] ?: emptyList() }
+    override suspend fun getPlaylistByIdList(playlistIdList: List<Long>): List<MusicInfo> = playlistIdList.flatMap { playlistItems[it] ?: emptyList() }
 
     override fun getAllPlaylistsFlow(): Flow<List<Playlist>> = _playlistsFlow.asStateFlow()
 
-    override suspend fun exportPlaylistsSnapshot(): PlaylistsSnapshot =
-        PlaylistsSnapshot(playlists = playlists.toList(), playlistItems = emptyList())
+    override suspend fun exportPlaylistsSnapshot(): PlaylistsSnapshot = PlaylistsSnapshot(playlists = playlists.toList(), playlistItems = emptyList())
 
     /** 供 D7-02 / R39 的判据断言：让恢复的最后一步按指定异常失败。 */
     var failRestoreWith: Throwable? = null

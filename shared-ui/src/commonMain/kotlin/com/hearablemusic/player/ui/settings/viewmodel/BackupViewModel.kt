@@ -2,16 +2,16 @@ package com.hearablemusic.player.ui.settings.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.hmp.domain.backup.usecase.DeleteBackupUseCase
-import com.hmp.domain.backup.usecase.ExportUserDataBackupUseCase
-import com.hmp.domain.backup.usecase.GetBackupsUseCase
-import com.hmp.domain.backup.usecase.ImportUserDataBackupUseCase
 import com.hearablemusic.player.ui.generated.resources.Res
 import com.hearablemusic.player.ui.generated.resources.backup_desc
 import com.hearablemusic.player.ui.generated.resources.backup_failed
 import com.hearablemusic.player.ui.generated.resources.restore_failed
 import com.hearablemusic.player.ui.generated.resources.restore_success
 import com.hearablemusic.player.ui.generated.resources.unknown_error
+import com.hmp.domain.backup.usecase.DeleteBackupUseCase
+import com.hmp.domain.backup.usecase.ExportUserDataBackupUseCase
+import com.hmp.domain.backup.usecase.GetBackupsUseCase
+import com.hmp.domain.backup.usecase.ImportUserDataBackupUseCase
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -25,7 +25,7 @@ class BackupViewModel(
     private val exportUserDataBackupUseCase: ExportUserDataBackupUseCase,
     private val importUserDataBackupUseCase: ImportUserDataBackupUseCase,
     private val getBackupsUseCase: GetBackupsUseCase,
-    private val deleteBackupUseCase: DeleteBackupUseCase
+    private val deleteBackupUseCase: DeleteBackupUseCase,
 ) : ViewModel() {
 
     private val _backupResult = MutableStateFlow<String?>(null)

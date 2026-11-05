@@ -41,10 +41,11 @@ fun DailyHeroCardPage(onBack: () -> Unit) {
 
     StorybookPage(
         title = Strings.dailyHeroCard(lang),
-        description = if (lang == AppLanguage.ZH)
+        description = if (lang == AppLanguage.ZH) {
             "每日推荐卡片 (DailyHeroCard)，正方形比例，底部渐变遮罩，播放按钮"
-        else
-            "Daily recommendation card (DailyHeroCard) with square aspect ratio, bottom gradient overlay, and play button",
+        } else {
+            "Daily recommendation card (DailyHeroCard) with square aspect ratio, bottom gradient overlay, and play button"
+        },
         onBack = onBack,
     ) {
         // 标准卡片

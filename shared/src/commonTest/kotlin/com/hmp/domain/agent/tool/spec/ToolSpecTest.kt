@@ -9,10 +9,10 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.int
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
-import kotlin.test.assertFailsWith
 
 class ToolSpecTest {
     private val json = Json { prettyPrint = false }
@@ -30,7 +30,8 @@ class ToolSpecTest {
             buildJsonObject {
                 put("text", JsonPrimitive(""))
                 put("nonempty", JsonPrimitive("ok"))
-            }, params
+            },
+            params,
         )
         assertEquals("", args.requireString("text"))
         assertEquals("ok", args.requireString("nonempty"))
@@ -50,16 +51,33 @@ class ToolSpecTest {
         val params = listOf(LongListParam(name = "music_ids", maxItems = 3))
         val ok = parseArgs(
             buildJsonObject {
-                put("music_ids", buildJsonArray { add(JsonPrimitive(1)); add(JsonPrimitive(2)); add(JsonPrimitive(3)) })
-            }, params
+                put(
+                    "music_ids",
+                    buildJsonArray {
+                        add(JsonPrimitive(1))
+                        add(JsonPrimitive(2))
+                        add(JsonPrimitive(3))
+                    },
+                )
+            },
+            params,
         )
         assertEquals(listOf(1L, 2L, 3L), ok.requireLongList("music_ids"))
 
         val err = assertFailsWith<ToolParamError> {
             parseArgs(
                 buildJsonObject {
-                    put("music_ids", buildJsonArray { add(JsonPrimitive(1)); add(JsonPrimitive(2)); add(JsonPrimitive(3)); add(JsonPrimitive(4)) })
-                }, params
+                    put(
+                        "music_ids",
+                        buildJsonArray {
+                            add(JsonPrimitive(1))
+                            add(JsonPrimitive(2))
+                            add(JsonPrimitive(3))
+                            add(JsonPrimitive(4))
+                        },
+                    )
+                },
+                params,
             )
         }
         assertTrue(err.message!!.contains("最多 3 项"), "错误信息应说明上限")
@@ -141,7 +159,7 @@ class ToolSpecTest {
         val params = listOf(StringListParam(name = "tags", maxItems = 5))
         val args = parseArgs(
             json.parseToJsonElement("""{"tags":["a","b","c"]}""") as JsonObject,
-            params
+            params,
         )
         assertEquals(listOf("a", "b", "c"), args.requireStringList("tags"))
     }

@@ -55,16 +55,20 @@ class CoverArtRefreshTest {
     private suspend fun seedMusic() {
         db.musicDao().insert(
             com.hmp.data.database.Music(
-                id = 1L, title = "T", artist = "A", album = "B",
-                duration = 60_000L, path = "/Music/t.mp3", albumArtUri = ""
-            )
+                id = 1L,
+                title = "T",
+                artist = "A",
+                album = "B",
+                duration = 60_000L,
+                path = "/Music/t.mp3",
+                albumArtUri = "",
+            ),
         )
         db.musicExtraDao().insert(MusicExtra(id = 1L, isGetExtraInfo = true))
         db.userInfoDao().insert(UserInfo(id = 1L))
     }
 
-    private suspend fun uriInDb(): String =
-        db.musicDao().getMusicById(1L).first()?.albumArtUri ?: "<null>"
+    private suspend fun uriInDb(): String = db.musicDao().getMusicById(1L).first()?.albumArtUri ?: "<null>"
 
     @Test
     fun secondCoverReplacesTheFirst_inFileAndInDb() = runTest {
@@ -106,7 +110,7 @@ class CoverArtRefreshTest {
     @Test
     fun noWriterOnThisPlatform_leavesTheExistingUriAlone() = runTest {
         seedMusic()
-        val repoWithoutCache = InMemoryMusicRepository(db)   // coverArtWriter = null
+        val repoWithoutCache = InMemoryMusicRepository(db) // coverArtWriter = null
         db.musicDao().updateAlbumArtUriById(1L, "/old/cover_x.jpg")
 
         repoWithoutCache.refreshMusicTags(1L, EditableMusicTags(albumArt = newCover))

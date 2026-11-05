@@ -69,7 +69,8 @@ object BPortraitModeler {
                     snapshot.playsPerTrack <= BehaviorModeler.REPEAT_LOW + FLOAT_EPS
             add(
                 draft(
-                    PortraitType.ORDER, PortraitType.DETERMINISM,
+                    PortraitType.ORDER,
+                    PortraitType.DETERMINISM,
                     when {
                         deterministic -> RATE_HIGH
                         chasing -> RATE_LOW
@@ -82,7 +83,8 @@ object BPortraitModeler {
             if (snapshot.sessionCount >= MIN_SESSIONS) {
                 add(
                     draft(
-                        PortraitType.ATTENTION, PortraitType.SESSION_LENGTH,
+                        PortraitType.ATTENTION,
+                        PortraitType.SESSION_LENGTH,
                         when {
                             snapshot.avgSessionMinutes >= SESSION_LONG_MINUTES -> "LONG"
                             snapshot.avgSessionMinutes < SESSION_SHORT_MINUTES -> "SHORT"
@@ -92,7 +94,8 @@ object BPortraitModeler {
                 )
                 add(
                     draft(
-                        PortraitType.ATTENTION, PortraitType.FRAGMENTATION,
+                        PortraitType.ATTENTION,
+                        PortraitType.FRAGMENTATION,
                         when {
                             snapshot.avgTracksPerSession <= FRAG_HIGH_TRACKS -> RATE_HIGH
                             snapshot.avgTracksPerSession >= FRAG_LOW_TRACKS -> RATE_LOW

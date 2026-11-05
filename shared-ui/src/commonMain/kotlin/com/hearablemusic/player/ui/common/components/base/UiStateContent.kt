@@ -11,7 +11,7 @@ fun <T> UiStateContent(
     onLoading: @Composable () -> Unit = { DefaultLoading() },
     onError: @Composable (String) -> Unit = { message -> DefaultError(message) },
     onEmpty: @Composable () -> Unit = { DefaultEmpty() },
-    onSuccess: @Composable (T) -> Unit
+    onSuccess: @Composable (T) -> Unit,
 ) {
     when (state) {
         is UiState.Idle -> onLoading()

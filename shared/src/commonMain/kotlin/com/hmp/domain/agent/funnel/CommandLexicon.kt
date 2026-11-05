@@ -13,8 +13,10 @@ import com.hmp.domain.agent.port.PlaybackCommand
 sealed interface FunnelResult {
     /** 高频直映射：零 token，直接执行。 */
     data class Direct(val command: PlaybackCommand) : FunnelResult
+
     /** 模糊意图：升级单轮 agent 任务。 */
     data object Upgrade : FunnelResult
+
     /** 非指令/普通对话：走正常 agent。 */
     data object Pass : FunnelResult
 }

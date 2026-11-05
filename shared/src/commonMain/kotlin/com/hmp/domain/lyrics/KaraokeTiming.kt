@@ -10,7 +10,7 @@ import kotlin.math.max
 data class CharTiming(
     val text: String,
     val startMs: Long,
-    val endMs: Long
+    val endMs: Long,
 )
 
 /**
@@ -19,7 +19,7 @@ data class CharTiming(
  */
 data class CharFocus(
     val index: Int = 0,
-    val withinProgress: Float = 0f
+    val withinProgress: Float = 0f,
 )
 
 /**
@@ -56,7 +56,7 @@ object LyricsTimingGenerator {
     fun resolve(
         lines: List<LyricLineData>,
         totalDurationMs: Long? = null,
-        k: Float = DEFAULT_TRAILING_K
+        k: Float = DEFAULT_TRAILING_K,
     ): List<LyricLineData> {
         if (lines.isEmpty()) return emptyList()
         return lines.mapIndexed { index, line ->
@@ -81,7 +81,7 @@ object LyricsTimingGenerator {
         text: String,
         lineStartMs: Long,
         lineEndMs: Long,
-        k: Float = DEFAULT_TRAILING_K
+        k: Float = DEFAULT_TRAILING_K,
     ): List<CharTiming> {
         val chars = text.filterNot { it.isWhitespace() }
         if (chars.isEmpty()) return emptyList()
@@ -99,7 +99,7 @@ object LyricsTimingGenerator {
             CharTiming(
                 text = char.toString(),
                 startMs = lineStartMs + (singMs * index / count),
-                endMs = lineStartMs + (singMs * (index + 1) / count)
+                endMs = lineStartMs + (singMs * (index + 1) / count),
             )
         }
     }
@@ -111,7 +111,7 @@ object LyricsTimingGenerator {
     internal fun normalize(
         timings: List<CharTiming>,
         lineStartMs: Long,
-        lineEndMs: Long
+        lineEndMs: Long,
     ): List<CharTiming> {
         if (timings.isEmpty()) return emptyList()
         return timings.mapIndexed { index, timing ->
@@ -138,7 +138,7 @@ fun findKaraokeProgress(
     charTimings: List<CharTiming>,
     lineStartMs: Long,
     lineEndMs: Long,
-    position: Long
+    position: Long,
 ): Float {
     if (lineEndMs <= lineStartMs) return 1f
     if (position <= lineStartMs) return 0f
@@ -181,7 +181,7 @@ fun findKaraokeCharFocus(
     charTimings: List<CharTiming>,
     lineStartMs: Long,
     lineEndMs: Long,
-    position: Long
+    position: Long,
 ): CharFocus {
     if (charTimings.isEmpty() || lineEndMs <= lineStartMs) return CharFocus()
     if (position <= lineStartMs) return CharFocus(0, 0f)
@@ -214,7 +214,7 @@ fun findKaraokeCharFocus(
  */
 fun expandCharTimings(
     text: String,
-    charTimings: List<CharTiming>
+    charTimings: List<CharTiming>,
 ): List<CharTiming?> {
     val result = arrayOfNulls<CharTiming>(text.length)
     if (charTimings.isEmpty()) return result.toList()
@@ -261,7 +261,7 @@ object KaraokePositionInterpolator {
         lastTimestampNanos: Long,
         nowNanos: Long,
         isPlaying: Boolean,
-        speed: Float = 1f
+        speed: Float = 1f,
     ): Long {
         if (!isPlaying) return lastPositionMs
         val deltaNanos = (nowNanos - lastTimestampNanos).coerceAtLeast(0L)

@@ -19,7 +19,7 @@ class RoomAuditLogAdapter(
                 outcome = entry.outcome,
                 reason = entry.reason,
                 createdAt = currentTimeMillis(),
-            )
+            ),
         )
     }
 }

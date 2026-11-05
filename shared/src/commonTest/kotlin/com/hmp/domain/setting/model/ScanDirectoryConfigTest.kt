@@ -17,7 +17,7 @@ class ScanDirectoryConfigTest {
     fun customValues() {
         val config = ScanDirectoryConfig(
             scanDirectories = listOf("/music", "/downloads"),
-            blockedDirectories = listOf("/temp", "/cache")
+            blockedDirectories = listOf("/temp", "/cache"),
         )
         assertEquals(2, config.scanDirectories.size)
         assertEquals(2, config.blockedDirectories.size)

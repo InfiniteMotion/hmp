@@ -16,10 +16,10 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -43,10 +43,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.hmp.domain.config.DisplayMode
-import com.hmp.domain.config.LyricsAlignment
 import com.hearablemusic.player.ui.common.components.SegmentedOption
 import com.hearablemusic.player.ui.common.components.VerticalSegmentedControl
+import com.hearablemusic.player.ui.common.design.animation.HmpMotion
+import com.hearablemusic.player.ui.common.design.metrics.LayoutConstraints
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
 import com.hearablemusic.player.ui.common.design.typography.medium
 import com.hearablemusic.player.ui.common.layout.LocalWindowSizeInfo
@@ -60,9 +61,9 @@ import com.hearablemusic.player.ui.generated.resources.align_left
 import com.hearablemusic.player.ui.generated.resources.align_right
 import com.hearablemusic.player.ui.generated.resources.back
 import com.hearablemusic.player.ui.generated.resources.bilingual
-import com.hearablemusic.player.ui.generated.resources.ic_gallery_search_things
 import com.hearablemusic.player.ui.generated.resources.decrease
 import com.hearablemusic.player.ui.generated.resources.highlight_line
+import com.hearablemusic.player.ui.generated.resources.ic_gallery_search_things
 import com.hearablemusic.player.ui.generated.resources.increase
 import com.hearablemusic.player.ui.generated.resources.karaoke_lyrics
 import com.hearablemusic.player.ui.generated.resources.line_spacing
@@ -81,13 +82,12 @@ import com.hearablemusic.player.ui.platform.rememberStatusBarsController
 import com.hearablemusic.player.ui.player.viewmodel.PlaybackViewModel
 import com.hearablemusic.player.ui.player.viewmodel.PlaylistQueueViewModel
 import com.hearablemusic.player.ui.settings.viewmodel.LyricsSettingsViewModel
+import com.hmp.domain.config.DisplayMode
+import com.hmp.domain.config.LyricsAlignment
 import kotlinx.coroutines.delay
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
-import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
-import com.hearablemusic.player.ui.common.design.metrics.LayoutConstraints
-import com.hearablemusic.player.ui.common.design.animation.HmpMotion
 
 /**
  * 独立歌词页面
@@ -98,7 +98,7 @@ fun LyricsScreen(
     playbackViewModel: PlaybackViewModel = activityViewModel(),
     playlistQueueViewModel: PlaylistQueueViewModel = activityViewModel(),
     lyricsSettingsViewModel: LyricsSettingsViewModel = koinViewModel(),
-    onNavigateToSettings: () -> Unit = {}
+    onNavigateToSettings: () -> Unit = {},
 ) {
     val metrics = LocalHmpMetrics.current
     val lyrics by playlistQueueViewModel.currentMusicLyrics.collectAsState()
@@ -176,15 +176,15 @@ fun LyricsScreen(
                         lastInteractionTime = nowEpochMillis()
                     }
                 }
-            }
+            },
     ) {
         Column(
             modifier = Modifier
-                .fillMaxSize()
+                .fillMaxSize(),
         ) {
             // 歌词展示区域
             AdvancedLyrics(
-                modifier = if(!isSettingsPanelVisible) Modifier.weight(1f) else Modifier.padding(bottom = if (isLandscape) metrics.card else metrics.hero),
+                modifier = if (!isSettingsPanelVisible) Modifier.weight(1f) else Modifier.padding(bottom = if (isLandscape) metrics.card else metrics.hero),
                 lyrics = lyrics,
                 currentPosition = currentPosition,
                 onSeek = {
@@ -200,7 +200,7 @@ fun LyricsScreen(
                 paletteColors = paletteColors,
                 isPlaying = isPlaying,
                 displayMode = displayMode,
-                alignment = alignment
+                alignment = alignment,
             )
         }
         // 设置面板（固定在底部）
@@ -211,7 +211,7 @@ fun LyricsScreen(
                 .then(if (isLandscape) Modifier.widthIn(max = LayoutConstraints.HeightBreakpointMedium) else Modifier.fillMaxWidth())
                 .padding(bottom = if (isLandscape) metrics.block else metrics.panel),
             enter = fadeIn(HmpMotion.enter()) + slideInVertically(HmpMotion.enter()) { it },
-            exit = fadeOut(HmpMotion.exit()) + slideOutVertically(HmpMotion.exit()) { it }
+            exit = fadeOut(HmpMotion.exit()) + slideOutVertically(HmpMotion.exit()) { it },
         ) {
             LyricsSettingsPanel(
                 originalTextSize = originalTextSize,
@@ -227,7 +227,7 @@ fun LyricsScreen(
                 onCurrentTimeTextSizeChange = { v -> lyricsSettingsViewModel.updateFullscreenConfig { it.copy(currentTimeTextSize = v) } },
                 onLineSpacingChange = { v -> lyricsSettingsViewModel.updateFullscreenConfig { it.copy(lineSpacing = v) } },
                 onDisplayModeChange = { v -> lyricsSettingsViewModel.updateFullscreenConfig { it.copy(displayMode = v) } },
-                onAlignmentChange = { v -> lyricsSettingsViewModel.updateFullscreenConfig { it.copy(alignment = v) } }
+                onAlignmentChange = { v -> lyricsSettingsViewModel.updateFullscreenConfig { it.copy(alignment = v) } },
             )
         }
 
@@ -240,7 +240,7 @@ fun LyricsScreen(
                 .padding(bottom = metrics.row)
                 .padding(metrics.cozy),
             enter = fadeIn(HmpMotion.enter()),
-            exit = fadeOut(HmpMotion.exit())
+            exit = fadeOut(HmpMotion.exit()),
         ) {
             IconButton(
                 onClick = {
@@ -280,7 +280,7 @@ private fun LyricsSettingsPanel(
     onLineSpacingChange: (Int) -> Unit,
     onDisplayModeChange: (DisplayMode) -> Unit,
     onAlignmentChange: (LyricsAlignment) -> Unit,
-    onNavigateToSettings: () -> Unit = {}
+    onNavigateToSettings: () -> Unit = {},
 ) {
     val metrics = LocalHmpMetrics.current
     val typo = LocalHmpTypo.current
@@ -288,127 +288,127 @@ private fun LyricsSettingsPanel(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(metrics.section))
+            .clip(RoundedCornerShape(metrics.section)),
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(vertical = metrics.base, horizontal = metrics.cozy),
-            verticalArrangement = Arrangement.spacedBy(metrics.compact)
+            verticalArrangement = Arrangement.spacedBy(metrics.compact),
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(metrics.compact)
+                horizontalArrangement = Arrangement.spacedBy(metrics.compact),
             ) {
-        VerticalSegmentedControl(
-            modifier = Modifier.weight(1f),
-            options = listOf(
-                SegmentedOption(id = "LANG1", label = stringResource(Res.string.original_text), icon = painterResource(Res.drawable.translate_c2e)),
-                SegmentedOption(id = "LANG2", label = stringResource(Res.string.translated_text), icon = painterResource(Res.drawable.translate_e2c)),
-                SegmentedOption(id = "DUAL", label = stringResource(Res.string.bilingual), icon = painterResource(Res.drawable.translate))
-            ),
-            selectedOption = displayMode.name,
-            onOptionSelected = { name ->
-                haptic.performLightClick()
-                onDisplayModeChange(DisplayMode.valueOf(name))
-            }
-        )
-        VerticalSegmentedControl(
-            modifier = Modifier.weight(1f),
-            options = listOf(
-                SegmentedOption(id = "LEFT", label = stringResource(Res.string.align_left), icon = painterResource(Res.drawable.text_alignleft)),
-                SegmentedOption(id = "CENTER", label = stringResource(Res.string.align_center), icon = painterResource(Res.drawable.text_aligncenter)),
-                SegmentedOption(id = "RIGHT", label = stringResource(Res.string.align_right), icon = painterResource(Res.drawable.text_alignright))
-            ),
-            selectedOption = alignment.name,
-            onOptionSelected = { name ->
-                haptic.performLightClick()
-                onAlignmentChange(LyricsAlignment.valueOf(name))
-            }
-        )
-        if(displayMode == DisplayMode.DUAL || displayMode == DisplayMode.LANG1){
-            // 原文字体大小
-            SizeControl(
-                modifier = Modifier.weight(1f),
-                label = stringResource(Res.string.original_text),
-                value = originalTextSize,
-                minValue = 10,
-                maxValue = 28,
-                onValueChange = onOriginalTextSizeChange
-            )
-        }
-        if(displayMode == DisplayMode.DUAL || displayMode == DisplayMode.LANG2){
-            // 译文字体大小
-            SizeControl(
-                modifier = Modifier.weight(1f),
-                label = stringResource(Res.string.translated_text),
-                value = translatedTextSize,
-                minValue = 10,
-                maxValue = 28,
-                onValueChange = onTranslatedTextSizeChange
-            )
-        }
-        // 当前行字体大小
-        SizeControl(
-            modifier = Modifier.weight(1f),
-            label = stringResource(Res.string.highlight_line),
-            value = currentTimeTextSize,
-            minValue = 14,
-            maxValue = 32,
-            onValueChange = onCurrentTimeTextSizeChange
-        )
-        // 行间距
-        SizeControl(
-            modifier = Modifier.weight(1f),
-            label = stringResource(Res.string.line_spacing),
-            value = lineSpacing,
-            minValue = 2,
-            maxValue = 20,
-            onValueChange = onLineSpacingChange
-        )
-
-            // 更多设置入口
-            TextButton(
-                onClick = {
-                    haptic.performLightClick()
-                    onNavigateToSettings()
-                },
-                modifier = Modifier.weight(1f)
-            ) {
-                Text(
-                    stringResource(Res.string.more_settings),
-                    style = typo.footnote.medium(),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center
+                VerticalSegmentedControl(
+                    modifier = Modifier.weight(1f),
+                    options = listOf(
+                        SegmentedOption(id = "LANG1", label = stringResource(Res.string.original_text), icon = painterResource(Res.drawable.translate_c2e)),
+                        SegmentedOption(id = "LANG2", label = stringResource(Res.string.translated_text), icon = painterResource(Res.drawable.translate_e2c)),
+                        SegmentedOption(id = "DUAL", label = stringResource(Res.string.bilingual), icon = painterResource(Res.drawable.translate)),
+                    ),
+                    selectedOption = displayMode.name,
+                    onOptionSelected = { name ->
+                        haptic.performLightClick()
+                        onDisplayModeChange(DisplayMode.valueOf(name))
+                    },
                 )
-            }
+                VerticalSegmentedControl(
+                    modifier = Modifier.weight(1f),
+                    options = listOf(
+                        SegmentedOption(id = "LEFT", label = stringResource(Res.string.align_left), icon = painterResource(Res.drawable.text_alignleft)),
+                        SegmentedOption(id = "CENTER", label = stringResource(Res.string.align_center), icon = painterResource(Res.drawable.text_aligncenter)),
+                        SegmentedOption(id = "RIGHT", label = stringResource(Res.string.align_right), icon = painterResource(Res.drawable.text_alignright)),
+                    ),
+                    selectedOption = alignment.name,
+                    onOptionSelected = { name ->
+                        haptic.performLightClick()
+                        onAlignmentChange(LyricsAlignment.valueOf(name))
+                    },
+                )
+                if (displayMode == DisplayMode.DUAL || displayMode == DisplayMode.LANG1) {
+                    // 原文字体大小
+                    SizeControl(
+                        modifier = Modifier.weight(1f),
+                        label = stringResource(Res.string.original_text),
+                        value = originalTextSize,
+                        minValue = 10,
+                        maxValue = 28,
+                        onValueChange = onOriginalTextSizeChange,
+                    )
+                }
+                if (displayMode == DisplayMode.DUAL || displayMode == DisplayMode.LANG2) {
+                    // 译文字体大小
+                    SizeControl(
+                        modifier = Modifier.weight(1f),
+                        label = stringResource(Res.string.translated_text),
+                        value = translatedTextSize,
+                        minValue = 10,
+                        maxValue = 28,
+                        onValueChange = onTranslatedTextSizeChange,
+                    )
+                }
+                // 当前行字体大小
+                SizeControl(
+                    modifier = Modifier.weight(1f),
+                    label = stringResource(Res.string.highlight_line),
+                    value = currentTimeTextSize,
+                    minValue = 14,
+                    maxValue = 32,
+                    onValueChange = onCurrentTimeTextSizeChange,
+                )
+                // 行间距
+                SizeControl(
+                    modifier = Modifier.weight(1f),
+                    label = stringResource(Res.string.line_spacing),
+                    value = lineSpacing,
+                    minValue = 2,
+                    maxValue = 20,
+                    onValueChange = onLineSpacingChange,
+                )
+
+                // 更多设置入口
+                TextButton(
+                    onClick = {
+                        haptic.performLightClick()
+                        onNavigateToSettings()
+                    },
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Text(
+                        stringResource(Res.string.more_settings),
+                        style = typo.footnote.medium(),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                    )
+                }
             }
 
             // 逐字显示开关
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(metrics.cozy),
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
             ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = metrics.cozy, vertical = metrics.compact),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
+                    horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
                     Text(
                         text = stringResource(Res.string.karaoke_lyrics),
                         style = typo.body.medium(),
-                        color = MaterialTheme.colorScheme.onSurface
+                        color = MaterialTheme.colorScheme.onSurface,
                     )
                     Switch(
                         checked = karaokeEnabled,
                         onCheckedChange = onKaraokeEnabledChange,
                         colors = SwitchDefaults.colors(
                             checkedThumbColor = MaterialTheme.colorScheme.primary,
-                            checkedTrackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
-                        )
+                            checkedTrackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f),
+                        ),
                     )
                 }
             }
@@ -427,7 +427,7 @@ private fun SizeControl(
     value: Int,
     minValue: Int,
     maxValue: Int,
-    onValueChange: (Int) -> Unit
+    onValueChange: (Int) -> Unit,
 ) {
     val metrics = LocalHmpMetrics.current
     val typo = LocalHmpTypo.current
@@ -436,12 +436,12 @@ private fun SizeControl(
         modifier = modifier
             .border(width = metrics.stroke.thin, color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f), shape = RoundedCornerShape(metrics.cozy)),
         verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally
-        ) {
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
         Column(
             modifier = Modifier.padding(metrics.compact),
             verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Box(
                 modifier = Modifier
@@ -450,7 +450,7 @@ private fun SizeControl(
                     .border(
                         width = metrics.stroke.thin,
                         color = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
-                        shape = RoundedCornerShape(metrics.micro) // 边框圆角与外层保持一致
+                        shape = RoundedCornerShape(metrics.micro), // 边框圆角与外层保持一致
                     )
                     .clickable(
                         onClick = {
@@ -459,26 +459,26 @@ private fun SizeControl(
                                 onValueChange(value + 1)
                             }
                         },
-                        interactionSource = remember { MutableInteractionSource() }
+                        interactionSource = remember { MutableInteractionSource() },
                     ),
-                contentAlignment = Alignment.Center
+                contentAlignment = Alignment.Center,
             ) {
                 Icon(
                     painter = painterResource(Res.drawable.plus),
                     contentDescription = stringResource(Res.string.increase),
                     tint = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.size(metrics.cozy) // 图标尺寸适配按钮
+                    modifier = Modifier.size(metrics.cozy), // 图标尺寸适配按钮
                 )
             }
-            Column (
+            Column(
                 modifier = Modifier.padding(metrics.compact),
                 verticalArrangement = Arrangement.Center,
-                horizontalAlignment = Alignment.CenterHorizontally
-            ){
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
                 Text(
                     text = label.toCharArray().joinToString("\n"),
                     style = typo.body.medium(),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
             Box(
@@ -488,7 +488,7 @@ private fun SizeControl(
                     .border(
                         width = metrics.stroke.thin,
                         color = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
-                        shape = RoundedCornerShape(metrics.micro) // 边框圆角与外层保持一致
+                        shape = RoundedCornerShape(metrics.micro), // 边框圆角与外层保持一致
                     )
                     .clickable(
                         onClick = {
@@ -497,15 +497,15 @@ private fun SizeControl(
                                 onValueChange(value - 1)
                             }
                         },
-                        interactionSource = remember { MutableInteractionSource() }
+                        interactionSource = remember { MutableInteractionSource() },
                     ),
-                contentAlignment = Alignment.Center
+                contentAlignment = Alignment.Center,
             ) {
                 Icon(
                     painter = painterResource(Res.drawable.minus),
                     contentDescription = stringResource(Res.string.decrease),
                     tint = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.size(metrics.cozy) // 图标尺寸适配按钮
+                    modifier = Modifier.size(metrics.cozy), // 图标尺寸适配按钮
                 )
             }
         }

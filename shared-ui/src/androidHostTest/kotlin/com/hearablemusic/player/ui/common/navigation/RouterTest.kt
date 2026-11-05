@@ -80,7 +80,10 @@ class RouterTest {
     @Test
     fun `popBackStackTo should remove routes above target when inclusive false`() {
         val (router, stack) = createRouter(
-            Routes.Main.Tabs, Routes.Library.Search, Routes.Library.Album("Album"), Routes.Library.Artist("Artist")
+            Routes.Main.Tabs,
+            Routes.Library.Search,
+            Routes.Library.Album("Album"),
+            Routes.Library.Artist("Artist"),
         )
         assertTrue(router.popBackStackTo(Routes.Library.Search))
         assertEquals(listOf<NavKey>(Routes.Main.Tabs, Routes.Library.Search), stack.toList())
@@ -89,7 +92,10 @@ class RouterTest {
     @Test
     fun `popBackStackTo should remove routes including target when inclusive true`() {
         val (router, stack) = createRouter(
-            Routes.Main.Tabs, Routes.Library.Search, Routes.Library.Album("Album"), Routes.Library.Artist("Artist")
+            Routes.Main.Tabs,
+            Routes.Library.Search,
+            Routes.Library.Album("Album"),
+            Routes.Library.Artist("Artist"),
         )
         assertTrue(router.popBackStackTo(Routes.Library.Search, inclusive = true))
         assertEquals(listOf<NavKey>(Routes.Main.Tabs), stack.toList())
@@ -122,7 +128,10 @@ class RouterTest {
     @Test
     fun `clearBackStack should remove all except first`() {
         val (router, stack) = createRouter(
-            Routes.Main.Tabs, Routes.Library.Search, Routes.Library.Album("Album"), Routes.Library.Artist("Artist")
+            Routes.Main.Tabs,
+            Routes.Library.Search,
+            Routes.Library.Album("Album"),
+            Routes.Library.Artist("Artist"),
         )
         router.clearBackStack()
         assertEquals(listOf<NavKey>(Routes.Main.Tabs), stack.toList())

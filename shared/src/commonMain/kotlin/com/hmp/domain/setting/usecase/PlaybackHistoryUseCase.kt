@@ -6,11 +6,9 @@ import com.hmp.domain.setting.model.PlaybackHistory
 import kotlinx.coroutines.flow.Flow
 
 class PlaybackHistoryUseCase(
-    private val musicRepository: MusicRepository
+    private val musicRepository: MusicRepository,
 ) {
-    suspend fun insertPlayback(history: PlaybackHistory): Long {
-        return musicRepository.insertPlayback(history)
-    }
+    suspend fun insertPlayback(history: PlaybackHistory): Long = musicRepository.insertPlayback(history)
 
     suspend fun startPlaybackSession(musicId: Long, source: String? = null): Long {
         val now = currentTimeMillis()
@@ -22,8 +20,8 @@ class PlaybackHistoryUseCase(
                 playedAt = now,
                 playDuration = 0,
                 isCompleted = false,
-                source = source
-            )
+                source = source,
+            ),
         )
     }
 
@@ -46,7 +44,5 @@ class PlaybackHistoryUseCase(
         musicRepository.recordListeningDuration(duration)
     }
 
-    fun getPlaybackHistory(musicId: Long, limit: Int = 5): Flow<List<PlaybackHistory>> {
-        return musicRepository.getPlaybackHistory(musicId, limit)
-    }
+    fun getPlaybackHistory(musicId: Long, limit: Int = 5): Flow<List<PlaybackHistory>> = musicRepository.getPlaybackHistory(musicId, limit)
 }

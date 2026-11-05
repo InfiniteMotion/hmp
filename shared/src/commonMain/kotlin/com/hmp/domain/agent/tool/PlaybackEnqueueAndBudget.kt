@@ -1,17 +1,16 @@
 package com.hmp.domain.agent.tool
-import com.hmp.domain.agent.tool.spec.AgentTool
-import com.hmp.domain.agent.tool.spec.ToolResult
-import com.hmp.domain.agent.tool.spec.ToolParam
-import com.hmp.domain.agent.tool.spec.ToolNames
-import com.hmp.domain.agent.tool.spec.ToolArgs
-import com.hmp.domain.agent.tool.spec.LongParam
 
+import com.hmp.domain.agent.port.PlaybackCommand
 import com.hmp.domain.agent.port.ToolPermissionLevel
+import com.hmp.domain.agent.tool.spec.AgentTool
+import com.hmp.domain.agent.tool.spec.LongParam
+import com.hmp.domain.agent.tool.spec.ToolArgs
+import com.hmp.domain.agent.tool.spec.ToolNames
+import com.hmp.domain.agent.tool.spec.ToolParam
+import com.hmp.domain.agent.tool.spec.ToolResult
 
 // ---------------- playback_enqueue (write/confirm) ----------------
 // 追加曲目到当前播放队列尾部（不切换当前播放对象，区别于 playback_play_at）。
-
-import com.hmp.domain.agent.port.PlaybackCommand
 
 class PlaybackEnqueueTool(
     deps: ToolDependencies,
@@ -28,8 +27,11 @@ class PlaybackEnqueueTool(
     override suspend fun run(args: ToolArgs): ToolResult {
         val musicId = args.requireLong("music_id")
         val (ok, text) = port.execute(PlaybackCommand.ADD_TO_QUEUE(musicId))
-        return if (ok) ToolResult.success("已把曲目 $musicId 追加到播放队列尾部")
-        else ToolResult.failure("追加入队失败：$text")
+        return if (ok) {
+            ToolResult.success("已把曲目 $musicId 追加到播放队列尾部")
+        } else {
+            ToolResult.failure("追加入队失败：$text")
+        }
     }
 }
 
@@ -54,7 +56,7 @@ class AgentBudgetTool(
             "Agent 配额（占位）：\n" +
                 "  当前播放：${ctx.currentMusicInfo?.music?.title ?: "无"}\n" +
                 "  播放状态：${if (ctx.isPlaying) "播放中" else "已暂停"}\n" +
-                "  注：agent_budget 完整实现需扩 ToolDependencies 注入 ContextBudget"
+                "  注：agent_budget 完整实现需扩 ToolDependencies 注入 ContextBudget",
         )
     }
 }

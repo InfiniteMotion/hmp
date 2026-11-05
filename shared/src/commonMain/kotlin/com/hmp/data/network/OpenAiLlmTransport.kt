@@ -86,7 +86,7 @@ class OpenAiLlmTransport(
                             promptTokens = u.promptTokens,
                             completionTokens = u.completionTokens,
                             cachedTokens = u.cachedTokens,
-                        )
+                        ),
                     )
                 }
 
@@ -141,7 +141,7 @@ class OpenAiLlmTransport(
                         id = acc.id?.takeIf { it.isNotBlank() } ?: "call_$n",
                         name = name,
                         argumentsJson = acc.arguments.toString(),
-                    )
+                    ),
                 )
             }
         }

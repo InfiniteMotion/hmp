@@ -2,16 +2,16 @@ package com.hearablemusic.player
 
 import android.app.Application
 import co.touchlab.kermit.Severity
-import com.hmp.domain.agent.runtime.MasterAgent
-import com.hmp.log.HmpLog
-import com.hmp.log.LogTag
 import com.hearablemusic.player.player.di.playerModule
 import com.hearablemusic.player.ui.di.uiModule
-import com.hmp.initKermit
 import com.hmp.data.di.androidPlatformModule
 import com.hmp.data.di.sharedModule
 import com.hmp.data.network.BuiltInApiKeyProvider
 import com.hmp.data.util.MusicTagEditor
+import com.hmp.domain.agent.runtime.MasterAgent
+import com.hmp.initKermit
+import com.hmp.log.HmpLog
+import com.hmp.log.LogTag
 import org.koin.android.ext.koin.androidContext
 import org.koin.android.ext.koin.androidLogger
 import org.koin.core.context.GlobalContext
@@ -36,7 +36,7 @@ class MusicApplication : Application() {
                 BuiltInApiKeyProvider(
                     endpoint = BuildConfig.BUILT_IN_AI_ENDPOINT,
                     apiKey = BuildConfig.BUILT_IN_AI_API_KEY,
-                    model = BuildConfig.BUILT_IN_AI_MODEL
+                    model = BuildConfig.BUILT_IN_AI_MODEL,
                 )
             }
         }
@@ -55,11 +55,13 @@ class MusicApplication : Application() {
             .onFailure { e -> HmpLog.w(LogTag.SystemLifecycle, e) { "🚀 eager MasterAgent resolve failed (non-fatal)" } }
 
         // 生命周期绑定：JVM shutdown hook 清理 MasterAgent（进程被杀时兜底）
-        Runtime.getRuntime().addShutdownHook(Thread {
-            runCatching {
-                GlobalContext.get().get<MasterAgent>().close()
-            }
-        })
+        Runtime.getRuntime().addShutdownHook(
+            Thread {
+                runCatching {
+                    GlobalContext.get().get<MasterAgent>().close()
+                }
+            },
+        )
     }
 
     override fun onTerminate() {

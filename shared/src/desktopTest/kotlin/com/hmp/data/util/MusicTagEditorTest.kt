@@ -53,21 +53,17 @@ class MusicTagEditorTest {
         }
     }
 
-    private fun intToLittleEndian(value: Int): ByteArray {
-        return byteArrayOf(
-            (value and 0xFF).toByte(),
-            ((value shr 8) and 0xFF).toByte(),
-            ((value shr 16) and 0xFF).toByte(),
-            ((value shr 24) and 0xFF).toByte()
-        )
-    }
+    private fun intToLittleEndian(value: Int): ByteArray = byteArrayOf(
+        (value and 0xFF).toByte(),
+        ((value shr 8) and 0xFF).toByte(),
+        ((value shr 16) and 0xFF).toByte(),
+        ((value shr 24) and 0xFF).toByte(),
+    )
 
-    private fun shortToLittleEndian(value: Int): ByteArray {
-        return byteArrayOf(
-            (value and 0xFF).toByte(),
-            ((value shr 8) and 0xFF).toByte()
-        )
-    }
+    private fun shortToLittleEndian(value: Int): ByteArray = byteArrayOf(
+        (value and 0xFF).toByte(),
+        ((value shr 8) and 0xFF).toByte(),
+    )
 
     // ===== writeTags =====
 
@@ -78,7 +74,7 @@ class MusicTagEditorTest {
 
         val result = MusicTagEditor.writeTags(
             wavFile.absolutePath,
-            EditableMusicTags(title = "新标题", artist = "New Artist", album = "New Album")
+            EditableMusicTags(title = "新标题", artist = "New Artist", album = "New Album"),
         )
         assertTrue(result.isSuccess, "writeTags should succeed: $result")
 
@@ -95,13 +91,13 @@ class MusicTagEditorTest {
         createMinimalWavFile(wavFile)
         MusicTagEditor.writeTags(
             wavFile.absolutePath,
-            EditableMusicTags(title = "T", artist = "A", album = "B")
+            EditableMusicTags(title = "T", artist = "A", album = "B"),
         )
 
         // 只更新标题，artist/album 保持原值
         val result = MusicTagEditor.writeTags(
             wavFile.absolutePath,
-            EditableMusicTags(title = "T2")
+            EditableMusicTags(title = "T2"),
         )
         assertTrue(result.isSuccess)
 
@@ -116,7 +112,7 @@ class MusicTagEditorTest {
     fun writeTags_nonexistentFile_returnsFailure() {
         val result = MusicTagEditor.writeTags(
             File(tempDir, "missing.wav").absolutePath,
-            EditableMusicTags(title = "T")
+            EditableMusicTags(title = "T"),
         )
         assertTrue(result.isFailure)
     }
@@ -127,12 +123,12 @@ class MusicTagEditorTest {
         createMinimalWavFile(wavFile)
         MusicTagEditor.writeTags(
             wavFile.absolutePath,
-            EditableMusicTags(title = "Keep", artist = "Artist", album = "Album")
+            EditableMusicTags(title = "Keep", artist = "Artist", album = "Album"),
         )
 
         val result = MusicTagEditor.writeTags(
             wavFile.absolutePath,
-            EditableMusicTags(title = "   ", artist = "  ")
+            EditableMusicTags(title = "   ", artist = "  "),
         )
         assertTrue(result.isSuccess)
 
@@ -158,8 +154,8 @@ class MusicTagEditorTest {
                 genre = "Rock",
                 track = "3",
                 lyrics = "la la la",
-                albumArt = artwork
-            )
+                albumArt = artwork,
+            ),
         )
         assertTrue(result.isSuccess, "writeTags should succeed: $result")
 
@@ -179,12 +175,12 @@ class MusicTagEditorTest {
         val artwork = Base64.getDecoder().decode(PNG_1X1_BASE64)
         MusicTagEditor.writeTags(
             wavFile.absolutePath,
-            EditableMusicTags(title = "T", albumArt = artwork)
+            EditableMusicTags(title = "T", albumArt = artwork),
         )
 
         val result = MusicTagEditor.writeTags(
             wavFile.absolutePath,
-            EditableMusicTags(title = "T2", albumArt = ByteArray(0))
+            EditableMusicTags(title = "T2", albumArt = ByteArray(0)),
         )
         assertTrue(result.isSuccess)
 

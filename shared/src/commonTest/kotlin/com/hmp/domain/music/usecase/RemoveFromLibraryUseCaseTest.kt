@@ -1,9 +1,9 @@
 package com.hmp.domain.music.usecase
 
 import com.hmp.domain.music.Music
+import com.hmp.domain.music.MusicInfo
 import com.hmp.domain.music.MusicSortKey
 import com.hmp.domain.music.SortDirection
-import com.hmp.domain.music.MusicInfo
 import com.hmp.test.fakes.FakeMusicRepository
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
@@ -17,7 +17,8 @@ class RemoveFromLibraryUseCaseTest {
 
     private fun music(id: Long) = MusicInfo(
         music = Music(id = id, title = "Song$id", artist = "A", album = "B", duration = 100, path = "/$id.mp3", albumArtUri = ""),
-        extra = null, userInfo = null
+        extra = null,
+        userInfo = null,
     )
 
     @Test

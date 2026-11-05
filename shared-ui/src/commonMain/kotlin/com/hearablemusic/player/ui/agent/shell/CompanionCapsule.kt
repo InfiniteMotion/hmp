@@ -16,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 import com.hearablemusic.player.ui.common.util.hazeStyleForIntensity
 import com.hearablemusic.player.ui.common.util.hazeTintAlpha
 import com.hearablemusic.player.ui.common.util.rememberPlatformHaptics
@@ -29,7 +30,6 @@ import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeEffect
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
-import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 
 /**
  * 伙伴胶囊（任务书 M1-T2，设计总纲 5.2.1 三胶囊底栏的常驻锚点）。
@@ -77,17 +77,21 @@ fun CompanionCapsule(
         colors = CardDefaults.cardColors(containerColor = container),
         border = BorderStroke(
             width = metrics.stroke.hairline,
-            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.14f)
+            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.14f),
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         modifier = modifier
             .clip(capsuleShape)
             .then(
-                if (hazeState != null) Modifier.hazeEffect(
-                    state = hazeState,
-                    style = hazeStyleForIntensity()
-                ) else Modifier
-            )
+                if (hazeState != null) {
+                    Modifier.hazeEffect(
+                        state = hazeState,
+                        style = hazeStyleForIntensity(),
+                    )
+                } else {
+                    Modifier
+                },
+            ),
     ) {
         Box(
             modifier = Modifier
@@ -117,11 +121,14 @@ fun CompanionCapsule(
                     painter = painterResource(
                         // 电台开启 → `radiowaves`（"正在播送"的状态语感，比静态的耳机标识更贴合"电台活着"；
                         // RadioCard 的入口身份仍用 headphones_fill，二者是"状态"与"身份"的分工）
-                        if (radioActive) Res.drawable.radiowaves else Res.drawable.player_d
+                        if (radioActive) Res.drawable.radiowaves else Res.drawable.player_d,
                     ),
                     contentDescription = stringResource(
-                        if (radioActive) Res.string.agent_capsule_radio_desc
-                        else Res.string.agent_capsule_desc
+                        if (radioActive) {
+                            Res.string.agent_capsule_radio_desc
+                        } else {
+                            Res.string.agent_capsule_desc
+                        },
                     ),
                     // 电台态恒定高亮：它此刻代表"正在播的电台"，优先于门面选中态
                     tint = if (radioActive || selected) {
@@ -129,7 +136,7 @@ fun CompanionCapsule(
                     } else {
                         MaterialTheme.colorScheme.onSurface
                     },
-                    modifier = Modifier.size(metrics.section)
+                    modifier = Modifier.size(metrics.section),
                 )
             }
         }

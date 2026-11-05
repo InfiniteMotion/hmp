@@ -17,27 +17,26 @@ import kotlinx.coroutines.withContext
  * BitmapDrawable 整块 getPixels。
  */
 class CoilAlbumArtPixelsLoader(
-    private val context: Context
+    private val context: Context,
 ) : AlbumArtPixelsLoader {
 
-    override suspend fun loadPixels(albumArtUri: String): IntArray? =
-        withContext(Dispatchers.IO) {
-            val loader = ImageLoader.Builder(context).build()
-            val request = ImageRequest.Builder(context)
-                .data(albumArtUri)
-                .size(150, 150)
-                .allowHardware(false)
-                .build()
+    override suspend fun loadPixels(albumArtUri: String): IntArray? = withContext(Dispatchers.IO) {
+        val loader = ImageLoader.Builder(context).build()
+        val request = ImageRequest.Builder(context)
+            .data(albumArtUri)
+            .size(150, 150)
+            .allowHardware(false)
+            .build()
 
-            // Coil3：SuccessResult 属性为 image（Image 接口），经 asDrawable 转 BitmapDrawable 取像素
-            val result = (loader.execute(request) as? SuccessResult)?.image
-            val bitmap = (result?.asDrawable(context.resources) as? BitmapDrawable)?.bitmap
-                ?: return@withContext null
+        // Coil3：SuccessResult 属性为 image（Image 接口），经 asDrawable 转 BitmapDrawable 取像素
+        val result = (loader.execute(request) as? SuccessResult)?.image
+        val bitmap = (result?.asDrawable(context.resources) as? BitmapDrawable)?.bitmap
+            ?: return@withContext null
 
-            val w = bitmap.width
-            val h = bitmap.height
-            IntArray(w * h).also { pixels ->
-                bitmap.getPixels(pixels, 0, w, 0, 0, w, h)
-            }
+        val w = bitmap.width
+        val h = bitmap.height
+        IntArray(w * h).also { pixels ->
+            bitmap.getPixels(pixels, 0, w, 0, 0, w, h)
         }
+    }
 }

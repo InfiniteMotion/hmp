@@ -1,11 +1,11 @@
 package com.hmp.domain.agent.tool.spec
 
-import com.hmp.domain.agent.port.ToolPermissionLevel
 import com.hmp.domain.agent.port.LlmToolSpec
+import com.hmp.domain.agent.port.ToolPermissionLevel
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
-import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -25,6 +25,7 @@ sealed interface ToolParam {
     val name: String
     val required: Boolean
     val description: String?
+
     /** 该参数的 JSON-schema 片段（不含外层 key；重复嵌套的参数对象不使用）。 */
     val schemaValue: JsonObject
 }
@@ -160,32 +161,24 @@ class ToolParamError(message: String) : Exception(message)
 class ToolArgs internal constructor(
     private val values: Map<String, JsonElement>,
 ) {
-    fun requireString(name: String): String =
-        requirePrimitive(name).content // 空串是否允许已由 parseArgs 按描述符 allowEmpty 预校验
+    fun requireString(name: String): String = requirePrimitive(name).content // 空串是否允许已由 parseArgs 按描述符 allowEmpty 预校验
 
-    fun optionalString(name: String): String? =
-        optionalPrimitive(name)?.content?.takeIf { it.isNotEmpty() }
+    fun optionalString(name: String): String? = optionalPrimitive(name)?.content?.takeIf { it.isNotEmpty() }
 
-    fun requireInt(name: String): Int =
-        requirePrimitive(name).content.toIntOrNull()
-            ?: throw ToolParamError("参数 '$name' 应为核心整数，实际: '${requirePrimitive(name).content}'")
+    fun requireInt(name: String): Int = requirePrimitive(name).content.toIntOrNull()
+        ?: throw ToolParamError("参数 '$name' 应为核心整数，实际: '${requirePrimitive(name).content}'")
 
-    fun optionalInt(name: String): Int? =
-        optionalPrimitive(name)?.content?.toIntOrNull()
+    fun optionalInt(name: String): Int? = optionalPrimitive(name)?.content?.toIntOrNull()
 
-    fun requireLong(name: String): Long =
-        requirePrimitive(name).content.toLongOrNull()
-            ?: throw ToolParamError("参数 '$name' 应为整数，实际: '${requirePrimitive(name).content}'")
+    fun requireLong(name: String): Long = requirePrimitive(name).content.toLongOrNull()
+        ?: throw ToolParamError("参数 '$name' 应为整数，实际: '${requirePrimitive(name).content}'")
 
-    fun optionalLong(name: String): Long? =
-        optionalPrimitive(name)?.content?.toLongOrNull()
+    fun optionalLong(name: String): Long? = optionalPrimitive(name)?.content?.toLongOrNull()
 
-    fun optionalFloat(name: String): Float? =
-        optionalPrimitive(name)?.content?.toFloatOrNull()
+    fun optionalFloat(name: String): Float? = optionalPrimitive(name)?.content?.toFloatOrNull()
 
-    fun requireBool(name: String): Boolean =
-        requirePrimitive(name).content.toBooleanStrictOrNull()
-            ?: throw ToolParamError("参数 '$name' 应为布尔，实际: '${requirePrimitive(name).content}'")
+    fun requireBool(name: String): Boolean = requirePrimitive(name).content.toBooleanStrictOrNull()
+        ?: throw ToolParamError("参数 '$name' 应为布尔，实际: '${requirePrimitive(name).content}'")
 
     fun requireStringList(name: String): List<String> {
         val elem = values[name] ?: throw ToolParamError("缺少必需参数 '$name'")
@@ -208,11 +201,9 @@ class ToolArgs internal constructor(
         return arr.mapNotNull { (it as? JsonPrimitive)?.content }
     }
 
-    private fun requirePrimitive(name: String): JsonPrimitive =
-        optionalPrimitive(name) ?: throw ToolParamError("缺少必需参数 '$name'")
+    private fun requirePrimitive(name: String): JsonPrimitive = optionalPrimitive(name) ?: throw ToolParamError("缺少必需参数 '$name'")
 
-    private fun optionalPrimitive(name: String): JsonPrimitive? =
-        values[name] as? JsonPrimitive
+    private fun optionalPrimitive(name: String): JsonPrimitive? = values[name] as? JsonPrimitive
 }
 
 /**
@@ -242,6 +233,7 @@ fun parseArgs(arguments: JsonObject, params: List<ToolParam>): ToolArgs {
                     throw ToolParamError("参数 '${p.name}' 的取值 '$v' 不在允许范围内 ${p.allowed}")
                 }
             }
+
             is StringParam -> {
                 val v = (raw as? JsonPrimitive)?.content
                     ?: throw ToolParamError("参数 '${p.name}' 应为字符串")
@@ -249,6 +241,7 @@ fun parseArgs(arguments: JsonObject, params: List<ToolParam>): ToolArgs {
                     throw ToolParamError("参数 '${p.name}' 不能为空字符串")
                 }
             }
+
             is IntParam -> {
                 val v = (raw as? JsonPrimitive)?.content?.toIntOrNull()
                     ?: throw ToolParamError("参数 '${p.name}' 应为整数")
@@ -256,6 +249,7 @@ fun parseArgs(arguments: JsonObject, params: List<ToolParam>): ToolArgs {
                     throw ToolParamError("参数 '${p.name}' 取值 $v 超出范围 [${p.min ?: "-∞"}, ${p.max ?: "+∞"}]")
                 }
             }
+
             is LongParam -> {
                 val v = (raw as? JsonPrimitive)?.content?.toLongOrNull()
                     ?: throw ToolParamError("参数 '${p.name}' 应为整数")
@@ -263,6 +257,7 @@ fun parseArgs(arguments: JsonObject, params: List<ToolParam>): ToolArgs {
                     throw ToolParamError("参数 '${p.name}' 取值 $v 超出范围 [${p.min ?: "-∞"}, ${p.max ?: "+∞"}]")
                 }
             }
+
             is LongListParam -> {
                 // D3-12：maxItems 过去只写进给模型的 schema，运行时不校验（`else -> Unit` 兜底），
                 // 于是模型多传几项也照收。这里补上真正的边界。
@@ -273,6 +268,7 @@ fun parseArgs(arguments: JsonObject, params: List<ToolParam>): ToolArgs {
                     throw ToolParamError("参数 '${p.name}' 最多 $max 项，实际 ${arr.size} 项")
                 }
             }
+
             else -> Unit // Bool 类型经访问器二次校验
         }
     }
@@ -282,13 +278,21 @@ fun parseArgs(arguments: JsonObject, params: List<ToolParam>): ToolArgs {
     params.forEach { p ->
         when (p) {
             is IntParam -> clampInto(
-                p, arguments, corrected,
-                from = { it.toIntOrNull()?.toLong() }, toJson = { JsonPrimitive(it.toInt()) },
+                p,
+                arguments,
+                corrected,
+                from = { it.toIntOrNull()?.toLong() },
+                toJson = { JsonPrimitive(it.toInt()) },
             )
+
             is LongParam -> clampInto(
-                p, arguments, corrected,
-                from = { it.toLongOrNull() }, toJson = { JsonPrimitive(it) },
+                p,
+                arguments,
+                corrected,
+                from = { it.toLongOrNull() },
+                toJson = { JsonPrimitive(it) },
             )
+
             else -> Unit
         }
     }
@@ -304,9 +308,24 @@ private inline fun clampInto(
     from: (String) -> Long?,
     toJson: (Long) -> JsonElement,
 ) {
-    if (!when (p) { is IntParam -> p.clamp; is LongParam -> p.clamp; else -> false }) return
-    val low = when (p) { is IntParam -> p.min?.toLong(); is LongParam -> p.min; else -> null }
-    val high = when (p) { is IntParam -> p.max?.toLong(); is LongParam -> p.max; else -> null }
+    if (!when (p) {
+            is IntParam -> p.clamp
+            is LongParam -> p.clamp
+            else -> false
+        }
+    ) {
+        return
+    }
+    val low = when (p) {
+        is IntParam -> p.min?.toLong()
+        is LongParam -> p.min
+        else -> null
+    }
+    val high = when (p) {
+        is IntParam -> p.max?.toLong()
+        is LongParam -> p.max
+        else -> null
+    }
     val cur = (raw[p.name] as? JsonPrimitive)?.content?.let(from) ?: return
     val clamped = when {
         low != null && cur < low -> low
@@ -321,9 +340,12 @@ fun parametersSchema(params: List<ToolParam>): JsonObject {
     val required = params.filter { it.required }.map { it.name }
     return buildJsonObject {
         put("type", "object")
-        put("properties", buildJsonObject {
-            params.forEach { put(it.name, it.schemaValue) }
-        })
+        put(
+            "properties",
+            buildJsonObject {
+                params.forEach { put(it.name, it.schemaValue) }
+            },
+        )
         if (required.isNotEmpty()) put("required", JsonArray(required.map(::JsonPrimitive)))
     }
 }
@@ -368,11 +390,15 @@ data class ToolResult(
 ) {
     companion object {
         fun success(summary: String, detail: String? = null) = ToolResult(
-            success = true, summary = summary, detail = detail,
+            success = true,
+            summary = summary,
+            detail = detail,
         )
 
         fun failure(reason: String) = ToolResult(
-            success = false, summary = "执行失败：$reason", failureReason = reason,
+            success = false,
+            summary = "执行失败：$reason",
+            failureReason = reason,
         )
     }
 }

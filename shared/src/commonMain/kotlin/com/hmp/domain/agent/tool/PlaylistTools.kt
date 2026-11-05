@@ -1,19 +1,17 @@
 package com.hmp.domain.agent.tool
-import com.hmp.domain.agent.tool.spec.AgentTool
-import com.hmp.domain.agent.tool.spec.ToolResult
-import com.hmp.domain.agent.tool.spec.ToolParam
-import com.hmp.domain.agent.tool.spec.ToolNames
-import com.hmp.domain.agent.tool.spec.ToolArgs
-import com.hmp.domain.agent.tool.spec.StringParam
-import com.hmp.domain.agent.tool.spec.LongParam
-import com.hmp.domain.agent.tool.spec.LongListParam
-
 import com.hmp.domain.agent.port.ToolPermissionLevel
+import com.hmp.domain.agent.tool.spec.AgentTool
+import com.hmp.domain.agent.tool.spec.LongListParam
+import com.hmp.domain.agent.tool.spec.LongParam
+import com.hmp.domain.agent.tool.spec.StringParam
+import com.hmp.domain.agent.tool.spec.ToolArgs
+import com.hmp.domain.agent.tool.spec.ToolNames
+import com.hmp.domain.agent.tool.spec.ToolParam
+import com.hmp.domain.agent.tool.spec.ToolResult
 import com.hmp.domain.playlist.PLAYLIST_NAME_MAX_LENGTH
 import com.hmp.domain.playlist.PlaylistNameError
 import com.hmp.domain.playlist.SystemPlaylists
 import com.hmp.domain.playlist.validatePlaylistName
-
 import kotlinx.coroutines.flow.first
 
 /**
@@ -83,7 +81,7 @@ class PlaylistDetailTool(
         }
         return ToolResult.success(
             "「${meta.name}」 共 ${songs.size} 首：\n$lines" +
-                if (songs.size > MAX_LISTED_SONGS) "\n... (仅显示前 $MAX_LISTED_SONGS 首，共 ${songs.size} 首)" else ""
+                if (songs.size > MAX_LISTED_SONGS) "\n... (仅显示前 $MAX_LISTED_SONGS 首，共 ${songs.size} 首)" else "",
         )
     }
 }
@@ -238,7 +236,7 @@ class PlaylistReorderTool(
         // 这条以前会照样报成功，Agent 于是对用户说"已按目标顺序重排"，而库里只改了传进来的那几首。
         if (!deps.playlistRepository.reorderPlaylistItems(playlistId, ordered)) {
             return ToolResult.failure(
-                "重排被拒绝：ordered_music_ids 必须正好覆盖歌单 $playlistId 当前的全部曲目（不缺、不多、不重复），一个字都没有改动"
+                "重排被拒绝：ordered_music_ids 必须正好覆盖歌单 $playlistId 当前的全部曲目（不缺、不多、不重复），一个字都没有改动",
             )
         }
         return ToolResult.success("播放列表 $playlistId 已按 ${ordered.size} 首目标顺序重排")

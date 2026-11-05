@@ -7,21 +7,23 @@ import android.content.ServiceConnection
 import android.os.Build
 import android.os.IBinder
 import androidx.media3.common.util.UnstableApi
+import com.hearablemusic.player.player.service.MusicPlayService
+import com.hearablemusic.player.player.service.PlayControl
 import com.hmp.domain.enum.PlaybackMode
 import com.hmp.domain.lyrics.LrcParser
 import com.hmp.domain.lyrics.LyricLineData
 import com.hmp.domain.lyrics.findCurrentLyricIndex
 import com.hmp.domain.music.MusicInfo
-import com.hmp.domain.music.PlaybackSources
 import com.hmp.domain.music.MusicLabel
+import com.hmp.domain.music.PlaybackSources
 import com.hmp.domain.playlist.usecase.ManagePlaylistUseCase
 import com.hmp.domain.setting.SettingsRepository
 import com.hmp.domain.setting.model.AudioEffectSettings
 import com.hmp.domain.setting.usecase.CurrentPlaybackUseCase
 import com.hmp.domain.setting.usecase.PlaybackHistoryUseCase
 import com.hmp.domain.setting.usecase.TimerUseCase
-import com.hearablemusic.player.player.service.MusicPlayService
-import com.hearablemusic.player.player.service.PlayControl
+import com.hmp.log.HmpLog
+import com.hmp.log.LogTag
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -44,8 +46,6 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
-import com.hmp.log.HmpLog
-import com.hmp.log.LogTag
 
 @UnstableApi
 class MusicController(
@@ -54,7 +54,7 @@ class MusicController(
     private val playbackHistoryUseCase: PlaybackHistoryUseCase,
     private val timerUseCase: TimerUseCase,
     private val managePlaylistUseCase: ManagePlaylistUseCase,
-    private val settingsRepository: SettingsRepository
+    private val settingsRepository: SettingsRepository,
 ) : MusicPlayService.OnMusicCompleteListener {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
@@ -62,6 +62,7 @@ class MusicController(
     private companion object {
         /** 播放进度采集间隔：保证逐字（卡拉 OK）渐变足够平滑 */
         const val PROGRESS_TRACKING_INTERVAL_MS = 100L
+
         /** 播放位置持久化节流间隔 */
         const val PROGRESS_PERSIST_INTERVAL_MS = 5_000L
 
@@ -87,7 +88,7 @@ class MusicController(
     fun setTargetActivityClass(clazz: Class<*>) {
         activityClass = clazz
     }
-    
+
     // Service Connection
     private val connection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, binder: IBinder?) {
@@ -184,7 +185,7 @@ class MusicController(
     private val _toastEvent = MutableSharedFlow<UiEvent.ShowToast>(
         replay = 0,
         extraBufferCapacity = 1,
-        onBufferOverflow = BufferOverflow.DROP_OLDEST
+        onBufferOverflow = BufferOverflow.DROP_OLDEST,
     )
     val toastEvent = _toastEvent.asSharedFlow()
 
@@ -221,7 +222,7 @@ class MusicController(
     // Current Music
     val currentPlayingMusic: StateFlow<MusicInfo?> = combine(
         currentPlaylist,
-        currentIndex
+        currentIndex,
     ) { playlist, index ->
         playlist.getOrNull(index)
         // Eagerly 而非 WhileSubscribed：这个值会被**同步读取**（ControllerNowPlayingProvider
@@ -251,7 +252,7 @@ class MusicController(
     // Position & Duration
     private val _currentPosition = MutableStateFlow(0L)
     val currentPosition: StateFlow<Long> = _currentPosition.asStateFlow()
-    
+
     private val _duration = MutableStateFlow(0L)
     val duration: StateFlow<Long> = _duration.asStateFlow()
 
@@ -267,6 +268,7 @@ class MusicController(
 
     // 互动数据记录追踪
     private var currentPlaybackHistoryId: Long? = null
+
     /** 当前会话正在播的曲目（结算时用它，避免反查派生的 currentPlayingMusic 带来的时序歧义）。 */
     private var sessionTrack: MusicInfo? = null
     private var totalPlayedDurationInSession: Long = 0L
@@ -363,7 +365,7 @@ class MusicController(
             HmpLog.w(LogTag.PlayerService, e) { "启动恢复失败 stage=playlist" }
         }
     }
-    
+
     fun preloadCurrentMusicInfo(musicInfo: MusicInfo) {
         _duration.value = musicInfo.music.duration
         getLikedStatus(musicInfo.music.id)
@@ -392,7 +394,7 @@ class MusicController(
             }
         }
     }
-    
+
     private fun persistCurrentPosition(position: Long) {
         scope.launch {
             try {
@@ -406,7 +408,8 @@ class MusicController(
     private fun recordListeningDurationPeriodically() {
         val now = System.currentTimeMillis()
         if (_isPlaying.value && playStartTime > 0 &&
-            (now - lastDurationRecordTime) >= durationRecordThreshold) {
+            (now - lastDurationRecordTime) >= durationRecordThreshold
+        ) {
             val duration = now - playStartTime
             totalPlayedDurationInSession += duration
             scope.launch {
@@ -428,11 +431,7 @@ class MusicController(
         persistCurrentPlaylistToDatabase(_currentPlaylist.value)
     }
 
-
-
-    fun isMusicLoaded(path: String): Boolean? {
-        return playControl?.isMusicLoaded(path)
-    }
+    fun isMusicLoaded(path: String): Boolean? = playControl?.isMusicLoaded(path)
 
     fun playOrResume() {
         if (playControl == null) {
@@ -550,6 +549,7 @@ class MusicController(
                 PlaybackMode.SHUFFLE -> {
                     generateRandomIndex(_currentIndex.value, _currentPlaylist.value.size)
                 }
+
                 else -> {
                     // 顺序播放
                     (_currentIndex.value + 1).mod(_currentPlaylist.value.size)
@@ -567,6 +567,7 @@ class MusicController(
                 PlaybackMode.SHUFFLE -> {
                     generateRandomIndex(_currentIndex.value, _currentPlaylist.value.size)
                 }
+
                 else -> {
                     // 顺序播放
                     (_currentIndex.value - 1).mod(_currentPlaylist.value.size)
@@ -673,12 +674,12 @@ class MusicController(
     private fun endCurrentPlaybackSession(isCompleted: Boolean, switchSource: String? = null) {
         val currentMusic = sessionTrack ?: currentPlayingMusic.value ?: return
         val musicId = currentMusic.music.id
-        
+
         // 计算最后的播放时长
         if (_isPlaying.value && playStartTime > 0) {
             totalPlayedDurationInSession += (System.currentTimeMillis() - playStartTime)
         }
-        
+
         val duration = totalPlayedDurationInSession
         val totalDuration = currentMusic.music.duration
 
@@ -715,7 +716,7 @@ class MusicController(
                 playbackHistoryUseCase.skipPlaybackSession(historyId, musicId, duration, true)
             }
         }
-        
+
         resetSessionTracking()
     }
 
@@ -732,14 +733,14 @@ class MusicController(
             persistCurrentPlaylistToDatabase(_currentPlaylist.value)
         }
     }
-    
+
     fun addToNextPlay(musicInfo: MusicInfo) {
         val currentIndex = _currentIndex.value
         val newList = _currentPlaylist.value.toMutableList()
-        
+
         // 检查歌曲是否已在播放列表中
         val existingIndex = newList.indexOfFirst { it.music.id == musicInfo.music.id }
-        
+
         if (existingIndex != -1) {
             // 歌曲已存在，先移除
             newList.removeAt(existingIndex)
@@ -748,7 +749,7 @@ class MusicController(
                 _currentIndex.value = (currentIndex - 1).coerceAtLeast(0)
             }
         }
-        
+
         // 计算插入位置（当前播放位置的下一首）
         val adjustedCurrentIndex = _currentIndex.value
         val insertIndex = if (newList.isEmpty()) {
@@ -756,7 +757,7 @@ class MusicController(
         } else {
             (adjustedCurrentIndex + 1).coerceAtMost(newList.size)
         }
-        
+
         // 插入歌曲
         newList.add(insertIndex, musicInfo)
         _currentPlaylist.value = newList
@@ -774,7 +775,7 @@ class MusicController(
         // 更新索引
         updateCurrentIndex()
     }
-    
+
     fun moveToTop(musicInfo: MusicInfo) {
         val currentList = _currentPlaylist.value.toMutableList()
         val index = currentList.indexOfFirst { it.music.id == musicInfo.music.id }
@@ -799,9 +800,7 @@ class MusicController(
         playAt(musicInfo)
     }
 
-    private fun currentMusicPath(): String? {
-        return _currentPlaylist.value.getOrNull(_currentIndex.value)?.music?.path
-    }
+    private fun currentMusicPath(): String? = _currentPlaylist.value.getOrNull(_currentIndex.value)?.music?.path
 
     fun updateMusicLikedStatus(musicInfo: MusicInfo, liked: Boolean) {
         scope.launch {
@@ -825,10 +824,8 @@ class MusicController(
             likeStatus.value = currentPlaybackUseCase.getLikedStatus(musicId)
         }
     }
-    
-    suspend fun getCurrentLikedStatus(musicId: Long): Boolean {
-        return currentPlaybackUseCase.getLikedStatus(musicId)
-    }
+
+    suspend fun getCurrentLikedStatus(musicId: Long): Boolean = currentPlaybackUseCase.getLikedStatus(musicId)
 
     fun playHeartMode() {
         scope.launch {
@@ -861,7 +858,7 @@ class MusicController(
             }
         }
     }
-    
+
     fun cancelTimer() {
         timerJob?.cancel()
         timerUseCase.cancelTimer()
@@ -916,10 +913,10 @@ class MusicController(
             }
         }
     }
-    
+
     // Audio Effect Logic
     private var saveAudioEffectJob: Job? = null
-    
+
     private fun restoreAudioEffectSettings() {
         scope.launch {
             try {
@@ -928,7 +925,7 @@ class MusicController(
                 val isSurroundSoundEnabled = settingsRepository.isSurroundSoundEnabled.first()
                 val reverbPreset = settingsRepository.reverbPreset.first()
                 val customLevels = settingsRepository.customEqualizerLevels.first()
-                
+
                 playControl?.let { control ->
                     control.setEqualizerPreset(equalizerPreset)
                     control.setBassBoost(bassBoostLevel)
@@ -938,99 +935,98 @@ class MusicController(
                         control.setCustomEqualizer(customLevels)
                     }
                 }
-                
+
                 _audioEffectSettings.value = AudioEffectSettings(
                     equalizerPreset = equalizerPreset,
                     bassBoostLevel = bassBoostLevel,
                     isSurroundSoundEnabled = isSurroundSoundEnabled,
                     reverbPreset = reverbPreset,
-                    customEqualizerLevels = customLevels
+                    customEqualizerLevels = customLevels,
                 )
-                
             } catch (e: Exception) {
                 HmpLog.e(LogTag.PlayerService, e) { "📡 Failed to restore audio effect settings" }
             }
         }
     }
-    
+
     fun initializeAudioEffects() {
         playControl?.let { control ->
             _equalizerPresets.value = control.getEqualizerPresets()
             _equalizerBandCount.value = control.getEqualizerBandCount()
             _equalizerBandLevelRange.value = control.getEqualizerBandLevelRange()
             _currentEqualizerBandLevels.value = control.getCurrentEqualizerBandLevels()
-            
+
             _audioEffectSettings.value = AudioEffectSettings(
                 equalizerPreset = control.getCurrentEqualizerPreset(),
                 bassBoostLevel = control.getBassBoostLevel(),
                 isSurroundSoundEnabled = control.isSurroundSoundEnabled(),
                 reverbPreset = control.getReverbPreset(),
-                customEqualizerLevels = control.getCurrentEqualizerBandLevels()
+                customEqualizerLevels = control.getCurrentEqualizerBandLevels(),
             )
         }
     }
-    
+
     fun setEqualizerPreset(preset: Int) {
         playControl?.let { control ->
             control.setEqualizerPreset(preset)
             _audioEffectSettings.value = _audioEffectSettings.value.copy(
-                equalizerPreset = preset
+                equalizerPreset = preset,
             )
             saveAudioEffectSetting {
                 settingsRepository.saveEqualizerPreset(preset)
             }
         }
     }
-    
+
     fun setBassBoost(level: Int) {
         playControl?.let { control ->
             control.setBassBoost(level)
             _audioEffectSettings.value = _audioEffectSettings.value.copy(
-                bassBoostLevel = level
+                bassBoostLevel = level,
             )
             saveAudioEffectSetting {
                 settingsRepository.saveBassBoostLevel(level)
             }
         }
     }
-    
+
     fun setSurroundSound(enabled: Boolean) {
         playControl?.let { control ->
             control.setSurroundSound(enabled)
             _audioEffectSettings.value = _audioEffectSettings.value.copy(
-                isSurroundSoundEnabled = enabled
+                isSurroundSoundEnabled = enabled,
             )
             saveAudioEffectSetting {
                 settingsRepository.saveSurroundSoundEnabled(enabled)
             }
         }
     }
-    
+
     fun setReverb(preset: Int) {
         playControl?.let { control ->
             control.setReverb(preset)
             _audioEffectSettings.value = _audioEffectSettings.value.copy(
-                reverbPreset = preset
+                reverbPreset = preset,
             )
             saveAudioEffectSetting {
                 settingsRepository.saveReverbPreset(preset)
             }
         }
     }
-    
+
     fun setCustomEqualizer(bandLevels: FloatArray) {
         playControl?.let { control ->
             control.setCustomEqualizer(bandLevels)
             _currentEqualizerBandLevels.value = bandLevels
             _audioEffectSettings.value = _audioEffectSettings.value.copy(
-                customEqualizerLevels = bandLevels
+                customEqualizerLevels = bandLevels,
             )
             saveAudioEffectSetting {
                 settingsRepository.saveCustomEqualizerLevels(bandLevels)
             }
         }
     }
-    
+
     private fun saveAudioEffectSetting(save: suspend () -> Unit) {
         saveAudioEffectJob?.cancel()
         saveAudioEffectJob = scope.launch {
@@ -1042,27 +1038,17 @@ class MusicController(
             }
         }
     }
-    
-    fun getCurrentEqualizerPreset(): Int {
-        return playControl?.getCurrentEqualizerPreset() ?: 0
-    }
-    
-    fun getBassBoostLevel(): Int {
-        return playControl?.getBassBoostLevel() ?: 0
-    }
-    
-    fun isSurroundSoundEnabled(): Boolean {
-        return playControl?.isSurroundSoundEnabled() ?: false
-    }
-    
-    fun getReverbPreset(): Int {
-        return playControl?.getReverbPreset() ?: 0
-    }
-    
-    fun getCurrentEqualizerBandLevels(): FloatArray {
-        return playControl?.getCurrentEqualizerBandLevels() ?: floatArrayOf()
-    }
-    
+
+    fun getCurrentEqualizerPreset(): Int = playControl?.getCurrentEqualizerPreset() ?: 0
+
+    fun getBassBoostLevel(): Int = playControl?.getBassBoostLevel() ?: 0
+
+    fun isSurroundSoundEnabled(): Boolean = playControl?.isSurroundSoundEnabled() ?: false
+
+    fun getReverbPreset(): Int = playControl?.getReverbPreset() ?: 0
+
+    fun getCurrentEqualizerBandLevels(): FloatArray = playControl?.getCurrentEqualizerBandLevels() ?: floatArrayOf()
+
     /**
      * 释放「与 Activity 生命周期绑定」的资源：定时器与进度轮询。
      *

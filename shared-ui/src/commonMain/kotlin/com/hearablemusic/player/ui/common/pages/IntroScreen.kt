@@ -14,8 +14,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -42,15 +42,16 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import org.jetbrains.compose.resources.painterResource
-import org.jetbrains.compose.resources.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.hearablemusic.player.ui.common.dialogs.MusicScanDialog
+import com.hearablemusic.player.ui.common.design.animation.HmpMotion
+import com.hearablemusic.player.ui.common.design.metrics.LayoutConstraints
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
 import com.hearablemusic.player.ui.common.design.typography.medium
+import com.hearablemusic.player.ui.common.dialogs.MusicScanDialog
 import com.hearablemusic.player.ui.common.layout.LocalTitleBarInset
 import com.hearablemusic.player.ui.common.layout.rememberAppWindowSizeInfo
 import com.hearablemusic.player.ui.common.util.DEFAULT_HAZE_BLUR_RADIUS
@@ -61,6 +62,7 @@ import com.hearablemusic.player.ui.common.util.DEFAULT_HAZE_NOISE_FACTOR
 import com.hearablemusic.player.ui.common.util.DEFAULT_HAZE_TINT_ALPHA
 import com.hearablemusic.player.ui.common.util.HazeRenderSettings
 import com.hearablemusic.player.ui.common.util.ProvideHazeRenderSettings
+import com.hearablemusic.player.ui.generated.resources.Res
 import com.hearablemusic.player.ui.generated.resources.grant_permission
 import com.hearablemusic.player.ui.generated.resources.ic_launcher_foreground
 import com.hearablemusic.player.ui.generated.resources.intro_skip_permission
@@ -75,27 +77,25 @@ import com.hearablemusic.player.ui.generated.resources.scan
 import com.hearablemusic.player.ui.generated.resources.scan_finished
 import com.hearablemusic.player.ui.generated.resources.start_experience
 import com.hearablemusic.player.ui.generated.resources.welcome_to
-import com.hearablemusic.player.ui.generated.resources.Res
 import com.hearablemusic.player.ui.library.viewmodel.LibraryViewModel
-import com.hearablemusic.player.ui.settings.viewmodel.RecommendationViewModel
 import com.hearablemusic.player.ui.platform.PlatformServices
+import com.hearablemusic.player.ui.settings.viewmodel.RecommendationViewModel
 import com.hearablemusic.player.ui.settings.viewmodel.SettingsViewModel
 import com.hmp.domain.setting.model.AiAccessMode
 import com.hmp.domain.setting.usecase.UserSettingsUseCase
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.rememberHazeState
+import org.jetbrains.compose.resources.painterResource
+import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
-import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
-import com.hearablemusic.player.ui.common.design.metrics.LayoutConstraints
-import com.hearablemusic.player.ui.common.design.animation.HmpMotion
 
 @Composable
 fun IntroScreen(
     settingsViewModel: SettingsViewModel,
     libraryViewModel: LibraryViewModel,
     recommendationViewModel: RecommendationViewModel,
-    onFinished: ()-> Unit,
+    onFinished: () -> Unit,
     /**
      * 是否跳过首个「权限」步（桌面：无运行时权限体系，该步无意义）。
      *
@@ -103,7 +103,7 @@ fun IntroScreen(
      * `// Desktop: skip permission step, start at scan` 且 `isPermissionGiven = true`。
      * 默认 false —— Android / iOS 行为不变。
      */
-    skipPermissionStep: Boolean = false
+    skipPermissionStep: Boolean = false,
 ) {
     val metrics = LocalHmpMetrics.current
     val currentStep = remember { mutableIntStateOf(if (skipPermissionStep) 1 else 0) }
@@ -118,7 +118,7 @@ fun IntroScreen(
     val hazeNoiseFactor by settingsViewModel.hazeNoiseFactor.collectAsState(DEFAULT_HAZE_NOISE_FACTOR)
     val hazeTintAlpha by settingsViewModel.hazeTintAlpha.collectAsState(DEFAULT_HAZE_TINT_ALPHA)
     val hazeIntensity by settingsViewModel.hazeIntensity.collectAsState(DEFAULT_HAZE_INTENSITY)
-    
+
     val hazeState = rememberHazeState()
 
     // ── F14 横屏 / 宽窗适配 ──
@@ -146,7 +146,7 @@ fun IntroScreen(
     val rootVPadding = if (isLandscape) metrics.cozy else metrics.block
     val cardHPadding = if (isLandscape) metrics.section else metrics.block
     val cardVPadding = if (isLandscape) metrics.section else metrics.block
-    
+
     // 权限授予后自动进入下一步
     LaunchedEffect(isPermissionGiven.value) {
         if (isPermissionGiven.value && currentStep.intValue == 0) {
@@ -167,32 +167,33 @@ fun IntroScreen(
     val stepArea: @Composable (Modifier) -> Unit = { areaModifier ->
         Box(
             modifier = areaModifier,
-            contentAlignment = Alignment.Center
+            contentAlignment = Alignment.Center,
         ) {
             AnimatedContent(
                 targetState = currentStep.intValue,
                 transitionSpec = {
                     slideInHorizontally(
                         initialOffsetX = { it },
-                        animationSpec = HmpMotion.enter()
+                        animationSpec = HmpMotion.enter(),
                     ) + fadeIn(
-                        animationSpec = HmpMotion.enter()
+                        animationSpec = HmpMotion.enter(),
                     ) togetherWith
-                    slideOutHorizontally(
-                        targetOffsetX = { -it },
-                        animationSpec = HmpMotion.exit()
-                    ) + fadeOut(
-                        animationSpec = HmpMotion.exit()
-                    )
+                        slideOutHorizontally(
+                            targetOffsetX = { -it },
+                            animationSpec = HmpMotion.exit(),
+                        ) + fadeOut(
+                            animationSpec = HmpMotion.exit(),
+                        )
                 },
-                label = "step_transition"
+                label = "step_transition",
             ) { step ->
                 when (step) {
                     0 -> PermissionStep(
                         isPermissionGiven = isPermissionGiven.value,
                         onRequestPermission = requestIntroPermissions,
-                        onSkip = { currentStep.intValue = 1 }
+                        onSkip = { currentStep.intValue = 1 },
                     )
+
                     1 -> ScanMusicStep(
                         isScanCompleted = isScanCompleted.value,
                         onStartScan = {
@@ -211,10 +212,11 @@ fun IntroScreen(
                         },
                         showScanDialog = showScanDialog.value,
                         libraryViewModel = libraryViewModel,
-                        hazeState = hazeState
+                        hazeState = hazeState,
                     )
+
                     2 -> AiExperienceStep(
-                        onFinished = onFinished
+                        onFinished = onFinished,
                     )
                 }
             }
@@ -228,8 +230,8 @@ fun IntroScreen(
             intensity = hazeIntensity,
             blurRadius = hazeBlurRadius,
             noiseFactor = hazeNoiseFactor,
-            tintAlpha = hazeTintAlpha
-        )
+            tintAlpha = hazeTintAlpha,
+        ),
     ) {
         Column(
             modifier = Modifier
@@ -242,21 +244,24 @@ fun IntroScreen(
                 .padding(top = LocalTitleBarInset.current)
                 .padding(vertical = rootVPadding),
             verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             // ── 统一容器：所有内容并入单一卡片 ──
             Surface(
                 modifier = Modifier
                     // 宽窗限宽居中（F14 惯例）。手机竖屏 maxCardWidth = Dp.Unspecified → 不加约束。
                     .then(
-                        if (maxCardWidth != Dp.Unspecified) Modifier.widthIn(max = maxCardWidth)
-                        else Modifier
+                        if (maxCardWidth != Dp.Unspecified) {
+                            Modifier.widthIn(max = maxCardWidth)
+                        } else {
+                            Modifier
+                        },
                     )
                     .fillMaxWidth()
                     .padding(horizontal = metrics.cozy),
                 shape = RoundedCornerShape(metrics.section),
                 color = MaterialTheme.colorScheme.surface,
-                shadowElevation = metrics.hair
+                shadowElevation = metrics.hair,
             ) {
                 if (useLandscapeLayout) {
                     // ── 手机横屏：左右分栏 ──
@@ -265,14 +270,14 @@ fun IntroScreen(
                             .fillMaxWidth()
                             .padding(horizontal = cardHPadding, vertical = cardVPadding),
                         horizontalArrangement = Arrangement.spacedBy(metrics.cozy),
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
                         // ── 左栏：Logo + 品牌区 + 步骤指示器 ──
                         BrandBlock(
                             currentStep = currentStep.intValue,
                             totalSteps = 3,
                             modifier = Modifier.weight(1f),
-                            compact = true
+                            compact = true,
                         )
 
                         // ── 竖直细分隔线 ──
@@ -281,15 +286,15 @@ fun IntroScreen(
                                 .width(metrics.stroke.thin)
                                 .height(LayoutConstraints.CoverHeightSmall)
                                 .background(
-                                    MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-                                )
+                                    MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                                ),
                         )
 
                         // ── 右栏：步骤内容 ──
                         stepArea(
                             Modifier
                                 .weight(1f)
-                                .height(LayoutConstraints.PanelHeightLarge)
+                                .height(LayoutConstraints.PanelHeightLarge),
                         )
                     }
                 } else {
@@ -298,13 +303,13 @@ fun IntroScreen(
                             .fillMaxWidth()
                             .padding(horizontal = cardHPadding)
                             .padding(top = cardVPadding, bottom = cardVPadding),
-                        horizontalAlignment = Alignment.CenterHorizontally
+                        horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
                         // ── 卡片顶部：Logo + 品牌区 ──
                         BrandBlock(
                             currentStep = currentStep.intValue,
                             totalSteps = 3,
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier.fillMaxWidth(),
                         )
 
                         Spacer(modifier = Modifier.height(metrics.section))
@@ -313,7 +318,7 @@ fun IntroScreen(
                         HorizontalDivider(
                             modifier = Modifier.widthIn(max = LayoutConstraints.DialogMaxWidth),
                             thickness = metrics.stroke.thin,
-                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
                         )
 
                         Spacer(modifier = Modifier.height(metrics.block))
@@ -322,7 +327,7 @@ fun IntroScreen(
                         stepArea(
                             Modifier
                                 .fillMaxWidth()
-                                .height(LayoutConstraints.DialogMaxWidth)
+                                .height(LayoutConstraints.DialogMaxWidth),
                         )
                     }
                 }
@@ -341,13 +346,13 @@ fun IntroScreen(
 private fun StepIndicator(
     currentStep: Int,
     totalSteps: Int,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     val metrics = LocalHmpMetrics.current
     Row(
         modifier = modifier,
         horizontalArrangement = Arrangement.spacedBy(metrics.micro, Alignment.CenterHorizontally),
-        verticalAlignment = Alignment.CenterVertically
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         repeat(totalSteps) { index ->
             val isCurrent = index == currentStep
@@ -361,10 +366,10 @@ private fun StepIndicator(
                 modifier = Modifier
                     .height(metrics.micro)
                     .then(
-                        if (isCurrent) Modifier.width(metrics.section) else Modifier.size(metrics.micro)
+                        if (isCurrent) Modifier.width(metrics.section) else Modifier.size(metrics.micro),
                     )
                     .clip(RoundedCornerShape(metrics.hair))
-                    .background(color)
+                    .background(color),
             )
         }
     }
@@ -374,33 +379,33 @@ private fun StepIndicator(
 fun PermissionStep(
     isPermissionGiven: Boolean,
     onRequestPermission: () -> Unit,
-    onSkip: () -> Unit
+    onSkip: () -> Unit,
 ) {
     val metrics = LocalHmpMetrics.current
     val typo = LocalHmpTypo.current
     Column(
         modifier = Modifier.fillMaxHeight().fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(metrics.cozy, Alignment.CenterVertically)
+        verticalArrangement = Arrangement.spacedBy(metrics.cozy, Alignment.CenterVertically),
     ) {
         Text(
             text = stringResource(Res.string.intro_step_1),
             style = typo.headline,
             color = MaterialTheme.colorScheme.onSurface,
-            fontWeight = FontWeight.Bold
+            fontWeight = FontWeight.Bold,
         )
         Text(
             text = stringResource(Res.string.intro_step_1_desc),
             style = typo.body,
             modifier = Modifier.fillMaxWidth(),
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
-            textAlign = TextAlign.Center
+            textAlign = TextAlign.Center,
         )
 
         if (!isPermissionGiven) {
             Button(
                 onClick = onRequestPermission,
-                modifier = Modifier.width(metrics.card)
+                modifier = Modifier.width(metrics.card),
             ) {
                 Text(stringResource(Res.string.grant_permission))
             }
@@ -411,7 +416,7 @@ fun PermissionStep(
                 Text(
                     text = stringResource(Res.string.intro_skip_permission),
                     style = typo.body.medium(),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         } else {
@@ -423,7 +428,7 @@ fun PermissionStep(
                     disabledContainerColor = MaterialTheme.colorScheme.secondaryContainer,
                     disabledContentColor = MaterialTheme.colorScheme.onSecondaryContainer,
                 ),
-                modifier = Modifier.width(metrics.card)
+                modifier = Modifier.width(metrics.card),
             ) {
                 Text(stringResource(Res.string.permission_granted))
             }
@@ -438,27 +443,27 @@ fun ScanMusicStep(
     onStartScan: () -> Unit,
     onScanComplete: () -> Unit,
     libraryViewModel: LibraryViewModel?,
-    hazeState: HazeState
+    hazeState: HazeState,
 ) {
     val metrics = LocalHmpMetrics.current
     val typo = LocalHmpTypo.current
     Column(
         modifier = Modifier.fillMaxHeight().fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(metrics.cozy, Alignment.CenterVertically)
+        verticalArrangement = Arrangement.spacedBy(metrics.cozy, Alignment.CenterVertically),
     ) {
         Text(
             text = stringResource(Res.string.intro_step_2),
             style = typo.headline,
             color = MaterialTheme.colorScheme.onSurface,
-            fontWeight = FontWeight.Bold
+            fontWeight = FontWeight.Bold,
         )
         Text(
             text = stringResource(Res.string.intro_step_2_desc),
             style = typo.body,
             modifier = Modifier.fillMaxWidth(),
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
-            textAlign = TextAlign.Center
+            textAlign = TextAlign.Center,
         )
 
         if (isScanCompleted) {
@@ -470,14 +475,14 @@ fun ScanMusicStep(
                     disabledContainerColor = MaterialTheme.colorScheme.secondaryContainer,
                     disabledContentColor = MaterialTheme.colorScheme.onSecondaryContainer,
                 ),
-                modifier = Modifier.width(metrics.card)
+                modifier = Modifier.width(metrics.card),
             ) {
                 Text(stringResource(Res.string.scan_finished))
             }
         } else {
             Button(
                 onClick = onStartScan,
-                modifier = Modifier.width(metrics.card)
+                modifier = Modifier.width(metrics.card),
             ) {
                 Text(stringResource(Res.string.scan))
             }
@@ -488,38 +493,38 @@ fun ScanMusicStep(
         MusicScanDialog(
             libraryViewModel = libraryViewModel,
             onDismiss = onScanComplete,
-            hazeState = hazeState
+            hazeState = hazeState,
         )
     }
 }
 
 @Composable
 fun AiExperienceStep(
-    onFinished: () -> Unit
+    onFinished: () -> Unit,
 ) {
     val metrics = LocalHmpMetrics.current
     val typo = LocalHmpTypo.current
     Column(
         modifier = Modifier.fillMaxHeight().fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(metrics.cozy, Alignment.CenterVertically)
+        verticalArrangement = Arrangement.spacedBy(metrics.cozy, Alignment.CenterVertically),
     ) {
         Text(
             text = stringResource(Res.string.intro_step_3),
             style = typo.headline,
             color = MaterialTheme.colorScheme.onSurface,
-            fontWeight = FontWeight.Bold
+            fontWeight = FontWeight.Bold,
         )
         Text(
             text = stringResource(Res.string.intro_step_3_desc),
             style = typo.body,
             modifier = Modifier.fillMaxWidth(),
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
-            textAlign = TextAlign.Center
+            textAlign = TextAlign.Center,
         )
         Button(
             onClick = onFinished,
-            modifier = Modifier.width(metrics.card)
+            modifier = Modifier.width(metrics.card),
         ) {
             Text(stringResource(Res.string.start_experience))
         }
@@ -544,7 +549,7 @@ private fun BrandBlock(
     val typo = LocalHmpTypo.current
     Column(
         modifier = modifier,
-        horizontalAlignment = Alignment.CenterHorizontally
+        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Image(
             painter = painterResource(Res.drawable.ic_launcher_foreground),
@@ -555,24 +560,27 @@ private fun BrandBlock(
         Text(
             text = stringResource(Res.string.welcome_to),
             style = typo.body.medium(),
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
         )
         Spacer(modifier = Modifier.height(metrics.micro))
         val nameStyle =
-            if (compact) typo.headline
-            else typo.headline
+            if (compact) {
+                typo.headline
+            } else {
+                typo.headline
+            }
         Row(verticalAlignment = Alignment.Bottom) {
             Text(
                 text = "Hearable",
                 style = nameStyle,
                 color = MaterialTheme.colorScheme.primary,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Bold,
             )
             Text(
                 text = " Music Player",
                 style = nameStyle,
                 color = MaterialTheme.colorScheme.onSurface,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Bold,
             )
         }
 
@@ -581,7 +589,7 @@ private fun BrandBlock(
         // ── 胶囊式步骤指示器 ──
         StepIndicator(
             currentStep = currentStep,
-            totalSteps = totalSteps
+            totalSteps = totalSteps,
         )
     }
 }

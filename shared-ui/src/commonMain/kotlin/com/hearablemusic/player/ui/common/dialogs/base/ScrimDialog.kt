@@ -39,11 +39,15 @@ fun ScrimDialog(
             modifier = Modifier
                 .fillMaxSize()
                 .then(
-                    if (enableScrimDismiss) Modifier.clickable(
-                        indication = null,
-                        interactionSource = remember { MutableInteractionSource() },
-                        onClick = onDismissRequest,
-                    ) else Modifier
+                    if (enableScrimDismiss) {
+                        Modifier.clickable(
+                            indication = null,
+                            interactionSource = remember { MutableInteractionSource() },
+                            onClick = onDismissRequest,
+                        )
+                    } else {
+                        Modifier
+                    },
                 ),
             contentAlignment = Alignment.Center,
         ) {
@@ -51,7 +55,7 @@ fun ScrimDialog(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.5f))
+                    .background(Color.Black.copy(alpha = 0.5f)),
             )
             content()
         }

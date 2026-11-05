@@ -18,7 +18,7 @@ data class Playlist(
     val description: String? = null,
     val songCount: Int = 0,
     val totalDurationMs: Long = 0L,
-    val isPinned: Boolean = false
+    val isPinned: Boolean = false,
 )
 
 /**

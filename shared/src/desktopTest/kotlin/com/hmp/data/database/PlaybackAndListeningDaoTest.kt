@@ -114,10 +114,12 @@ class PlaybackAndListeningDaoTest {
 
     @Test
     fun duration_insertAll() = runTest {
-        durationDao.insertAll(listOf(
-            ListeningDuration(date = "2024-01-01", duration = 60000L, updatedAt = 1000L),
-            ListeningDuration(date = "2024-01-02", duration = 90000L, updatedAt = 2000L)
-        ))
+        durationDao.insertAll(
+            listOf(
+                ListeningDuration(date = "2024-01-01", duration = 60000L, updatedAt = 1000L),
+                ListeningDuration(date = "2024-01-02", duration = 90000L, updatedAt = 2000L),
+            ),
+        )
         assertEquals(2, durationDao.getAllDurations().size)
     }
 

@@ -17,8 +17,7 @@ import com.hmp.domain.backup.TransactionRunner
  * 按 `RoomDatabase` 取会在运行期 `NoBeanDefFoundException`（Koin 不按父类型匹配）。
  */
 class RoomTransactionRunner(private val database: AppDatabase) : TransactionRunner {
-    override suspend fun <R> run(block: suspend () -> R): R =
-        database.useWriterConnection { transactor: Transactor ->
-            transactor.deferredTransaction { block() }
-        }
+    override suspend fun <R> run(block: suspend () -> R): R = database.useWriterConnection { transactor: Transactor ->
+        transactor.deferredTransaction { block() }
+    }
 }

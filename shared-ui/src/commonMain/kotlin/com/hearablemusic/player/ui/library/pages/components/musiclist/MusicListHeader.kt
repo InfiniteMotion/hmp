@@ -1,7 +1,5 @@
 package com.hearablemusic.player.ui.library.pages.components.musiclist
 
-import com.hmp.domain.music.MusicSortKey
-import com.hmp.domain.music.SortDirection
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
@@ -32,26 +30,30 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import org.jetbrains.compose.resources.painterResource
-import org.jetbrains.compose.resources.stringResource
 import androidx.compose.ui.unit.dp
-import com.hearablemusic.player.ui.generated.resources.Res
-import com.hearablemusic.player.ui.generated.resources.*
+import com.hearablemusic.player.ui.common.design.animation.HmpMotion
+import com.hearablemusic.player.ui.common.design.metrics.HMPMetricTokens
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
 import com.hearablemusic.player.ui.common.design.typography.medium
 import com.hearablemusic.player.ui.common.util.rememberPlatformHaptics
+import com.hearablemusic.player.ui.generated.resources.*
+import com.hearablemusic.player.ui.generated.resources.Res
 import com.hearablemusic.player.ui.platform.HapticEffect
-import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
-import com.hearablemusic.player.ui.common.design.metrics.HMPMetricTokens
-import com.hearablemusic.player.ui.common.design.animation.HmpMotion
+import com.hmp.domain.music.MusicSortKey
+import com.hmp.domain.music.SortDirection
+import org.jetbrains.compose.resources.painterResource
+import org.jetbrains.compose.resources.stringResource
 
 /** 头部/编辑栏统一高度与 padding，保证切换时无高度变化 */
 private val HeaderRowPadding = HMPMetricTokens.Compact.base
 private val HeaderRowVerticalPadding = HMPMetricTokens.Compact.base
 private val HeaderRowBottomPadding = HMPMetricTokens.Compact.micro
+
 /** 头部行内容高度（与 IconButton 一致），总高度 = VerticalPadding + ContentHeight + BottomPadding */
 private val HeaderRowContentHeight = HMPMetricTokens.Compact.block
 private val HeaderBarTotalHeight = HeaderRowVerticalPadding + HeaderRowContentHeight + HeaderRowBottomPadding
+
 /** 数字 label 固定宽度，避免数量变化时布局偏移 */
 private val CountLabelWidth = HMPMetricTokens.Compact.block
 
@@ -69,6 +71,7 @@ internal fun MusicListHeader(
 ) {
     when (config) {
         is HeaderConfig.None -> { }
+
         is HeaderConfig.Simple -> SimpleHeader(
             onOrderPlay = config.onOrderPlay,
             onShufflePlay = config.onShufflePlay,
@@ -78,6 +81,7 @@ internal fun MusicListHeader(
             trailing = config.trailing,
             modifier = modifier,
         )
+
         is HeaderConfig.Full -> FullHeader(
             selectedGenre = config.selectedGenre,
             selectedOrder = config.selectedOrder,
@@ -91,6 +95,7 @@ internal fun MusicListHeader(
             modifier = modifier,
             singleRowFilter = config.singleRowFilter,
         )
+
         is HeaderConfig.Custom -> config.content()
     }
 }

@@ -42,7 +42,7 @@ object PlaybackSources {
 
     /** 闭集本身：新增取值必须进这里，否则判据红（"两套口径"的起源就是没人管这张表）。 */
     val all: List<String> = listOf(
-        MANUAL, NEXT, PREVIOUS, RESUME, ORDER, SHUFFLE, HEART_MODE, RELEASE, AUTO
+        MANUAL, NEXT, PREVIOUS, RESUME, ORDER, SHUFFLE, HEART_MODE, RELEASE, AUTO,
     )
 
     fun isKnown(source: String?): Boolean = source != null && source in all

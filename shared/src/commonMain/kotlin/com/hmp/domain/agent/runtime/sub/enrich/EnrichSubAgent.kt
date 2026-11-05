@@ -1,26 +1,25 @@
 package com.hmp.domain.agent.runtime.sub.enrich
 
 import com.hmp.domain.agent.config.EngineDefaults
-import com.hmp.domain.agent.runtime.sub.shared.SubAgent
-
 import com.hmp.domain.agent.enrich.EnrichWorkUnit
-import com.hmp.log.HmpLog
-import com.hmp.log.LogTag
 import com.hmp.domain.agent.infra.PresenceBus
 import com.hmp.domain.agent.infra.PresenceEvent
+import com.hmp.domain.agent.port.Capability
+import com.hmp.domain.agent.port.CapabilityState
 import com.hmp.domain.agent.port.LlmMessage
 import com.hmp.domain.agent.runtime.AgentContextBudget
 import com.hmp.domain.agent.runtime.AgentRunState
-import com.hmp.domain.agent.port.Capability
-import com.hmp.domain.agent.port.CapabilityState
 import com.hmp.domain.agent.runtime.SchedulerStopSignal
 import com.hmp.domain.agent.runtime.ToolRegistryView
+import com.hmp.domain.agent.runtime.sub.shared.SubAgent
 import com.hmp.domain.enum.LabelCategory
 import com.hmp.domain.enum.LabelName
 import com.hmp.domain.music.MusicInfo
 import com.hmp.domain.music.MusicLabel
 import com.hmp.domain.music.MusicRepository
 import com.hmp.domain.setting.model.AiEndpointConfig
+import com.hmp.log.HmpLog
+import com.hmp.log.LogTag
 import com.hmp.platform.Volatile
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
@@ -118,16 +117,17 @@ internal class EnrichSubAgent(
     },
     /** 停止/暂停信号（类型收紧：只接受 SchedulerStopSignal） */
     private val stopSignal: SchedulerStopSignal? = null,
-) : SubAgent(agentId, contextBudget, toolRegistryView), Capability {
+) : SubAgent(agentId, contextBudget, toolRegistryView),
+    Capability {
 
     // ── 构造诊断日志 ──
     init {
         val cfg = enrichConfig
         HmpLog.i(LogTag.AgentEnrich) {
             "📚 EnrichSubAgent created | targetCoverage=$targetCoverage | " +
-            "hasLLM=${cfg != null} | endpoint=${cfg?.endpoint?.take(40) ?: "(none)"} | " +
-            "model=${cfg?.selectedModel?.take(30) ?: "(default)"} | hasKey=${cfg?.apiKey?.isNotBlank() == true} | " +
-            "systemPromptLen=${systemPrompt.length}"
+                "hasLLM=${cfg != null} | endpoint=${cfg?.endpoint?.take(40) ?: "(none)"} | " +
+                "model=${cfg?.selectedModel?.take(30) ?: "(default)"} | hasKey=${cfg?.apiKey?.isNotBlank() == true} | " +
+                "systemPromptLen=${systemPrompt.length}"
         }
     }
 
@@ -168,7 +168,7 @@ internal class EnrichSubAgent(
 
     /** UI 订阅的进度 StateFlow（每次 chunk 完成更新） */
     private val _progressState = MutableStateFlow(
-        EnrichProgress.IDLE
+        EnrichProgress.IDLE,
     )
     val progressState: StateFlow<EnrichProgress> = _progressState.asStateFlow()
 
@@ -217,6 +217,7 @@ internal class EnrichSubAgent(
     /**
      * Enrich 自循环：fetchNextWorkUnit → chunk 拆分 → 每 chunk 6 轮编排 → 验收 → 自退出。
      */
+
     /**
      * 入口分流（T5）：免费/付费（内置 Key）走省 token 的单首路径；自定义端点保留完整批量流程。
      *
@@ -236,14 +237,14 @@ internal class EnrichSubAgent(
     }
 
     private suspend fun runBatchLoop() {
-        HmpLog.i(LogTag.AgentEnrich) { "📚 [$agentId] runLoop start: target=${targetCoverage} config=${enrichConfig != null}" }
+        HmpLog.i(LogTag.AgentEnrich) { "📚 [$agentId] runLoop start: target=$targetCoverage config=${enrichConfig != null}" }
         isActive = true
         runState = AgentRunState.RUNNING
         currentPhase = "拉活工作单元"
         updateProgressState()
 
         // 预热缓存：同一歌手多个 chunk 只预热一次
-        var preheatCache: Pair<String, String?>? = null  // artist → preheat text (nullable)
+        var preheatCache: Pair<String, String?>? = null // artist → preheat text (nullable)
         // 连续 chunk 失败计数——用来检测网络/API 不可用，避免光速死循环
         var consecutiveChunkFails = 0
 
@@ -262,15 +263,15 @@ internal class EnrichSubAgent(
             if (workUnit == null) {
                 // ── 全部富化完了，验收 ──
                 val health = musicRepository.getEnrichHealth()
-                HmpLog.i(LogTag.AgentEnrich) { "📚 [$agentId] health: coverage=${health.coverageRate}/${targetCoverage} enriched=${health.enrichedSongCount}/${health.totalSongCount}" }
+                HmpLog.i(LogTag.AgentEnrich) { "📚 [$agentId] health: coverage=${health.coverageRate}/$targetCoverage enriched=${health.enrichedSongCount}/${health.totalSongCount}" }
 
                 if (health.coverageRate >= targetCoverage) {
-                    HmpLog.i(LogTag.AgentEnrich) { "📚 [$agentId] target achieved (${health.coverageRate} >= ${targetCoverage}), self-exiting" }
+                    HmpLog.i(LogTag.AgentEnrich) { "📚 [$agentId] target achieved (${health.coverageRate} >= $targetCoverage), self-exiting" }
                     break
                 }
 
                 // coverage 未达标但 unenriched 已清空 → 等一会儿再查
-                HmpLog.w(LogTag.AgentEnrich) { "📚 [$agentId] no unenriched but coverage ${health.coverageRate} < ${targetCoverage} — waiting" }
+                HmpLog.w(LogTag.AgentEnrich) { "📚 [$agentId] no unenriched but coverage ${health.coverageRate} < $targetCoverage — waiting" }
                 currentPhase = "等待更多歌曲"
                 updateProgressState()
                 repeat(20) {
@@ -334,10 +335,12 @@ internal class EnrichSubAgent(
 
                         // 每个 chunk 开头注入预热（配对 user+assistant，保持历史对称）
                         if (preheatText != null) {
-                            contextBudget.appendMessages(listOf(
-                                LlmMessage(role = "user", content = EnrichPrompts.buildPreheatPrompt(artist)),
-                                LlmMessage(role = "assistant", content = preheatText),
-                            ))
+                            contextBudget.appendMessages(
+                                listOf(
+                                    LlmMessage(role = "user", content = EnrichPrompts.buildPreheatPrompt(artist)),
+                                    LlmMessage(role = "assistant", content = preheatText),
+                                ),
+                            )
                         }
 
                         val chunkOk = processChunk(chunk, artist, isMixed = false)
@@ -410,7 +413,7 @@ internal class EnrichSubAgent(
      * 与 [runBatchLoop] 的差别只有"取几首 + 几次请求"：落库路径完全相同。
      */
     private suspend fun runSingleSongLoop() {
-        HmpLog.i(LogTag.AgentEnrich) { "📚 [$agentId] single-song loop start: target=${targetCoverage} config=${enrichConfig != null}" }
+        HmpLog.i(LogTag.AgentEnrich) { "📚 [$agentId] single-song loop start: target=$targetCoverage config=${enrichConfig != null}" }
         isActive = true
         runState = AgentRunState.RUNNING
         currentPhase = "单首富化中"
@@ -429,7 +432,7 @@ internal class EnrichSubAgent(
             val pool = musicRepository.getUnenrichedSongs(RANDOM_POOL_SIZE)
             if (pool.isEmpty()) {
                 val health = musicRepository.getEnrichHealth()
-                HmpLog.i(LogTag.AgentEnrich) { "📚 [$agentId] health: coverage=${health.coverageRate}/${targetCoverage} enriched=${health.enrichedSongCount}/${health.totalSongCount}" }
+                HmpLog.i(LogTag.AgentEnrich) { "📚 [$agentId] health: coverage=${health.coverageRate}/$targetCoverage enriched=${health.enrichedSongCount}/${health.totalSongCount}" }
                 if (health.coverageRate >= targetCoverage) {
                     HmpLog.i(LogTag.AgentEnrich) { "📚 [$agentId] target achieved, self-exiting" }
                     break
@@ -497,10 +500,16 @@ internal class EnrichSubAgent(
             roundLabel = "single \"${song.music.title}\"",
             userPrompt = EnrichPrompts.buildSingleSongPrompt(song),
             systemOverride = EnrichPrompts.SINGLE_SONG_SYSTEM_PROMPT,
-        ) ?: run { failCount++; return false }
+        ) ?: run {
+            failCount++
+            return false
+        }
 
         val draft = EnrichResponseParser.parseSingleSong(text, agentId)
-        if (draft == null) { failCount++; return false }
+        if (draft == null) {
+            failCount++
+            return false
+        }
 
         writeSongResult(song, draft)
         return true
@@ -552,8 +561,11 @@ internal class EnrichSubAgent(
         currentPhase = "Round 1.5 自检中"
         updateProgressState()
         runCatching {
-            val selfCheckText = callAndLog(config, "Round 1.5 enum self-check",
-                EnrichPrompts.buildEnumSelfCheckPrompt(songs, enumMap, groupKey, isMixed))
+            val selfCheckText = callAndLog(
+                config,
+                "Round 1.5 enum self-check",
+                EnrichPrompts.buildEnumSelfCheckPrompt(songs, enumMap, groupKey, isMixed),
+            )
             if (selfCheckText != null) {
                 val selfCheckPatchMap = EnrichResponseParser.parseEnumSelfCheckFullList(selfCheckText, songs, agentId)
                 EnrichResponseParser.applyEnumReplacements(enumMap, selfCheckPatchMap, songs)
@@ -566,8 +578,11 @@ internal class EnrichSubAgent(
         // ========== Round 2a: 自由文本 Easy（description + singerIntroduce） ==========
         currentPhase = "Round 2a 自由文本"
         updateProgressState()
-        val easyText = callAndLog(config, "Round 2a freeText-easy",
-            EnrichPrompts.buildFreeTextEasyPrompt(songs, enumMap, groupKey, isMixed))
+        val easyText = callAndLog(
+            config,
+            "Round 2a freeText-easy",
+            EnrichPrompts.buildFreeTextEasyPrompt(songs, enumMap, groupKey, isMixed),
+        )
         val easyMap = if (easyText != null) {
             runCatching { EnrichResponseParser.parseFreeTextEasyBatch(easyText, songs, agentId) }
                 .getOrElse { e ->
@@ -582,8 +597,11 @@ internal class EnrichSubAgent(
         // ========== Round 2b: 自由文本 Facts（极易编造，强化 -暂无） ==========
         currentPhase = "Round 2b Facts"
         updateProgressState()
-        val factsText = callAndLog(config, "Round 2b freeText-facts",
-            EnrichPrompts.buildFreeTextFactsPrompt(songs, enumMap, groupKey, isMixed))
+        val factsText = callAndLog(
+            config,
+            "Round 2b freeText-facts",
+            EnrichPrompts.buildFreeTextFactsPrompt(songs, enumMap, groupKey, isMixed),
+        )
         val factsMap = if (factsText != null) {
             runCatching { EnrichResponseParser.parseFreeTextFactsBatch(factsText, songs, agentId) }
                 .getOrElse { e ->
@@ -609,8 +627,11 @@ internal class EnrichSubAgent(
         }.toMutableMap()
 
         runCatching {
-            val reflectionText = callAndLog(config, "Round 3 reflection",
-                EnrichPrompts.buildReflectionPrompt(songs, draftResults, groupKey, isMixed))
+            val reflectionText = callAndLog(
+                config,
+                "Round 3 reflection",
+                EnrichPrompts.buildReflectionPrompt(songs, draftResults, groupKey, isMixed),
+            )
             if (reflectionText != null) {
                 val patches = EnrichResponseParser.parseReflectionPatches(reflectionText, songs, agentId)
                 EnrichResponseParser.applyReflectionPatches(draftResults, patches, songs)
@@ -639,11 +660,13 @@ internal class EnrichSubAgent(
             }
         }
 
-        presenceBus?.emit(PresenceEvent.AgentProgress(
-            agentId = agentId,
-            processed = processedCount,
-            total = currentUnitSize,
-        ))
+        presenceBus?.emit(
+            PresenceEvent.AgentProgress(
+                agentId = agentId,
+                processed = processedCount,
+                total = currentUnitSize,
+            ),
+        )
 
         HmpLog.i(LogTag.AgentEnrich) { "📚 [$agentId] chunk '$groupKey' done: chunkSuccess=$chunkSuccess chunkFail=$chunkFail runningTotal success=$successCount fail=$failCount" }
         updateProgressState()
@@ -681,7 +704,6 @@ internal class EnrichSubAgent(
         successCount++
     }
 
-
     // ===== DB 写入辅助 =====
 
     private suspend fun writeLabelsFromDraft(musicId: Long, draft: EnrichDraft) {
@@ -710,6 +732,7 @@ internal class EnrichSubAgent(
         private const val GROUP_KEY_MIXED = "__mixed__"
 
         /** 超大歌手拆分阈值：单次 LLM call 最多处理这么多首 */
+
         /** 单首随机：一次取一页候选再随机挑，避免 ORDER BY RANDOM() 全表排序。 */
         private const val RANDOM_POOL_SIZE = 50
 
@@ -721,9 +744,9 @@ internal class EnrichSubAgent(
         this.enrichConfig = enrichConfig
         HmpLog.i(LogTag.AgentEnrich) {
             "🔄 updateAiConfig | hasLLM=${enrichConfig != null} | " +
-            "endpoint=${enrichConfig?.endpoint?.take(40) ?: "(none)"} | " +
-            "model=${enrichConfig?.selectedModel?.take(30) ?: "(default)"} | " +
-            "hasKey=${enrichConfig?.apiKey?.isNotBlank() == true}"
+                "endpoint=${enrichConfig?.endpoint?.take(40) ?: "(none)"} | " +
+                "model=${enrichConfig?.selectedModel?.take(30) ?: "(default)"} | " +
+                "hasKey=${enrichConfig?.apiKey?.isNotBlank() == true}"
         }
     }
 
@@ -749,4 +772,3 @@ internal class EnrichSubAgent(
         initialValue = CapabilityState(CapabilityState.Status.IDLE, detail = "idle"),
     )
 }
-

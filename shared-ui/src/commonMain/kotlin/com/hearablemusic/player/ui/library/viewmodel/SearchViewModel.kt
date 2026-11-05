@@ -2,18 +2,18 @@ package com.hearablemusic.player.ui.library.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.hearablemusic.player.ui.common.util.UiState
 import com.hearablemusic.player.ui.generated.resources.Res
 import com.hearablemusic.player.ui.generated.resources.search_failed
-import org.jetbrains.compose.resources.getString
 import com.hmp.domain.music.MusicInfo
 import com.hmp.domain.music.usecase.SearchMusicUseCase
-import com.hearablemusic.player.ui.common.util.UiState
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import org.jetbrains.compose.resources.getString
 
 /**
  * 搜索的防抖与竞态收口（D2-18）。

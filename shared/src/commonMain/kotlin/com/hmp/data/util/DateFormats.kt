@@ -19,6 +19,7 @@ expect fun millisUntilNextLocalMidnight(): Long
 
 /** 将 epoch 毫秒转为本地时区的 MM-dd 字符串（用于 ANNIVERSARY 卡月-日匹配） */
 expect fun formatMmddFromMillis(epochMs: Long): String
+
 /**
  * epoch 毫秒 → **本地时区**的小时（0-23）。
  *

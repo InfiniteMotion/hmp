@@ -99,7 +99,7 @@ class HazeIntensityTest {
             intensity = 0.8f,
             blurRadius = 30f,
             noiseFactor = 0.2f,
-            tintAlpha = 0.3f
+            tintAlpha = 0.3f,
         )
         assertEquals("preset", settings.mode)
         assertEquals("thick", settings.preset)

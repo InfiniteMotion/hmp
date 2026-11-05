@@ -136,12 +136,12 @@ class PlaybackObservationBus : PlaybackObservationSink {
                 playedMs = playedMs,
                 totalMs = totalMs,
                 atMs = nowMs(),
-            )
+            ),
         )
     }
 
     override fun onPauseStateChanged(resumed: Boolean) {
-        if (muted()) return   // 编排引起的假暂停/继续，同样丢掉
+        if (muted()) return // 编排引起的假暂停/继续，同样丢掉
         _pauseEvents.tryEmit(PauseEvent(resumed = resumed, atMs = nowMs()))
     }
 }

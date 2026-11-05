@@ -1,17 +1,13 @@
 package com.hmp.data.di
 
 import android.content.Context
-import com.hmp.data.database.AppDatabase
-import com.hmp.data.database.AgentMessageDao
 import com.hmp.data.database.AgentAuditLogDao
+import com.hmp.data.database.AgentMessageDao
+import com.hmp.data.database.AgentTaskDao
+import com.hmp.data.database.AppDatabase
+import com.hmp.data.database.ForgottenDeliveryDao
 import com.hmp.data.database.HelloCardCacheDao
 import com.hmp.data.database.HelloReportNarrativeDao
-import com.hmp.data.database.UserProfileEvidenceDao
-import com.hmp.data.database.UserProfileNarrativeDao
-import com.hmp.data.database.UserProfilePortraitDao
-import com.hmp.data.database.ForgottenDeliveryDao
-import com.hmp.data.database.AgentTaskDao
-import com.hmp.data.database.TokenLedgerDao
 import com.hmp.data.database.ListeningDurationDao
 import com.hmp.data.database.MusicAllDao
 import com.hmp.data.database.MusicDao
@@ -22,7 +18,11 @@ import com.hmp.data.database.PlaylistDao
 import com.hmp.data.database.PlaylistItemDao
 import com.hmp.data.database.RoomAgentMessageStore
 import com.hmp.data.database.RoomAuditLogAdapter
+import com.hmp.data.database.TokenLedgerDao
 import com.hmp.data.database.UserInfoDao
+import com.hmp.data.database.UserProfileEvidenceDao
+import com.hmp.data.database.UserProfileNarrativeDao
+import com.hmp.data.database.UserProfilePortraitDao
 import com.hmp.data.database.getDatabaseBuilder
 import com.hmp.data.database.getRoomDatabase
 import com.hmp.data.network.OpenAiCompatibleAdapter
@@ -31,9 +31,9 @@ import com.hmp.data.repository.BackupFileRepositoryImpl
 import com.hmp.data.repository.MusicRepositoryImpl
 import com.hmp.data.repository.PlaylistRepositoryImpl
 import com.hmp.data.repository.SettingsRepositoryImpl
-import com.hmp.domain.backup.BackupFileRepository
 import com.hmp.domain.agent.port.AgentMessageStore
 import com.hmp.domain.agent.port.AuditLogPort
+import com.hmp.domain.backup.BackupFileRepository
 import com.hmp.domain.music.MusicRepository
 import com.hmp.domain.playlist.PlaylistRepository
 import com.hmp.domain.setting.SettingsRepository

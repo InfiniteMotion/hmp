@@ -39,6 +39,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.hearablemusic.player.ui.common.components.base.TitleWidget
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
 import com.hearablemusic.player.ui.common.pages.base.SubScreen
 import com.hearablemusic.player.ui.generated.resources.Res
@@ -72,12 +73,10 @@ import com.hmp.domain.config.DisplayMode
 import com.hmp.domain.config.LyricsAlignment
 import com.hmp.domain.lyrics.LyricsComponent
 import com.hmp.domain.lyrics.LyricsComponentConfig
-
 import com.hmp.domain.setting.usecase.LyricsSettingsUseCase
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
-import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 
 /**
  * 设置页可见的歌词组件。
@@ -85,14 +84,12 @@ import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
  * Desktop/iOS 的悬浮歌词是空壳（`FloatingLyricsController.isSupported=false`），
  * 直接隐藏这个 tab，避免"看起来能开、实际无效"（D4-04）。
  */
-internal fun supportedLyricsComponents(floatingSupported: Boolean): List<LyricsComponent> =
-    LyricsComponent.entries.filter { it != LyricsComponent.FLOATING || floatingSupported }
-
+internal fun supportedLyricsComponents(floatingSupported: Boolean): List<LyricsComponent> = LyricsComponent.entries.filter { it != LyricsComponent.FLOATING || floatingSupported }
 
 @Composable
 fun LyricsSettingsPage(
     lyricsSettingsUseCase: LyricsSettingsUseCase,
-    onBack: () -> Unit
+    onBack: () -> Unit,
 ) {
     val metrics = LocalHmpMetrics.current
     val scope = rememberCoroutineScope()
@@ -153,7 +150,7 @@ fun LyricsSettingsPage(
     val tabLabels = mapOf(
         LyricsComponent.PLAYER to stringResource(Res.string.player_page),
         LyricsComponent.FULLSCREEN to stringResource(Res.string.fullscreen),
-        LyricsComponent.FLOATING to stringResource(Res.string.floating_lyrics)
+        LyricsComponent.FLOATING to stringResource(Res.string.floating_lyrics),
     )
     val components = supportedLyricsComponents(platformServices.floatingLyrics.isSupported)
     LaunchedEffect(platformServices.floatingLyrics.isSupported) {
@@ -164,14 +161,14 @@ fun LyricsSettingsPage(
 
     SubScreen(
         onBackClick = onBack,
-        title = stringResource(Res.string.lyrics_settings)
+        title = stringResource(Res.string.lyrics_settings),
     ) {
         Column(
             modifier = Modifier
                 .verticalScroll(rememberScrollState())
                 .fillMaxWidth()
                 .padding(metrics.section),
-            verticalArrangement = Arrangement.spacedBy(metrics.section)
+            verticalArrangement = Arrangement.spacedBy(metrics.section),
         ) {
             // 组件切换
             TitleWidget(title = stringResource(Res.string.lyrics_component)) {
@@ -180,7 +177,7 @@ fun LyricsSettingsPage(
                         SegmentedButton(
                             selected = selectedTab == comp,
                             onClick = { selectedTab = comp },
-                            shape = SegmentedButtonDefaults.itemShape(idx, components.size)
+                            shape = SegmentedButtonDefaults.itemShape(idx, components.size),
                         ) { Text(tabLabels[comp] ?: comp.key) }
                     }
                 }
@@ -193,25 +190,25 @@ fun LyricsSettingsPage(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(metrics.base),
                         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
-                        border = BorderStroke(metrics.stroke.thin, MaterialTheme.colorScheme.outline.copy(alpha = 0.1f))
+                        border = BorderStroke(metrics.stroke.thin, MaterialTheme.colorScheme.outline.copy(alpha = 0.1f)),
                     ) {
                         Row(
                             modifier = Modifier.fillMaxWidth().padding(horizontal = metrics.cozy, vertical = metrics.base),
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
+                            horizontalArrangement = Arrangement.SpaceBetween,
                         ) {
                             Text(
                                 stringResource(Res.string.enable_floating_lyrics),
                                 style = typo.body,
-                                color = MaterialTheme.colorScheme.onSurface
+                                color = MaterialTheme.colorScheme.onSurface,
                             )
                             Switch(
                                 checked = floatingEnabled,
                                 onCheckedChange = { if (it) startFloatingLyrics() else stopFloatingLyrics() },
                                 colors = SwitchDefaults.colors(
                                     checkedThumbColor = MaterialTheme.colorScheme.primary,
-                                    checkedTrackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
-                                )
+                                    checkedTrackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f),
+                                ),
                             )
                         }
                     }
@@ -227,7 +224,7 @@ fun LyricsSettingsPage(
                         SegmentedButton(
                             selected = config.displayMode.name == key,
                             onClick = { updateCurrent(config.copy(displayMode = DisplayMode.valueOf(key))) },
-                            shape = SegmentedButtonDefaults.itemShape(idx, 3)
+                            shape = SegmentedButtonDefaults.itemShape(idx, 3),
                         ) { Text(label, style = typo.footnote) }
                     }
                 }
@@ -240,7 +237,7 @@ fun LyricsSettingsPage(
                         SegmentedButton(
                             selected = config.alignment.name == key,
                             onClick = { updateCurrent(config.copy(alignment = LyricsAlignment.valueOf(key))) },
-                            shape = SegmentedButtonDefaults.itemShape(idx, 3)
+                            shape = SegmentedButtonDefaults.itemShape(idx, 3),
                         ) { Text(label, style = typo.footnote) }
                     }
                 }
@@ -250,7 +247,7 @@ fun LyricsSettingsPage(
             TitleWidget(title = stringResource(Res.string.text_settings)) {
                 Column(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = metrics.cozy),
-                    verticalArrangement = Arrangement.spacedBy(metrics.compact)
+                    verticalArrangement = Arrangement.spacedBy(metrics.compact),
                 ) {
                     NumericRow(stringResource(Res.string.original_text_size), config.originalTextSize, 10..28) {
                         updateCurrent(config.copy(originalTextSize = it))
@@ -268,25 +265,25 @@ fun LyricsSettingsPage(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(metrics.base),
                         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
-                        border = BorderStroke(metrics.stroke.thin, MaterialTheme.colorScheme.outline.copy(alpha = 0.1f))
+                        border = BorderStroke(metrics.stroke.thin, MaterialTheme.colorScheme.outline.copy(alpha = 0.1f)),
                     ) {
                         Row(
                             modifier = Modifier.fillMaxWidth().padding(horizontal = metrics.cozy, vertical = metrics.base),
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
+                            horizontalArrangement = Arrangement.SpaceBetween,
                         ) {
                             Text(
                                 stringResource(Res.string.karaoke_lyrics),
                                 style = typo.body,
-                                color = MaterialTheme.colorScheme.onSurface
+                                color = MaterialTheme.colorScheme.onSurface,
                             )
                             Switch(
                                 checked = config.karaokeEnabled,
                                 onCheckedChange = { updateCurrent(config.copy(karaokeEnabled = it)) },
                                 colors = SwitchDefaults.colors(
                                     checkedThumbColor = MaterialTheme.colorScheme.primary,
-                                    checkedTrackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
-                                )
+                                    checkedTrackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f),
+                                ),
                             )
                         }
                     }
@@ -299,7 +296,7 @@ fun LyricsSettingsPage(
                     LyricsComponent.entries.filter { it != selectedTab }.map { it.key to stringResource(Res.string.follow_component, tabLabels[it]!!) }
                 Column(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = metrics.compact),
-                    verticalArrangement = Arrangement.spacedBy(metrics.hair)
+                    verticalArrangement = Arrangement.spacedBy(metrics.hair),
                 ) {
                     linkOptions.forEach { (key, label) ->
                         Surface(
@@ -307,26 +304,28 @@ fun LyricsSettingsPage(
                                 .fillMaxWidth()
                                 .clickable { updateCurrent(config.copy(linkedTo = key)) },
                             shape = RoundedCornerShape(metrics.base),
-                            color = if (config.linkedTo == key)
+                            color = if (config.linkedTo == key) {
                                 MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
-                            else Color.Transparent
+                            } else {
+                                Color.Transparent
+                            },
                         ) {
                             Row(
                                 modifier = Modifier.padding(vertical = metrics.compact, horizontal = metrics.micro),
-                                verticalAlignment = Alignment.CenterVertically
+                                verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 RadioButton(
                                     selected = config.linkedTo == key,
                                     onClick = { updateCurrent(config.copy(linkedTo = key)) },
                                     colors = RadioButtonDefaults.colors(
-                                        selectedColor = MaterialTheme.colorScheme.primary
-                                    )
+                                        selectedColor = MaterialTheme.colorScheme.primary,
+                                    ),
                                 )
                                 Spacer(Modifier.width(metrics.compact))
                                 Text(
                                     label,
                                     style = typo.body,
-                                    color = MaterialTheme.colorScheme.onSurface
+                                    color = MaterialTheme.colorScheme.onSurface,
                                 )
                             }
                         }
@@ -346,11 +345,11 @@ fun LyricsSettingsPage(
                         }
                     }
                 },
-                modifier = Modifier.align(Alignment.CenterHorizontally)
+                modifier = Modifier.align(Alignment.CenterHorizontally),
             ) {
                 Text(
                     stringResource(Res.string.reset_component_to_default, tabLabels[selectedTab] ?: ""),
-                    color = MaterialTheme.colorScheme.error
+                    color = MaterialTheme.colorScheme.error,
                 )
             }
 
@@ -364,7 +363,7 @@ private fun NumericRow(
     label: String,
     value: Int,
     range: IntRange,
-    onChange: (Int) -> Unit
+    onChange: (Int) -> Unit,
 ) {
     val metrics = LocalHmpMetrics.current
     val typo = LocalHmpTypo.current
@@ -372,22 +371,22 @@ private fun NumericRow(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(metrics.base),
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
-        border = BorderStroke(metrics.stroke.thin, MaterialTheme.colorScheme.outline.copy(alpha = 0.1f))
+        border = BorderStroke(metrics.stroke.thin, MaterialTheme.colorScheme.outline.copy(alpha = 0.1f)),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(vertical = metrics.micro, horizontal = metrics.cozy),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+            horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             Text(
                 label,
                 style = typo.body,
-                color = MaterialTheme.colorScheme.onSurface
+                color = MaterialTheme.colorScheme.onSurface,
             )
             Row(verticalAlignment = Alignment.CenterVertically) {
                 TextButton(
                     onClick = { if (value > range.first) onChange(value - 1) },
-                    modifier = Modifier.size(metrics.block)
+                    modifier = Modifier.size(metrics.block),
                 ) {
                     Text("−", fontSize = 20.sp, color = MaterialTheme.colorScheme.onSurface) // design-token-exception: 加减号字形尺寸，属图形符号非文字排版
                 }
@@ -395,11 +394,11 @@ private fun NumericRow(
                     "$value",
                     style = typo.subtitle,
                     fontWeight = FontWeight.Medium,
-                    modifier = Modifier.padding(horizontal = metrics.compact)
+                    modifier = Modifier.padding(horizontal = metrics.compact),
                 )
                 TextButton(
                     onClick = { if (value < range.last) onChange(value + 1) },
-                    modifier = Modifier.size(metrics.block)
+                    modifier = Modifier.size(metrics.block),
                 ) {
                     Text("+", fontSize = 20.sp, color = MaterialTheme.colorScheme.onSurface) // design-token-exception: 加减号字形尺寸，属图形符号非文字排版
                 }

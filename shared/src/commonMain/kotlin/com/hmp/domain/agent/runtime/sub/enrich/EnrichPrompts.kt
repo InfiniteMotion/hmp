@@ -62,19 +62,19 @@ internal object EnrichPrompts {
 
 Master 当前任务：
 - 目标覆盖率：${(targetCoverage * 100).toInt()}%
-""".trimIndent()
+        """.trimIndent()
     }
 
     // ---------- Round 0: 预热 ----------
 
     fun buildPreheatPrompt(artist: String): String = """
-请用 2-3 段话介绍一下 "${artist}" 这位歌手/乐队：
+请用 2-3 段话介绍一下 "$artist" 这位歌手/乐队：
 - 音乐风格和流派定位
 - 主要成就和代表性作品
 - 风格演变或标志性的声音元素
 
-这是后面分析 ${artist} 多首歌曲的共同背景，请尽量准确。如果这个歌手你不太熟悉，简短说你知道的就行，不要编造。
-""".trimIndent()
+这是后面分析 $artist 多首歌曲的共同背景，请尽量准确。如果这个歌手你不太熟悉，简短说你知道的就行，不要编造。
+    """.trimIndent()
 
     // ---------- Round 1: 枚举批量 ----------
 
@@ -90,7 +90,7 @@ Master 当前任务：
         val groupContext = if (isMixedGroup) {
             "这是混合歌手组，每首歌独立分析即可。"
         } else {
-            "这批 ${songs.size} 首都是 ${groupKey} 的歌曲（前面你已经介绍过这位歌手的背景），请确保 genre/mood 分布合理——既要有变化又整体符合 ${groupKey} 的风格定位。"
+            "这批 ${songs.size} 首都是 $groupKey 的歌曲（前面你已经介绍过这位歌手的背景），请确保 genre/mood 分布合理——既要有变化又整体符合 $groupKey 的风格定位。"
         }
 
         return """
@@ -117,7 +117,7 @@ $songsList
 ]
 
 只返回 JSON，不要加任何解释或 markdown。
-""".trimIndent()
+        """.trimIndent()
     }
 
     // ---------- Round 1.5: 枚举自检 ----------
@@ -138,9 +138,9 @@ $songsList
             """1. 每首歌的 language 是否跟歌手国籍/歌词语言大致匹配？
 2. era 是否跟歌手出道年代大致匹配？"""
         } else {
-            """1. genre/mood 分布是否跟你前面介绍的 ${groupKey} 的风格定位矛盾？
-2. language 是否跟 ${groupKey} 的主要语言匹配？
-3. era 分布是否合理——${groupKey} 活跃年代大致在哪个时期？有没有标到离谱的（比如 60 年代的歌手标了 2020s）？"""
+            """1. genre/mood 分布是否跟你前面介绍的 $groupKey 的风格定位矛盾？
+2. language 是否跟 $groupKey 的主要语言匹配？
+3. era 分布是否合理——$groupKey 活跃年代大致在哪个时期？有没有标到离谱的（比如 60 年代的歌手标了 2020s）？"""
         }
 
         return """
@@ -163,7 +163,7 @@ $checks
 ]
 
 只返回 JSON。
-""".trimIndent()
+        """.trimIndent()
     }
 
     // ---------- Round 2a: 自由文本 Easy ----------
@@ -189,7 +189,7 @@ $songsWithContext
 - description: 1-2 句话描述歌曲主题和情感，参考上面的 genre/mood 来写
 - singerIntroduce: 2-3 句话介绍歌手背景
 
-${if (!isMixedGroup) "（前面你已经介绍过 ${groupKey} 的背景，可以基于那个来写 singerIntroduce）" else "（混合歌手组，每首歌的 singerIntroduce 请基于歌曲标题和风格合理推测）"}
+${if (!isMixedGroup) "（前面你已经介绍过 $groupKey 的背景，可以基于那个来写 singerIntroduce）" else "（混合歌手组，每首歌的 singerIntroduce 请基于歌曲标题和风格合理推测）"}
 
 严格返回 JSON array，顺序一致：
 [
@@ -198,7 +198,7 @@ ${if (!isMixedGroup) "（前面你已经介绍过 ${groupKey} 的背景，可以
 ]
 
 只返回 JSON，不要加任何解释或 markdown。
-""".trimIndent()
+        """.trimIndent()
     }
 
     // ---------- Round 2b: 自由文本 Facts ----------
@@ -238,7 +238,7 @@ $songsList
 ]
 
 只返回 JSON，不要加任何解释或 markdown。
-""".trimIndent()
+        """.trimIndent()
     }
 
     // ---------- Round 3: 总体反思 ----------
@@ -260,7 +260,7 @@ $songsList
         }.joinToString("\n")
 
         val contextIntro = if (!isMixedGroup) {
-            "前面你已经介绍过 ${groupKey} 的背景，请对比背景和标注是否矛盾。"
+            "前面你已经介绍过 $groupKey 的背景，请对比背景和标注是否矛盾。"
         } else {
             "这是混合歌手组，请独立检查每首歌。"
         }
@@ -298,7 +298,7 @@ $textSummary
 ]
 
 只返回 JSON，不要加任何解释。
-""".trimIndent()
+        """.trimIndent()
     }
 
     // ===== T5：单首富化的精简提示词（FREE / PAID 模式用）=====
@@ -319,5 +319,4 @@ $textSummary
         输出 JSON：
         {"genre":[],"mood":[],"scenario":[],"language":"","era":"","description":"","singerIntroduce":""}
     """.trimIndent()
-
 }

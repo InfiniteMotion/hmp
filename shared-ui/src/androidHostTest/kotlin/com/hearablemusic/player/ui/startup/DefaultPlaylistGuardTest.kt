@@ -1,9 +1,9 @@
 package com.hearablemusic.player.ui.startup
 
+import com.hmp.domain.backup.PlaylistsSnapshot
 import com.hmp.domain.music.MusicInfo
 import com.hmp.domain.playlist.Playlist
 import com.hmp.domain.playlist.PlaylistRepository
-import com.hmp.domain.backup.PlaylistsSnapshot
 import com.hmp.domain.playlist.usecase.ManagePlaylistUseCase
 import com.hmp.domain.setting.SettingsRepository
 import kotlinx.coroutines.CompletableDeferred
@@ -35,6 +35,7 @@ class DefaultPlaylistGuardTest {
     private class GuardPlaylistRepository : PlaylistRepository {
         val metas = mutableMapOf<Long, Playlist>()
         val createdNames = mutableListOf<String>()
+
         /**
          * 按名删除这条路在 D3-05②③ 之后**整个不存在**（仓库接口里没有这个方法了），
          * 所以这里记的是"有没有发生过任何删除动作"——自愈只该接管或新建，不该删。
@@ -65,13 +66,14 @@ class DefaultPlaylistGuardTest {
             return id
         }
 
-        override suspend fun getPlaylistByName(name: String): Playlist? =
-            metas.values.firstOrNull { it.name == name }
+        override suspend fun getPlaylistByName(name: String): Playlist? = metas.values.firstOrNull { it.name == name }
 
         override fun getMusicInfoInPlaylist(playlistId: Long): Flow<List<MusicInfo>> = emptyFlow()
         override suspend fun resetPlaylistItems(playlistId: Long, musicList: List<MusicInfo>) = Unit
         override suspend fun getPlaylistById(playlistId: Long): List<MusicInfo> = emptyList()
-        override suspend fun removePlaylistById(id: Long) { deleteCalls += id }
+        override suspend fun removePlaylistById(id: Long) {
+            deleteCalls += id
+        }
         override suspend fun getAllPlaylists(): List<Playlist> = emptyList()
         override suspend fun renamePlaylist(id: Long, newName: String) = Unit
         override suspend fun updatePlaylistDescription(id: Long, description: String?) = Unit
@@ -121,11 +123,17 @@ class DefaultPlaylistGuardTest {
             stored[method.name]?.let { return@newProxyInstance it }
             when (method.returnType) {
                 Void.TYPE -> Unit
+
                 Boolean::class.javaPrimitiveType -> false
+
                 Int::class.javaPrimitiveType -> 0
+
                 Long::class.javaPrimitiveType -> 0L
+
                 Float::class.javaPrimitiveType -> 0f
+
                 Double::class.javaPrimitiveType -> 0.0
+
                 else -> when {
                     Flow::class.java.isAssignableFrom(method.returnType) -> emptyFlow<Any?>()
                     List::class.java.isAssignableFrom(method.returnType) -> emptyList<Any>()
@@ -195,13 +203,13 @@ class DefaultPlaylistGuardTest {
     @Test
     fun danglingIdWithSameNameRow_adoptsItAndDeletesNothing() = runTest {
         val repo = GuardPlaylistRepository().apply {
-            metas[7L] = Playlist(id = 7, name = CURRENT)   // 同名行还在，只是没人指它
+            metas[7L] = Playlist(id = 7, name = CURRENT) // 同名行还在，只是没人指它
             metas[2L] = Playlist(id = 2, name = LIKED)
             metas[3L] = Playlist(id = 3, name = RECENT)
             nextId = 20L
         }
         val ids = mapOf(
-            "getCurrentPlaylistId" to 999L,   // 悬空
+            "getCurrentPlaylistId" to 999L, // 悬空
             "getLikedPlaylistId" to 2L,
             "getRecentPlaylistId" to 3L,
         )

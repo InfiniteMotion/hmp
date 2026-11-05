@@ -15,5 +15,5 @@ data class PlayerUiState(
     val isLiked: Boolean = false,
     val lyrics: String? = null,
     val playlist: List<MusicInfo> = emptyList(),
-    val currentIndex: Int = 0
+    val currentIndex: Int = 0,
 )

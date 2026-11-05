@@ -11,22 +11,22 @@ import com.hearablemusic.player.ui.agent.config.AIScreen
 import com.hearablemusic.player.ui.agent.config.AgentConfigScreen
 import com.hearablemusic.player.ui.library.pages.AlbumScreen
 import com.hearablemusic.player.ui.library.pages.ArtistScreen
-import com.hearablemusic.player.ui.settings.pages.AudioEffectsScreen
 import com.hearablemusic.player.ui.library.pages.CustomScreen
 import com.hearablemusic.player.ui.library.pages.EditMusicTagsScreen
 import com.hearablemusic.player.ui.library.pages.RecommendListScreen
 import com.hearablemusic.player.ui.library.pages.SearchScreen
 import com.hearablemusic.player.ui.library.pages.SongDetailScreen
-import com.hearablemusic.player.ui.settings.pages.UserUsageDataScreen
 import com.hearablemusic.player.ui.player.pages.LyricsScreen
 import com.hearablemusic.player.ui.player.pages.PlayerScreen
 import com.hearablemusic.player.ui.playlist.pages.PlaylistManageScreen
 import com.hearablemusic.player.ui.playlist.pages.PlaylistScreen
+import com.hearablemusic.player.ui.settings.pages.AudioEffectsScreen
 import com.hearablemusic.player.ui.settings.pages.BackupSettingsScreen
-import com.hearablemusic.player.ui.settings.pages.LyricsSettingsPage
 import com.hearablemusic.player.ui.settings.pages.LibrarySettingsScreen
+import com.hearablemusic.player.ui.settings.pages.LyricsSettingsPage
 import com.hearablemusic.player.ui.settings.pages.ProfileSettingsScreen
 import com.hearablemusic.player.ui.settings.pages.SettingScreen
+import com.hearablemusic.player.ui.settings.pages.UserUsageDataScreen
 import com.hmp.domain.agent.card.RecommendSource
 import com.hmp.domain.setting.usecase.LyricsSettingsUseCase
 import org.koin.compose.koinInject
@@ -50,13 +50,13 @@ import org.koin.compose.koinInject
 @Composable
 fun navigationGraph(
     navController: NavBackStack<NavKey>,
-    pagerState: PagerState
+    pagerState: PagerState,
 ) = entryProvider {
     // Main 模块
     entry<Routes.Main.Tabs> {
         MainShell(
             navController = navController,
-            pagerState = pagerState
+            pagerState = pagerState,
         )
     }
 
@@ -77,7 +77,7 @@ fun navigationGraph(
     // Player 模块
     entry<Routes.Player.Player> {
         PlayerScreen(
-            navController = navController
+            navController = navController,
         )
     }
 
@@ -102,7 +102,7 @@ fun navigationGraph(
         val useCase: LyricsSettingsUseCase = koinInject()
         LyricsSettingsPage(
             lyricsSettingsUseCase = useCase,
-            onBack = { navController.removeLastOrNull() }
+            onBack = { navController.removeLastOrNull() },
         )
     }
 
@@ -117,21 +117,21 @@ fun navigationGraph(
     // Library 模块
     entry<Routes.Library.Search> {
         SearchScreen(
-            navController = navController
+            navController = navController,
         )
     }
 
     entry<Routes.Playlist.Playlist> { route ->
         PlaylistScreen(
             navController = navController,
-            playlistName = route.name
+            playlistName = route.name,
         )
     }
 
     entry<Routes.Playlist.CustomPlaylist> { route ->
         PlaylistScreen(
             navController = navController,
-            playlistId = route.playlistId
+            playlistId = route.playlistId,
         )
     }
 
@@ -142,14 +142,14 @@ fun navigationGraph(
     entry<Routes.Library.Artist> { route ->
         ArtistScreen(
             navController = navController,
-            artistName = route.name
+            artistName = route.name,
         )
     }
 
     entry<Routes.Library.Album> { route ->
         AlbumScreen(
             navController = navController,
-            albumName = route.name
+            albumName = route.name,
         )
     }
 
@@ -160,20 +160,20 @@ fun navigationGraph(
 
     entry<Routes.Player.Lyrics> {
         LyricsScreen(
-            onNavigateToSettings = { navController.add(Routes.Settings.LyricsSettings) }
+            onNavigateToSettings = { navController.add(Routes.Settings.LyricsSettings) },
         )
     }
 
     // AI 模块
     entry<Routes.AI.AI> {
         AIScreen(
-            navController = navController
+            navController = navController,
         )
     }
     entry<Routes.AI.AgentConfig> { route ->
         AgentConfigScreen(
             agentRole = route.agentRole,
-            navController = navController
+            navController = navController,
         )
     }
 

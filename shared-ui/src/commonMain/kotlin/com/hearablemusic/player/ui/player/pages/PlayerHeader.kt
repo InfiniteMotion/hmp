@@ -12,12 +12,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 import com.hearablemusic.player.ui.generated.resources.Res
 import com.hearablemusic.player.ui.generated.resources.back
 import com.hearablemusic.player.ui.generated.resources.chevron_down
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
-import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 
 @Composable
 fun PlayerHeader(onBackClick: () -> Unit) {
@@ -27,7 +27,7 @@ fun PlayerHeader(onBackClick: () -> Unit) {
             .fillMaxWidth()
             .statusBarsPadding()
             .padding(bottom = metrics.cozy),
-        horizontalArrangement = Arrangement.Center
+        horizontalArrangement = Arrangement.Center,
     ) {
         IconButton(
             onClick = onBackClick,

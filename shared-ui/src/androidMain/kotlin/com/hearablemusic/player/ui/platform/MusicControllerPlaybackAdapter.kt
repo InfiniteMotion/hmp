@@ -42,9 +42,14 @@ class MusicControllerPlaybackAdapter(
     override suspend fun playWith(music: MusicInfo) = mc.playWith(music)
     override fun playOrResume() = mc.playOrResume()
     override fun pauseMusic() = mc.pauseMusic()
+
     // playNext/playPrevious 在 MusicController 中以 scope.launch 实现（返回 Job），此处丢弃返回值
-    override fun playNext() { mc.playNext() }
-    override fun playPrevious() { mc.playPrevious() }
+    override fun playNext() {
+        mc.playNext()
+    }
+    override fun playPrevious() {
+        mc.playPrevious()
+    }
     override fun seekTo(positionMs: Long) = mc.seekTo(positionMs)
     override fun togglePlaybackModeByOrder() = mc.togglePlaybackModeByOrder()
     override fun setMiniPlayerVisible(visible: Boolean) = mc.setMiniPlayerVisible(visible)
@@ -56,15 +61,12 @@ class MusicControllerPlaybackAdapter(
     override fun removeFromPlaylist(music: MusicInfo) = mc.removeFromPlaylist(music)
     override fun moveToTop(music: MusicInfo) = mc.moveToTop(music)
     override fun clearPlaylist() = mc.clearPlaylist()
-    override fun addAllToPlaylistInOrder(playlist: List<MusicInfo>) =
-        mc.addAllToPlaylistInOrder(playlist)
-    override fun addAllToPlaylistByShuffle(playlist: List<MusicInfo>) =
-        mc.addAllToPlaylistByShuffle(playlist)
+    override fun addAllToPlaylistInOrder(playlist: List<MusicInfo>) = mc.addAllToPlaylistInOrder(playlist)
+    override fun addAllToPlaylistByShuffle(playlist: List<MusicInfo>) = mc.addAllToPlaylistByShuffle(playlist)
     override fun playHeartMode() = mc.playHeartMode()
 
     // ── 收藏 ──
-    override fun updateMusicLikedStatus(music: MusicInfo, liked: Boolean) =
-        mc.updateMusicLikedStatus(music, liked)
+    override fun updateMusicLikedStatus(music: MusicInfo, liked: Boolean) = mc.updateMusicLikedStatus(music, liked)
     override fun getLikedStatus(musicId: Long) = mc.getLikedStatus(musicId)
     override suspend fun getCurrentLikedStatus(musicId: Long): Boolean = mc.getCurrentLikedStatus(musicId)
 

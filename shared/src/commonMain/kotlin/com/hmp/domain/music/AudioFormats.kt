@@ -41,8 +41,7 @@ object AudioFormats {
      * 那种情况交给白名单与后续播放去判，不在这里静默少歌：下限的目的是挡"几秒的碎片"，
      * 不是给"读不出来"判死刑。Android 的 `DURATION` 列总有值，所以那端实际就是 `>= 5000`。
      */
-    fun isPlausibleTrack(durationMs: Long?): Boolean =
-        durationMs == null || durationMs >= MIN_TRACK_DURATION_MS
+    fun isPlausibleTrack(durationMs: Long?): Boolean = durationMs == null || durationMs >= MIN_TRACK_DURATION_MS
 
     /** 取路径 / 文件名的扩展名（不含点）；没有扩展名返回空串。 */
     fun extensionOf(path: String): String = path.substringAfterLast('.', "")
@@ -50,6 +49,5 @@ object AudioFormats {
     fun isSupported(path: String): Boolean = extensionOf(path).lowercase() in supportedExtensions
 
     /** 白名单 + 时长下限的合取：三端在各自正确的时机问同一个问题。 */
-    fun isIncludedInLibrary(path: String, durationMs: Long?): Boolean =
-        isSupported(path) && isPlausibleTrack(durationMs)
+    fun isIncludedInLibrary(path: String, durationMs: Long?): Boolean = isSupported(path) && isPlausibleTrack(durationMs)
 }

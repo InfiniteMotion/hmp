@@ -79,7 +79,8 @@ class AgentSchedulerTest {
         var resumed = false
         val s = AgentScheduler(timeProvider(), FakeSystemConditions())
         s.registerAgent(AgentRegistration(agentId = "m", priority = AgentPriority.MASTER, onResume = { resumed = true }))
-        yield(); yield()
+        yield()
+        yield()
         assertTrue(resumed, "RUNNING 注册应触发 onResume 回调")
     }
 }

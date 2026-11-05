@@ -34,18 +34,18 @@ class BackupRestoreTransactionTest {
     fun runner_rollsBackEveryWrite_whenBlockFails() = runTest {
         // 前置数据：用来区分"回滚"和"压根没写过"
         db.listeningDurationDao().insertAll(
-            listOf(ListeningDuration(date = "2026-01-01", duration = 100L, updatedAt = 1L))
+            listOf(ListeningDuration(date = "2026-01-01", duration = 100L, updatedAt = 1L)),
         )
 
         val error = assertFailsWith<Exception> {
             RoomTransactionRunner(db).run {
                 // 第 1 步（曲目用户态）
                 db.userInfoDao().insertAll(
-                    listOf(UserInfo(id = 42L, liked = true, playCount = 7))
+                    listOf(UserInfo(id = 42L, liked = true, playCount = 7)),
                 )
                 // 第 2 步（听歌统计，整表替换）
                 db.listeningDurationDao().replaceAll(
-                    listOf(ListeningDuration(date = "2026-01-02", duration = 200L, updatedAt = 2L))
+                    listOf(ListeningDuration(date = "2026-01-02", duration = 200L, updatedAt = 2L)),
                 )
                 // 第 3 步（歌单）：重名撞唯一索引
                 db.playlistDao().insert(Playlist(name = "重复"))
@@ -54,14 +54,14 @@ class BackupRestoreTransactionTest {
         }
         assertTrue(
             error.message?.contains("constraint") == true || error.message?.contains("UNIQUE") == true,
-            "第 3 步应因唯一约束失败，实际：${error.message}"
+            "第 3 步应因唯一约束失败，实际：${error.message}",
         )
 
         assertNull(db.userInfoDao().getUserInfoById(42L), "第 1 步应已回滚")
         assertEquals(
             listOf("2026-01-01"),
             db.listeningDurationDao().getAllDurations().map { it.date },
-            "第 2 步的整表替换应已回滚"
+            "第 2 步的整表替换应已回滚",
         )
         assertTrue(db.playlistDao().getAllPlaylists().isEmpty(), "第 3 步自己也要回滚")
     }
@@ -76,14 +76,14 @@ class BackupRestoreTransactionTest {
         db.musicDao().insertAll(
             listOf(
                 Music(id = 1L, title = "a", artist = "A", album = "B", duration = 1L, path = "/1.mp3", albumArtUri = ""),
-                Music(id = 2L, title = "b", artist = "A", album = "B", duration = 1L, path = "/2.mp3", albumArtUri = "")
-            )
+                Music(id = 2L, title = "b", artist = "A", album = "B", duration = 1L, path = "/2.mp3", albumArtUri = ""),
+            ),
         )
         db.playlistItemDao().insertPlaylist(
             listOf(
                 PlaylistItem(songId = 1L, playlistId = playlistId, itemOrder = 0),
-                PlaylistItem(songId = 2L, playlistId = playlistId, itemOrder = 1)
-            )
+                PlaylistItem(songId = 2L, playlistId = playlistId, itemOrder = 1),
+            ),
         )
 
         assertFailsWith<Exception> {
@@ -96,7 +96,7 @@ class BackupRestoreTransactionTest {
         assertEquals(
             listOf(1L, 2L),
             db.playlistItemDao().getSongIdsInOrder(playlistId),
-            "外层回滚后 DAO 事务的写入不该留下痕迹"
+            "外层回滚后 DAO 事务的写入不该留下痕迹",
         )
     }
 }

@@ -16,32 +16,43 @@ object EngineDefaults {
     // ── Master Agent ──
     /** 单任务步数预算（总纲 7.1）——每次 LLM 调用 + 其工具执行合计耗尽即熔断。 */
     const val STEP_BUDGET = 8
+
     /** Master LLM 采样温度（对话需要创造性，温度偏高）。 */
     const val TEMPERATURE_MASTER = 0.7f
 
     // ── Hello SubAgent ──
+
     /** Hello 各卡型平均温度（问候/推荐/发现需要自然感）。 */
     const val TEMPERATURE_HELLO = 0.6f
+
     /** 每日推荐卡数量（默认 1，F9-T1 报告叙事轮播）。 */
     const val HELLO_DAILY_RECOMMEND_COUNT = 1
+
     /** 推荐歌单长度（默认 8 首）。 */
     const val HELLO_RECOMMEND_LIST_SIZE = 8
 
     // ── Enrich SubAgent ──
+
     /** 信任阶梯升级阈值：同类写动作连续隐式接受 N 次升一档。 */
     const val TRUST_ESCALATION_THRESHOLD = 3
+
     /** 单日云端调用额度（防电台与高频对话日成本累积）。 */
     const val DAILY_CLOUD_QUOTA = 100
+
     /** 富化目标覆盖率（EnrichSubAgent 跑到此值自退出）。 */
     const val ENRICH_TARGET_COVERAGE = 0.9f
+
     /** Enrich LLM 采样温度（标签分类任务，温度低保证稳定 JSON）。 */
     const val TEMPERATURE_ENRICH = 0.4f
 
     // ── Radio SubAgent ──
+
     /** Radio 目标曲目数（buildLocalFallback + LLM enrich 都以此为基准）。 */
     const val RADIO_TARGET_COUNT = 12
+
     /** Radio LLM 采样温度（编排任务，温度低保证稳定 JSON）。 */
     const val TEMPERATURE_RADIO = 0.2f
+
     /** Radio 默认自动续歌开关。 */
     const val RADIO_AUTO_RENEW = true
 
@@ -53,6 +64,7 @@ object EngineDefaults {
     const val MAX_TOOL_RESULTS_KEPT = 6
 
     // ── 上下文窗口（F12-T3）──
+
     /**
      * 全部 Agent 统一的**上下文窗口假设值**。
      *
@@ -88,6 +100,7 @@ object EngineDefaults {
     // 两者均无消费方且 key 与实际不符，已删除以免误导。
 
     // ── 按 role 返回默认温度──
+
     /** role 取值："master" / "hello" / "enrich" / "radio" / 其他 → 0.7f */
     fun defaultTemperatureFor(role: String): Float = when (role) {
         "master" -> TEMPERATURE_MASTER
@@ -101,4 +114,3 @@ object EngineDefaults {
 // 注：原 `defaultTrustLevelFor(role)` 已删除（2026-09-20）——全仓零调用方，
 // 且它是本包内**唯一**引用 `policy.TrustLevel` 的地方（反向边）。信任档位的出厂
 // 默认值 live 在 `policy` 侧（`AgentPolicyConfig.trustLevel` 的默认值 + `TrustLevel` 语义）。
-

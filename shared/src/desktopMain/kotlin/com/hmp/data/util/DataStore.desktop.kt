@@ -12,7 +12,7 @@ actual object DataStoreFactory {
         if (!appDir.exists()) appDir.mkdirs()
         val filePath = File(appDir, "player_preferences.preferences_pb").absolutePath
         return PreferenceDataStoreFactory.createWithPath(
-            produceFile = { filePath.toPath() }
+            produceFile = { filePath.toPath() },
         )
     }
 }

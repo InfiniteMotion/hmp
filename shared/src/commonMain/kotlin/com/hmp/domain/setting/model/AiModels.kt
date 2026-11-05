@@ -8,10 +8,12 @@ import kotlinx.serialization.Serializable
 enum class AiAccessMode {
     /** 免费体验（内置 Key，100 次额度） */
     FREE,
+
     /** 自定义配置（用户自填 endpoint + key） */
     CUSTOM,
+
     /** 付费模式（预留） */
-    PAID
+    PAID,
 }
 
 /**
@@ -32,6 +34,5 @@ data class AiEndpointConfig(
      * 但前者什么都不该提示、后者必须告诉用户"请重新填写 API Key"——
      * 否则用户看到的是"我明明填过，怎么又空了"。
      */
-    val keyNeedsRefill: Boolean = false
+    val keyNeedsRefill: Boolean = false,
 )
-

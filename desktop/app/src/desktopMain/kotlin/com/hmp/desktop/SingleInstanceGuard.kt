@@ -25,21 +25,19 @@ object SingleInstanceGuard {
      * @return true if this instance is the sole owner; false if another
      *         instance is already running.
      */
-    fun tryAcquire(): Boolean {
-        return try {
-            val lockDir = File(System.getProperty("user.home"), ".hmp")
-            if (!lockDir.exists()) lockDir.mkdirs()
+    fun tryAcquire(): Boolean = try {
+        val lockDir = File(System.getProperty("user.home"), ".hmp")
+        if (!lockDir.exists()) lockDir.mkdirs()
 
-            val file = File(lockDir, "hmp.lock")
-            lockFile = RandomAccessFile(file, "rw")
-            fileLock = lockFile?.channel?.tryLock()
-            fileLock != null
-        } catch (_: OverlappingFileLockException) {
-            // Another instance in the same JVM — still counts as locked
-            false
-        } catch (_: Exception) {
-            false
-        }
+        val file = File(lockDir, "hmp.lock")
+        lockFile = RandomAccessFile(file, "rw")
+        fileLock = lockFile?.channel?.tryLock()
+        fileLock != null
+    } catch (_: OverlappingFileLockException) {
+        // Another instance in the same JVM — still counts as locked
+        false
+    } catch (_: Exception) {
+        false
     }
 
     /**

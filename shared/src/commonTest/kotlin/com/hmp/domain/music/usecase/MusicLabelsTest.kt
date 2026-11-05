@@ -24,7 +24,7 @@ class MusicLabelsTest {
             moods = listOf("Energetic", "Happy"),
             scenarios = listOf("Workout", "Party"),
             language = "English",
-            era = "2020s"
+            era = "2020s",
         )
         assertEquals(2, labels.genres.size)
         assertEquals("Rock", labels.genres[0])

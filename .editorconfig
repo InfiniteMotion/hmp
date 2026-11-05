@@ -1,0 +1,35 @@
+root = true
+
+# IMPORTANT: the section header below must be exactly [*.{kt,kts}] with NO
+# space after the comma. IntelliJ's formatter inserts one -> [{kt, kts}],
+# and ktlint's editorconfig parser then silently skips the whole section.
+# There is NO error message. Re-check this line after every edit.
+[*.{kt,kts}]
+charset = utf-8
+end_of_line = lf
+indent_style = space
+indent_size = 4
+insert_final_newline = true
+
+ktlint_code_style = intellij_idea
+max_line_length = off
+
+# Compose functions are PascalCase by convention; without this exemption
+# the repository produces 320+ false positives.
+ktlint_function_naming_ignore_when_annotated_with = Composable,Preview
+
+# Disabled because each rule conflicts with an existing design decision,
+# not because the code is wrong. See docs/ktlint-integration.md section 2.3.
+ktlint_standard_backing-property-naming = disabled
+ktlint_standard_no-wildcard-imports = disabled
+ktlint_standard_filename = disabled
+ktlint_standard_kdoc = disabled
+
+# IntelliJ / Android Studio native code-style keys. Reformat Code in the IDE
+# then shares one definition source with ktlint and CI; no IDE plugin needed.
+ij_kotlin_allow_trailing_comma = true
+ij_kotlin_allow_trailing_comma_on_call_site = true
+ij_kotlin_imports_layout = *,java.**,javax.**,kotlin.**,^
+ij_kotlin_indent_before_arrow_on_new_line = false
+ij_kotlin_line_break_after_multiline_when_entry = true
+ij_kotlin_packages_to_use_import_on_demand = com.hearablemusic.player.ui.generated.resources.*,org.junit.Assert.*

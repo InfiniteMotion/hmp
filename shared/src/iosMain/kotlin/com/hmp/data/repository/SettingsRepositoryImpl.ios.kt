@@ -42,7 +42,7 @@ class SettingsRepositoryImpl(
     private val json: Json,
     private val builtInApiKeyProvider: BuiltInApiKeyProvider = BuiltInApiKeyProvider(),
     /** 密钥读写门面（D7-01），与 Desktop 同一份理由：不打桩就是拿真 Keychain 跑单测 */
-    private val secrets: com.hmp.data.util.SecureSecrets = com.hmp.data.util.PlatformSecureSecrets
+    private val secrets: com.hmp.data.util.SecureSecrets = com.hmp.data.util.PlatformSecureSecrets,
 ) : SettingsRepository {
     private companion object {
         const val HAZE_MODE_CUSTOM = "custom"
@@ -83,9 +83,9 @@ class SettingsRepositoryImpl(
         fun agentPromptOverridesKey(role: String) = stringPreferencesKey("agent_policy_${role}_prompt_overrides")
         fun agentPreferredLangKey(role: String) = stringPreferencesKey("agent_policy_${role}_preferred_lang")
         fun agentEnabledKey(role: String) = booleanPreferencesKey("agent_policy_${role}_enabled")
-        fun agentEndpointKey(role: String) = stringPreferencesKey("agent_endpoint_${role}")
-        fun agentApiKeyKey(role: String) = stringPreferencesKey("agent_apikey_${role}")
-        fun agentModelKey(role: String) = stringPreferencesKey("agent_model_${role}")
+        fun agentEndpointKey(role: String) = stringPreferencesKey("agent_endpoint_$role")
+        fun agentApiKeyKey(role: String) = stringPreferencesKey("agent_apikey_$role")
+        fun agentModelKey(role: String) = stringPreferencesKey("agent_model_$role")
         val AGENT_GLOBAL = stringPreferencesKey("agent_global")
         val EQUALIZER_PRESET = intPreferencesKey("equalizer_preset")
         val BASS_BOOST_LEVEL = intPreferencesKey("bass_boost_level")
@@ -108,15 +108,11 @@ class SettingsRepositoryImpl(
         val GALLERY_ORDER_TYPE = stringPreferencesKey("gallery_order_type")
     }
 
-    private fun normalizeHazeMode(mode: String): String {
-        return if (mode == HAZE_MODE_PRESET) HAZE_MODE_PRESET else HAZE_MODE_CUSTOM
-    }
+    private fun normalizeHazeMode(mode: String): String = if (mode == HAZE_MODE_PRESET) HAZE_MODE_PRESET else HAZE_MODE_CUSTOM
 
-    private fun normalizeHazeMaterialPreset(preset: String): String {
-        return when (preset) {
-            "ultra_thin", "thin", "regular", "thick", "ultra_thick" -> preset
-            else -> HAZE_MATERIAL_PRESET_REGULAR
-        }
+    private fun normalizeHazeMaterialPreset(preset: String): String = when (preset) {
+        "ultra_thin", "thin", "regular", "thick", "ultra_thick" -> preset
+        else -> HAZE_MATERIAL_PRESET_REGULAR
     }
 
     override val isFirstLaunch: Flow<Boolean> = dataStore.data.map { prefs -> prefs[PreferencesKeys.IS_FIRST_LAUNCH] ?: true }
@@ -135,7 +131,11 @@ class SettingsRepositoryImpl(
     override val likedPlaylistId: Flow<Long?> = dataStore.data.map { prefs -> prefs[PreferencesKeys.LIKED_PLAYLIST_ID] }
     override val recentPlaylistId: Flow<Long?> = dataStore.data.map { prefs -> prefs[PreferencesKeys.RECENT_PLAYLIST_ID] }
     override val aiAccessMode: Flow<AiAccessMode> = dataStore.data.map { prefs ->
-        try { AiAccessMode.valueOf(prefs[PreferencesKeys.AI_ACCESS_MODE] ?: "FREE") } catch (e: Exception) { AiAccessMode.FREE }
+        try {
+            AiAccessMode.valueOf(prefs[PreferencesKeys.AI_ACCESS_MODE] ?: "FREE")
+        } catch (e: Exception) {
+            AiAccessMode.FREE
+        }
     }
     override val equalizerPreset: Flow<Int> = dataStore.data.map { prefs -> prefs[PreferencesKeys.EQUALIZER_PRESET] ?: 0 }
     override val bassBoostLevel: Flow<Int> = dataStore.data.map { prefs -> prefs[PreferencesKeys.BASS_BOOST_LEVEL] ?: 0 }
@@ -150,11 +150,19 @@ class SettingsRepositoryImpl(
     override val lyricsLineSpacing: Flow<Int> = dataStore.data.map { prefs -> prefs[PreferencesKeys.LYRICS_LINE_SPACING] ?: 6 }
     override val lyricsDisplayMode: Flow<DisplayMode> = dataStore.data.map {
         val modeStr = it[PreferencesKeys.LYRICS_DISPLAY_MODE] ?: "DUAL"
-        try { DisplayMode.valueOf(modeStr) } catch (e: IllegalArgumentException) { DisplayMode.DUAL }
+        try {
+            DisplayMode.valueOf(modeStr)
+        } catch (e: IllegalArgumentException) {
+            DisplayMode.DUAL
+        }
     }
     override val lyricsAlignment: Flow<LyricsAlignment> = dataStore.data.map {
         val alignmentStr = it[PreferencesKeys.LYRICS_ALIGNMENT] ?: "CENTER"
-        try { LyricsAlignment.valueOf(alignmentStr) } catch (e: IllegalArgumentException) { LyricsAlignment.CENTER }
+        try {
+            LyricsAlignment.valueOf(alignmentStr)
+        } catch (e: IllegalArgumentException) {
+            LyricsAlignment.CENTER
+        }
     }
     override val lyricsKaraokeEnabled: Flow<Boolean> = dataStore.data.map { prefs ->
         prefs[PreferencesKeys.LYRICS_KARAOKE_ENABLED] ?: true
@@ -173,12 +181,20 @@ class SettingsRepositoryImpl(
     }
     override val galleryOrderBy: Flow<String> = dataStore.data.map { prefs -> prefs[PreferencesKeys.GALLERY_ORDER_BY] ?: "title" }
     override val galleryOrderType: Flow<String> = dataStore.data.map { prefs -> prefs[PreferencesKeys.GALLERY_ORDER_TYPE] ?: "ASC" }
-    override suspend fun saveGalleryOrderBy(orderBy: String) { dataStore.edit { prefs -> prefs[PreferencesKeys.GALLERY_ORDER_BY] = orderBy } }
-    override suspend fun saveGalleryOrderType(orderType: String) { dataStore.edit { prefs -> prefs[PreferencesKeys.GALLERY_ORDER_TYPE] = orderType } }
+    override suspend fun saveGalleryOrderBy(orderBy: String) {
+        dataStore.edit { prefs -> prefs[PreferencesKeys.GALLERY_ORDER_BY] = orderBy }
+    }
+    override suspend fun saveGalleryOrderType(orderType: String) {
+        dataStore.edit { prefs -> prefs[PreferencesKeys.GALLERY_ORDER_TYPE] = orderType }
+    }
 
+    override suspend fun saveIsFirstLaunch(isFirstLaunch: Boolean) {
+        dataStore.edit { prefs -> prefs[PreferencesKeys.IS_FIRST_LAUNCH] = isFirstLaunch }
+    }
+    override suspend fun saveIsLoadMusic(isLoadMusic: Boolean) {
+        dataStore.edit { prefs -> prefs[PreferencesKeys.IS_LOAD_MUSIC] = isLoadMusic }
+    }
 
-    override suspend fun saveIsFirstLaunch(isFirstLaunch: Boolean) { dataStore.edit { prefs -> prefs[PreferencesKeys.IS_FIRST_LAUNCH] = isFirstLaunch } }
-    override suspend fun saveIsLoadMusic(isLoadMusic: Boolean) { dataStore.edit { prefs -> prefs[PreferencesKeys.IS_LOAD_MUSIC] = isLoadMusic } }
     /** iOS 沙盒没有"自定义扫描目录"这个概念，见 `SettingsRepository` 上那段契约（D2-14）。 */
     override val scanDirectoryConfig: Flow<ScanDirectoryConfig> = flowOf(ScanDirectoryConfig())
 
@@ -190,35 +206,71 @@ class SettingsRepositoryImpl(
      * （`IosFilePickerService.directorySelectionMode = UNSUPPORTED` 让那两个区块不渲染），
      * 所以这不是行为回归，是把已经存在的"不支持"说出来。
      */
-    override suspend fun saveScanDirectoryConfig(config: ScanDirectoryConfig): Unit =
-        throw UnsupportedOperationException(
-            "iOS has no user-selectable scan directories (sandbox exposes Documents only); " +
-                "the UI must not offer this on iOS — see SettingsRepository.scanDirectoryConfig"
-        )
-    override suspend fun saveThemeMode(themeMode: String) { dataStore.edit { prefs -> prefs[PreferencesKeys.THEME_MODE] = themeMode } }
-    override suspend fun saveBackgroundStyle(style: String) { dataStore.edit { prefs -> prefs[PreferencesKeys.BACKGROUND_STYLE] = style } }
-    override suspend fun saveHazeMode(mode: String) { dataStore.edit { prefs -> prefs[PreferencesKeys.HAZE_MODE] = normalizeHazeMode(mode) } }
-    override suspend fun saveHazeMaterialPreset(preset: String) { dataStore.edit { prefs -> prefs[PreferencesKeys.HAZE_MATERIAL_PRESET] = normalizeHazeMaterialPreset(preset) } }
-    override suspend fun saveHazeBlurRadius(radius: Float) { dataStore.edit { prefs -> prefs[PreferencesKeys.HAZE_BLUR_RADIUS] = radius.coerceAtLeast(0f) } }
-    override suspend fun saveHazeNoiseFactor(noiseFactor: Float) { dataStore.edit { prefs -> prefs[PreferencesKeys.HAZE_NOISE_FACTOR] = noiseFactor.coerceIn(0f, 1f) } }
-    override suspend fun saveHazeTintAlpha(alpha: Float) { dataStore.edit { prefs -> prefs[PreferencesKeys.HAZE_TINT_ALPHA] = alpha.coerceIn(0f, 1f) } }
-    override suspend fun saveHazeIntensity(intensity: Float) { dataStore.edit { prefs -> prefs[PreferencesKeys.HAZE_INTENSITY] = intensity.coerceIn(0f, 1f) } }
-    override suspend fun saveUserName(name: String) { dataStore.edit { prefs -> prefs[PreferencesKeys.USER_NAME] = name } }
-    override suspend fun saveAvatarUri(uri: String) { dataStore.edit { prefs -> prefs[PreferencesKeys.AVATAR_URI] = uri } }
-    override suspend fun getAvatarUri(): String? = dataStore.data.first()[PreferencesKeys.AVATAR_URI]
-    override suspend fun saveCurrentMusicId(id: Long) { dataStore.edit { prefs -> prefs[PreferencesKeys.CURRENT_MUSIC_ID] = id } }
-    override suspend fun saveCurrentPosition(position: Long) { dataStore.edit { prefs -> prefs[PreferencesKeys.CURRENT_POSITION] = position } }
-    override suspend fun getCurrentPlaylistId(): Long? = dataStore.data.first()[PreferencesKeys.CURRENT_PLAYLIST_ID]
-    override suspend fun saveCurrentPlaylistId(playlistId: Long) { dataStore.edit { prefs -> prefs[PreferencesKeys.CURRENT_PLAYLIST_ID] = playlistId } }
-    override suspend fun getLikedPlaylistId(): Long? = dataStore.data.first()[PreferencesKeys.LIKED_PLAYLIST_ID]
-    override suspend fun saveLikedPlaylistId(playlistId: Long) { dataStore.edit { prefs -> prefs[PreferencesKeys.LIKED_PLAYLIST_ID] = playlistId } }
-    override suspend fun getRecentPlaylistId(): Long? = dataStore.data.first()[PreferencesKeys.RECENT_PLAYLIST_ID]
-    override suspend fun saveRecentPlaylistId(playlistId: Long) { dataStore.edit { prefs -> prefs[PreferencesKeys.RECENT_PLAYLIST_ID] = playlistId } }
-    override suspend fun saveAutoBatchProcess(enabled: Boolean) { dataStore.edit { prefs -> prefs[PreferencesKeys.AUTO_BATCH_PROCESS] = enabled } }
-    override suspend fun getAiAccessMode(): AiAccessMode {
-        return try { AiAccessMode.valueOf(dataStore.data.first()[PreferencesKeys.AI_ACCESS_MODE] ?: "FREE") } catch (e: Exception) { AiAccessMode.FREE }
+    override suspend fun saveScanDirectoryConfig(config: ScanDirectoryConfig): Unit = throw UnsupportedOperationException(
+        "iOS has no user-selectable scan directories (sandbox exposes Documents only); " +
+            "the UI must not offer this on iOS — see SettingsRepository.scanDirectoryConfig",
+    )
+    override suspend fun saveThemeMode(themeMode: String) {
+        dataStore.edit { prefs -> prefs[PreferencesKeys.THEME_MODE] = themeMode }
     }
-    override suspend fun saveAiAccessMode(mode: AiAccessMode) { dataStore.edit { prefs -> prefs[PreferencesKeys.AI_ACCESS_MODE] = mode.name } }
+    override suspend fun saveBackgroundStyle(style: String) {
+        dataStore.edit { prefs -> prefs[PreferencesKeys.BACKGROUND_STYLE] = style }
+    }
+    override suspend fun saveHazeMode(mode: String) {
+        dataStore.edit { prefs -> prefs[PreferencesKeys.HAZE_MODE] = normalizeHazeMode(mode) }
+    }
+    override suspend fun saveHazeMaterialPreset(preset: String) {
+        dataStore.edit { prefs -> prefs[PreferencesKeys.HAZE_MATERIAL_PRESET] = normalizeHazeMaterialPreset(preset) }
+    }
+    override suspend fun saveHazeBlurRadius(radius: Float) {
+        dataStore.edit { prefs -> prefs[PreferencesKeys.HAZE_BLUR_RADIUS] = radius.coerceAtLeast(0f) }
+    }
+    override suspend fun saveHazeNoiseFactor(noiseFactor: Float) {
+        dataStore.edit { prefs -> prefs[PreferencesKeys.HAZE_NOISE_FACTOR] = noiseFactor.coerceIn(0f, 1f) }
+    }
+    override suspend fun saveHazeTintAlpha(alpha: Float) {
+        dataStore.edit { prefs -> prefs[PreferencesKeys.HAZE_TINT_ALPHA] = alpha.coerceIn(0f, 1f) }
+    }
+    override suspend fun saveHazeIntensity(intensity: Float) {
+        dataStore.edit { prefs -> prefs[PreferencesKeys.HAZE_INTENSITY] = intensity.coerceIn(0f, 1f) }
+    }
+    override suspend fun saveUserName(name: String) {
+        dataStore.edit { prefs -> prefs[PreferencesKeys.USER_NAME] = name }
+    }
+    override suspend fun saveAvatarUri(uri: String) {
+        dataStore.edit { prefs -> prefs[PreferencesKeys.AVATAR_URI] = uri }
+    }
+    override suspend fun getAvatarUri(): String? = dataStore.data.first()[PreferencesKeys.AVATAR_URI]
+    override suspend fun saveCurrentMusicId(id: Long) {
+        dataStore.edit { prefs -> prefs[PreferencesKeys.CURRENT_MUSIC_ID] = id }
+    }
+    override suspend fun saveCurrentPosition(position: Long) {
+        dataStore.edit { prefs -> prefs[PreferencesKeys.CURRENT_POSITION] = position }
+    }
+    override suspend fun getCurrentPlaylistId(): Long? = dataStore.data.first()[PreferencesKeys.CURRENT_PLAYLIST_ID]
+    override suspend fun saveCurrentPlaylistId(playlistId: Long) {
+        dataStore.edit { prefs -> prefs[PreferencesKeys.CURRENT_PLAYLIST_ID] = playlistId }
+    }
+    override suspend fun getLikedPlaylistId(): Long? = dataStore.data.first()[PreferencesKeys.LIKED_PLAYLIST_ID]
+    override suspend fun saveLikedPlaylistId(playlistId: Long) {
+        dataStore.edit { prefs -> prefs[PreferencesKeys.LIKED_PLAYLIST_ID] = playlistId }
+    }
+    override suspend fun getRecentPlaylistId(): Long? = dataStore.data.first()[PreferencesKeys.RECENT_PLAYLIST_ID]
+    override suspend fun saveRecentPlaylistId(playlistId: Long) {
+        dataStore.edit { prefs -> prefs[PreferencesKeys.RECENT_PLAYLIST_ID] = playlistId }
+    }
+    override suspend fun saveAutoBatchProcess(enabled: Boolean) {
+        dataStore.edit { prefs -> prefs[PreferencesKeys.AUTO_BATCH_PROCESS] = enabled }
+    }
+    override suspend fun getAiAccessMode(): AiAccessMode = try {
+        AiAccessMode.valueOf(dataStore.data.first()[PreferencesKeys.AI_ACCESS_MODE] ?: "FREE")
+    } catch (e: Exception) {
+        AiAccessMode.FREE
+    }
+    override suspend fun saveAiAccessMode(mode: AiAccessMode) {
+        dataStore.edit { prefs -> prefs[PreferencesKeys.AI_ACCESS_MODE] = mode.name }
+    }
+
     /** 三端同一份读取规则见 `readEndpointConfig`（D7-01）：解不开不抛，回空串 + `keyNeedsRefill`。 */
     override val customAiConfig: kotlinx.coroutines.flow.Flow<AiEndpointConfig>
         get() = dataStore.data.map { prefs ->
@@ -239,10 +291,15 @@ class SettingsRepositoryImpl(
         )
     }
     override suspend fun saveCustomAiConfig(config: AiEndpointConfig) {
-        dataStore.edit { prefs -> prefs[PreferencesKeys.CUSTOM_AI_ENDPOINT] = config.endpoint; prefs[PreferencesKeys.CUSTOM_AI_API_KEY] = secrets.encrypt(config.apiKey); prefs[PreferencesKeys.CUSTOM_AI_MODEL] = config.selectedModel }
+        dataStore.edit { prefs ->
+            prefs[PreferencesKeys.CUSTOM_AI_ENDPOINT] = config.endpoint
+            prefs[PreferencesKeys.CUSTOM_AI_API_KEY] = secrets.encrypt(config.apiKey)
+            prefs[PreferencesKeys.CUSTOM_AI_MODEL] = config.selectedModel
+        }
     }
-    override suspend fun getActiveAiConfig(): AiEndpointConfig {
-        return when (getAiAccessMode()) { AiAccessMode.FREE, AiAccessMode.PAID -> builtInApiKeyProvider.getConfig(); AiAccessMode.CUSTOM -> getCustomAiConfig() }
+    override suspend fun getActiveAiConfig(): AiEndpointConfig = when (getAiAccessMode()) {
+        AiAccessMode.FREE, AiAccessMode.PAID -> builtInApiKeyProvider.getConfig()
+        AiAccessMode.CUSTOM -> getCustomAiConfig()
     }
     override suspend fun getAgentEndpointConfig(agentRole: String): AiEndpointConfig? {
         val prefs = dataStore.data.first()
@@ -321,39 +378,78 @@ class SettingsRepositoryImpl(
         }
     }
 
-    override suspend fun saveEqualizerPreset(preset: Int) { dataStore.edit { prefs -> prefs[PreferencesKeys.EQUALIZER_PRESET] = preset } }
-    override suspend fun saveBassBoostLevel(level: Int) { dataStore.edit { prefs -> prefs[PreferencesKeys.BASS_BOOST_LEVEL] = level } }
-    override suspend fun saveSurroundSoundEnabled(enabled: Boolean) { dataStore.edit { prefs -> prefs[PreferencesKeys.IS_SURROUND_SOUND_ENABLED] = enabled } }
-    override suspend fun saveReverbPreset(preset: Int) { dataStore.edit { prefs -> prefs[PreferencesKeys.REVERB_PRESET] = preset } }
-    override suspend fun saveCustomEqualizerLevels(levels: FloatArray) { dataStore.edit { prefs -> prefs[PreferencesKeys.CUSTOM_EQUALIZER_LEVELS] = levels.joinToString(",") } }
-    override suspend fun saveLyricsOriginalTextSize(size: Int) { dataStore.edit { prefs -> prefs[PreferencesKeys.LYRICS_ORIGINAL_TEXT_SIZE] = size } }
-    override suspend fun saveLyricsTranslatedTextSize(size: Int) { dataStore.edit { prefs -> prefs[PreferencesKeys.LYRICS_TRANSLATED_TEXT_SIZE] = size } }
-    override suspend fun saveLyricsCurrentTimeTextSize(size: Int) { dataStore.edit { prefs -> prefs[PreferencesKeys.LYRICS_CURRENT_TIME_TEXT_SIZE] = size } }
-    override suspend fun saveLyricsLineSpacing(spacing: Int) { dataStore.edit { prefs -> prefs[PreferencesKeys.LYRICS_LINE_SPACING] = spacing } }
-    override suspend fun saveLyricsDisplayMode(mode: DisplayMode) { dataStore.edit { prefs -> prefs[PreferencesKeys.LYRICS_DISPLAY_MODE] = mode.name } }
+    override suspend fun saveEqualizerPreset(preset: Int) {
+        dataStore.edit { prefs -> prefs[PreferencesKeys.EQUALIZER_PRESET] = preset }
+    }
+    override suspend fun saveBassBoostLevel(level: Int) {
+        dataStore.edit { prefs -> prefs[PreferencesKeys.BASS_BOOST_LEVEL] = level }
+    }
+    override suspend fun saveSurroundSoundEnabled(enabled: Boolean) {
+        dataStore.edit { prefs -> prefs[PreferencesKeys.IS_SURROUND_SOUND_ENABLED] = enabled }
+    }
+    override suspend fun saveReverbPreset(preset: Int) {
+        dataStore.edit { prefs -> prefs[PreferencesKeys.REVERB_PRESET] = preset }
+    }
+    override suspend fun saveCustomEqualizerLevels(levels: FloatArray) {
+        dataStore.edit { prefs -> prefs[PreferencesKeys.CUSTOM_EQUALIZER_LEVELS] = levels.joinToString(",") }
+    }
+    override suspend fun saveLyricsOriginalTextSize(size: Int) {
+        dataStore.edit { prefs -> prefs[PreferencesKeys.LYRICS_ORIGINAL_TEXT_SIZE] = size }
+    }
+    override suspend fun saveLyricsTranslatedTextSize(size: Int) {
+        dataStore.edit { prefs -> prefs[PreferencesKeys.LYRICS_TRANSLATED_TEXT_SIZE] = size }
+    }
+    override suspend fun saveLyricsCurrentTimeTextSize(size: Int) {
+        dataStore.edit { prefs -> prefs[PreferencesKeys.LYRICS_CURRENT_TIME_TEXT_SIZE] = size }
+    }
+    override suspend fun saveLyricsLineSpacing(spacing: Int) {
+        dataStore.edit { prefs -> prefs[PreferencesKeys.LYRICS_LINE_SPACING] = spacing }
+    }
+    override suspend fun saveLyricsDisplayMode(mode: DisplayMode) {
+        dataStore.edit { prefs -> prefs[PreferencesKeys.LYRICS_DISPLAY_MODE] = mode.name }
+    }
     override suspend fun getLyricsDisplayMode(): DisplayMode {
         val modeStr = dataStore.data.first()[PreferencesKeys.LYRICS_DISPLAY_MODE] ?: "DUAL"
-        return try { DisplayMode.valueOf(modeStr) } catch (e: IllegalArgumentException) { DisplayMode.DUAL }
+        return try {
+            DisplayMode.valueOf(modeStr)
+        } catch (e: IllegalArgumentException) {
+            DisplayMode.DUAL
+        }
     }
-    override suspend fun saveLyricsAlignment(alignment: LyricsAlignment) { dataStore.edit { prefs -> prefs[PreferencesKeys.LYRICS_ALIGNMENT] = alignment.name } }
+    override suspend fun saveLyricsAlignment(alignment: LyricsAlignment) {
+        dataStore.edit { prefs -> prefs[PreferencesKeys.LYRICS_ALIGNMENT] = alignment.name }
+    }
     override suspend fun getLyricsAlignment(): LyricsAlignment {
         val alignmentStr = dataStore.data.first()[PreferencesKeys.LYRICS_ALIGNMENT] ?: "CENTER"
-        return try { LyricsAlignment.valueOf(alignmentStr) } catch (e: IllegalArgumentException) { LyricsAlignment.CENTER }
+        return try {
+            LyricsAlignment.valueOf(alignmentStr)
+        } catch (e: IllegalArgumentException) {
+            LyricsAlignment.CENTER
+        }
     }
-    override suspend fun saveLyricsKaraokeEnabled(enabled: Boolean) { dataStore.edit { prefs -> prefs[PreferencesKeys.LYRICS_KARAOKE_ENABLED] = enabled } }
-    override suspend fun getLyricsKaraokeEnabled(): Boolean =
-        dataStore.data.first()[PreferencesKeys.LYRICS_KARAOKE_ENABLED] ?: true
+    override suspend fun saveLyricsKaraokeEnabled(enabled: Boolean) {
+        dataStore.edit { prefs -> prefs[PreferencesKeys.LYRICS_KARAOKE_ENABLED] = enabled }
+    }
+    override suspend fun getLyricsKaraokeEnabled(): Boolean = dataStore.data.first()[PreferencesKeys.LYRICS_KARAOKE_ENABLED] ?: true
 
-    override suspend fun saveLyricsPlayerConfig(json: String) { dataStore.edit { prefs -> prefs[PreferencesKeys.LYRICS_PLAYER_CONFIG] = json } }
+    override suspend fun saveLyricsPlayerConfig(json: String) {
+        dataStore.edit { prefs -> prefs[PreferencesKeys.LYRICS_PLAYER_CONFIG] = json }
+    }
     override suspend fun getLyricsPlayerConfig(): String = dataStore.data.first()[PreferencesKeys.LYRICS_PLAYER_CONFIG] ?: json.encodeToString(LyricsComponentConfig.DEFAULT)
 
-    override suspend fun saveLyricsFullscreenConfig(json: String) { dataStore.edit { prefs -> prefs[PreferencesKeys.LYRICS_FULLSCREEN_CONFIG] = json } }
+    override suspend fun saveLyricsFullscreenConfig(json: String) {
+        dataStore.edit { prefs -> prefs[PreferencesKeys.LYRICS_FULLSCREEN_CONFIG] = json }
+    }
     override suspend fun getLyricsFullscreenConfig(): String = dataStore.data.first()[PreferencesKeys.LYRICS_FULLSCREEN_CONFIG] ?: json.encodeToString(LyricsComponentConfig.DEFAULT)
 
-    override suspend fun saveLyricsFloatingConfig(json: String) { dataStore.edit { prefs -> prefs[PreferencesKeys.LYRICS_FLOATING_CONFIG] = json } }
+    override suspend fun saveLyricsFloatingConfig(json: String) {
+        dataStore.edit { prefs -> prefs[PreferencesKeys.LYRICS_FLOATING_CONFIG] = json }
+    }
     override suspend fun getLyricsFloatingConfig(): String = dataStore.data.first()[PreferencesKeys.LYRICS_FLOATING_CONFIG] ?: json.encodeToString(LyricsComponentConfig.DEFAULT)
 
-    override suspend fun saveFloatingLyricsEnabled(enabled: Boolean) { dataStore.edit { prefs -> prefs[PreferencesKeys.FLOATING_LYRICS_ENABLED] = enabled } }
+    override suspend fun saveFloatingLyricsEnabled(enabled: Boolean) {
+        dataStore.edit { prefs -> prefs[PreferencesKeys.FLOATING_LYRICS_ENABLED] = enabled }
+    }
     override suspend fun getLyricsOriginalTextSize(): Int = dataStore.data.first()[PreferencesKeys.LYRICS_ORIGINAL_TEXT_SIZE] ?: 14
     override suspend fun getLyricsTranslatedTextSize(): Int = dataStore.data.first()[PreferencesKeys.LYRICS_TRANSLATED_TEXT_SIZE] ?: 14
     override suspend fun getLyricsCurrentTimeTextSize(): Int = dataStore.data.first()[PreferencesKeys.LYRICS_CURRENT_TIME_TEXT_SIZE] ?: 16
@@ -361,7 +457,11 @@ class SettingsRepositoryImpl(
 
     override suspend fun exportAppSettingsSnapshot(): AppSettingsSnapshot {
         val prefs = dataStore.data.first()
-        val aiAccessMode = try { AiAccessMode.valueOf(prefs[PreferencesKeys.AI_ACCESS_MODE] ?: "FREE") } catch (e: Exception) { AiAccessMode.FREE }
+        val aiAccessMode = try {
+            AiAccessMode.valueOf(prefs[PreferencesKeys.AI_ACCESS_MODE] ?: "FREE")
+        } catch (e: Exception) {
+            AiAccessMode.FREE
+        }
         return AppSettingsSnapshot(
             userName = prefs[PreferencesKeys.USER_NAME],
             avatarUri = prefs[PreferencesKeys.AVATAR_URI],
@@ -376,7 +476,7 @@ class SettingsRepositoryImpl(
             autoBatchProcess = prefs[PreferencesKeys.AUTO_BATCH_PROCESS] ?: true,
             aiAccessMode = aiAccessMode.name,
             customAiEndpoint = prefs[PreferencesKeys.CUSTOM_AI_ENDPOINT] ?: "",
-            customAiModel = prefs[PreferencesKeys.CUSTOM_AI_MODEL] ?: ""
+            customAiModel = prefs[PreferencesKeys.CUSTOM_AI_MODEL] ?: "",
         )
     }
 

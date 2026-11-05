@@ -15,13 +15,13 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import com.hearablemusic.player.ui.common.design.metrics.HMPMetricTokens
+import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
+import com.hearablemusic.player.ui.generated.resources.*
+import com.hearablemusic.player.ui.generated.resources.Res
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
-import androidx.compose.ui.unit.dp
-import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
-import com.hearablemusic.player.ui.generated.resources.Res
-import com.hearablemusic.player.ui.generated.resources.*
-import com.hearablemusic.player.ui.common.design.metrics.HMPMetricTokens
 
 /** 与 MusicListHeader 一致，保证编辑栏与头部高度一致（总高度 48.dp） */
 private val EditToolbarHorizontalPadding = HMPMetricTokens.Compact.base
@@ -30,6 +30,7 @@ private val EditToolbarBottomPadding = HMPMetricTokens.Compact.micro
 private val EditToolbarTotalHeight = HMPMetricTokens.Compact.bar
 private val EditToolbarButtonSize = HMPMetricTokens.Compact.block
 private val EditToolbarIconSize = HMPMetricTokens.Compact.section
+
 /** 数字 label 固定宽度，与头部一致 */
 private val EditToolbarCountLabelWidth = HMPMetricTokens.Compact.section
 
@@ -77,8 +78,11 @@ internal fun MusicListEditToolbar(
         ) {
             Icon(
                 painter = painterResource(
-                    if (allSelected) Res.drawable.checkmark_square_on_square_fill
-                    else Res.drawable.checkmark_square_on_square
+                    if (allSelected) {
+                        Res.drawable.checkmark_square_on_square_fill
+                    } else {
+                        Res.drawable.checkmark_square_on_square
+                    },
                 ),
                 contentDescription = if (allSelected) "Deselect all" else "Select all",
                 modifier = Modifier.size(EditToolbarIconSize),

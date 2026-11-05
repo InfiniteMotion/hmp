@@ -17,23 +17,21 @@ fun getDatabaseBuilder(): androidx.room.RoomDatabase.Builder<AppDatabase> {
     // 降级守卫（D7-10）：见 desktop 端同处注释
     AppDatabaseGuard.enforce(dbFilePath)
     return Room.databaseBuilder<AppDatabase>(
-        name = dbFilePath
+        name = dbFilePath,
     )
 }
 
 @OptIn(ExperimentalForeignApi::class)
-actual fun getRoomDatabase(builder: androidx.room.RoomDatabase.Builder<AppDatabase>): AppDatabase {
-    return builder
-        .addMigrations(*AppDatabase.ALL_MIGRATIONS)
-        // 1→9 迁移链完整，故不再挂破坏式重建兜底。
-        // fallbackToDestructiveMigration(dropAllTables = true) 会连「降级」与「未知版本」一起放过：
-        // 用户的库版本只要高于本应用（beta 回退、新设备备份恢复、新库拷回旧安装），
-        // 整库就被静默 drop —— 播放列表/听歌统计/Agent 记忆全没且无提示。
-        // 宁可打不开（数据仍在，升回新版本即可恢复），也不静默清库。
-        .setDriver(BundledSQLiteDriver())
-        .setQueryCoroutineContext(Dispatchers.Default)
-        .build()
-}
+actual fun getRoomDatabase(builder: androidx.room.RoomDatabase.Builder<AppDatabase>): AppDatabase = builder
+    .addMigrations(*AppDatabase.ALL_MIGRATIONS)
+    // 1→9 迁移链完整，故不再挂破坏式重建兜底。
+    // fallbackToDestructiveMigration(dropAllTables = true) 会连「降级」与「未知版本」一起放过：
+    // 用户的库版本只要高于本应用（beta 回退、新设备备份恢复、新库拷回旧安装），
+    // 整库就被静默 drop —— 播放列表/听歌统计/Agent 记忆全没且无提示。
+    // 宁可打不开（数据仍在，升回新版本即可恢复），也不静默清库。
+    .setDriver(BundledSQLiteDriver())
+    .setQueryCoroutineContext(Dispatchers.Default)
+    .build()
 
 @OptIn(ExperimentalForeignApi::class)
 private fun documentDirectory(): String {

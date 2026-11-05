@@ -1,16 +1,14 @@
 package com.hearablemusic.player.ui.common.dialogs.base
 
-import com.hearablemusic.player.ui.generated.resources.Res
-import org.jetbrains.compose.resources.stringResource
-
-import com.hearablemusic.player.ui.generated.resources.cancel
-import com.hearablemusic.player.ui.generated.resources.confirm
-
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import com.hearablemusic.player.ui.generated.resources.Res
+import com.hearablemusic.player.ui.generated.resources.cancel
+import com.hearablemusic.player.ui.generated.resources.confirm
+import org.jetbrains.compose.resources.stringResource
 
 @Composable
 fun ConfirmDialog(
@@ -20,7 +18,7 @@ fun ConfirmDialog(
     confirmText: String = stringResource(Res.string.confirm),
     dismissText: String = stringResource(Res.string.cancel),
     onConfirm: () -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
 ) {
     if (visible) {
         AlertDialog(
@@ -36,7 +34,7 @@ fun ConfirmDialog(
                 TextButton(onClick = onDismiss) {
                     Text(dismissText)
                 }
-            }
+            },
         )
     }
 }

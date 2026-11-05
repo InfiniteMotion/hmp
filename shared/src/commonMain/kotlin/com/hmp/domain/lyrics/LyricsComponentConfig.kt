@@ -8,7 +8,8 @@ import kotlinx.serialization.Serializable
 enum class LyricsComponent(val key: String) {
     PLAYER("player"),
     FULLSCREEN("fullscreen"),
-    FLOATING("floating");
+    FLOATING("floating"),
+    ;
 
     companion object {
         fun fromKey(key: String): LyricsComponent? = entries.find { it.key == key }
@@ -24,7 +25,7 @@ data class LyricsComponentConfig(
     val karaokeEnabled: Boolean = true,
     val displayMode: DisplayMode = DisplayMode.DUAL,
     val alignment: LyricsAlignment = LyricsAlignment.CENTER,
-    val linkedTo: String? = null
+    val linkedTo: String? = null,
 ) {
     fun toLyricsConfig(): LyricsConfig = LyricsConfig(
         originalTextSize = originalTextSize,
@@ -33,7 +34,7 @@ data class LyricsComponentConfig(
         lineSpacing = lineSpacing,
         karaokeEnabled = karaokeEnabled,
         displayMode = displayMode,
-        alignment = alignment
+        alignment = alignment,
     )
 
     companion object {

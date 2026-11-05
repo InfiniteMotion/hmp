@@ -35,16 +35,12 @@ class FakeBackupFileRepository : BackupFileRepository {
         }
     }
 
-    override suspend fun getBackups(): Result<List<String>> {
-        return Result.success(backups.keys.toList().sorted())
-    }
+    override suspend fun getBackups(): Result<List<String>> = Result.success(backups.keys.toList().sorted())
 
-    override suspend fun deleteBackup(filePath: String): Result<Unit> {
-        return if (backups.remove(filePath) != null) {
-            Result.success(Unit)
-        } else {
-            Result.failure(IllegalArgumentException("Backup not found: $filePath"))
-        }
+    override suspend fun deleteBackup(filePath: String): Result<Unit> = if (backups.remove(filePath) != null) {
+        Result.success(Unit)
+    } else {
+        Result.failure(IllegalArgumentException("Backup not found: $filePath"))
     }
 
     /**
@@ -52,11 +48,9 @@ class FakeBackupFileRepository : BackupFileRepository {
      * 未知路径按"目录外的文件"处理 —— 与真实实现里 `importExternalFile` 复制成功、
      * `loadBackup` 拒绝越界的组合等价。
      */
-    override suspend fun importExternalFile(filePath: String): Result<String> {
-        return if (backups.containsKey(filePath)) {
-            Result.success(filePath)
-        } else {
-            Result.failure(IllegalArgumentException("Backup not found: $filePath"))
-        }
+    override suspend fun importExternalFile(filePath: String): Result<String> = if (backups.containsKey(filePath)) {
+        Result.success(filePath)
+    } else {
+        Result.failure(IllegalArgumentException("Backup not found: $filePath"))
     }
 }

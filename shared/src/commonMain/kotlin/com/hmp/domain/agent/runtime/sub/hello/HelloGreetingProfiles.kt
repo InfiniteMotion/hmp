@@ -58,7 +58,7 @@ internal object HelloGreetingProfiles {
   · 关于音乐、声音、旋律的哲思或诗意表达
   · 可以引用真实音乐家的话（但不确定就虚构一句自然的）
   · 有画面感，适合当前时段的情绪""",
-        temperature = 0.8f,       // 需要文学创造性
+        temperature = 0.8f, // 需要文学创造性
         fallbacks = listOf(
             "音乐是情绪的翻译官",
             "好音乐让沉默也变得动听",
@@ -106,7 +106,7 @@ internal object HelloGreetingProfiles {
   · 关于音乐、乐器、音乐家、录音技术的有趣事实
   · 要求准确，不确定的内容请说明「根据公开资料」
   · 语言轻松有趣，像朋友分享一个小秘密""",
-        temperature = 0.4f,       // 需要事实准确
+        temperature = 0.4f, // 需要事实准确
         fallbacks = listOf(
             "莫扎特 3 岁就能弹钢琴，5 岁开始作曲，是史上最年轻的作曲家之一",
             "贝多芬在听力衰退后，用牙咬木棍贴在钢琴上来感受振动继续创作",
@@ -201,36 +201,58 @@ internal object HelloGreetingProfiles {
 
     /** 当前播放歌曲（强信号）。 */
     val TYPE_PREFS_NOW_PLAYING: Map<GreetingType, Double> = mapOf(
-        GreetingType.LYRIC_GOLD to 0.9, GreetingType.STORY to 0.8, GreetingType.ARTIST to 0.7,
-        GreetingType.FACT to 0.5, GreetingType.LISTEN to 0.4, GreetingType.QUOTE to 0.3,
+        GreetingType.LYRIC_GOLD to 0.9,
+        GreetingType.STORY to 0.8,
+        GreetingType.ARTIST to 0.7,
+        GreetingType.FACT to 0.5,
+        GreetingType.LISTEN to 0.4,
+        GreetingType.QUOTE to 0.3,
     )
 
     /** 音乐纪念日（强信号）。 */
     val TYPE_PREFS_ANNIV: Map<GreetingType, Double> = mapOf(
-        GreetingType.FACT to 0.9, GreetingType.STORY to 0.8, GreetingType.ARTIST to 0.7,
-        GreetingType.QUOTE to 0.5, GreetingType.LISTEN to 0.2, GreetingType.LYRIC_GOLD to 0.1,
+        GreetingType.FACT to 0.9,
+        GreetingType.STORY to 0.8,
+        GreetingType.ARTIST to 0.7,
+        GreetingType.QUOTE to 0.5,
+        GreetingType.LISTEN to 0.2,
+        GreetingType.LYRIC_GOLD to 0.1,
     )
 
     /** 时段（稳定信号）。 */
     val TYPE_PREFS_PHASE: Map<TimePhase, Map<GreetingType, Double>> = mapOf(
         TimePhase.NIGHT to mapOf(
-            GreetingType.QUOTE to 0.9, GreetingType.STORY to 0.7, GreetingType.LISTEN to 0.7,
-            GreetingType.FACT to 0.6, GreetingType.LYRIC_GOLD to 0.4, GreetingType.ARTIST to 0.3,
+            GreetingType.QUOTE to 0.9,
+            GreetingType.STORY to 0.7,
+            GreetingType.LISTEN to 0.7,
+            GreetingType.FACT to 0.6,
+            GreetingType.LYRIC_GOLD to 0.4,
+            GreetingType.ARTIST to 0.3,
         ),
         TimePhase.MORNING_COMMUTE to mapOf(
-            GreetingType.LISTEN to 0.9, GreetingType.QUOTE to 0.6, GreetingType.FACT to 0.5,
+            GreetingType.LISTEN to 0.9,
+            GreetingType.QUOTE to 0.6,
+            GreetingType.FACT to 0.5,
         ),
         TimePhase.WORK to mapOf(
-            GreetingType.FACT to 0.8, GreetingType.QUOTE to 0.6, GreetingType.LISTEN to 0.5,
+            GreetingType.FACT to 0.8,
+            GreetingType.QUOTE to 0.6,
+            GreetingType.LISTEN to 0.5,
         ),
         TimePhase.LUNCH to mapOf(
-            GreetingType.LYRIC_GOLD to 0.8, GreetingType.QUOTE to 0.7, GreetingType.LISTEN to 0.6,
+            GreetingType.LYRIC_GOLD to 0.8,
+            GreetingType.QUOTE to 0.7,
+            GreetingType.LISTEN to 0.6,
         ),
         TimePhase.EVENING_COMMUTE to mapOf(
-            GreetingType.LISTEN to 0.9, GreetingType.STORY to 0.6, GreetingType.FACT to 0.5,
+            GreetingType.LISTEN to 0.9,
+            GreetingType.STORY to 0.6,
+            GreetingType.FACT to 0.5,
         ),
         TimePhase.EVENING_LEISURE to mapOf(
-            GreetingType.STORY to 0.9, GreetingType.ARTIST to 0.7, GreetingType.LYRIC_GOLD to 0.6,
+            GreetingType.STORY to 0.9,
+            GreetingType.ARTIST to 0.7,
+            GreetingType.LYRIC_GOLD to 0.6,
         ),
     )
 }

@@ -1,18 +1,4 @@
 package com.hearablemusic.player.ui.library.pages.components
-import org.jetbrains.compose.resources.stringResource
-import com.hearablemusic.player.ui.generated.resources.radio_card_active
-import com.hearablemusic.player.ui.generated.resources.radio_card_building
-import com.hearablemusic.player.ui.generated.resources.radio_card_close
-import com.hearablemusic.player.ui.generated.resources.radio_card_enable_hint
-import com.hearablemusic.player.ui.generated.resources.radio_card_idle
-import com.hearablemusic.player.ui.generated.resources.radio_card_open
-import com.hearablemusic.player.ui.generated.resources.radio_card_picking
-import com.hearablemusic.player.ui.generated.resources.radio_card_renewing
-import com.hearablemusic.player.ui.generated.resources.radio_card_starting
-import com.hearablemusic.player.ui.generated.resources.ai_quota_exhausted_hint
-import com.hearablemusic.player.ui.generated.resources.radio_card_theme_renew
-import com.hearablemusic.player.ui.generated.resources.radio_card_upcoming
-
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -44,21 +30,34 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.hmp.domain.agent.runtime.MasterAgent
-import com.hmp.domain.agent.runtime.sub.radio.RadioState
+import com.hearablemusic.player.ui.common.components.base.HMPCard
+import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
 import com.hearablemusic.player.ui.common.design.typography.medium
-import com.hearablemusic.player.ui.common.components.base.HMPCard
 import com.hearablemusic.player.ui.common.util.HapticFeedbackHelper
 import com.hearablemusic.player.ui.common.util.rememberHapticFeedback
 import com.hearablemusic.player.ui.generated.resources.Res
+import com.hearablemusic.player.ui.generated.resources.ai_quota_exhausted_hint
 import com.hearablemusic.player.ui.generated.resources.headphones_fill
 import com.hearablemusic.player.ui.generated.resources.play_fill
+import com.hearablemusic.player.ui.generated.resources.radio_card_active
+import com.hearablemusic.player.ui.generated.resources.radio_card_building
+import com.hearablemusic.player.ui.generated.resources.radio_card_close
+import com.hearablemusic.player.ui.generated.resources.radio_card_enable_hint
+import com.hearablemusic.player.ui.generated.resources.radio_card_idle
+import com.hearablemusic.player.ui.generated.resources.radio_card_open
+import com.hearablemusic.player.ui.generated.resources.radio_card_picking
+import com.hearablemusic.player.ui.generated.resources.radio_card_renewing
+import com.hearablemusic.player.ui.generated.resources.radio_card_starting
+import com.hearablemusic.player.ui.generated.resources.radio_card_theme_renew
+import com.hearablemusic.player.ui.generated.resources.radio_card_upcoming
 import com.hearablemusic.player.ui.generated.resources.stop
+import com.hmp.domain.agent.runtime.MasterAgent
+import com.hmp.domain.agent.runtime.sub.radio.RadioState
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.painterResource
+import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
-import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 
 /**
  * 区域②左：1:1 收音机开关卡（控制为主）。
@@ -111,9 +110,9 @@ fun RadioCard(
         }
         scope.launch {
             if (isActive) {
-                masterAgent.stopRadio()    // 已开启（运行 / 暂停 / 启动中）→ 关闭
+                masterAgent.stopRadio() // 已开启（运行 / 暂停 / 启动中）→ 关闭
             } else {
-                masterAgent.startRadio()   // 空闲 → 开启（内部自动判断续档还是新开）
+                masterAgent.startRadio() // 空闲 → 开启（内部自动判断续档还是新开）
             }
         }
     }
@@ -154,7 +153,7 @@ fun RadioCard(
             .aspectRatio(1f)
             .clickable { toggle() },
         borderColor = borderColor,
-        contentPadding = Modifier.padding(metrics.base)
+        contentPadding = Modifier.padding(metrics.base),
     ) {
         Column(
             modifier = Modifier.fillMaxSize(),
