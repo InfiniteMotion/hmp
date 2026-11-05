@@ -1,0 +1,6 @@
+# 7.4 ktlint 全仓格式化（555 文件机械改动），git blame 时忽略。
+# GitHub 自动识别仓库根的 .git-blame-ignore-revs；本地需执行一次：
+#   git config blame.ignoreRevsFile .git-blame-ignore-revs
+#
+# style: 引入 ktlint 并完成全仓格式化（7.4 期机械提交）
+0d8840461d9b201f8d08394e544c3be46ecff9c8
