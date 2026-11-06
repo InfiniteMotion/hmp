@@ -10,7 +10,6 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -33,8 +32,13 @@ import kotlin.test.assertEquals
  * 本类测**同步契约**，两者的 fake 约定不同，故分文件。
  *
  * 本类走 [runTestWithMain] 入口 —— controller 的 `scope` 绑定 `Dispatchers.Main`，
- * 而它在测试里是真实的 Swing EDT（见该函数 KDoc），不接管就测不到 `scope.launch`
- * 里的效果。
+ * 由该函数接管为与用例同 scheduler 的 `StandardTestDispatcher`，`scope.launch`
+ * 的效果才会落在可观测的虚拟时间上。
+ *
+ * 不要换回 `advanceUntilIdle()`：全局 Main 的 delegate 被每个用例的 `setMain` 替换，
+ * 其它测试类遗留的 `startProgressTracking()`（`while (isActive) delay(100)`）会跟着
+ * 排到当前 scheduler 上，于是虚拟时间永远有新任务 —— 该调用会 CPU 打满且不返回
+ * （2026-11-05 定案，曾让 `testAll` 静默挂死）。只用 `runCurrent()` 跑当前时刻任务。
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class DesktopQueueDbReflowTest {
@@ -59,7 +63,7 @@ class DesktopQueueDbReflowTest {
     fun runtimeDbChanges_neverOverwriteInMemoryQueue() = runTestWithMain {
         val repo = FakePlaylistRepository(initialDbPlaylist = listOf(testMusicInfo(9)))
         val controller = newController(repo, settingsRepositoryWithPlaylistId(MutableStateFlow(1L)))
-        advanceUntilIdle()
+        runCurrent()
 
         // 启动恢复：内存队列 = DB 快照（DB 作为副本唯一被采纳的时刻）
         assertEquals(listOf(9L), controller.currentPlaylist.value.map { it.music.id })
@@ -73,13 +77,13 @@ class DesktopQueueDbReflowTest {
 
         // 写入仍未落地，DB 快照流变出一个不含新曲目的旧列表
         repo.dbPlaylist.value = listOf(testMusicInfo(9), testMusicInfo(8))
-        advanceUntilIdle()
+        runCurrent()
 
         // 钉子①：运行中 DB 变化不得覆写内存队列（若有回流收集器这里必挂）
         assertEquals(listOf(9L, 1L), controller.currentPlaylist.value.map { it.music.id })
 
         gate.complete(Unit)
-        advanceUntilIdle()
+        runCurrent()
 
         // 钉子②：写回 DB 的必须是入队那一刻的快照
         assertEquals(listOf(listOf(9L, 1L)), repo.writes.map { write -> write.map { it.music.id } })
@@ -93,17 +97,17 @@ class DesktopQueueDbReflowTest {
         val controller = newController(repo, settingsRepositoryWithPlaylistId(idFlow))
 
         idFlow.emit(1L)
-        advanceUntilIdle()
+        runCurrent()
         assertEquals(listOf(9L), controller.currentPlaylist.value.map { it.music.id })
 
         controller.addToPlaylist(testMusicInfo(1))
-        advanceUntilIdle()
+        runCurrent()
         assertEquals(listOf(9L, 1L), controller.currentPlaylist.value.map { it.music.id })
 
         // 同一 id 重放（保存进度等设置项写入），甚至 id 变化（Guard 自愈写入新歌单 id）
         idFlow.emit(1L)
         idFlow.emit(7L)
-        advanceUntilIdle()
+        runCurrent()
 
         // 钉子：队列纹丝不动 —— 运行中不存在会把队列回滚到 DB 快照的收集器
         assertEquals(listOf(9L, 1L), controller.currentPlaylist.value.map { it.music.id })

@@ -562,7 +562,7 @@ date = "2026-09-28"
 - **FFmpeg binaries**（`ffmpeg-assets`）：逐个下载 `ffmpeg-binaries` Release 的二进制，校验 SHA256，并解析 Mach-O / ELF / PE 头部确认真实 CPU 架构与 map key 匹配（脚本见 `.github/scripts/check-ffmpeg-assets.py`）
 - **Verdict**（`preflight`）：把以上结论汇成表格写进 job summary，任一失败则 PR 检查不通过
 
-> ⚠️ **两个 workflow 都不跑单元测试**（2026-09-24 起，`testAll` 在 runner 上静默挂死、成因未结案，TODO **R31**）。本机 `preflight` 是唯一把关。
+> ⚠️ **两个 workflow 都不跑单元测试**（2026-09-24 起移出 CI）。当年 `testAll` 的静默挂死已于 **2026-11-05 定案并修复**（根因是 `DesktopQueueDbReflowTest` 的虚拟时间死循环，非 Robolectric，详见 TODO **R31** 结案记录），但 X-01「CI 恢复跑测」仍属用户暂缓项。本机 `preflight` 是唯一把关，现在可正常跑完。
 >
 > feature PR **不会**触发 `version` job：`checkVersion` 要求 `versionCode` 相对上一 tag 严格递增，而普通功能 PR 不 bump 版本号，跑必红。这是刻意的分区。
 >
