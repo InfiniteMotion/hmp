@@ -14,8 +14,12 @@ import com.hmp.domain.music.EditableMusicTags
 import com.hmp.domain.music.usecase.EditMusicTagsUseCase
 import com.hmp.domain.music.usecase.GetAllMusicUseCase
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -24,6 +28,11 @@ import org.jetbrains.compose.resources.getString
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
 
+/**
+ * UDF 样板屏状态（7.5 P1）：一屏只有这一个不可变状态出口。
+ * 异步字段若要 Loading / Empty / Error，用 `LoadState<T>`，不要拿它当整屏状态。
+ * 写法约定见 `common/util/UdfConventions.md`。
+ */
 data class EditMusicTagsUiState(
     val isLoading: Boolean = true,
     val title: String = "",
@@ -45,12 +54,19 @@ data class EditMusicTagsUiState(
      * 由 `MusicTagEditService.canWriteTags` 申报，不是 UI 自己去猜平台。
      */
     val canWriteTags: Boolean = true,
+    /** 保存进行中。与其余状态同属一个出口，不另开 StateFlow。 */
+    val isSaving: Boolean = false,
     val error: String? = null,
 )
 
-sealed interface SaveTagsResult {
-    data object Success : SaveTagsResult
-    data class Error(val message: String?) : SaveTagsResult
+/**
+ * 一次性效果：toast / 返回 / 错误提示，消费一次即消失，不进 [EditMusicTagsUiState]。
+ * 形态同 `DialogManager` 的 `SharedFlow<DialogEvent>`；VM 不持有 NavBackStack / RouteNavigator。
+ */
+sealed interface EditMusicTagsEffect {
+    data object Saved : EditMusicTagsEffect
+    data class Failed(val message: String?) : EditMusicTagsEffect
+    data object MusicNotFound : EditMusicTagsEffect
 }
 
 class EditMusicTagsViewModel(
@@ -68,11 +84,13 @@ class EditMusicTagsViewModel(
     )
     val uiState: StateFlow<EditMusicTagsUiState> = _uiState.asStateFlow()
 
-    private val _isSaving = MutableStateFlow(false)
-    val isSaving: StateFlow<Boolean> = _isSaving.asStateFlow()
-
-    private val _saveResult = MutableStateFlow<SaveTagsResult?>(null)
-    val saveResult: StateFlow<SaveTagsResult?> = _saveResult.asStateFlow()
+    /** 一次性效果通道：与 DialogManager 同配置，缓冲 1 条，消费方还没订阅也不丢。 */
+    private val _effect = MutableSharedFlow<EditMusicTagsEffect>(
+        replay = 0,
+        extraBufferCapacity = 1,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST,
+    )
+    val effect: SharedFlow<EditMusicTagsEffect> = _effect.asSharedFlow()
 
     private var currentMusicId: Long? = null
     private var currentMusicPath: String? = null
@@ -86,7 +104,10 @@ class EditMusicTagsViewModel(
 
     fun loadTags(musicId: Long) {
         currentMusicId = musicId
-        _uiState.value = EditMusicTagsUiState()
+        // 重置不能丢掉首帧能力位：canWriteTags 来自平台申报，与加载结果无关
+        _uiState.value = EditMusicTagsUiState(
+            canWriteTags = platformServices.musicTagEdit.canWriteTags,
+        )
         viewModelScope.launch {
             try {
                 val musicInfo = getAllMusicUseCase.getMusicById(musicId)
@@ -164,6 +185,7 @@ class EditMusicTagsViewModel(
     }
     fun onLyricsChange(value: String) = updateField { it.copy(lyrics = value) }
 
+    /** 所有字段变更走同一入口，派生字段（hasChanges）在这里重算，不散在各回调里。 */
     private fun updateField(transform: (EditMusicTagsUiState) -> EditMusicTagsUiState) {
         _uiState.update { state ->
             val newState = transform(state)
@@ -171,10 +193,15 @@ class EditMusicTagsViewModel(
         }
     }
 
+    /** 选图是平台副作用，由 VM 发起；回调只把字节写回状态，UI 不直连 PlatformServices。 */
+    fun onChooseCover() {
+        platformServices.musicTagEdit.pickCoverImage { bytes -> onCoverSelected(bytes) }
+    }
+
     /** 封面字节已由平台服务（pickCoverImage）完成解码/压缩；取消/失败为 null，与旧行为一致不更新状态。 */
     fun onCoverSelected(bytes: ByteArray?) {
         if (bytes != null) {
-            _uiState.update { it.copy(newAlbumArtBytes = bytes) }
+            updateField { it.copy(newAlbumArtBytes = bytes) }
         }
     }
 
@@ -182,43 +209,51 @@ class EditMusicTagsViewModel(
         updateField { it.copy(newAlbumArtBytes = ByteArray(0)) }
     }
 
-    fun retry() {
+    fun onRetry() {
         currentMusicId?.let { loadTags(it) }
     }
 
     /**
-     * 对当前音乐文件发起写权限请求（旧 resolveWriteUri + MediaStore.createWriteRequest 流程收口进平台服务）。
-     * 路径缺失时与旧行为一致：视为未找到（music_not_found 提示场景）。
+     * 保存是唯一的用户动作入口：直写 / 先申请写权限 / 路径缺失，全在 VM 内判定。
+     * 平台回调只推进状态或发一次性效果，不把业务结果返回给 UI。
      */
-    fun requestWriteAccess(onResult: (MusicWriteAccessResult) -> Unit) {
-        val path = currentMusicPath
-        if (path == null) {
-            onResult(MusicWriteAccessResult.NOT_FOUND)
+    fun onSaveClick() {
+        if (_uiState.value.isFileWritable) {
+            save()
             return
         }
-        platformServices.musicTagEdit.requestMusicWriteAccess(path, onResult)
+        val path = currentMusicPath
+        if (path == null) {
+            _effect.tryEmit(EditMusicTagsEffect.MusicNotFound)
+            return
+        }
+        platformServices.musicTagEdit.requestMusicWriteAccess(path) { result ->
+            when (result) {
+                MusicWriteAccessResult.GRANTED -> saveWithSaf()
+                MusicWriteAccessResult.DENIED -> {}
+                MusicWriteAccessResult.NOT_FOUND -> _effect.tryEmit(EditMusicTagsEffect.MusicNotFound)
+            }
+        }
     }
 
-    fun save() {
+    private fun save() {
         val musicId = currentMusicId ?: return
-        if (_isSaving.value || _uiState.value.isLoading) return
+        if (_uiState.value.isSaving || _uiState.value.isLoading) return
         // 本端不支持写标签时这里不该被调到（UI 已收起入口）；这道守卫是防御性的第二层，
-        // 不是把失败改成静默 —— 它不写 _saveResult，因此不会出现"点了保存却弹错误"的那种假反馈（D2-12）
+        // 不是把失败改成静默 —— 它不发 effect，因此不会出现"点了保存却弹错误"的那种假反馈（D2-12）
         if (!_uiState.value.canWriteTags) return
 
         viewModelScope.launch {
             val tags = buildTags(_uiState.value) ?: return@launch
-            _isSaving.value = true
+            _uiState.update { it.copy(isSaving = true) }
             editMusicTagsUseCase(musicId, tags)
-                .onSuccess {
-                    _saveResult.value = SaveTagsResult.Success
-                }
+                .onSuccess { _effect.tryEmit(EditMusicTagsEffect.Saved) }
                 .onFailure { e ->
-                    _saveResult.value = SaveTagsResult.Error(
-                        e.message ?: getString(Res.string.unknown_error),
+                    _effect.tryEmit(
+                        EditMusicTagsEffect.Failed(e.message ?: getString(Res.string.unknown_error)),
                     )
                 }
-            _isSaving.value = false
+            _uiState.update { it.copy(isSaving = false) }
         }
     }
 
@@ -226,14 +261,14 @@ class EditMusicTagsViewModel(
      * 写权限授权后经 SAF 内容 Uri 写入标签文件，随后仅刷新本地曲库记录。
      * （旧 saveWithUri：Uri 由平台服务按路径反查 MediaStore。）
      */
-    fun saveAfterWriteAccessGranted() {
+    private fun saveWithSaf() {
         val musicId = currentMusicId ?: return
-        if (_isSaving.value || _uiState.value.isLoading) return
+        if (_uiState.value.isSaving || _uiState.value.isLoading) return
         if (!_uiState.value.canWriteTags) return
 
         viewModelScope.launch {
             val tags = buildTags(_uiState.value) ?: return@launch
-            _isSaving.value = true
+            _uiState.update { it.copy(isSaving = true) }
             val writeResult = suspendCoroutine { continuation ->
                 platformServices.musicTagEdit.writeTagsViaSaf(currentMusicPath, tags) { result ->
                     continuation.resume(result)
@@ -242,28 +277,25 @@ class EditMusicTagsViewModel(
             writeResult.fold(
                 onSuccess = {
                     editMusicTagsUseCase.refreshAfterFileWrite(musicId, tags)
-                        .onSuccess {
-                            _saveResult.value = SaveTagsResult.Success
-                        }
+                        .onSuccess { _effect.tryEmit(EditMusicTagsEffect.Saved) }
                         .onFailure { e ->
-                            _saveResult.value = SaveTagsResult.Error(
-                                e.message
-                                    ?: getString(Res.string.unknown_error),
+                            _effect.tryEmit(
+                                EditMusicTagsEffect.Failed(
+                                    e.message ?: getString(Res.string.unknown_error),
+                                ),
                             )
                         }
                 },
                 onFailure = { e ->
-                    _saveResult.value = SaveTagsResult.Error(
-                        e.message ?: getString(Res.string.unknown_error),
+                    _effect.tryEmit(
+                        EditMusicTagsEffect.Failed(
+                            e.message ?: getString(Res.string.unknown_error),
+                        ),
                     )
                 },
             )
-            _isSaving.value = false
+            _uiState.update { it.copy(isSaving = false) }
         }
-    }
-
-    fun clearSaveResult() {
-        _saveResult.value = null
     }
 
     private suspend fun buildTags(state: EditMusicTagsUiState): EditableMusicTags? {
@@ -278,9 +310,7 @@ class EditMusicTagsViewModel(
             albumArt = state.newAlbumArtBytes,
         )
         if (!tags.hasChanges) {
-            _saveResult.value = SaveTagsResult.Error(
-                getString(Res.string.no_changes),
-            )
+            _effect.tryEmit(EditMusicTagsEffect.Failed(getString(Res.string.no_changes)))
             return null
         }
         return tags

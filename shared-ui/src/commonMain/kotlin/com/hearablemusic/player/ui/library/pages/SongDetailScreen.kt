@@ -54,7 +54,7 @@ import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
 import com.hearablemusic.player.ui.common.layout.LocalWindowSizeInfo
 import com.hearablemusic.player.ui.common.navigation.Routes
 import com.hearablemusic.player.ui.common.pages.base.SubScreen
-import com.hearablemusic.player.ui.common.util.UiState
+import com.hearablemusic.player.ui.common.util.LoadState
 import com.hearablemusic.player.ui.common.util.commonFormat
 import com.hearablemusic.player.ui.common.util.formatEpochMillis
 import com.hearablemusic.player.ui.common.util.isRenderableExtra
@@ -119,7 +119,7 @@ fun SongDetailScreen(
     val haptic = rememberHapticFeedback()
 
     val title = when (val state = uiState) {
-        is UiState.Success -> state.data.musicInfo.music.title
+        is LoadState.Success -> state.data.musicInfo.music.title
         else -> stringResource(Res.string.title_song_detail)
     }
 
@@ -127,7 +127,7 @@ fun SongDetailScreen(
         onBackClick = { navController.removeLastOrNull() },
         title = title,
         trailingContent = {
-            if (uiState is UiState.Success) {
+            if (uiState is LoadState.Success) {
                 FilledIconButton(
                     onClick = {
                         haptic.performClick()
@@ -158,11 +158,11 @@ fun SongDetailScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             when (val state = uiState) {
-                is UiState.Loading, UiState.Idle -> {
+                is LoadState.Loading, LoadState.Idle -> {
                     SongDetailLoading()
                 }
 
-                is UiState.Success -> {
+                is LoadState.Success -> {
                     val data = state.data
                     if (isLandscape) {
                         val music = data.musicInfo.music
@@ -203,7 +203,7 @@ fun SongDetailScreen(
                     Spacer(modifier = Modifier.height(metrics.section))
                 }
 
-                is UiState.Error -> {
+                is LoadState.Error -> {
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Center,

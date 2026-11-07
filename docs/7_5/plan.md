@@ -6,7 +6,7 @@
 > **前置**：7.4.0 ktlint 已收口 —— `./ktlint check` = 0 处、555 文件格式化（`0d88404`）、blame 忽略生效（`ac4165e`）。UDF 从合规基线出发。
 > **bump 节奏**：`release.toml` 仍为 **7.4.0**，规划阶段不动；P1 开工 bump 7.5.0、P2 开工 bump 7.6.0，两次都按「只标注不 release」（无 tag / 无包 / 无 push），派生点交 `./gradlew syncVersion`。
 > **施工方式决议（用户，2026-11-06）**：**取消开工前的契约 / 门禁 / 批次前置设计**。改为「先定一个最轻的 UiState 共通模板 → 按页面顺序逐个改 → 最后收口契约与门禁」，让规则从真实代码里长出来。
-> **状态（2026-11-06）**：规划已建、未开工；HEAD `eab94fb`；工作区有一批未提交改动，收口方式由用户决定。
+> **状态（2026-11-07）**：**已开工**。§4.1 定模板已落地（本阶段第 1 笔提交）：`LoadState` 命名归位 19 文件 / 226 处、新增 `common/util/UdfConventions.md`、`EditMusicTagsScreen` 收成单一状态出口 + `SharedFlow` 一次性效果。基线 HEAD `ed2c8293`（UDF 规划定稿），工作树此前干净。`release.toml` 仍 **7.4.0**，按 §4.3 收口时 bump 7.5.0（口径依据见 §七 11-07 记录）。验证：`ktlint` 0 处 / `compileAll` 绿 / `testUi` 绿。
 > **取证口径**：所有计数为 2026-11-05/06 工作树实测；行号会过期，动手前按符号名 grep；归档 `docs/archive/**` 只进不改。
 
 ---
@@ -147,5 +147,7 @@ P2（Agent 运行时，7.6）、注释清理、设计校准、X-01 CI 编译测�
 | 2026-11-06 | 页面状态盘点：174 处状态逐条分类（[state-audit.md](state-audit.md)），限度定量为搬 74 / 留 97 |
 | 2026-11-06 | **施工方式简化决议**：取消前置契约 / 门禁 / 批次设计，改为「模板 → 逐页改 → 最后收口」；门禁全量开、按类型判定 |
 | 2026-11-06 | **状态命名归位决议**：不沿用旧 `UiState<T>` 作内部字段，改名为 `LoadState<T>`；`UiState` 之名让给整屏 `XxxUiState`，项目内不再有两套同名概念。全仓 19 文件 / 210 处机械改名，与模板同一笔提交 |
+| 2026-11-07 | **开工第 1 笔（§4.1 定模板）**：实测改名 **19 文件 / 226 处**（规划记 210 处，本口径含 `UiStateContent` / `asUiState` / 测试名等复合标识符）；四文件 `git mv`；新增写法约定与样板屏。样板屏把 3 个 `StateFlow` 出口收成 1 个，`SaveTagsResult` 状态型一次性结果改为 `SharedFlow<EditMusicTagsEffect>`，写权限判定与选图收进 VM。顺手修两处既有缺陷：`loadTags` 重置丢失 `canWriteTags` 首帧能力位、选封面后 `hasChanges` 不重算致保存按钮不亮。验证 `ktlint` 0 处 / `compileAll` / `testUi` 全绿 |
+| 2026-11-07 | **bump 口径如实登记**：头部「P1 开工 bump 7.5.0」与 §4.3「收口 bump」冲突，本阶段按 **§4.3 收口时 bump** 执行。依据：7.3.0（`1dc7352c`）与 7.4.0（`eab94fb1`）两次 bump 均在各自收口提交之后，且 `release.toml` 的 notes 需描述已完成内容；开工期版本号保持 7.4.0。头部决议原文不改写，以本记录为准 |
 
 **参考**：[页面状态盘点](state-audit.md)、[7.4 期规划与施工记录](../7_4/plan.md)、[7.3 残余台账](../7_4/residuals-7.3.md)、[ktlint 落地方案](../ktlint-integration.md)、[7.3 架构审查 R48（归档证据）](../archive/7_x/7_3/review-7.3-architecture.md)。

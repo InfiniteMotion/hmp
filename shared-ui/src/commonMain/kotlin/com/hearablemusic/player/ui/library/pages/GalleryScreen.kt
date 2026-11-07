@@ -24,7 +24,7 @@ import com.hearablemusic.player.ui.common.dialogs.viewmodel.DialogViewModel
 import com.hearablemusic.player.ui.common.layout.LocalWindowSizeInfo
 import com.hearablemusic.player.ui.common.navigation.Routes
 import com.hearablemusic.player.ui.common.pages.base.TabScreen
-import com.hearablemusic.player.ui.common.util.UiState
+import com.hearablemusic.player.ui.common.util.LoadState
 import com.hearablemusic.player.ui.common.util.activityViewModel
 import com.hearablemusic.player.ui.common.util.commonFormat
 import com.hearablemusic.player.ui.common.util.rememberHapticFeedback
@@ -71,7 +71,7 @@ fun GalleryScreen(
     val selectedGenre by libraryViewModel.orderBy.collectAsState(MusicSortKey.TITLE)
     val selectedOrder by libraryViewModel.orderType.collectAsState(SortDirection.ASC)
     val userCustomPlaylistsState by playlistViewModel.userCustomPlaylistsState.collectAsState()
-    val userCustomPlaylists = (userCustomPlaylistsState as? UiState.Success)?.data ?: emptyList()
+    val userCustomPlaylists = (userCustomPlaylistsState as? LoadState.Success)?.data ?: emptyList()
     val currentPlayingIndex = musicInfoList.indexOfFirst { it.music.id == currentPlayingMusic?.music?.id }.takeIf { it >= 0 }
     val dialogManager = dialogManagerViewModel.dialogManager
 

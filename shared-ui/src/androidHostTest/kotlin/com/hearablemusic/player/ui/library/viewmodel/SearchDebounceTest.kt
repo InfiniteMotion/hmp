@@ -1,6 +1,6 @@
 package com.hearablemusic.player.ui.library.viewmodel
 
-import com.hearablemusic.player.ui.common.util.UiState
+import com.hearablemusic.player.ui.common.util.LoadState
 import com.hmp.domain.music.Music
 import com.hmp.domain.music.MusicInfo
 import com.hmp.domain.music.MusicRepository
@@ -101,7 +101,7 @@ class SearchDebounceTest {
         advanceTimeBy(10_000)
         runCurrent()
 
-        assertEquals(UiState.Success(listOf(music("ab"))), vm.searchState.value)
+        assertEquals(LoadState.Success(listOf(music("ab"))), vm.searchState.value)
     }
 
     @Test
@@ -120,7 +120,7 @@ class SearchDebounceTest {
         runCurrent()
 
         // 被取消的那一拍既不写 Error，也不把界面停在错误态
-        assertFalse(vm.searchState.value is UiState.Error)
+        assertFalse(vm.searchState.value is LoadState.Error)
     }
 
     @Test
@@ -131,14 +131,14 @@ class SearchDebounceTest {
         vm.searchMusic("a")
         advanceTimeBy(SearchViewModel.DEBOUNCE_MS + 1)
         runCurrent()
-        assertEquals(UiState.Success(listOf(music("a"))), vm.searchState.value)
+        assertEquals(LoadState.Success(listOf(music("a"))), vm.searchState.value)
 
         vm.searchMusic("")
         runCurrent()
         advanceTimeBy(10_000)
         runCurrent()
 
-        assertEquals(UiState.Idle, vm.searchState.value)
+        assertEquals(LoadState.Idle, vm.searchState.value)
         coVerify(exactly = 1) { repository.searchMusic("a") }
     }
 }

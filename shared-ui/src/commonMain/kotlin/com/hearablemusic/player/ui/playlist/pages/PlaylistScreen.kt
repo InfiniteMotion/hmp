@@ -60,7 +60,7 @@ import com.hearablemusic.player.ui.common.dialogs.controller.DialogManager
 import com.hearablemusic.player.ui.common.dialogs.viewmodel.DialogManagerViewModel
 import com.hearablemusic.player.ui.common.dialogs.viewmodel.DialogViewModel
 import com.hearablemusic.player.ui.common.pages.base.SubScreen
-import com.hearablemusic.player.ui.common.util.UiState
+import com.hearablemusic.player.ui.common.util.LoadState
 import com.hearablemusic.player.ui.common.util.activityViewModel
 import com.hearablemusic.player.ui.common.util.commonFormat
 import com.hearablemusic.player.ui.common.util.rememberHapticFeedback
@@ -121,7 +121,7 @@ fun PlaylistScreen(
     val isPlaying by playbackViewModel.isPlaying.collectAsState()
     val uiState by playlistViewModel.playlistUiState.collectAsState()
     val playlistState = uiState.playlist
-    val playlist = (playlistState as? UiState.Success)?.data ?: emptyList()
+    val playlist = (playlistState as? LoadState.Success)?.data ?: emptyList()
     val addedMessage = stringResource(Res.string.song_added)
     val addSongsDialogTitle = stringResource(Res.string.add_songs_to_playlist)
 
@@ -213,7 +213,7 @@ fun PlaylistScreenContent(
     val metrics = LocalHmpMetrics.current
     val haptic = rememberHapticFeedback()
     val userCustomPlaylistsState by playlistViewModel.userCustomPlaylistsState.collectAsState()
-    val userCustomPlaylists = (userCustomPlaylistsState as? UiState.Success)?.data ?: emptyList()
+    val userCustomPlaylists = (userCustomPlaylistsState as? LoadState.Success)?.data ?: emptyList()
     var showRenameDialog by remember { mutableStateOf(false) }
     var renameValue by remember { mutableStateOf(playlistName) }
     var showDescriptionDialog by remember { mutableStateOf(false) }

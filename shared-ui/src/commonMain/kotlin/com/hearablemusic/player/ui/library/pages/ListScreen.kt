@@ -59,7 +59,7 @@ import com.hearablemusic.player.ui.common.layout.LocalWindowSizeInfo
 import com.hearablemusic.player.ui.common.layout.WindowWidthSizeClass
 import com.hearablemusic.player.ui.common.navigation.Routes
 import com.hearablemusic.player.ui.common.pages.base.TabScreen
-import com.hearablemusic.player.ui.common.util.UiState
+import com.hearablemusic.player.ui.common.util.LoadState
 import com.hearablemusic.player.ui.common.util.activityViewModel
 import com.hearablemusic.player.ui.common.util.iconRes
 import com.hearablemusic.player.ui.common.util.rememberHapticFeedback
@@ -107,7 +107,7 @@ fun ListScreen(
     val languageList by playlistViewModel.languagePlaylistName.collectAsState()
     val eraList by playlistViewModel.eraPlaylistName.collectAsState()
     val userCustomPlaylistsState by playlistViewModel.userCustomPlaylistsState.collectAsState()
-    val userCustomPlaylists = (userCustomPlaylistsState as? UiState.Success)?.data ?: emptyList()
+    val userCustomPlaylists = (userCustomPlaylistsState as? LoadState.Success)?.data ?: emptyList()
 
     ListScreenContent(
         genreList = genreList,

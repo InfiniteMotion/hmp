@@ -2,7 +2,7 @@ package com.hearablemusic.player.ui.library.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.hearablemusic.player.ui.common.util.UiState
+import com.hearablemusic.player.ui.common.util.LoadState
 import com.hearablemusic.player.ui.generated.resources.Res
 import com.hearablemusic.player.ui.generated.resources.search_failed
 import com.hmp.domain.music.MusicInfo
@@ -30,32 +30,32 @@ class SearchViewModel(
     private val debounceMillis: Long = DEBOUNCE_MS,
 ) : ViewModel() {
 
-    private val _searchState = MutableStateFlow<UiState<List<MusicInfo>>>(UiState.Idle)
-    val searchState: StateFlow<UiState<List<MusicInfo>>> = _searchState
+    private val _searchState = MutableStateFlow<LoadState<List<MusicInfo>>>(LoadState.Idle)
+    val searchState: StateFlow<LoadState<List<MusicInfo>>> = _searchState
 
     private var searchJob: Job? = null
 
     fun searchMusic(query: String) {
         searchJob?.cancel()
         if (query.isBlank()) {
-            _searchState.value = UiState.Idle
+            _searchState.value = LoadState.Idle
             return
         }
         searchJob = viewModelScope.launch {
             delay(debounceMillis)
-            _searchState.value = UiState.Loading
+            _searchState.value = LoadState.Loading
             try {
                 val results = searchMusicUseCase(query)
                 _searchState.value = if (results.isEmpty()) {
-                    UiState.Empty
+                    LoadState.Empty
                 } else {
-                    UiState.Success(results)
+                    LoadState.Success(results)
                 }
             } catch (e: CancellationException) {
                 // 被更新的按键取消：这一拍的旧结果不落进 state，也不写 Error
                 throw e
             } catch (e: Exception) {
-                _searchState.value = UiState.Error(e.message ?: getString(Res.string.search_failed))
+                _searchState.value = LoadState.Error(e.message ?: getString(Res.string.search_failed))
             }
         }
     }

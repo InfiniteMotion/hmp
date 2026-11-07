@@ -2,7 +2,7 @@ package com.hearablemusic.player.ui.playlist.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.hearablemusic.player.ui.common.util.UiState
+import com.hearablemusic.player.ui.common.util.LoadState
 import com.hmp.domain.music.MusicInfo
 import com.hmp.domain.music.usecase.GetAllMusicUseCase
 import kotlinx.coroutines.Job
@@ -20,13 +20,13 @@ class ArtistAlbumViewModel(
 
     private val _selectedArtistName = MutableStateFlow("")
     val selectedArtistName: StateFlow<String> = _selectedArtistName
-    private val _selectedArtistMusicListState = MutableStateFlow<UiState<List<MusicInfo>>>(UiState.Idle)
-    val selectedArtistMusicListState: StateFlow<UiState<List<MusicInfo>>> = _selectedArtistMusicListState
+    private val _selectedArtistMusicListState = MutableStateFlow<LoadState<List<MusicInfo>>>(LoadState.Idle)
+    val selectedArtistMusicListState: StateFlow<LoadState<List<MusicInfo>>> = _selectedArtistMusicListState
 
     private val _selectedAlbumName = MutableStateFlow("")
     val selectedAlbumName: StateFlow<String> = _selectedAlbumName
-    private val _selectedAlbumMusicListState = MutableStateFlow<UiState<List<MusicInfo>>>(UiState.Idle)
-    val selectedAlbumMusicListState: StateFlow<UiState<List<MusicInfo>>> = _selectedAlbumMusicListState
+    private val _selectedAlbumMusicListState = MutableStateFlow<LoadState<List<MusicInfo>>>(LoadState.Idle)
+    val selectedAlbumMusicListState: StateFlow<LoadState<List<MusicInfo>>> = _selectedAlbumMusicListState
 
     private var artistJob: Job? = null
     private var albumJob: Job? = null
@@ -34,17 +34,17 @@ class ArtistAlbumViewModel(
     fun getSelectedArtistMusicList(artistName: String) {
         artistJob?.cancel()
         _selectedArtistName.value = artistName
-        _selectedArtistMusicListState.value = UiState.Loading
+        _selectedArtistMusicListState.value = LoadState.Loading
         artistJob = viewModelScope.launch {
             try {
                 val musicList = getAllMusicUseCase.getMusicListByArtist(artistName)
                 _selectedArtistMusicListState.value = if (musicList.isEmpty()) {
-                    UiState.Empty
+                    LoadState.Empty
                 } else {
-                    UiState.Success(musicList)
+                    LoadState.Success(musicList)
                 }
             } catch (e: Exception) {
-                _selectedArtistMusicListState.value = UiState.Error(e.message ?: "Failed to load artist music")
+                _selectedArtistMusicListState.value = LoadState.Error(e.message ?: "Failed to load artist music")
             }
         }
     }
@@ -52,17 +52,17 @@ class ArtistAlbumViewModel(
     fun getSelectedAlbumMusicList(albumName: String) {
         albumJob?.cancel()
         _selectedAlbumName.value = albumName
-        _selectedAlbumMusicListState.value = UiState.Loading
+        _selectedAlbumMusicListState.value = LoadState.Loading
         albumJob = viewModelScope.launch {
             try {
                 val musicList = getAllMusicUseCase.getMusicListByAlbum(albumName)
                 _selectedAlbumMusicListState.value = if (musicList.isEmpty()) {
-                    UiState.Empty
+                    LoadState.Empty
                 } else {
-                    UiState.Success(musicList)
+                    LoadState.Success(musicList)
                 }
             } catch (e: Exception) {
-                _selectedAlbumMusicListState.value = UiState.Error(e.message ?: "Failed to load album music")
+                _selectedAlbumMusicListState.value = LoadState.Error(e.message ?: "Failed to load album music")
             }
         }
     }

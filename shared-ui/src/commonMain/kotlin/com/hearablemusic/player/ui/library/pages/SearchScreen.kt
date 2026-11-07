@@ -29,12 +29,12 @@ import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
 import com.hearablemusic.player.ui.agent.chat.ChatEntryBroker
 import com.hearablemusic.player.ui.common.components.base.HMPTextField
-import com.hearablemusic.player.ui.common.components.base.UiStateContent
+import com.hearablemusic.player.ui.common.components.base.LoadStateContent
 import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
 import com.hearablemusic.player.ui.common.dialogs.viewmodel.DialogViewModel
 import com.hearablemusic.player.ui.common.pages.base.SubScreen
-import com.hearablemusic.player.ui.common.util.UiState
+import com.hearablemusic.player.ui.common.util.LoadState
 import com.hearablemusic.player.ui.common.util.activityViewModel
 import com.hearablemusic.player.ui.common.util.rememberHapticFeedback
 import com.hearablemusic.player.ui.generated.resources.Res
@@ -124,7 +124,7 @@ fun SearchScreen(
 fun SearchScreenContent(
     isPlaying: Boolean,
     searchQuery: String,
-    searchState: UiState<List<MusicInfo>>,
+    searchState: LoadState<List<MusicInfo>>,
     currentPlayingMusic: MusicInfo?,
     onSearchQueryChange: (String) -> Unit,
     onBackClick: () -> Unit,
@@ -222,7 +222,7 @@ fun SearchScreenContent(
                     )
                 }
             } else {
-                UiStateContent(
+                LoadStateContent(
                     state = searchState,
                     modifier = Modifier.fillMaxWidth().weight(1f),
                     onEmpty = {

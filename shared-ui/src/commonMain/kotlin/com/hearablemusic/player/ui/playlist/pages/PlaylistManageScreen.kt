@@ -45,7 +45,7 @@ import com.hearablemusic.player.ui.common.design.typography.medium
 import com.hearablemusic.player.ui.common.dialogs.viewmodel.DialogViewModel
 import com.hearablemusic.player.ui.common.navigation.Routes
 import com.hearablemusic.player.ui.common.pages.base.SubScreen
-import com.hearablemusic.player.ui.common.util.UiState
+import com.hearablemusic.player.ui.common.util.LoadState
 import com.hearablemusic.player.ui.common.util.activityViewModel
 import com.hearablemusic.player.ui.common.util.rememberHapticFeedback
 import com.hearablemusic.player.ui.generated.resources.Res
@@ -94,7 +94,7 @@ fun PlaylistManageScreen(
     // 它们既不能删（UseCase 会拒），也不该改名（名字会与 Res.string.heart 脱钩，自愈只认 id）。
     val userCustomPlaylists = remember(userCustomPlaylistsState, systemPlaylistIds) {
         manageablePlaylists(
-            (userCustomPlaylistsState as? UiState.Success)?.data ?: emptyList(),
+            (userCustomPlaylistsState as? LoadState.Success)?.data ?: emptyList(),
             systemPlaylistIds,
         )
     }

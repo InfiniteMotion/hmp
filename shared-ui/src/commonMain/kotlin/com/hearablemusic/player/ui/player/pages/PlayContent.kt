@@ -66,7 +66,7 @@ import com.hearablemusic.player.ui.common.design.typography.medium
 import com.hearablemusic.player.ui.common.dialogs.TimerDialog
 import com.hearablemusic.player.ui.common.layout.LocalWindowSizeInfo
 import com.hearablemusic.player.ui.common.layout.WindowWidthSizeClass
-import com.hearablemusic.player.ui.common.util.UiState
+import com.hearablemusic.player.ui.common.util.LoadState
 import com.hearablemusic.player.ui.common.util.isRenderableExtra
 import com.hearablemusic.player.ui.common.util.rememberHapticFeedback
 import com.hearablemusic.player.ui.common.viewmodel.PaletteColors
@@ -970,12 +970,12 @@ private fun PlaylistTabContent(
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun SongDetailInfoTab(songDetailState: UiState<SongDetailData>, musicExtra: com.hmp.domain.music.MusicExtra?, userInfo: com.hmp.domain.music.UserInfo?) {
+private fun SongDetailInfoTab(songDetailState: LoadState<SongDetailData>, musicExtra: com.hmp.domain.music.MusicExtra?, userInfo: com.hmp.domain.music.UserInfo?) {
     val metrics = LocalHmpMetrics.current
     val typo = LocalHmpTypo.current
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = metrics.block, vertical = metrics.cozy), verticalArrangement = Arrangement.spacedBy(metrics.cozy)) {
         TechnicalInfoCard(extra = musicExtra, modifier = Modifier.fillMaxWidth())
-        if (songDetailState is UiState.Success) {
+        if (songDetailState is LoadState.Success) {
             val data = songDetailState.data
             // 富化文案直接读 MusicExtra：旧 DailyMusicInfo（已删除）的 6 个文本字段本就是同一批列，
             // 无需再经 getMusicExtraById 回查一次
@@ -1009,7 +1009,7 @@ private fun SongDetailInfoTab(songDetailState: UiState<SongDetailData>, musicExt
             if (validLabels.isNotEmpty()) {
                 InfoCard(title = stringResource(Res.string.labels)) { FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(metrics.compact), verticalArrangement = Arrangement.spacedBy(metrics.micro)) { validLabels.forEach { label -> AssistChip(onClick = {}, label = { Text(label.label.name, style = typo.caption) }, border = null) } } }
             }
-        } else if (songDetailState is UiState.Loading) {
+        } else if (songDetailState is LoadState.Loading) {
             Box(Modifier.fillMaxWidth().padding(metrics.section), contentAlignment = Alignment.Center) { CircularProgressIndicator(Modifier.size(metrics.section), strokeWidth = metrics.hair) }
         }
     }

@@ -33,7 +33,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -77,12 +76,9 @@ import com.hearablemusic.player.ui.generated.resources.tags_save_failed
 import com.hearablemusic.player.ui.generated.resources.tags_saved
 import com.hearablemusic.player.ui.generated.resources.unsaved_changes
 import com.hearablemusic.player.ui.library.pages.components.AlbumCover
+import com.hearablemusic.player.ui.library.viewmodel.EditMusicTagsEffect
 import com.hearablemusic.player.ui.library.viewmodel.EditMusicTagsViewModel
-import com.hearablemusic.player.ui.library.viewmodel.SaveTagsResult
-import com.hearablemusic.player.ui.platform.MusicWriteAccessResult
-import com.hearablemusic.player.ui.platform.PlatformServices
 import com.hearablemusic.player.ui.player.components.MiniPlayerSafeSpacer
-import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.getString
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
@@ -96,59 +92,42 @@ fun EditMusicTagsScreen(
     viewModel: EditMusicTagsViewModel = koinViewModel(),
 ) {
     val metrics = LocalHmpMetrics.current
-    val platformServices: PlatformServices = koinInject()
     val dialogManager: DialogManager = koinInject()
+    // 唯一状态出口：业务态、加载态、保存态都在这里
     val uiState by viewModel.uiState.collectAsState()
-    val isSaving by viewModel.isSaving.collectAsState()
-    val saveResult by viewModel.saveResult.collectAsState()
-    val scope = rememberCoroutineScope()
     val typo = LocalHmpTypo.current
 
     LaunchedEffect(musicId) {
         viewModel.loadTags(musicId)
     }
 
-    // 保存结果提示
-    LaunchedEffect(saveResult) {
-        when (val result = saveResult) {
-            is SaveTagsResult.Success -> {
-                dialogManager.showMessage(getString(Res.string.tags_saved))
-                viewModel.clearSaveResult()
-                navController.removeLastOrNull()
-            }
+    // 一次性效果：VM 不持有导航器与 DialogManager，toast / 返回由组合点消费
+    LaunchedEffect(Unit) {
+        viewModel.effect.collect { effect ->
+            when (effect) {
+                is EditMusicTagsEffect.Saved -> {
+                    dialogManager.showMessage(getString(Res.string.tags_saved))
+                    navController.removeLastOrNull()
+                }
 
-            is SaveTagsResult.Error -> {
-                dialogManager.showMessage(
-                    getString(Res.string.tags_save_failed, result.message.orEmpty()),
-                )
-                viewModel.clearSaveResult()
-            }
+                is EditMusicTagsEffect.Failed -> {
+                    dialogManager.showMessage(
+                        getString(Res.string.tags_save_failed, effect.message.orEmpty()),
+                    )
+                }
 
-            null -> {}
+                is EditMusicTagsEffect.MusicNotFound -> {
+                    dialogManager.showMessage(getString(Res.string.music_not_found))
+                }
+            }
         }
     }
 
     // 降级规则是一份，不散在七个 enabled 里（D2-12）
     val formPolicy = tagEditFormPolicy(uiState.canWriteTags)
 
-    val onSaveClick: () -> Unit = {
-        if (uiState.isFileWritable) {
-            viewModel.save()
-        } else {
-            // 不可直写：请求 MediaStore 写权限（系统确认框），授权后才继续保存（旧 writeRequestLauncher 流程）
-            viewModel.requestWriteAccess { result ->
-                when (result) {
-                    MusicWriteAccessResult.GRANTED -> viewModel.saveAfterWriteAccessGranted()
-
-                    MusicWriteAccessResult.DENIED -> {}
-
-                    MusicWriteAccessResult.NOT_FOUND -> scope.launch {
-                        dialogManager.showMessage(getString(Res.string.music_not_found))
-                    }
-                }
-            }
-        }
-    }
+    // 用户动作直接上送 VM：写权限判定与平台回调都在 VM 内，UI 不接业务结果
+    val onSaveClick = viewModel::onSaveClick
 
     SubScreen(
         onBackClick = { navController.removeLastOrNull() },
@@ -158,10 +137,10 @@ fun EditMusicTagsScreen(
             // iOS 点下去只会拿到一个失败弹窗，看起来像用户自己填错了。
             if (formPolicy.showSaveAction) {
                 TextButton(
-                    enabled = !uiState.isLoading && !isSaving && uiState.hasChanges,
+                    enabled = !uiState.isLoading && !uiState.isSaving && uiState.hasChanges,
                     onClick = onSaveClick,
                 ) {
-                    if (isSaving) {
+                    if (uiState.isSaving) {
                         CircularProgressIndicator(
                             modifier = Modifier.size(metrics.cozy),
                             strokeWidth = metrics.hair,
@@ -192,7 +171,7 @@ fun EditMusicTagsScreen(
                         style = typo.body,
                     )
                     Spacer(modifier = Modifier.height(metrics.compact))
-                    Button(onClick = { viewModel.retry() }) {
+                    Button(onClick = { viewModel.onRetry() }) {
                         Text(stringResource(Res.string.retry))
                     }
                 }
@@ -207,11 +186,7 @@ fun EditMusicTagsScreen(
                         title = uiState.title,
                         artist = uiState.artist,
                         album = uiState.album,
-                        onChooseCover = {
-                            platformServices.musicTagEdit.pickCoverImage { bytes ->
-                                viewModel.onCoverSelected(bytes)
-                            }
-                        },
+                        onChooseCover = viewModel::onChooseCover,
                         onRemoveCover = { viewModel.onRemoveCover() },
                     )
 
@@ -222,7 +197,7 @@ fun EditMusicTagsScreen(
                                 onValueChange = viewModel::onTitleChange,
                                 label = { Text(stringResource(Res.string.tag_title)) },
                                 singleLine = true,
-                                enabled = !isSaving && formPolicy.fieldsEditable,
+                                enabled = !uiState.isSaving && formPolicy.fieldsEditable,
                                 modifier = Modifier.fillMaxWidth(),
                             )
                             OutlinedTextField(
@@ -230,7 +205,7 @@ fun EditMusicTagsScreen(
                                 onValueChange = viewModel::onArtistChange,
                                 label = { Text(stringResource(Res.string.tag_artist)) },
                                 singleLine = true,
-                                enabled = !isSaving && formPolicy.fieldsEditable,
+                                enabled = !uiState.isSaving && formPolicy.fieldsEditable,
                                 modifier = Modifier.fillMaxWidth(),
                             )
                             OutlinedTextField(
@@ -238,7 +213,7 @@ fun EditMusicTagsScreen(
                                 onValueChange = viewModel::onAlbumChange,
                                 label = { Text(stringResource(Res.string.tag_album)) },
                                 singleLine = true,
-                                enabled = !isSaving && formPolicy.fieldsEditable,
+                                enabled = !uiState.isSaving && formPolicy.fieldsEditable,
                                 modifier = Modifier.fillMaxWidth(),
                             )
                         }
@@ -252,7 +227,7 @@ fun EditMusicTagsScreen(
                                     onValueChange = viewModel::onYearChange,
                                     label = { Text(stringResource(Res.string.tag_year)) },
                                     singleLine = true,
-                                    enabled = !isSaving && formPolicy.fieldsEditable,
+                                    enabled = !uiState.isSaving && formPolicy.fieldsEditable,
                                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                     modifier = Modifier.weight(1f),
                                 )
@@ -261,7 +236,7 @@ fun EditMusicTagsScreen(
                                     onValueChange = viewModel::onTrackChange,
                                     label = { Text(stringResource(Res.string.tag_track)) },
                                     singleLine = true,
-                                    enabled = !isSaving && formPolicy.fieldsEditable,
+                                    enabled = !uiState.isSaving && formPolicy.fieldsEditable,
                                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                     modifier = Modifier.weight(1f),
                                 )
@@ -271,7 +246,7 @@ fun EditMusicTagsScreen(
                                 onValueChange = viewModel::onGenreChange,
                                 label = { Text(stringResource(Res.string.tag_genre)) },
                                 singleLine = true,
-                                enabled = !isSaving && formPolicy.fieldsEditable,
+                                enabled = !uiState.isSaving && formPolicy.fieldsEditable,
                                 modifier = Modifier.fillMaxWidth(),
                             )
                         }
@@ -280,7 +255,7 @@ fun EditMusicTagsScreen(
                     LyricsSection(
                         lyrics = uiState.lyrics,
                         onLyricsChange = viewModel::onLyricsChange,
-                        enabled = !isSaving && formPolicy.fieldsEditable,
+                        enabled = !uiState.isSaving && formPolicy.fieldsEditable,
                     )
                     Text(
                         text = stringResource(
@@ -300,10 +275,10 @@ fun EditMusicTagsScreen(
                     if (formPolicy.showSaveAction) {
                         Button(
                             onClick = onSaveClick,
-                            enabled = !isSaving && uiState.hasChanges,
+                            enabled = !uiState.isSaving && uiState.hasChanges,
                             modifier = Modifier.fillMaxWidth(),
                         ) {
-                            if (isSaving) {
+                            if (uiState.isSaving) {
                                 CircularProgressIndicator(
                                     modifier = Modifier.size(metrics.cozy),
                                     strokeWidth = metrics.hair,

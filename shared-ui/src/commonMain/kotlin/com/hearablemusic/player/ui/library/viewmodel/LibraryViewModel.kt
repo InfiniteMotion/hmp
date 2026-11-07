@@ -2,7 +2,7 @@ package com.hearablemusic.player.ui.library.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.hearablemusic.player.ui.common.util.UiState
+import com.hearablemusic.player.ui.common.util.LoadState
 import com.hearablemusic.player.ui.common.util.fileParentOf
 import com.hearablemusic.player.ui.generated.resources.Res
 import com.hearablemusic.player.ui.generated.resources.scan_failed
@@ -89,8 +89,8 @@ class LibraryViewModel(
     private val _allMusic = MutableStateFlow<List<MusicInfo>>(emptyList())
     val allMusic: StateFlow<List<MusicInfo>> = _allMusic
 
-    private val _scanState = MutableStateFlow<UiState<ScanResult>>(UiState.Idle)
-    val scanState: StateFlow<UiState<ScanResult>> = _scanState
+    private val _scanState = MutableStateFlow<LoadState<ScanResult>>(LoadState.Idle)
+    val scanState: StateFlow<LoadState<ScanResult>> = _scanState
 
     fun getAllMusic() {
         viewModelScope.launch {
@@ -214,7 +214,7 @@ class LibraryViewModel(
 
     fun refreshMusicList() {
         viewModelScope.launch(Dispatchers.Default) {
-            _scanState.value = UiState.Loading
+            _scanState.value = LoadState.Loading
             syncMusicFromDeviceIncrementalUseCase()
                 .onSuccess {
                     val musicList = getAllMusicUseCase(_orderBy.value, _orderType.value)
@@ -222,20 +222,20 @@ class LibraryViewModel(
                     val folderCount = musicList.mapNotNull { music ->
                         fileParentOf(music.music.path)
                     }.distinct().size
-                    _scanState.value = UiState.Success(ScanResult(musicList, folderCount))
+                    _scanState.value = LoadState.Success(ScanResult(musicList, folderCount))
                     // 首次扫描完成后持久化标记，用于触发 AI 自动补全等一次性逻辑
                     userSettingsUseCase.saveIsLoadMusic(true)
                     refreshUserProfile()
                 }
                 .onFailure { e ->
-                    _scanState.value = UiState.Error(e.message ?: getString(Res.string.scan_failed))
+                    _scanState.value = LoadState.Error(e.message ?: getString(Res.string.scan_failed))
                 }
         }
     }
 
     fun fullRescan() {
         viewModelScope.launch(Dispatchers.Default) {
-            _scanState.value = UiState.Loading
+            _scanState.value = LoadState.Loading
             loadMusicFromDeviceUseCase()
                 .onSuccess {
                     val musicList = getAllMusicUseCase(_orderBy.value, _orderType.value)
@@ -243,13 +243,13 @@ class LibraryViewModel(
                     val folderCount = musicList.mapNotNull { music ->
                         fileParentOf(music.music.path)
                     }.distinct().size
-                    _scanState.value = UiState.Success(ScanResult(musicList, folderCount))
+                    _scanState.value = LoadState.Success(ScanResult(musicList, folderCount))
                     // 首次扫描完成后持久化标记，用于触发 AI 自动补全等一次性逻辑
                     userSettingsUseCase.saveIsLoadMusic(true)
                     refreshUserProfile()
                 }
                 .onFailure { e ->
-                    _scanState.value = UiState.Error(e.message ?: getString(Res.string.scan_failed))
+                    _scanState.value = LoadState.Error(e.message ?: getString(Res.string.scan_failed))
                 }
         }
     }

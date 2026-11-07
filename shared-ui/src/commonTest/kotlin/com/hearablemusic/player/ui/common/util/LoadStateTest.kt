@@ -10,11 +10,11 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
-class UiStateTest {
+class LoadStateTest {
 
     @Test
     fun idle_isIdle() {
-        val state: UiState<Nothing> = UiState.Idle
+        val state: LoadState<Nothing> = LoadState.Idle
         assertTrue(state.isIdle)
         assertFalse(state.isLoading)
         assertFalse(state.isSuccess)
@@ -24,14 +24,14 @@ class UiStateTest {
 
     @Test
     fun loading_isLoading() {
-        val state: UiState<Nothing> = UiState.Loading
+        val state: LoadState<Nothing> = LoadState.Loading
         assertTrue(state.isLoading)
         assertFalse(state.isIdle)
     }
 
     @Test
     fun success_isSuccess() {
-        val state = UiState.Success("data")
+        val state = LoadState.Success("data")
         assertTrue(state.isSuccess)
         assertFalse(state.isLoading)
         assertEquals("data", state.data)
@@ -39,138 +39,138 @@ class UiStateTest {
 
     @Test
     fun error_isError() {
-        val state = UiState.Error("something failed")
+        val state = LoadState.Error("something failed")
         assertTrue(state.isError)
         assertEquals("something failed", state.message)
     }
 
     @Test
     fun empty_isEmpty() {
-        val state: UiState<Nothing> = UiState.Empty
+        val state: LoadState<Nothing> = LoadState.Empty
         assertTrue(state.isEmpty)
     }
 
     @Test
     fun dataOrNull_success_returnsData() {
-        val state = UiState.Success(42)
+        val state = LoadState.Success(42)
         assertEquals(42, state.dataOrNull)
     }
 
     @Test
     fun dataOrNull_loading_returnsNull() {
-        val state: UiState<Int> = UiState.Loading
+        val state: LoadState<Int> = LoadState.Loading
         assertNull(state.dataOrNull)
     }
 
     @Test
     fun dataOrNull_error_returnsNull() {
-        val state: UiState<Int> = UiState.Error("err")
+        val state: LoadState<Int> = LoadState.Error("err")
         assertNull(state.dataOrNull)
     }
 
     @Test
     fun map_success_transforms() {
-        val state = UiState.Success(5)
+        val state = LoadState.Success(5)
         val mapped = state.map { it * 2 }
-        assertTrue(mapped is UiState.Success)
-        assertEquals(10, (mapped as UiState.Success).data)
+        assertTrue(mapped is LoadState.Success)
+        assertEquals(10, (mapped as LoadState.Success).data)
     }
 
     @Test
     fun map_idle_staysIdle() {
-        val state: UiState<Int> = UiState.Idle
+        val state: LoadState<Int> = LoadState.Idle
         val mapped = state.map { it * 2 }
-        assertTrue(mapped is UiState.Idle)
+        assertTrue(mapped is LoadState.Idle)
     }
 
     @Test
     fun map_loading_staysLoading() {
-        val state: UiState<Int> = UiState.Loading
+        val state: LoadState<Int> = LoadState.Loading
         val mapped = state.map { it * 2 }
-        assertTrue(mapped is UiState.Loading)
+        assertTrue(mapped is LoadState.Loading)
     }
 
     @Test
     fun map_error_preservesMessage() {
-        val state: UiState<Int> = UiState.Error("fail")
+        val state: LoadState<Int> = LoadState.Error("fail")
         val mapped = state.map { it * 2 }
-        assertTrue(mapped is UiState.Error)
-        assertEquals("fail", (mapped as UiState.Error).message)
+        assertTrue(mapped is LoadState.Error)
+        assertEquals("fail", (mapped as LoadState.Error).message)
     }
 
     @Test
     fun map_empty_staysEmpty() {
-        val state: UiState<Int> = UiState.Empty
+        val state: LoadState<Int> = LoadState.Empty
         val mapped = state.map { it * 2 }
-        assertTrue(mapped is UiState.Empty)
+        assertTrue(mapped is LoadState.Empty)
     }
 
     @Test
     fun onSuccess_callsActionOnSuccess() {
         var called = false
-        UiState.Success("x").onSuccess { called = true }
+        LoadState.Success("x").onSuccess { called = true }
         assertTrue(called)
     }
 
     @Test
     fun onSuccess_doesNotCallOnError() {
         var called = false
-        UiState.Error("x").onSuccess { called = true }
+        LoadState.Error("x").onSuccess { called = true }
         assertFalse(called)
     }
 
     @Test
     fun onError_callsActionOnError() {
         var msg = ""
-        UiState.Error("oops").onError { msg = it }
+        LoadState.Error("oops").onError { msg = it }
         assertEquals("oops", msg)
     }
 
     @Test
     fun onError_doesNotCallOnSuccess() {
         var called = false
-        UiState.Success("x").onError { called = true }
+        LoadState.Success("x").onError { called = true }
         assertFalse(called)
     }
 
     @Test
     fun onLoading_callsActionOnLoading() {
         var called = false
-        UiState.Loading.onLoading { called = true }
+        LoadState.Loading.onLoading { called = true }
         assertTrue(called)
     }
 
     @Test
     fun onEmpty_callsActionOnEmpty() {
         var called = false
-        UiState.Empty.onEmpty { called = true }
+        LoadState.Empty.onEmpty { called = true }
         assertTrue(called)
     }
 
     @Test
-    fun asUiState_emitsLoadingThenSuccess() = runTest {
-        val results = flowOf(42).asUiState().toList()
+    fun asLoadState_emitsLoadingThenSuccess() = runTest {
+        val results = flowOf(42).asLoadState().toList()
         assertEquals(2, results.size)
-        assertTrue(results[0] is UiState.Loading)
-        assertTrue(results[1] is UiState.Success)
-        assertEquals(42, (results[1] as UiState.Success).data)
+        assertTrue(results[0] is LoadState.Loading)
+        assertTrue(results[1] is LoadState.Success)
+        assertEquals(42, (results[1] as LoadState.Success).data)
     }
 
     @Test
-    fun runCatchingToUiState_success_emitsLoadingThenSuccess() = runTest {
-        val results = flowOf("ok").runCatchingToUiState().toList()
+    fun runCatchingToLoadState_success_emitsLoadingThenSuccess() = runTest {
+        val results = flowOf("ok").runCatchingToLoadState().toList()
         assertEquals(2, results.size)
-        assertTrue(results[0] is UiState.Loading)
-        assertEquals("ok", (results[1] as UiState.Success).data)
+        assertTrue(results[0] is LoadState.Loading)
+        assertEquals("ok", (results[1] as LoadState.Success).data)
     }
 
     @Test
-    fun runCatchingToUiState_error_emitsLoadingThenError() = runTest {
+    fun runCatchingToLoadState_error_emitsLoadingThenError() = runTest {
         val errorFlow = flow<String> { throw RuntimeException("boom") }
-        val results = errorFlow.runCatchingToUiState().toList()
+        val results = errorFlow.runCatchingToLoadState().toList()
         assertEquals(2, results.size)
-        assertTrue(results[0] is UiState.Loading)
-        assertTrue(results[1] is UiState.Error)
-        assertEquals("boom", (results[1] as UiState.Error).message)
+        assertTrue(results[0] is LoadState.Loading)
+        assertTrue(results[1] is LoadState.Error)
+        assertEquals("boom", (results[1] as LoadState.Error).message)
     }
 }

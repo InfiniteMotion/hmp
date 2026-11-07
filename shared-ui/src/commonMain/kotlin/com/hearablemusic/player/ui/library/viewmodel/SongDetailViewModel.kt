@@ -2,7 +2,7 @@ package com.hearablemusic.player.ui.library.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.hearablemusic.player.ui.common.util.UiState
+import com.hearablemusic.player.ui.common.util.LoadState
 import com.hearablemusic.player.ui.generated.resources.Res
 import com.hearablemusic.player.ui.generated.resources.music_not_found
 import com.hearablemusic.player.ui.generated.resources.unknown_error
@@ -29,14 +29,14 @@ class SongDetailViewModel(
     private val playbackHistoryUseCase: PlaybackHistoryUseCase,
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow<UiState<SongDetailData>>(UiState.Idle)
-    val uiState: StateFlow<UiState<SongDetailData>> = _uiState.asStateFlow()
+    private val _uiState = MutableStateFlow<LoadState<SongDetailData>>(LoadState.Idle)
+    val uiState: StateFlow<LoadState<SongDetailData>> = _uiState.asStateFlow()
 
     private var currentMusicId: Long? = null
 
     fun loadSongDetail(musicId: Long) {
         currentMusicId = musicId
-        _uiState.value = UiState.Loading
+        _uiState.value = LoadState.Loading
 
         viewModelScope.launch {
             try {
@@ -45,7 +45,7 @@ class SongDetailViewModel(
                     val historyFlow = playbackHistoryUseCase.getPlaybackHistory(musicId, 5)
 
                     historyFlow.collectLatest { history ->
-                        _uiState.value = UiState.Success(
+                        _uiState.value = LoadState.Success(
                             SongDetailData(
                                 musicInfo = recommendation.musicInfo!!,
                                 labels = recommendation.labels,
@@ -54,10 +54,10 @@ class SongDetailViewModel(
                         )
                     }
                 } else {
-                    _uiState.value = UiState.Error(getString(Res.string.music_not_found))
+                    _uiState.value = LoadState.Error(getString(Res.string.music_not_found))
                 }
             } catch (e: Exception) {
-                _uiState.value = UiState.Error(e.message ?: getString(Res.string.unknown_error))
+                _uiState.value = LoadState.Error(e.message ?: getString(Res.string.unknown_error))
             }
         }
     }

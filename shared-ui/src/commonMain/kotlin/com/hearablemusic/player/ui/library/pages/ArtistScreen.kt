@@ -11,12 +11,12 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
+import com.hearablemusic.player.ui.common.components.base.LoadStateContent
 import com.hearablemusic.player.ui.common.components.base.PlayControlButtonTwo
-import com.hearablemusic.player.ui.common.components.base.UiStateContent
 import com.hearablemusic.player.ui.common.dialogs.viewmodel.DialogViewModel
 import com.hearablemusic.player.ui.common.navigation.Routes
 import com.hearablemusic.player.ui.common.pages.base.SubScreen
-import com.hearablemusic.player.ui.common.util.UiState
+import com.hearablemusic.player.ui.common.util.LoadState
 import com.hearablemusic.player.ui.common.util.activityViewModel
 import com.hearablemusic.player.ui.common.util.rememberHapticFeedback
 import com.hearablemusic.player.ui.library.pages.components.musiclist.CurrentPlayingConfig
@@ -75,7 +75,7 @@ fun ArtistScreen(
 fun ArtistScreenContent(
     isPlaying: Boolean,
     artistName: String,
-    artistMusicListState: UiState<List<MusicInfo>>,
+    artistMusicListState: LoadState<List<MusicInfo>>,
     currentPlayingMusic: MusicInfo?,
     onBackClick: () -> Unit,
     onShufflePlay: (List<MusicInfo>) -> Unit,
@@ -95,7 +95,7 @@ fun ArtistScreenContent(
                 .fillMaxSize()
                 .fillMaxWidth(),
         ) {
-            UiStateContent(
+            LoadStateContent(
                 state = artistMusicListState,
                 modifier = Modifier.weight(1f),
             ) { artistMusicList ->

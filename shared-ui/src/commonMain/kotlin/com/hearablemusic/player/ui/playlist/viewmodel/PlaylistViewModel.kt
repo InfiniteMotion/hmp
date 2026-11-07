@@ -2,7 +2,7 @@ package com.hearablemusic.player.ui.playlist.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.hearablemusic.player.ui.common.util.UiState
+import com.hearablemusic.player.ui.common.util.LoadState
 import com.hearablemusic.player.ui.common.util.nowEpochMillis
 import com.hearablemusic.player.ui.generated.resources.Res
 import com.hearablemusic.player.ui.generated.resources.default_playlist
@@ -38,7 +38,7 @@ import org.jetbrains.compose.resources.getString
 
 data class PlaylistScreenUiState(
     val playlistName: String = "",
-    val playlist: UiState<List<MusicInfo>> = UiState.Idle,
+    val playlist: LoadState<List<MusicInfo>> = LoadState.Idle,
     val playlistMeta: Playlist? = null,
     val selectedPlaylistId: Long? = null,
     val isCustomPlaylist: Boolean = false,
@@ -78,8 +78,8 @@ class PlaylistViewModel(
     private val _isCustomPlaylist = MutableStateFlow(false)
     val isCustomPlaylist: StateFlow<Boolean> = _isCustomPlaylist.asStateFlow()
 
-    private val _selectedPlaylistState = MutableStateFlow<UiState<List<MusicInfo>>>(UiState.Idle)
-    val selectedPlaylistState: StateFlow<UiState<List<MusicInfo>>> = _selectedPlaylistState
+    private val _selectedPlaylistState = MutableStateFlow<LoadState<List<MusicInfo>>>(LoadState.Idle)
+    val selectedPlaylistState: StateFlow<LoadState<List<MusicInfo>>> = _selectedPlaylistState
 
     val playlistUiState: StateFlow<PlaylistScreenUiState> = combine(
         _selectedPlaylistName,
@@ -101,8 +101,8 @@ class PlaylistViewModel(
         PlaylistScreenUiState(),
     )
 
-    private val _userCustomPlaylistsState = MutableStateFlow<UiState<List<Playlist>>>(UiState.Idle)
-    val userCustomPlaylistsState: StateFlow<UiState<List<Playlist>>> = _userCustomPlaylistsState
+    private val _userCustomPlaylistsState = MutableStateFlow<LoadState<List<Playlist>>>(LoadState.Idle)
+    val userCustomPlaylistsState: StateFlow<LoadState<List<Playlist>>> = _userCustomPlaylistsState
 
     /**
      * 系统歌单 id（当前 / 心动 / 最近），供管理页按 id 排除（D3-17①）。
@@ -113,8 +113,8 @@ class PlaylistViewModel(
     private val _systemPlaylistIds = MutableStateFlow<Set<Long>>(emptySet())
     val systemPlaylistIds: StateFlow<Set<Long>> = _systemPlaylistIds.asStateFlow()
 
-    private val _allMusicForAddPickerState = MutableStateFlow<UiState<List<MusicInfo>>>(UiState.Idle)
-    val allMusicForAddPickerState: StateFlow<UiState<List<MusicInfo>>> = _allMusicForAddPickerState
+    private val _allMusicForAddPickerState = MutableStateFlow<LoadState<List<MusicInfo>>>(LoadState.Idle)
+    val allMusicForAddPickerState: StateFlow<LoadState<List<MusicInfo>>> = _allMusicForAddPickerState
 
     fun initializeDefaultPlaylists() {
         viewModelScope.launch {
@@ -138,7 +138,7 @@ class PlaylistViewModel(
         viewModelScope.launch {
             managePlaylistUseCase.getAllPlaylistsFlow()
                 .catch {
-                    _userCustomPlaylistsState.value = UiState.Error(it.message ?: "Failed to load playlists")
+                    _userCustomPlaylistsState.value = LoadState.Error(it.message ?: "Failed to load playlists")
                 }
                 .collect { all ->
                     // 口径只有一份：见 `UserPlaylistVisibility.kt`（D3-06 / D3-17①）
@@ -149,9 +149,9 @@ class PlaylistViewModel(
                     )
                     val playlists = userVisiblePlaylists(all)
                     _userCustomPlaylistsState.value = if (playlists.isEmpty()) {
-                        UiState.Empty
+                        LoadState.Empty
                     } else {
-                        UiState.Success(playlists)
+                        LoadState.Success(playlists)
                     }
                 }
         }
@@ -162,7 +162,7 @@ class PlaylistViewModel(
     fun loadPlaylistById(playlistId: Long) {
         currentPlaylistJob?.cancel()
         _selectedPlaylistId.value = playlistId
-        _selectedPlaylistState.value = UiState.Loading
+        _selectedPlaylistState.value = LoadState.Loading
 
         currentPlaylistJob = viewModelScope.launch {
             val meta = managePlaylistUseCase.getPlaylistMeta(playlistId)
@@ -175,14 +175,14 @@ class PlaylistViewModel(
 
             managePlaylistUseCase.getMusicInfoInPlaylist(playlistId)
                 .catch {
-                    _selectedPlaylistState.value = UiState.Error(it.message ?: "Failed to load playlist")
+                    _selectedPlaylistState.value = LoadState.Error(it.message ?: "Failed to load playlist")
                 }
                 .collect {
                     if (_selectedPlaylistId.value == playlistId) {
                         _selectedPlaylistState.value = if (it.isEmpty()) {
-                            UiState.Empty
+                            LoadState.Empty
                         } else {
-                            UiState.Success(it)
+                            LoadState.Success(it)
                         }
                     }
                 }
@@ -236,7 +236,7 @@ class PlaylistViewModel(
      *
      * 两条都不许冒出去（D3-17②）：系统歌单由 UseCase 返回 `false`（原先是抛
      * `IllegalArgumentException`，而 `viewModelScope` 没有异常兜底 —— 管理页删"心动"就是一次崩溃）；
-     * DB 侧异常转成 `UiState.Error`。失败时**不动**当前选中态，否则界面会假装它被删掉了。
+     * DB 侧异常转成 `LoadState.Error`。失败时**不动**当前选中态，否则界面会假装它被删掉了。
      */
     fun deletePlaylist(id: Long) {
         viewModelScope.launch {
@@ -244,17 +244,17 @@ class PlaylistViewModel(
             when {
                 result.isFailure ->
                     _userCustomPlaylistsState.value =
-                        UiState.Error(result.exceptionOrNull()?.message ?: "删除失败")
+                        LoadState.Error(result.exceptionOrNull()?.message ?: "删除失败")
 
                 result.getOrNull() == false ->
                     _userCustomPlaylistsState.value =
-                        UiState.Error("系统歌单不可删除")
+                        LoadState.Error("系统歌单不可删除")
 
                 else -> {
                     _selectedPlaylistId.value = null
                     _selectedPlaylistMeta.value = null
                     _selectedPlaylistName.value = ""
-                    _selectedPlaylistState.value = UiState.Idle
+                    _selectedPlaylistState.value = LoadState.Idle
                     _isCustomPlaylist.value = false
                     loadUserCustomPlaylists()
                 }
@@ -293,17 +293,17 @@ class PlaylistViewModel(
 
     fun loadAllMusicForAddPicker(onLoaded: ((List<MusicInfo>) -> Unit)? = null) {
         viewModelScope.launch {
-            _allMusicForAddPickerState.value = UiState.Loading
+            _allMusicForAddPickerState.value = LoadState.Loading
             try {
                 val allMusic = getAllMusicUseCase(MusicSortKey.TITLE, SortDirection.ASC)
                 _allMusicForAddPickerState.value = if (allMusic.isEmpty()) {
-                    UiState.Empty
+                    LoadState.Empty
                 } else {
-                    UiState.Success(allMusic)
+                    LoadState.Success(allMusic)
                 }
                 onLoaded?.invoke(allMusic)
             } catch (e: Exception) {
-                _allMusicForAddPickerState.value = UiState.Error(e.message ?: "Failed to load music")
+                _allMusicForAddPickerState.value = LoadState.Error(e.message ?: "Failed to load music")
             }
         }
     }
@@ -356,17 +356,17 @@ class PlaylistViewModel(
         _selectedPlaylistId.value = null
         _selectedPlaylistMeta.value = null
         _selectedPlaylistName.value = label.name
-        _selectedPlaylistState.value = UiState.Loading
+        _selectedPlaylistState.value = LoadState.Loading
         viewModelScope.launch {
             try {
                 val musicList = musicLabelUseCase.getMusicListByLabel(label)
                 _selectedPlaylistState.value = if (musicList.isEmpty()) {
-                    UiState.Empty
+                    LoadState.Empty
                 } else {
-                    UiState.Success(musicList)
+                    LoadState.Success(musicList)
                 }
             } catch (e: Exception) {
-                _selectedPlaylistState.value = UiState.Error(e.message ?: "Failed to load playlist")
+                _selectedPlaylistState.value = LoadState.Error(e.message ?: "Failed to load playlist")
             }
         }
     }
@@ -381,7 +381,7 @@ class PlaylistViewModel(
     fun getSelectedPlaylist(label: String) {
         currentPlaylistJob?.cancel()
         _selectedPlaylistName.value = label
-        _selectedPlaylistState.value = UiState.Loading
+        _selectedPlaylistState.value = LoadState.Loading
         viewModelScope.launch {
             _selectedPlaylistId.value = null
             _selectedPlaylistMeta.value = null
@@ -391,15 +391,15 @@ class PlaylistViewModel(
                 try {
                     val musicList = musicLabelUseCase.getMusicListByLabel(labelEnum)
                     _selectedPlaylistState.value = if (musicList.isEmpty()) {
-                        UiState.Empty
+                        LoadState.Empty
                     } else {
-                        UiState.Success(musicList)
+                        LoadState.Success(musicList)
                     }
                 } catch (e: Exception) {
-                    _selectedPlaylistState.value = UiState.Error(e.message ?: "Failed to load playlist")
+                    _selectedPlaylistState.value = LoadState.Error(e.message ?: "Failed to load playlist")
                 }
             } else {
-                _selectedPlaylistState.value = UiState.Empty
+                _selectedPlaylistState.value = LoadState.Empty
             }
         }
     }
