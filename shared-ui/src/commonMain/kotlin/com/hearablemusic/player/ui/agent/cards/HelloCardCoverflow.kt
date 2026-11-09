@@ -87,19 +87,17 @@ private val settleSpec = HmpMotion.snappySpring<Float>()
  * @param modifier 容器 modifier。**容器高度决定卡高**（见 [CardStackTuning.cardHeightFraction]）。
  * @param tuning 视觉调参包，横竖屏各一套（[CardStackTuning.Landscape] / [CardStackTuning.Portrait]）
  * @param onCardClick 卡片点击回调
- * @param permanentLock 外部强制锁定（电台激活）
  */
 @Composable
 internal fun HelloCardCoverflow(
     modifier: Modifier = Modifier,
     tuning: CardStackTuning = CardStackTuning.Landscape,
     onCardClick: ((SlideCard) -> Unit)? = null,
-    permanentLock: Boolean = false,
 ) {
     val metrics = LocalHmpMetrics.current
     val state = rememberHelloCardsState()
     val cards = state.cards
-    val locked = permanentLock || state.permanentLock
+    val locked = state.permanentLock
 
     // 当前"焦点索引"（浮点：拖动时是中间值，动画/静止时是整数）。
     // ⚠️ 循环模式下这个值是**不钳制**的：它可以无限增大/减小，通过 ringDelta()
@@ -352,9 +350,13 @@ internal fun HelloCardCoverflow(
                         key(cards[cardIndex].cardId) {
                             FamilyDispatch(
                                 card = cards[cardIndex],
+                                trackLookup = state.trackLookup,
                                 modifier = Modifier.fillMaxSize(),
                                 onCardClick = onCardClick,
                                 isCurrentPage = isCenter,
+                                radioMessage = state.radioMessage,
+                                radioCard = state.radioCard,
+                                currentLyricLine = state.currentLyricLine,
                             )
                         }
                     }
@@ -375,7 +377,7 @@ internal fun HelloCardCoverflow(
                     val active = kotlin.math.abs(ringDelta(index.toFloat() - offset.value, n)) < 0.5f
                     Box(
                         modifier = Modifier
-                            .size(if (active) metrics.micro else metrics.micro)
+                            .size(metrics.micro)
                             .clip(RoundedCornerShape(metrics.hair))
                             .background(
                                 if (active) dotColor else dotColor.copy(alpha = 0.3f),

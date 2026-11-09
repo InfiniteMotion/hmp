@@ -106,8 +106,8 @@ data class AnchorContent(
     val isPlaying: Boolean,
     /** 总时长（秒），0=未知 */
     val durationSec: Int,
-    /** 当前进度百分比 0-100 */
-    val progressPercent: Int,
+    // 注：实时播放进度不进快照 —— 它是 100ms 一跳的高频数据，
+    // 放进来会让整份 HelloCardsState 以 10Hz 重建；进度改由卡片从 PlaybackController 直接读取。
     /** 来源标签名（歌单/电台/手动播放——null=手动播放）*/
     val sourceLabel: String?,
 ) : SlideContent

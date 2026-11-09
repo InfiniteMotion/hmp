@@ -18,7 +18,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.unit.dp
 import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
 

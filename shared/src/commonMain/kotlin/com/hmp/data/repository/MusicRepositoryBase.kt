@@ -20,12 +20,10 @@ import com.hmp.data.mapper.toDomain
 import com.hmp.data.mapper.toEntity
 import com.hmp.data.network.AiApiResult
 import com.hmp.data.network.OpenAiCompatibleAdapter
-import com.hmp.data.network.dto.MusicInfoResponse
 import com.hmp.data.util.CoverArtStore
 import com.hmp.data.util.CoverArtWriter
 import com.hmp.data.util.MusicTagEditor
 import com.hmp.data.util.UNKNOWN_FOLDER
-import com.hmp.data.util.formatMmddFromMillis
 import com.hmp.data.util.localDateString
 import com.hmp.data.util.localDayRange
 import com.hmp.data.util.localHourOfDay
@@ -76,6 +74,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
@@ -137,10 +136,22 @@ abstract class MusicRepositoryBase(
      * 唯独 [MusicSortKey.DATE] 把"没有日期"的行**固定在末尾**，与索引条的「未知」档同一口径
      * （见 `MusicListConfig.computeDateSmartAnchors`）—— 整列反转的话，点「未知」会跳到列表头部。
      */
-    override suspend fun getAllMusicInfoAsList(key: MusicSortKey, direction: SortDirection): List<MusicInfo> {
-        val list = musicAllDao.getAllMusicInfoAsListById().map { it.toDomain() }
+    override suspend fun getAllMusicInfoAsList(key: MusicSortKey, direction: SortDirection): List<MusicInfo> = musicAllDao.getAllMusicInfoAsListById()
+        .map { it.toDomain() }
+        .sortedWith(comparatorFor(key, direction))
+
+    /**
+     * 可观察版本与一次性查询共用 [comparatorFor]：排序口径只有这一份，
+     * 屏级 VM 订阅时不需要再在 UI 侧排一遍（那会变成第二份语义）。
+     */
+    override fun observeAllMusicInfoAsList(key: MusicSortKey, direction: SortDirection): Flow<List<MusicInfo>> = musicAllDao.observeAllMusicInfoAsListById()
+        .map { rows -> rows.map { it.toDomain() }.sortedWith(comparatorFor(key, direction)) }
+        // 全库映射 + 排序不进 Main：Room 每次失效都会重跑，10k 首的库不该在播放/写库时抖 UI。
+        .flowOn(Dispatchers.Default)
+
+    private fun comparatorFor(key: MusicSortKey, direction: SortDirection): Comparator<MusicInfo> {
         val desc = direction.isDescending
-        val comparator: Comparator<MusicInfo> = when (key) {
+        return when (key) {
             MusicSortKey.TITLE ->
                 compareBy<MusicInfo>({ stringToPinyinSortKey(it.music.title) }, { it.music.title }).oriented(desc)
 
@@ -172,7 +183,6 @@ abstract class MusicRepositoryBase(
 
             MusicSortKey.ID -> compareBy<MusicInfo> { it.music.id }.oriented(desc)
         }
-        return list.sortedWith(comparator)
     }
 
     /** 降序就是把比较器整个反过来；收成一个助手，免得八个分支各写一遍 `reversed()`。 */
@@ -334,7 +344,14 @@ abstract class MusicRepositoryBase(
      * 分组口径只在这里有一份，平台只声明**本端路径用哪些分隔符**（[pathSeparators]）——
      * 分隔符是参数不是写死的 `/`，所以这条能在任意操作系统上用反斜杠路径验。
      */
-    override suspend fun getDeletedMusicIdsGroupedByFolder(): List<Pair<String, List<Long>>> = musicDao.getRemovedMusicIdAndPath()
+    override suspend fun getDeletedMusicIdsGroupedByFolder(): List<Pair<String, List<Long>>> = groupByFolder(musicDao.getRemovedMusicIdAndPath())
+
+    override fun observeDeletedMusicIdsGroupedByFolder(): Flow<List<Pair<String, List<Long>>>> = musicDao.observeRemovedMusicIdAndPath()
+        .map { rows -> groupByFolder(rows) }
+        .flowOn(Dispatchers.Default)
+
+    /** 分组口径只有这一份：一次性查询与可观察版本都走它（父目录切分仍由 [parentPathOf] 决定）。 */
+    private fun groupByFolder(rows: List<com.hmp.data.database.MusicIdPath>): List<Pair<String, List<Long>>> = rows
         .groupBy { (_, path) -> parentPathOf(path, pathSeparators) ?: UNKNOWN_FOLDER }
         .map { (folder, entries) -> folder to entries.map { it.id } }
         .sortedByDescending { it.second.size }

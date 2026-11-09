@@ -25,30 +25,34 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
 import coil3.compose.AsyncImage
 import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
 import com.hearablemusic.player.ui.common.design.typography.medium
-import com.hearablemusic.player.ui.common.dialogs.viewmodel.DialogViewModel
+import com.hearablemusic.player.ui.common.dialogs.CreatePlaylistDialog
+import com.hearablemusic.player.ui.common.dialogs.MusicPickerDialog
+import com.hearablemusic.player.ui.common.dialogs.viewmodel.DialogManagerViewModel
 import com.hearablemusic.player.ui.common.navigation.Routes
 import com.hearablemusic.player.ui.common.pages.base.SubScreen
+import com.hearablemusic.player.ui.common.text.resolveForEffect
 import com.hearablemusic.player.ui.common.util.LoadState
+import com.hearablemusic.player.ui.common.util.LocalAppHazeState
+import com.hearablemusic.player.ui.common.util.LocalHazeRenderSettings
 import com.hearablemusic.player.ui.common.util.activityViewModel
 import com.hearablemusic.player.ui.common.util.rememberHapticFeedback
 import com.hearablemusic.player.ui.generated.resources.Res
+import com.hearablemusic.player.ui.generated.resources.add_songs_to_playlist_dialog
 import com.hearablemusic.player.ui.generated.resources.cancel
 import com.hearablemusic.player.ui.generated.resources.chevron_right
 import com.hearablemusic.player.ui.generated.resources.delete_playlist
@@ -62,10 +66,8 @@ import com.hearablemusic.player.ui.generated.resources.no_playlists_available
 import com.hearablemusic.player.ui.generated.resources.ok
 import com.hearablemusic.player.ui.generated.resources.pin_playlist
 import com.hearablemusic.player.ui.generated.resources.play_count_display
-import com.hearablemusic.player.ui.generated.resources.playlist_name_empty
-import com.hearablemusic.player.ui.generated.resources.playlist_name_exists
+import com.hearablemusic.player.ui.generated.resources.playlist_created
 import com.hearablemusic.player.ui.generated.resources.playlist_name_hint
-import com.hearablemusic.player.ui.generated.resources.playlist_name_too_long
 import com.hearablemusic.player.ui.generated.resources.plus
 import com.hearablemusic.player.ui.generated.resources.rename_playlist
 import com.hearablemusic.player.ui.generated.resources.songs_count
@@ -75,19 +77,49 @@ import com.hearablemusic.player.ui.generated.resources.title_manage_user_playlis
 import com.hearablemusic.player.ui.generated.resources.trash
 import com.hearablemusic.player.ui.generated.resources.unpin_playlist
 import com.hearablemusic.player.ui.playlist.manageablePlaylists
+import com.hearablemusic.player.ui.playlist.playlistNameErrorText
+import com.hearablemusic.player.ui.playlist.sortedForManagement
+import com.hearablemusic.player.ui.playlist.viewmodel.PlaylistEditorEffect
+import com.hearablemusic.player.ui.playlist.viewmodel.PlaylistEditorViewModel
+import com.hearablemusic.player.ui.playlist.viewmodel.PlaylistManageViewModel
 import com.hearablemusic.player.ui.playlist.viewmodel.PlaylistViewModel
 import com.hmp.domain.playlist.Playlist
-import com.hmp.domain.playlist.PlaylistNameError
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
+import org.koin.compose.viewmodel.koinViewModel
 
 @Composable
 fun PlaylistManageScreen(
+    // 屏级 VM：编辑模式与两组成对确认链只服务本屏，随 entry 销毁
+    screenViewModel: PlaylistManageViewModel = koinViewModel(),
+    // 跨屏数据 VM：自建歌单列表与系统歌单 id
     playlistViewModel: PlaylistViewModel = activityViewModel(),
-    dialogViewModel: DialogViewModel = activityViewModel(),
+    editorViewModel: PlaylistEditorViewModel = koinViewModel(),
+    dialogManagerViewModel: DialogManagerViewModel = activityViewModel(),
     navController: NavBackStack<NavKey>,
 ) {
+    val editorState by editorViewModel.uiState.collectAsState()
+    val dialogManager = dialogManagerViewModel.dialogManager
+    val playlistCreatedMessage = stringResource(Res.string.playlist_created)
     val metrics = LocalHmpMetrics.current
+
+    // 弹窗归屏：新建后跳到新歌单，结果不再经应用级 VM 的回调字段
+    LaunchedEffect(Unit) {
+        editorViewModel.effect.collect { effect ->
+            when (effect) {
+                is PlaylistEditorEffect.Saved -> {
+                    dialogManager.showMessage(playlistCreatedMessage)
+                    navController.add(Routes.Playlist.CustomPlaylist(effect.playlistId))
+                }
+
+                is PlaylistEditorEffect.Message -> dialogManager.showMessage(effect.text.resolveForEffect())
+            }
+        }
+    }
+
+    // 五态隐式状态机的唯一出口：编辑模式 / 待删 / 待改名 / 输入草稿 / 校验错误
+    val uiState by screenViewModel.uiState.collectAsState()
+    // 跨屏共享的自建歌单 / 系统歌单 id 是投影白名单
     val userCustomPlaylistsState by playlistViewModel.userCustomPlaylistsState.collectAsState()
     val systemPlaylistIds by playlistViewModel.systemPlaylistIds.collectAsState()
     // D3-17①（用户决议）：管理页只列用户自建歌单，三个系统歌单不出现 ——
@@ -99,95 +131,55 @@ fun PlaylistManageScreen(
         )
     }
     val haptic = rememberHapticFeedback()
-    var isEditMode by remember { mutableStateOf(false) }
-    var playlistToDelete by remember { mutableStateOf<Playlist?>(null) }
-    var playlistToRename by remember { mutableStateOf<Playlist?>(null) }
-    var renameValue by remember { mutableStateOf("") }
 
     val sortedList = remember(userCustomPlaylists) {
-        userCustomPlaylists.sortedWith(
-            compareByDescending<Playlist> { it.isPinned }
-                .thenByDescending { it.lastPlayedAt ?: 0L }
-                .thenByDescending { it.updatedAt },
-        )
+        sortedForManagement(userCustomPlaylists)
     }
 
-    if (playlistToDelete != null) {
-        val p = playlistToDelete!!
+    if (uiState.pendingDelete != null) {
         AlertDialog(
-            onDismissRequest = { playlistToDelete = null },
+            onDismissRequest = screenViewModel::onDeleteDismissed,
             title = { Text(stringResource(Res.string.delete_playlist)) },
             text = { Text(stringResource(Res.string.delete_playlist_confirm)) },
             confirmButton = {
-                TextButton(
-                    onClick = {
-                        playlistViewModel.deletePlaylist(p.id)
-                        playlistToDelete = null
-                    },
-                ) {
+                TextButton(onClick = screenViewModel::onDeleteConfirmed) {
                     Text(stringResource(Res.string.delete_playlist), color = MaterialTheme.colorScheme.error)
                 }
             },
             dismissButton = {
-                TextButton(onClick = { playlistToDelete = null }) {
+                TextButton(onClick = screenViewModel::onDeleteDismissed) {
                     Text(stringResource(Res.string.cancel))
                 }
             },
         )
     }
 
-    if (playlistToRename != null) {
-        val p = playlistToRename!!
-        // 名称规则由 UseCase 强制（D3-05④），这里只做"把错误码翻成文案"——
-        // 过去这个对话框只判非空，能改出超长名和大小写重名。
-        var renameError by remember { mutableStateOf<PlaylistNameError?>(null) }
+    if (uiState.pendingRename != null) {
+        // 名称规则由 UseCase 强制（D3-05④），UI 只把错误码翻成文案；
+        // 草稿、错误、待改名对象都在 UiState 里，dismiss 一次清干净。
+        val renameError = uiState.renameError
         AlertDialog(
-            onDismissRequest = {
-                playlistToRename = null
-                renameValue = ""
-                renameError = null
-            },
+            onDismissRequest = screenViewModel::onRenameDismissed,
             title = { Text(stringResource(Res.string.rename_playlist)) },
             text = {
                 OutlinedTextField(
-                    value = renameValue,
-                    onValueChange = {
-                        renameValue = it
-                        if (renameError != null) renameError = null
-                    },
+                    value = uiState.renameValue,
+                    onValueChange = screenViewModel::onRenameValueChange,
                     label = { Text(stringResource(Res.string.playlist_name_hint)) },
                     singleLine = true,
                     isError = renameError != null,
-                    supportingText = if (renameError == null) {
-                        null
-                    } else {
-                        { Text(playlistNameErrorText(renameError!!), color = MaterialTheme.colorScheme.error) }
+                    supportingText = renameError?.let { err ->
+                        { Text(playlistNameErrorText(err), color = MaterialTheme.colorScheme.error) }
                     },
                 )
             },
             confirmButton = {
-                TextButton(
-                    onClick = {
-                        // 不用先判空：空名由同一套规则判，界面只负责显示（否则又多一份口径）
-                        playlistViewModel.renamePlaylist(p.id, renameValue) { error ->
-                            if (error == null) {
-                                playlistToRename = null
-                                renameValue = ""
-                            } else {
-                                renameError = error
-                            }
-                        }
-                    },
-                ) {
+                TextButton(onClick = screenViewModel::onRenameConfirmed) {
                     Text(stringResource(Res.string.ok), color = MaterialTheme.colorScheme.primary)
                 }
             },
             dismissButton = {
-                TextButton(onClick = {
-                    playlistToRename = null
-                    renameValue = ""
-                    renameError = null
-                }) {
+                TextButton(onClick = screenViewModel::onRenameDismissed) {
                     Text(stringResource(Res.string.cancel))
                 }
             },
@@ -201,7 +193,7 @@ fun PlaylistManageScreen(
             FilledIconButton(
                 onClick = {
                     haptic.performClick()
-                    isEditMode = !isEditMode
+                    screenViewModel.onToggleEditMode()
                 },
                 modifier = Modifier.size(metrics.block),
                 colors = IconButtonDefaults.filledIconButtonColors(
@@ -210,7 +202,7 @@ fun PlaylistManageScreen(
                 ),
             ) {
                 Icon(
-                    painter = painterResource(if (isEditMode) Res.drawable.ic_gallery_material_select_checkbox else Res.drawable.gearshape),
+                    painter = painterResource(if (uiState.isEditMode) Res.drawable.ic_gallery_material_select_checkbox else Res.drawable.gearshape),
                     contentDescription = stringResource(Res.string.edit_list),
                     modifier = Modifier.size(metrics.cozy),
                 )
@@ -243,19 +235,16 @@ fun PlaylistManageScreen(
                 items(sortedList, key = { it.id }) { playlist ->
                     UserPlaylistRow(
                         playlist = playlist,
-                        isEditMode = isEditMode,
+                        isEditMode = uiState.isEditMode,
                         onClick = {
                             haptic.performClick()
                             navController.add(Routes.Playlist.CustomPlaylist(playlist.id))
                         },
-                        onDelete = { playlistToDelete = playlist },
-                        onRename = {
-                            playlistToRename = playlist
-                            renameValue = playlist.name
-                        },
+                        onDelete = { screenViewModel.onDeleteRequested(playlist) },
+                        onRename = { screenViewModel.onRenameRequested(playlist) },
                         onSetPinned = { pinned ->
                             haptic.performClick()
-                            playlistViewModel.setPlaylistPinned(playlist.id, pinned)
+                            screenViewModel.onSetPinned(playlist.id, pinned)
                         },
                     )
                 }
@@ -264,10 +253,7 @@ fun PlaylistManageScreen(
             FilledIconButton(
                 onClick = {
                     haptic.performClick()
-                    dialogViewModel.showCreatePlaylistDialog { id ->
-                        playlistViewModel.loadUserCustomPlaylists()
-                        navController.add(Routes.Playlist.CustomPlaylist(id))
-                    }
+                    editorViewModel.onCreateRequested()
                 },
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
@@ -286,6 +272,31 @@ fun PlaylistManageScreen(
                 )
             }
         }
+    }
+
+    if (editorState.visible) {
+        CreatePlaylistDialog(
+            state = editorState,
+            onNameChange = editorViewModel::onNameChange,
+            onDescriptionChange = editorViewModel::onDescriptionChange,
+            onPinnedChange = editorViewModel::onPinnedChange,
+            onAddSongs = editorViewModel::onAddSongsRequested,
+            onSubmit = editorViewModel::onSubmit,
+            onDismiss = editorViewModel::onDismiss,
+            hazeState = LocalAppHazeState.current,
+            hazeRenderSettings = LocalHazeRenderSettings.current,
+        )
+    }
+    editorState.musicPicker?.let { picker ->
+        MusicPickerDialog(
+            allMusic = picker.allMusic,
+            selectedIds = picker.selectedIds,
+            title = stringResource(Res.string.add_songs_to_playlist_dialog),
+            onConfirm = editorViewModel::onSongsPicked,
+            onDismiss = editorViewModel::onMusicPickerDismissed,
+            hazeState = LocalAppHazeState.current,
+            hazeRenderSettings = LocalHazeRenderSettings.current,
+        )
     }
 }
 
@@ -418,12 +429,4 @@ private fun UserPlaylistRow(
             }
         }
     }
-}
-
-/** 名称错误码 → 本地化文案。规则在 domain，文案在 UI（D3-05④）。 */
-@Composable
-private fun playlistNameErrorText(error: PlaylistNameError): String = when (error) {
-    PlaylistNameError.EMPTY -> stringResource(Res.string.playlist_name_empty)
-    PlaylistNameError.TOO_LONG -> stringResource(Res.string.playlist_name_too_long)
-    PlaylistNameError.DUPLICATE -> stringResource(Res.string.playlist_name_exists)
 }

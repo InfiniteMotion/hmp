@@ -6,8 +6,6 @@ import androidx.sqlite.SQLiteConnection
 import androidx.sqlite.SQLiteDriver
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import androidx.sqlite.execSQL
-import com.hmp.data.database.myenum.LabelCategory
-import com.hmp.data.database.myenum.LabelName
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.Rule

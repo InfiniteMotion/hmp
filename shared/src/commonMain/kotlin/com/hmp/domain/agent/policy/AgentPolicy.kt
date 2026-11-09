@@ -3,7 +3,6 @@ package com.hmp.domain.agent.policy
 import com.hmp.domain.agent.config.EngineDefaults
 import com.hmp.domain.agent.config.ResolvedAgentConfig
 import com.hmp.domain.agent.config.RuntimeParams
-import com.hmp.domain.agent.port.AuditLogPort
 import com.hmp.domain.agent.port.ConfirmGate
 import com.hmp.domain.agent.port.ToolPermissionLevel
 

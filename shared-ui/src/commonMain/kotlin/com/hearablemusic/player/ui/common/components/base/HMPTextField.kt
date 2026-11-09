@@ -22,7 +22,6 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
 import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
 

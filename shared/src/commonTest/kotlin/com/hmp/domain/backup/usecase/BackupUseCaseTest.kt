@@ -2,7 +2,6 @@ package com.hmp.domain.backup.usecase
 
 import com.hmp.domain.backup.BackupFileRepository
 import com.hmp.domain.backup.BackupRestoreFailedException
-import com.hmp.domain.backup.UserBackupSnapshot
 import com.hmp.test.fakes.FakeBackupFileRepository
 import com.hmp.test.fakes.FakeMusicRepository
 import com.hmp.test.fakes.FakePlaylistRepository

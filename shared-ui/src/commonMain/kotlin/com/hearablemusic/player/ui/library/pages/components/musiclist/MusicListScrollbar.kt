@@ -20,7 +20,6 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.unit.dp
 import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 import com.hearablemusic.player.ui.common.util.rememberPlatformHaptics
 import com.hearablemusic.player.ui.platform.HapticEffect

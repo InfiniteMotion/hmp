@@ -22,6 +22,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -32,7 +33,6 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
 import com.hearablemusic.player.ui.common.components.SectionHeader
@@ -46,6 +46,7 @@ import com.hearablemusic.player.ui.common.navigation.Routes
 import com.hearablemusic.player.ui.common.pages.base.SubScreen
 import com.hearablemusic.player.ui.common.text.asString
 import com.hearablemusic.player.ui.common.util.HapticFeedbackHelper
+import com.hearablemusic.player.ui.common.util.activityViewModel
 import com.hearablemusic.player.ui.common.util.commonFormat
 import com.hearablemusic.player.ui.common.util.formatEpochMillis
 import com.hearablemusic.player.ui.common.util.rememberHapticFeedback
@@ -84,18 +85,21 @@ import com.hmp.domain.setting.model.LabelCountEntry
 import com.hmp.domain.setting.model.RecentPlaybackEntry
 import com.hmp.domain.setting.model.TopPlayedEntry
 import org.jetbrains.compose.resources.stringResource
-import org.koin.compose.viewmodel.koinViewModel
 
 @Composable
 fun UserUsageDataScreen(
     navController: NavBackStack<NavKey>,
-    viewModel: UserUsageDataViewModel = koinViewModel(),
+    viewModel: UserUsageDataViewModel = activityViewModel(),
 ) {
     val metrics = LocalHmpMetrics.current
-    val personality by viewModel.personality.collectAsState()
-    val dimension by viewModel.dimension.collectAsState()
-    val timeRange by viewModel.timeRange.collectAsState()
-    val windowed by viewModel.windowed.collectAsState()
+    // 唯一状态出口：累计画像、筛选两轴与窗口数据都在这里
+    val uiState by viewModel.uiState.collectAsState()
+    // 画像/叙事只在真正进入本页时加载（UserScreen 共享本实例但不触发）
+    LaunchedEffect(Unit) { viewModel.onScreenEnter() }
+    val personality = uiState.personality
+    val dimension = uiState.dimension
+    val timeRange = uiState.timeRange
+    val windowed = uiState.windowed
 
     val scrollState = rememberScrollState()
     val haptic = rememberHapticFeedback()
@@ -119,12 +123,12 @@ fun UserUsageDataScreen(
             // ═══════════ 筛选轴 ═══════════
             DimensionSelector(
                 selected = dimension,
-                onSelect = { viewModel.selectDimension(it) },
+                onSelect = { viewModel.onDimensionSelected(it) },
             )
             Spacer(modifier = Modifier.height(metrics.compact))
             TimeRangeSwitcher(
                 selected = timeRange,
-                onSelect = { viewModel.selectTimeRange(it) },
+                onSelect = { viewModel.onTimeRangeSelected(it) },
             )
             Spacer(modifier = Modifier.height(metrics.section))
 
@@ -997,47 +1001,6 @@ private fun TimeRangeSwitcher(
     )
 }
 
-/** 报告叙事段（时间敏感）—— HelloReportNarrativeEntity 的 narrative 文本。 */
-@Composable
-private fun ReportNarrativeCard(text: String, rangeLabel: String) {
-    val metrics = LocalHmpMetrics.current
-    val typo = LocalHmpTypo.current
-    HMPCard(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(metrics.cozy),
-        containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.35f),
-        borderColor = MaterialTheme.colorScheme.secondary.copy(alpha = 0.15f),
-        contentPadding = Modifier.padding(metrics.section),
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(metrics.compact),
-        ) {
-            Box(
-                modifier = Modifier
-                    .width(metrics.micro)
-                    .height(metrics.section)
-                    .clip(RoundedCornerShape(metrics.hair))
-                    .background(MaterialTheme.colorScheme.secondary),
-            )
-            Text(
-                text = rangeLabel,
-                style = typo.caption,
-                fontWeight = FontWeight.Medium,
-                color = MaterialTheme.colorScheme.secondary,
-            )
-        }
-        Spacer(modifier = Modifier.height(metrics.compact))
-        Text(
-            text = text,
-            style = typo.body,
-            fontWeight = FontWeight.Medium,
-            color = MaterialTheme.colorScheme.onSecondaryContainer,
-            lineHeight = typo.body.fontSize * 1.6,
-        )
-    }
-}
-
 /** 时段分布柱图——24 小时 × 播放次数 + 伙伴解读。 */
 @Composable
 private fun HourlyChart(rows: List<HourlyDistributionRow>) {
@@ -1106,7 +1069,7 @@ private fun HourlyChart(rows: List<HourlyDistributionRow>) {
         Spacer(modifier = Modifier.height(metrics.micro))
         // 时间标签（只标 0 / 6 / 12 / 18）
         Row(modifier = Modifier.fillMaxWidth()) {
-            listOf(0, 6, 12, 18, 23).forEachIndexed { idx, hour ->
+            listOf(0, 6, 12, 18, 23).forEach { hour ->
                 Text(
                     text = "$hour",
                     style = typo.caption,

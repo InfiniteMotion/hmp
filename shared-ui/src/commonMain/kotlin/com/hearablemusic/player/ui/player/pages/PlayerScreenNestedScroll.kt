@@ -1,17 +1,14 @@
 package com.hearablemusic.player.ui.player.pages
 
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Velocity
-import androidx.compose.ui.unit.dp
 import com.hearablemusic.player.ui.common.design.animation.HmpMotion
 import com.hearablemusic.player.ui.common.design.metrics.LayoutConstraints
 import kotlinx.coroutines.CoroutineScope
@@ -26,8 +23,12 @@ fun rememberPlayerScreenNestedScroll(
     onDismiss: () -> Unit,
 ): NestedScrollConnection {
     val density = LocalDensity.current
+    // 回调参数每次重组都是新 lambda：不能进 remember key（否则连接对象每帧重建、手势被打断），
+    // 用 rememberUpdatedState 让连接始终读到最新闭包。
+    val currentHaptic = rememberUpdatedState(haptic)
+    val currentOnDismiss = rememberUpdatedState(onDismiss)
 
-    return remember(dismissThreshold, offsetY, scope, haptic, onDismiss) {
+    return remember(dismissThreshold, offsetY, scope, density) {
         object : NestedScrollConnection {
             override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
                 if (available.y < 0 && offsetY.value > 0f && source == NestedScrollSource.UserInput) {
@@ -48,7 +49,7 @@ fun rememberPlayerScreenNestedScroll(
                         val newOffset = (offsetY.value + delta).coerceAtLeast(0f)
                         offsetY.snapTo(newOffset)
                         if (newOffset > dismissThreshold * 0.5f && newOffset < dismissThreshold * 0.6f) {
-                            haptic()
+                            currentHaptic.value()
                         }
                     }
                     return Offset(0f, available.y)
@@ -59,14 +60,14 @@ fun rememberPlayerScreenNestedScroll(
             override suspend fun onPreFling(available: Velocity): Velocity {
                 if (offsetY.value > 0f) {
                     if (offsetY.value > dismissThreshold) {
-                        onDismiss()
-                        haptic()
+                        currentOnDismiss.value()
+                        currentHaptic.value()
                         offsetY.animateTo(
                             targetValue = with(density) { LayoutConstraints.NestedScrollTarget.toPx() },
                             animationSpec = HmpMotion.exit(),
                         )
                     } else {
-                        haptic()
+                        currentHaptic.value()
                         offsetY.animateTo(
                             targetValue = 0f,
                             animationSpec = HmpMotion.snappySpring(),

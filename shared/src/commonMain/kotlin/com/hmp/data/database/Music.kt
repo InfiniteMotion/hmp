@@ -167,6 +167,16 @@ interface MusicDao {
     )
     suspend fun getRemovedMusicIdAndPath(): List<MusicIdPath>
 
+    /** [getRemovedMusicIdAndPath] 的可观察版本：删除 / 恢复 / 撤销都要让「已隐藏文件夹」自己回流。 */
+    @Query(
+        """
+        SELECT music.id, music.path FROM music
+        INNER JOIN userInfo ON music.id = userInfo.id
+        WHERE music.isDeleted = 1 AND userInfo.removedByUser = 1
+    """,
+    )
+    fun observeRemovedMusicIdAndPath(): Flow<List<MusicIdPath>>
+
     @Query("UPDATE music SET title = :title, artist = :artist, album = :album WHERE id = :id")
     suspend fun updateMusicTags(id: Long, title: String, artist: String, album: String)
 
@@ -468,6 +478,17 @@ interface MusicAllDao {
     @Transaction
     @Query("SELECT * FROM music LEFT JOIN musicExtra ON music.id = musicExtra.id LEFT JOIN userInfo ON music.id = userInfo.id WHERE music.isDeleted = 0 ORDER BY music.id ASC")
     suspend fun getAllMusicInfoAsListById(): List<MusicInfo>
+
+    /**
+     * [getAllMusicInfoAsListById] 的可观察版本（7.5 VM 拆分）。
+     *
+     * 曲库列表从「写完手动重查再赋值」改成对 Room 的订阅：删除 / 恢复 / 扫描落库 / agent 工具
+     * 任何来源的写入都会回流，不存在「某条入口忘了刷新」这一类缺口。排序仍由
+     * [com.hmp.data.repository.MusicRepositoryBase] 的内存比较器统一做，SQL 只返回全表。
+     */
+    @Transaction
+    @Query("SELECT * FROM music LEFT JOIN musicExtra ON music.id = musicExtra.id LEFT JOIN userInfo ON music.id = userInfo.id WHERE music.isDeleted = 0 ORDER BY music.id ASC")
+    fun observeAllMusicInfoAsListById(): Flow<List<MusicInfo>>
 
     /**
      * 艺术家 / 专辑总览（D2-15）：**一次 `GROUP BY` 算完**，取代"全库载入内存再逐行分组"。

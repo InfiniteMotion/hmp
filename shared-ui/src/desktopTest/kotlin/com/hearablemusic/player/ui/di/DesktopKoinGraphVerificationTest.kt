@@ -20,7 +20,7 @@ import kotlin.test.Test
  * `NowPlayingContextProvider` 当外部类型登记放行 —— 也就是说"UI 侧删一条注册"它不会报。
  * 本条按 `HmpDesktopApplication.init()` 的实际装配
  * （`initKoinDesktop(desktopPlayerModule, desktopUiModule)`，两者再叠 `sharedModule` + 平台模块）
- * 把四个模块一起验，上面那 5 个 bean 由 `desktopUiModule → includes(chatGatewayModule)` 真实提供，
+ * 把四个模块一起验，上面那 5 个 bean 由 `desktopUiModule → includes(uiViewModelModule) → includes(chatGatewayModule)` 真实提供，
  * 不再是人为登记项。
  *
  * **实测信号**：注释掉 `single<PlaybackController> { DesktopMusicControllerPlaybackAdapter(get()) }`

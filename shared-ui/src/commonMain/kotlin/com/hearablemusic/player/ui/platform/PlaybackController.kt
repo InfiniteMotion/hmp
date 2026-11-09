@@ -143,3 +143,8 @@ interface PlaybackController {
     fun startProgressTracking()
     fun stopProgressTracking()
 }
+
+/** 播放/暂停切换的唯一口径：组合根底栏与播放页共用，避免两处各写一遍 if。 */
+fun PlaybackController.togglePlayPause(isPlaying: Boolean) {
+    if (isPlaying) pauseMusic() else playOrResume()
+}

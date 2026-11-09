@@ -1,6 +1,5 @@
 package com.hearablemusic.player.ui
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
@@ -41,11 +40,9 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
-import com.hearablemusic.player.ui.agent.shell.AgentNotice
 import com.hearablemusic.player.ui.agent.shell.AgentNoticeBar
 import com.hearablemusic.player.ui.agent.shell.BottomFusionBar
 import com.hearablemusic.player.ui.agent.shell.FusionSidebar
@@ -60,9 +57,7 @@ import com.hearablemusic.player.ui.common.design.theme.ThemeExtensionManager
 import com.hearablemusic.player.ui.common.design.typography.HMPTypoTokens
 import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
 import com.hearablemusic.player.ui.common.design.typography.m3ComponentTypography
-import com.hearablemusic.player.ui.common.dialogs.CreatePlaylistDialog
 import com.hearablemusic.player.ui.common.dialogs.MusicDetailDialog
-import com.hearablemusic.player.ui.common.dialogs.MusicPickerDialog
 import com.hearablemusic.player.ui.common.dialogs.PlaylistPickerDialog
 import com.hearablemusic.player.ui.common.dialogs.TimerDialog
 import com.hearablemusic.player.ui.common.dialogs.base.MessageToast
@@ -76,7 +71,6 @@ import com.hearablemusic.player.ui.common.layout.rememberAppWindowSizeInfo
 import com.hearablemusic.player.ui.common.navigation.Routes
 import com.hearablemusic.player.ui.common.navigation.navigationGraph
 import com.hearablemusic.player.ui.common.navigation.rememberHmpNavBackStack
-import com.hearablemusic.player.ui.common.navigation.rememberRouter
 import com.hearablemusic.player.ui.common.pages.DatabaseTooNewScreen
 import com.hearablemusic.player.ui.common.pages.base.BackgroundStyle
 import com.hearablemusic.player.ui.common.pages.base.DynamicBackground
@@ -88,35 +82,19 @@ import com.hearablemusic.player.ui.common.util.DEFAULT_HAZE_MODE
 import com.hearablemusic.player.ui.common.util.DEFAULT_HAZE_NOISE_FACTOR
 import com.hearablemusic.player.ui.common.util.DEFAULT_HAZE_TINT_ALPHA
 import com.hearablemusic.player.ui.common.util.HazeRenderSettings
+import com.hearablemusic.player.ui.common.util.LocalAppHazeState
 import com.hearablemusic.player.ui.common.util.ProvideHazeRenderSettings
 import com.hearablemusic.player.ui.common.util.activityViewModel
 import com.hearablemusic.player.ui.common.util.rememberHapticFeedback
 import com.hearablemusic.player.ui.common.viewmodel.ThemeViewModel
-import com.hearablemusic.player.ui.generated.resources.Res
-import com.hearablemusic.player.ui.generated.resources.default_playlist
-import com.hearablemusic.player.ui.generated.resources.heart
-import com.hearablemusic.player.ui.generated.resources.notice_off_taste
-import com.hearablemusic.player.ui.generated.resources.notice_skipped
-import com.hearablemusic.player.ui.generated.resources.recently_played
-import com.hearablemusic.player.ui.player.viewmodel.PlaybackViewModel
-import com.hearablemusic.player.ui.player.viewmodel.PlaylistQueueViewModel
+import com.hearablemusic.player.ui.platform.PlaybackController
+import com.hearablemusic.player.ui.platform.togglePlayPause
 import com.hearablemusic.player.ui.settings.viewmodel.SettingsViewModel
-import com.hearablemusic.player.ui.startup.DefaultPlaylistGuard
 import com.hmp.data.database.AppDatabaseGuard
-import com.hmp.domain.agent.infra.PresenceBus
-import com.hmp.domain.agent.infra.PresenceEvent
-import com.hmp.domain.agent.runtime.MasterAgent
-import com.hmp.domain.agent.runtime.sub.radio.RadioState
-import com.hmp.domain.music.MusicRepository
-import com.hmp.domain.playlist.usecase.ManagePlaylistUseCase
-import com.hmp.domain.setting.SettingsRepository
-import com.hmp.domain.setting.usecase.LyricsSettingsUseCase
+import com.hmp.domain.agent.runtime.sub.radio.isActive
 import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.rememberHazeState
-import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import org.jetbrains.compose.resources.getString
 import org.koin.compose.koinInject
 
 /**
@@ -140,43 +118,28 @@ fun AppRoot(darkTheme: Boolean) {
     }
 
     val settingsViewModel: SettingsViewModel = activityViewModel()
-    val playbackViewModel: PlaybackViewModel = activityViewModel()
-    val playlistQueueViewModel: PlaylistQueueViewModel = activityViewModel()
     val themeViewModel: ThemeViewModel = activityViewModel()
     val dialogManagerViewModel: DialogManagerViewModel = activityViewModel()
     val dialogViewModel: DialogViewModel = activityViewModel()
     val platformServices = koinInject<com.hearablemusic.player.ui.platform.PlatformServices>()
-    val presenceBus = koinInject<PresenceBus>()
-    // 电台状态：伙伴胶囊在电台开启期间兼任电台状态位（换图标 + 长按打开控制台）
-    val masterAgent: MasterAgent = koinInject()
-    // 控制台点节目单跳曲目：RadioTrack 只有 id，得按 id 查回 MusicInfo 才能播放（同 HomeScreen 先例）
-    val musicRepository: MusicRepository = koinInject()
+    // 7.5 P1：播放态投影与动作直接走平台门面（旧 VM 是 controller 的零逻辑包装）
+    val playbackController: PlaybackController = koinInject()
+    val appRootViewModel: AppRootViewModel = activityViewModel()
+    val appRootState by appRootViewModel.uiState.collectAsState()
 
     // 启动不变量：系统歌单存在性校验 + 自愈（每次启动一次，详见 DefaultPlaylistGuard KDoc）
-    val guardManagePlaylistUseCase: ManagePlaylistUseCase = koinInject()
-    val guardSettingsRepository: SettingsRepository = koinInject()
-    LaunchedEffect(Unit) {
-        DefaultPlaylistGuard(guardManagePlaylistUseCase, guardSettingsRepository).ensureAll(
-            currentName = getString(Res.string.default_playlist),
-            likedName = getString(Res.string.heart),
-            recentName = getString(Res.string.recently_played),
-        )
-    }
+    LaunchedEffect(Unit) { appRootViewModel.ensureDefaultPlaylists() }
 
     val dialogManager = dialogManagerViewModel.dialogManager
     // 订阅调色板、当前曲目与播放状态
-    val currentMusic by playlistQueueViewModel.currentPlayingMusic.collectAsState()
+    val currentMusic by playbackController.currentPlayingMusic.collectAsState()
     val paletteColors by themeViewModel.paletteColors.collectAsState()
-    val isPlaying by playbackViewModel.isPlaying.collectAsState()
-    val currentPosition by playbackViewModel.currentPosition.collectAsState()
-    val duration by playbackViewModel.duration.collectAsState()
+    val isPlaying by playbackController.isPlaying.collectAsState()
 
     // 电台「已开启」= PLAYING / PAUSED / BUILDING（外部不区分停止与暂停，与 RadioCard 同一口径）：
     // 暂停态由电台自管且可恢复，对它显示"已关闭"会误导。
-    val radioState by masterAgent.radioState.collectAsState()
-    val radioActive = radioState is RadioState.PLAYING ||
-        radioState is RadioState.PAUSED ||
-        radioState is RadioState.BUILDING
+    val radioState = appRootState.radioState
+    val radioActive = radioState.isActive()
 
     // 背景样式与 haze 渲染设置
     val backgroundStyleString by settingsViewModel.backgroundStyle.collectAsState("FLUID")
@@ -207,55 +170,45 @@ fun AppRoot(darkTheme: Boolean) {
         ThemeExtensionManager.getColorScheme(darkTheme)
     }
 
-    // DialogHost状态
-    val dialogEvent by dialogManager.dialogEvent.collectAsState(null)
+    // DialogHost 状态：一次性事件由单个 collector 分发，SharedFlow 不做状态化 ——
+    // 状态化会让后到事件覆盖前一件（确认链被 toast 顶掉），同值事件也会被吞。
     val hazeState = rememberHazeState()
-    val messageToShowState = remember { mutableStateOf<DialogEvent.Message?>(null) }
+    // toast 队列：连续事件按序展示；原单槽会在前一条未显示完时被后一条覆盖。
+    var messageQueue by remember { mutableStateOf<List<DialogEvent.Message>>(emptyList()) }
+    var confirmChain by remember { mutableStateOf<DialogEvent.ConfirmChain?>(null) }
 
-    // 启动时按配置启动悬浮歌词（平台能力经 PlatformServices）
-    val lyricsSettingsUseCase: LyricsSettingsUseCase = koinInject()
+    // 启动时按配置启动悬浮歌词：配置读取与异常处理在 AppRootViewModel，平台启动留在组合点
     LaunchedEffect(Unit) {
-        try {
-            if (lyricsSettingsUseCase.floatingLyricsEnabled.first() && platformServices.permission.hasOverlayPermission()) {
-                platformServices.floatingLyrics.start()
-            }
-        } catch (_: Exception) {}
-    }
-
-    LaunchedEffect(dialogEvent) {
-        when (dialogEvent) {
-            is DialogEvent.Message -> {
-                messageToShowState.value = dialogEvent as DialogEvent.Message
-            }
-
-            is DialogEvent.DismissTimerDialog -> {
-                dialogViewModel.dismissTimerDialog()
-            }
-
-            is DialogEvent.ShareMusic -> {
-                val shareEvent = dialogEvent as DialogEvent.ShareMusic
-                platformServices.share.shareMusic(
-                    com.hearablemusic.player.ui.platform.ShareMusicRequest(
-                        filePath = shareEvent.filePath,
-                        title = shareEvent.title,
-                        artist = shareEvent.artist,
-                        album = shareEvent.album,
-                    ),
-                )
-            }
-
-            else -> {
-                // 无操作
-            }
+        if (appRootViewModel.shouldStartFloatingLyrics() && platformServices.permission.hasOverlayPermission()) {
+            platformServices.floatingLyrics.start()
         }
     }
 
     val navController = rememberHmpNavBackStack(Routes.Main.Tabs)
-    val router = rememberRouter(navController)
-    // 消费 ViewModel 发起的导航请求（ViewModel 不持有导航器引用）
-    LaunchedEffect(dialogEvent) {
-        if (dialogEvent is DialogEvent.NavRequest) {
-            navController.add((dialogEvent as DialogEvent.NavRequest).route)
+
+    // 全局对话框事件的唯一消费点：toast / 导航 / 确认链 / 分享都在这里直达，
+    // 不再把 SharedFlow 变成 StateFlow 后让两个 LaunchedEffect 分头读同一份状态。
+    LaunchedEffect(Unit) {
+        dialogManager.dialogEvent.collect { event ->
+            when (event) {
+                is DialogEvent.Message -> messageQueue = (messageQueue + event).takeLast(5)
+
+                is DialogEvent.NavRequest -> navController.add(event.route)
+
+                is DialogEvent.ConfirmChain -> confirmChain = event
+
+                is DialogEvent.ShareMusic -> platformServices.share.shareMusic(
+                    com.hearablemusic.player.ui.platform.ShareMusicRequest(
+                        filePath = event.filePath,
+                        title = event.title,
+                        artist = event.artist,
+                        album = event.album,
+                    ),
+                )
+
+                // null = 关闭确认链（approve / deny / cancel 的收尾信号）。
+                null -> confirmChain = null
+            }
         }
     }
 
@@ -279,33 +232,13 @@ fun AppRoot(darkTheme: Boolean) {
     // 长按伙伴胶囊（电台开启时）唤起的电台控制台 —— 弹窗
     val radioConsoleController: RadioConsoleController = koinInject()
     val radioConsoleVisible by radioConsoleController.visible.collectAsState()
-    val radioConsoleScope = rememberCoroutineScope()
     // 电台一旦不在（用户收档 / 对话说停电台 / 看板停止），面板自动收起；
     // 滑动收档 → stopRadio → 这里触发 → 面板淡出，正是"收档"的收尾动作。
     LaunchedEffect(radioActive) {
         if (!radioActive) radioConsoleController.close()
     }
 
-    // ── M6-T2c/M6-T3：PresenceBus → AgentNoticeBar 侧条 ──
-    var currentNotice by remember { mutableStateOf<AgentNotice?>(null) }
-    var noticeIdCounter by remember { mutableIntStateOf(0) }
-    LaunchedEffect(Unit) {
-        presenceBus.events.collectLatest { event ->
-            when (event) {
-                is PresenceEvent.SkipDetected -> {
-                    noticeIdCounter++
-                    val title = event.trackTitle ?: getString(Res.string.notice_off_taste)
-                    currentNotice = AgentNotice(
-                        id = noticeIdCounter.toLong(),
-                        message = getString(Res.string.notice_skipped, title),
-                        showUndo = false,
-                    )
-                }
-
-                else -> Unit // 其他事件不触发侧条
-            }
-        }
-    }
+    // ── M6-T2c/M6-T3：PresenceBus → AgentNoticeBar 侧条（事件投影在组合根 VM）──
 
     LaunchedEffect(pagerState.currentPage) {
         savedTabIndex.intValue = pagerState.currentPage
@@ -340,6 +273,7 @@ fun AppRoot(darkTheme: Boolean) {
                 LocalWindowSizeInfo provides windowSizeInfo,
                 LocalHmpTypo provides typo,
                 LocalHmpMetrics provides metrics,
+                LocalAppHazeState provides hazeState,
             ) {
                 CompositionLocalProvider(
                     LocalTabHeaderContent provides tabHeader,
@@ -560,15 +494,13 @@ fun AppRoot(darkTheme: Boolean) {
                                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                     // M6-T2c/M6-T3：AgentNoticeBar 侧条（PresenceBus 事件 → 4s 自动退场）
                                     AgentNoticeBar(
-                                        notice = currentNotice,
-                                        onDismiss = { currentNotice = null },
+                                        notice = appRootState.notice,
                                         modifier = Modifier.padding(bottom = metrics.micro),
                                     )
                                     Box {
                                         BottomFusionBar(
                                             musicInfo = currentMusic,
                                             isPlaying = isPlaying,
-                                            progress = if (duration > 0) currentPosition.toFloat() / duration.toFloat() else 0f,
                                             selectedTabIndex = pagerState.currentPage,
                                             onTabSelected = { index ->
                                                 bfbScope.launch {
@@ -599,15 +531,9 @@ fun AppRoot(darkTheme: Boolean) {
                                                 WindowWidthSizeClass.Medium -> LayoutConstraints.ContentMaxWidthMedium
                                                 WindowWidthSizeClass.Expanded -> null
                                             },
-                                            onPlayPause = {
-                                                if (isPlaying) {
-                                                    playbackViewModel.pauseMusic()
-                                                } else {
-                                                    playbackViewModel.playOrResume()
-                                                }
-                                            },
-                                            onNext = { playbackViewModel.playNext() },
-                                            onPrev = { playbackViewModel.playPrevious() },
+                                            onPlayPause = { playbackController.togglePlayPause(isPlaying) },
+                                            onNext = { playbackController.playNext() },
+                                            onPrev = { playbackController.playPrevious() },
                                             onOpenPlayer = { navController.add(Routes.Player.Player) },
                                         )
                                     }
@@ -619,31 +545,8 @@ fun AppRoot(darkTheme: Boolean) {
                         when (val state = activeDialogState) {
                             is DialogViewModel.DialogUiState.MusicDetail -> {
                                 MusicDetailDialog(
+                                    state = state,
                                     dialogViewModel = dialogViewModel,
-                                    onDismiss = {
-                                        dialogViewModel.dismissMusicDetailDialog()
-                                    },
-                                    router = router,
-                                    hazeState = hazeState,
-                                    hazeRenderSettings = hazeRenderSettings,
-                                )
-                            }
-
-                            is DialogViewModel.DialogUiState.CreatePlaylist -> {
-                                CreatePlaylistDialog(
-                                    dialogViewModel = dialogViewModel,
-                                    hazeState = hazeState,
-                                    hazeRenderSettings = hazeRenderSettings,
-                                )
-                            }
-
-                            is DialogViewModel.DialogUiState.MusicPicker -> {
-                                MusicPickerDialog(
-                                    allMusic = state.state.allMusic,
-                                    selectedIds = state.state.selectedIds,
-                                    title = state.state.title,
-                                    onConfirm = dialogViewModel::confirmMusicPickerDialog,
-                                    onDismiss = dialogViewModel::dismissMusicPickerDialog,
                                     hazeState = hazeState,
                                     hazeRenderSettings = hazeRenderSettings,
                                 )
@@ -662,14 +565,8 @@ fun AppRoot(darkTheme: Boolean) {
 
                             is DialogViewModel.DialogUiState.Timer -> {
                                 TimerDialog(
-                                    onDismiss = {
-                                        state.state.onDismiss()
-                                        dialogViewModel.dismissTimerDialog()
-                                    },
-                                    onConfirm = { minutes: Int ->
-                                        state.state.onConfirm(minutes)
-                                        dialogViewModel.dismissTimerDialog()
-                                    },
+                                    onDismiss = dialogViewModel::dismissTimerDialog,
+                                    onConfirm = dialogViewModel::confirmTimerDialog,
                                     hazeState = hazeState,
                                     hazeRenderSettings = hazeRenderSettings,
                                 )
@@ -679,7 +576,7 @@ fun AppRoot(darkTheme: Boolean) {
                         }
 
                         // ── M6-T5：STRONG_CONFIRM 双确认链 DialogHost ──
-                        (dialogEvent as? DialogEvent.ConfirmChain)?.let { chain ->
+                        confirmChain?.let { chain ->
                             val step = chain.steps.getOrNull(chain.stepIndex)
                             if (step != null) {
                                 androidx.compose.material3.AlertDialog(
@@ -726,14 +623,14 @@ fun AppRoot(darkTheme: Boolean) {
                             }
                         }
 
-                        messageToShowState.value?.let { message ->
+                        messageQueue.firstOrNull()?.let { message ->
                             MessageToast(
                                 message = message.message,
                                 duration = message.duration,
                                 id = message.id,
                                 hazeState = hazeState,
                                 hazeRenderSettings = hazeRenderSettings,
-                                onDismiss = { messageToShowState.value = null },
+                                onDismiss = { messageQueue = messageQueue.drop(1) },
                             )
                         }
 
@@ -744,7 +641,7 @@ fun AppRoot(darkTheme: Boolean) {
                             onDismiss = { radioConsoleController.close() },
                             onEndSession = {
                                 radioConsoleController.close()
-                                radioConsoleScope.launch { masterAgent.stopRadio() }
+                                appRootViewModel.onEndRadioSession()
                             },
                             onPlayTrack = { musicId ->
                                 // 跳到那首：**在既有队列里定位并播**，不新建队列 ——
@@ -753,12 +650,7 @@ fun AppRoot(darkTheme: Boolean) {
                                 // + `playAt`（在既有队列里定位播放，**不重建队列**）。
                                 // **不收起面板**（用户决议）：跳一首不代表"用完了控制台"——
                                 // 留着才能接着看编排、继续跳下一首；面板只读，开着不干扰播放。
-                                radioConsoleScope.launch {
-                                    val info = runCatching {
-                                        musicRepository.getMusicInfoByIds(listOf(musicId))
-                                    }.getOrNull()?.firstOrNull()
-                                    if (info != null) playlistQueueViewModel.playWith(info)
-                                }
+                                appRootViewModel.onPlayRadioTrack(musicId)
                             },
                             nowCoverUri = currentMusic?.music?.albumArtUri,
                             hazeState = hazeState,

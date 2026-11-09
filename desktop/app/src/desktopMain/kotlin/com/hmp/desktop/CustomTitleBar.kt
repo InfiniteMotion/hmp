@@ -2,7 +2,6 @@ package com.hmp.desktop
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.hoverable
@@ -29,8 +28,6 @@ import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.hearablemusic.player.ui.common.design.animation.HmpMotion
 import com.hearablemusic.player.ui.common.design.colors.ColorTokens
 import com.hearablemusic.player.ui.common.design.metrics.HMPMetricTokens

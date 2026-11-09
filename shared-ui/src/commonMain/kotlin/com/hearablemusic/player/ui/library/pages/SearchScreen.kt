@@ -15,16 +15,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.dp
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
 import com.hearablemusic.player.ui.agent.chat.ChatEntryBroker
@@ -34,7 +29,6 @@ import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
 import com.hearablemusic.player.ui.common.dialogs.viewmodel.DialogViewModel
 import com.hearablemusic.player.ui.common.pages.base.SubScreen
-import com.hearablemusic.player.ui.common.util.LoadState
 import com.hearablemusic.player.ui.common.util.activityViewModel
 import com.hearablemusic.player.ui.common.util.rememberHapticFeedback
 import com.hearablemusic.player.ui.generated.resources.Res
@@ -56,13 +50,10 @@ import com.hearablemusic.player.ui.library.pages.components.musiclist.ItemVarian
 import com.hearablemusic.player.ui.library.pages.components.musiclist.MusicList
 import com.hearablemusic.player.ui.library.pages.components.musiclist.MusicListCallbacksAdapter
 import com.hearablemusic.player.ui.library.pages.components.musiclist.defaultMusicListConfig
+import com.hearablemusic.player.ui.library.viewmodel.SearchEffect
 import com.hearablemusic.player.ui.library.viewmodel.SearchViewModel
-import com.hearablemusic.player.ui.player.viewmodel.PlaybackViewModel
-import com.hearablemusic.player.ui.player.viewmodel.PlaylistQueueViewModel
-import com.hmp.domain.agent.funnel.CommandLexicon
-import com.hmp.domain.agent.funnel.FunnelResult
+import com.hearablemusic.player.ui.platform.PlaybackController
 import com.hmp.domain.music.MusicInfo
-import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
@@ -72,79 +63,41 @@ import com.hearablemusic.player.ui.common.navigation.Routes as NavRoutes
 @Composable
 fun SearchScreen(
     searchViewModel: SearchViewModel = koinViewModel(),
-    playbackViewModel: PlaybackViewModel = activityViewModel(),
-    playlistQueueViewModel: PlaylistQueueViewModel = activityViewModel(),
+    // 7.5 P1：旧 VM 是 controller 的零逻辑包装，直接用平台门面（白名单允许）
+    playbackController: PlaybackController = koinInject(),
     dialogViewModel: DialogViewModel = activityViewModel(),
     navController: NavBackStack<NavKey>,
     chatEntryBroker: ChatEntryBroker = koinInject(),
 ) {
-    val isPlaying by playbackViewModel.isPlaying.collectAsState()
-    var searchQuery by rememberSaveable { mutableStateOf("") }
-    val searchState by searchViewModel.searchState.collectAsState()
-
-    // 搜索的唯一调用点（D2-18）：原先 onSearchQueryChange 里也直接打了一次，
-    // 于是一次按键并发跑两条全表 LIKE、且旧结果可能覆盖新结果。
-    // 这里不再加 isNotEmpty 判断 —— 清空输入要能把状态收回 Idle，由 SearchViewModel 分派。
-    LaunchedEffect(searchQuery) {
-        searchViewModel.searchMusic(searchQuery)
-    }
-
-    val currentPlayingMusic by playlistQueueViewModel.currentPlayingMusic.collectAsState(null)
-    SearchScreenContent(
-        isPlaying = isPlaying,
-        searchQuery = searchQuery,
-        searchState = searchState,
-        currentPlayingMusic = currentPlayingMusic,
-        onSearchQueryChange = {
-            searchQuery = it
-        },
-        onBackClick = { navController.removeLastOrNull() },
-        playWith = playlistQueueViewModel::playWith,
-        addToPlaylist = playlistQueueViewModel::addToPlaylist,
-        onShowMusicDetailDialog = { musicInfo ->
-            val menuConfig = DialogViewModel.MusicDetailMenuConfig(
-                showAddToSpecificPlaylist = true,
-                showShare = true,
-                showViewDetail = true,
-                showPlayNext = true,
-                showRemoveFromCurrentPlaylist = false,
-                showDelete = false,
-            )
-            dialogViewModel.showMusicDetailDialog(musicInfo, menuConfig)
-        },
-        onRetry = { searchViewModel.searchMusic(searchQuery) },
-        onTalkToCompanion = { q ->
-            chatEntryBroker.pendingInput.value = q
-            navController.add(NavRoutes.Companion.Chat)
-        },
-    )
-}
-
-@Composable
-fun SearchScreenContent(
-    isPlaying: Boolean,
-    searchQuery: String,
-    searchState: LoadState<List<MusicInfo>>,
-    currentPlayingMusic: MusicInfo?,
-    onSearchQueryChange: (String) -> Unit,
-    onBackClick: () -> Unit,
-    playWith: suspend (MusicInfo) -> Unit,
-    addToPlaylist: (MusicInfo) -> Unit,
-    onShowMusicDetailDialog: (MusicInfo) -> Unit,
-    onRetry: () -> Unit,
-    onTalkToCompanion: (String) -> Unit,
-) {
     val metrics = LocalHmpMetrics.current
     val haptic = rememberHapticFeedback()
-    val scope = rememberCoroutineScope()
     val typo = LocalHmpTypo.current
-    // 拒绝纪律：用户点「只是搜索」后，本次会话同类输入不再弹伙伴条带（总纲 5.3 厚度3）
-    var showIntentStrip by rememberSaveable { mutableStateOf(true) }
-    val isIntent = searchQuery.isNotEmpty() &&
-        showIntentStrip &&
-        CommandLexicon.classify(searchQuery) is FunnelResult.Upgrade
+
+    // 唯一状态出口：输入框、伙伴条带偏好与异步结果都在这里
+    val uiState by searchViewModel.uiState.collectAsState()
+    // 跨屏共享的播放态属于组合根投影白名单，不并进本屏状态
+    val isPlaying by playbackController.isPlaying.collectAsState()
+    val currentPlayingMusic by playbackController.currentPlayingMusic.collectAsState(null)
+
+    // 一次性效果：交给伙伴的导航由组合点消费，VM 不持有 NavBackStack / ChatEntryBroker
+    LaunchedEffect(Unit) {
+        searchViewModel.effect.collect { effect ->
+            when (effect) {
+                is SearchEffect.TalkToCompanion -> {
+                    chatEntryBroker.pendingInput.value = effect.query
+                    navController.add(NavRoutes.Companion.Chat)
+                }
+            }
+        }
+    }
+
+    // 两级漏斗第一级未命中 + 意图特征 → 伙伴条带（交给伙伴 / 只是搜索）
+    // 拒绝纪律：用户点「只是搜索」后，本次会话同类输入不再弹（总纲 5.3 厚度3）
+    val searchQuery = uiState.query
+    val isIntent = uiState.isIntent && uiState.showIntentStrip
+
     SubScreen(
-        onBackClick = onBackClick,
+        onBackClick = { navController.removeLastOrNull() },
         title = stringResource(Res.string.search),
     ) {
         Column(
@@ -154,7 +107,7 @@ fun SearchScreenContent(
         ) {
             HMPTextField(
                 value = searchQuery,
-                onValueChange = onSearchQueryChange,
+                onValueChange = searchViewModel::onQueryChange,
                 placeholder = stringResource(Res.string.search_placeholder),
                 modifier = Modifier
                     .fillMaxWidth()
@@ -172,7 +125,6 @@ fun SearchScreenContent(
                     imeAction = ImeAction.Search,
                 ),
             )
-            // 两级漏斗第一级未命中 + 意图特征 → 伙伴条带（交给伙伴 / 只是搜索）
             if (isIntent) {
                 Row(
                     modifier = Modifier
@@ -187,10 +139,10 @@ fun SearchScreenContent(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.weight(1f),
                     )
-                    TextButton(onClick = { onTalkToCompanion(searchQuery) }) {
+                    TextButton(onClick = { searchViewModel.onTalkToCompanion(searchQuery) }) {
                         Text(stringResource(Res.string.search_intent_ask), color = MaterialTheme.colorScheme.primary)
                     }
-                    TextButton(onClick = { showIntentStrip = false }) {
+                    TextButton(onClick = searchViewModel::onDismissIntentStrip) {
                         Text(stringResource(Res.string.search_intent_just_search), color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
@@ -223,7 +175,7 @@ fun SearchScreenContent(
                 }
             } else {
                 LoadStateContent(
-                    state = searchState,
+                    state = uiState.results,
                     modifier = Modifier.fillMaxWidth().weight(1f),
                     onEmpty = {
                         Column(
@@ -236,7 +188,7 @@ fun SearchScreenContent(
                                 style = typo.body,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
-                            TextButton(onClick = { onTalkToCompanion(searchQuery) }) {
+                            TextButton(onClick = { searchViewModel.onTalkToCompanion(searchQuery) }) {
                                 Text(stringResource(Res.string.search_empty_ask), color = MaterialTheme.colorScheme.primary)
                             }
                         }
@@ -246,13 +198,21 @@ fun SearchScreenContent(
                     val callbacks = object : MusicListCallbacksAdapter() {
                         override fun onItemClick(musicInfo: MusicInfo, index: Int) {
                             haptic.performClick()
-                            scope.launch { playWith(musicInfo) }
+                            searchViewModel.onPlay(musicInfo)
                         }
                         override fun onAddToPlaylist(musicInfo: MusicInfo) {
-                            addToPlaylist(musicInfo)
+                            playbackController.addToPlaylist(musicInfo)
                         }
                         override fun onMenuClick(musicInfo: MusicInfo) {
-                            onShowMusicDetailDialog(musicInfo)
+                            val menuConfig = DialogViewModel.MusicDetailMenuConfig(
+                                showAddToSpecificPlaylist = true,
+                                showShare = true,
+                                showViewDetail = true,
+                                showPlayNext = true,
+                                showRemoveFromCurrentPlaylist = false,
+                                showDelete = false,
+                            )
+                            dialogViewModel.showMusicDetailDialog(musicInfo, menuConfig)
                         }
                     }
                     val config = defaultMusicListConfig(callbacks).copy(

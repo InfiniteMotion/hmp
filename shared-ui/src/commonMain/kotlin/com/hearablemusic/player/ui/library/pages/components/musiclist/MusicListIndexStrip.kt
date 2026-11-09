@@ -34,7 +34,6 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.IntSize
-import androidx.compose.ui.unit.dp
 import com.hearablemusic.player.ui.common.design.metrics.HMPMetricTokens
 import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo

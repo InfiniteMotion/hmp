@@ -25,8 +25,8 @@ import org.junit.Test
  * 旧实现 `val id = nowEpochMillis()` —— 同一毫秒内并发两条确认，后写的覆盖前一条，
  * 前一条的 continuation 永不 resume，对应工具调用挂死。
  *
- * 并发断言直接压 [DialogManager.allocateConfirmId]：`dialogEvent` 是 replay=0 +
- * `DROP_OLDEST` 的 SharedFlow，按"收到几条事件"计数会因丢事件而不稳。
+ * 并发断言直接压 [DialogManager.allocateConfirmId]：事件流是 replay=0 的通道，
+ * 按"收到几条事件"计数受消费时机影响，不如直接压取号器稳定。
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class DialogManagerTest {

@@ -1,7 +1,6 @@
 package com.hmp.data.network
 
 import kotlin.test.Test
-import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 class AiApiErrorTest {

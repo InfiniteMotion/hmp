@@ -22,7 +22,6 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.DpSize
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.WindowPosition
 import androidx.compose.ui.window.application
@@ -39,7 +38,6 @@ import com.hearablemusic.player.ui.common.layout.LocalTitleBarInset
 import com.hearablemusic.player.ui.common.pages.IntroScreen
 import com.hearablemusic.player.ui.common.util.LocalAppViewModelStoreOwner
 import com.hearablemusic.player.ui.common.util.activityViewModel
-import com.hearablemusic.player.ui.library.viewmodel.LibraryViewModel
 import com.hearablemusic.player.ui.settings.viewmodel.RecommendationViewModel
 import com.hearablemusic.player.ui.settings.viewmodel.SettingsViewModel
 import com.hmp.data.database.AppDatabaseGuard
@@ -334,11 +332,9 @@ fun main() {
                             val settingsViewModel: SettingsViewModel = activityViewModel()
                             val isFirstLaunch by settingsViewModel.isFirstLaunch.collectAsState(true)
                             if (isFirstLaunch) {
-                                val libraryViewModel: LibraryViewModel = activityViewModel()
                                 val recommendationViewModel: RecommendationViewModel = activityViewModel()
                                 IntroScreen(
                                     settingsViewModel = settingsViewModel,
-                                    libraryViewModel = libraryViewModel,
                                     recommendationViewModel = recommendationViewModel,
                                     onFinished = {
                                         settingsViewModel.saveIsFirstLaunchStatus(false)

@@ -13,6 +13,9 @@ package com.hmp.domain.agent.runtime.sub.radio
 // 电台数据模型
 // ═══════════════════════════════════════════════════════════════════
 
+/** 电台是否处于「已开启」形态（构建 / 播放 / 暂停）；IDLE 与 null 为 false。 */
+fun RadioState?.isActive(): Boolean = this is RadioState.BUILDING || this is RadioState.PLAYING || this is RadioState.PAUSED
+
 sealed class RadioState {
     /** 电台空闲（未启动 / 已停止） */
     data object IDLE : RadioState()

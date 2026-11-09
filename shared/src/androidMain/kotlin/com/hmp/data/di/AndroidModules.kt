@@ -25,8 +25,6 @@ import com.hmp.data.database.UserProfileNarrativeDao
 import com.hmp.data.database.UserProfilePortraitDao
 import com.hmp.data.database.getDatabaseBuilder
 import com.hmp.data.database.getRoomDatabase
-import com.hmp.data.network.OpenAiCompatibleAdapter
-import com.hmp.data.network.createHttpClient
 import com.hmp.data.repository.BackupFileRepositoryImpl
 import com.hmp.data.repository.MusicRepositoryImpl
 import com.hmp.data.repository.PlaylistRepositoryImpl

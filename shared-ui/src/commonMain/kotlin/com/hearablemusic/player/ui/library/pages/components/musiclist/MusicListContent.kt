@@ -14,7 +14,6 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 import com.hmp.domain.music.MusicInfo
 

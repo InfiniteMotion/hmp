@@ -4,10 +4,7 @@ import androidx.compose.animation.expandIn
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkOut
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -22,7 +19,6 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
@@ -39,11 +35,9 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.dp
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
 import com.hearablemusic.player.ui.common.components.base.HMPTextField
@@ -51,17 +45,19 @@ import com.hearablemusic.player.ui.common.design.animation.HmpMotion
 import com.hearablemusic.player.ui.common.design.metrics.LayoutConstraints
 import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
+import com.hearablemusic.player.ui.common.dialogs.viewmodel.DialogViewModel
 import com.hearablemusic.player.ui.common.layout.LocalWindowSizeInfo
+import com.hearablemusic.player.ui.common.navigation.Routes
 import com.hearablemusic.player.ui.common.pages.base.SubScreen
 import com.hearablemusic.player.ui.common.text.UiText
 import com.hearablemusic.player.ui.common.text.asString
+import com.hearablemusic.player.ui.common.util.activityViewModel
 import com.hearablemusic.player.ui.generated.resources.Res
 import com.hearablemusic.player.ui.generated.resources.agent_chat_input_placeholder
 import com.hearablemusic.player.ui.generated.resources.agent_chat_send
 import com.hearablemusic.player.ui.generated.resources.agent_chat_title
 import com.hearablemusic.player.ui.generated.resources.ai_quota_exhausted_hint
 import com.hearablemusic.player.ui.generated.resources.chevron_up
-import com.hearablemusic.player.ui.platform.PlaybackController
 import com.hmp.domain.music.MusicInfo
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.painterResource
@@ -78,56 +74,65 @@ import org.koin.compose.viewmodel.koinViewModel
  * - 确认卡（非模态）：`pendingConfirm` 未决/已提交时悬浮于输入条上方，不阻塞对话流回看
  * - 底部输入条（多平台 IME padding）
  */
+/**
+ * 7.5 P1：原 `ChatScreenContent` 10 参数转发层已合并回唯一 Screen 入口。
+ * `ChatUiState` 已是整屏状态；`quotaBlocked` 已并入 ChatUiState（原独立 StateFlow 出口已删）。
+ * `inputFocused` / `prevHeight` 属焦点与上一帧值白名单，留 UI。
+ */
 @Composable
 fun ChatScreen(
     chatViewModel: ChatViewModel = koinViewModel(),
     navController: NavBackStack<NavKey>,
-    playbackController: PlaybackController = koinInject(),
     chatEntryBroker: ChatEntryBroker = koinInject(),
+    dialogViewModel: DialogViewModel = activityViewModel(),
 ) {
-    val state by chatViewModel.state.collectAsState()
-    val scope = rememberCoroutineScope()
+    // 不用 by：委托属性无法对 uiState.pendingConfirm 做 smart cast（ChatInputBar 的 running 判据依赖它）
+    val uiState = chatViewModel.uiState.collectAsState().value
 
     // M1 锚点 → M5 对话入口：进入时消费待带话，作为首条消息发送（同 session_id 语义）
     LaunchedEffect(Unit) {
         chatEntryBroker.pendingInput.value?.let { input ->
-            chatEntryBroker.pendingInput.value = null
+            // VM 在运行中/待确认时会拒绝派发并把文本落回输入框（不丢），所以这里可以安全清 broker。
             chatViewModel.sendPreloaded(input)
+            chatEntryBroker.pendingInput.value = null
         }
     }
 
-    val quotaBlocked by chatViewModel.quotaBlocked.collectAsState()
-    ChatScreenContent(
-        state = state,
-        quotaBlocked = quotaBlocked,
-        onInputChange = chatViewModel::onInputChange,
-        onSend = chatViewModel::send,
-        onToggleConfirm = chatViewModel::toggleConfirmItem,
-        onToggleAlwaysAllow = chatViewModel::toggleAlwaysAllowConfirmItem,
-        onSubmitConfirm = chatViewModel::submitConfirm,
-        onSkipConfirm = chatViewModel::skipConfirm,
-        onSongClick = { music -> scope.launch { playbackController.playWith(music) } },
-        onSongMenu = {},
-        onPlaylistPlayAll = {},
-        onBackClick = { navController.removeLastOrNull() },
-    )
-}
+    val quotaBlocked = uiState.quotaBlocked
+    val onInputChange = chatViewModel::onInputChange
+    val onSend = chatViewModel::send
+    val onToggleConfirm = chatViewModel::toggleConfirmItem
+    val onToggleAlwaysAllow = chatViewModel::toggleAlwaysAllowConfirmItem
+    val onSubmitConfirm = chatViewModel::submitConfirm
+    val onSkipConfirm = chatViewModel::skipConfirm
+    val onSongClick: (MusicInfo) -> Unit = chatViewModel::onPlaySong
+    // 菜单不再空实现：复用全局音乐详情弹窗（与曲库页一致的菜单能力）
+    val onSongMenu: (MusicInfo) -> Unit = { music ->
+        dialogViewModel.showMusicDetailDialog(
+            music,
+            DialogViewModel.MusicDetailMenuConfig(
+                showAddToSpecificPlaylist = true,
+                showShare = true,
+                showViewDetail = true,
+                showEditTags = true,
+                showPlayNext = true,
+                showRemoveFromCurrentPlaylist = false,
+                showDelete = false,
+            ),
+        )
+    }
+    val onPlaylistPlayAll: (List<MusicInfo>) -> Unit = chatViewModel::onPlayPlaylistPlayAll
 
-@Composable
-private fun ChatScreenContent(
-    state: ChatUiState,
-    quotaBlocked: Boolean,
-    onInputChange: (String) -> Unit,
-    onSend: () -> Unit,
-    onToggleConfirm: (String) -> Unit,
-    onToggleAlwaysAllow: (String) -> Unit,
-    onSubmitConfirm: () -> Unit,
-    onSkipConfirm: () -> Unit,
-    onSongClick: (MusicInfo) -> Unit,
-    onSongMenu: (MusicInfo) -> Unit,
-    onPlaylistPlayAll: () -> Unit,
-    onBackClick: () -> Unit,
-) {
+    // 播放动作归 VM；导航由组合点消费一次性效果
+    LaunchedEffect(Unit) {
+        chatViewModel.effect.collect { effect ->
+            when (effect) {
+                ChatEffect.NavigateToPlayer -> navController.add(Routes.Player.Player)
+            }
+        }
+    }
+    val onBackClick: () -> Unit = { navController.removeLastOrNull() }
+
     val metrics = LocalHmpMetrics.current
     val typo = LocalHmpTypo.current
     var inputFocused by remember { mutableStateOf(false) }
@@ -166,21 +171,21 @@ private fun ChatScreenContent(
                     .weight(1f),
             ) {
                 ChatMessageList(
-                    messages = state.messages,
-                    running = state.running,
-                    runningHint = state.runningHint,
+                    messages = uiState.messages,
+                    running = uiState.running,
+                    runningHint = uiState.runningHint,
                     callbacks = callbacks,
                     inputFocused = inputFocused,
                     modifier = Modifier.weight(1f),
                 )
 
                 AnimatedVisibility(
-                    visible = state.pendingConfirm != null,
+                    visible = uiState.pendingConfirm != null,
                     modifier = Modifier.padding(horizontal = metrics.base),
                     enter = fadeIn(HmpMotion.enter()) + expandIn(HmpMotion.enter()),
                     exit = fadeOut(HmpMotion.exit()) + shrinkOut(HmpMotion.exit()),
                 ) {
-                    state.pendingConfirm?.let { p ->
+                    uiState.pendingConfirm?.let { p ->
                         ConfirmMatrixCard(
                             items = p.items,
                             submitted = p.submitted,
@@ -200,8 +205,8 @@ private fun ChatScreenContent(
                 }
                 // 底部输入栏（自绘紧凑输入框 + 圆形发送）
                 ChatInputBar(
-                    input = state.input,
-                    running = state.running || (state.pendingConfirm != null && !state.pendingConfirm.submitted),
+                    input = uiState.input,
+                    running = uiState.running || (uiState.pendingConfirm != null && !uiState.pendingConfirm.submitted),
                     quotaBlocked = quotaBlocked,
                     onInputChange = onInputChange,
                     onSend = onSend,

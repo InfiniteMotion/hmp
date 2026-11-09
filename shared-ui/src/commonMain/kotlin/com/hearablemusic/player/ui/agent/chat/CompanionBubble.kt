@@ -19,9 +19,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
@@ -41,10 +39,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
 import com.hearablemusic.player.ui.common.design.animation.HmpMotion
 import com.hearablemusic.player.ui.common.design.metrics.HMPMetricTokens
 import com.hearablemusic.player.ui.common.design.metrics.LayoutConstraints
@@ -65,7 +61,6 @@ import com.hearablemusic.player.ui.generated.resources.chevron_down
 import com.hearablemusic.player.ui.generated.resources.lightbulb
 import com.hearablemusic.player.ui.generated.resources.more
 import com.hearablemusic.player.ui.generated.resources.play_fill
-import com.hearablemusic.player.ui.generated.resources.player_d
 import com.hearablemusic.player.ui.library.pages.components.AlbumCover
 import com.hearablemusic.player.ui.library.pages.components.musiclist.CurrentPlayingConfig
 import com.hearablemusic.player.ui.library.pages.components.musiclist.EditConfig
@@ -84,7 +79,7 @@ import org.jetbrains.compose.resources.stringResource
 data class CompanionCallbacks(
     val onSongClick: (MusicInfo) -> Unit = {},
     val onSongMenu: (MusicInfo) -> Unit = {},
-    val onPlaylistPlayAll: () -> Unit = {},
+    val onPlaylistPlayAll: (List<MusicInfo>) -> Unit = {},
     val onToggleConfirm: (String) -> Unit = {},
     /** v7.1 新增：切换某项"总是允许"（写 AgentPolicyConfig.alwaysAllow） */
     val onToggleAlwaysAllow: (String) -> Unit = {},
@@ -220,10 +215,10 @@ fun ConfirmMatrixCard(
                             modifier = Modifier
                                 .size(metrics.cozy)
                                 .background(
-                                    when {
-                                        submitted && item.selected -> MaterialTheme.colorScheme.primary
-                                        item.selected -> MaterialTheme.colorScheme.primary
-                                        else -> MaterialTheme.colorScheme.surfaceVariant
+                                    if (item.selected) {
+                                        MaterialTheme.colorScheme.primary
+                                    } else {
+                                        MaterialTheme.colorScheme.surfaceVariant
                                     },
                                     RoundedCornerShape(metrics.micro),
                                 ),
@@ -403,7 +398,7 @@ private fun SongListBubbleContent(message: CompanionMessage, callbacks: Companio
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable(onClick = callbacks.onPlaylistPlayAll)
+                .clickable { callbacks.onPlaylistPlayAll(message.songs) }
                 .padding(vertical = metrics.compact),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.Center,

@@ -1,0 +1,16 @@
+# UDF 门禁基线：composable 参数注入业务对象（`x: T = koinInject()`）
+#
+# 2026-11-09：既有债已全部清理，**基线为空**。清理路径（供追溯）：
+#   - IntroScreen / AIScreen / HomeScreen → 收进各自 VM
+#   - RadioConsole / AgentMonitorScreen → 收进 VM（只读流 / 能力句柄）
+#   - AppRoot → 收进已有的 AppRootViewModel（电台状态、跳曲、启动自愈）
+#   - RadioCard / RadioEntryCard → 卡片改为「状态 + 动作」入参，调用方 VM 提供
+#   - HelloCardDiscover / HelloCardSingleTrack → `repo` 换成注入的 `resolveTracks` 函数
+#   - HelloCardStack 的 `rememberHelloCardsState()` → 5 路组装（含 masterAgent 注入与
+#     `getReportNarrative` DAO 直读）搬进 HelloCardsViewModel。注意：该处**不是死代码**
+#     （文件内的 rememberHelloCardsState / HelloSlideCardStack 均为活入口，HomeScreen
+#     与 HelloCardCoverflow 都在引用）；门禁形态 3（`val x: T = koinInject()`）补漏时
+#     抓出并整改，基线条目随之删除。
+#
+# 现在新增违规会直接失败。若未来确需临时放行，按「路径|类型」逐条登记，
+# 并写明理由与清理期限；不允许按类型或目录批量豁免。

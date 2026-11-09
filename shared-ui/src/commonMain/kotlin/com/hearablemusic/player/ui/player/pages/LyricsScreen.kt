@@ -42,7 +42,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.dp
 import com.hearablemusic.player.ui.common.components.SegmentedOption
 import com.hearablemusic.player.ui.common.components.VerticalSegmentedControl
 import com.hearablemusic.player.ui.common.design.animation.HmpMotion
@@ -78,15 +77,16 @@ import com.hearablemusic.player.ui.generated.resources.translate
 import com.hearablemusic.player.ui.generated.resources.translate_c2e
 import com.hearablemusic.player.ui.generated.resources.translate_e2c
 import com.hearablemusic.player.ui.generated.resources.translated_text
+import com.hearablemusic.player.ui.platform.PlaybackController
 import com.hearablemusic.player.ui.platform.rememberStatusBarsController
-import com.hearablemusic.player.ui.player.viewmodel.PlaybackViewModel
-import com.hearablemusic.player.ui.player.viewmodel.PlaylistQueueViewModel
+import com.hearablemusic.player.ui.player.viewmodel.PlayerScreenViewModel
 import com.hearablemusic.player.ui.settings.viewmodel.LyricsSettingsViewModel
 import com.hmp.domain.config.DisplayMode
 import com.hmp.domain.config.LyricsAlignment
 import kotlinx.coroutines.delay
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
+import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 
 /**
@@ -95,16 +95,19 @@ import org.koin.compose.viewmodel.koinViewModel
  */
 @Composable
 fun LyricsScreen(
-    playbackViewModel: PlaybackViewModel = activityViewModel(),
-    playlistQueueViewModel: PlaylistQueueViewModel = activityViewModel(),
+    // 7.5 P1：旧 VM 是 controller 的零逻辑包装，这里直接用平台门面（白名单允许）
+    playbackController: PlaybackController = koinInject(),
     lyricsSettingsViewModel: LyricsSettingsViewModel = koinViewModel(),
     onNavigateToSettings: () -> Unit = {},
 ) {
     val metrics = LocalHmpMetrics.current
-    val lyrics by playlistQueueViewModel.currentMusicLyrics.collectAsState()
-    val currentPosition by playbackViewModel.currentPosition.collectAsState()
-    val duration by playbackViewModel.duration.collectAsState()
-    val isPlaying by playbackViewModel.isPlaying.collectAsState()
+    // 播放页常驻：歌词页与播放页共用同一个应用级 VM 的单一出口，不再各自 collect 四条播放流。
+    val playerViewModel: PlayerScreenViewModel = activityViewModel()
+    val playerUiState by playerViewModel.uiState.collectAsState()
+    val lyricsPresentation = playerUiState.player.lyrics
+    val currentPosition = playerUiState.player.currentPosition
+    val duration = playerUiState.player.duration
+    val isPlaying = playerUiState.player.isPlaying
 
     // 歌词参数（D4-01：读 FULLSCREEN 组件配置，与设置页同一份数据）
     val lyricsConfig by lyricsSettingsViewModel.fullscreenLyricsConfig.collectAsState()
@@ -115,7 +118,8 @@ fun LyricsScreen(
     val displayMode = lyricsConfig.displayMode
     val alignment = lyricsConfig.alignment
     val karaokeEnabled = lyricsConfig.karaokeEnabled
-    val themeViewModel: ThemeViewModel = koinViewModel()
+    // 应用级实例：与 AppRoot 共用，避免 entry 级 VM 重复订阅播放流、各自取色
+    val themeViewModel: ThemeViewModel = activityViewModel()
     val paletteColors by themeViewModel.paletteColors.collectAsState()
 
     var isSettingsPanelVisible by remember { mutableStateOf(false) }
@@ -129,12 +133,13 @@ fun LyricsScreen(
     val hoverInteractionSource = remember { MutableInteractionSource() }
     val isHovered by hoverInteractionSource.collectIsHoveredAsState()
 
-    // 开启播放进度跟踪
+    // 进度跟踪归播放器生命周期所有（playOrResume / playCurrentTrack / resume 内部已启动，
+    // pause / release 内部会停止）。UI 不再手动 start：否则 onDispose 无配对 stop，
+    // 且 Player 与 Lyrics 同时存活时 UI 侧 stop 会停掉另一方。
     DisposableEffect(Unit) {
-        playbackViewModel.startProgressTracking()
         onDispose {
             // 退出时恢复底部播放栏和状态栏
-            playbackViewModel.setMiniPlayerVisible(true)
+            playbackController.setMiniPlayerVisible(true)
             statusBars?.show()
         }
     }
@@ -157,7 +162,7 @@ fun LyricsScreen(
 
     // 同步控制 MiniPlayerBar 的显示隐藏
     LaunchedEffect(isControlsVisible) {
-        playbackViewModel.setMiniPlayerVisible(isControlsVisible)
+        playbackController.setMiniPlayerVisible(isControlsVisible)
     }
 
     val isLandscape = LocalWindowSizeInfo.current.isLandscape
@@ -185,17 +190,16 @@ fun LyricsScreen(
             // 歌词展示区域
             AdvancedLyrics(
                 modifier = if (!isSettingsPanelVisible) Modifier.weight(1f) else Modifier.padding(bottom = if (isLandscape) metrics.card else metrics.hero),
-                lyrics = lyrics,
+                lyricsPresentation = lyricsPresentation,
                 currentPosition = currentPosition,
                 onSeek = {
                     lastInteractionTime = nowEpochMillis()
-                    playbackViewModel.seekTo(it)
+                    playbackController.seekTo(it)
                 },
                 originalTextSize = originalTextSize,
                 translatedTextSize = translatedTextSize,
                 currentTimeTextSize = currentTimeTextSize,
                 lineSpacing = lineSpacing,
-                totalDurationMs = duration,
                 karaokeEnabled = karaokeEnabled,
                 paletteColors = paletteColors,
                 isPlaying = isPlaying,
@@ -221,13 +225,14 @@ fun LyricsScreen(
                 displayMode = displayMode,
                 alignment = alignment,
                 karaokeEnabled = karaokeEnabled,
-                onKaraokeEnabledChange = { v -> lyricsSettingsViewModel.updateFullscreenConfig { it.copy(karaokeEnabled = v) } },
-                onOriginalTextSizeChange = { v -> lyricsSettingsViewModel.updateFullscreenConfig { it.copy(originalTextSize = v) } },
-                onTranslatedTextSizeChange = { v -> lyricsSettingsViewModel.updateFullscreenConfig { it.copy(translatedTextSize = v) } },
-                onCurrentTimeTextSizeChange = { v -> lyricsSettingsViewModel.updateFullscreenConfig { it.copy(currentTimeTextSize = v) } },
-                onLineSpacingChange = { v -> lyricsSettingsViewModel.updateFullscreenConfig { it.copy(lineSpacing = v) } },
-                onDisplayModeChange = { v -> lyricsSettingsViewModel.updateFullscreenConfig { it.copy(displayMode = v) } },
-                onAlignmentChange = { v -> lyricsSettingsViewModel.updateFullscreenConfig { it.copy(alignment = v) } },
+                onKaraokeEnabledChange = lyricsSettingsViewModel::onKaraokeEnabledChange,
+                onOriginalTextSizeChange = lyricsSettingsViewModel::onOriginalTextSizeChange,
+                onTranslatedTextSizeChange = lyricsSettingsViewModel::onTranslatedTextSizeChange,
+                onCurrentTimeTextSizeChange = lyricsSettingsViewModel::onCurrentTimeTextSizeChange,
+                onLineSpacingChange = lyricsSettingsViewModel::onLineSpacingChange,
+                onDisplayModeChange = lyricsSettingsViewModel::onDisplayModeChange,
+                onAlignmentChange = lyricsSettingsViewModel::onAlignmentChange,
+                onNavigateToSettings = onNavigateToSettings,
             )
         }
 

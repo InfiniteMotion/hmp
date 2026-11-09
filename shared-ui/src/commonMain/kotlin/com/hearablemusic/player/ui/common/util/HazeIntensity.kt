@@ -5,6 +5,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.unit.dp
+import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.HazeStyle
 import dev.chrisbanes.haze.HazeTint
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
@@ -39,6 +40,9 @@ data class HazeRenderSettings(
 )
 
 val LocalHazeRenderSettings = staticCompositionLocalOf { HazeRenderSettings() }
+
+/** AppRoot 的背景采样源。屏内自持的弹窗读取它来保留毛玻璃；未提供时为 null（走不透明回退）。 */
+val LocalAppHazeState = staticCompositionLocalOf<HazeState?> { null }
 
 @Composable
 fun ProvideHazeRenderSettings(

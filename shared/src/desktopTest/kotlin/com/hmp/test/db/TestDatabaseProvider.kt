@@ -3,7 +3,6 @@ package com.hmp.test.db
 import androidx.room.Room
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import com.hmp.data.database.AppDatabase
-import com.hmp.data.database.getRoomDatabase
 import kotlinx.coroutines.Dispatchers
 
 /**

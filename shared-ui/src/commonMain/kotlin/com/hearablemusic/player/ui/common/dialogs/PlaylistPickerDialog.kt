@@ -112,10 +112,8 @@ fun PlaylistPickerDialog(
                         items(playlists) { playlist ->
                             PlaylistItem(
                                 playlist = playlist,
-                                onClick = {
-                                    onSelectPlaylist(playlist)
-                                    onDismiss()
-                                },
+                                // 选择即确认关闭：宿主的选择回调内部已负责 dismiss，不再二次回调
+                                onClick = { onSelectPlaylist(playlist) },
                             )
                         }
                     }
@@ -146,7 +144,7 @@ fun PlaylistItem(
                 .size(metrics.bar)
                 .clip(RoundedCornerShape(metrics.compact)),
         ) {
-            if (playlist.coverUri != null && playlist.coverUri!!.isNotBlank()) {
+            if (playlist.coverUri?.isNotBlank() == true) {
                 AsyncImage(
                     model = playlist.coverUri,
                     contentDescription = null,

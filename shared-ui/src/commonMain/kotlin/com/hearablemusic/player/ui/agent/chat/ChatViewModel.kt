@@ -11,6 +11,7 @@ import com.hearablemusic.player.ui.generated.resources.agent_chat_hint_playlist
 import com.hearablemusic.player.ui.generated.resources.agent_chat_hint_scanning
 import com.hearablemusic.player.ui.generated.resources.agent_chat_hint_thinking
 import com.hearablemusic.player.ui.generated.resources.agent_chat_hint_wait
+import com.hearablemusic.player.ui.platform.PlaybackController
 import com.hmp.data.database.currentTimeMillis
 import com.hmp.domain.agent.funnel.CommandLexicon
 import com.hmp.domain.agent.funnel.FunnelResult
@@ -20,18 +21,28 @@ import com.hmp.domain.agent.port.PlaybackCommand
 import com.hmp.domain.agent.port.PlaybackCommandPort
 import com.hmp.domain.agent.port.StoredAgentMessage
 import com.hmp.domain.agent.port.ToolPermissionLevel
+import com.hmp.domain.music.MusicInfo
 import com.hmp.domain.setting.usecase.UserSettingsUseCase
 import com.hmp.log.HmpLog
 import com.hmp.log.LogTag
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+
+/** 对话页的一次性效果：导航由组合点消费（VM 不持有 NavBackStack）。 */
+sealed interface ChatEffect {
+    data object NavigateToPlayer : ChatEffect
+}
 
 /** 待确认的非模态卡片状态（M5-T4）。 */
 data class ConfirmCardState(
@@ -48,12 +59,15 @@ data class ChatUiState(
     val runningHint: UiText? = null,
     val pendingConfirm: ConfirmCardState? = null,
     val input: String = "",
+    /** Master 桶是否已耗尽（原独立 StateFlow 出口，7.5 P1 并入唯一出口）。 */
+    val quotaBlocked: Boolean = false,
 )
 
 /**
  * M5-T1 ChatViewModel —— 对话页唯一状态源。
  *
- * 职责：问候区/正在听（由 UI 接播放控制器，VM 不持有播放状态）/任务进行条/确认聚合/执行回执。
+ * 职责：问候区/任务进行条/确认聚合/执行回执；气泡里的歌曲点击与整单播放也在这里（VM 直接调平台门面，
+ * 导航由组合点消费 [ChatEffect] 完成）。
  * 引擎侧经 [ChatAgentGateway] 接缝驱动；[ChatAgentEvent] → [CompanionMessage] 展平在 [buildAssistantBubbles]。
  */
 class ChatViewModel(
@@ -62,15 +76,35 @@ class ChatViewModel(
     private val playbackCommandPort: PlaybackCommandPort,
     private val agentMessageStore: AgentMessageStore,
     private val quotaGate: com.hmp.domain.agent.quota.TokenQuotaGate,
+    private val playbackController: PlaybackController,
 ) : ViewModel() {
 
-    /** Master 桶是否已耗尽 —— 发送按钮置灰 + 顶部提示文字都看它。 */
-    val quotaBlocked: StateFlow<Boolean> = quotaGate.usage
+    private val _effect = MutableSharedFlow<ChatEffect>(
+        replay = 0,
+        extraBufferCapacity = 1,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST,
+    )
+    val effect: SharedFlow<ChatEffect> = _effect.asSharedFlow()
+
+    /** 播放一首气泡里的歌（suspend 调用归 VM，离屏即取消）。 */
+    fun onPlaySong(music: MusicInfo) {
+        viewModelScope.launch { playbackController.playWith(music) }
+    }
+
+    /** 播放整张气泡歌单（顺序入队）并请求跳到播放页。 */
+    fun onPlayPlaylistPlayAll(songs: List<MusicInfo>) {
+        if (songs.isEmpty()) return
+        playbackController.addAllToPlaylistInOrder(songs)
+        viewModelScope.launch { _effect.emit(ChatEffect.NavigateToPlayer) }
+    }
+
+    /** Master 桶是否已耗尽（私有源；生效值并入 [ChatUiState.quotaBlocked]，不再单独暴露）。 */
+    private val quotaBlocked: StateFlow<Boolean> = quotaGate.usage
         .map { quotaGate.isBucketExhausted(com.hmp.domain.agent.quota.QuotaBucket.MASTER.bucketId) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), quotaGate.isBucketExhausted(com.hmp.domain.agent.quota.QuotaBucket.MASTER.bucketId))
 
-    private val _state = MutableStateFlow(ChatUiState())
-    val state: StateFlow<ChatUiState> = _state.asStateFlow()
+    private val _uiState = MutableStateFlow(ChatUiState())
+    val uiState: StateFlow<ChatUiState> = _uiState.asStateFlow()
 
     private var idCounter = 1000L
     private var job: Job? = null
@@ -83,12 +117,15 @@ class ChatViewModel(
 
     init {
         viewModelScope.launch {
+            quotaBlocked.collect { blocked -> _uiState.update { it.copy(quotaBlocked = blocked) } }
+        }
+        viewModelScope.launch {
             val sid = agentMessageStore.currentOrNewSessionId()
             sessionId = sid
             val history = agentMessageStore.loadSession(sid, SESSION_LOAD_LIMIT)
             HmpLog.i(LogTag.AgentChat) { "💬 session resume: sid=$sid history=${history.size}" }
             if (history.isNotEmpty()) {
-                _state.update {
+                _uiState.update {
                     it.copy(
                         messages = history.map { m ->
                             CompanionMessage(
@@ -104,7 +141,7 @@ class ChatViewModel(
             } else {
                 // 无历史会话：填入问候语。只携带资源引用，解析留给组合期（随语言变化），
                 // 不在 ViewModel 里 getString —— 那样既冻结语言，又让纯 JVM 单测崩。
-                _state.update {
+                _uiState.update {
                     it.copy(
                         messages = listOf(
                             CompanionMessage(
@@ -134,19 +171,29 @@ class ChatViewModel(
         }
     }
 
-    fun onInputChange(value: String) = _state.update { it.copy(input = value) }
+    fun onInputChange(value: String) = _uiState.update { it.copy(input = value) }
 
     /** 发送：追加用户气泡 → 启动一轮引擎对话。 */
     fun send() {
         if (quotaBlocked.value) return // UI 已置灰；这里再兜一层，防止外部入口绕过
-        val text = _state.value.input.trim()
+        val text = _uiState.value.input.trim()
         if (text.isEmpty()) return
-        _state.update { it.copy(input = "") }
+        _uiState.update { it.copy(input = "") }
         sendText(text)
     }
 
-    /** 外部入口带入（M1 锚点 → M5 对话）：不经过输入框，直接作为用户消息发送。 */
-    fun sendPreloaded(text: String) = sendText(text.trim())
+    /**
+     * 外部入口带入（M1 锚点 → M5 对话）。
+     *
+     * 运行中 / 未决确认卡未提交时 [sendText] 会拒绝派发 —— 这条文本**落到输入框**而不是丢掉，
+     * 等本轮结束用户直接点发送即可（A22：broker 的消费与「发送是否成功」解耦）。
+     */
+    fun sendPreloaded(text: String) {
+        val trimmed = text.trim()
+        if (!sendText(trimmed)) {
+            _uiState.update { it.copy(input = trimmed) }
+        }
+    }
 
     fun cancel() {
         job?.cancel()
@@ -156,17 +203,17 @@ class ChatViewModel(
     // ── 确认卡交互 ──
 
     fun toggleConfirmItem(itemId: String) {
-        val p = _state.value.pendingConfirm ?: return
+        val p = _uiState.value.pendingConfirm ?: return
         if (p.submitted) return
         val items = p.items.map {
             if (it.id == itemId) it.copy(selected = !it.selected) else it
         }
-        _state.update { it.copy(pendingConfirm = p.copy(items = items)) }
+        _uiState.update { it.copy(pendingConfirm = p.copy(items = items)) }
     }
 
     /** 切换某项的"总是允许"标记（勾上后该项会自动 selected）。 */
     fun toggleAlwaysAllowConfirmItem(itemId: String) {
-        val p = _state.value.pendingConfirm ?: return
+        val p = _uiState.value.pendingConfirm ?: return
         if (p.submitted) return
         val items = p.items.map {
             if (it.id == itemId && !it.permanentAllowForbidden) {
@@ -176,12 +223,12 @@ class ChatViewModel(
                 it
             }
         }
-        _state.update { it.copy(pendingConfirm = p.copy(items = items)) }
+        _uiState.update { it.copy(pendingConfirm = p.copy(items = items)) }
     }
 
     /** 「照做」：把当前勾选提交给引擎，恢复挂起的确认批次（累积到 submittedConfirms）。 */
     fun submitConfirm() {
-        val p = _state.value.pendingConfirm ?: return
+        val p = _uiState.value.pendingConfirm ?: return
         if (p.submitted) return
         submittedConfirms += p
         val alwaysCount = p.items.count { it.alwaysAllow }
@@ -194,29 +241,29 @@ class ChatViewModel(
             }
         }
         gatewayBridge?.submit(p.turnId, outcomes)
-        _state.update { it.copy(pendingConfirm = p.copy(submitted = true)) }
+        _uiState.update { it.copy(pendingConfirm = p.copy(submitted = true)) }
     }
 
     /** 「跳过全部」：整批否决（拒绝纪律：不纠缠）。 */
     fun skipConfirm() {
-        val p = _state.value.pendingConfirm ?: return
+        val p = _uiState.value.pendingConfirm ?: return
         if (p.submitted) return
         val rejected = p.copy(items = p.items.map { it.copy(selected = false) })
         submittedConfirms += rejected
         HmpLog.i(LogTag.AgentChat) { "💬 confirm 跳过全部: turn=${p.turnId}" }
         val outcomes = List(p.items.size) { ConfirmOutcome.Deny }
         gatewayBridge?.submit(p.turnId, outcomes)
-        _state.update { it.copy(pendingConfirm = rejected.copy(submitted = true)) }
+        _uiState.update { it.copy(pendingConfirm = rejected.copy(submitted = true)) }
     }
 
     private var gatewayBridge: ConfirmBridge? = null
 
-    /** 内部发送入口：空/运行中/未决确认卡未决时拒绝派发；追加用户气泡后按两级漏斗分发。 */
-    private fun sendText(text: String) {
-        if (text.isBlank() || _state.value.running) return
-        val pending = _state.value.pendingConfirm
-        if (pending != null && !pending.submitted) return // 未提交的确认卡未决前不派新一轮
-        _state.update {
+    /** 内部发送入口：空/运行中/未决确认卡未决时拒绝派发并返回 false；派发成功返回 true。 */
+    private fun sendText(text: String): Boolean {
+        if (text.isBlank() || _uiState.value.running) return false
+        val pending = _uiState.value.pendingConfirm
+        if (pending != null && !pending.submitted) return false // 未提交的确认卡未决前不派新一轮
+        _uiState.update {
             it.copy(messages = it.messages + CompanionMessage(id = nextId(), fromUser = true, text = text))
         }
         persist("user", text, CompanionRenderHint.TEXT)
@@ -236,26 +283,34 @@ class ChatViewModel(
                 launchRun(text)
             }
         }
+        return true
     }
 
     /** R-T2 第一级：高频指令零 token 直执行（不消耗 LLM）。 */
     private fun launchDirect(command: PlaybackCommand) {
-        viewModelScope.launch {
-            val (_, msg) = playbackCommandPort.execute(command)
-            HmpLog.i(LogTag.AgentChat) { "💬 direct command result: $msg" }
-            _state.update {
-                it.copy(messages = it.messages + CompanionMessage(id = nextId(), fromUser = false, text = msg))
+        if (_uiState.value.running) return
+        // Direct 也纳入统一运行态与 job：否则同帧可重复派发，cancel() 也取消不到。
+        _uiState.update { it.copy(running = true, runningHint = pickRunningHint(it.messages.size)) }
+        job = viewModelScope.launch {
+            try {
+                val (_, msg) = playbackCommandPort.execute(command)
+                HmpLog.i(LogTag.AgentChat) { "💬 direct command result: $msg" }
+                _uiState.update {
+                    it.copy(messages = it.messages + CompanionMessage(id = nextId(), fromUser = false, text = msg))
+                }
+                persist("agent", msg, CompanionRenderHint.TEXT)
+            } finally {
+                _uiState.update { it.copy(running = false, runningHint = null) }
             }
-            persist("agent", msg, CompanionRenderHint.TEXT)
         }
     }
 
     private fun launchRun(input: String) {
-        if (_state.value.running) return
+        if (_uiState.value.running) return
         val bridge = ConfirmBridge()
         gatewayBridge = bridge
         job = viewModelScope.launch {
-            _state.update {
+            _uiState.update {
                 it.copy(running = true, runningHint = pickRunningHint(it.messages.size))
             }
             try {
@@ -264,7 +319,7 @@ class ChatViewModel(
                     when (event) {
                         is ChatAgentEvent.NeedConfirm -> {
                             // R-T4 防御：不覆盖尚未提交的确认批次（引擎循环是顺序挂起的，正常不会触发）
-                            val current = _state.value.pendingConfirm
+                            val current = _uiState.value.pendingConfirm
                             if (current != null && !current.submitted) return@collect
                             val items = event.requests.map { r ->
                                 val strong = r.permissionLevel == ToolPermissionLevel.STRONG_CONFIRM
@@ -277,7 +332,7 @@ class ChatViewModel(
                                     permissionLevel = r.permissionLevel,
                                 )
                             }
-                            _state.update { it.copy(pendingConfirm = ConfirmCardState(event.turnId, items)) }
+                            _uiState.update { it.copy(pendingConfirm = ConfirmCardState(event.turnId, items)) }
                         }
 
                         is ChatAgentEvent.ToolExecuted -> Unit
@@ -295,7 +350,7 @@ class ChatViewModel(
                             // 资源文案气泡（textRes）无已解析文本，不落库（理由同 Failed 分支）
                             ided.filter { it.text.isNotBlank() }
                                 .forEach { persist("agent", it.text, it.renderHint) }
-                            _state.update {
+                            _uiState.update {
                                 it.copy(
                                     running = false,
                                     runningHint = null,
@@ -309,7 +364,7 @@ class ChatViewModel(
 
                         is ChatAgentEvent.Failed -> {
                             HmpLog.w(LogTag.AgentChat) { "💬 chat failed: ${event.message}" }
-                            _state.update {
+                            _uiState.update {
                                 it.copy(
                                     running = false,
                                     runningHint = null,
@@ -341,7 +396,7 @@ class ChatViewModel(
                                 songs = event.songs,
                             )
                             listOf(summaryMsg, songlistMsg).forEach { persist("agent", it.text, it.renderHint) }
-                            _state.update { it.copy(messages = it.messages + summaryMsg + songlistMsg) }
+                            _uiState.update { it.copy(messages = it.messages + summaryMsg + songlistMsg) }
                         }
 
                         is ChatAgentEvent.RadioStateChanged -> {
@@ -350,8 +405,11 @@ class ChatViewModel(
                     }
                 }
             } finally {
-                // 兜底清理：无论正常/异常，运行态复位（正常终态分支已复位，此处幂等）
-                _state.update { if (it.running) it.copy(running = false, runningHint = null) else it }
+                // 兜底清理：正常 / 异常 / 取消都把运行态与确认态一起复位。
+                // 只复位 running 会留下 pendingConfirm 而 gatewayBridge 已置空 ——
+                // 用户点「照做」变成空操作，且输入一直被判为未提交确认卡阻塞。
+                _uiState.update { it.copy(running = false, runningHint = null, pendingConfirm = null) }
+                submittedConfirms.clear()
                 gatewayBridge = null
             }
         }

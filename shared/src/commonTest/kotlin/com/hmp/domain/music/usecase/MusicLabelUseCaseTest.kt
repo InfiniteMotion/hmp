@@ -4,7 +4,6 @@ import com.hmp.domain.enum.LabelCategory
 import com.hmp.domain.enum.LabelName
 import com.hmp.domain.music.Music
 import com.hmp.domain.music.MusicInfo
-import com.hmp.domain.music.MusicLabel
 import com.hmp.test.fakes.FakeMusicRepository
 import com.hmp.test.fakes.FakePlaylistRepository
 import kotlinx.coroutines.flow.first

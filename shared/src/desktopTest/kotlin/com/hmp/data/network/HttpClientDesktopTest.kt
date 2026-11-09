@@ -2,7 +2,6 @@ package com.hmp.data.network
 
 import io.ktor.client.*
 import io.ktor.client.plugins.*
-import kotlinx.serialization.json.Json
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull

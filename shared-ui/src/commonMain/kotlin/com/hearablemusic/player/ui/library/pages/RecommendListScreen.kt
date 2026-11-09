@@ -17,14 +17,13 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -34,7 +33,6 @@ import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
 import coil3.compose.AsyncImage
@@ -62,17 +60,14 @@ import com.hearablemusic.player.ui.generated.resources.reco_phase_morning_commut
 import com.hearablemusic.player.ui.generated.resources.reco_phase_night
 import com.hearablemusic.player.ui.generated.resources.reco_phase_today
 import com.hearablemusic.player.ui.generated.resources.reco_phase_work
+import com.hearablemusic.player.ui.library.viewmodel.RecommendListEffect
+import com.hearablemusic.player.ui.library.viewmodel.RecommendListViewModel
 import com.hearablemusic.player.ui.platform.rememberStatusBarsController
-import com.hearablemusic.player.ui.player.viewmodel.PlaylistQueueViewModel
 import com.hmp.domain.agent.card.RecommendItem
 import com.hmp.domain.agent.card.RecommendSource
 import com.hmp.domain.agent.card.TimePhase
-import com.hmp.domain.agent.runtime.MasterAgent
-import com.hmp.domain.music.MusicRepository
-import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
-import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 import com.hearablemusic.player.ui.common.navigation.Routes as NavRoutes
 
@@ -89,13 +84,23 @@ import com.hearablemusic.player.ui.common.navigation.Routes as NavRoutes
 fun RecommendListScreen(
     source: RecommendSource,
     navController: NavBackStack<NavKey>,
-    playlistQueueViewModel: PlaylistQueueViewModel = activityViewModel(),
 ) {
     val metrics = LocalHmpMetrics.current
-    val masterAgent: MasterAgent = koinInject()
-    val musicRepository: MusicRepository = koinInject()
-    val themeViewModel: ThemeViewModel = koinViewModel()
-    val scope = rememberCoroutineScope()
+    // 应用级实例：与 AppRoot 共用，避免 entry 级 VM 重复订阅播放流
+    val themeViewModel: ThemeViewModel = activityViewModel()
+    val viewModel: RecommendListViewModel = koinViewModel()
+
+    LaunchedEffect(source) {
+        viewModel.onSourceChanged(source)
+    }
+    // 入队/定位已在 VM；这里只消费导航效果
+    LaunchedEffect(Unit) {
+        viewModel.effect.collect { effect ->
+            when (effect) {
+                RecommendListEffect.NavigateToPlayer -> navController.add(NavRoutes.Player.Player)
+            }
+        }
+    }
 
     // 沉浸式：进入本页隐藏状态栏（AppRoot 的 statusBarsPadding 随之归零，英雄区顶到屏幕最上沿）；
     // 退出恢复。Desktop 无系统状态栏 → 控制器为 null，自动跳过。
@@ -105,28 +110,10 @@ fun RecommendListScreen(
         onDispose { statusBars?.show() }
     }
 
-    // MasterAgent 持有的固定转发流（首帧即可拿到，不会缓存到 null / 旧实例）
-    val payload by (
-        if (source == RecommendSource.DAILY) {
-            masterAgent.dailyRecommendList
-        } else {
-            masterAgent.privateRecommendList
-        }
-        ).collectAsState()
-
-    // hydrate：trackId → MusicInfo（列表只持久化 id + 按语）
-    val items by produceState(initialValue = emptyList<RecommendItem>(), payload) {
-        val p = payload
-        value = if (p == null || p.items.isEmpty()) {
-            emptyList()
-        } else {
-            val infos = runCatching { musicRepository.getMusicInfoByIds(p.items.map { it.trackId }) }
-                .getOrNull().orEmpty().associateBy { it.music.id }
-            p.items.mapNotNull { rec ->
-                infos[rec.trackId]?.let { RecommendItem(it, rec.reason, p.source, p.phase) }
-            }
-        }
-    }
+    // 唯一状态出口：payload 与按 trackId 展开后的渲染条目由 VM 提供，UI 不再直连仓库
+    val uiState by viewModel.uiState.collectAsState()
+    val payload = uiState.payload
+    val items = uiState.items
 
     // 种子曲封面取色 → 整页深色基调
     val seedUri = items.firstOrNull()?.musicInfo?.music?.albumArtUri?.takeIf { it.isNotBlank() }
@@ -141,22 +128,6 @@ fun RecommendListScreen(
     val inkTertiary = Color.White.copy(alpha = 0.52f)
     val dividerColor = Color.White.copy(alpha = 0.12f)
     val thumbBg = Color.White.copy(alpha = 0.08f)
-
-    fun playFrom(index: Int) {
-        if (items.isEmpty()) return
-        scope.launch {
-            val infos = items.map { it.musicInfo }
-            // 追加到现有队列尾部（**不清空** —— 点推荐不该丢掉用户已有的待播列表），
-            // 再定位到点中的那首播起。
-            // 注：原来这里用 `clearPlaylist() + addAllToPlaylistInOrder()`，而后者名不副实 ——
-            // 它做的是「整条替换 + 索引归零 + 从第一首播」，既清掉了旧队列，
-            // 也让 `playFrom(index)` 的 index 彻底失效（永远从 0 播）。
-            // `addToPlaylist` 内含整队列去重，已在队列中的曲目不会重复入队。
-            infos.forEach { playlistQueueViewModel.addToPlaylist(it) }
-            playlistQueueViewModel.playAt(infos[index.coerceIn(0, infos.lastIndex)])
-            navController.add(NavRoutes.Player.Player)
-        }
-    }
 
     val label = if (source == RecommendSource.DAILY) {
         stringResource(Res.string.reco_label_daily, items.size)
@@ -191,7 +162,7 @@ fun RecommendListScreen(
                             scrim = pageBg,
                             ink = ink,
                             onBack = { navController.removeLastOrNull() },
-                            onPlayAll = { playFrom(0) },
+                            onPlayAll = { viewModel.onPlayFrom(0) },
                         )
                         LazyColumn(modifier = Modifier.weight(0.58f).fillMaxHeight()) {
                             itemsIndexed(items) { index, item ->
@@ -201,7 +172,7 @@ fun RecommendListScreen(
                                     secondaryColor = inkSecondary,
                                     tertiaryColor = inkTertiary,
                                     thumbBg = thumbBg,
-                                    onClick = { playFrom(index) },
+                                    onClick = { viewModel.onPlayFrom(index) },
                                 )
                                 if (index != items.lastIndex) {
                                     Box(
@@ -228,7 +199,7 @@ fun RecommendListScreen(
                                 scrim = pageBg,
                                 ink = ink,
                                 onBack = { navController.removeLastOrNull() },
-                                onPlayAll = { playFrom(0) },
+                                onPlayAll = { viewModel.onPlayFrom(0) },
                             )
                         }
                         itemsIndexed(items) { index, item ->
@@ -238,7 +209,7 @@ fun RecommendListScreen(
                                 secondaryColor = inkSecondary,
                                 tertiaryColor = inkTertiary,
                                 thumbBg = thumbBg,
-                                onClick = { playFrom(index) },
+                                onClick = { viewModel.onPlayFrom(index) },
                             )
                             if (index != items.lastIndex) {
                                 Box(

@@ -9,7 +9,6 @@ import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
-import com.hmp.data.database.currentTimeMillis
 import com.hmp.data.network.BuiltInApiKeyProvider
 import com.hmp.domain.backup.AppSettingsSnapshot
 import com.hmp.domain.config.DisplayMode
@@ -19,13 +18,10 @@ import com.hmp.domain.setting.SettingsRepository
 import com.hmp.domain.setting.model.AiAccessMode
 import com.hmp.domain.setting.model.AiEndpointConfig
 import com.hmp.domain.setting.model.ScanDirectoryConfig
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
-import java.io.File
 
 class SettingsRepositoryImpl(
     private val dataStore: DataStore<Preferences>,

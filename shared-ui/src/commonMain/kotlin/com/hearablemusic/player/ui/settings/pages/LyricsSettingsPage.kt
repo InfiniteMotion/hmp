@@ -25,18 +25,12 @@ import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.hearablemusic.player.ui.common.components.base.TitleWidget
 import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
@@ -67,16 +61,13 @@ import com.hearablemusic.player.ui.generated.resources.shared_settings
 import com.hearablemusic.player.ui.generated.resources.text_settings
 import com.hearablemusic.player.ui.generated.resources.translated_text
 import com.hearablemusic.player.ui.generated.resources.translated_text_size
-import com.hearablemusic.player.ui.platform.PlatformServices
 import com.hearablemusic.player.ui.player.components.MiniPlayerSafeSpacer
+import com.hearablemusic.player.ui.settings.viewmodel.LyricsSettingsPageViewModel
 import com.hmp.domain.config.DisplayMode
 import com.hmp.domain.config.LyricsAlignment
 import com.hmp.domain.lyrics.LyricsComponent
-import com.hmp.domain.lyrics.LyricsComponentConfig
-import com.hmp.domain.setting.usecase.LyricsSettingsUseCase
-import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
-import org.koin.compose.koinInject
+import org.koin.compose.viewmodel.koinViewModel
 
 /**
  * 设置页可见的歌词组件。
@@ -88,76 +79,22 @@ internal fun supportedLyricsComponents(floatingSupported: Boolean): List<LyricsC
 
 @Composable
 fun LyricsSettingsPage(
-    lyricsSettingsUseCase: LyricsSettingsUseCase,
     onBack: () -> Unit,
+    viewModel: LyricsSettingsPageViewModel = koinViewModel(),
 ) {
     val metrics = LocalHmpMetrics.current
-    val scope = rememberCoroutineScope()
     val typo = LocalHmpTypo.current
-    val platformServices: PlatformServices = koinInject()
 
-    var selectedTab by remember { mutableStateOf(LyricsComponent.PLAYER) }
-    var playerConfig by remember { mutableStateOf(LyricsComponentConfig.DEFAULT) }
-    var fullscreenConfig by remember { mutableStateOf(LyricsComponentConfig.DEFAULT) }
-    var floatingConfig by remember { mutableStateOf(LyricsComponentConfig.DEFAULT) }
-
-    LaunchedEffect(Unit) {
-        val configs = lyricsSettingsUseCase.getAllComponentConfigs()
-        playerConfig = configs[LyricsComponent.PLAYER] ?: LyricsComponentConfig.DEFAULT
-        fullscreenConfig = configs[LyricsComponent.FULLSCREEN] ?: LyricsComponentConfig.DEFAULT
-        floatingConfig = configs[LyricsComponent.FLOATING] ?: LyricsComponentConfig.DEFAULT
-    }
-
-    val floatingEnabled by lyricsSettingsUseCase.floatingLyricsEnabled.collectAsState(false)
-
-    fun startFloatingLyrics() {
-        if (!platformServices.floatingLyrics.isSupported) return
-        if (platformServices.permission.hasOverlayPermission()) {
-            scope.launch { lyricsSettingsUseCase.saveFloatingLyricsEnabled(true) }
-            platformServices.floatingLyrics.start()
-        } else {
-            platformServices.permission.requestOverlayPermission { granted ->
-                if (granted) {
-                    scope.launch { lyricsSettingsUseCase.saveFloatingLyricsEnabled(true) }
-                    platformServices.floatingLyrics.start()
-                } else {
-                    scope.launch { lyricsSettingsUseCase.saveFloatingLyricsEnabled(false) }
-                }
-            }
-        }
-    }
-
-    fun stopFloatingLyrics() {
-        scope.launch { lyricsSettingsUseCase.saveFloatingLyricsEnabled(false) }
-        platformServices.floatingLyrics.stop()
-    }
-
-    fun currentConfig() = when (selectedTab) {
-        LyricsComponent.PLAYER -> playerConfig
-        LyricsComponent.FULLSCREEN -> fullscreenConfig
-        LyricsComponent.FLOATING -> floatingConfig
-    }
-
-    fun updateCurrent(config: LyricsComponentConfig) {
-        when (selectedTab) {
-            LyricsComponent.PLAYER -> playerConfig = config
-            LyricsComponent.FULLSCREEN -> fullscreenConfig = config
-            LyricsComponent.FLOATING -> floatingConfig = config
-        }
-        scope.launch { lyricsSettingsUseCase.saveComponentConfig(selectedTab, config) }
-    }
+    // 唯一状态出口：选中的组件、三份配置、悬浮开关与平台能力位
+    val uiState by viewModel.uiState.collectAsState()
+    val config = uiState.currentConfig
 
     val tabLabels = mapOf(
         LyricsComponent.PLAYER to stringResource(Res.string.player_page),
         LyricsComponent.FULLSCREEN to stringResource(Res.string.fullscreen),
         LyricsComponent.FLOATING to stringResource(Res.string.floating_lyrics),
     )
-    val components = supportedLyricsComponents(platformServices.floatingLyrics.isSupported)
-    LaunchedEffect(platformServices.floatingLyrics.isSupported) {
-        if (!platformServices.floatingLyrics.isSupported && selectedTab == LyricsComponent.FLOATING) {
-            selectedTab = LyricsComponent.PLAYER
-        }
-    }
+    val components = supportedLyricsComponents(uiState.floatingSupported)
 
     SubScreen(
         onBackClick = onBack,
@@ -175,8 +112,8 @@ fun LyricsSettingsPage(
                 SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
                     components.forEachIndexed { idx, comp ->
                         SegmentedButton(
-                            selected = selectedTab == comp,
-                            onClick = { selectedTab = comp },
+                            selected = uiState.selectedTab == comp,
+                            onClick = { viewModel.onSelectTab(comp) },
                             shape = SegmentedButtonDefaults.itemShape(idx, components.size),
                         ) { Text(tabLabels[comp] ?: comp.key) }
                     }
@@ -184,7 +121,7 @@ fun LyricsSettingsPage(
             }
 
             // 悬浮歌词开关 — 仅 floating tab 时显示
-            if (selectedTab == LyricsComponent.FLOATING) {
+            if (uiState.selectedTab == LyricsComponent.FLOATING) {
                 TitleWidget(title = stringResource(Res.string.floating_lyrics)) {
                     Surface(
                         modifier = Modifier.fillMaxWidth(),
@@ -203,8 +140,8 @@ fun LyricsSettingsPage(
                                 color = MaterialTheme.colorScheme.onSurface,
                             )
                             Switch(
-                                checked = floatingEnabled,
-                                onCheckedChange = { if (it) startFloatingLyrics() else stopFloatingLyrics() },
+                                checked = uiState.floatingEnabled,
+                                onCheckedChange = { viewModel.onFloatingLyricsToggle(it) },
                                 colors = SwitchDefaults.colors(
                                     checkedThumbColor = MaterialTheme.colorScheme.primary,
                                     checkedTrackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f),
@@ -215,15 +152,13 @@ fun LyricsSettingsPage(
                 }
             }
 
-            val config = currentConfig()
-
             // 显示模式
             TitleWidget(title = stringResource(Res.string.display_mode)) {
                 SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
                     listOf("DUAL" to stringResource(Res.string.bilingual), "LANG1" to stringResource(Res.string.original_text), "LANG2" to stringResource(Res.string.translated_text)).forEachIndexed { idx, (key, label) ->
                         SegmentedButton(
                             selected = config.displayMode.name == key,
-                            onClick = { updateCurrent(config.copy(displayMode = DisplayMode.valueOf(key))) },
+                            onClick = { viewModel.onDisplayModeChange(DisplayMode.valueOf(key)) },
                             shape = SegmentedButtonDefaults.itemShape(idx, 3),
                         ) { Text(label, style = typo.footnote) }
                     }
@@ -236,7 +171,7 @@ fun LyricsSettingsPage(
                     listOf("LEFT" to stringResource(Res.string.align_left), "CENTER" to stringResource(Res.string.align_center), "RIGHT" to stringResource(Res.string.align_right)).forEachIndexed { idx, (key, label) ->
                         SegmentedButton(
                             selected = config.alignment.name == key,
-                            onClick = { updateCurrent(config.copy(alignment = LyricsAlignment.valueOf(key))) },
+                            onClick = { viewModel.onAlignmentChange(LyricsAlignment.valueOf(key)) },
                             shape = SegmentedButtonDefaults.itemShape(idx, 3),
                         ) { Text(label, style = typo.footnote) }
                     }
@@ -250,16 +185,16 @@ fun LyricsSettingsPage(
                     verticalArrangement = Arrangement.spacedBy(metrics.compact),
                 ) {
                     NumericRow(stringResource(Res.string.original_text_size), config.originalTextSize, 10..28) {
-                        updateCurrent(config.copy(originalTextSize = it))
+                        viewModel.onOriginalTextSizeChange(it)
                     }
                     NumericRow(stringResource(Res.string.translated_text_size), config.translatedTextSize, 10..28) {
-                        updateCurrent(config.copy(translatedTextSize = it))
+                        viewModel.onTranslatedTextSizeChange(it)
                     }
                     NumericRow(stringResource(Res.string.current_line_size), config.currentTimeTextSize, 10..28) {
-                        updateCurrent(config.copy(currentTimeTextSize = it))
+                        viewModel.onCurrentTimeTextSizeChange(it)
                     }
                     NumericRow(stringResource(Res.string.line_spacing), config.lineSpacing, 0..20) {
-                        updateCurrent(config.copy(lineSpacing = it))
+                        viewModel.onLineSpacingChange(it)
                     }
                     Surface(
                         modifier = Modifier.fillMaxWidth(),
@@ -279,7 +214,7 @@ fun LyricsSettingsPage(
                             )
                             Switch(
                                 checked = config.karaokeEnabled,
-                                onCheckedChange = { updateCurrent(config.copy(karaokeEnabled = it)) },
+                                onCheckedChange = { viewModel.onKaraokeChange(it) },
                                 colors = SwitchDefaults.colors(
                                     checkedThumbColor = MaterialTheme.colorScheme.primary,
                                     checkedTrackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f),
@@ -293,7 +228,7 @@ fun LyricsSettingsPage(
             // 共享设置
             TitleWidget(title = stringResource(Res.string.shared_settings)) {
                 val linkOptions = listOf(null to stringResource(Res.string.independent_config)) +
-                    LyricsComponent.entries.filter { it != selectedTab }.map { it.key to stringResource(Res.string.follow_component, tabLabels[it]!!) }
+                    LyricsComponent.entries.filter { it != uiState.selectedTab }.map { it.key to stringResource(Res.string.follow_component, tabLabels[it]!!) }
                 Column(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = metrics.compact),
                     verticalArrangement = Arrangement.spacedBy(metrics.hair),
@@ -302,7 +237,7 @@ fun LyricsSettingsPage(
                         Surface(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable { updateCurrent(config.copy(linkedTo = key)) },
+                                .clickable { viewModel.onLinkedToChange(key) },
                             shape = RoundedCornerShape(metrics.base),
                             color = if (config.linkedTo == key) {
                                 MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
@@ -316,7 +251,7 @@ fun LyricsSettingsPage(
                             ) {
                                 RadioButton(
                                     selected = config.linkedTo == key,
-                                    onClick = { updateCurrent(config.copy(linkedTo = key)) },
+                                    onClick = { viewModel.onLinkedToChange(key) },
                                     colors = RadioButtonDefaults.colors(
                                         selectedColor = MaterialTheme.colorScheme.primary,
                                     ),
@@ -335,20 +270,11 @@ fun LyricsSettingsPage(
 
             // 重置
             TextButton(
-                onClick = {
-                    scope.launch {
-                        lyricsSettingsUseCase.resetComponentToDefault(selectedTab)
-                        when (selectedTab) {
-                            LyricsComponent.PLAYER -> playerConfig = LyricsComponentConfig.DEFAULT
-                            LyricsComponent.FULLSCREEN -> fullscreenConfig = LyricsComponentConfig.DEFAULT
-                            LyricsComponent.FLOATING -> floatingConfig = LyricsComponentConfig.DEFAULT
-                        }
-                    }
-                },
+                onClick = { viewModel.onResetCurrentComponent() },
                 modifier = Modifier.align(Alignment.CenterHorizontally),
             ) {
                 Text(
-                    stringResource(Res.string.reset_component_to_default, tabLabels[selectedTab] ?: ""),
+                    stringResource(Res.string.reset_component_to_default, tabLabels[uiState.selectedTab] ?: ""),
                     color = MaterialTheme.colorScheme.error,
                 )
             }

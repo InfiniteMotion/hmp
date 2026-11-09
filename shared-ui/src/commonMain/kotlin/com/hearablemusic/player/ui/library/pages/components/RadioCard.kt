@@ -1,5 +1,4 @@
 package com.hearablemusic.player.ui.library.pages.components
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -14,22 +13,15 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
 import com.hearablemusic.player.ui.common.components.base.HMPCard
 import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
@@ -37,7 +29,6 @@ import com.hearablemusic.player.ui.common.design.typography.medium
 import com.hearablemusic.player.ui.common.util.HapticFeedbackHelper
 import com.hearablemusic.player.ui.common.util.rememberHapticFeedback
 import com.hearablemusic.player.ui.generated.resources.Res
-import com.hearablemusic.player.ui.generated.resources.ai_quota_exhausted_hint
 import com.hearablemusic.player.ui.generated.resources.headphones_fill
 import com.hearablemusic.player.ui.generated.resources.play_fill
 import com.hearablemusic.player.ui.generated.resources.radio_card_active
@@ -52,12 +43,10 @@ import com.hearablemusic.player.ui.generated.resources.radio_card_starting
 import com.hearablemusic.player.ui.generated.resources.radio_card_theme_renew
 import com.hearablemusic.player.ui.generated.resources.radio_card_upcoming
 import com.hearablemusic.player.ui.generated.resources.stop
-import com.hmp.domain.agent.runtime.MasterAgent
+import com.hmp.domain.agent.runtime.sub.radio.RadioCardState
 import com.hmp.domain.agent.runtime.sub.radio.RadioState
-import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
-import org.koin.compose.koinInject
 
 /**
  * 区域②左：1:1 收音机开关卡（控制为主）。
@@ -77,19 +66,15 @@ import org.koin.compose.koinInject
  */
 @Composable
 fun RadioCard(
+    radioState: RadioState?,
+    radioCard: RadioCardState,
+    onToggleRadio: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
-    masterAgent: MasterAgent = koinInject(),
     haptic: HapticFeedbackHelper = rememberHapticFeedback(),
 ) {
     val metrics = LocalHmpMetrics.current
-    val scope = rememberCoroutineScope()
-    val quotaGate: com.hmp.domain.agent.quota.TokenQuotaGate = koinInject()
-    val dialogManager: com.hearablemusic.player.ui.common.dialogs.controller.DialogManager = koinInject()
-    val quotaText = stringResource(Res.string.ai_quota_exhausted_hint)
     val typo = LocalHmpTypo.current
 
-    // ✅ 主路径：直接 collect MasterAgent 暴露的 radioState StateFlow
-    val radioState by masterAgent.radioState.collectAsState()
     val isBuilding = radioState is RadioState.BUILDING
     // 外部不区分停止 / 暂停：PLAYING / PAUSED / BUILDING 都算「已开启」（内部态由电台自管）
     val isActive = radioState is RadioState.PLAYING ||
@@ -99,22 +84,12 @@ fun RadioCard(
     // ✅ 动态：运行状态 + 队列
     // 不要用 helloAgent.cards 找 RADIO_STATUS —— 那张卡早已拆到 UI 层、只在
     // HelloSlideCards 里本地构建，从来没进过 cards 流，取出来恒为 null。
-    val card by masterAgent.radioCardState.collectAsState()
+    val card = radioCard
 
     fun toggle() {
         haptic.performClick()
-        // 额度不足：只在「开启」方向拦截；关闭永远允许
-        if (!isActive && quotaGate.isBucketExhausted("radio")) {
-            scope.launch { dialogManager.showMessage(quotaText) }
-            return
-        }
-        scope.launch {
-            if (isActive) {
-                masterAgent.stopRadio() // 已开启（运行 / 暂停 / 启动中）→ 关闭
-            } else {
-                masterAgent.startRadio() // 空闲 → 开启（内部自动判断续档还是新开）
-            }
-        }
+        // 额度判定在 HomeViewModel：拦截时由它发 Effect，本卡不再直连 DialogManager
+        onToggleRadio(isActive)
     }
 
     val title = when {

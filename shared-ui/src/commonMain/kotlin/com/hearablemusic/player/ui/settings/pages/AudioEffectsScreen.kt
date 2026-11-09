@@ -61,7 +61,6 @@ import com.hearablemusic.player.ui.generated.resources.reverb
 import com.hearablemusic.player.ui.generated.resources.small_room
 import com.hearablemusic.player.ui.generated.resources.surround_sound
 import com.hearablemusic.player.ui.settings.viewmodel.AudioEffectViewModel
-import com.hmp.domain.setting.model.AudioEffectSettings
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 import kotlin.math.abs
@@ -71,50 +70,16 @@ fun AudioEffectsScreen(
     viewModel: AudioEffectViewModel = koinViewModel(),
     navController: NavBackStack<NavKey>,
 ) {
-    val audioEffectSettings by viewModel.audioEffectSettings.collectAsState()
-    val equalizerPresets by viewModel.equalizerPresets.collectAsState()
-    val equalizerBandCount by viewModel.equalizerBandCount.collectAsState()
-    val equalizerBandLevelRange by viewModel.equalizerBandLevelRange.collectAsState()
-    val currentEqualizerBandLevels by viewModel.currentEqualizerBandLevels.collectAsState()
+    val metrics = LocalHmpMetrics.current
+    // 唯一状态出口：音效设置与均衡器数据由 VM 聚合，UI 不再逐字段订阅
+    val uiState by viewModel.uiState.collectAsState()
 
-    // 初始化音效状态
     LaunchedEffect(Unit) {
-        viewModel.initializeAudioEffects()
+        viewModel.onInitializeAudioEffects()
     }
 
-    AudioEffectsScreenContent(
-        audioEffectSettings = audioEffectSettings,
-        equalizerPresets = equalizerPresets,
-        equalizerBandCount = equalizerBandCount,
-        equalizerBandLevelRange = equalizerBandLevelRange,
-        currentEqualizerBandLevels = currentEqualizerBandLevels,
-        onBackClick = { navController.removeLastOrNull() },
-        onSetEqualizerPreset = viewModel::setEqualizerPreset,
-        onSetBassBoost = viewModel::setBassBoost,
-        onSetSurroundSound = viewModel::setSurroundSound,
-        onSetReverb = viewModel::setReverb,
-        onSetCustomEqualizer = viewModel::setCustomEqualizer,
-    )
-}
-
-@Composable
-fun AudioEffectsScreenContent(
-    audioEffectSettings: AudioEffectSettings,
-    equalizerPresets: List<String>,
-    equalizerBandCount: Int,
-    equalizerBandLevelRange: Pair<Int, Int>,
-    currentEqualizerBandLevels: FloatArray,
-    onBackClick: () -> Unit,
-    onSetEqualizerPreset: (Int) -> Unit,
-    onSetBassBoost: (Int) -> Unit,
-    onSetSurroundSound: (Boolean) -> Unit,
-    onSetReverb: (Int) -> Unit,
-    onSetCustomEqualizer: (FloatArray) -> Unit,
-) {
-    val metrics = LocalHmpMetrics.current
-    // 使用SubScreen模板
     SubScreen(
-        onBackClick = onBackClick,
+        onBackClick = { navController.removeLastOrNull() },
         title = stringResource(Res.string.audio_effects_settings),
     ) {
         val isLandscape = LocalWindowSizeInfo.current.isLandscape
@@ -134,9 +99,9 @@ fun AudioEffectsScreenContent(
                             title = stringResource(Res.string.preset_equalizer),
                         ) {
                             EqualizerPresetSelector(
-                                presets = equalizerPresets,
-                                currentPreset = audioEffectSettings.equalizerPreset,
-                                onPresetSelected = onSetEqualizerPreset,
+                                presets = uiState.presets,
+                                currentPreset = uiState.settings.equalizerPreset,
+                                onPresetSelected = viewModel::setEqualizerPreset,
                             )
                         }
 
@@ -149,16 +114,16 @@ fun AudioEffectsScreenContent(
                                 verticalArrangement = Arrangement.spacedBy(metrics.cozy),
                             ) {
                                 BassBoostSlider(
-                                    currentLevel = audioEffectSettings.bassBoostLevel,
-                                    onLevelChanged = onSetBassBoost,
+                                    currentLevel = uiState.settings.bassBoostLevel,
+                                    onLevelChanged = viewModel::setBassBoost,
                                 )
                                 SurroundSoundToggle(
-                                    isEnabled = audioEffectSettings.isSurroundSoundEnabled,
-                                    onToggle = onSetSurroundSound,
+                                    isEnabled = uiState.settings.isSurroundSoundEnabled,
+                                    onToggle = viewModel::setSurroundSound,
                                 )
                                 ReverbSettings(
-                                    currentPreset = audioEffectSettings.reverbPreset,
-                                    onPresetChanged = onSetReverb,
+                                    currentPreset = uiState.settings.reverbPreset,
+                                    onPresetChanged = viewModel::setReverb,
                                 )
                             }
                         }
@@ -168,48 +133,33 @@ fun AudioEffectsScreenContent(
                             title = stringResource(Res.string.custom_equalizer),
                         ) {
                             CustomEqualizer(
-                                bandCount = equalizerBandCount,
-                                bandLevelRange = equalizerBandLevelRange,
-                                currentBandLevels = currentEqualizerBandLevels,
-                                onBandLevelChanged = { index, level ->
-                                    val newLevels = currentEqualizerBandLevels.copyOf()
-                                    newLevels[index] = level
-                                    onSetCustomEqualizer(newLevels)
-                                },
-                                onResetAll = {
-                                    // 重置所有频段到0
-                                    val resetLevels = FloatArray(equalizerBandCount)
-                                    onSetCustomEqualizer(resetLevels)
-                                },
+                                bandCount = uiState.bandCount,
+                                bandLevelRange = uiState.bandLevelRange,
+                                currentBandLevels = uiState.bandLevels,
+                                onBandLevelChanged = viewModel::onBandLevelChanged,
+                                onResetAll = viewModel::onResetEqualizer,
                             )
                         }
                     }
                 }
             } else {
                 TitleWidget(title = stringResource(Res.string.preset_equalizer)) {
-                    EqualizerPresetSelector(presets = equalizerPresets, currentPreset = audioEffectSettings.equalizerPreset, onPresetSelected = onSetEqualizerPreset)
+                    EqualizerPresetSelector(presets = uiState.presets, currentPreset = uiState.settings.equalizerPreset, onPresetSelected = viewModel::setEqualizerPreset)
                 }
                 TitleWidget(title = stringResource(Res.string.audio_effects_settings)) {
                     Column(modifier = Modifier.fillMaxWidth().padding(metrics.cozy), verticalArrangement = Arrangement.spacedBy(metrics.cozy)) {
-                        BassBoostSlider(currentLevel = audioEffectSettings.bassBoostLevel, onLevelChanged = onSetBassBoost)
-                        SurroundSoundToggle(isEnabled = audioEffectSettings.isSurroundSoundEnabled, onToggle = onSetSurroundSound)
-                        ReverbSettings(currentPreset = audioEffectSettings.reverbPreset, onPresetChanged = onSetReverb)
+                        BassBoostSlider(currentLevel = uiState.settings.bassBoostLevel, onLevelChanged = viewModel::setBassBoost)
+                        SurroundSoundToggle(isEnabled = uiState.settings.isSurroundSoundEnabled, onToggle = viewModel::setSurroundSound)
+                        ReverbSettings(currentPreset = uiState.settings.reverbPreset, onPresetChanged = viewModel::setReverb)
                     }
                 }
                 TitleWidget(title = stringResource(Res.string.custom_equalizer)) {
                     CustomEqualizer(
-                        bandCount = equalizerBandCount,
-                        bandLevelRange = equalizerBandLevelRange,
-                        currentBandLevels = currentEqualizerBandLevels,
-                        onBandLevelChanged = { index, level ->
-                            val n = currentEqualizerBandLevels.copyOf()
-                            n[index] = level
-                            onSetCustomEqualizer(n)
-                        },
-                        onResetAll = {
-                            val r = FloatArray(equalizerBandCount)
-                            onSetCustomEqualizer(r)
-                        },
+                        bandCount = uiState.bandCount,
+                        bandLevelRange = uiState.bandLevelRange,
+                        currentBandLevels = uiState.bandLevels,
+                        onBandLevelChanged = viewModel::onBandLevelChanged,
+                        onResetAll = viewModel::onResetEqualizer,
                     )
                 }
             }
@@ -276,6 +226,13 @@ fun BassBoostSlider(
 ) {
     val typo = LocalHmpTypo.current
     var sliderValue by remember { mutableFloatStateOf(currentLevel.toFloat()) }
+    var isDragging by remember { mutableStateOf(false) }
+
+    // 外部值只在非拖动时回流：拖动中每帧写引擎会让回声重置本地值、打断手势。
+    // key 只挂 currentLevel —— 挂 isDragging 会在松手瞬间用旧外部值把滑块拽回去。
+    LaunchedEffect(currentLevel) {
+        if (!isDragging) sliderValue = currentLevel.toFloat()
+    }
 
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -291,7 +248,8 @@ fun BassBoostSlider(
                 color = MaterialTheme.colorScheme.onSurface,
             )
             Text(
-                text = "$currentLevel%",
+                // 文案读本地草稿，拖动中与滑块一致
+                text = "${sliderValue.toInt()}%",
                 style = typo.footnote,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -299,8 +257,12 @@ fun BassBoostSlider(
         Slider(
             value = sliderValue,
             onValueChange = { newValue ->
+                isDragging = true
                 sliderValue = newValue
-                onLevelChanged(newValue.toInt())
+            },
+            onValueChangeFinished = {
+                isDragging = false
+                onLevelChanged(sliderValue.toInt())
             },
             valueRange = 0f..100f,
             modifier = Modifier.fillMaxWidth(),
@@ -512,10 +474,16 @@ fun EqualizerBand(
     val metrics = LocalHmpMetrics.current
     val typo = LocalHmpTypo.current
     val haptic = rememberHapticFeedback()
-    var sliderValue by remember(currentLevel) { mutableFloatStateOf(currentLevel) }
+    var sliderValue by remember { mutableFloatStateOf(currentLevel) }
     val normalizedValue = (sliderValue - levelRange.first) / (levelRange.second - levelRange.first)
     var isDragging by remember { mutableStateOf(false) }
     val density = LocalDensity.current
+
+    // 外部值只在非拖动时回流；拖动中不写引擎，避免回声把本地值重置、打断手势。
+    // key 只挂 currentLevel —— 挂 isDragging 会在松手瞬间用旧外部值把滑块拽回去。
+    LaunchedEffect(currentLevel) {
+        if (!isDragging) sliderValue = currentLevel
+    }
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -549,20 +517,22 @@ fun EqualizerBand(
                         onDragEnd = {
                             isDragging = false
                             haptic.performGestureEnd()
+                            // 松手才落库：每帧写回会重复构造整份 FloatArray
+                            onLevelChanged(sliderValue)
                         },
                         onDragCancel = {
                             isDragging = false
+                            // 取消也提交，避免 UI 已移动而引擎仍停在旧值
+                            onLevelChanged(sliderValue)
                         },
                         onVerticalDrag = { change, dragAmount ->
                             change.consume()
                             val trackHeightPx = with(density) { HMPMetricTokens.Compact.card.toPx() }
                             val delta = -dragAmount / trackHeightPx * (levelRange.second - levelRange.first)
-                            val newValue = (sliderValue + delta).coerceIn(
+                            sliderValue = (sliderValue + delta).coerceIn(
                                 levelRange.first.toFloat(),
                                 levelRange.second.toFloat(),
                             )
-                            sliderValue = newValue
-                            onLevelChanged(newValue)
                         },
                     )
                 }

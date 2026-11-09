@@ -7,7 +7,6 @@ import com.hmp.domain.agent.port.ConfirmGate
 import com.hmp.domain.agent.port.ConfirmOutcome
 import com.hmp.domain.agent.port.LlmEvent
 import com.hmp.domain.agent.port.LlmMessage
-import com.hmp.domain.agent.port.LlmToolSpec
 import com.hmp.domain.agent.port.ToolPermissionLevel
 import com.hmp.domain.agent.tool.spec.ToolRegistry
 import com.hmp.domain.agent.tool.spec.ToolResult
@@ -19,7 +18,6 @@ import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
-import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class ToolCallExecutorTest {

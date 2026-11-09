@@ -1,6 +1,5 @@
 package com.hearablemusic.player.ui.agent.shell
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
@@ -73,7 +72,6 @@ import com.hearablemusic.player.ui.generated.resources.agent_radio_upcoming_prev
 import com.hearablemusic.player.ui.generated.resources.radiowaves
 import com.hearablemusic.player.ui.library.pages.components.AlbumCover
 import com.hearablemusic.player.ui.platform.HapticEffect
-import com.hmp.domain.agent.runtime.MasterAgent
 import com.hmp.domain.agent.runtime.sub.radio.RadioState
 import com.hmp.domain.agent.runtime.sub.shared.RadioTrack
 import dev.chrisbanes.haze.HazeState
@@ -81,7 +79,7 @@ import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
-import org.koin.compose.koinInject
+import org.koin.compose.viewmodel.koinViewModel
 import kotlin.math.roundToInt
 
 /**
@@ -127,21 +125,23 @@ fun RadioConsole(
     visible: Boolean,
     onDismiss: () -> Unit,
     onEndSession: () -> Unit,
-    onPlayTrack: (Long) -> Unit = {},
+    onPlayTrack: (Long) -> Unit,
     modifier: Modifier = Modifier,
     nowCoverUri: String? = null,
     hazeState: HazeState? = null,
     hazeRenderSettings: HazeRenderSettings? = null,
-    masterAgent: MasterAgent = koinInject(),
+    viewModel: RadioConsoleViewModel = koinViewModel(),
 ) {
     val metrics = LocalHmpMetrics.current
     if (!visible) return
 
     val haptic = rememberPlatformHaptics()
     val typo = LocalHmpTypo.current
-    val radioState by masterAgent.radioState.collectAsState()
-    val card by masterAgent.radioCardState.collectAsState()
-    val playlist by masterAgent.radioPlaylist.collectAsState()
+    // 7.5 P1：三个只读流由 RadioConsoleViewModel 聚合成单一出口
+    val consoleState by viewModel.uiState.collectAsState()
+    val radioState = consoleState.radioState
+    val card = consoleState.card
+    val playlist = consoleState.playlist
 
     // 队列约定：index 0 = 在播（电台镜像头），其余为后续 —— 与 RadioSubAgent.currentPlaylist 同构
     val now: RadioTrack? = playlist.firstOrNull()

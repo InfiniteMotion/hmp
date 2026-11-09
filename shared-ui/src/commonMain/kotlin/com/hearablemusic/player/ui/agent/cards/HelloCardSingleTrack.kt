@@ -18,11 +18,6 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -31,7 +26,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.hearablemusic.player.ui.common.design.colors.HelloCardPalette
 import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
@@ -50,9 +44,8 @@ import com.hearablemusic.player.ui.generated.resources.unknown
 import com.hmp.domain.agent.card.ForgottenContent
 import com.hmp.domain.agent.card.RecommendContent
 import com.hmp.domain.agent.card.SlideCard
-import com.hmp.domain.music.MusicRepository
+import com.hmp.domain.music.MusicInfo
 import org.jetbrains.compose.resources.painterResource
-import org.koin.compose.koinInject
 // ═══════════════════════════════════════════════════════════════════
 // 家族 B：单曲展示卡（RECOMMEND / FORGOTTEN 共用骨架）
 // ═══════════════════════════════════════════════════════════════════
@@ -60,6 +53,7 @@ import org.koin.compose.koinInject
 @Composable
 internal fun FamilySingleTrackCard(
     card: SlideCard,
+    trackLookup: Map<Long, MusicInfo>,
     modifier: Modifier = Modifier,
     onCardClick: ((SlideCard) -> Unit)? = null,
     onLongClick: ((SlideCard) -> Unit)? = null,
@@ -82,18 +76,10 @@ internal fun FamilySingleTrackCard(
 
     val typo = LocalHmpTypo.current
     val meta = buildSingleTrackMeta(card)
-
-    // 异步查封面 + 艺术家（一次查询拿全）
-    val repo: MusicRepository = koinInject()
-    var asyncCoverUri by remember(meta.trackId) { mutableStateOf<String?>(null) }
-    var asyncArtist by remember(meta.trackId) { mutableStateOf<String?>(null) }
-    LaunchedEffect(meta.trackId) {
-        runCatching { repo.getMusicInfoByIds(listOf(meta.trackId)) }
-            .getOrNull()?.firstOrNull()?.let { info ->
-                asyncCoverUri = info.music.albumArtUri
-                asyncArtist = info.music.artist
-            }
-    }
+    // 补全结果由 VM 查询后随快照下发，卡片不再自己起协程查库
+    val resolved = trackLookup[meta.trackId]
+    val coverUri = resolved?.music?.albumArtUri
+    val artist = resolved?.music?.artist
 
     Card(
         modifier = clickMod,
@@ -134,10 +120,10 @@ internal fun FamilySingleTrackCard(
                     modifier = Modifier.padding(top = metrics.micro, end = metrics.row),
                 )
 
-                // 艺术家（异步查回来就显示）
-                asyncArtist?.let { artist ->
+                // 艺术家（VM 补全后显示）
+                artist?.let { artistName ->
                     Text(
-                        text = artist,
+                        text = artistName,
                         style = typo.footnote,
                         color = Color.White.copy(alpha = 0.75f),
                         maxLines = 1,
@@ -205,7 +191,7 @@ internal fun FamilySingleTrackCard(
 
             // 右上角小封面（64dp，装饰性）
             AsyncCoverForTrack(
-                coverUri = asyncCoverUri,
+                coverUri = coverUri,
                 size = metrics.row,
                 modifier = Modifier.align(Alignment.TopEnd),
             )

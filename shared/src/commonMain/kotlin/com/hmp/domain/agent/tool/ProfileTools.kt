@@ -1,7 +1,6 @@
 package com.hmp.domain.agent.tool
 import com.hmp.domain.agent.port.ToolPermissionLevel
 import com.hmp.domain.agent.profile.PortraitType
-import com.hmp.domain.agent.profile.ProfileSources
 import com.hmp.domain.agent.tool.spec.AgentTool
 import com.hmp.domain.agent.tool.spec.StringParam
 import com.hmp.domain.agent.tool.spec.ToolArgs

@@ -7,7 +7,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
@@ -16,7 +15,6 @@ import com.hearablemusic.player.ui.common.components.base.PlayControlButtonTwo
 import com.hearablemusic.player.ui.common.dialogs.viewmodel.DialogViewModel
 import com.hearablemusic.player.ui.common.navigation.Routes
 import com.hearablemusic.player.ui.common.pages.base.SubScreen
-import com.hearablemusic.player.ui.common.util.LoadState
 import com.hearablemusic.player.ui.common.util.activityViewModel
 import com.hearablemusic.player.ui.common.util.rememberHapticFeedback
 import com.hearablemusic.player.ui.library.pages.components.musiclist.CurrentPlayingConfig
@@ -28,11 +26,10 @@ import com.hearablemusic.player.ui.library.pages.components.musiclist.ItemVarian
 import com.hearablemusic.player.ui.library.pages.components.musiclist.MusicList
 import com.hearablemusic.player.ui.library.pages.components.musiclist.MusicListCallbacksAdapter
 import com.hearablemusic.player.ui.library.pages.components.musiclist.defaultMusicListConfig
-import com.hearablemusic.player.ui.player.viewmodel.PlaybackViewModel
-import com.hearablemusic.player.ui.player.viewmodel.PlaylistQueueViewModel
+import com.hearablemusic.player.ui.platform.PlaybackController
 import com.hearablemusic.player.ui.playlist.viewmodel.ArtistAlbumViewModel
 import com.hmp.domain.music.MusicInfo
-import kotlinx.coroutines.launch
+import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 
 @Composable
@@ -40,55 +37,23 @@ fun AlbumScreen(
     navController: NavBackStack<NavKey>,
     albumName: String,
     artistAlbumViewModel: ArtistAlbumViewModel = koinViewModel(),
-    playbackViewModel: PlaybackViewModel = activityViewModel(),
-    playlistQueueViewModel: PlaylistQueueViewModel = activityViewModel(),
+    // 7.5 P1：旧 VM 是 controller 的零逻辑包装，直接用平台门面（白名单允许）
+    playbackController: PlaybackController = koinInject(),
     dialogViewModel: DialogViewModel = activityViewModel(),
 ) {
+    val haptic = rememberHapticFeedback()
+
     LaunchedEffect(albumName) {
         artistAlbumViewModel.getSelectedAlbumMusicList(albumName)
     }
-    val isPlaying by playbackViewModel.isPlaying.collectAsState()
-    val displayAlbumName by artistAlbumViewModel.selectedAlbumName.collectAsState()
-    val albumMusicListState by artistAlbumViewModel.selectedAlbumMusicListState.collectAsState()
-    val currentPlayingMusic by playlistQueueViewModel.currentPlayingMusic.collectAsState(null)
-    AlbumScreenContent(
-        isPlaying = isPlaying,
-        albumName = displayAlbumName,
-        albumMusicListState = albumMusicListState,
-        currentPlayingMusic = currentPlayingMusic,
-        onBackClick = { navController.removeLastOrNull() },
-        onShufflePlay = { musicList ->
-            playlistQueueViewModel.addAllToPlaylistByShuffle(musicList)
-            navController.add(Routes.Player.Player)
-        },
-        onOrderPlay = { musicList ->
-            playlistQueueViewModel.addAllToPlaylistInOrder(musicList)
-            navController.add(Routes.Player.Player)
-        },
-        playWith = playlistQueueViewModel::playWith,
-        addToPlaylist = playlistQueueViewModel::addToPlaylist,
-        onShowMusicDetailDialog = dialogViewModel::showMusicDetailDialog,
-    )
-}
+    // 唯一状态出口；播放态与当前曲目是组合根投影白名单
+    val uiState by artistAlbumViewModel.albumUiState.collectAsState()
+    val isPlaying by playbackController.isPlaying.collectAsState()
+    val currentPlayingMusic by playbackController.currentPlayingMusic.collectAsState(null)
 
-@Composable
-fun AlbumScreenContent(
-    isPlaying: Boolean,
-    albumName: String,
-    albumMusicListState: LoadState<List<MusicInfo>>,
-    currentPlayingMusic: MusicInfo?,
-    onBackClick: () -> Unit,
-    onShufflePlay: (List<MusicInfo>) -> Unit,
-    onOrderPlay: (List<MusicInfo>) -> Unit,
-    playWith: suspend (MusicInfo) -> Unit,
-    addToPlaylist: (MusicInfo) -> Unit,
-    onShowMusicDetailDialog: (MusicInfo) -> Unit,
-) {
-    val haptic = rememberHapticFeedback()
-    val scope = rememberCoroutineScope()
     SubScreen(
-        onBackClick = onBackClick,
-        title = albumName,
+        onBackClick = { navController.removeLastOrNull() },
+        title = uiState.title,
     ) {
         Column(
             modifier = Modifier
@@ -96,20 +61,20 @@ fun AlbumScreenContent(
                 .fillMaxWidth(),
         ) {
             LoadStateContent(
-                state = albumMusicListState,
+                state = uiState.musicList,
                 modifier = Modifier.weight(1f),
             ) { albumMusicList ->
                 val currentPlayingIndex = albumMusicList.indexOfFirst { it.music.id == currentPlayingMusic?.music?.id }.takeIf { it >= 0 }
                 val callbacks = object : MusicListCallbacksAdapter() {
                     override fun onItemClick(musicInfo: MusicInfo, index: Int) {
                         haptic.performClick()
-                        scope.launch { playWith(musicInfo) }
+                        artistAlbumViewModel.onPlay(musicInfo)
                     }
                     override fun onAddToPlaylist(musicInfo: MusicInfo) {
-                        addToPlaylist(musicInfo)
+                        playbackController.addToPlaylist(musicInfo)
                     }
                     override fun onMenuClick(musicInfo: MusicInfo) {
-                        onShowMusicDetailDialog(musicInfo)
+                        dialogViewModel.showMusicDetailDialog(musicInfo)
                     }
                 }
                 val config = defaultMusicListConfig(callbacks).copy(
@@ -131,8 +96,14 @@ fun AlbumScreenContent(
                     ),
                 )
                 PlayControlButtonTwo(
-                    onShufflePlay = { onShufflePlay(albumMusicList) },
-                    onOrderPlay = { onOrderPlay(albumMusicList) },
+                    onShufflePlay = {
+                        playbackController.addAllToPlaylistByShuffle(albumMusicList)
+                        navController.add(Routes.Player.Player)
+                    },
+                    onOrderPlay = {
+                        playbackController.addAllToPlaylistInOrder(albumMusicList)
+                        navController.add(Routes.Player.Player)
+                    },
                 )
                 MusicList(
                     musicInfoList = albumMusicList,

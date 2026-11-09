@@ -120,6 +120,7 @@ fun VerticalSegmentedControl(
     itemHeight: Int = 44, // 每个选项的高度
 ) {
     val metrics = LocalHmpMetrics.current
+    val typo = LocalHmpTypo.current
     HMPCard(
         modifier = modifier,
         shape = RoundedCornerShape(metrics.base),
@@ -161,7 +162,20 @@ fun VerticalSegmentedControl(
                                     MaterialTheme.colorScheme.onSurfaceVariant
                                 },
                             )
+                            Spacer(Modifier.width(metrics.micro))
                         }
+                        // 竖排同样渲染 label：此前只画图标，读屏与视觉都拿不到选项名。
+                        Text(
+                            text = option.label,
+                            style = typo.caption,
+                            color = if (isSelected) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            },
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
                     }
                 }
             }

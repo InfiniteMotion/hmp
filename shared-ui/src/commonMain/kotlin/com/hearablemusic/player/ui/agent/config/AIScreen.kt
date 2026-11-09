@@ -42,8 +42,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -57,12 +55,9 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
 import com.hearablemusic.player.ui.agent.agentIcon
-import com.hearablemusic.player.ui.agent.config.AiSettingsViewModel
 import com.hearablemusic.player.ui.common.components.SectionHeader
 import com.hearablemusic.player.ui.common.components.SegmentedControl
 import com.hearablemusic.player.ui.common.components.SegmentedOption
@@ -72,12 +67,13 @@ import com.hearablemusic.player.ui.common.design.metrics.LayoutConstraints
 import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
 import com.hearablemusic.player.ui.common.design.typography.medium
-import com.hearablemusic.player.ui.common.dialogs.controller.DialogManager
 import com.hearablemusic.player.ui.common.dialogs.viewmodel.DialogManagerViewModel
 import com.hearablemusic.player.ui.common.layout.LocalWindowSizeInfo
 import com.hearablemusic.player.ui.common.navigation.Routes
 import com.hearablemusic.player.ui.common.pages.base.SubScreen
+import com.hearablemusic.player.ui.common.text.resolveForEffect
 import com.hearablemusic.player.ui.common.util.activityViewModel
+import com.hearablemusic.player.ui.common.util.fmtTokens
 import com.hearablemusic.player.ui.generated.resources.Res
 import com.hearablemusic.player.ui.generated.resources.agent_ai_access_header
 import com.hearablemusic.player.ui.generated.resources.agent_ai_agent_mgmt_header
@@ -137,133 +133,79 @@ import com.hearablemusic.player.ui.generated.resources.ai_tab_custom
 import com.hearablemusic.player.ui.generated.resources.ai_tab_free
 import com.hearablemusic.player.ui.generated.resources.ai_tab_paid
 import com.hearablemusic.player.ui.generated.resources.api_key
-import com.hearablemusic.player.ui.generated.resources.auto_background_completion
-import com.hearablemusic.player.ui.generated.resources.auto_background_completion_desc
 import com.hearablemusic.player.ui.generated.resources.cancel
 import com.hearablemusic.player.ui.generated.resources.config_saved
 import com.hearablemusic.player.ui.generated.resources.configured
 import com.hearablemusic.player.ui.generated.resources.enter_api_key_placeholder
 import com.hearablemusic.player.ui.generated.resources.model_name
-import com.hearablemusic.player.ui.generated.resources.pause
-import com.hearablemusic.player.ui.generated.resources.paused
-import com.hearablemusic.player.ui.generated.resources.please_config_provider
-import com.hearablemusic.player.ui.generated.resources.please_enter_api_key
-import com.hearablemusic.player.ui.generated.resources.resume
 import com.hearablemusic.player.ui.generated.resources.save
 import com.hearablemusic.player.ui.generated.resources.test
 import com.hearablemusic.player.ui.generated.resources.title_ai
-import com.hearablemusic.player.ui.library.viewmodel.LibraryViewModel
-import com.hearablemusic.player.ui.settings.viewmodel.RecommendationViewModel
-import com.hmp.domain.agent.profile.PortraitDraft
-import com.hmp.domain.agent.runtime.MasterAgent
 import com.hmp.domain.enum.AiPresetEndpoints
 import com.hmp.domain.setting.model.AiAccessMode
 import com.hmp.domain.setting.model.AiEndpointConfig
-import kotlinx.coroutines.launch
-import org.jetbrains.compose.resources.getString
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
-import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 
+/**
+ * 7.5 P1 第二笔：原 `AIScreenContent` 20 参数转发层已合并回唯一 Screen 入口。
+ * 其中 8 个参数（musicWithExtraCount / progress / autoBatchProcess 及批处理四件套）一路透传却从未被消费，合并时一并删掉。
+ */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AIScreen(
     aiSettingsViewModel: AiSettingsViewModel = koinViewModel(),
-    recommendationViewModel: RecommendationViewModel = activityViewModel(),
-    libraryViewModel: LibraryViewModel = activityViewModel(),
-    masterAgent: MasterAgent = koinInject(),
     navController: NavBackStack<NavKey>,
 ) {
     val dialogManager = activityViewModel<DialogManagerViewModel>().dialogManager
-    val scope = rememberCoroutineScope()
+    val metrics = LocalHmpMetrics.current
+
     LaunchedEffect(Unit) {
         aiSettingsViewModel.loadCustomAiConfig()
     }
 
-    val musicWithExtraCount by libraryViewModel.musicWithExtraCount.collectAsState(initial = 0)
-    val pendingCount by recommendationViewModel.pendingMusicCount.collectAsState(initial = 0)
-    val aiAccessMode by aiSettingsViewModel.aiAccessMode.collectAsState()
-    val freeQuota by aiSettingsViewModel.quotaUsage.collectAsState()
-    val freeAvailable by aiSettingsViewModel.freeAvailable.collectAsState()
-    val customConfig by aiSettingsViewModel.customAiConfig.collectAsState()
-    val availableModels by aiSettingsViewModel.availableModels.collectAsState()
-    val isTestingApi by aiSettingsViewModel.isTestingApi.collectAsState()
-    val apiTestResult by aiSettingsViewModel.apiTestResult.collectAsState()
-    val progress by recommendationViewModel.processingProgress.collectAsState()
-    val autoBatchProcess by aiSettingsViewModel.autoBatchProcess.collectAsState()
+    // 唯一状态出口：AiSettingsViewModel 的数据源收进 uiState，这里解包成同名局部变量
+    val aiUiState by aiSettingsViewModel.uiState.collectAsState()
+    val aiAccessMode = aiUiState.aiAccessMode
+    val freeQuota = aiUiState.quotaUsage
+    val freeAvailable = aiUiState.freeAvailable
+    val customConfig = aiUiState.customAiConfig
+    val availableModels = aiUiState.availableModels
+    val isTestingApi = aiUiState.isTestingApi
+    // 表单是整屏唯一一份快照：各区块只收 form 与动作 lambda，不再自己 collect VM。
+    val form = aiUiState.form
 
-    AIScreenContent(
-        aiAccessMode = aiAccessMode,
-        freeQuota = freeQuota,
-        freeAvailable = freeAvailable,
-        customConfig = customConfig,
-        availableModels = availableModels,
-        isTestingApi = isTestingApi,
-        apiTestResult = apiTestResult,
-        musicWithExtraCount = musicWithExtraCount,
-        pendingCount = pendingCount,
-        progress = progress,
-        autoBatchProcess = autoBatchProcess,
-        onClearAllMemory = { scope.launch { masterAgent.clearAllMemory() } },
-        onModeChange = aiSettingsViewModel::switchAiAccessMode,
-        onSaveCustomConfig = aiSettingsViewModel::saveCustomAiConfig,
-        onFetchModels = aiSettingsViewModel::fetchAvailableModels,
-        onTestConnection = aiSettingsViewModel::testAiConnection,
-        onClearTestResult = aiSettingsViewModel::clearApiTestResult,
-        onAutoBatchProcessChange = aiSettingsViewModel::saveAutoBatchProcess,
-        startAutoProcessExtraInfo = recommendationViewModel::startAutoProcessWithCurrentProvider,
-        aiSettingsViewModel = aiSettingsViewModel,
-        pauseProcess = recommendationViewModel::pauseProcessing,
-        resumeProcess = recommendationViewModel::resumeProcessing,
-        cancelProcess = recommendationViewModel::cancelProcessing,
-        dialogManager = dialogManager,
-        navController = navController,
-        masterAgent = masterAgent,
-        onBackClick = { navController.removeLastOrNull() },
-    )
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun AIScreenContent(
-    aiAccessMode: AiAccessMode,
-    freeQuota: com.hmp.domain.agent.runtime.TokenSnapshot,
-    freeAvailable: Boolean,
-    customConfig: AiEndpointConfig,
-    availableModels: List<String>,
-    isTestingApi: Boolean,
-    apiTestResult: AiSettingsViewModel.ApiTestResult?,
-    musicWithExtraCount: Int,
-    pendingCount: Int,
-    progress: RecommendationViewModel.BatchProcessingProgress,
-    autoBatchProcess: Boolean,
-    onClearAllMemory: () -> Unit,
-    onModeChange: (AiAccessMode) -> Unit,
-    onSaveCustomConfig: (String, String, String) -> Unit,
-    onFetchModels: (String, String) -> Unit,
-    onTestConnection: (String, String) -> Unit,
-    onClearTestResult: () -> Unit,
-    onAutoBatchProcessChange: (Boolean) -> Unit,
-    startAutoProcessExtraInfo: () -> Unit,
-    aiSettingsViewModel: AiSettingsViewModel,
-    pauseProcess: () -> Unit,
-    resumeProcess: () -> Unit,
-    cancelProcess: () -> Unit,
-    dialogManager: DialogManager,
-    navController: NavBackStack<NavKey>,
-    masterAgent: MasterAgent,
-    onBackClick: () -> Unit,
-) {
-    val metrics = LocalHmpMetrics.current
-    // 显示测试结果 Toast
-    LaunchedEffect(apiTestResult) {
-        apiTestResult?.let { result ->
-            val message = when (result) {
-                is AiSettingsViewModel.ApiTestResult.Success -> result.message
-                is AiSettingsViewModel.ApiTestResult.Error -> result.message
+    val onModeChange = aiSettingsViewModel::switchAiAccessMode
+    val onSaveCustomConfig = aiSettingsViewModel::onSaveCustomConfigClicked
+    val onFetchModelsClicked = aiSettingsViewModel::onFetchModelsClicked
+    val onTestConnectionClicked = aiSettingsViewModel::onTestConnectionClicked
+    val onEndpointChange = aiSettingsViewModel::onEndpointChange
+    val onApiKeyChange = aiSettingsViewModel::onApiKeyChange
+    val onModelChange = aiSettingsViewModel::onModelChange
+    val onPresetSelected = aiSettingsViewModel::onPresetSelected
+    val onReplyLanguageChange = aiSettingsViewModel::onReplyLanguageChange
+    val onTokenLimitsEnabledChange = aiSettingsViewModel::onTokenLimitsEnabledChange
+    val onGlobalDailyLimitChange = aiSettingsViewModel::onGlobalDailyLimitChange
+    val onPerAgentLimitChange = aiSettingsViewModel::onPerAgentLimitChange
+    val onSaveTokenLimits = aiSettingsViewModel::onSaveTokenLimits
+    val onMemoryEnabledChange = aiSettingsViewModel::onMemoryEnabledChange
+    val onForgetPortrait = aiSettingsViewModel::onForgetPortrait
+    val onClearMemoryRequested = aiSettingsViewModel::onClearMemoryRequested
+    val onClearMemoryDismissed = aiSettingsViewModel::onClearMemoryDismissed
+    val onClearAllMemory = aiSettingsViewModel::onClearAllMemory
+    val onBackClick: () -> Unit = { navController.removeLastOrNull() }
+    // 一次性效果：测试/拉模型的结果走 SharedFlow，不再用 StateFlow + clear 模拟。
+    // 文本以 UiText 承载，解析在 UI 层（toast 属一次性副作用，用挂起 getString 即可）。
+    LaunchedEffect(Unit) {
+        aiSettingsViewModel.effect.collect { effect ->
+            when (effect) {
+                is AiSettingsEffect.ShowMessage -> {
+                    // 单条文案解析失败不能杀掉 collector，否则之后的测试/拉模型提示全部丢失
+                    val text = runCatching { effect.text.resolveForEffect() }.getOrNull() ?: return@collect
+                    dialogManager.showMessage(text)
+                }
             }
-            dialogManager.showMessage(message)
-            onClearTestResult()
         }
     }
 
@@ -307,19 +249,31 @@ private fun AIScreenContent(
                             customConfig = customConfig,
                             availableModels = availableModels,
                             isTestingApi = isTestingApi,
-                            pendingCount = pendingCount,
+                            form = form,
                             onModeChange = onModeChange,
-                            onSaveConfig = onSaveCustomConfig,
-                            onFetchModels = onFetchModels,
-                            onTestConnection = onTestConnection,
-                            dialogManager = dialogManager,
+                            onSaveCustomConfigClicked = onSaveCustomConfig,
+                            onFetchModelsClicked = onFetchModelsClicked,
+                            onTestConnectionClicked = onTestConnectionClicked,
+                            onEndpointChange = onEndpointChange,
+                            onApiKeyChange = onApiKeyChange,
+                            onModelChange = onModelChange,
+                            onPresetSelected = onPresetSelected,
                         )
                         if (aiAccessMode == AiAccessMode.CUSTOM) {
-                            TokenLimitsCard(aiSettingsViewModel)
+                            TokenLimitsCard(
+                                form = form,
+                                onTokenLimitsEnabledChange = onTokenLimitsEnabledChange,
+                                onGlobalDailyLimitChange = onGlobalDailyLimitChange,
+                                onPerAgentLimitChange = onPerAgentLimitChange,
+                                onSaveTokenLimits = onSaveTokenLimits,
+                            )
                         }
                         // 分区 3：语言和语音
                         SectionHeader(stringResource(Res.string.agent_ai_lang_voice_header))
-                        ReplyLanguageSection(masterAgent = masterAgent)
+                        ReplyLanguageSection(
+                            replyLanguage = form.replyLanguage,
+                            onReplyLanguageChange = onReplyLanguageChange,
+                        )
                         VoiceSection()
                     }
                     Column(
@@ -332,14 +286,17 @@ private fun AIScreenContent(
                         // 分区 2：Agent 管理
                         SectionHeader(stringResource(Res.string.agent_ai_agent_mgmt_header))
                         AgentQuickEntries(
-                            masterAgent = masterAgent,
                             onAgentClick = { role -> navController.add(Routes.AI.AgentConfig(role)) },
                         )
                         // 分区 4：记忆管理
                         SectionHeader(stringResource(Res.string.agent_ai_memory_header))
                         MemoryManagementSection(
-                            masterAgent = masterAgent,
+                            form = form,
                             navController = navController,
+                            onMemoryEnabledChange = onMemoryEnabledChange,
+                            onForgetPortrait = onForgetPortrait,
+                            onClearMemoryRequested = onClearMemoryRequested,
+                            onClearMemoryDismissed = onClearMemoryDismissed,
                             onClearAllMemory = onClearAllMemory,
                         )
                     }
@@ -362,34 +319,49 @@ private fun AIScreenContent(
                         customConfig = customConfig,
                         availableModels = availableModels,
                         isTestingApi = isTestingApi,
-                        pendingCount = pendingCount,
+                        form = form,
                         onModeChange = onModeChange,
-                        onSaveConfig = onSaveCustomConfig,
-                        onFetchModels = onFetchModels,
-                        onTestConnection = onTestConnection,
-                        dialogManager = dialogManager,
+                        onSaveCustomConfigClicked = onSaveCustomConfig,
+                        onFetchModelsClicked = onFetchModelsClicked,
+                        onTestConnectionClicked = onTestConnectionClicked,
+                        onEndpointChange = onEndpointChange,
+                        onApiKeyChange = onApiKeyChange,
+                        onModelChange = onModelChange,
+                        onPresetSelected = onPresetSelected,
                     )
                     if (aiAccessMode == AiAccessMode.CUSTOM) {
-                        TokenLimitsCard(aiSettingsViewModel)
+                        TokenLimitsCard(
+                            form = form,
+                            onTokenLimitsEnabledChange = onTokenLimitsEnabledChange,
+                            onGlobalDailyLimitChange = onGlobalDailyLimitChange,
+                            onPerAgentLimitChange = onPerAgentLimitChange,
+                            onSaveTokenLimits = onSaveTokenLimits,
+                        )
                     }
 
                     // ═══ 分区 2：Agent 管理 —— 监控看板 + 配置入口 ═══
                     SectionHeader(stringResource(Res.string.agent_ai_agent_mgmt_header))
                     AgentQuickEntries(
-                        masterAgent = masterAgent,
                         onAgentClick = { role -> navController.add(Routes.AI.AgentConfig(role)) },
                     )
 
                     // ═══ 分区 3：语言和语音 —— 回复语言（可配）+ 语音对话（M7 gate 占位）═══
                     SectionHeader(stringResource(Res.string.agent_ai_lang_voice_header))
-                    ReplyLanguageSection(masterAgent = masterAgent)
+                    ReplyLanguageSection(
+                        replyLanguage = form.replyLanguage,
+                        onReplyLanguageChange = onReplyLanguageChange,
+                    )
                     VoiceSection()
 
                     // ═══ 分区 4：记忆管理 —— 侧写展示 / 重置 / 操作日志 ═══
                     SectionHeader(stringResource(Res.string.agent_ai_memory_header))
                     MemoryManagementSection(
-                        masterAgent = masterAgent,
+                        form = form,
                         navController = navController,
+                        onMemoryEnabledChange = onMemoryEnabledChange,
+                        onForgetPortrait = onForgetPortrait,
+                        onClearMemoryRequested = onClearMemoryRequested,
+                        onClearMemoryDismissed = onClearMemoryDismissed,
                         onClearAllMemory = onClearAllMemory,
                     )
 
@@ -446,12 +418,15 @@ private fun AiAccessSection(
     customConfig: AiEndpointConfig,
     availableModels: List<String>,
     isTestingApi: Boolean,
-    pendingCount: Int,
+    form: AIScreenFormState,
     onModeChange: (AiAccessMode) -> Unit,
-    onSaveConfig: (String, String, String) -> Unit,
-    onFetchModels: (String, String) -> Unit,
-    onTestConnection: (String, String) -> Unit,
-    dialogManager: DialogManager,
+    onSaveCustomConfigClicked: () -> Unit,
+    onFetchModelsClicked: () -> Unit,
+    onTestConnectionClicked: () -> Unit,
+    onEndpointChange: (String) -> Unit,
+    onApiKeyChange: (String) -> Unit,
+    onModelChange: (String) -> Unit,
+    onPresetSelected: (String, String) -> Unit,
 ) {
     val metrics = LocalHmpMetrics.current
     val typo = LocalHmpTypo.current
@@ -518,13 +493,17 @@ private fun AiAccessSection(
                 )
 
                 AiAccessMode.CUSTOM -> CustomConfigContent(
+                    form = form,
                     customConfig = customConfig,
                     availableModels = availableModels,
                     isTestingApi = isTestingApi,
-                    onSaveConfig = onSaveConfig,
-                    onFetchModels = onFetchModels,
-                    onTestConnection = onTestConnection,
-                    dialogManager = dialogManager,
+                    onSaveCustomConfigClicked = onSaveCustomConfigClicked,
+                    onFetchModelsClicked = onFetchModelsClicked,
+                    onTestConnectionClicked = onTestConnectionClicked,
+                    onEndpointChange = onEndpointChange,
+                    onApiKeyChange = onApiKeyChange,
+                    onModelChange = onModelChange,
+                    onPresetSelected = onPresetSelected,
                 )
 
                 AiAccessMode.PAID -> PaidModeContent()
@@ -599,47 +578,37 @@ private fun FreeTrialContent(
     }
 }
 
-/** 100_000_000 → 100M，12_345 → 12.3K。设置页与看板同口径。 */
-private fun fmtTokens(n: Long): String {
-    if (n >= 1_000_000L) return "${(n / 100_000L) / 10.0}M"
-    if (n >= 1000L) return "${(n / 100L) / 10.0}K"
-    return "$n"
-}
-
 // ==================== 自定义配置 Tab ====================
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun CustomConfigContent(
+    form: AIScreenFormState,
     customConfig: AiEndpointConfig,
     availableModels: List<String>,
     isTestingApi: Boolean,
-    onSaveConfig: (String, String, String) -> Unit,
-    onFetchModels: (String, String) -> Unit,
-    onTestConnection: (String, String) -> Unit,
-    dialogManager: DialogManager,
+    onSaveCustomConfigClicked: () -> Unit,
+    onFetchModelsClicked: () -> Unit,
+    onTestConnectionClicked: () -> Unit,
+    onEndpointChange: (String) -> Unit,
+    onApiKeyChange: (String) -> Unit,
+    onModelChange: (String) -> Unit,
+    onPresetSelected: (String, String) -> Unit,
 ) {
     val metrics = LocalHmpMetrics.current
     val typo = LocalHmpTypo.current
-    val scope = rememberCoroutineScope()
-    var endpointValue by rememberSaveable { mutableStateOf(customConfig.endpoint) }
+    val endpointValue = form.endpoint
     // D7-04：密钥不能走 rememberSaveable —— 它会把值写进 SavedStateHandle / Bundle，
     // Android 上等于把明文密钥交给系统保存态（dumpsys 可读、生命周期比进程更长），
     // 把 SecureStorageHelper 那套密文存储整套抵消掉。代价是进程被回收后输入框清空，
     // 可接受：保存本来就要显式点按钮。endpoint / model 不是密钥，保持 rememberSaveable。
-    var apiKeyValue by remember { mutableStateOf("") }
-    var modelValue by rememberSaveable { mutableStateOf(customConfig.selectedModel) }
+    val apiKeyValue = form.apiKey
+    val modelValue = form.model
     var showPassword by remember { mutableStateOf(false) }
     var presetExpanded by remember { mutableStateOf(false) }
     var modelExpanded by remember { mutableStateOf(false) }
 
     // 当配置加载后更新模型
-    LaunchedEffect(customConfig) {
-        if (customConfig.selectedModel.isNotBlank()) {
-            modelValue = customConfig.selectedModel
-        }
-    }
-
     TitleWidget(title = stringResource(Res.string.ai_tab_custom)) {
         Column(
             modifier = Modifier
@@ -669,8 +638,7 @@ private fun CustomConfigContent(
                 AiPresetEndpoints.ALL.forEach { preset ->
                     Button(
                         onClick = {
-                            endpointValue = preset.endpoint
-                            modelValue = preset.defaultModel
+                            onPresetSelected(preset.endpoint, preset.defaultModel)
                         },
                         modifier = Modifier.weight(1f),
                         colors = ButtonDefaults.outlinedButtonColors(),
@@ -685,7 +653,7 @@ private fun CustomConfigContent(
             // Endpoint 输入
             OutlinedTextField(
                 value = endpointValue,
-                onValueChange = { endpointValue = it },
+                onValueChange = onEndpointChange,
                 label = { Text(stringResource(Res.string.ai_endpoint)) },
                 placeholder = { Text("https://api.example.com/v1") },
                 singleLine = true,
@@ -703,7 +671,7 @@ private fun CustomConfigContent(
             // API Key 输入
             TextField(
                 value = apiKeyValue,
-                onValueChange = { apiKeyValue = it },
+                onValueChange = onApiKeyChange,
                 label = { Text(stringResource(Res.string.api_key), color = MaterialTheme.colorScheme.onBackground) },
                 placeholder = { Text(stringResource(Res.string.enter_api_key_placeholder, ""), color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f)) },
                 visualTransformation = if (showPassword) VisualTransformation.None else PasswordVisualTransformation(),
@@ -720,13 +688,7 @@ private fun CustomConfigContent(
 
             // 获取模型按钮
             Button(
-                onClick = {
-                    if (endpointValue.isNotBlank() && apiKeyValue.isNotBlank()) {
-                        onFetchModels(endpointValue, apiKeyValue)
-                    } else {
-                        scope.launch { dialogManager.showMessage(getString(Res.string.please_enter_api_key)) }
-                    }
-                },
+                onClick = onFetchModelsClicked,
                 enabled = endpointValue.isNotBlank() && apiKeyValue.isNotBlank() && !isTestingApi,
                 modifier = Modifier.fillMaxWidth(),
             ) {
@@ -745,7 +707,7 @@ private fun CustomConfigContent(
                 ) {
                     TextField(
                         value = modelValue.ifBlank { availableModels.firstOrNull() ?: "" },
-                        onValueChange = { modelValue = it },
+                        onValueChange = onModelChange,
                         readOnly = true,
                         label = { Text(stringResource(Res.string.model_name)) },
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = modelExpanded) },
@@ -767,7 +729,7 @@ private fun CustomConfigContent(
                             DropdownMenuItem(
                                 text = { Text(model) },
                                 onClick = {
-                                    modelValue = model
+                                    onModelChange(model)
                                     modelExpanded = false
                                 },
                             )
@@ -777,7 +739,7 @@ private fun CustomConfigContent(
             } else if (modelValue.isNotBlank()) {
                 OutlinedTextField(
                     value = modelValue,
-                    onValueChange = { modelValue = it },
+                    onValueChange = onModelChange,
                     label = { Text(stringResource(Res.string.model_name)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
@@ -791,11 +753,7 @@ private fun CustomConfigContent(
                 horizontalArrangement = Arrangement.spacedBy(metrics.cozy),
             ) {
                 Button(
-                    onClick = {
-                        if (endpointValue.isNotBlank() && apiKeyValue.isNotBlank()) {
-                            onTestConnection(endpointValue, apiKeyValue)
-                        }
-                    },
+                    onClick = onTestConnectionClicked,
                     enabled = endpointValue.isNotBlank() && apiKeyValue.isNotBlank() && !isTestingApi,
                     modifier = Modifier.weight(1f),
                 ) {
@@ -806,14 +764,7 @@ private fun CustomConfigContent(
                     }
                 }
                 Button(
-                    onClick = {
-                        if (endpointValue.isNotBlank() && apiKeyValue.isNotBlank()) {
-                            onSaveConfig(endpointValue, apiKeyValue, modelValue)
-                            scope.launch { dialogManager.showMessage(getString(Res.string.config_saved)) }
-                        } else {
-                            scope.launch { dialogManager.showMessage(getString(Res.string.please_enter_api_key)) }
-                        }
-                    },
+                    onClick = onSaveCustomConfigClicked,
                     enabled = endpointValue.isNotBlank() && apiKeyValue.isNotBlank(),
                     modifier = Modifier.weight(1f),
                 ) {
@@ -840,22 +791,19 @@ private fun CustomConfigContent(
  * - 窗口是**每日**（免费模式才是总额 100M，两者不混）。
  */
 @Composable
-private fun TokenLimitsCard(vm: AiSettingsViewModel) {
+private fun TokenLimitsCard(
+    form: AIScreenFormState,
+    onTokenLimitsEnabledChange: (Boolean) -> Unit,
+    onGlobalDailyLimitChange: (String) -> Unit,
+    onPerAgentLimitChange: (String, String) -> Unit,
+    onSaveTokenLimits: () -> Unit,
+) {
     val metrics = LocalHmpMetrics.current
     val typo = LocalHmpTypo.current
-    val config by vm.globalConfig.collectAsState()
-    var enabled by remember(config) { mutableStateOf(config.tokenLimitsEnabled) }
-    var globalLimit by remember(config) {
-        mutableStateOf(if (config.dailyTokenQuota > 0) config.dailyTokenQuota.toString() else "")
-    }
-    val perAgent = remember(config) {
-        androidx.compose.runtime.mutableStateMapOf<String, String>().apply {
-            listOf("master", "radio", "enrich", "hello").forEach { key ->
-                put(key, config.perAgentDailyTokenQuota[key]?.toString().orEmpty())
-            }
-        }
-    }
-    var saved by remember { mutableStateOf(false) }
+    val enabled = form.tokenLimitsEnabled
+    val globalLimit = form.globalDailyLimit
+    val perAgent = form.perAgentLimits
+    val saved = form.tokenLimitsSaved
 
     Column(verticalArrangement = Arrangement.spacedBy(metrics.compact)) {
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
@@ -873,19 +821,13 @@ private fun TokenLimitsCard(vm: AiSettingsViewModel) {
                 text = stringResource(Res.string.agent_token_limits_enable),
                 style = typo.body,
             )
-            Switch(checked = enabled, onCheckedChange = {
-                enabled = it
-                saved = false
-            })
+            Switch(checked = enabled, onCheckedChange = onTokenLimitsEnabledChange)
         }
 
         if (enabled) {
             OutlinedTextField(
                 value = globalLimit,
-                onValueChange = {
-                    globalLimit = it.filter(Char::isDigit)
-                    saved = false
-                },
+                onValueChange = onGlobalDailyLimitChange,
                 label = { Text(stringResource(Res.string.agent_token_limits_global)) },
                 singleLine = true,
                 keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
@@ -896,10 +838,7 @@ private fun TokenLimitsCard(vm: AiSettingsViewModel) {
             listOf("master", "radio", "enrich", "hello").forEach { key ->
                 OutlinedTextField(
                     value = perAgent[key].orEmpty(),
-                    onValueChange = { value ->
-                        perAgent[key] = value.filter(Char::isDigit)
-                        saved = false
-                    },
+                    onValueChange = { value -> onPerAgentLimitChange(key, value) },
                     label = { Text("${key.replaceFirstChar { it.uppercase() }} · ${stringResource(Res.string.agent_token_limits_per_agent)}") },
                     singleLine = true,
                     keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
@@ -911,20 +850,7 @@ private fun TokenLimitsCard(vm: AiSettingsViewModel) {
         }
 
         Button(
-            onClick = {
-                vm.saveTokenLimits(
-                    enabled = enabled,
-                    globalDailyQuota = globalLimit.toIntOrNull() ?: 0,
-                    perAgentDailyQuota = if (enabled) {
-                        perAgent.mapNotNull { (key, value) ->
-                            value.toLongOrNull()?.takeIf { it > 0 }?.let { key to it }
-                        }.toMap()
-                    } else {
-                        emptyMap()
-                    },
-                )
-                saved = true
-            },
+            onClick = onSaveTokenLimits,
             modifier = Modifier.fillMaxWidth(),
         ) {
             Text(stringResource(Res.string.agent_token_limits_save), color = MaterialTheme.colorScheme.onPrimary)
@@ -980,13 +906,11 @@ private data class AgentEntry(val role: String, val label: String)
  */
 @Composable
 private fun ReplyLanguageSection(
-    masterAgent: MasterAgent,
+    replyLanguage: String,
+    onReplyLanguageChange: (String) -> Unit,
 ) {
     val metrics = LocalHmpMetrics.current
     val typo = LocalHmpTypo.current
-    val scope = rememberCoroutineScope()
-    val globalConfig = remember { masterAgent.getGlobalAgentConfig() }
-    var replyLanguage by remember { mutableStateOf(globalConfig.replyLanguage) }
 
     Column(verticalArrangement = Arrangement.spacedBy(metrics.compact)) {
         Row(
@@ -1001,12 +925,7 @@ private fun ReplyLanguageSection(
                     SegmentedOption("auto", stringResource(Res.string.agent_ai_lang_auto)),
                 ),
                 selectedOption = replyLanguage,
-                onOptionSelected = { key ->
-                    replyLanguage = key
-                    scope.launch {
-                        masterAgent.saveGlobalAgentConfig(globalConfig.copy(replyLanguage = key))
-                    }
-                },
+                onOptionSelected = onReplyLanguageChange,
             )
         }
         Text(
@@ -1057,22 +976,19 @@ private fun VoiceSection() {
  */
 @Composable
 private fun MemoryManagementSection(
-    masterAgent: MasterAgent,
+    form: AIScreenFormState,
     navController: NavBackStack<NavKey>,
+    onMemoryEnabledChange: (Boolean) -> Unit,
+    onForgetPortrait: (String) -> Unit,
+    onClearMemoryRequested: () -> Unit,
+    onClearMemoryDismissed: () -> Unit,
     onClearAllMemory: () -> Unit,
 ) {
     val metrics = LocalHmpMetrics.current
     val typo = LocalHmpTypo.current
-    val scope = rememberCoroutineScope()
-    var portraits by remember { mutableStateOf<List<PortraitDraft>>(emptyList()) }
-    var showConfirmClear by remember { mutableStateOf(false) }
-    var memoryEnabled by remember { mutableStateOf(masterAgent.getGlobalAgentConfig().memoryEnabled) }
-
-    suspend fun load() {
-        val mem = masterAgent.userMemory ?: return
-        portraits = mem.currentPortraits()
-    }
-    LaunchedEffect(Unit) { load() }
+    val portraits = form.portraits
+    val showConfirmClear = form.showConfirmClear
+    val memoryEnabled = form.memoryEnabled
 
     HMPCard(contentPadding = Modifier.padding(metrics.cozy)) {
         Column(verticalArrangement = Arrangement.spacedBy(metrics.base)) {
@@ -1096,15 +1012,7 @@ private fun MemoryManagementSection(
                 }
                 Switch(
                     checked = memoryEnabled,
-                    onCheckedChange = { enabled ->
-                        memoryEnabled = enabled
-                        scope.launch {
-                            masterAgent.saveGlobalAgentConfig(
-                                masterAgent.getGlobalAgentConfig().copy(memoryEnabled = enabled),
-                            )
-                            load()
-                        }
-                    },
+                    onCheckedChange = onMemoryEnabledChange,
                 )
             }
 
@@ -1163,12 +1071,7 @@ private fun MemoryManagementSection(
                                 style = typo.footnote.medium(),
                                 color = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier
-                                    .clickable {
-                                        scope.launch {
-                                            masterAgent.forgetPortrait(p.type.id)
-                                            load()
-                                        }
-                                    }
+                                    .clickable { onForgetPortrait(p.type.id) }
                                     .padding(metrics.compact),
                             )
                         }
@@ -1203,7 +1106,7 @@ private fun MemoryManagementSection(
                         )
                     }
                     Button(
-                        onClick = { showConfirmClear = true },
+                        onClick = onClearMemoryRequested,
                         colors = ButtonDefaults.buttonColors(
                             containerColor = MaterialTheme.colorScheme.error,
                         ),
@@ -1254,18 +1157,14 @@ private fun MemoryManagementSection(
 
     if (showConfirmClear) {
         AlertDialog(
-            onDismissRequest = { showConfirmClear = false },
+            onDismissRequest = onClearMemoryDismissed,
             confirmButton = {
                 TextButton(
-                    onClick = {
-                        showConfirmClear = false
-                        onClearAllMemory()
-                        portraits = emptyList()
-                    },
+                    onClick = onClearAllMemory,
                 ) { Text(stringResource(Res.string.agent_ai_reset_confirm_btn), color = MaterialTheme.colorScheme.error) }
             },
             dismissButton = {
-                TextButton(onClick = { showConfirmClear = false }) { Text(stringResource(Res.string.cancel)) }
+                TextButton(onClick = onClearMemoryDismissed) { Text(stringResource(Res.string.cancel)) }
             },
             title = { Text(stringResource(Res.string.agent_ai_reset_dialog_title)) },
             text = { Text(stringResource(Res.string.agent_ai_reset_dialog_text)) },
@@ -1275,7 +1174,6 @@ private fun MemoryManagementSection(
 
 @Composable
 private fun AgentQuickEntries(
-    masterAgent: MasterAgent,
     onAgentClick: (String) -> Unit,
 ) {
     val metrics = LocalHmpMetrics.current

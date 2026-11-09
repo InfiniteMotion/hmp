@@ -12,6 +12,9 @@ import com.hmp.domain.agent.card.NarrativeContent
 import com.hmp.domain.agent.card.RadioStatusContent
 import com.hmp.domain.agent.card.RecommendContent
 import com.hmp.domain.agent.card.SlideCard
+import com.hmp.domain.agent.runtime.sub.radio.RadioCardState
+import com.hmp.domain.agent.runtime.sub.radio.RadioMessage
+import com.hmp.domain.music.MusicInfo
 
 // ═══════════════════════════════════════════════════════════════════
 // FamilyDispatch — 统一分发到 8 个卡型家族
@@ -23,23 +26,41 @@ import com.hmp.domain.agent.card.SlideCard
 @Composable
 internal fun FamilyDispatch(
     card: SlideCard,
+    trackLookup: Map<Long, MusicInfo> = emptyMap(),
     modifier: Modifier = Modifier,
     onCardClick: ((SlideCard) -> Unit)? = null,
     onLongClick: ((SlideCard) -> Unit)? = null,
     isCurrentPage: Boolean = true,
+    radioMessage: RadioMessage? = null,
+    radioCard: RadioCardState = RadioCardState(theme = null, upcomingCount = 0, nextTitle = null, lastAdjust = null),
+    currentLyricLine: String? = null,
 ) {
     when (card.content) {
-        is AnchorContent -> FamilyAnchorCard(card, modifier, onCardClick, onLongClick, isCurrentPage)
+        is AnchorContent -> FamilyAnchorCard(
+            card = card,
+            modifier = modifier,
+            onCardClick = onCardClick,
+            onLongClick = onLongClick,
+            isCurrentPage = isCurrentPage,
+            currentLyricLine = currentLyricLine,
+        )
 
         is RecommendContent,
         is ForgottenContent,
-        -> FamilySingleTrackCard(card, modifier, onCardClick, onLongClick)
+        -> FamilySingleTrackCard(card, trackLookup, modifier, onCardClick, onLongClick)
 
         is AnniversaryContent -> FamilyAnniversaryCard(card, modifier, onCardClick, onLongClick)
 
-        is DiscoverContent -> FamilyDiscoverCard(card, modifier, onCardClick, onLongClick)
+        is DiscoverContent -> FamilyDiscoverCard(card, trackLookup, modifier, onCardClick, onLongClick)
 
-        is RadioStatusContent -> FamilyRadioStatusCard(card, modifier, onCardClick, onLongClick)
+        is RadioStatusContent -> FamilyRadioStatusCard(
+            card = card,
+            modifier = modifier,
+            onCardClick = onCardClick,
+            onLongClick = onLongClick,
+            radioMessage = radioMessage,
+            radioCard = radioCard,
+        )
 
         is GreetingContent -> FamilyGreetingCard(card, modifier, onCardClick, onLongClick)
 

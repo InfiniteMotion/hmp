@@ -16,9 +16,6 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -27,7 +24,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.hearablemusic.player.ui.common.design.colors.HelloCardPalette
 import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
@@ -41,10 +37,9 @@ import com.hearablemusic.player.ui.generated.resources.card_unknown_track
 import com.hearablemusic.player.ui.generated.resources.unknown
 import com.hmp.domain.agent.card.DiscoverContent
 import com.hmp.domain.agent.card.SlideCard
-import com.hmp.domain.music.MusicRepository
+import com.hmp.domain.music.MusicInfo
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
-import org.koin.compose.koinInject
 
 // ═══════════════════════════════════════════════════════════════════
 // 家族 C：DISCOVER —— 多曲目探索
@@ -53,6 +48,7 @@ import org.koin.compose.koinInject
 @Composable
 internal fun FamilyDiscoverCard(
     card: SlideCard,
+    trackLookup: Map<Long, MusicInfo>,
     modifier: Modifier = Modifier,
     onCardClick: ((SlideCard) -> Unit)? = null,
     onLongClick: ((SlideCard) -> Unit)? = null,
@@ -75,20 +71,8 @@ internal fun FamilyDiscoverCard(
         }
     }
 
-    // Agent 预取字段为空（旧 Room 缓存兼容）→ UI 层异步补全 title/artist/albumArt
-    val repo: MusicRepository = koinInject()
-    val albumUris = remember(c.trackIds) { mutableStateOf<List<String?>>(List(c.trackIds.size) { null }) }
-    val liveTitles = remember(c.trackIds) { mutableStateOf(c.trackIds.map { "" }) }
-    val liveArtists = remember(c.trackIds) { mutableStateOf(c.trackIds.map { "" }) }
-    LaunchedEffect(c.trackIds) {
-        runCatching { repo.getMusicInfoByIds(c.trackIds) }
-            .onSuccess { infos ->
-                val infoMap = infos.associateBy { it.music.id }
-                albumUris.value = c.trackIds.map { infoMap[it]?.music?.albumArtUri }
-                liveTitles.value = c.trackIds.map { infoMap[it]?.music?.title.orEmpty() }
-                liveArtists.value = c.trackIds.map { infoMap[it]?.music?.artist.orEmpty() }
-            }
-    }
+    // 补全结果由 VM 查询后随快照下发（兼容旧缓存里 title/artist 为空的卡）
+    val resolvedTracks = c.trackIds.map { trackLookup[it] }
 
     Card(
         modifier = clickMod,
@@ -128,9 +112,10 @@ internal fun FamilyDiscoverCard(
 
                 // ③ 曲目预览列表（最多 3 首，紧凑布局）
                 c.trackIds.take(3).forEachIndexed { idx, _ ->
-                    val uri = albumUris.value.getOrNull(idx)
-                    val title = (c.trackTitles.getOrNull(idx).orEmpty().ifBlank { liveTitles.value.getOrNull(idx).orEmpty() }).ifBlank { stringResource(Res.string.card_unknown_track) }
-                    val artist = (c.trackArtists.getOrNull(idx).orEmpty().ifBlank { liveArtists.value.getOrNull(idx).orEmpty() }).ifBlank { stringResource(Res.string.card_unknown_artist) }
+                    val resolved = resolvedTracks.getOrNull(idx)
+                    val uri = resolved?.music?.albumArtUri
+                    val title = (c.trackTitles.getOrNull(idx).orEmpty().ifBlank { resolved?.music?.title.orEmpty() }).ifBlank { stringResource(Res.string.card_unknown_track) }
+                    val artist = (c.trackArtists.getOrNull(idx).orEmpty().ifBlank { resolved?.music?.artist.orEmpty() }).ifBlank { stringResource(Res.string.card_unknown_artist) }
                     val dur = c.trackDurations.getOrNull(idx)?.coerceAtLeast(0) ?: 0
 
                     Row(

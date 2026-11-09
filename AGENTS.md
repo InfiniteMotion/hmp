@@ -4,7 +4,7 @@
 
 **本文件是 AI 协作者须知的唯一真源。** `CLAUDE.md` 只是指向这里的指针，不要往那边抄内容。
 
-- 最新发布版本：**v7.2.3**（2026-10-07 发布）。产物：macOS arm64 DMG / Windows x86_64 MSI / Linux x86_64 DEB / Android APK+AAB + `SHA256SUMS.txt`；iOS 仅本机 Archive，不在 CI。v7.3.0（架构加固期）已收口**不发行**：无 tag 无包，残余归口下一阶段。**7.4 期仅引入 ktlint，已收口**（`./ktlint check` = 0 处；规划见 `docs/7_4/plan.md`）；**7.5 期：应用所有页面的 UDF 单向数据流改造（P1）**，正式规划见 `docs/7_5/plan.md`（已建、未开工；2026-11-06 因体量由 7.4.1 升为独立 minor 期，活跃线迁至 `docs/7_5/`，`docs/7_4/` 保留 7.4 施工记录与 7.3 残余台账）。**该工作分两部分并已定版本**：P1 页面体系 = **7.5.0**（完整 UDF 形态，规划主体）、P2 Agent 运行时状态所有权 = **7.6.0**（actor 形态、独立规划待建），先后推进 —— 两者不共用批次与验收判据，**不要把 `UiState` / `onXxx` / `reduce` 推进引擎内部**，详见规划 §1.1；活跃线 `docs/7_5/`；设计校准仍为正式发行前置。
+- 最新发布版本：**v7.2.3**（2026-10-07 发布）。产物：macOS arm64 DMG / Windows x86_64 MSI / Linux x86_64 DEB / Android APK+AAB + `SHA256SUMS.txt`；iOS 仅本机 Archive，不在 CI。v7.3.0（架构加固期）已收口**不发行**：无 tag 无包，残余归口下一阶段。**7.4 期仅引入 ktlint，已收口**（`./ktlint check` = 0 处；规划见 `docs/7_4/plan.md`）；**7.5 期：应用所有页面的 UDF 单向数据流改造（P1）**，正式规划见 `docs/7_5/plan.md`（**26 条 entry + 6 个非 entry 屏已全部闭环**，形态门禁 `scripts/check-udf.py`（五条规则阻塞 + 原 audit 的四类提示非阻塞，已合并为单一脚本）已挂进 `pr-check.yml` 的 `lint` job；2026-11-06 因体量由 7.4.1 升为独立 minor 期，活跃线迁至 `docs/7_5/`，`docs/7_4/` 保留 7.4 施工记录与 7.3 残余台账）。**该工作分两部分并已定版本**：P1 页面体系 = **7.5.0**（完整 UDF 形态，规划主体）、P2 Agent 运行时状态所有权 = **7.6.0**（actor 形态、独立规划待建），先后推进 —— 两者不共用批次与验收判据，**不要把 `UiState` / `onXxx` / `reduce` 推进引擎内部**，详见规划 §1.1；活跃线 `docs/7_5/`；**2026-11-10 复审（UI 审计 A/B/C + 数据/屏级 VM 拆分 + 三端 DI 归一 + 弹窗归屏）已收口**，例外与验证边界见 `docs/7_5/progress.md` §十二/§十三；设计校准仍为正式发行前置。
 - **产品边界**：纯本地。不做在线/云同步、不引入账号、不做社交；只保留用户自填 API 的 AI 推荐。改动前如果会突破这条线，停下问用户。
 
 ---
@@ -133,7 +133,7 @@ HMP/
 
 **分层**：UI（三端共享 `shared-ui` commonMain）→ ViewModel（`koinViewModel()` + StateFlow）→ Domain（UseCase + 领域模型，`shared/.../domain/`）→ Data（Repository + Room + Ktor，`shared/.../data/`）→ 播放引擎（各端）。
 
-**DI**：全端 Koin 4.2.2（Android 已从 Hilt 迁走）。commonMain 的 `di/SharedModules.kt` 是 `sharedModule`，平台侧 `AndroidModules` / `DesktopModules` / `IosModules`，UI 侧 `UiKoinModule`（Android/Desktop）/ `IosUiKoinModule`（iOS）。iOS 在 `AppDelegate` 里 `installKoinIosWithSharedUi()`。**注意：`AuditLogViewModel` 未在任何 Koin module 注册**，靠 `remember { ... }` 构造。
+**DI**：全端 Koin 4.2.2（Android 已从 Hilt 迁走）。commonMain 的 `di/SharedModules.kt` 是 `sharedModule`，平台侧 `AndroidModules` / `DesktopModules` / `IosModules`。**UI 层 32 个 `viewModel {}` 与 `DialogManager` / `RadioConsoleController` 收在 commonMain 的 `di/UiViewModelModule.kt`（单一真源）**，三端 UI 模块只 `includes` 它 + 各自平台绑定（`PlaybackController` / `AlbumArtPixelsLoader` / `PlatformServices`）；新增 / 拆分 VM 只改这一处。iOS 在 `AppDelegate` 里 `installKoinIosWithSharedUi()`。`AuditLogViewModel` 已注册进 Koin（早期「靠 `remember` 构造」的说法已失效）。
 
 ---
 

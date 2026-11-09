@@ -17,18 +17,14 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
 import com.hearablemusic.player.ui.common.components.base.HMPCard
 import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
 import com.hearablemusic.player.ui.common.design.typography.medium
-import com.hearablemusic.player.ui.common.dialogs.controller.DialogManager
 import com.hearablemusic.player.ui.generated.resources.Res
 import com.hearablemusic.player.ui.generated.resources.agent_radio_anchor_thought
 import com.hearablemusic.player.ui.generated.resources.agent_radio_auto_theme
@@ -37,7 +33,6 @@ import com.hearablemusic.player.ui.generated.resources.agent_radio_status_line
 import com.hearablemusic.player.ui.generated.resources.agent_radio_status_paused
 import com.hearablemusic.player.ui.generated.resources.agent_radio_status_playing
 import com.hearablemusic.player.ui.generated.resources.agent_radio_status_stopped
-import com.hearablemusic.player.ui.generated.resources.ai_quota_exhausted_hint
 import com.hearablemusic.player.ui.generated.resources.cancel
 import com.hearablemusic.player.ui.generated.resources.home_reco_unavailable
 import com.hearablemusic.player.ui.generated.resources.radio_card_building
@@ -49,13 +44,11 @@ import com.hearablemusic.player.ui.generated.resources.radio_card_open_console
 import com.hearablemusic.player.ui.generated.resources.radio_entry_seed_desc
 import com.hearablemusic.player.ui.generated.resources.radio_entry_seed_title
 import com.hearablemusic.player.ui.generated.resources.radiowaves
-import com.hmp.domain.agent.quota.TokenQuotaGate
-import com.hmp.domain.agent.runtime.MasterAgent
+import com.hmp.domain.agent.runtime.sub.radio.RadioCardState
 import com.hmp.domain.agent.runtime.sub.radio.RadioState
-import kotlinx.coroutines.launch
+import com.hmp.domain.agent.runtime.sub.radio.isActive
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
-import org.koin.compose.koinInject
 
 /**
  * 播放页的电台入口（替换原「生成推荐列表」）。
@@ -68,24 +61,20 @@ import org.koin.compose.koinInject
  */
 @Composable
 fun RadioEntryCard(
+    radioState: RadioState?,
+    radioCard: RadioCardState,
+    quotaExhausted: Boolean,
+    onStartRadio: () -> Unit,
+    onStopRadio: () -> Unit,
     onOpenConsole: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val metrics = LocalHmpMetrics.current
-    val masterAgent: MasterAgent = koinInject()
-    val quotaGate: TokenQuotaGate = koinInject()
-    val dialogManager: DialogManager = koinInject()
-    val scope = rememberCoroutineScope()
     val typo = LocalHmpTypo.current
-
-    val radioState by masterAgent.radioState.collectAsState()
-    val card by masterAgent.radioCardState.collectAsState()
 
     val isBuilding = radioState is RadioState.BUILDING
     val isPaused = radioState is RadioState.PAUSED
-    val isActive = isBuilding || isPaused || radioState is RadioState.PLAYING
-    val quotaExhausted = quotaGate.isBucketExhausted("radio")
-    val quotaText = stringResource(Res.string.ai_quota_exhausted_hint)
+    val isActive = radioState.isActive()
 
     val statusText = when {
         isBuilding -> stringResource(Res.string.agent_radio_status_building)
@@ -94,13 +83,8 @@ fun RadioEntryCard(
         else -> stringResource(Res.string.agent_radio_status_stopped)
     }
 
-    fun start() {
-        if (quotaExhausted) {
-            scope.launch { dialogManager.showMessage(quotaText) }
-            return
-        }
-        scope.launch { masterAgent.startRadio() }
-    }
+    // 额度不足时按钮本身就是 disabled（见下方 enabled），这里不再有不可达的拦截分支
+    fun start() = onStartRadio()
 
     HMPCard(
         modifier = modifier.fillMaxWidth(),
@@ -171,7 +155,7 @@ fun RadioEntryCard(
 
                 isActive -> {
                     Text(
-                        text = card.theme?.takeIf { it.isNotBlank() }
+                        text = radioCard.theme?.takeIf { it.isNotBlank() }
                             ?: stringResource(Res.string.agent_radio_auto_theme),
                         style = typo.subtitle,
                         color = MaterialTheme.colorScheme.onSurface,
@@ -183,12 +167,12 @@ fun RadioEntryCard(
                         text = stringResource(
                             Res.string.agent_radio_status_line,
                             statusText,
-                            card.upcomingCount,
+                            radioCard.upcomingCount,
                         ),
                         style = typo.caption,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    card.lastAdjust?.takeIf { it.isNotBlank() }?.let { thought ->
+                    radioCard.lastAdjust?.takeIf { it.isNotBlank() }?.let { thought ->
                         Spacer(Modifier.height(metrics.compact))
                         Text(
                             text = stringResource(Res.string.agent_radio_anchor_thought),
@@ -225,7 +209,7 @@ fun RadioEntryCard(
             when {
                 isBuilding -> {
                     OutlinedButton(
-                        onClick = { scope.launch { masterAgent.stopRadio() } },
+                        onClick = onStopRadio,
                         modifier = Modifier.fillMaxWidth().height(metrics.bar),
                     ) {
                         Text(stringResource(Res.string.cancel))

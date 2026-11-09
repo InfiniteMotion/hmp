@@ -3,11 +3,7 @@ package com.hearablemusic.player.player.controller
 import android.content.Context
 import com.hmp.domain.music.Music
 import com.hmp.domain.music.MusicInfo
-import com.hmp.domain.playlist.usecase.ManagePlaylistUseCase
-import com.hmp.domain.setting.SettingsRepository
-import com.hmp.domain.setting.usecase.CurrentPlaybackUseCase
 import com.hmp.domain.setting.usecase.PlaybackHistoryUseCase
-import com.hmp.domain.setting.usecase.TimerUseCase
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.mockk

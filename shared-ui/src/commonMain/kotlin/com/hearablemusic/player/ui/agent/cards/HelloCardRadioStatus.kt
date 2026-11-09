@@ -22,7 +22,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -31,19 +30,17 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.hearablemusic.player.ui.common.design.colors.HelloCardPalette
 import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
 import com.hearablemusic.player.ui.common.design.typography.medium
+import com.hearablemusic.player.ui.common.util.activityViewModel
 import com.hearablemusic.player.ui.generated.resources.Res
 import com.hearablemusic.player.ui.generated.resources.card_radio_candidate
 import com.hearablemusic.player.ui.generated.resources.card_radio_continuing
 import com.hearablemusic.player.ui.generated.resources.card_radio_enrich_optimizing
 import com.hearablemusic.player.ui.generated.resources.card_radio_next
-import com.hearablemusic.player.ui.generated.resources.card_radio_paused
-import com.hearablemusic.player.ui.generated.resources.card_radio_playing
 import com.hearablemusic.player.ui.generated.resources.card_radio_reorder_skipped
 import com.hearablemusic.player.ui.generated.resources.card_radio_theme_ready
 import com.hearablemusic.player.ui.generated.resources.card_radio_title_default
@@ -53,135 +50,10 @@ import com.hearablemusic.player.ui.generated.resources.card_radio_why
 import com.hearablemusic.player.ui.generated.resources.unknown
 import com.hmp.domain.agent.card.RadioStatusContent
 import com.hmp.domain.agent.card.SlideCard
-import com.hmp.domain.agent.card.SlideType
-import com.hmp.domain.agent.runtime.MasterAgent
+import com.hmp.domain.agent.runtime.sub.radio.RadioCardState
 import com.hmp.domain.agent.runtime.sub.radio.RadioMessage
-import com.hmp.domain.agent.runtime.sub.radio.RadioState
-import org.jetbrains.compose.resources.getString
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
-import org.koin.compose.koinInject
-/**
- * 主播按语的机械标签黑名单 —— 这些是**上游下发的内部标记**（非自然语言），不上 UI。
- * 属数据约定值（与 `RadioSubAgent` 的 `why` 字段同源），**不参与本地化**。
- */
-private const val WHY_TAG_MATCH_PREFIX = "标签匹配"
-
-private val MECHANICAL_WHY_TAGS =
-    setOf("在播", "在播·电台起点", "电台续播", "热门曲目", "补充曲目")
-
-private fun hostWhy(why: String?): String? = why?.takeIf {
-    it.isNotBlank() && !it.startsWith(WHY_TAG_MATCH_PREFIX) && it !in MECHANICAL_WHY_TAGS
-}
-
-internal suspend fun buildRadioStatusCard(
-    masterAgent: MasterAgent?,
-    radioState: RadioState?,
-): SlideCard? {
-    val rs = radioState ?: return null
-    val stationTheme = masterAgent?.queryRadioStationTheme()
-
-    return when (rs) {
-        RadioState.IDLE -> null
-
-        is RadioState.BUILDING -> {
-            // BUILDING 极短——本地 fallback 已经构建好并推入播放引擎，能拿到 nowPlaying 封面
-            val playlist = masterAgent?.queryRadioPlaylist() ?: emptyList()
-            val nowPlaying = runCatching { masterAgent?.queryNowPlayingContext() }.getOrNull()
-            val first = playlist.firstOrNull()
-            SlideCard(
-                cardId = "radio_status",
-                type = SlideType.RADIO_STATUS,
-                content = RadioStatusContent(
-                    stationTheme = stationTheme,
-                    actionText = rs.actionText,
-                    nowPlayingTitle = nowPlaying?.currentMusicInfo?.music?.title ?: first?.title,
-                    nowPlayingArtist = nowPlaying?.currentMusicInfo?.music?.artist ?: first?.artist,
-                    albumArtUri = nowPlaying?.currentMusicInfo?.music?.albumArtUri,
-                    nowPlayingWhy = null,
-                    nextTrackTitle = playlist.getOrNull(1)?.title,
-                    nextTrackWhy = null,
-                    playlistCount = playlist.size,
-                    progressPercent = rs.progressPercent,
-                    targetCount = rs.targetCount,
-                ),
-            )
-        }
-
-        is RadioState.PLAYING -> {
-            val playlist = masterAgent?.queryRadioPlaylist() ?: emptyList()
-            val nowPlaying = runCatching { masterAgent?.queryNowPlayingContext() }.getOrNull()
-            val currentId = nowPlaying?.currentMusicId
-
-            // 找出 playlist 里哪首正在播（按 musicId 匹配）
-            val nowPlayingTrack = playlist.find { it.musicId == currentId }
-            val currentTitle = nowPlaying?.currentMusicInfo?.music?.title
-                ?: nowPlayingTrack?.title
-            val currentArtist = nowPlaying?.currentMusicInfo?.music?.artist
-                ?: nowPlayingTrack?.artist
-            val albumArtUri = nowPlaying?.currentMusicInfo?.music?.albumArtUri
-            val currentWhy = hostWhy(nowPlayingTrack?.why)
-
-            // 下一首 = 当前播放曲目下一首；找不到就取 playlist.first
-            val currentIdx = nowPlayingTrack?.let { playlist.indexOf(it) }
-            val nextTrack = if (currentIdx != null && currentIdx >= 0 && currentIdx + 1 < playlist.size) {
-                playlist[currentIdx + 1]
-            } else {
-                playlist.getOrNull(0)
-            }
-
-            SlideCard(
-                cardId = "radio_status",
-                type = SlideType.RADIO_STATUS,
-                content = RadioStatusContent(
-                    stationTheme = stationTheme,
-                    actionText = getString(Res.string.card_radio_playing),
-                    nowPlayingTitle = currentTitle,
-                    nowPlayingArtist = currentArtist,
-                    albumArtUri = albumArtUri,
-                    nowPlayingWhy = currentWhy,
-                    nextTrackTitle = nextTrack?.title,
-                    nextTrackWhy = hostWhy(nextTrack?.why),
-                    playlistCount = playlist.size,
-                    progressPercent = null,
-                    targetCount = null,
-                ),
-            )
-        }
-
-        is RadioState.PAUSED -> {
-            // PAUSED：复用 PLAYING 分支结构，封面/标题/why 保留（用户知道自己停了什么）
-            val playlist = masterAgent?.queryRadioPlaylist() ?: emptyList()
-            val nowPlaying = runCatching { masterAgent?.queryNowPlayingContext() }.getOrNull()
-            val currentId = nowPlaying?.currentMusicId
-            val nowPlayingTrack = playlist.find { it.musicId == currentId }
-            val nextTrack = nowPlayingTrack?.let { playlist.indexOf(it) }?.let { idx ->
-                playlist.getOrNull(idx + 1) ?: playlist.firstOrNull()
-            } ?: playlist.firstOrNull()
-
-            SlideCard(
-                cardId = "radio_status",
-                type = SlideType.RADIO_STATUS,
-                content = RadioStatusContent(
-                    stationTheme = stationTheme,
-                    actionText = getString(Res.string.card_radio_paused),
-                    nowPlayingTitle = nowPlaying?.currentMusicInfo?.music?.title
-                        ?: nowPlayingTrack?.title,
-                    nowPlayingArtist = nowPlaying?.currentMusicInfo?.music?.artist
-                        ?: nowPlayingTrack?.artist,
-                    albumArtUri = nowPlaying?.currentMusicInfo?.music?.albumArtUri,
-                    nowPlayingWhy = hostWhy(nowPlayingTrack?.why),
-                    nextTrackTitle = nextTrack?.title,
-                    nextTrackWhy = hostWhy(nextTrack?.why),
-                    playlistCount = playlist.size,
-                    progressPercent = null,
-                    targetCount = null,
-                ),
-            )
-        }
-    }
-}
-
 // ═══════════════════════════════════════════════════════════════════
 // 家族 D：RADIO_STATUS —— 电台运行态（左 ANCHOR + 右 Radio 状态）
 // ═══════════════════════════════════════════════════════════════════
@@ -192,6 +64,9 @@ internal fun FamilyRadioStatusCard(
     modifier: Modifier = Modifier,
     onCardClick: ((SlideCard) -> Unit)? = null,
     onLongClick: ((SlideCard) -> Unit)? = null,
+    /** 由 HelloCardsViewModel 快照下发，卡片不再直连 MasterAgent。 */
+    radioMessage: RadioMessage? = null,
+    radioCard: RadioCardState = RadioCardState(theme = null, upcomingCount = 0, nextTitle = null, lastAdjust = null),
 ) {
     val metrics = LocalHmpMetrics.current
     val c = card.content as RadioStatusContent
@@ -211,17 +86,11 @@ internal fun FamilyRadioStatusCard(
         }
     }
 
-    // 短时消息（4s 自动消失，RadioSubAgent 内部管理生命周期）
-    val masterAgent = koinInject<MasterAgent>()
-    val radioMessage by masterAgent.radioMessageFlow().collectAsState()
-
-    // 电台卡状态（主播编排思路 lastAdjust / 待播数 / 下一首）——本卡是信息展示主力，
-    // 这些动态信息从 agent 的权威 StateFlow 取，不再依赖本地 playlist 推断
-    val radioCard by masterAgent.radioCardState.collectAsState()
+    // 短时消息与队列动态来自 HelloCardsViewModel 快照（数据组装不再在卡内直连 agent）。
 
     // 取当前播放封面主色做背景渐变（跟 FamilyAnchorCard 一致，切歌时平滑过渡）
     val themeVM: com.hearablemusic.player.ui.common.viewmodel.ThemeViewModel =
-        org.koin.compose.viewmodel.koinViewModel()
+        activityViewModel()
     val palette by themeVM.paletteColors.collectAsState()
     val defaultPrimary = HelloCardPalette.CoverFallback.Primary
     val defaultBg = HelloCardPalette.CoverFallback.Background

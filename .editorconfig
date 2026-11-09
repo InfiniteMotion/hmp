@@ -33,3 +33,10 @@ ij_kotlin_imports_layout = *,java.**,javax.**,kotlin.**,^
 ij_kotlin_indent_before_arrow_on_new_line = false
 ij_kotlin_line_break_after_multiline_when_entry = true
 ij_kotlin_packages_to_use_import_on_demand = com.hearablemusic.player.ui.generated.resources.*,org.junit.Assert.*
+
+# 未使用 import 是可机器判定的死代码（2026-11-10 起纳入门禁；由 UI 审计 C 类残留触发全量清理）。
+ktlint_standard_no-unused-imports = enabled
+
+# storybook 不在构建图内（AGENTS.md §三），清理结果无法用编译器复核 —— 该目录不参与这条规则。
+[storybook/**/*.kt]
+ktlint_standard_no-unused-imports = disabled

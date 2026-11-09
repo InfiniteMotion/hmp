@@ -26,7 +26,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
 import com.hearablemusic.player.ui.common.design.colors.HelloCardPalette
 import com.hearablemusic.player.ui.common.design.metrics.LayoutConstraints
 import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics

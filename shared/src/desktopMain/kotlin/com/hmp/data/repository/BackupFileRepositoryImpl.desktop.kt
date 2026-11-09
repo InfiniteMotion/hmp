@@ -33,8 +33,12 @@ class BackupFileRepositoryImpl(
      */
     private fun ownedFile(filePath: String): File? {
         val dir = backupDir.canonicalPath
-        val file = File(filePath).canonicalFile
-        return if (BackupPathPolicy.isDirectChildOf(file.path, dir)) file else null
+        // 判断用 canonical（解析 `..` 与符号链接），但返回原始 File：
+        // macOS 上临时目录的 /var 是 /private/var 的符号链接，若把 canonicalFile
+        // 的 absolutePath 返回给调用方，会与 saveBackup/getBackups 的路径口径不一致，
+        // 幂等导入会被误判成新文件再复制一份。
+        val file = File(filePath)
+        return if (BackupPathPolicy.isDirectChildOf(file.canonicalPath, dir)) file else null
     }
 
     private fun timestamp(): String = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss"))

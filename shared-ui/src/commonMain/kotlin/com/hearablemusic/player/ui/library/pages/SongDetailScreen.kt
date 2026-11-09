@@ -33,9 +33,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -81,6 +78,7 @@ import com.hearablemusic.player.ui.generated.resources.playlist_count
 import com.hearablemusic.player.ui.generated.resources.popular_lyrics
 import com.hearablemusic.player.ui.generated.resources.recent_history
 import com.hearablemusic.player.ui.generated.resources.rename
+import com.hearablemusic.player.ui.generated.resources.retry
 import com.hearablemusic.player.ui.generated.resources.similar_music
 import com.hearablemusic.player.ui.generated.resources.skipped_count
 import com.hearablemusic.player.ui.generated.resources.song_achievements
@@ -93,6 +91,7 @@ import com.hearablemusic.player.ui.generated.resources.sort_play_count
 import com.hearablemusic.player.ui.generated.resources.title_song_detail
 import com.hearablemusic.player.ui.generated.resources.user_rating
 import com.hearablemusic.player.ui.library.pages.components.AlbumCover
+import com.hearablemusic.player.ui.library.viewmodel.SongDetailSection
 import com.hearablemusic.player.ui.library.viewmodel.SongDetailViewModel
 import com.hearablemusic.player.ui.player.pages.TechnicalInfoCard
 import com.hmp.domain.music.MusicExtra
@@ -118,7 +117,7 @@ fun SongDetailScreen(
     val uiState by viewModel.uiState.collectAsState()
     val haptic = rememberHapticFeedback()
 
-    val title = when (val state = uiState) {
+    val title = when (val state = uiState.detail) {
         is LoadState.Success -> state.data.musicInfo.music.title
         else -> stringResource(Res.string.title_song_detail)
     }
@@ -127,7 +126,7 @@ fun SongDetailScreen(
         onBackClick = { navController.removeLastOrNull() },
         title = title,
         trailingContent = {
-            if (uiState is LoadState.Success) {
+            if (uiState.detail is LoadState.Success) {
                 FilledIconButton(
                     onClick = {
                         haptic.performClick()
@@ -157,7 +156,7 @@ fun SongDetailScreen(
                 .padding(horizontal = metrics.block, vertical = metrics.cozy),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            when (val state = uiState) {
+            when (val state = uiState.detail) {
                 is LoadState.Loading, LoadState.Idle -> {
                     SongDetailLoading()
                 }
@@ -198,6 +197,8 @@ fun SongDetailScreen(
                             musicInfo = data.musicInfo,
                             labels = data.labels,
                             playbackHistory = data.playbackHistory,
+                            selectedSection = uiState.selectedSection,
+                            onSectionSelected = viewModel::onSectionSelected,
                         )
                     }
                     Spacer(modifier = Modifier.height(metrics.section))
@@ -215,8 +216,8 @@ fun SongDetailScreen(
                             color = MaterialTheme.colorScheme.error,
                         )
                         Spacer(modifier = Modifier.height(metrics.cozy))
-                        Button(onClick = { viewModel.retry() }) {
-                            Text(stringResource(Res.string.loading))
+                        Button(onClick = { viewModel.onRetry() }) {
+                            Text(stringResource(Res.string.retry))
                         }
                     }
                 }
@@ -602,6 +603,8 @@ fun SongDetailInfo(
     musicInfo: MusicInfo,
     labels: List<MusicLabel?> = emptyList(),
     playbackHistory: List<PlaybackHistory> = emptyList(),
+    selectedSection: String,
+    onSectionSelected: (String) -> Unit,
 ) {
     val metrics = LocalHmpMetrics.current
     val typo = LocalHmpTypo.current
@@ -618,22 +621,16 @@ fun SongDetailInfo(
     val popLyric = musicExtra?.popLyric?.takeIf { it.isRenderableExtra() }
 
     Column(modifier = Modifier.fillMaxWidth()) {
-        val introId = "intro"
-        val lyricsId = "lyrics"
-        val userId = "user"
-
-        var selectedSection by rememberSaveable { mutableStateOf(introId) }
-
         SegmentedControl(
             modifier = Modifier.fillMaxWidth(),
             options = listOf(
-                SegmentedOption(userId, stringResource(Res.string.song_detail_tab_user)),
-                SegmentedOption(introId, stringResource(Res.string.song_detail_tab_intro)),
-                SegmentedOption(lyricsId, stringResource(Res.string.song_detail_tab_lyrics)),
+                SegmentedOption(SongDetailSection.USER, stringResource(Res.string.song_detail_tab_user)),
+                SegmentedOption(SongDetailSection.INTRO, stringResource(Res.string.song_detail_tab_intro)),
+                SegmentedOption(SongDetailSection.LYRICS, stringResource(Res.string.song_detail_tab_lyrics)),
             ),
             selectedOption = selectedSection,
             onOptionSelected = {
-                selectedSection = it
+                onSectionSelected(it)
                 haptic.performClick()
             },
         )
@@ -641,7 +638,7 @@ fun SongDetailInfo(
         Spacer(modifier = Modifier.height(metrics.base))
 
         when (selectedSection) {
-            introId -> {
+            SongDetailSection.INTRO -> {
                 // 创作背景
                 if (background != null) {
                     TitleWidget(title = stringResource(Res.string.creative_background)) {
@@ -730,7 +727,7 @@ fun SongDetailInfo(
                 }
             }
 
-            lyricsId -> {
+            SongDetailSection.LYRICS -> {
                 val lyricsFull = (musicInfo.extra?.lyrics ?: "None Full Lyrics")
                     .replace(Regex("\\[.*?]"), "")
                     .lines()
@@ -763,7 +760,7 @@ fun SongDetailInfo(
                 }
             }
 
-            userId -> {
+            SongDetailSection.USER -> {
                 // 用户统计
                 val userInfo = musicInfo.userInfo
 

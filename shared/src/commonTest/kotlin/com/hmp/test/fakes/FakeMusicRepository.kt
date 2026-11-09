@@ -24,6 +24,7 @@ import com.hmp.domain.setting.model.UserUsageAnalytics
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import com.hmp.data.database.MusicLabel as DataMusicLabel
@@ -149,6 +150,11 @@ class FakeMusicRepository : MusicRepository {
     override suspend fun getDeletedMusicIdsGroupedByFolder(): List<Pair<String, List<Long>>> = deletedMusic
         .groupBy { it.music.path.substringBeforeLast("/", "") }
         .map { (folder, songs) -> folder to songs.map { it.music.id } }
+
+    // 替身不做 Room 回流：每次订阅时按当前内存状态取一份快照（与 suspend 版同口径）。
+    override fun observeAllMusicInfoAsList(key: MusicSortKey, direction: SortDirection): Flow<List<MusicInfo>> = flow { emit(getAllMusicInfoAsList(key, direction)) }
+
+    override fun observeDeletedMusicIdsGroupedByFolder(): Flow<List<Pair<String, List<Long>>>> = flow { emit(getDeletedMusicIdsGroupedByFolder()) }
 
     override suspend fun addMusicLabel(label: MusicLabel) {
         labels.getOrPut(label.musicId) { mutableListOf() }.add(label)

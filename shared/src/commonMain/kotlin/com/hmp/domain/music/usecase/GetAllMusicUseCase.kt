@@ -28,6 +28,14 @@ class GetAllMusicUseCase(
     ): List<MusicInfo> = musicRepository.getAllMusicInfoAsList(orderBy, orderType)
 
     /**
+     * 全库列表的可观察版本（7.5 屏级 VM）：排序口径与 [invoke] 同一份实现，由 Room 驱动回流。
+     */
+    fun observeAllMusic(
+        orderBy: MusicSortKey = MusicSortKey.TITLE,
+        orderType: SortDirection = SortDirection.ASC,
+    ): Flow<List<MusicInfo>> = musicRepository.observeAllMusicInfoAsList(orderBy, orderType)
+
+    /**
      * 获取音乐总数
      */
     fun getMusicCount(): Flow<Int> = musicRepository.getMusicCount()

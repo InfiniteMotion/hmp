@@ -5,6 +5,9 @@ import com.hmp.domain.setting.model.AiAccessMode
 import com.hmp.domain.setting.model.AiEndpointConfig
 import com.hmp.domain.setting.model.ScanDirectoryConfig
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 
 class UserSettingsUseCase(
     private val settingsRepository: SettingsRepository,
@@ -60,10 +63,22 @@ class UserSettingsUseCase(
         settingsRepository.saveHazeIntensity(intensity)
     }
 
-    suspend fun getAvatarUri(): String? = settingsRepository.getAvatarUri()
+    /**
+     * 头像 URI 的共享镜像（7.5 P1 闭环）。
+     * repository 只提供一次性读取接口，但个人资料页写入后 `UserScreen` 必须立刻看到新值。
+     * 本 UseCase 是 Koin `single`，读写都经过这里，镜像因此是唯一可订阅来源。
+     * 备份恢复等绕过本类的写入，由 `getAvatarUri()` 重新读取时回填。
+     */
+    private val _avatarUri = MutableStateFlow("")
+    val avatarUri: StateFlow<String> = _avatarUri.asStateFlow()
+
+    suspend fun getAvatarUri(): String? = settingsRepository.getAvatarUri().also {
+        _avatarUri.value = it.orEmpty()
+    }
 
     suspend fun saveAvatarUri(uri: String) {
         settingsRepository.saveAvatarUri(uri)
+        _avatarUri.value = uri
     }
 
     val isLoadMusic: Flow<Boolean> = settingsRepository.isLoadMusic

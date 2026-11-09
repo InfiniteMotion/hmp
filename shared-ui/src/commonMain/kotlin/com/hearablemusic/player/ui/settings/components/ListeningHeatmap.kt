@@ -4,6 +4,7 @@ import com.hmp.data.util.localDateString
 import com.hmp.data.util.localDayOfWeekIso
 import com.hmp.data.util.parseDateToMillis
 import com.hmp.data.util.todayDateString
+import com.hmp.domain.setting.model.ListeningDuration
 
 /**
  * 热力图的一格。
@@ -35,6 +36,12 @@ data class HeatmapGrid(val rows: List<List<HeatmapCell>>) {
  * @param today 本地今日（注入而非内部取时钟，判据才可控）
  * @param dayCount 窗口天数（365 = 全年视图）
  */
+fun buildListeningHeatmapFromDurations(durations: List<ListeningDuration>): HeatmapGrid = buildListeningHeatmap(
+    // 窗口天数用函数默认值（365）：与 GetDailyMusicRecommendationUseCase 取数的 365 是同一个口径。
+    // 毫秒 → 分钟只在这一处换算，UI 不再重复。
+    minutesByDate = durations.associate { it.date to (it.duration / 60_000L).toInt() },
+)
+
 fun buildListeningHeatmap(
     minutesByDate: Map<String, Int>,
     today: String = todayDateString(),

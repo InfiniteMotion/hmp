@@ -837,4 +837,8 @@
     <string name="radio_card_end_session">Akhiri sesi ini</string>
     <string name="radio_entry_seed_title">Mulai dari lagu ini</string>
     <string name="radio_entry_seed_desc">Pilihan lokal dulu, lalu AI melanjutkan; setelah lagu saat ini</string>
+    <string name="card_enrich_chunk"> · chunk %1$d/%2$d</string>
+    <string name="card_narrative_header">%1$s listening report</string>
+    <string name="shuffle_play_button_desc">Shuffle play</string>
+    <string name="order_play_button_desc">Play in order</string>
 </resources>

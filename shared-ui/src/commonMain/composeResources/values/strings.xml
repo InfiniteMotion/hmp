@@ -650,6 +650,7 @@
     <string name="card_anchor_not_playing">Not playing</string>
     <string name="card_unknown">Unknown</string>
     <string name="card_enrich_mixed_group">Mixed group</string>
+    <string name="card_enrich_chunk"> · chunk %1$d/%2$d</string>
     <string name="card_enrich_running">Enriching</string>
     <string name="card_enrich_paused">Enrichment paused</string>
     <string name="card_enrich_progress">Processed %1$d · OK %2$d · Failed %3$d · %4$d%%</string>
@@ -684,6 +685,8 @@
     <string name="home_private_reco">Private picks</string>
     <string name="home_reco_unavailable">Quota used up</string>
     <string name="play_all">Play all</string>
+    <string name="shuffle_play_button_desc">Shuffle play</string>
+    <string name="order_play_button_desc">Play in order</string>
     <string name="reco_label_daily">Daily picks · %1$d songs</string>
     <string name="reco_label_private">Private picks · %1$d songs</string>
     <string name="reco_hero_private">Chosen for you</string>
@@ -802,6 +805,7 @@
     <string name="card_avg_minutes">%1$d min</string>
     <string name="card_avg_hours">%1$s h</string>
     <string name="card_narrative_avg_daily">Daily average %1$s</string>
+    <string name="card_narrative_header">%1$s listening report</string>
     <string name="card_ann_years_ago_today">%1$d years ago today</string>
     <string name="card_ann_years_ago_playlist">Playlist created %1$d years ago</string>
     <string name="card_ann_years_ago_short">years ago</string>

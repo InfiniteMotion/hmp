@@ -5,9 +5,6 @@ import com.hmp.domain.agent.infra.PresenceEvent
 import com.hmp.domain.agent.policy.AgentPolicy
 import com.hmp.domain.agent.policy.PolicyGuard
 import com.hmp.domain.agent.port.LlmEvent
-import com.hmp.domain.agent.port.LlmMessage
-import com.hmp.domain.agent.port.LlmToolSpec
-import com.hmp.domain.agent.port.LlmTransport
 import com.hmp.domain.agent.tool.spec.AgentTool
 import com.hmp.domain.agent.tool.spec.ToolRegistry
 import com.hmp.test.fakes.FakeStopSignal
@@ -21,7 +18,6 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class ReActLoopTest {

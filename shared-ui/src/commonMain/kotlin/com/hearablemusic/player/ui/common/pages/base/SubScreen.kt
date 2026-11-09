@@ -1,7 +1,6 @@
 package com.hearablemusic.player.ui.common.pages.base
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.layout.Arrangement
@@ -24,7 +23,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
 import com.hearablemusic.player.ui.common.components.base.BackButton
 import com.hearablemusic.player.ui.common.design.animation.HmpMotion
 import com.hearablemusic.player.ui.common.design.metrics.LayoutConstraints

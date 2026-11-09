@@ -63,6 +63,11 @@ open class FakeAgentMusicRepository : MusicRepository {
     override suspend fun removeFromLibrary(ids: List<Long>) {}
     override suspend fun restoreToLibrary(ids: List<Long>) {}
     override suspend fun getDeletedMusicIdsGroupedByFolder(): List<Pair<String, List<Long>>> = emptyList()
+    override fun observeAllMusicInfoAsList(
+        key: com.hmp.domain.music.MusicSortKey,
+        direction: com.hmp.domain.music.SortDirection,
+    ): Flow<List<MusicInfo>> = flowOf(songs.values.toList())
+    override fun observeDeletedMusicIdsGroupedByFolder(): Flow<List<Pair<String, List<Long>>>> = flowOf(emptyList())
     override suspend fun addMusicLabel(label: MusicLabel) {
         musicLabels += label
     }

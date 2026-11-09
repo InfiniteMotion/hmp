@@ -28,8 +28,6 @@ import com.hearablemusic.player.ui.settings.pages.ProfileSettingsScreen
 import com.hearablemusic.player.ui.settings.pages.SettingScreen
 import com.hearablemusic.player.ui.settings.pages.UserUsageDataScreen
 import com.hmp.domain.agent.card.RecommendSource
-import com.hmp.domain.setting.usecase.LyricsSettingsUseCase
-import org.koin.compose.koinInject
 
 /**
  * 导航图定义
@@ -99,9 +97,7 @@ fun navigationGraph(
     }
 
     entry<Routes.Settings.LyricsSettings> {
-        val useCase: LyricsSettingsUseCase = koinInject()
         LyricsSettingsPage(
-            lyricsSettingsUseCase = useCase,
             onBack = { navController.removeLastOrNull() },
         )
     }

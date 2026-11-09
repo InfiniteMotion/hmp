@@ -38,6 +38,8 @@ fun MainShell(
         }
     }
 
+    // 四页常驻是设计前提（保留各 tab 的组合状态与滚动位置），不靠减少
+    // beyondViewportPageCount 来释放订阅；订阅生命周期改由 LocalTabVisible 表达。
     HorizontalPager(
         state = pagerState,
         beyondViewportPageCount = 3,

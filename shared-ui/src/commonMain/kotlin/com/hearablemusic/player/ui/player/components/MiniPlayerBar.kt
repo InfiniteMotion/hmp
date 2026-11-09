@@ -57,6 +57,7 @@ import com.hmp.domain.music.MusicInfo
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
+import kotlinx.coroutines.isActive
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 
@@ -89,7 +90,7 @@ fun MiniPlayerBar(
 
     LaunchedEffect(isPlaying) {
         if (!isPlaying) return@LaunchedEffect
-        while (true) {
+        while (isActive) {
             val current = coverRotation.value % 360f
             val remaining = 360f - current
             val durationMillis = ((remaining / 360f) * 8000f).toInt().coerceAtLeast(1)

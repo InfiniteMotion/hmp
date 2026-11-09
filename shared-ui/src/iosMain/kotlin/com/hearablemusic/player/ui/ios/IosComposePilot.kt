@@ -29,8 +29,6 @@ import com.hearablemusic.player.ui.settings.pages.LibrarySettingsScreen
 import com.hearablemusic.player.ui.settings.pages.LyricsSettingsPage
 import com.hearablemusic.player.ui.settings.pages.ProfileSettingsScreen
 import com.hearablemusic.player.ui.settings.pages.SettingScreen
-import com.hmp.domain.setting.usecase.LyricsSettingsUseCase
-import org.koin.compose.koinInject
 import platform.UIKit.UIViewController
 
 /**
@@ -63,9 +61,7 @@ fun settingsPilotGraph(navController: NavBackStack<NavKey>) = entryProvider<NavK
         LibrarySettingsScreen(navController = navController)
     }
     entry<Routes.Settings.LyricsSettings> {
-        val useCase: LyricsSettingsUseCase = koinInject()
         LyricsSettingsPage(
-            lyricsSettingsUseCase = useCase,
             onBack = { navController.removeLastOrNull() },
         )
     }

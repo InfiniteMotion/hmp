@@ -23,7 +23,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
 import com.hearablemusic.player.ui.common.design.colors.HelloCardPalette
 import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
@@ -31,6 +30,7 @@ import com.hearablemusic.player.ui.common.design.typography.medium
 import com.hearablemusic.player.ui.common.text.asString
 import com.hearablemusic.player.ui.generated.resources.Res
 import com.hearablemusic.player.ui.generated.resources.card_narrative_avg_daily
+import com.hearablemusic.player.ui.generated.resources.card_narrative_header
 import com.hmp.domain.agent.card.NarrativeContent
 import com.hmp.domain.agent.card.SlideCard
 import com.hmp.domain.agent.card.zhName
@@ -102,7 +102,7 @@ internal fun FamilyNarrativeCard(
                         horizontalArrangement = Arrangement.spacedBy(metrics.compact),
                     ) {
                         Text(
-                            text = "${c.timeRange.zhName()}听歌报告",
+                            text = stringResource(Res.string.card_narrative_header, c.timeRange.zhName()),
                             style = typo.footnote.medium(),
                             color = Color.White.copy(alpha = 0.7f),
                         )

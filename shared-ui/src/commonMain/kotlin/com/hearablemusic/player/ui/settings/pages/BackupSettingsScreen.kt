@@ -6,12 +6,14 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -19,26 +21,22 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
 import com.hearablemusic.player.ui.common.components.base.TitleWidget
 import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
-import com.hearablemusic.player.ui.common.dialogs.controller.DialogManager
 import com.hearablemusic.player.ui.common.dialogs.viewmodel.DialogManagerViewModel
 import com.hearablemusic.player.ui.common.layout.LocalWindowSizeInfo
 import com.hearablemusic.player.ui.common.pages.base.SubScreen
+import com.hearablemusic.player.ui.common.text.resolveForEffect
 import com.hearablemusic.player.ui.common.util.activityViewModel
 import com.hearablemusic.player.ui.generated.resources.Res
 import com.hearablemusic.player.ui.generated.resources.backup_scope_note
@@ -60,25 +58,39 @@ import com.hearablemusic.player.ui.generated.resources.restore_backup_desc
 import com.hearablemusic.player.ui.generated.resources.restore_overwrites_note
 import com.hearablemusic.player.ui.generated.resources.restore_successful
 import com.hearablemusic.player.ui.generated.resources.trash
-import com.hearablemusic.player.ui.platform.PlatformServices
 import com.hearablemusic.player.ui.player.components.MiniPlayerSafeSpacer
+import com.hearablemusic.player.ui.settings.viewmodel.BackupEffect
 import com.hearablemusic.player.ui.settings.viewmodel.BackupViewModel
-import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.getString
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
-import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 
 @Composable
 fun BackupSettingsScreen(
     navController: NavBackStack<NavKey>,
-    backupViewModel: BackupViewModel = koinViewModel(),
+    viewModel: BackupViewModel = koinViewModel(),
     dialogManagerViewModel: DialogManagerViewModel = activityViewModel(),
 ) {
     val metrics = LocalHmpMetrics.current
     val dialogManager = dialogManagerViewModel.dialogManager
-    val localBackups by backupViewModel.localBackups.collectAsState()
+    // 唯一状态出口：备份列表与待确认恢复路径都在这里
+    val uiState by viewModel.uiState.collectAsState()
+
+    // 一次性效果：VM 不持有 DialogManager，toast 由组合点消费
+    LaunchedEffect(Unit) {
+        viewModel.effect.collect { effect ->
+            when (effect) {
+                is BackupEffect.Message -> {
+                    dialogManager.showMessage(effect.text.resolveForEffect())
+                }
+
+                is BackupEffect.RestoreSucceeded -> {
+                    dialogManager.showMessage(getString(Res.string.restore_successful))
+                }
+            }
+        }
+    }
 
     SubScreen(
         onBackClick = { navController.removeLastOrNull() },
@@ -98,60 +110,55 @@ fun BackupSettingsScreen(
                     horizontalArrangement = Arrangement.spacedBy(metrics.section),
                 ) {
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(metrics.section)) {
-                        ExportBackupSection(
-                            onExportBackup = backupViewModel::exportBackup,
-                            dialogManager = dialogManager,
-                        )
-                        ImportBackupSection(
-                            onRestoreBackup = backupViewModel::restoreBackup,
-                            dialogManager = dialogManager,
-                        )
+                        ExportBackupSection(onExportBackup = viewModel::onExportBackup, isBusy = uiState.isBusy)
+                        ImportBackupSection(onPickBackupFile = viewModel::onPickBackupFile, isBusy = uiState.isBusy)
                     }
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(metrics.section)) {
                         ManageBackupsSection(
-                            localBackups = localBackups,
-                            onRestoreBackup = backupViewModel::restoreBackup,
-                            onDeleteBackup = backupViewModel::deleteLocalBackup,
-                            onRefreshBackups = backupViewModel::loadLocalBackups,
-                            dialogManager = dialogManager,
+                            localBackups = uiState.localBackups,
+                            onRestoreRequested = viewModel::onRestoreRequested,
+                            onDeleteBackup = viewModel::onDeleteBackup,
+                            onRefreshBackups = viewModel::onRefreshBackups,
+                            isBusy = uiState.isBusy,
                         )
                     }
                 }
             } else {
                 // 1. 生成备份
-                ExportBackupSection(
-                    onExportBackup = backupViewModel::exportBackup,
-                    dialogManager = dialogManager,
-                )
+                ExportBackupSection(onExportBackup = viewModel::onExportBackup, isBusy = uiState.isBusy)
 
                 // 2. 导入备份
-                ImportBackupSection(
-                    onRestoreBackup = backupViewModel::restoreBackup,
-                    dialogManager = dialogManager,
-                )
+                ImportBackupSection(onPickBackupFile = viewModel::onPickBackupFile, isBusy = uiState.isBusy)
 
                 // 3. 备份管理
                 ManageBackupsSection(
-                    localBackups = localBackups,
-                    onRestoreBackup = backupViewModel::restoreBackup,
-                    onDeleteBackup = backupViewModel::deleteLocalBackup,
-                    onRefreshBackups = backupViewModel::loadLocalBackups,
-                    dialogManager = dialogManager,
+                    localBackups = uiState.localBackups,
+                    onRestoreRequested = viewModel::onRestoreRequested,
+                    onDeleteBackup = viewModel::onDeleteBackup,
+                    onRefreshBackups = viewModel::onRefreshBackups,
+                    isBusy = uiState.isBusy,
                 )
             } // else
             MiniPlayerSafeSpacer(height = metrics.bar)
         }
     }
+
+    // 确认弹窗只有一份：由 pendingRestorePath 驱动，导入区与管理区共用
+    if (uiState.pendingRestorePath != null) {
+        RestoreConfirmDialog(
+            onConfirm = viewModel::onRestoreConfirmed,
+            onDismiss = viewModel::onRestoreDismissed,
+            isBusy = uiState.isBusy,
+        )
+    }
 }
 
 @Composable
 private fun ExportBackupSection(
-    onExportBackup: ((String) -> Unit, (String) -> Unit) -> Unit,
-    dialogManager: DialogManager,
+    onExportBackup: () -> Unit,
+    isBusy: Boolean,
 ) {
     val metrics = LocalHmpMetrics.current
-    val platformServices: PlatformServices = koinInject()
-    val chooserTitle = stringResource(Res.string.export_backup)
     val typo = LocalHmpTypo.current
 
     TitleWidget(title = stringResource(Res.string.export_backup)) {
@@ -181,17 +188,20 @@ private fun ExportBackupSection(
 
             Button(
                 modifier = Modifier.fillMaxWidth(),
-                onClick = {
-                    onExportBackup({ filePath ->
-                        platformServices.share.shareFile(filePath, "application/json", chooserTitle)
-                    }, { error ->
-                        dialogManager.showMessage(error)
-                    })
-                },
+                onClick = onExportBackup,
+                enabled = !isBusy,
             ) {
-                Icon(painter = painterResource(Res.drawable.externaldrive), contentDescription = null)
-                Spacer(modifier = Modifier.width(metrics.compact))
-                Text(stringResource(Res.string.export_backup))
+                if (isBusy) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(metrics.compact),
+                        strokeWidth = metrics.hair,
+                        color = MaterialTheme.colorScheme.onPrimary,
+                    )
+                } else {
+                    Icon(painter = painterResource(Res.drawable.externaldrive), contentDescription = null)
+                    Spacer(modifier = Modifier.width(metrics.compact))
+                    Text(stringResource(Res.string.export_backup))
+                }
             }
         }
     }
@@ -199,15 +209,11 @@ private fun ExportBackupSection(
 
 @Composable
 private fun ImportBackupSection(
-    onRestoreBackup: (String, () -> Unit, (String) -> Unit) -> Unit,
-    dialogManager: DialogManager,
+    onPickBackupFile: () -> Unit,
+    isBusy: Boolean,
 ) {
     val metrics = LocalHmpMetrics.current
     val typo = LocalHmpTypo.current
-    val scope = rememberCoroutineScope()
-    val platformServices: PlatformServices = koinInject()
-    var showRestoreDialog by remember { mutableStateOf(false) }
-    var selectedBackupFilePath by remember { mutableStateOf<String?>(null) }
 
     TitleWidget(title = stringResource(Res.string.restore_backup)) {
         Column(
@@ -225,52 +231,35 @@ private fun ImportBackupSection(
 
             Button(
                 modifier = Modifier.fillMaxWidth(),
-                onClick = {
-                    // 选择备份文件：Android 在平台层把 SAF Uri 复制进 filesDir/backups，
-                    // 其余两端的路径由 ImportUserDataBackupUseCase 复制进备份目录（D7-05）。
-                    platformServices.filePicker.openBackupFile { path ->
-                        if (path != null) {
-                            selectedBackupFilePath = path
-                            showRestoreDialog = true
-                        }
-                    }
-                },
+                onClick = onPickBackupFile,
+                enabled = !isBusy,
             ) {
-                Icon(painter = painterResource(Res.drawable.ic_gallery_material_select_checkbox), contentDescription = null)
-                Spacer(modifier = Modifier.width(metrics.compact))
-                Text(stringResource(Res.string.restore_backup))
+                if (isBusy) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(metrics.compact),
+                        strokeWidth = metrics.hair,
+                        color = MaterialTheme.colorScheme.onPrimary,
+                    )
+                } else {
+                    Icon(painter = painterResource(Res.drawable.ic_gallery_material_select_checkbox), contentDescription = null)
+                    Spacer(modifier = Modifier.width(metrics.compact))
+                    Text(stringResource(Res.string.restore_backup))
+                }
             }
         }
-    }
-
-    if (showRestoreDialog && selectedBackupFilePath != null) {
-        RestoreConfirmDialog(
-            onConfirm = {
-                onRestoreBackup(selectedBackupFilePath!!, {
-                    scope.launch { dialogManager.showMessage(getString(Res.string.restore_successful)) }
-                }, { error ->
-                    dialogManager.showMessage(error)
-                })
-                showRestoreDialog = false
-            },
-            onDismiss = { showRestoreDialog = false },
-        )
     }
 }
 
 @Composable
 private fun ManageBackupsSection(
     localBackups: List<String>,
-    onRestoreBackup: (String, () -> Unit, (String) -> Unit) -> Unit,
+    onRestoreRequested: (String) -> Unit,
     onDeleteBackup: (String) -> Unit,
     onRefreshBackups: () -> Unit,
-    dialogManager: DialogManager,
+    isBusy: Boolean,
 ) {
     val metrics = LocalHmpMetrics.current
     val typo = LocalHmpTypo.current
-    val scope = rememberCoroutineScope()
-    var showRestoreDialog by remember { mutableStateOf(false) }
-    var selectedBackupFilePath by remember { mutableStateOf<String?>(null) }
 
     TitleWidget(title = stringResource(Res.string.local_backup)) {
         Column(
@@ -289,7 +278,7 @@ private fun ManageBackupsSection(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.Start,
             ) {
-                IconButton(onClick = onRefreshBackups) {
+                IconButton(onClick = onRefreshBackups, enabled = !isBusy) {
                     Icon(
                         painter = painterResource(Res.drawable.externaldrive),
                         contentDescription = stringResource(Res.string.refresh),
@@ -309,29 +298,13 @@ private fun ManageBackupsSection(
                 localBackups.forEach { filePath ->
                     BackupItem(
                         filePath = filePath,
-                        onRestore = {
-                            selectedBackupFilePath = filePath
-                            showRestoreDialog = true
-                        },
+                        onRestore = { onRestoreRequested(filePath) },
                         onDelete = { onDeleteBackup(filePath) },
+                        isBusy = isBusy,
                     )
                 }
             }
         }
-    }
-
-    if (showRestoreDialog && selectedBackupFilePath != null) {
-        RestoreConfirmDialog(
-            onConfirm = {
-                onRestoreBackup(selectedBackupFilePath!!, {
-                    scope.launch { dialogManager.showMessage(getString(Res.string.restore_successful)) }
-                }, { error ->
-                    dialogManager.showMessage(error)
-                })
-                showRestoreDialog = false
-            },
-            onDismiss = { showRestoreDialog = false },
-        )
     }
 }
 
@@ -340,6 +313,7 @@ private fun BackupItem(
     filePath: String,
     onRestore: () -> Unit,
     onDelete: () -> Unit,
+    isBusy: Boolean,
 ) {
     val metrics = LocalHmpMetrics.current
     val typo = LocalHmpTypo.current
@@ -373,14 +347,14 @@ private fun BackupItem(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            IconButton(onClick = onRestore) {
+            IconButton(onClick = onRestore, enabled = !isBusy) {
                 Icon(
                     painter = painterResource(Res.drawable.ic_gallery_material_select_checkbox),
                     contentDescription = stringResource(Res.string.restore_action),
                     tint = MaterialTheme.colorScheme.primary,
                 )
             }
-            IconButton(onClick = onDelete) {
+            IconButton(onClick = onDelete, enabled = !isBusy) {
                 Icon(
                     painter = painterResource(Res.drawable.trash),
                     contentDescription = stringResource(Res.string.delete),
@@ -395,6 +369,7 @@ private fun BackupItem(
 private fun RestoreConfirmDialog(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
+    isBusy: Boolean,
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -403,7 +378,7 @@ private fun RestoreConfirmDialog(
         // 恢复是破坏性操作，正文该写清"会覆盖什么、不会带回什么"（D7-12③）。
         text = { Text(stringResource(Res.string.restore_overwrites_note)) },
         confirmButton = {
-            TextButton(onClick = onConfirm) {
+            TextButton(onClick = onConfirm, enabled = !isBusy) {
                 Text(stringResource(Res.string.restore_action))
             }
         },

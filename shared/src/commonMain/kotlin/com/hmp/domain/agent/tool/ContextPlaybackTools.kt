@@ -11,8 +11,6 @@ import com.hmp.domain.agent.tool.spec.ToolNames
 import com.hmp.domain.agent.tool.spec.ToolParam
 import com.hmp.domain.agent.tool.spec.ToolResult
 import com.hmp.domain.agent.tool.spec.formatPositionMs
-import com.hmp.domain.music.MusicInfo
-import kotlinx.coroutines.flow.first
 
 // ---------------- playback_state (read/silent) ----------------
 

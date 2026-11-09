@@ -8,7 +8,6 @@ import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.fadeIn
@@ -73,8 +72,6 @@ import com.hearablemusic.player.ui.common.util.hazeStyleForIntensity
 import com.hearablemusic.player.ui.common.util.hazeTintAlpha
 import com.hearablemusic.player.ui.common.util.rememberPlatformHaptics
 import com.hearablemusic.player.ui.generated.resources.Res
-import com.hearablemusic.player.ui.generated.resources.house
-import com.hearablemusic.player.ui.generated.resources.house_fill
 import com.hearablemusic.player.ui.generated.resources.library_settings
 import com.hearablemusic.player.ui.generated.resources.list_bullet
 import com.hearablemusic.player.ui.generated.resources.music_fill
@@ -87,7 +84,6 @@ import com.hearablemusic.player.ui.generated.resources.play_fill
 import com.hearablemusic.player.ui.generated.resources.square_fill_grid_2x2
 import com.hearablemusic.player.ui.generated.resources.square_grid_2x2
 import com.hearablemusic.player.ui.generated.resources.tab_gallery
-import com.hearablemusic.player.ui.generated.resources.tab_home
 import com.hearablemusic.player.ui.generated.resources.tab_list
 import com.hearablemusic.player.ui.generated.resources.tab_user
 import com.hearablemusic.player.ui.library.pages.components.AlbumCover
@@ -134,7 +130,6 @@ internal fun tabIndexForPage(page: Int): Int = page - 1
 fun BottomFusionBar(
     musicInfo: MusicInfo?,
     isPlaying: Boolean,
-    progress: Float,
     selectedTabIndex: Int,
     onTabSelected: (Int) -> Unit,
     onPlayPause: () -> Unit,

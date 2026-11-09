@@ -42,4 +42,19 @@ class LyricsSettingsViewModel(
             lyricsSettingsUseCase.updateComponentConfig(LyricsComponent.FULLSCREEN, transform)
         }
     }
+
+    // 7.5 P1：具名动作 —— reducer（copy）归 VM，UI 只上送值，不再自己决定下一状态。
+    fun onKaraokeEnabledChange(value: Boolean) = updateFullscreenConfig { it.copy(karaokeEnabled = value) }
+
+    fun onOriginalTextSizeChange(value: Int) = updateFullscreenConfig { it.copy(originalTextSize = value) }
+
+    fun onTranslatedTextSizeChange(value: Int) = updateFullscreenConfig { it.copy(translatedTextSize = value) }
+
+    fun onCurrentTimeTextSizeChange(value: Int) = updateFullscreenConfig { it.copy(currentTimeTextSize = value) }
+
+    fun onLineSpacingChange(value: Int) = updateFullscreenConfig { it.copy(lineSpacing = value) }
+
+    fun onDisplayModeChange(value: com.hmp.domain.config.DisplayMode) = updateFullscreenConfig { it.copy(displayMode = value) }
+
+    fun onAlignmentChange(value: com.hmp.domain.config.LyricsAlignment) = updateFullscreenConfig { it.copy(alignment = value) }
 }

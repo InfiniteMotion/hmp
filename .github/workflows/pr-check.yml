@@ -194,6 +194,10 @@ jobs:
       - name: Check Kotlin code style
         run: bash ./ktlint check
 
+      # 7.5 P1 §4.3：UDF 形态门禁（整屏 content 转发层 / 成对确认链 / composable 直连业务对象）
+      - name: Check UDF conventions
+        run: python3 scripts/check-udf.py
+
   # ============================================================
   # ④ 结论汇总 —— 让 PR 页面一眼能读到「能不能合」
   # lint 必须进 needs，否则它红了也拦不住合入（等于装饰）。

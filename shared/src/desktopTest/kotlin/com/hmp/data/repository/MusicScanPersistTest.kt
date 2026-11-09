@@ -6,7 +6,6 @@ import com.hmp.data.database.MusicDao
 import com.hmp.data.database.MusicExtra
 import com.hmp.data.database.RoomTransactionRunner
 import com.hmp.data.database.UserInfo
-import com.hmp.data.database.UserInfoDao
 import com.hmp.data.network.OpenAiCompatibleAdapter
 import com.hmp.domain.music.MusicInfo
 import com.hmp.test.db.createTestDatabase

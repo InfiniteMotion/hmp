@@ -11,7 +11,6 @@ import com.hmp.domain.enum.LabelCategory
 import com.hmp.domain.enum.LabelName
 import com.hmp.domain.music.MusicInfo
 import kotlinx.coroutines.flow.first
-import kotlinx.serialization.json.JsonObject
 
 /** 把音乐简要化为「标题 - 艺术家」文本（供回填上下文）。 */
 internal fun MusicInfo.songDisplay(): String = "${music.title} - ${music.artist}"

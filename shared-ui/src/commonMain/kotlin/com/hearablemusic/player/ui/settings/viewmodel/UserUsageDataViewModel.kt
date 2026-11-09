@@ -24,9 +24,11 @@ import com.hmp.domain.setting.model.WindowedUsageAnalytics
 import com.hmp.log.HmpLog
 import com.hmp.log.LogTag
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 /** 维度筛选枚举 — 决定下方内容区渲染什么组件。 */
@@ -60,6 +62,14 @@ data class WindowedBundle(
     val isLoading: Boolean = true,
 )
 
+/** 使用数据页整屏状态（7.5 P1）：累计画像、筛选两轴与窗口数据收成唯一出口。 */
+data class UserUsageDataUiState(
+    val personality: PersonalityBundle? = null,
+    val dimension: Dimension = Dimension.OVERVIEW,
+    val timeRange: NarrativeTimeRange = NarrativeTimeRange.MONTH,
+    val windowed: WindowedBundle = WindowedBundle(),
+)
+
 class UserUsageDataViewModel(
     private val musicRepository: MusicRepository,
     private val masterAgent: MasterAgent,
@@ -67,29 +77,40 @@ class UserUsageDataViewModel(
 
     // ── ① 累计画像区：init 加载一次，只需要人格数据 ──
     private val _personality = MutableStateFlow<PersonalityBundle?>(null)
-    val personality: StateFlow<PersonalityBundle?> = _personality.asStateFlow()
+    private val personality: StateFlow<PersonalityBundle?> = _personality.asStateFlow()
 
     // ── ② 筛选轴 ──
     private val _dimension = MutableStateFlow(Dimension.OVERVIEW)
-    val dimension: StateFlow<Dimension> = _dimension.asStateFlow()
-    fun selectDimension(d: Dimension) {
+    private val dimension: StateFlow<Dimension> = _dimension.asStateFlow()
+    fun onDimensionSelected(d: Dimension) {
         _dimension.value = d
     }
 
     private val _timeRange = MutableStateFlow(NarrativeTimeRange.MONTH)
-    val timeRange: StateFlow<NarrativeTimeRange> = _timeRange.asStateFlow()
-    fun selectTimeRange(range: NarrativeTimeRange) {
+    private val timeRange: StateFlow<NarrativeTimeRange> = _timeRange.asStateFlow()
+    fun onTimeRangeSelected(range: NarrativeTimeRange) {
         _timeRange.value = range
     }
 
     // ── ③ 时间窗口数据（两轴交叉） ──
     private val _windowed = MutableStateFlow(WindowedBundle())
-    val windowed: StateFlow<WindowedBundle> = _windowed.asStateFlow()
+    private val windowed: StateFlow<WindowedBundle> = _windowed.asStateFlow()
+
+    /**
+     * 唯一状态出口；内部仍用 4 条私有流驱动加载，UI 不再逐字段订阅。
+     * 用 `Eagerly` 而不是 `WhileSubscribed`：四个源都是本地 MutableStateFlow，
+     * 常驻收集无额外开销，且能让 `uiState.value` 始终反映最新值（测试直读 `.value` 依赖这一点）。
+     */
+    val uiState: StateFlow<UserUsageDataUiState> = combine(
+        personality,
+        dimension,
+        timeRange,
+        windowed,
+    ) { personality, dimension, timeRange, windowed ->
+        UserUsageDataUiState(personality, dimension, timeRange, windowed)
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, UserUsageDataUiState())
 
     init {
-        viewModelScope.launch {
-            loadPersonality()
-        }
         viewModelScope.launch {
             combine(dimension, timeRange) { d, t -> d to t }.collect { (d, t) ->
                 loadWindowed(d, t)
@@ -128,9 +149,15 @@ class UserUsageDataViewModel(
             }
 
             Dimension.TASTE -> {
-                val topGenres = attempt(dim) { repo.getWindowedTopLabels(days, LabelCategory.GENRE) }.orEmpty()
-                val topMoods = attempt(dim) { repo.getWindowedTopLabels(days, LabelCategory.MOOD) }.orEmpty()
-                val topScenarios = attempt(dim) { repo.getWindowedTopLabels(days, LabelCategory.SCENARIO) }.orEmpty()
+                val topGenres = attempt(dim) { repo.getWindowedTopLabels(days, LabelCategory.GENRE) }
+                    .also { if (it == null) failed = dim }
+                    .orEmpty()
+                val topMoods = attempt(dim) { repo.getWindowedTopLabels(days, LabelCategory.MOOD) }
+                    .also { if (it == null) failed = dim }
+                    .orEmpty()
+                val topScenarios = attempt(dim) { repo.getWindowedTopLabels(days, LabelCategory.SCENARIO) }
+                    .also { if (it == null) failed = dim }
+                    .orEmpty()
                 // 三条都取回空列表无法区分"没数据"与"失败"，所以失败标记只在 analytics 之外按整维度记：
                 // 任何一条抛异常就把该维度记为失败（空列表本身不报错）
                 _windowed.value = WindowedBundle(
@@ -187,6 +214,14 @@ class UserUsageDataViewModel(
     } catch (e: Exception) {
         HmpLog.w(LogTag.UiSettings, e) { "使用数据窗口读取失败 | dimension=$dim | range=${timeRange.value} | cause=${e::class.simpleName}" }
         null
+    }
+
+    /**
+     * 画像/叙事是 LLM 路径，开销大 —— 只在**使用数据页可见**时加载（7.5 P1）。
+     * UserScreen 只读 windowed 三个数字，共享本实例但不再触发画像加载。
+     */
+    fun onScreenEnter() {
+        viewModelScope.launch { loadPersonality() }
     }
 
     /** 兜底刷新（外部需要强制重拉时调用）。 */

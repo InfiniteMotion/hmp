@@ -15,9 +15,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
-import androidx.navigation3.runtime.NavBackStack
-import androidx.navigation3.runtime.NavKey
 import com.hearablemusic.player.ui.common.components.base.SearchButton
 import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
@@ -29,8 +26,8 @@ val LocalTabHeaderContent = staticCompositionLocalOf<(@Composable () -> Unit)?> 
 @Composable
 fun TabScreen(
     title: String? = null,
-    hasSearchBotton: Boolean = false,
-    navController: NavBackStack<NavKey>? = null,
+    /** 传则渲染搜索按钮；导航由调用方决定（组件不再持有 NavBackStack / 硬编码路由）。 */
+    onSearchClick: (() -> Unit)? = null,
     trailing: @Composable (() -> Unit)? = null,
     showHeader: Boolean = true,
     content: @Composable () -> Unit,
@@ -72,9 +69,9 @@ fun TabScreen(
                             )
                             Spacer(modifier = Modifier.weight(1f))
                             if (trailing != null) trailing()
-                            if (hasSearchBotton && navController != null) {
+                            if (onSearchClick != null) {
                                 Spacer(modifier = Modifier.width(metrics.compact))
-                                SearchButton(navController)
+                                SearchButton(onClick = onSearchClick)
                             }
                         }
                     } else {
@@ -85,9 +82,9 @@ fun TabScreen(
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             if (trailing != null) trailing()
-                            if (hasSearchBotton && navController != null) {
+                            if (onSearchClick != null) {
                                 if (trailing != null) Spacer(modifier = Modifier.width(metrics.compact))
-                                SearchButton(navController)
+                                SearchButton(onClick = onSearchClick)
                             }
                         }
                     }

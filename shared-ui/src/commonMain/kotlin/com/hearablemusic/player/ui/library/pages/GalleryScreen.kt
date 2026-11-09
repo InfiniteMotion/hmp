@@ -8,23 +8,21 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
 import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
+import com.hearablemusic.player.ui.common.dialogs.PlaylistPickerDialog
 import com.hearablemusic.player.ui.common.dialogs.base.ConfirmDialog
-import com.hearablemusic.player.ui.common.dialogs.controller.DialogManager
 import com.hearablemusic.player.ui.common.dialogs.viewmodel.DialogManagerViewModel
 import com.hearablemusic.player.ui.common.dialogs.viewmodel.DialogViewModel
 import com.hearablemusic.player.ui.common.layout.LocalWindowSizeInfo
 import com.hearablemusic.player.ui.common.navigation.Routes
 import com.hearablemusic.player.ui.common.pages.base.TabScreen
 import com.hearablemusic.player.ui.common.util.LoadState
+import com.hearablemusic.player.ui.common.util.LocalAppHazeState
+import com.hearablemusic.player.ui.common.util.LocalHazeRenderSettings
 import com.hearablemusic.player.ui.common.util.activityViewModel
 import com.hearablemusic.player.ui.common.util.commonFormat
 import com.hearablemusic.player.ui.common.util.rememberHapticFeedback
@@ -45,118 +43,72 @@ import com.hearablemusic.player.ui.library.pages.components.musiclist.MusicList
 import com.hearablemusic.player.ui.library.pages.components.musiclist.MusicListCallbacksAdapter
 import com.hearablemusic.player.ui.library.pages.components.musiclist.galleryPresetMusicListConfig
 import com.hearablemusic.player.ui.library.pages.components.musiclist.indexJumpConfigForOrderBy
-import com.hearablemusic.player.ui.library.viewmodel.LibraryViewModel
-import com.hearablemusic.player.ui.player.viewmodel.PlaybackViewModel
-import com.hearablemusic.player.ui.player.viewmodel.PlaylistQueueViewModel
+import com.hearablemusic.player.ui.library.viewmodel.GalleryEffect
+import com.hearablemusic.player.ui.library.viewmodel.GalleryViewModel
+import com.hearablemusic.player.ui.platform.PlaybackController
 import com.hearablemusic.player.ui.playlist.viewmodel.PlaylistViewModel
 import com.hmp.domain.music.MusicInfo
-import com.hmp.domain.music.MusicSortKey
-import com.hmp.domain.music.SortDirection
-import com.hmp.domain.playlist.Playlist
 import org.jetbrains.compose.resources.stringResource
+import org.koin.compose.koinInject
+import org.koin.compose.viewmodel.koinViewModel
 
 @Composable
 fun GalleryScreen(
-    libraryViewModel: LibraryViewModel = activityViewModel(),
-    playbackViewModel: PlaybackViewModel = activityViewModel(),
-    playlistQueueViewModel: PlaylistQueueViewModel = activityViewModel(),
+    // 屏级 VM：列表 / 排序 / 两条确认链都归本屏，entry 随 Tabs 常驻
+    galleryViewModel: GalleryViewModel = koinViewModel(),
+    // 7.5 P1：旧 VM 是 controller 的零逻辑包装，直接用平台门面（白名单允许）
+    playbackController: PlaybackController = koinInject(),
     dialogViewModel: DialogViewModel = activityViewModel(),
     playlistViewModel: PlaylistViewModel = activityViewModel(),
     dialogManagerViewModel: DialogManagerViewModel = activityViewModel(),
     navController: NavBackStack<NavKey>,
 ) {
-    val isPlaying by playbackViewModel.isPlaying.collectAsState()
-    val musicInfoList by libraryViewModel.allMusic.collectAsState()
-    val currentPlayingMusic by playlistQueueViewModel.currentPlayingMusic.collectAsState()
-    val selectedGenre by libraryViewModel.orderBy.collectAsState(MusicSortKey.TITLE)
-    val selectedOrder by libraryViewModel.orderType.collectAsState(SortDirection.ASC)
+    val isPlaying by playbackController.isPlaying.collectAsState()
+    val uiState by galleryViewModel.uiState.collectAsState()
+    val musicInfoList = uiState.musicList
+    val currentPlayingMusic by playbackController.currentPlayingMusic.collectAsState()
+    val selectedGenre = uiState.orderBy
+    val selectedOrder = uiState.orderType
     val userCustomPlaylistsState by playlistViewModel.userCustomPlaylistsState.collectAsState()
     val userCustomPlaylists = (userCustomPlaylistsState as? LoadState.Success)?.data ?: emptyList()
     val currentPlayingIndex = musicInfoList.indexOfFirst { it.music.id == currentPlayingMusic?.music?.id }.takeIf { it >= 0 }
     val dialogManager = dialogManagerViewModel.dialogManager
 
-    LaunchedEffect(Unit) {
-        libraryViewModel.getAllMusic()
+    val onPlay: (MusicInfo) -> Unit = galleryViewModel::onPlay
+    val addToPlaylist = playbackController::addToPlaylist
+    val onFavorite = playbackController::updateMusicLikedStatus
+    val onDetail: (MusicInfo) -> Unit = { navController.add(Routes.Library.SongDetail(it.music.id)) }
+    val onShufflePlay: () -> Unit = {
+        playbackController.addAllToPlaylistByShuffle(musicInfoList)
+        navController.add(Routes.Player.Player)
     }
-
-    GalleryScreenContent(
-        isPlaying = isPlaying,
-        musicInfoList = musicInfoList,
-        currentPlayingIndex = currentPlayingIndex,
-        selectedGenre = selectedGenre,
-        selectedOrder = selectedOrder,
-        userCustomPlaylists = userCustomPlaylists,
-        playWith = playlistQueueViewModel::playWith,
-        addToPlaylist = playlistQueueViewModel::addToPlaylist,
-        onFavorite = playlistQueueViewModel::updateMusicLikedStatus,
-        onShare = { },
-        onDetail = {
-            navController.add(Routes.Library.SongDetail(it.music.id))
-        },
-        onRemoveFromLibrary = { ids -> libraryViewModel.removeFromLibrary(ids) },
-        onShufflePlay = {
-            playlistQueueViewModel.addAllToPlaylistByShuffle(musicInfoList)
-            navController.add(Routes.Player.Player)
-        },
-        onOrderPlay = {
-            playlistQueueViewModel.addAllToPlaylistInOrder(musicInfoList)
-            navController.add(Routes.Player.Player)
-        },
-        onFilterGenreChange = {
-            libraryViewModel.updateOrderBy(it)
-            libraryViewModel.getAllMusic()
-        },
-        onFilterOrderChange = {
-            libraryViewModel.updateOrderType(it)
-            libraryViewModel.getAllMusic()
-        },
-        dialogViewModel = dialogViewModel,
-        playlistViewModel = playlistViewModel,
-        dialogManager = dialogManager,
-        navController = navController,
-    )
-}
-
-@Composable
-fun GalleryScreenContent(
-    isPlaying: Boolean,
-    musicInfoList: List<MusicInfo>,
-    currentPlayingIndex: Int?,
-    selectedGenre: MusicSortKey,
-    selectedOrder: SortDirection,
-    userCustomPlaylists: List<Playlist>,
-    playWith: (MusicInfo) -> Unit,
-    addToPlaylist: (MusicInfo) -> Unit,
-    onFavorite: (MusicInfo, Boolean) -> Unit,
-    onShare: (MusicInfo) -> Unit,
-    onDetail: (MusicInfo) -> Unit,
-    onRemoveFromLibrary: (List<Long>) -> Unit,
-    onShufflePlay: () -> Unit,
-    onOrderPlay: () -> Unit,
-    onFilterGenreChange: (MusicSortKey) -> Unit,
-    onFilterOrderChange: (SortDirection) -> Unit,
-    dialogViewModel: DialogViewModel,
-    playlistViewModel: PlaylistViewModel,
-    dialogManager: DialogManager,
-    navController: NavBackStack<NavKey>,
-) {
+    val onOrderPlay: () -> Unit = {
+        playbackController.addAllToPlaylistInOrder(musicInfoList)
+        navController.add(Routes.Player.Player)
+    }
+    val onFilterGenreChange = galleryViewModel::onOrderByChanged
+    val onFilterOrderChange = galleryViewModel::onOrderTypeChanged
     val metrics = LocalHmpMetrics.current
     val haptic = rememberHapticFeedback()
     val isLandscape = LocalWindowSizeInfo.current.isLandscape
 
-    var showRemoveConfirmDialog by remember { mutableStateOf(false) }
-    var pendingRemoveMusicInfo by remember { mutableStateOf<MusicInfo?>(null) }
-    var showBatchRemoveConfirmDialog by remember { mutableStateOf(false) }
-    var pendingBatchIds by remember { mutableStateOf<Set<Long>?>(null) }
-    var deleteCounter by remember { mutableIntStateOf(0) }
-
     val selectPlaylistTitle = stringResource(Res.string.select_playlist)
     val addedNSongsMessageFormat = stringResource(Res.string.added_n_songs_to_playlist)
+
+    // 批量加入歌单完成后由本屏提示（结果不回写 VM 状态）
+    LaunchedEffect(Unit) {
+        galleryViewModel.effect.collect { effect ->
+            when (effect) {
+                is GalleryEffect.SongsAdded ->
+                    dialogManager.showMessage(commonFormat(addedNSongsMessageFormat, effect.count))
+            }
+        }
+    }
 
     val callbacks = object : MusicListCallbacksAdapter() {
         override fun onItemClick(musicInfo: MusicInfo, index: Int) {
             haptic.performClick()
-            playWith(musicInfo)
+            onPlay(musicInfo)
         }
         override fun onMenuClick(musicInfo: MusicInfo) {
             val menuConfig = DialogViewModel.MusicDetailMenuConfig(
@@ -170,30 +122,11 @@ fun GalleryScreenContent(
             dialogViewModel.showMusicDetailDialog(musicInfo, menuConfig)
         }
         override fun onBatchAddToPlaylist(selectedIds: Set<Long>) {
-            val selectedMusicList = musicInfoList.filter { it.music.id in selectedIds }
-            if (selectedMusicList.isNotEmpty()) {
-                // 显示播放列表选择弹窗
-                dialogViewModel.showPlaylistPickerDialog(
-                    playlists = userCustomPlaylists,
-                    title = selectPlaylistTitle,
-                    onConfirm = { selectedPlaylist ->
-                        // 批量添加歌曲到选择的播放列表
-                        val idsToAdd = selectedMusicList.map { it.music.id }
-                        playlistViewModel.addItemsToPlaylist(
-                            playlistId = selectedPlaylist.id,
-                            musicIds = idsToAdd,
-                            onComplete = {
-                                dialogManager.showMessage(commonFormat(addedNSongsMessageFormat, selectedMusicList.size))
-                            },
-                        )
-                    },
-                )
-            }
+            galleryViewModel.onBatchAddToPlaylistRequested(selectedIds, userCustomPlaylists)
         }
         override fun onBatchDelete(selectedIds: Set<Long>) {
             if (selectedIds.isEmpty()) return
-            pendingBatchIds = selectedIds
-            showBatchRemoveConfirmDialog = true
+            galleryViewModel.onBatchRemoveRequested(selectedIds)
         }
     }
     val config = galleryPresetMusicListConfig(callbacks).copy(
@@ -233,11 +166,10 @@ fun GalleryScreenContent(
         Box(modifier = Modifier.fillMaxSize()) {
             TabScreen(
                 title = stringResource(Res.string.title_gallery),
-                hasSearchBotton = true,
-                navController = navController,
+                onSearchClick = { navController.add(Routes.Library.Search) },
             ) {
                 Column {
-                    key(deleteCounter) {
+                    key(uiState.deleteToken) {
                         MusicList(
                             musicInfoList = musicInfoList,
                             config = config,
@@ -252,39 +184,33 @@ fun GalleryScreenContent(
 
     // 单项移除确认
     ConfirmDialog(
-        visible = showRemoveConfirmDialog && pendingRemoveMusicInfo != null,
+        visible = uiState.pendingRemove != null,
         title = stringResource(Res.string.confirm_remove_from_library),
         message = "",
-        onConfirm = {
-            pendingRemoveMusicInfo?.let { info ->
-                onRemoveFromLibrary(listOf(info.music.id))
-            }
-            showRemoveConfirmDialog = false
-            pendingRemoveMusicInfo = null
-        },
-        onDismiss = {
-            showRemoveConfirmDialog = false
-            pendingRemoveMusicInfo = null
-        },
+        onConfirm = galleryViewModel::onRemoveConfirmed,
+        onDismiss = galleryViewModel::onRemoveDismissed,
     )
 
     // 批量移除确认
-    if (showBatchRemoveConfirmDialog && pendingBatchIds != null) {
-        val count = pendingBatchIds!!.size
+    uiState.pendingBatchRemove?.let { batchIds ->
+        val count = batchIds.size
         ConfirmDialog(
             visible = true,
             title = stringResource(Res.string.confirm_batch_remove_from_library, count),
             message = "",
-            onConfirm = {
-                onRemoveFromLibrary(pendingBatchIds!!.toList())
-                deleteCounter++
-                showBatchRemoveConfirmDialog = false
-                pendingBatchIds = null
-            },
-            onDismiss = {
-                showBatchRemoveConfirmDialog = false
-                pendingBatchIds = null
-            },
+            onConfirm = galleryViewModel::onBatchRemoveConfirmed,
+            onDismiss = galleryViewModel::onBatchRemoveDismissed,
+        )
+    }
+
+    uiState.playlistPicker?.let { picker ->
+        PlaylistPickerDialog(
+            playlists = picker.playlists,
+            title = selectPlaylistTitle,
+            onDismiss = galleryViewModel::onPlaylistPickerDismissed,
+            onSelectPlaylist = { playlist -> galleryViewModel.onPlaylistPicked(playlist.id) },
+            hazeState = LocalAppHazeState.current,
+            hazeRenderSettings = LocalHazeRenderSettings.current,
         )
     }
 }

@@ -28,8 +28,9 @@ import org.junit.Test
  * D2-18 判据：一次按键只该打一次仓库，而且**旧的那次不能把新的结果盖掉**。
  *
  * 修前的两处调用点（`SearchScreen` 的 `LaunchedEffect` + `onSearchQueryChange`）各起一个
- * `viewModelScope.launch`，两者写完 `_searchState` 的先后与 query 新旧无关；
+ * `viewModelScope.launch`，两者写完结果态的先后与 query 新旧无关；
  * 下面的第三条用例把这一点钉住 —— 慢的旧查询后完成时，界面必须是新查询的结果。
+ * 7.5 P1 后按键统一走 `onQueryChange`，结果读 `uiState.value.results`，契约不变。
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class SearchDebounceTest {
@@ -61,16 +62,16 @@ class SearchDebounceTest {
         userInfo = null,
     )
 
-    private fun viewModel() = SearchViewModel(SearchMusicUseCase(repository))
+    private fun viewModel() = SearchViewModel(SearchMusicUseCase(repository), mockk(relaxed = true))
 
     @Test
     fun rapidKeystrokes_hitRepositoryOnce_withTheLatestQuery() = runTest(dispatcher) {
         coEvery { repository.searchMusic(any()) } returns listOf(music("ab"))
 
         val vm = viewModel()
-        vm.searchMusic("a")
+        vm.onQueryChange("a")
         runCurrent()
-        vm.searchMusic("ab")
+        vm.onQueryChange("ab")
 
         // 防抖窗口内不该有任何查询打出去
         coVerify(exactly = 0) { repository.searchMusic(any()) }
@@ -91,17 +92,17 @@ class SearchDebounceTest {
         coEvery { repository.searchMusic("ab") } returns listOf(music("ab"))
 
         val vm = viewModel()
-        vm.searchMusic("a")
+        vm.onQueryChange("a")
         advanceTimeBy(SearchViewModel.DEBOUNCE_MS + 1)
         runCurrent()
         // 此刻 "a" 正在飞；紧接着按出 "ab"
-        vm.searchMusic("ab")
+        vm.onQueryChange("ab")
         advanceTimeBy(SearchViewModel.DEBOUNCE_MS + 1)
         runCurrent()
         advanceTimeBy(10_000)
         runCurrent()
 
-        assertEquals(LoadState.Success(listOf(music("ab"))), vm.searchState.value)
+        assertEquals(LoadState.Success(listOf(music("ab"))), vm.uiState.value.results)
     }
 
     @Test
@@ -113,14 +114,14 @@ class SearchDebounceTest {
         coEvery { repository.searchMusic("ab") } returns listOf(music("ab"))
 
         val vm = viewModel()
-        vm.searchMusic("a")
+        vm.onQueryChange("a")
         advanceTimeBy(SearchViewModel.DEBOUNCE_MS + 1)
         runCurrent()
-        vm.searchMusic("ab")
+        vm.onQueryChange("ab")
         runCurrent()
 
         // 被取消的那一拍既不写 Error，也不把界面停在错误态
-        assertFalse(vm.searchState.value is LoadState.Error)
+        assertFalse(vm.uiState.value.results is LoadState.Error)
     }
 
     @Test
@@ -128,17 +129,17 @@ class SearchDebounceTest {
         coEvery { repository.searchMusic(any()) } returns listOf(music("a"))
 
         val vm = viewModel()
-        vm.searchMusic("a")
+        vm.onQueryChange("a")
         advanceTimeBy(SearchViewModel.DEBOUNCE_MS + 1)
         runCurrent()
-        assertEquals(LoadState.Success(listOf(music("a"))), vm.searchState.value)
+        assertEquals(LoadState.Success(listOf(music("a"))), vm.uiState.value.results)
 
-        vm.searchMusic("")
+        vm.onQueryChange("")
         runCurrent()
         advanceTimeBy(10_000)
         runCurrent()
 
-        assertEquals(LoadState.Idle, vm.searchState.value)
+        assertEquals(LoadState.Idle, vm.uiState.value.results)
         coVerify(exactly = 1) { repository.searchMusic("a") }
     }
 }

@@ -1,6 +1,5 @@
 package com.hearablemusic.player.ui.agent.shell
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
@@ -18,21 +17,20 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.dp
 import com.hearablemusic.player.ui.common.design.animation.HmpMotion
 import com.hearablemusic.player.ui.common.design.metrics.LayoutConstraints
 import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
 import com.hearablemusic.player.ui.common.layout.LocalWindowSizeInfo
+import com.hearablemusic.player.ui.common.text.UiText
+import com.hearablemusic.player.ui.common.text.asString
 import com.hearablemusic.player.ui.common.util.rememberHapticFeedback
 import com.hearablemusic.player.ui.generated.resources.Res
 import com.hearablemusic.player.ui.generated.resources.agent_notice_undo
-import kotlinx.coroutines.delay
 import org.jetbrains.compose.resources.stringResource
 
 /**
@@ -41,13 +39,14 @@ import org.jetbrains.compose.resources.stringResource
  * 底栏上方 haze 侧条：4s 自动退场；撤销点按=回滚（触觉 Confirm）。
  * 与系统 [MessageToast] 两条通道不混用；同时刻至多一条（由上层持有单条 notice）。
  * 撤销窗口过期≠不可逆：过期后由上层把入口转入审计页。
+ * 4s 自动退场由组合根 VM 负责；本组件只渲染，不再自起计时协程。
  *
  * 说明：本组件采用 surface 半透明 + 0.5dp 描边 + 36dp 圆角，与组件语言一致；
  * 因宿主需显式提供 HazeState，此处不强依赖 Haze（交互语言三要素中的毛玻璃由宿主/未来接线补齐）。
  */
 data class AgentNotice(
     val id: Long,
-    val message: String,
+    val message: UiText,
     val undoLabel: String? = null,
     val showUndo: Boolean = true,
 )
@@ -56,7 +55,6 @@ data class AgentNotice(
 fun AgentNoticeBar(
     notice: AgentNotice?,
     onUndo: (() -> Unit)? = null,
-    onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val metrics = LocalHmpMetrics.current
@@ -83,13 +81,14 @@ fun AgentNoticeBar(
             ) {
                 // F14-T1 自适应：通知条本身保持全宽（语义即横贯），只给**内部文字**限宽，
                 // 避免宽窗下一条短通知横跨整屏导致视线长距离扫读。Compact 下无约束。
-                val textMaxWidth = when {
-                    LocalWindowSizeInfo.current.isExpanded -> LayoutConstraints.NoticeBarMaxWidth
-                    LocalWindowSizeInfo.current.isMedium -> LayoutConstraints.NoticeBarMaxWidth
-                    else -> Dp.Unspecified
+                val window = LocalWindowSizeInfo.current
+                val textMaxWidth = if (window.isExpanded || window.isMedium) {
+                    LayoutConstraints.NoticeBarMaxWidth
+                } else {
+                    Dp.Unspecified
                 }
                 Text(
-                    text = n.message,
+                    text = n.message.asString(),
                     style = typo.footnote,
                     color = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.widthIn(max = textMaxWidth).weight(1f, fill = false),
@@ -102,11 +101,6 @@ fun AgentNoticeBar(
                         Text(n.undoLabel ?: stringResource(Res.string.agent_notice_undo), color = MaterialTheme.colorScheme.primary)
                     }
                 }
-            }
-            // 4s 自动退场（撤销窗口过期 → 上层转审计页）
-            LaunchedEffect(n.id) {
-                delay(4000)
-                onDismiss()
             }
         }
     }

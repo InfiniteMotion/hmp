@@ -1,8 +1,6 @@
 package com.hearablemusic.player.ui.player.pages
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -20,11 +18,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.unit.dp
 import com.hearablemusic.player.ui.common.design.animation.HmpMotion
 import com.hearablemusic.player.ui.common.design.metrics.LayoutConstraints
 import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
@@ -43,7 +39,6 @@ import com.hearablemusic.player.ui.library.pages.components.musiclist.MusicListC
 import com.hearablemusic.player.ui.library.pages.components.musiclist.defaultMusicListConfig
 import com.hmp.domain.music.MusicInfo
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
 
 /**
@@ -57,7 +52,7 @@ fun PlaylistArea(
     currentIndex: Int,
     scrollState: ScrollState,
     onClearPlaylist: () -> Unit,
-    onPlayItem: suspend (MusicInfo) -> Unit,
+    onPlayItem: (MusicInfo) -> Unit,
     onMoveToTop: (MusicInfo) -> Unit,
     onRemoveFromPlaylist: (MusicInfo) -> Unit,
 ) {
@@ -65,7 +60,6 @@ fun PlaylistArea(
     val typo = LocalHmpTypo.current
     val haptic = rememberHapticFeedback()
     val density = LocalDensity.current
-    val scope = rememberCoroutineScope()
 
     LaunchedEffect(expanded) {
         if (expanded) {
@@ -82,7 +76,7 @@ fun PlaylistArea(
     val callbacks = object : MusicListCallbacksAdapter() {
         override fun onItemClick(musicInfo: MusicInfo, index: Int) {
             haptic.performClick()
-            scope.launch { onPlayItem(musicInfo) }
+            onPlayItem(musicInfo)
         }
         override fun onPinToTop(musicInfo: MusicInfo) {
             haptic.performConfirm()

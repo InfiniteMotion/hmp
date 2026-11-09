@@ -202,3 +202,6 @@ __pycache__/
 
 # ktlint CLI jar：由 ./ktlint 包装脚本按需下载并校验 SHA256，不入库
 tools/ktlint/
+
+# Qoder 工作区数据（会话/知识索引等本机产物）
+.qoder/

@@ -2,6 +2,7 @@ package com.hearablemusic.player.ui.common.text
 
 import androidx.compose.runtime.Composable
 import org.jetbrains.compose.resources.StringResource
+import org.jetbrains.compose.resources.getString
 import org.jetbrains.compose.resources.stringResource
 
 /**
@@ -42,6 +43,20 @@ sealed interface UiText {
 
 /** 把资源引用包装成 [UiText]，可带位置参数：`Res.string.foo.asUiText(count)`。 */
 fun StringResource.asUiText(vararg args: Any): UiText = UiText.Res(this, args.toList())
+
+/**
+ * 一次性副作用（toast / 交给平台 API）的解析口：在协程里用挂起 `getString`，
+ * 不必为了「组合期解析」再在 UI 里挂一个临时状态。
+ * 内嵌 [UiText] 参数会先递归展开。
+ */
+suspend fun UiText.resolveForEffect(): String = when (this) {
+    is UiText.Raw -> text
+
+    is UiText.Res -> {
+        val resolved = args.map { if (it is UiText) it.resolveForEffect() else it }
+        getString(res, *resolved.toTypedArray())
+    }
+}
 
 /**
  * 解析为最终字符串。

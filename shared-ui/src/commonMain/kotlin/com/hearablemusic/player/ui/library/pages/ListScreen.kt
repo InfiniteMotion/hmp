@@ -32,6 +32,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -43,7 +44,6 @@ import androidx.compose.ui.graphics.Color.Companion.Transparent
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
 import coil3.compose.AsyncImage
@@ -54,17 +54,22 @@ import com.hearablemusic.player.ui.common.design.colors.ColorTokens
 import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
 import com.hearablemusic.player.ui.common.design.typography.medium
-import com.hearablemusic.player.ui.common.dialogs.viewmodel.DialogViewModel
+import com.hearablemusic.player.ui.common.dialogs.CreatePlaylistDialog
+import com.hearablemusic.player.ui.common.dialogs.MusicPickerDialog
+import com.hearablemusic.player.ui.common.dialogs.viewmodel.DialogManagerViewModel
 import com.hearablemusic.player.ui.common.layout.LocalWindowSizeInfo
 import com.hearablemusic.player.ui.common.layout.WindowWidthSizeClass
 import com.hearablemusic.player.ui.common.navigation.Routes
 import com.hearablemusic.player.ui.common.pages.base.TabScreen
+import com.hearablemusic.player.ui.common.text.resolveForEffect
 import com.hearablemusic.player.ui.common.util.LoadState
+import com.hearablemusic.player.ui.common.util.LocalAppHazeState
+import com.hearablemusic.player.ui.common.util.LocalHazeRenderSettings
 import com.hearablemusic.player.ui.common.util.activityViewModel
 import com.hearablemusic.player.ui.common.util.iconRes
 import com.hearablemusic.player.ui.common.util.rememberHapticFeedback
 import com.hearablemusic.player.ui.generated.resources.Res
-import com.hearablemusic.player.ui.generated.resources.album_art_desc
+import com.hearablemusic.player.ui.generated.resources.add_songs_to_playlist_dialog
 import com.hearablemusic.player.ui.generated.resources.banner_daily_B
 import com.hearablemusic.player.ui.generated.resources.banner_daily_BB
 import com.hearablemusic.player.ui.generated.resources.banner_daily_C
@@ -78,16 +83,21 @@ import com.hearablemusic.player.ui.generated.resources.minutes_format
 import com.hearablemusic.player.ui.generated.resources.more
 import com.hearablemusic.player.ui.generated.resources.music_note_list
 import com.hearablemusic.player.ui.generated.resources.play_count_display
+import com.hearablemusic.player.ui.generated.resources.playlist_created
 import com.hearablemusic.player.ui.generated.resources.songs_count
 import com.hearablemusic.player.ui.generated.resources.suitable_for_now
 import com.hearablemusic.player.ui.generated.resources.title_playlist
 import com.hearablemusic.player.ui.generated.resources.user_custom_playlists
 import com.hearablemusic.player.ui.library.pages.components.ListGroupName
+import com.hearablemusic.player.ui.playlist.sortedForManagement
+import com.hearablemusic.player.ui.playlist.viewmodel.PlaylistEditorEffect
+import com.hearablemusic.player.ui.playlist.viewmodel.PlaylistEditorViewModel
 import com.hearablemusic.player.ui.playlist.viewmodel.PlaylistViewModel
 import com.hmp.domain.enum.LabelName
 import com.hmp.domain.playlist.Playlist
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
+import org.koin.compose.viewmodel.koinViewModel
 
 /** HD 强调色板（统一定义在 ColorTokens）。 */
 private val HDGreen = ColorTokens.HDGreen
@@ -95,10 +105,12 @@ private val HDBlue = ColorTokens.HDBlue
 private val HDPurple = ColorTokens.HDPurple
 private val HDOrange = ColorTokens.HDOrange
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ListScreen(
     playlistViewModel: PlaylistViewModel = activityViewModel(),
-    dialogViewModel: DialogViewModel = activityViewModel(),
+    editorViewModel: PlaylistEditorViewModel = koinViewModel(),
+    dialogManagerViewModel: DialogManagerViewModel = activityViewModel(),
     navController: NavBackStack<NavKey>,
 ) {
     val genreList by playlistViewModel.genrePlaylistName.collectAsState()
@@ -108,35 +120,25 @@ fun ListScreen(
     val eraList by playlistViewModel.eraPlaylistName.collectAsState()
     val userCustomPlaylistsState by playlistViewModel.userCustomPlaylistsState.collectAsState()
     val userCustomPlaylists = (userCustomPlaylistsState as? LoadState.Success)?.data ?: emptyList()
-
-    ListScreenContent(
-        genreList = genreList,
-        moodList = moodList,
-        scenarioList = scenarioList,
-        languageList = languageList,
-        eraList = eraList,
-        userCustomPlaylists = userCustomPlaylists,
-        playlistViewModel = playlistViewModel,
-        dialogViewModel = dialogViewModel,
-        navController = navController,
-    )
-}
-
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-fun ListScreenContent(
-    genreList: List<LabelName>,
-    moodList: List<LabelName>,
-    scenarioList: List<LabelName>,
-    languageList: List<LabelName>,
-    eraList: List<LabelName>,
-    userCustomPlaylists: List<Playlist>,
-    playlistViewModel: PlaylistViewModel,
-    dialogViewModel: DialogViewModel,
-    navController: NavBackStack<NavKey>,
-) {
+    val editorState by editorViewModel.uiState.collectAsState()
+    val dialogManager = dialogManagerViewModel.dialogManager
+    val playlistCreatedMessage = stringResource(Res.string.playlist_created)
     val metrics = LocalHmpMetrics.current
     val haptic = rememberHapticFeedback()
+
+    // 弹窗归屏：结果回到本屏处理（新建后跳进新歌单），不再把回调存进应用级 DialogViewModel
+    LaunchedEffect(Unit) {
+        editorViewModel.effect.collect { effect ->
+            when (effect) {
+                is PlaylistEditorEffect.Saved -> {
+                    dialogManager.showMessage(playlistCreatedMessage)
+                    navController.add(Routes.Playlist.CustomPlaylist(effect.playlistId))
+                }
+
+                is PlaylistEditorEffect.Message -> dialogManager.showMessage(effect.text.resolveForEffect())
+            }
+        }
+    }
     val sizeClass = LocalWindowSizeInfo.current.widthSizeClass
     val isLandscape = LocalWindowSizeInfo.current.isLandscape
     val typo = LocalHmpTypo.current
@@ -146,28 +148,15 @@ fun ListScreenContent(
         WindowWidthSizeClass.Compact -> metrics.cozy
     }
 
-    // 与列表管理页一致：置顶优先，再按最近播放、更新时间
+    // 与列表管理页共用同一套排序口径
     val sortedUserPlaylists = remember(userCustomPlaylists) {
-        userCustomPlaylists.sortedWith(
-            compareByDescending<Playlist> { it.isPinned }
-                .thenByDescending { it.lastPlayedAt ?: 0L }
-                .thenByDescending { it.updatedAt },
-        )
+        sortedForManagement(userCustomPlaylists)
     }
 
     TabScreen(
         title = stringResource(Res.string.title_playlist),
-        hasSearchBotton = false,
-        navController = navController,
         trailing = {
-            NewPlaylistButton(
-                onClick = {
-                    dialogViewModel.showCreatePlaylistDialog { id ->
-                        playlistViewModel.loadUserCustomPlaylists()
-                        navController.add(Routes.Playlist.CustomPlaylist(id))
-                    }
-                },
-            )
+            NewPlaylistButton(onClick = editorViewModel::onCreateRequested)
         },
     ) {
         Column(
@@ -202,7 +191,7 @@ fun ListScreenContent(
                     contentPadding = PaddingValues(horizontal = contentHorizontalPadding),
                     horizontalArrangement = Arrangement.spacedBy(metrics.cozy),
                 ) {
-                    items(sortedUserPlaylists) { playlist ->
+                    items(sortedUserPlaylists, key = { it.id }) { playlist ->
                         UserListCard(
                             playlist = playlist,
                             onClick = {
@@ -231,7 +220,7 @@ fun ListScreenContent(
                     contentPadding = PaddingValues(horizontal = contentHorizontalPadding),
                     horizontalArrangement = Arrangement.spacedBy(metrics.cozy),
                 ) {
-                    items(list) { label ->
+                    items(list, key = { it.name }) { label ->
                         ScenarioCard(
                             label = label,
                             onClick = {
@@ -260,7 +249,7 @@ fun ListScreenContent(
                     contentPadding = PaddingValues(horizontal = contentHorizontalPadding),
                     horizontalArrangement = Arrangement.spacedBy(metrics.cozy),
                 ) {
-                    items(list) { label ->
+                    items(list, key = { it.name }) { label ->
                         GenreCard(
                             label = label,
                             onClick = {
@@ -287,7 +276,7 @@ fun ListScreenContent(
                         verticalArrangement = Arrangement.spacedBy(metrics.cozy),
                         modifier = Modifier.fillMaxSize(),
                     ) {
-                        items(list) { label ->
+                        items(list, key = { it.name }) { label ->
                             MoodCard(
                                 label = label,
                                 onClick = {
@@ -331,6 +320,31 @@ fun ListScreenContent(
             }
             Spacer(modifier = Modifier.height(metrics.row))
         }
+    }
+
+    if (editorState.visible) {
+        CreatePlaylistDialog(
+            state = editorState,
+            onNameChange = editorViewModel::onNameChange,
+            onDescriptionChange = editorViewModel::onDescriptionChange,
+            onPinnedChange = editorViewModel::onPinnedChange,
+            onAddSongs = editorViewModel::onAddSongsRequested,
+            onSubmit = editorViewModel::onSubmit,
+            onDismiss = editorViewModel::onDismiss,
+            hazeState = LocalAppHazeState.current,
+            hazeRenderSettings = LocalHazeRenderSettings.current,
+        )
+    }
+    editorState.musicPicker?.let { picker ->
+        MusicPickerDialog(
+            allMusic = picker.allMusic,
+            selectedIds = picker.selectedIds,
+            title = stringResource(Res.string.add_songs_to_playlist_dialog),
+            onConfirm = editorViewModel::onSongsPicked,
+            onDismiss = editorViewModel::onMusicPickerDismissed,
+            hazeState = LocalAppHazeState.current,
+            hazeRenderSettings = LocalHazeRenderSettings.current,
+        )
     }
 }
 
@@ -411,6 +425,7 @@ private fun MoodCard(
     onClick: () -> Unit,
 ) {
     val metrics = LocalHmpMetrics.current
+    val typo = LocalHmpTypo.current
     Card(
         modifier = Modifier
             .size(metrics.panel)
@@ -425,9 +440,26 @@ private fun MoodCard(
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize(),
             )
+            // 渐变遮罩 + 标题（与 GenreCard 同款式；原先这里只有一个空 Box）
             Box(
                 modifier = Modifier
-                    .fillMaxSize(),
+                    .fillMaxSize()
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                Transparent,
+                                Color.Black.copy(alpha = 0.7f),
+                            ),
+                        ),
+                    ),
+            )
+            Text(
+                text = label.name,
+                style = typo.subtitle.copy(fontWeight = FontWeight.Bold),
+                color = Color.White,
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(metrics.cozy),
             )
         }
     }

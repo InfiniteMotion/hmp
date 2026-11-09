@@ -22,15 +22,11 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color.Companion.Transparent
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.navigation3.runtime.NavBackStack
@@ -58,9 +54,7 @@ import com.hearablemusic.player.ui.generated.resources.chevron_right
 import com.hearablemusic.player.ui.generated.resources.externaldrive
 import com.hearablemusic.player.ui.generated.resources.icloud
 import com.hearablemusic.player.ui.generated.resources.identify_song
-import com.hearablemusic.player.ui.generated.resources.last_week_minutes
 import com.hearablemusic.player.ui.generated.resources.library_settings
-import com.hearablemusic.player.ui.generated.resources.liked_status
 import com.hearablemusic.player.ui.generated.resources.list_bullet
 import com.hearablemusic.player.ui.generated.resources.listening_insights
 import com.hearablemusic.player.ui.generated.resources.lyrics_settings
@@ -71,25 +65,20 @@ import com.hearablemusic.player.ui.generated.resources.slider_vertical_3
 import com.hearablemusic.player.ui.generated.resources.sort_play_count
 import com.hearablemusic.player.ui.generated.resources.square_fill_grid_2x2
 import com.hearablemusic.player.ui.generated.resources.theme_customization
-import com.hearablemusic.player.ui.generated.resources.this_week_minutes
 import com.hearablemusic.player.ui.generated.resources.title_user_usage_data
 import com.hearablemusic.player.ui.generated.resources.total_listening_minutes
 import com.hearablemusic.player.ui.platform.PlaybackController
 import com.hearablemusic.player.ui.player.components.MiniPlayerSafeSpacer
 import com.hearablemusic.player.ui.settings.components.ListeningChart
-import com.hearablemusic.player.ui.settings.components.buildListeningHeatmap
+import com.hearablemusic.player.ui.settings.components.buildListeningHeatmapFromDurations
 import com.hearablemusic.player.ui.settings.viewmodel.RecommendationViewModel
 import com.hearablemusic.player.ui.settings.viewmodel.SettingsViewModel
 import com.hearablemusic.player.ui.settings.viewmodel.UserUsageDataViewModel
-import com.hearablemusic.player.ui.settings.viewmodel.WindowedBundle
 import com.hmp.domain.agent.card.zhName
-import com.hmp.domain.setting.model.ListeningDuration
 import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
-import org.koin.compose.viewmodel.koinViewModel
-import kotlin.math.abs
 
 internal data class SettingsEntry(
     val title: UiText,
@@ -175,43 +164,24 @@ fun UserScreen(
     settingsViewModel: SettingsViewModel = activityViewModel(),
     recommendationViewModel: RecommendationViewModel = activityViewModel(),
     navController: NavBackStack<NavKey>,
-    usageDataViewModel: UserUsageDataViewModel = koinViewModel(),
+    // 7.5 P1：activity 作用域共享实例 —— 与使用数据页共用一份，且不触发其画像加载（见 onScreenEnter）
+    usageDataViewModel: UserUsageDataViewModel = activityViewModel(),
 ) {
     val userName by settingsViewModel.userName.collectAsState("")
-    val avatarUri by settingsViewModel.avatarUri.collectAsState("")
+    val avatarUri by settingsViewModel.avatarUri.collectAsState()
     val listeningData by recommendationViewModel.recentListeningDurations.collectAsState()
-    val windowed by usageDataViewModel.windowed.collectAsState()
-    val timeRange by usageDataViewModel.timeRange.collectAsState()
+    // 7.5 P1：UserUsageDataViewModel 收成单一 uiState，这里同步改订阅（跨屏数据投影）
+    val usageUiState by usageDataViewModel.uiState.collectAsState()
+    val windowed = usageUiState.windowed
 
-    LaunchedEffect(Unit) {
-        settingsViewModel.getAvatarUri()
-    }
-
-    UserScreenContent(
-        userName = userName,
-        avatarUri = avatarUri,
-        listeningData = listeningData,
-        windowed = windowed,
-        rangeLabel = timeRange.zhName(),
-        navController = navController,
-    )
-}
-
-@Composable
-fun UserScreenContent(
-    userName: String?,
-    avatarUri: String,
-    listeningData: List<ListeningDuration>,
-    windowed: WindowedBundle,
     /**
      * 这三个统计数字所属的时间窗口（D5-09）。
      *
      * 数据来自 `UserUsageDataViewModel`，其时间轴初值是 `MONTH` —— 于是卡片把最近 30 天的量
      * 标成「总听歌时长」，语义相反。现在范围跟着一起显示，读者知道这是窗口值。
      */
-    rangeLabel: String,
-    navController: NavBackStack<NavKey>,
-) {
+    val rangeLabel = usageUiState.timeRange.zhName()
+
     val metrics = LocalHmpMetrics.current
     TabScreen {
         val sizeClass = LocalWindowSizeInfo.current.widthSizeClass
@@ -222,13 +192,10 @@ fun UserScreenContent(
             WindowWidthSizeClass.Medium -> metrics.block
             WindowWidthSizeClass.Compact -> metrics.cozy
         }
-        // D5-08：窗口是连续日历日、缺听歌的日子补零、列按真实星期对齐 —— 全在纯函数里做
+        // D5-08：窗口是连续日历日、缺听歌的日子补零、列按真实星期对齐 —— 全在纯函数里做；
+        // 毫秒 → 分钟的换算也收在同一层，UI 不再写业务换算。
         val heatmapGrid = remember(listeningData) {
-            // 窗口天数用函数默认值（365）：与 GetDailyMusicRecommendationUseCase 取数的 365 是同一个口径，
-            // 这里再写一遍数字就成了新的漂移面
-            buildListeningHeatmap(
-                minutesByDate = listeningData.associate { it.date to ((it.duration / 60_000L).toInt()) },
-            )
+            buildListeningHeatmapFromDurations(listeningData)
         }
         val haptic = rememberHapticFeedback()
 

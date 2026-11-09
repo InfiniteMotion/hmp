@@ -34,7 +34,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -43,7 +42,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
@@ -61,6 +59,7 @@ import com.hearablemusic.player.ui.common.dialogs.base.ScrimDialog
 import com.hearablemusic.player.ui.common.layout.LocalWindowSizeInfo
 import com.hearablemusic.player.ui.common.navigation.Routes
 import com.hearablemusic.player.ui.common.pages.base.SubScreen
+import com.hearablemusic.player.ui.common.util.fmtTokens
 import com.hearablemusic.player.ui.common.util.hazeStyleForIntensity
 import com.hearablemusic.player.ui.common.util.hazeTintAlpha
 import com.hearablemusic.player.ui.generated.resources.Res
@@ -80,28 +79,18 @@ import com.hearablemusic.player.ui.generated.resources.agent_monitor_total_usage
 import com.hearablemusic.player.ui.generated.resources.cancel
 import com.hearablemusic.player.ui.generated.resources.clear
 import com.hearablemusic.player.ui.generated.resources.confirm
-import com.hearablemusic.player.ui.generated.resources.enrich
-import com.hearablemusic.player.ui.generated.resources.hello
-import com.hearablemusic.player.ui.generated.resources.master
-import com.hearablemusic.player.ui.generated.resources.radiowaves
-import com.hmp.data.database.TokenLedgerDao
 import com.hmp.data.util.localDateString
 import com.hmp.domain.agent.port.CapabilityState
-import com.hmp.domain.agent.quota.TokenLedgerMaintenance
 import com.hmp.domain.agent.quota.TokenLedgerSnapshot
-import com.hmp.domain.agent.runtime.MasterAgent
 import com.hmp.log.LogEntry
-import com.hmp.log.MemLogWriter
-import com.hmp.memLogWriter
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.rememberHazeState
-import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
-import org.koin.compose.koinInject
+import org.koin.compose.viewmodel.koinViewModel
 
 /**
  * Agent 看板 — 顶部 Token 总用量；下方每行两个 Agent 卡片、同行等高。
@@ -114,25 +103,17 @@ fun AgentMonitorScreen(
     navController: NavBackStack<NavKey>,
 ) {
     val metrics = LocalHmpMetrics.current
-    val masterAgent: MasterAgent = koinInject()
-    val ledgerDao: TokenLedgerDao = koinInject()
-    val ledger = remember(ledgerDao) { TokenLedgerMaintenance(ledgerDao) }
-    val scope = rememberCoroutineScope()
+    val viewModel: AgentMonitorViewModel = koinViewModel()
+    val uiState by viewModel.uiState.collectAsState()
+    LaunchedEffect(Unit) { viewModel.refreshCapabilities() }
     // 日志弹窗的毛玻璃要采样本页内容 → 本页建 HazeState 并把内容标为 hazeSource。
     val hazeState = rememberHazeState()
 
     // 账本快照：总用量与按 Agent 分账共用同一个 30 天窗口（D6-05）。
-    // 不再分别调 sumTotal() / sumByAgent(0L) —— 那样既全表扫，又让两处口径对不上。
-    var ledgerSnap by remember { mutableStateOf<TokenLedgerSnapshot?>(null) }
-
-    fun reloadAgentTokens() {
-        scope.launch { runCatching { ledgerSnap = ledger.snapshot() } }
-    }
-    LaunchedEffect(Unit) { reloadAgentTokens() }
-
+    // 快照由屏级 VM 持有，这里只把分账行格式化成文案（纯渲染）。
     @Composable
     fun tokenTextFor(agentId: String): String? {
-        val row = ledgerSnap?.agentRows?.firstOrNull { it.label.equals(agentId, ignoreCase = true) } ?: return null
+        val row = uiState.snapshot?.agentRows?.firstOrNull { it.label.equals(agentId, ignoreCase = true) } ?: return null
         return stringResource(Res.string.agent_monitor_token_line, fmtTokens(row.totalTokens), row.calls)
     }
 
@@ -160,15 +141,16 @@ fun AgentMonitorScreen(
                 verticalArrangement = Arrangement.spacedBy(metrics.base),
             ) {
                 TokenMonitorCard(
-                    masterAgent = masterAgent,
-                    snapshot = ledgerSnap,
-                    onReload = { reloadAgentTokens() },
-                    onClear = {
-                        scope.launch {
-                            runCatching { ledger.clearAll() }
-                            reloadAgentTokens()
-                        }
-                    },
+                    snap = uiState.tokenUsage,
+                    mode = uiState.quotaMode,
+                    bucketUsage = uiState.bucketUsage,
+                    exhaustedBuckets = uiState.exhaustedBuckets,
+                    snapshot = uiState.snapshot,
+                    showClearConfirm = uiState.showClearConfirm,
+                    onReload = viewModel::onReloadRequested,
+                    onClearRequested = viewModel::onClearRequested,
+                    onClearDismissed = viewModel::onClearDismissed,
+                    onClearConfirmed = viewModel::onClearConfirmed,
                 )
 
                 // 网格：每行 [columns] 张，同行等高。
@@ -176,10 +158,48 @@ fun AgentMonitorScreen(
                 // 卡宽则用横轴的 weight(1f) 均分 —— 两个方向互不干扰，故可同时使用。
                 // 末尾行不足一列时用 Spacer(weight) 补位，避免最后一张被拉宽。
                 val cards: List<@Composable (Modifier) -> Unit> = listOf(
-                    { m -> MasterMonitorCard(masterAgent = masterAgent, tokenText = tokenTextFor("master"), hazeState = hazeState, onClick = { navController.add(Routes.AI.AgentConfig("master")) }, modifier = m) },
-                    { m -> RadioMonitorCard(masterAgent = masterAgent, tokenText = tokenTextFor("radio"), hazeState = hazeState, onClick = { navController.add(Routes.AI.AgentConfig("radio")) }, modifier = m) },
-                    { m -> EnrichMonitorCard(masterAgent = masterAgent, tokenText = tokenTextFor("enrich"), hazeState = hazeState, onClick = { navController.add(Routes.AI.AgentConfig("enrich")) }, modifier = m) },
-                    { m -> HelloMonitorCard(masterAgent = masterAgent, tokenText = tokenTextFor("hello"), hazeState = hazeState, onClick = { navController.add(Routes.AI.AgentConfig("hello")) }, modifier = m) },
+                    { m ->
+                        MasterMonitorCard(
+                            radioState = uiState.radioState,
+                            enrichState = uiState.enrichState,
+                            helloState = uiState.helloState,
+                            tokenText = tokenTextFor("master"),
+                            logEntries = uiState.logsByBucket["Master"].orEmpty(),
+                            hazeState = hazeState,
+                            onClick = { navController.add(Routes.AI.AgentConfig("master")) },
+                            modifier = m,
+                        )
+                    },
+                    { m ->
+                        RadioMonitorCard(
+                            state = uiState.radioState,
+                            tokenText = tokenTextFor("radio"),
+                            logEntries = uiState.logsByBucket["Radio"].orEmpty(),
+                            hazeState = hazeState,
+                            onClick = { navController.add(Routes.AI.AgentConfig("radio")) },
+                            modifier = m,
+                        )
+                    },
+                    { m ->
+                        EnrichMonitorCard(
+                            state = uiState.enrichState,
+                            tokenText = tokenTextFor("enrich"),
+                            logEntries = uiState.logsByBucket["Enrich"].orEmpty(),
+                            hazeState = hazeState,
+                            onClick = { navController.add(Routes.AI.AgentConfig("enrich")) },
+                            modifier = m,
+                        )
+                    },
+                    { m ->
+                        HelloMonitorCard(
+                            state = uiState.helloState,
+                            tokenText = tokenTextFor("hello"),
+                            logEntries = uiState.logsByBucket["Hello"].orEmpty(),
+                            hazeState = hazeState,
+                            onClick = { navController.add(Routes.AI.AgentConfig("hello")) },
+                            modifier = m,
+                        )
+                    },
                 )
                 val groups = cards.chunked(columns)
 
@@ -207,20 +227,20 @@ fun AgentMonitorScreen(
 // ── 全局 Token 用量（明细账本分账，F12-T2）──
 @Composable
 private fun TokenMonitorCard(
-    masterAgent: MasterAgent,
+    snap: com.hmp.domain.agent.runtime.TokenSnapshot,
+    mode: com.hmp.domain.setting.model.AiAccessMode,
+    bucketUsage: Map<com.hmp.domain.agent.quota.QuotaBucket, Long>,
+    exhaustedBuckets: Set<com.hmp.domain.agent.quota.QuotaBucket>,
     snapshot: TokenLedgerSnapshot?,
+    showClearConfirm: Boolean,
     onReload: () -> Unit,
-    onClear: () -> Unit,
+    onClearRequested: () -> Unit,
+    onClearDismissed: () -> Unit,
+    onClearConfirmed: () -> Unit,
 ) {
     val metrics = LocalHmpMetrics.current
-    val snap by masterAgent.tokenUsage.collectAsState()
     val typo = LocalHmpTypo.current
-    val quotaGate: com.hmp.domain.agent.quota.TokenQuotaGate = koinInject()
-    val mode by quotaGate.currentMode.collectAsState()
-    val bucketUsage by quotaGate.bucketUsage.collectAsState()
-    val exhaustedBuckets by quotaGate.exhausted.collectAsState()
 
-    var showClearConfirm by remember { mutableStateOf(false) }
     val total = snapshot?.totalTokens ?: 0L
     val totalRows = snapshot?.totalRows ?: 0L
     val earliestText = snapshot?.earliestMs?.let { localDateString(it) } ?: "—"
@@ -245,7 +265,7 @@ private fun TokenMonitorCard(
                         },
                         modifier = Modifier
                             .clip(RoundedCornerShape(metrics.micro))
-                            .clickable(enabled = totalRows > 0) { showClearConfirm = true }
+                            .clickable(enabled = totalRows > 0) { onClearRequested() }
                             .padding(horizontal = metrics.compact, vertical = metrics.micro),
                     )
                     IconButton(onClick = onReload, modifier = Modifier.size(metrics.section)) {
@@ -320,7 +340,7 @@ private fun TokenMonitorCard(
 
     // 清空确认：正文带「将删除多少条、自哪天起」，避免用户点一下就抹掉全部诊断数据。
     if (showClearConfirm) {
-        ScrimDialog(onDismissRequest = { showClearConfirm = false }) {
+        ScrimDialog(onDismissRequest = onClearDismissed) {
             HMPCard(modifier = Modifier.fillMaxWidth(0.92f), shape = RoundedCornerShape(metrics.section)) {
                 Column(modifier = Modifier.padding(metrics.cozy)) {
                     Text(
@@ -333,13 +353,10 @@ private fun TokenMonitorCard(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.End,
                     ) {
-                        TextButton(onClick = { showClearConfirm = false }) {
+                        TextButton(onClick = onClearDismissed) {
                             Text(stringResource(Res.string.cancel))
                         }
-                        TextButton(onClick = {
-                            showClearConfirm = false
-                            onClear()
-                        }) {
+                        TextButton(onClick = onClearConfirmed) {
                             Text(stringResource(Res.string.confirm))
                         }
                     }
@@ -349,26 +366,18 @@ private fun TokenMonitorCard(
     }
 }
 
-private fun fmtTokens(n: Long): String {
-    if (n >= 1_000_000L) return "${(n / 10_000L) / 100.0}M"
-    if (n >= 1000L) return "${(n / 100L) / 10.0}K"
-    return "$n"
-}
-
 // ── 各 Agent 卡片内嵌运行日志（按 Agent 分桶，F11/F12 收尾）──
 // buckets：该卡片归属的 Agent 桶（见 MemLogWriter.TAG_TO_AGENT）。
 // 只显示四个 Agent 自身（Master/Radio/Enrich/Hello）；「框架」等非 Agent 日志一律不过滤进看板。
 // 卡片内只显示条数；点击条数弹出 ScrimDialog 查看具体条目。
 @Composable
 private fun CardLogSection(
-    buckets: List<String>,
+    title: String,
+    entries: List<LogEntry>,
     hazeState: HazeState,
 ) {
     val metrics = LocalHmpMetrics.current
-    val writer: MemLogWriter = memLogWriter
     val typo = LocalHmpTypo.current
-    val allLogs by writer.logs.collectAsState()
-    val entries = allLogs.filter { it.agent in buckets }
     var showDetail by remember { mutableStateOf(false) }
 
     Spacer(Modifier.height(metrics.compact))
@@ -400,7 +409,7 @@ private fun CardLogSection(
 
     if (showDetail) {
         LogDetailDialog(
-            title = stringResource(Res.string.agent_monitor_log_dialog_title, buckets.firstOrNull() ?: ""),
+            title = stringResource(Res.string.agent_monitor_log_dialog_title, title),
             entries = entries,
             hazeState = hazeState,
             onDismiss = { showDetail = false },
@@ -498,22 +507,15 @@ private fun LogLine(entry: LogEntry) {
 // ── MasterAgent（编排中枢：自身无 capability，状态行改为「活跃子 Agent 数」） ──
 @Composable
 private fun MasterMonitorCard(
-    masterAgent: MasterAgent,
+    radioState: CapabilityState?,
+    enrichState: CapabilityState?,
+    helloState: CapabilityState?,
     tokenText: String?,
+    logEntries: List<LogEntry>,
     hazeState: HazeState,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val radioCap = remember { masterAgent.capability("radio") }
-    val enrichCap = remember { masterAgent.capability("enrich") }
-    val helloCap = remember { masterAgent.capability("hello") }
-    val radioState by radioCap?.stateFlow?.collectAsState()
-        ?: remember { mutableStateOf<CapabilityState?>(null) }
-    val enrichState by enrichCap?.stateFlow?.collectAsState()
-        ?: remember { mutableStateOf<CapabilityState?>(null) }
-    val helloState by helloCap?.stateFlow?.collectAsState()
-        ?: remember { mutableStateOf<CapabilityState?>(null) }
-
     val active = listOf(radioState, enrichState, helloState).count { s ->
         s?.status == CapabilityState.Status.RUNNING || s?.status == CapabilityState.Status.BUILDING
     }
@@ -527,7 +529,8 @@ private fun MasterMonitorCard(
         detailText = null,
         tokenText = tokenText,
         hazeState = hazeState,
-        logBuckets = listOf("Master"),
+        logTitle = "Master",
+        logEntries = logEntries,
         onClick = onClick,
         modifier = modifier,
     )
@@ -536,18 +539,13 @@ private fun MasterMonitorCard(
 // ── Radio ──
 @Composable
 private fun RadioMonitorCard(
-    masterAgent: MasterAgent,
+    state: CapabilityState?,
     tokenText: String?,
+    logEntries: List<LogEntry>,
     hazeState: HazeState,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val cap = remember { masterAgent.capability("radio") }
-    val stateFlow = cap?.stateFlow
-    // nullable StateFlow → 安全 collect
-    val state by stateFlow?.collectAsState()
-        ?: remember { mutableStateOf<CapabilityState?>(null) }
-
     AgentStatusCard(
         icon = agentIcon("radio"),
         title = "RadioSubAgent",
@@ -556,7 +554,8 @@ private fun RadioMonitorCard(
         detailText = agentDetailOf(state),
         tokenText = tokenText,
         hazeState = hazeState,
-        logBuckets = listOf("Radio"),
+        logTitle = "Radio",
+        logEntries = logEntries,
         onClick = onClick,
         modifier = modifier,
     )
@@ -565,17 +564,13 @@ private fun RadioMonitorCard(
 // ── Enrich ──
 @Composable
 private fun EnrichMonitorCard(
-    masterAgent: MasterAgent,
+    state: CapabilityState?,
     tokenText: String?,
+    logEntries: List<LogEntry>,
     hazeState: HazeState,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val cap = remember { masterAgent.capability("enrich") }
-    val stateFlow = cap?.stateFlow
-    val state by stateFlow?.collectAsState()
-        ?: remember { mutableStateOf<CapabilityState?>(null) }
-
     AgentStatusCard(
         icon = agentIcon("enrich"),
         title = "EnrichSubAgent",
@@ -584,7 +579,8 @@ private fun EnrichMonitorCard(
         detailText = agentDetailOf(state),
         tokenText = tokenText,
         hazeState = hazeState,
-        logBuckets = listOf("Enrich"),
+        logTitle = "Enrich",
+        logEntries = logEntries,
         onClick = onClick,
         modifier = modifier,
     )
@@ -593,17 +589,13 @@ private fun EnrichMonitorCard(
 // ── Hello ──
 @Composable
 private fun HelloMonitorCard(
-    masterAgent: MasterAgent,
+    state: CapabilityState?,
     tokenText: String?,
+    logEntries: List<LogEntry>,
     hazeState: HazeState,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val cap = remember { masterAgent.capability("hello") }
-    val stateFlow = cap?.stateFlow
-    val state by stateFlow?.collectAsState()
-        ?: remember { mutableStateOf<CapabilityState?>(null) }
-
     AgentStatusCard(
         icon = agentIcon("hello"),
         title = "HelloSubAgent",
@@ -612,7 +604,8 @@ private fun HelloMonitorCard(
         detailText = agentDetailOf(state),
         tokenText = tokenText,
         hazeState = hazeState,
-        logBuckets = listOf("Hello"),
+        logTitle = "Hello",
+        logEntries = logEntries,
         onClick = onClick,
         modifier = modifier,
     )
@@ -705,7 +698,8 @@ private fun AgentStatusCard(
     detailText: String?,
     tokenText: String?,
     hazeState: HazeState,
-    logBuckets: List<String>,
+    logTitle: String,
+    logEntries: List<LogEntry>,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -737,7 +731,7 @@ private fun AgentStatusCard(
             CardRow(detailText)
             Spacer(Modifier.height(metrics.micro))
             CardRow(tokenText)
-            CardLogSection(logBuckets, hazeState)
+            CardLogSection(title = logTitle, entries = logEntries, hazeState = hazeState)
         }
     }
 }

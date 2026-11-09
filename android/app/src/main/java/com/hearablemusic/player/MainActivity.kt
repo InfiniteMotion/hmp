@@ -11,10 +11,7 @@ import androidx.annotation.OptIn
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 import androidx.media3.common.util.UnstableApi
@@ -23,7 +20,6 @@ import com.hearablemusic.player.ui.AppRoot
 import com.hearablemusic.player.ui.common.design.theme.HearableMusicPlayerTheme
 import com.hearablemusic.player.ui.common.pages.IntroScreen
 import com.hearablemusic.player.ui.common.util.LocalAppViewModelStoreOwner
-import com.hearablemusic.player.ui.library.viewmodel.LibraryViewModel
 import com.hearablemusic.player.ui.platform.AndroidPlatformServices
 import com.hearablemusic.player.ui.platform.PlatformServices
 import com.hearablemusic.player.ui.settings.viewmodel.RecommendationViewModel
@@ -44,7 +40,6 @@ class MainActivity : ComponentActivity() {
     private val userSettingsUseCase: UserSettingsUseCase by inject()
 
     private val settingsViewModel: SettingsViewModel by viewModel()
-    private val libraryViewModel: LibraryViewModel by viewModel()
     private val recommendationViewModel: RecommendationViewModel by viewModel()
 
     @OptIn(UnstableApi::class)
@@ -128,7 +123,6 @@ class MainActivity : ComponentActivity() {
                     HearableMusicPlayerTheme(darkTheme = darkTheme) {
                         IntroScreen(
                             settingsViewModel = settingsViewModel,
-                            libraryViewModel = libraryViewModel,
                             recommendationViewModel = recommendationViewModel,
                             onFinished = {
                                 settingsViewModel.saveIsFirstLaunchStatus(false)

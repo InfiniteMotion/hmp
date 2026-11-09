@@ -20,9 +20,14 @@ class CardPoolTest {
         cardId = id,
         type = SlideType.ANCHOR,
         content = AnchorContent(
-            trackTitle = title, artistName = "甲", bpm = null, phase = null,
-            albumArtUri = null, isPlaying = true, durationSec = 180,
-            progressPercent = 10, sourceLabel = null,
+            trackTitle = title,
+            artistName = "甲",
+            bpm = null,
+            phase = null,
+            albumArtUri = null,
+            isPlaying = true,
+            durationSec = 180,
+            sourceLabel = null,
         ),
     )
 

@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
@@ -35,7 +34,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.dp
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
 import com.hearablemusic.player.ui.common.components.base.DefaultEmpty
@@ -61,9 +59,8 @@ import com.hearablemusic.player.ui.generated.resources.agent_audit_record_id
 import com.hearablemusic.player.ui.generated.resources.agent_audit_task_id
 import com.hearablemusic.player.ui.generated.resources.agent_audit_title
 import com.hmp.data.database.AgentAuditLog
-import com.hmp.data.database.AgentAuditLogDao
 import org.jetbrains.compose.resources.stringResource
-import org.koin.compose.koinInject
+import org.koin.compose.viewmodel.koinViewModel
 
 /**
  * M6-T4：Agent 操作审计日志页面。
@@ -76,11 +73,11 @@ fun AuditLogScreen(
     navController: NavBackStack<NavKey>,
 ) {
     val metrics = LocalHmpMetrics.current
-    val dao: AgentAuditLogDao = koinInject()
-    val viewModel = remember { AuditLogViewModel(dao) }
+    val viewModel: AuditLogViewModel = koinViewModel()
 
-    val logs by viewModel.logs.collectAsState()
-    val currentFilter by viewModel.filter.collectAsState()
+    val uiState by viewModel.uiState.collectAsState()
+    val logs = uiState.logs
+    val currentFilter = uiState.filter
 
     SubScreen(
         onBackClick = { navController.removeLastOrNull() },
@@ -107,7 +104,7 @@ fun AuditLogScreen(
                     // 左：筛选 rail（竖排）
                     FilterRail(
                         currentFilter = currentFilter,
-                        onFilterSelected = { viewModel.applyFilter(it) },
+                        onFilterSelected = { viewModel.onFilterSelected(it) },
                         modifier = Modifier.width(LayoutConstraints.CoverHeightSmall).fillMaxHeight(),
                     )
                     // 右：列表吃满剩余宽度
@@ -137,7 +134,7 @@ fun AuditLogScreen(
                     // 筛选 Tab
                     FilterRow(
                         currentFilter = currentFilter,
-                        onFilterSelected = { viewModel.applyFilter(it) },
+                        onFilterSelected = { viewModel.onFilterSelected(it) },
                     )
 
                     Spacer(Modifier.height(metrics.compact))
@@ -176,10 +173,34 @@ private val filterTabs = listOf(
     FilterTab(Res.string.agent_audit_filter_reorder.asUiText(), "radio.reorder"),
 )
 
+/** 筛选 chip 的唯一定义：选中判据与点击映射只写一份，横排 / 竖排只换容器。 */
+@Composable
+private fun AuditFilterChip(
+    tab: FilterTab,
+    currentFilter: AuditLogFilter,
+    onFilterSelected: (AuditLogFilter) -> Unit,
+) {
+    val selected = when (currentFilter) {
+        is AuditLogFilter.All -> tab.tool == null
+        is AuditLogFilter.ByTool -> tab.tool == currentFilter.tool
+    }
+    FilterChip(
+        selected = selected,
+        onClick = {
+            if (tab.tool == null) {
+                onFilterSelected(AuditLogFilter.All)
+            } else {
+                onFilterSelected(AuditLogFilter.ByTool(tab.tool))
+            }
+        },
+        label = { Text(tab.label.asString()) },
+    )
+}
+
 @Composable
 private fun FilterRow(
-    currentFilter: AuditLogViewModel.Filter,
-    onFilterSelected: (AuditLogViewModel.Filter) -> Unit,
+    currentFilter: AuditLogFilter,
+    onFilterSelected: (AuditLogFilter) -> Unit,
 ) {
     val metrics = LocalHmpMetrics.current
     val scroll = rememberScrollState()
@@ -190,21 +211,7 @@ private fun FilterRow(
         horizontalArrangement = Arrangement.spacedBy(metrics.compact),
     ) {
         filterTabs.forEach { tab ->
-            val selected = when (currentFilter) {
-                is AuditLogViewModel.Filter.All -> tab.tool == null
-                is AuditLogViewModel.Filter.ByTool -> tab.tool == currentFilter.tool
-            }
-            FilterChip(
-                selected = selected,
-                onClick = {
-                    if (tab.tool == null) {
-                        onFilterSelected(AuditLogViewModel.Filter.All)
-                    } else {
-                        onFilterSelected(AuditLogViewModel.Filter.ByTool(tab.tool))
-                    }
-                },
-                label = { Text(tab.label.asString()) },
-            )
+            AuditFilterChip(tab, currentFilter, onFilterSelected)
         }
     }
 }
@@ -217,8 +224,8 @@ private fun FilterRow(
  */
 @Composable
 private fun FilterRail(
-    currentFilter: AuditLogViewModel.Filter,
-    onFilterSelected: (AuditLogViewModel.Filter) -> Unit,
+    currentFilter: AuditLogFilter,
+    onFilterSelected: (AuditLogFilter) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val metrics = LocalHmpMetrics.current
@@ -227,21 +234,7 @@ private fun FilterRail(
         verticalArrangement = Arrangement.spacedBy(metrics.compact),
     ) {
         filterTabs.forEach { tab ->
-            val selected = when (currentFilter) {
-                is AuditLogViewModel.Filter.All -> tab.tool == null
-                is AuditLogViewModel.Filter.ByTool -> tab.tool == currentFilter.tool
-            }
-            FilterChip(
-                selected = selected,
-                onClick = {
-                    if (tab.tool == null) {
-                        onFilterSelected(AuditLogViewModel.Filter.All)
-                    } else {
-                        onFilterSelected(AuditLogViewModel.Filter.ByTool(tab.tool))
-                    }
-                },
-                label = { Text(tab.label.asString()) },
-            )
+            AuditFilterChip(tab, currentFilter, onFilterSelected)
         }
     }
 }

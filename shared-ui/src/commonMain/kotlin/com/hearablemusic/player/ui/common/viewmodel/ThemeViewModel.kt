@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.hearablemusic.player.ui.platform.AlbumArtPixelsLoader
 import com.hearablemusic.player.ui.platform.PlaybackController
 import com.hmp.domain.music.MusicInfo
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -13,6 +14,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlin.math.pow
 
@@ -30,10 +33,13 @@ class ThemeViewModel(
 ) : ViewModel() {
 
     private val paletteCache = mutableMapOf<String, PaletteColors>()
+
+    /** `paletteFor`（推荐页）与应用级取色会从不同协程读写同一份 cache。 */
+    private val cacheMutex = Mutex()
     private val _paletteColors = MutableStateFlow(PaletteColors())
     val paletteColors: StateFlow<PaletteColors> = _paletteColors.asStateFlow()
 
-    val currentPlayingMusic: StateFlow<MusicInfo?> = playbackController.currentPlayingMusic
+    private val currentPlayingMusic: StateFlow<MusicInfo?> = playbackController.currentPlayingMusic
 
     init {
         viewModelScope.launch {
@@ -45,34 +51,44 @@ class ThemeViewModel(
         }
     }
 
-    private fun extractPaletteColors(albumArtUri: String?) {
+    private suspend fun extractPaletteColors(albumArtUri: String?) {
         if (albumArtUri == null) {
             _paletteColors.value = PaletteColors()
             return
         }
 
-        paletteCache[albumArtUri]?.let {
+        cacheGet(albumArtUri)?.let {
             _paletteColors.value = it
             return
         }
 
-        viewModelScope.launch {
-            try {
-                val pixels = pixelsLoader.loadPixels(albumArtUri)
-                val colors = if (pixels != null) {
-                    withContext(Dispatchers.Default) { analyzeColors(pixels) }
-                } else {
-                    PaletteColors()
-                }
-
-                if (paletteCache.size >= 50) {
-                    paletteCache.remove(paletteCache.keys.first())
-                }
-                paletteCache[albumArtUri] = colors
-                _paletteColors.value = colors
-            } catch (e: Exception) {
-                _paletteColors.value = PaletteColors()
+        // 不再另起 launch：collectLatest 取消旧曲时，旧封面的取色也应一起取消，
+        // 否则旧结果晚到会覆盖新曲的配色。
+        try {
+            val pixels = pixelsLoader.loadPixels(albumArtUri)
+            val colors = if (pixels != null) {
+                withContext(Dispatchers.Default) { analyzeColors(pixels) }
+            } else {
+                PaletteColors()
             }
+
+            cachePut(albumArtUri, colors)
+            _paletteColors.value = colors
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            _paletteColors.value = PaletteColors()
+        }
+    }
+
+    private suspend fun cacheGet(uri: String): PaletteColors? = cacheMutex.withLock { paletteCache[uri] }
+
+    private suspend fun cachePut(uri: String, colors: PaletteColors) {
+        cacheMutex.withLock {
+            if (paletteCache.size >= PALETTE_CACHE_SIZE) {
+                paletteCache.remove(paletteCache.keys.first())
+            }
+            paletteCache[uri] = colors
         }
     }
 
@@ -82,7 +98,7 @@ class ThemeViewModel(
      */
     suspend fun paletteFor(albumArtUri: String?): PaletteColors {
         if (albumArtUri.isNullOrBlank()) return PaletteColors()
-        paletteCache[albumArtUri]?.let { return it }
+        cacheGet(albumArtUri)?.let { return it }
         return try {
             val pixels = pixelsLoader.loadPixels(albumArtUri)
             val colors = if (pixels != null) {
@@ -90,11 +106,10 @@ class ThemeViewModel(
             } else {
                 PaletteColors()
             }
-            if (paletteCache.size >= 50) {
-                paletteCache.remove(paletteCache.keys.first())
-            }
-            paletteCache[albumArtUri] = colors
+            cachePut(albumArtUri, colors)
             colors
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             PaletteColors()
         }
@@ -332,6 +347,10 @@ class ThemeViewModel(
             ((g1 + m) * 255f).toInt().coerceIn(0, 255),
             ((b1 + m) * 255f).toInt().coerceIn(0, 255),
         )
+    }
+
+    private companion object {
+        const val PALETTE_CACHE_SIZE = 50
     }
 
     private fun rgbToHsl(r: Int, g: Int, b: Int): FloatArray {

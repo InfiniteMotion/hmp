@@ -1,7 +1,6 @@
 package com.hearablemusic.player.ui.platform
 
 import com.hearablemusic.player.ui.common.util.IosHapticServiceInstance
-import com.hmp.domain.music.MusicLabel
 
 /**
  * iOS 平台服务桥（A3/A4：Swift 侧能力 → commonMain PlatformServices）。

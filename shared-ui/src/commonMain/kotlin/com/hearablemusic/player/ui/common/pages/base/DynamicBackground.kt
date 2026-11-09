@@ -33,7 +33,6 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.unit.dp
 import coil3.compose.rememberAsyncImagePainter
 import com.hearablemusic.player.ui.common.design.colors.ColorTokens
 import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics

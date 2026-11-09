@@ -1,7 +1,6 @@
 package com.hmp.data.di
 
 import com.hmp.data.database.RoomTransactionRunner
-import com.hmp.data.database.TokenLedgerDao
 import com.hmp.data.database.currentTimeMillis
 import com.hmp.data.network.OpenAiCompatibleAdapter
 import com.hmp.data.network.OpenAiLlmTransport
@@ -26,6 +25,7 @@ import com.hmp.domain.music.usecase.EditMusicTagsUseCase
 import com.hmp.domain.music.usecase.GetAllMusicUseCase
 import com.hmp.domain.music.usecase.GetDailyMusicRecommendationUseCase
 import com.hmp.domain.music.usecase.GetDeletedMusicIdsGroupedByFolderUseCase
+import com.hmp.domain.music.usecase.LibraryScanUseCase
 import com.hmp.domain.music.usecase.LoadMusicFromDeviceUseCase
 import com.hmp.domain.music.usecase.MusicLabelUseCase
 import com.hmp.domain.music.usecase.RemoveFromLibraryUseCase
@@ -212,7 +212,7 @@ val sharedModule = module {
     }
 
     // 一-2 / D2-03 前置端口：UI 只发「库变了」这一个命令，依赖接口而不是 MasterAgent 具体类
-    // （挂住具体类会让 LibraryViewModel 在测试里构造不出来）
+    // （挂住具体类会让曲库/歌单的屏级 VM 在测试里构造不出来）
     single<LibraryMutatedNotifier> { get<MasterAgent>() }
 
     // Use Cases
@@ -226,6 +226,8 @@ val sharedModule = module {
     single { RemoveFromLibraryUseCase(get()) }
     single { RestoreToLibraryUseCase(get()) }
     single { GetDeletedMusicIdsGroupedByFolderUseCase(get()) }
+    // 7.5 VM 拆分：扫描的增量/全量分流只有这一处（引导页与设置页共用）
+    single { LibraryScanUseCase(get(), get(), get(), get()) }
     single { MusicLabelUseCase(get(), get()) }
     single { EditMusicTagsUseCase(get()) }
     single { GetDailyMusicRecommendationUseCase(get(), get()) }

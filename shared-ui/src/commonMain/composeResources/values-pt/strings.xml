@@ -805,4 +805,8 @@
     <string name="radio_card_end_session">Encerrar esta sessão</string>
     <string name="radio_entry_seed_title">Começar com esta música</string>
     <string name="radio_entry_seed_desc">Uma seleção local primeiro, depois a IA continua; após a faixa atual</string>
+    <string name="card_enrich_chunk"> · chunk %1$d/%2$d</string>
+    <string name="card_narrative_header">%1$s listening report</string>
+    <string name="shuffle_play_button_desc">Shuffle play</string>
+    <string name="order_play_button_desc">Play in order</string>
 </resources>

@@ -17,7 +17,8 @@ import kotlin.test.Test
  *
  * 覆盖桌面那条覆盖不到的 Android 独有注册：`playerModule` 的 `MusicController` 与
  * `AndroidAgentKeepAlivePort`（`:shared` 的校验里 `AgentKeepAlivePort` 只能当外部类型放行），
- * 以及 `uiModule` 的 `CoilAlbumArtPixelsLoader(androidContext())` 与全部 `viewModel { }` 注册。
+ * 以及 `uiModule` 的 `CoilAlbumArtPixelsLoader(androidContext())`；全部 `viewModel { }` 注册
+ * 来自 `uiModule → includes(uiViewModelModule)`（commonMain 单一真源）。
  * 模块清单与 `MusicApplication.onCreate()` 的 `modules(sharedModule, androidPlatformModule,
  * builtInAiModule, playerModule, uiModule)` 对齐，只少 `builtInAiModule` —— 它在 `android/app`，
  * 本编译单元看不见，所以 `BuiltInApiKeyProvider` 记在 extraTypes 里（这是本条唯一的人为放行）。

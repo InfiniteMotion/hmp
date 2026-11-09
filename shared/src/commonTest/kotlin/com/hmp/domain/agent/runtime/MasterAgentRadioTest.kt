@@ -6,7 +6,6 @@ import com.hmp.domain.agent.port.PlaybackCommand
 import com.hmp.domain.agent.port.PlaybackCommandPort
 import com.hmp.domain.agent.tool.ToolDependencies
 import com.hmp.domain.agent.tool.createBaseToolRegistry
-import com.hmp.domain.agent.tool.spec.ToolRegistry
 import com.hmp.domain.enum.LabelName
 import com.hmp.domain.music.Music
 import com.hmp.domain.music.MusicInfo
@@ -17,7 +16,6 @@ import com.hmp.test.fakes.FakeLlmTransport
 import com.hmp.test.fakes.FakeSettingsRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel

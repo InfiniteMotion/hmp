@@ -8,7 +8,6 @@ import com.hearablemusic.player.ui.common.util.DEFAULT_HAZE_TINT_ALPHA
 import com.hearablemusic.player.ui.common.util.HAZE_MODE_CUSTOM
 import com.hearablemusic.player.ui.common.util.HAZE_MODE_PRESET
 import com.hmp.domain.setting.usecase.UserSettingsUseCase
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
@@ -50,14 +49,8 @@ class SettingsViewModel(
     val hazeIntensity = userSettingsUseCase.hazeIntensity
         .stateIn(viewModelScope, SharingStarted.Companion.WhileSubscribed(5000), 0.6f)
 
-    private val _avatarUri = MutableStateFlow("")
-    val avatarUri: StateFlow<String> = _avatarUri
-
-    fun getAvatarUri() {
-        viewModelScope.launch {
-            _avatarUri.value = userSettingsUseCase.getAvatarUri() ?: ""
-        }
-    }
+    /** 直接订阅 UseCase 的共享镜像：个人资料页写入后本页自动刷新，不再各自缓存一份。 */
+    val avatarUri: StateFlow<String> = userSettingsUseCase.avatarUri
 
     fun saveAvatarUri(uri: String) {
         viewModelScope.launch {
@@ -141,6 +134,8 @@ class SettingsViewModel(
     }
 
     init {
-        getAvatarUri()
+        // 冷启动补一次头像初值；备份恢复等绕过 UseCase 的写入也靠这次读取同步。
+        // 放在 VM 而不是组合期：屏重进 / 横竖屏切换不再重复触发。
+        viewModelScope.launch { userSettingsUseCase.getAvatarUri() }
     }
 }

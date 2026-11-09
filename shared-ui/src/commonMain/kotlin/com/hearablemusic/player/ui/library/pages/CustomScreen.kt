@@ -26,12 +26,14 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color.Companion.Transparent
-import androidx.compose.ui.unit.dp
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
 import com.hearablemusic.player.ui.common.components.base.TitleWidget
@@ -94,6 +96,10 @@ import dev.chrisbanes.haze.rememberHazeState
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 
+/**
+ * 7.5 P1：原 `CustomScreenContent` 14 参数转发层已合并回唯一 Screen 入口。
+ * 7 个外观设置值来自被多屏共享的 `SettingsViewModel`，按 UdfConventions §2 属跨屏配置投影白名单。
+ */
 @Composable
 fun CustomScreen(
     settingsViewModel: SettingsViewModel = activityViewModel(),
@@ -107,43 +113,15 @@ fun CustomScreen(
     val hazeNoiseFactor by settingsViewModel.hazeNoiseFactor.collectAsState(DEFAULT_HAZE_NOISE_FACTOR)
     val hazeTintAlpha by settingsViewModel.hazeTintAlpha.collectAsState(DEFAULT_HAZE_TINT_ALPHA)
 
-    CustomScreenContent(
-        customMode = customMode,
-        backgroundStyle = backgroundStyle,
-        hazeMode = hazeMode,
-        hazeMaterialPreset = hazeMaterialPreset,
-        hazeBlurRadius = hazeBlurRadius,
-        hazeNoiseFactor = hazeNoiseFactor,
-        hazeTintAlpha = hazeTintAlpha,
-        onBackClick = { navController.removeLastOrNull() },
-        setCustomMode = settingsViewModel::saveCustomMode,
-        setBackgroundStyle = settingsViewModel::saveBackgroundStyle,
-        setHazeMode = settingsViewModel::saveHazeMode,
-        applyHazeMaterialPreset = settingsViewModel::applyHazeMaterialPreset,
-        setHazeBlurRadius = settingsViewModel::saveHazeBlurRadius,
-        setHazeNoiseFactor = settingsViewModel::saveHazeNoiseFactor,
-        setHazeTintAlpha = settingsViewModel::saveHazeTintAlpha,
-    )
-}
+    val onBackClick: () -> Unit = { navController.removeLastOrNull() }
+    val setCustomMode = settingsViewModel::saveCustomMode
+    val setBackgroundStyle = settingsViewModel::saveBackgroundStyle
+    val setHazeMode = settingsViewModel::saveHazeMode
+    val applyHazeMaterialPreset = settingsViewModel::applyHazeMaterialPreset
+    val setHazeBlurRadius = settingsViewModel::saveHazeBlurRadius
+    val setHazeNoiseFactor = settingsViewModel::saveHazeNoiseFactor
+    val setHazeTintAlpha = settingsViewModel::saveHazeTintAlpha
 
-@Composable
-fun CustomScreenContent(
-    customMode: String,
-    backgroundStyle: String,
-    hazeMode: String,
-    hazeMaterialPreset: String,
-    hazeBlurRadius: Float,
-    hazeNoiseFactor: Float,
-    hazeTintAlpha: Float,
-    onBackClick: () -> Unit,
-    setCustomMode: (String) -> Unit,
-    setBackgroundStyle: (String) -> Unit,
-    setHazeMode: (String) -> Unit,
-    applyHazeMaterialPreset: (String, Float) -> Unit,
-    setHazeBlurRadius: (Float) -> Unit,
-    setHazeNoiseFactor: (Float) -> Unit,
-    setHazeTintAlpha: (Float) -> Unit,
-) {
     val metrics = LocalHmpMetrics.current
     SubScreen(
         onBackClick = onBackClick,
@@ -268,44 +246,46 @@ fun SetHazeIntensity(
                     color = MaterialTheme.colorScheme.onSurface,
                 )
 
+                // 拖动只更新草稿，松手才落库：每帧调 saveHaze* 会持续写 DataStore。
+                // key 用外部值：预设切换等外部改写会同步进草稿，拖动期间外部值不变，不会被打断。
+                var blurSliderValue by remember(hazeBlurRadius) { mutableFloatStateOf(hazeBlurRadius) }
                 Text(
-                    text = stringResource(Res.string.haze_blur_radius_label, hazeBlurRadius),
+                    text = stringResource(Res.string.haze_blur_radius_label, blurSliderValue),
                     style = typo.body,
                     color = MaterialTheme.colorScheme.onSurface,
                 )
                 Slider(
-                    value = hazeBlurRadius,
-                    onValueChange = { value ->
-                        setHazeBlurRadius(value)
-                    },
+                    value = blurSliderValue,
+                    onValueChange = { blurSliderValue = it },
+                    onValueChangeFinished = { setHazeBlurRadius(blurSliderValue) },
                     valueRange = 0f..60f,
                 )
 
-                val noisePercent = (hazeNoiseFactor * 100).toInt()
+                var noiseSliderValue by remember(hazeNoiseFactor) { mutableFloatStateOf(hazeNoiseFactor) }
+                val noisePercent = (noiseSliderValue * 100).toInt()
                 Text(
                     text = stringResource(Res.string.haze_noise_factor_label, noisePercent),
                     style = typo.body,
                     color = MaterialTheme.colorScheme.onSurface,
                 )
                 Slider(
-                    value = hazeNoiseFactor,
-                    onValueChange = { value ->
-                        setHazeNoiseFactor(value)
-                    },
+                    value = noiseSliderValue,
+                    onValueChange = { noiseSliderValue = it },
+                    onValueChangeFinished = { setHazeNoiseFactor(noiseSliderValue) },
                     valueRange = 0f..1f,
                 )
 
-                val tintPercent = (hazeTintAlpha * 100).toInt()
+                var tintSliderValue by remember(hazeTintAlpha) { mutableFloatStateOf(hazeTintAlpha) }
+                val tintPercent = (tintSliderValue * 100).toInt()
                 Text(
                     text = stringResource(Res.string.haze_tint_alpha_label, tintPercent),
                     style = typo.body,
                     color = MaterialTheme.colorScheme.onSurface,
                 )
                 Slider(
-                    value = hazeTintAlpha,
-                    onValueChange = { value ->
-                        setHazeTintAlpha(value)
-                    },
+                    value = tintSliderValue,
+                    onValueChange = { tintSliderValue = it },
+                    onValueChangeFinished = { setHazeTintAlpha(tintSliderValue) },
                     valueRange = 0f..1f,
                 )
             }

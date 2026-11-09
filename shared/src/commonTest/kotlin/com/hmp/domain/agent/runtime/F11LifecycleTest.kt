@@ -8,7 +8,6 @@ import com.hmp.domain.agent.port.PlaybackCommand
 import com.hmp.domain.agent.port.PlaybackCommandPort
 import com.hmp.domain.agent.tool.ToolDependencies
 import com.hmp.domain.agent.tool.createBaseToolRegistry
-import com.hmp.domain.agent.tool.spec.ToolRegistry
 import com.hmp.domain.enum.LabelName
 import com.hmp.domain.music.Music
 import com.hmp.domain.music.MusicInfo

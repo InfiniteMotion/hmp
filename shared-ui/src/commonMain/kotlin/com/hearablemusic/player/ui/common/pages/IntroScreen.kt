@@ -1,7 +1,6 @@
 package com.hearablemusic.player.ui.common.pages
 
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
@@ -36,16 +35,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.dp
 import com.hearablemusic.player.ui.common.design.animation.HmpMotion
 import com.hearablemusic.player.ui.common.design.metrics.LayoutConstraints
 import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
@@ -77,23 +72,20 @@ import com.hearablemusic.player.ui.generated.resources.scan
 import com.hearablemusic.player.ui.generated.resources.scan_finished
 import com.hearablemusic.player.ui.generated.resources.start_experience
 import com.hearablemusic.player.ui.generated.resources.welcome_to
-import com.hearablemusic.player.ui.library.viewmodel.LibraryViewModel
 import com.hearablemusic.player.ui.platform.PlatformServices
 import com.hearablemusic.player.ui.settings.viewmodel.RecommendationViewModel
 import com.hearablemusic.player.ui.settings.viewmodel.SettingsViewModel
-import com.hmp.domain.setting.model.AiAccessMode
-import com.hmp.domain.setting.usecase.UserSettingsUseCase
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.rememberHazeState
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
+import org.koin.compose.viewmodel.koinViewModel
 
 @Composable
 fun IntroScreen(
     settingsViewModel: SettingsViewModel,
-    libraryViewModel: LibraryViewModel,
     recommendationViewModel: RecommendationViewModel,
     onFinished: () -> Unit,
     /**
@@ -104,14 +96,22 @@ fun IntroScreen(
      * 默认 false —— Android / iOS 行为不变。
      */
     skipPermissionStep: Boolean = false,
+    viewModel: IntroViewModel = koinViewModel(),
 ) {
     val metrics = LocalHmpMetrics.current
-    val currentStep = remember { mutableIntStateOf(if (skipPermissionStep) 1 else 0) }
-    val isPermissionGiven = remember { mutableStateOf(skipPermissionStep) }
-    val showScanDialog = remember { mutableStateOf(false) }
-    val isScanCompleted = remember { mutableStateOf(false) }
-    val userSettingsUseCase: UserSettingsUseCase = koinInject()
-    val aiAccessMode by userSettingsUseCase.aiAccessMode.collectAsState(AiAccessMode.FREE)
+    // 7.5 P1：引导阶段态收进 IntroViewModel 的单一 uiState
+    val introState by viewModel.uiState.collectAsState()
+    LaunchedEffect(Unit) { viewModel.onStart(skipPermissionStep) }
+    // 扫描进度与总量在统一 uiState 里；扫描动作也在 VM 内发起，经组合点转发的只剩 AI 补全。
+    val isScanning = introState.isScanning
+    val musicCount = introState.musicCount
+    LaunchedEffect(Unit) {
+        viewModel.effect.collect { effect ->
+            when (effect) {
+                IntroEffect.StartAiAutoProcess -> recommendationViewModel.startAutoProcessWithCurrentProvider()
+            }
+        }
+    }
     val hazeMode by settingsViewModel.hazeMode.collectAsState(DEFAULT_HAZE_MODE)
     val hazeMaterialPreset by settingsViewModel.hazeMaterialPreset.collectAsState(DEFAULT_HAZE_MATERIAL_PRESET)
     val hazeBlurRadius by settingsViewModel.hazeBlurRadius.collectAsState(DEFAULT_HAZE_BLUR_RADIUS)
@@ -147,19 +147,12 @@ fun IntroScreen(
     val cardHPadding = if (isLandscape) metrics.section else metrics.block
     val cardVPadding = if (isLandscape) metrics.section else metrics.block
 
-    // 权限授予后自动进入下一步
-    LaunchedEffect(isPermissionGiven.value) {
-        if (isPermissionGiven.value && currentStep.intValue == 0) {
-            currentStep.intValue = 1
-        }
-    }
-
     // 权限请求走平台桥：Android 拉系统多权限（音频/通知）；iOS 媒体库权限已在
     // AppDelegate 引导（IosPermissionService.requestIntroPermissions 恒授权）
     val platformServices: PlatformServices = koinInject()
     val requestIntroPermissions: () -> Unit = {
         platformServices.permission.requestIntroPermissions { allGranted ->
-            isPermissionGiven.value = allGranted
+            viewModel.onPermissionResult(allGranted)
         }
     }
 
@@ -170,7 +163,7 @@ fun IntroScreen(
             contentAlignment = Alignment.Center,
         ) {
             AnimatedContent(
-                targetState = currentStep.intValue,
+                targetState = introState.step,
                 transitionSpec = {
                     slideInHorizontally(
                         initialOffsetX = { it },
@@ -189,29 +182,18 @@ fun IntroScreen(
             ) { step ->
                 when (step) {
                     0 -> PermissionStep(
-                        isPermissionGiven = isPermissionGiven.value,
+                        isPermissionGiven = introState.permissionGiven,
                         onRequestPermission = requestIntroPermissions,
-                        onSkip = { currentStep.intValue = 1 },
+                        onSkip = viewModel::onSkipPermission,
                     )
 
                     1 -> ScanMusicStep(
-                        isScanCompleted = isScanCompleted.value,
-                        onStartScan = {
-                            libraryViewModel.refreshMusicList()
-                            showScanDialog.value = true
-                        },
-                        onScanComplete = {
-                            showScanDialog.value = false
-                            isScanCompleted.value = true
-                            currentStep.intValue = 2
-                            // 首次扫描完成后，若为免费体验模式则自动触发 AI 批量补全
-                            // isLoadMusic 已在 LibraryViewModel 扫描成功后持久化
-                            if (aiAccessMode == AiAccessMode.FREE) {
-                                recommendationViewModel.startAutoProcessWithCurrentProvider()
-                            }
-                        },
-                        showScanDialog = showScanDialog.value,
-                        libraryViewModel = libraryViewModel,
+                        isScanCompleted = introState.scanCompleted,
+                        onStartScan = viewModel::onScanRequested,
+                        onScanComplete = viewModel::onScanCompleted,
+                        showScanDialog = introState.showScanDialog,
+                        isScanning = isScanning,
+                        musicCount = musicCount,
                         hazeState = hazeState,
                     )
 
@@ -274,7 +256,7 @@ fun IntroScreen(
                     ) {
                         // ── 左栏：Logo + 品牌区 + 步骤指示器 ──
                         BrandBlock(
-                            currentStep = currentStep.intValue,
+                            currentStep = introState.step,
                             totalSteps = 3,
                             modifier = Modifier.weight(1f),
                             compact = true,
@@ -307,7 +289,7 @@ fun IntroScreen(
                     ) {
                         // ── 卡片顶部：Logo + 品牌区 ──
                         BrandBlock(
-                            currentStep = currentStep.intValue,
+                            currentStep = introState.step,
                             totalSteps = 3,
                             modifier = Modifier.fillMaxWidth(),
                         )
@@ -442,7 +424,8 @@ fun ScanMusicStep(
     showScanDialog: Boolean,
     onStartScan: () -> Unit,
     onScanComplete: () -> Unit,
-    libraryViewModel: LibraryViewModel?,
+    isScanning: Boolean,
+    musicCount: Int,
     hazeState: HazeState,
 ) {
     val metrics = LocalHmpMetrics.current
@@ -489,9 +472,10 @@ fun ScanMusicStep(
         }
     }
 
-    if (showScanDialog && libraryViewModel != null) {
+    if (showScanDialog) {
         MusicScanDialog(
-            libraryViewModel = libraryViewModel,
+            isLoading = isScanning,
+            musicCount = musicCount,
             onDismiss = onScanComplete,
             hazeState = hazeState,
         )
@@ -554,7 +538,7 @@ private fun BrandBlock(
         Image(
             painter = painterResource(Res.drawable.ic_launcher_foreground),
             contentDescription = "Logo",
-            modifier = Modifier.size(if (compact) metrics.row else metrics.row),
+            modifier = Modifier.size(metrics.row),
         )
         Spacer(modifier = Modifier.height(if (compact) metrics.base else metrics.cozy))
         Text(
@@ -563,22 +547,16 @@ private fun BrandBlock(
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
         )
         Spacer(modifier = Modifier.height(metrics.micro))
-        val nameStyle =
-            if (compact) {
-                typo.headline
-            } else {
-                typo.headline
-            }
         Row(verticalAlignment = Alignment.Bottom) {
             Text(
                 text = "Hearable",
-                style = nameStyle,
+                style = typo.headline,
                 color = MaterialTheme.colorScheme.primary,
                 fontWeight = FontWeight.Bold,
             )
             Text(
                 text = " Music Player",
-                style = nameStyle,
+                style = typo.headline,
                 color = MaterialTheme.colorScheme.onSurface,
                 fontWeight = FontWeight.Bold,
             )

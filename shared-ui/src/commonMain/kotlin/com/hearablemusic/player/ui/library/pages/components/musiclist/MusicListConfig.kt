@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.dp
 import com.hearablemusic.player.ui.common.design.metrics.HMPMetricTokens
 import com.hearablemusic.player.ui.common.util.commonFormat
 import com.hearablemusic.player.ui.common.util.epochMillisToYearMonth
@@ -118,7 +117,9 @@ data class GalleryItemOptions(
  * 列表整体配置：LazyColumn 的 key、底部占位高度、是否支持长按列表项进入编辑模式。
  */
 data class ListConfig(
-    val key: (Int, MusicInfo) -> Any = { i, m -> "${m.music.id}_$i" },
+    // key 必须跟着歌曲走，不能带 index：排序 / 置顶 / 增删都会让 index 整体位移，
+    // 使所有 key 失效并让 LazyColumn 丢弃节点状态。
+    val key: (Int, MusicInfo) -> Any = { _, m -> m.music.id },
     val bottomSpacerHeight: Dp = HMPMetricTokens.Compact.row,
     val enableLongPressToEnterEdit: Boolean = false,
     val columns: Int = 1,

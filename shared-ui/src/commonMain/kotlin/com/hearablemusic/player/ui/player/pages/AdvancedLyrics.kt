@@ -21,7 +21,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
@@ -49,14 +48,12 @@ import com.hearablemusic.player.ui.common.viewmodel.PaletteColors
 import com.hearablemusic.player.ui.generated.resources.Res
 import com.hearablemusic.player.ui.generated.resources.ic_gallery_search_things
 import com.hearablemusic.player.ui.generated.resources.no_lyrics
+import com.hearablemusic.player.ui.player.viewmodel.LyricsPresentation
 import com.hmp.domain.config.DisplayMode
 import com.hmp.domain.config.LyricsAlignment
 import com.hmp.domain.lyrics.CharTiming
-import com.hmp.domain.lyrics.LrcParser
 import com.hmp.domain.lyrics.LyricLineData
 import com.hmp.domain.lyrics.LyricsPresentationParams
-import com.hmp.domain.lyrics.LyricsTimingGenerator
-import com.hmp.domain.lyrics.findCurrentLyricIndex
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import kotlin.math.abs
@@ -76,30 +73,25 @@ import kotlin.math.abs
 @Composable
 fun AdvancedLyrics(
     modifier: Modifier = Modifier,
-    lyrics: String?,
+    lyricsPresentation: LyricsPresentation?,
     currentPosition: Long,
     onSeek: (Long) -> Unit = {},
     originalTextSize: Int = 14,
     translatedTextSize: Int = 14,
     currentTimeTextSize: Int = 16,
     lineSpacing: Int = 6,
-    totalDurationMs: Long = 0L,
     karaokeEnabled: Boolean = true,
     isPlaying: Boolean = true,
     paletteColors: PaletteColors? = null,
     displayMode: DisplayMode = DisplayMode.DUAL,
     alignment: LyricsAlignment = LyricsAlignment.CENTER,
 ) {
-    if (lyrics == null) {
+    if (lyricsPresentation == null) {
         EmptyLyricsView(modifier)
         return
     }
 
-    val parsedLyrics = remember(lyrics) { LrcParser.parse(lyrics) }
-    // 为逐字显示生成/规整片段时间（增强 LRC 优先，普通 LRC 走 S2 行尾对齐等分）
-    val timedLyrics = remember(parsedLyrics, totalDurationMs) {
-        LyricsTimingGenerator.resolve(parsedLyrics, totalDurationMs.takeIf { it > 0 })
-    }
+    val timedLyrics = lyricsPresentation.lines
     val scrollState = rememberLazyListState()
     val hapticFeedback = LocalHapticFeedback.current
     val density = LocalDensity.current
@@ -112,10 +104,8 @@ fun AdvancedLyrics(
         LyricsAlignment.RIGHT -> Alignment.End
     }
 
-    // 找到当前播放位置对应的歌词行
-    val currentIndex by remember(parsedLyrics, currentPosition) {
-        derivedStateOf { findCurrentLyricIndex(parsedLyrics, currentPosition) }
-    }
+    // 当前行由 VM 按播放位置算好（二分），渲染端不再调用 domain。
+    val currentIndex = lyricsPresentation.currentIndex
 
     val lyricPalette = resolveLyricPalette(paletteColors)
 
@@ -145,11 +135,7 @@ fun AdvancedLyrics(
                 key = { index, item -> "${item.timestamp}_$index" },
             ) { index, lyricLine ->
                 val isCurrent = index == currentIndex && currentIndex >= 0
-                val lineEndMs = LyricsTimingGenerator.lineEndMs(
-                    timedLyrics,
-                    index,
-                    totalDurationMs.takeIf { it > 0 },
-                )
+                val lineEndMs = lyricsPresentation.lineEnds.getOrElse(index) { lyricLine.timestamp }
                 AdvancedLyricItem(
                     lyricLine = lyricLine,
                     isCurrent = isCurrent,

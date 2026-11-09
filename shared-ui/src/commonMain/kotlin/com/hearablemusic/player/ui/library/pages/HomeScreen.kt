@@ -1,8 +1,5 @@
 package com.hearablemusic.player.ui.library.pages
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,26 +14,19 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
 import com.hearablemusic.player.ui.agent.cards.CardStackTuning
@@ -47,10 +37,12 @@ import com.hearablemusic.player.ui.common.components.base.HMPTextField
 import com.hearablemusic.player.ui.common.design.metrics.LayoutConstraints
 import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
+import com.hearablemusic.player.ui.common.dialogs.viewmodel.DialogManagerViewModel
 import com.hearablemusic.player.ui.common.layout.LocalWindowSizeInfo
 import com.hearablemusic.player.ui.common.pages.base.TabScreen
 import com.hearablemusic.player.ui.common.util.activityViewModel
 import com.hearablemusic.player.ui.generated.resources.Res
+import com.hearablemusic.player.ui.generated.resources.ai_quota_exhausted_hint
 import com.hearablemusic.player.ui.generated.resources.home_explore
 import com.hearablemusic.player.ui.generated.resources.home_private_reco
 import com.hearablemusic.player.ui.generated.resources.home_reco_unavailable
@@ -62,7 +54,8 @@ import com.hearablemusic.player.ui.generated.resources.play_fill
 import com.hearablemusic.player.ui.generated.resources.search_placeholder
 import com.hearablemusic.player.ui.library.pages.components.FeatureEntryRow
 import com.hearablemusic.player.ui.library.pages.components.RadioCard
-import com.hearablemusic.player.ui.player.viewmodel.PlaylistQueueViewModel
+import com.hearablemusic.player.ui.library.viewmodel.HomeEffect
+import com.hearablemusic.player.ui.library.viewmodel.HomeViewModel
 import com.hmp.domain.agent.card.AnchorContent
 import com.hmp.domain.agent.card.AnniversaryContent
 import com.hmp.domain.agent.card.DiscoverContent
@@ -72,18 +65,15 @@ import com.hmp.domain.agent.card.RecommendContent
 import com.hmp.domain.agent.card.RecommendListPayload
 import com.hmp.domain.agent.card.RecommendSource
 import com.hmp.domain.agent.card.SlideCard
-import com.hmp.domain.agent.runtime.MasterAgent
-import com.hmp.domain.music.MusicRepository
-import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
-import org.koin.compose.koinInject
+import org.koin.compose.viewmodel.koinViewModel
 import com.hearablemusic.player.ui.common.navigation.Routes as NavRoutes
 
 @Composable
 fun HomeScreen(
-    playlistQueueViewModel: PlaylistQueueViewModel = activityViewModel(),
     navController: NavBackStack<NavKey>,
+    viewModel: HomeViewModel = koinViewModel(),
 ) {
     val metrics = LocalHmpMetrics.current
     val windowSize = LocalWindowSizeInfo.current
@@ -92,66 +82,40 @@ fun HomeScreen(
     // 三档 WindowWidthSizeClass 区分度不够，故按 px 无关的 dp 数值分档）。
     val widthDp = windowSize.widthDp
 
-    // 两个推荐入口数据：payload==null → 生成中（置灰）；空 items → 无数据（隐藏）；否则正常。
-    val masterAgent: MasterAgent = koinInject()
-    val dailyPayload by masterAgent.dailyRecommendList.collectAsState()
-    val privatePayload by masterAgent.privateRecommendList.collectAsState()
+    // 两个推荐入口数据 + hello 桶额度 + 按 id 查曲目，全部经 HomeViewModel（7.5 P1 收尾）
+    val homeState by viewModel.uiState.collectAsState()
+    val dailyPayload = homeState.dailyPayload
+    val privatePayload = homeState.privatePayload
+    val helloQuotaBlocked = homeState.helloQuotaBlocked
 
-    // 两个歌单由 Hello 生成 → 额度看 hello 桶；耗尽时入口置灰并显示「额度不足」。
-    val quotaGate: com.hmp.domain.agent.quota.TokenQuotaGate = koinInject()
-    val exhaustedBuckets by quotaGate.exhausted.collectAsState()
-    val helloQuotaBlocked = com.hmp.domain.agent.quota.QuotaBucket.HELLO in exhaustedBuckets
-
-    // 堆叠卡短按 → 按卡型分流（能播的播、能跳的跳、纯文案卡不响应）
-    val musicRepository: MusicRepository = koinInject()
-    val cardScope = rememberCoroutineScope()
     val typo = LocalHmpTypo.current
 
-    // G6：播放某个推荐列表（整组**追加到队列尾部**，播其中第一首）
-    fun playRecommend(source: RecommendSource) {
-        val payload = when (source) {
-            RecommendSource.DAILY -> dailyPayload
-            RecommendSource.PRIVATE -> privatePayload
-        }
-        val ids = payload?.items?.map { it.trackId }.orEmpty()
-        if (ids.isEmpty()) return
-        cardScope.launch {
-            val infos = runCatching { musicRepository.getMusicInfoByIds(ids) }.getOrNull().orEmpty()
-            if (infos.isNotEmpty()) {
-                // 追加到现有队列尾部（addToPlaylist 内含整队列去重，已存在的不会重复入队），
-                // 再从首曲播起 —— 不清空队列。见下方 playIds 的说明。
-                infos.forEach { playlistQueueViewModel.addToPlaylist(it) }
-                playlistQueueViewModel.playAt(infos.first())
-                navController.add(NavRoutes.Player.Player)
+    // 7.5 P1：查询、入队、定位、导航与额度拦截都收进 HomeViewModel，UI 只上送动作、收效果
+    val dialogManager = activityViewModel<DialogManagerViewModel>().dialogManager
+    val quotaExhaustedText = stringResource(Res.string.ai_quota_exhausted_hint)
+    LaunchedEffect(quotaExhaustedText) {
+        viewModel.effect.collect { effect ->
+            when (effect) {
+                HomeEffect.NavigateToPlayer -> navController.add(NavRoutes.Player.Player)
+                HomeEffect.RadioQuotaExhausted -> dialogManager.showMessage(quotaExhaustedText)
             }
         }
     }
 
     val onSlideCardClick: (SlideCard) -> Unit = { card ->
-        // 卡片点播只"追加进队列"、不替换：逐个 addToPlaylist（尾部追加 + 整队列去重）
-        // 再用 playAt 定位到目标曲。不可用 addAllToPlaylistInOrder —— 它实际是整条替换并从首曲播起。
-        fun playIds(ids: List<Long>) {
-            if (ids.isEmpty()) return
-            cardScope.launch {
-                val infos = runCatching { musicRepository.getMusicInfoByIds(ids) }.getOrNull().orEmpty()
-                if (infos.isNotEmpty()) {
-                    infos.forEach { playlistQueueViewModel.addToPlaylist(it) }
-                    playlistQueueViewModel.playAt(infos.first())
-                    navController.add(NavRoutes.Player.Player)
-                }
-            }
-        }
+        // 卡片点播只"追加进队列"、不替换：VM 内尾部追加（整队列去重）+ playAt 定位。
+        // 不可用 addAllToPlaylistInOrder —— 它实际是整条替换并从首曲播起。
         when (val content = card.content) {
-            is RecommendContent -> playIds(listOf(content.trackId))
+            is RecommendContent -> viewModel.onPlayCardTracks(listOf(content.trackId))
 
-            is ForgottenContent -> playIds(listOf(content.trackId))
+            is ForgottenContent -> viewModel.onPlayCardTracks(listOf(content.trackId))
 
             // 纪念日：PLAYLIST_CREATE 无单曲（trackId=0），其余直接播
             is AnniversaryContent ->
-                if (content.trackId > 0L) playIds(listOf(content.trackId))
+                if (content.trackId > 0L) viewModel.onPlayCardTracks(listOf(content.trackId))
 
             // 探索卡：整组入队，从第一首播起
-            is DiscoverContent -> playIds(content.trackIds)
+            is DiscoverContent -> viewModel.onPlayCardTracks(content.trackIds)
 
             // 正在听卡 / 电台卡：进播放页
             is AnchorContent ->
@@ -229,6 +193,9 @@ fun HomeScreen(
                                     horizontalArrangement = Arrangement.spacedBy(metrics.cozy),
                                 ) {
                                     RadioCard(
+                                        radioState = homeState.radioState,
+                                        radioCard = homeState.radioCard,
+                                        onToggleRadio = viewModel::onToggleRadio,
                                         modifier = Modifier.fillMaxHeight(),
                                     )
                                     Column(
@@ -241,7 +208,7 @@ fun HomeScreen(
                                             payload = dailyPayload,
                                             enabled = !helloQuotaBlocked,
                                             onOpen = { navController.add(NavRoutes.Recommend.Daily) },
-                                            onPlay = { playRecommend(RecommendSource.DAILY) },
+                                            onPlay = { viewModel.onPlayRecommend(RecommendSource.DAILY) },
                                         )
                                         RecommendEntryCard(
                                             modifier = Modifier.weight(1f).fillMaxWidth(),
@@ -249,7 +216,7 @@ fun HomeScreen(
                                             payload = privatePayload,
                                             enabled = !helloQuotaBlocked,
                                             onOpen = { navController.add(NavRoutes.Recommend.Private) },
-                                            onPlay = { playRecommend(RecommendSource.PRIVATE) },
+                                            onPlay = { viewModel.onPlayRecommend(RecommendSource.PRIVATE) },
                                         )
                                     }
                                 }
@@ -300,6 +267,9 @@ fun HomeScreen(
                             horizontalArrangement = Arrangement.spacedBy(metrics.cozy),
                         ) {
                             RadioCard(
+                                radioState = homeState.radioState,
+                                radioCard = homeState.radioCard,
+                                onToggleRadio = viewModel::onToggleRadio,
                                 modifier = Modifier.fillMaxHeight(),
                             )
                             Column(
@@ -312,7 +282,7 @@ fun HomeScreen(
                                     payload = dailyPayload,
                                     enabled = !helloQuotaBlocked,
                                     onOpen = { navController.add(NavRoutes.Recommend.Daily) },
-                                    onPlay = { playRecommend(RecommendSource.DAILY) },
+                                    onPlay = { viewModel.onPlayRecommend(RecommendSource.DAILY) },
                                 )
                                 RecommendEntryCard(
                                     modifier = Modifier.weight(1f).fillMaxWidth(),
@@ -320,7 +290,7 @@ fun HomeScreen(
                                     payload = privatePayload,
                                     enabled = !helloQuotaBlocked,
                                     onOpen = { navController.add(NavRoutes.Recommend.Private) },
-                                    onPlay = { playRecommend(RecommendSource.PRIVATE) },
+                                    onPlay = { viewModel.onPlayRecommend(RecommendSource.PRIVATE) },
                                 )
                             }
                         }

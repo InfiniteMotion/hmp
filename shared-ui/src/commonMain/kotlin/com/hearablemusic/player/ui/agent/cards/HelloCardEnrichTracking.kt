@@ -23,10 +23,10 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
 import com.hearablemusic.player.ui.common.design.metrics.LocalHmpMetrics
 import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
 import com.hearablemusic.player.ui.generated.resources.Res
+import com.hearablemusic.player.ui.generated.resources.card_enrich_chunk
 import com.hearablemusic.player.ui.generated.resources.card_enrich_mixed_group
 import com.hearablemusic.player.ui.generated.resources.card_enrich_paused
 import com.hearablemusic.player.ui.generated.resources.card_enrich_progress
@@ -51,7 +51,11 @@ internal fun FamilyEnrichTrackingCard(
     val pct = if (c.currentUnitSize > 0) (c.processed * 100 / c.currentUnitSize) else 0
     val isRunning = c.active
     val artistLabel = c.currentArtist?.let { if (it == "MIXED_GROUP") stringResource(Res.string.card_enrich_mixed_group) else it }
-    val chunkLabel = if (c.chunkTotal > 0) " · chunk ${c.chunkIndex}/${c.chunkTotal}" else ""
+    val chunkLabel = if (c.chunkTotal > 0) {
+        stringResource(Res.string.card_enrich_chunk, c.chunkIndex, c.chunkTotal)
+    } else {
+        ""
+    }
     val typo = LocalHmpTypo.current
 
     // 点击手势统一处理（RadioStatus 同款）

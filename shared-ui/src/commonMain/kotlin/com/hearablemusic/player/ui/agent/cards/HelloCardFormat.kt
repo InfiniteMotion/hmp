@@ -81,7 +81,6 @@ internal fun helloFallBackCard() = SlideCard(
         albumArtUri = null,
         isPlaying = false,
         durationSec = 0,
-        progressPercent = 0,
         sourceLabel = null,
     ),
 )

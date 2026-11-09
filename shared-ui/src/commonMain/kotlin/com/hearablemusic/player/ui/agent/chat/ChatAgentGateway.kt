@@ -4,7 +4,6 @@ import com.hearablemusic.player.ui.generated.resources.Res
 import com.hearablemusic.player.ui.generated.resources.agent_chat_error_failed
 import com.hearablemusic.player.ui.generated.resources.agent_chat_radio_night_summary
 import com.hearablemusic.player.ui.generated.resources.agent_chat_radio_seed_summary
-import com.hmp.data.database.currentTimeMillis
 import com.hmp.data.util.currentHour
 import com.hmp.domain.agent.config.EngineDefaults
 import com.hmp.domain.agent.persona.DefaultCompanionProfiles
@@ -30,6 +29,7 @@ import com.hmp.domain.music.SortDirection
 import com.hmp.domain.setting.model.AiEndpointConfig
 import com.hmp.log.HmpLog
 import com.hmp.log.LogTag
+import com.hmp.platform.Synchronized
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -74,7 +74,10 @@ sealed interface ChatAgentEvent {
  *
  * 引擎在 [ConfirmGate.request] 中挂起等待用户勾选；本桥经 [onRequest] 向 UI 抛
  * [ChatAgentEvent.NeedConfirm]，UI 勾选后调 [submit] 用批准列表恢复引擎。
- * [CompletableDeferred] 跨协程线程安全，客服 ContinuousFlow/VM 均可安全调用。
+ *
+ * `pending` 与取号器会被**引擎生产协程**（awaitApprovals）和 **VM/UI 协程**（submit）
+ * 同时访问，统一走仓库既有的 `@Synchronized` 桥接串行化；`CompletableDeferred` 本身
+ * 负责恢复语义，锁只保护 map 与计数器。
  */
 class ConfirmBridge {
     private val pending = LinkedHashMap<String, CompletableDeferred<List<ConfirmOutcome>>>()
@@ -83,11 +86,22 @@ class ConfirmBridge {
     /** 向 UI 请求确认的回调（由网关在 flow 生产者上下文中注入，可 emit）。 */
     var onRequest: (suspend (String, List<ConfirmRequest>) -> Unit)? = null
 
+    @Synchronized
+    private fun nextTurnId(): String = "confirm_${counter++}"
+
+    @Synchronized
+    private fun register(turnId: String, deferred: CompletableDeferred<List<ConfirmOutcome>>) {
+        pending[turnId] = deferred
+    }
+
+    @Synchronized
+    private fun takePending(turnId: String): CompletableDeferred<List<ConfirmOutcome>>? = pending.remove(turnId)
+
     /** 引擎侧：登记一批待确认项并挂起，直到 [submit] 提供同序决策列表。 */
     suspend fun awaitApprovals(requests: List<ConfirmRequest>): List<ConfirmOutcome> {
-        val turnId = "confirm_${counter++}"
+        val turnId = nextTurnId()
         val deferred = CompletableDeferred<List<ConfirmOutcome>>()
-        pending[turnId] = deferred
+        register(turnId, deferred)
         HmpLog.i(LogTag.AgentGateway) { "🌉 confirm await: turn=$turnId items=${requests.size} waiting..." }
         onRequest?.invoke(turnId, requests)
         return deferred.await()
@@ -97,7 +111,7 @@ class ConfirmBridge {
      * UI 侧：提交决策列表，恢复对应 [turnId] 的挂起。
      * @return true 该批次仍待确认（成功投递）；false 该批次已关闭（竞态/已取消）。
      */
-    fun submit(turnId: String, outcomes: List<ConfirmOutcome>): Boolean = pending.remove(turnId)?.let {
+    fun submit(turnId: String, outcomes: List<ConfirmOutcome>): Boolean = takePending(turnId)?.let {
         HmpLog.i(LogTag.AgentGateway) { "🌉 confirm submit: turn=$turnId outcomes=$outcomes" }
         it.complete(outcomes)
     } ?: false.also { HmpLog.w(LogTag.AgentGateway) { "🌉 confirm submit: turn=$turnId 已关闭/取消" } }

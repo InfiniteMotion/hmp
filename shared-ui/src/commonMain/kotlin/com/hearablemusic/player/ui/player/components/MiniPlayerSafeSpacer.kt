@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.dp
 import com.hearablemusic.player.ui.common.design.metrics.HMPMetricTokens
 
 /**

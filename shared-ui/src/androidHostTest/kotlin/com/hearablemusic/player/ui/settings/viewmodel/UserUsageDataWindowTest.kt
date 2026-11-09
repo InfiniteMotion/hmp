@@ -80,10 +80,10 @@ class UserUsageDataWindowTest {
         val vm = UserUsageDataViewModel(repository, masterAgent)
         runCurrent()
 
-        assertEquals(Dimension.OVERVIEW, vm.windowed.value.failedDimension)
-        assertNull(vm.windowed.value.analytics)
+        assertEquals(Dimension.OVERVIEW, vm.uiState.value.windowed.failedDimension)
+        assertNull(vm.uiState.value.windowed.analytics)
         // 读完了（哪怕是失败）就不该还停在加载态
-        assertFalse(vm.windowed.value.isLoading)
+        assertFalse(vm.uiState.value.windowed.isLoading)
     }
 
     @Test
@@ -94,8 +94,8 @@ class UserUsageDataWindowTest {
         runCurrent()
 
         // 这条与上一条是成对的：只断言"失败会标记"，很容易顺手把空结果也标成失败
-        assertNull(vm.windowed.value.failedDimension)
-        assertEquals(0L, vm.windowed.value.analytics?.totalListeningMinutes)
+        assertNull(vm.uiState.value.windowed.failedDimension)
+        assertEquals(0L, vm.uiState.value.windowed.analytics?.totalListeningMinutes)
     }
 
     @Test
@@ -104,9 +104,9 @@ class UserUsageDataWindowTest {
 
         val vm = UserUsageDataViewModel(repository, masterAgent)
         // init 里的协程还没跑：首帧必须是加载态，而不是先闪一次"暂无数据"再跳变
-        assertTrue(vm.windowed.value.isLoading)
+        assertTrue(vm.uiState.value.windowed.isLoading)
 
         runCurrent()
-        assertTrue(vm.windowed.value.isLoading.not())
+        assertTrue(vm.uiState.value.windowed.isLoading.not())
     }
 }

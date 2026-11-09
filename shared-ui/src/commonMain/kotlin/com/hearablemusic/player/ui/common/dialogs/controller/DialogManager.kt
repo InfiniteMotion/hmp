@@ -26,10 +26,12 @@ import kotlin.coroutines.resume
 class DialogManager {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
+    // 容量从 1 提到 16 且不再 DROP_OLDEST：同一帧连发多条（toast + 导航 + 确认链推进）
+    // 时宁可让 emit 挂起等消费，也不静默丢事件。消费端是单点 collect，排空很快。
     private val _dialogEvent = MutableSharedFlow<DialogEvent?>(
         replay = 0,
-        extraBufferCapacity = 1,
-        onBufferOverflow = BufferOverflow.DROP_OLDEST,
+        extraBufferCapacity = 16,
+        onBufferOverflow = BufferOverflow.SUSPEND,
     )
     val dialogEvent: SharedFlow<DialogEvent?> = _dialogEvent.asSharedFlow()
 
@@ -59,8 +61,17 @@ class DialogManager {
     private val idMutex = Mutex()
     private var nextConfirmId = 0L
 
-    /** internal 而非 private：D6-08 的并发判据直接压这一层（事件流有 DROP_OLDEST 缓冲，按事件数断言不可靠）。 */
+    /** internal 而非 private：D6-08 的并发判据直接压这一层。 */
     internal suspend fun allocateConfirmId(): Long = idMutex.withLock { ++nextConfirmId }
+
+    /**
+     * 普通事件的 id，只服务 `MessageToast` 的 key。
+     *
+     * 与确认链分开取号：确认链 id 是协议字段，事件 id 只是渲染 key，混用会让两边的
+     * 起始值与并发判据互相牵连。取号点放在 emit 前的协程里，避免默认参数求值的线程不确定。
+     */
+    private var nextEventId = 0L
+    private suspend fun allocateEventId(): Long = idMutex.withLock { ++nextEventId }
 
     /**
      * 请求用户做一条确认链。挂起直到 UI 层全部通过 / 拒绝 / 取消。
@@ -143,20 +154,8 @@ class DialogManager {
     }
 
     fun showMessage(message: String, duration: MessageDuration = MessageDuration.Short) {
-        showDialog(DialogEvent.Message(message, duration))
-    }
-
-    fun showTimerDialog(onConfirm: (Int) -> Unit, onDismiss: () -> Unit = {}) {
-        showDialog(DialogEvent.ShowTimerDialog(onConfirm, onDismiss))
-    }
-
-    fun dismissTimerDialog() {
-        showDialog(DialogEvent.DismissTimerDialog)
-    }
-
-    fun dismissDialog() {
         scope.launch {
-            _dialogEvent.emit(null)
+            _dialogEvent.emit(DialogEvent.Message(message, duration, allocateEventId()))
         }
     }
 

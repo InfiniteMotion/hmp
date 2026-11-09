@@ -1,42 +1,18 @@
 package com.hearablemusic.player.ui.di
 
-import com.hearablemusic.player.ui.agent.chat.ChatViewModel
-import com.hearablemusic.player.ui.agent.chat.chatGatewayModule
-import com.hearablemusic.player.ui.agent.config.AiSettingsViewModel
-import com.hearablemusic.player.ui.agent.shell.RadioConsoleController
-import com.hearablemusic.player.ui.common.dialogs.controller.DialogManager
-import com.hearablemusic.player.ui.common.dialogs.viewmodel.DialogManagerViewModel
-import com.hearablemusic.player.ui.common.dialogs.viewmodel.DialogViewModel
-import com.hearablemusic.player.ui.common.viewmodel.ThemeViewModel
-import com.hearablemusic.player.ui.library.viewmodel.EditMusicTagsViewModel
-import com.hearablemusic.player.ui.library.viewmodel.LibraryViewModel
-import com.hearablemusic.player.ui.library.viewmodel.SearchViewModel
-import com.hearablemusic.player.ui.library.viewmodel.SongDetailViewModel
 import com.hearablemusic.player.ui.platform.AlbumArtPixelsLoader
 import com.hearablemusic.player.ui.platform.IosAlbumArtPixelsLoader
 import com.hearablemusic.player.ui.platform.IosPlatformServices
 import com.hearablemusic.player.ui.platform.IosPlaybackController
 import com.hearablemusic.player.ui.platform.PlatformServices
 import com.hearablemusic.player.ui.platform.PlaybackController
-import com.hearablemusic.player.ui.player.viewmodel.PlaybackViewModel
-import com.hearablemusic.player.ui.player.viewmodel.PlaylistQueueViewModel
-import com.hearablemusic.player.ui.playlist.viewmodel.ArtistAlbumViewModel
-import com.hearablemusic.player.ui.playlist.viewmodel.PlaylistViewModel
-import com.hearablemusic.player.ui.settings.viewmodel.AudioEffectViewModel
-import com.hearablemusic.player.ui.settings.viewmodel.BackupViewModel
-import com.hearablemusic.player.ui.settings.viewmodel.LyricsSettingsViewModel
-import com.hearablemusic.player.ui.settings.viewmodel.RecommendationViewModel
-import com.hearablemusic.player.ui.settings.viewmodel.SettingsViewModel
-import com.hearablemusic.player.ui.settings.viewmodel.UserUsageDataViewModel
 import com.hmp.data.database.AppDatabaseGuard
 import com.hmp.data.database.hmpDatabasePath
-import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
 
 /**
- * iosMain 侧 UI Koin 模块（A3，镜像 desktopMain 的 DesktopUiKoinModule）。
- *
- * 注册面与 android / desktop 完全一致（commonMain 的 VM 类相同、构造参数相同），差异只有平台桥三件：
+ * iosMain 侧 UI 装配（A3）：跨端注册与 android / desktop 共用 commonMain 的 [uiViewModelModule]，
+ * 本模块只有平台桥三件：
  * - PlaybackController → IosPlaybackController（Swift 引擎双桥：状态汇总 + 命令闭包）
  * - AlbumArtPixelsLoader → skiko 实现（IosAlbumArtPixelsLoader，与 Desktop 同构）
  * - PlatformServices → IosPlatformServices（Swift 闭包 + Taptic Engine 触觉）
@@ -45,10 +21,7 @@ import org.koin.dsl.module
  * 一并注册 shared 侧的 sharedModule + iosPlatformModule。
  */
 val iosUiModule = module {
-    includes(chatGatewayModule)
-
-    single { DialogManager() }
-    single { RadioConsoleController() }
+    includes(uiViewModelModule)
 
     // 平台桥三件（PlaybackController 为单例 object，Swift 桥与 Koin 共用同一实例）。
     // ⚠️ 这一行曾因文件编码损坏被并进上一行的 `//` 注释里 —— 编译不报错（注释合法），
@@ -57,27 +30,6 @@ val iosUiModule = module {
     single<PlaybackController> { IosPlaybackController }
     single<AlbumArtPixelsLoader> { IosAlbumArtPixelsLoader() }
     single<PlatformServices> { IosPlatformServices() }
-
-    viewModel { DialogManagerViewModel(get()) }
-    viewModel { DialogViewModel(get(), get(), get(), get(), get(), get()) }
-
-    viewModel { LibraryViewModel(get(), get(), get(), get(), get(), get(), get(), get<com.hmp.domain.agent.runtime.MasterAgent>()) }
-    viewModel { SearchViewModel(get()) }
-    viewModel { SongDetailViewModel(get(), get()) }
-    viewModel { EditMusicTagsViewModel(get(), get(), get()) }
-    viewModel { PlaybackViewModel(get()) }
-    viewModel { PlaylistQueueViewModel(get()) }
-    viewModel { PlaylistViewModel(get(), get(), get(), get()) }
-    viewModel { ArtistAlbumViewModel(get()) }
-    viewModel { SettingsViewModel(get()) }
-    viewModel { AudioEffectViewModel(get()) }
-    viewModel { BackupViewModel(get(), get(), get(), get()) }
-    viewModel { AiSettingsViewModel(get(), get(), get()) }
-    viewModel { LyricsSettingsViewModel(get()) }
-    viewModel { RecommendationViewModel(get(), get(), get()) }
-    viewModel { UserUsageDataViewModel(get<com.hmp.domain.music.MusicRepository>(), get<com.hmp.domain.agent.runtime.MasterAgent>()) }
-    viewModel { ChatViewModel(get(), get(), get(), get(), get()) }
-    viewModel { ThemeViewModel(get(), get()) }
 }
 
 /** iOS 壳一次性装配入口：shared（业务 + 平台）+ shared-ui 的全部 Koin 模块。 */

@@ -22,8 +22,6 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.json.Json
-import java.io.File
-import java.io.IOException
 
 private val Context.dataStore by preferencesDataStore(name = "player_preferences")
 

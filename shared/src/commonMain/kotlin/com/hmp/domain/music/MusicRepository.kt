@@ -23,6 +23,14 @@ interface MusicRepository {
      * 变成"能用，但换个排法" —— 枚举让这种调用编不过。实现也只有一份（`MusicRepositoryBase`）。
      */
     suspend fun getAllMusicInfoAsList(key: MusicSortKey, direction: SortDirection): List<MusicInfo>
+
+    /**
+     * 全库列表的可观察版本：与 [getAllMusicInfoAsList] 同一排序口径，由 Room 驱动。
+     *
+     * 屏级 VM 直接订阅它，而不是「改一次库就手动重查一次」—— 后者正是本次拆分的动因
+     * （删除 / 恢复 / 扫描 / agent 写入各有一条路径，谁漏了刷新都没人发现）。
+     */
+    fun observeAllMusicInfoAsList(key: MusicSortKey, direction: SortDirection): Flow<List<MusicInfo>>
     fun getMusicCount(): Flow<Int>
     fun getMusicWithExtraCount(): Flow<Int>
     fun getMusicWithMissingExtraCount(): Flow<Int>
@@ -55,6 +63,9 @@ interface MusicRepository {
 
     /** 已软删除的歌曲按父文件夹路径分组，用于「隐藏文件夹」的恢复。返回 (文件夹路径, 该文件夹下已删除歌曲的 id 列表)。 */
     suspend fun getDeletedMusicIdsGroupedByFolder(): List<Pair<String, List<Long>>>
+
+    /** [getDeletedMusicIdsGroupedByFolder] 的可观察版本（设置页「已隐藏文件夹」随删除 / 恢复回流）。 */
+    fun observeDeletedMusicIdsGroupedByFolder(): Flow<List<Pair<String, List<Long>>>>
 
     // Labels
     suspend fun addMusicLabel(label: MusicLabel)

@@ -13,7 +13,6 @@ import com.hearablemusic.player.ui.common.design.typography.m3ComponentTypograph
 @Composable
 fun HearableMusicPlayerTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    dynamicColor: Boolean = false,
     content: @Composable () -> Unit,
 ) {
     val colorScheme = ThemeExtensionManager.getColorScheme(darkTheme)

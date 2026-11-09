@@ -6,7 +6,6 @@ import com.hmp.domain.agent.tool.createBaseToolRegistry
 import com.hmp.domain.agent.tool.spec.ToolNames
 import com.hmp.domain.agent.tool.spec.ToolNotFoundException
 import com.hmp.domain.agent.tool.spec.ToolParamError
-import com.hmp.domain.agent.tool.spec.ToolRegistry
 import com.hmp.domain.enum.LabelCategory
 import com.hmp.domain.enum.LabelName
 import com.hmp.domain.music.Music
@@ -24,7 +23,6 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
-import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class AgentToolsTest {

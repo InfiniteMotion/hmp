@@ -12,7 +12,6 @@ import com.hearablemusic.player.ui.common.design.theme.HearableMusicPlayerTheme
 import com.hearablemusic.player.ui.common.pages.IntroScreen
 import com.hearablemusic.player.ui.common.util.LocalAppViewModelStoreOwner
 import com.hearablemusic.player.ui.common.util.activityViewModel
-import com.hearablemusic.player.ui.library.viewmodel.LibraryViewModel
 import com.hearablemusic.player.ui.settings.viewmodel.RecommendationViewModel
 import com.hearablemusic.player.ui.settings.viewmodel.SettingsViewModel
 import platform.UIKit.UIViewController
@@ -45,11 +44,9 @@ fun IosAppRootShell() {
         }
         HearableMusicPlayerTheme(darkTheme = darkTheme) {
             if (isFirstLaunch) {
-                val libraryViewModel: LibraryViewModel = activityViewModel()
                 val recommendationViewModel: RecommendationViewModel = activityViewModel()
                 IntroScreen(
                     settingsViewModel = settingsViewModel,
-                    libraryViewModel = libraryViewModel,
                     recommendationViewModel = recommendationViewModel,
                     onFinished = {
                         settingsViewModel.saveIsFirstLaunchStatus(false)

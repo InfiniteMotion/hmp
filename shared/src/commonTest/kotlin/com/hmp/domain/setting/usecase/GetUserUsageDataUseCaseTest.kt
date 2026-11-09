@@ -1,6 +1,5 @@
 package com.hmp.domain.setting.usecase
 
-import com.hmp.domain.setting.model.UserUsageAnalytics
 import com.hmp.test.fakes.FakeMusicRepository
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test

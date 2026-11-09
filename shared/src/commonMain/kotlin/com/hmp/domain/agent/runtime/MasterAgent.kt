@@ -1,7 +1,6 @@
 package com.hmp.domain.agent.runtime
 
 import com.hmp.domain.agent.config.EngineDefaults
-import com.hmp.domain.agent.enrich.EnrichHealth
 import com.hmp.domain.agent.enrich.EnrichTask
 import com.hmp.domain.agent.infra.PresenceBus
 import com.hmp.domain.agent.infra.PresenceEvent
@@ -13,16 +12,12 @@ import com.hmp.domain.agent.policy.PolicyGuard
 import com.hmp.domain.agent.policy.TrustLedger
 import com.hmp.domain.agent.policy.TrustLevel
 import com.hmp.domain.agent.port.AgentKeepAlivePort
-import com.hmp.domain.agent.port.AuditEntry
 import com.hmp.domain.agent.port.AuditLogPort
 import com.hmp.domain.agent.port.Capability
-import com.hmp.domain.agent.port.CapabilityState
 import com.hmp.domain.agent.port.ConfirmGate
 import com.hmp.domain.agent.port.KeepAliveReason
 import com.hmp.domain.agent.port.LibraryMutatedNotifier
-import com.hmp.domain.agent.port.LlmEvent
 import com.hmp.domain.agent.port.LlmMessage
-import com.hmp.domain.agent.port.LlmToolCall
 import com.hmp.domain.agent.port.LlmTransport
 import com.hmp.domain.agent.port.PlaybackObservationBus
 import com.hmp.domain.agent.runtime.i18n.resolvePrompt
@@ -33,7 +28,6 @@ import com.hmp.domain.agent.runtime.sub.radio.RadioTrigger
 import com.hmp.domain.agent.runtime.sub.shared.SubAgent
 import com.hmp.domain.agent.tool.bindCapabilityTools
 import com.hmp.domain.agent.tool.spec.ToolRegistry
-import com.hmp.domain.enum.LabelName
 import com.hmp.domain.music.MusicRepository
 import com.hmp.domain.setting.model.AiEndpointConfig
 import com.hmp.log.HmpLog
@@ -43,13 +37,10 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.isActive
-import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
@@ -261,6 +252,17 @@ class MasterAgent internal constructor(
     private var radioPlaylistForwarderJob: kotlinx.coroutines.Job? = null
 
     /**
+     * 电台短时消息的**固定转发流**。与 [_radioPlaylist] 同一教训：RadioSubAgent 每档重建，
+     * UI 缓存子代理的 `messageFlow` 会在首帧/换代后拿到空流，短时消息永不显示。
+     */
+    private val _radioMessage =
+        MutableStateFlow<com.hmp.domain.agent.runtime.sub.radio.RadioMessage?>(null)
+    val radioMessage: StateFlow<com.hmp.domain.agent.runtime.sub.radio.RadioMessage?> = _radioMessage
+
+    /** 短时消息转发协程（stopRadio 时 cancel）。 */
+    private var radioMessageForwarderJob: kotlinx.coroutines.Job? = null
+
+    /**
      * G6：每日推荐 / 私人推荐列表的**固定转发流**。
      *
      * HelloSubAgent 是 Koin 初始化时异步 startHello 出来的，UI 首帧拿子代理的流可能为 null；
@@ -276,6 +278,28 @@ class MasterAgent internal constructor(
 
     /** 推荐列表转发协程（stopHello 时 cancel）。 */
     private var recommendListForwarderJob: kotlinx.coroutines.Job? = null
+
+    /**
+     * Hello 卡片流的**固定转发流**。HelloSubAgent 由 Master 初始化时异步启动、stop/重建会换实例，
+     * UI 首帧直接透传 `helloAgent.cards` 会缓存到空流/旧实例（同 [_radioPlaylist] 的教训）。
+     */
+    private val _helloCards =
+        MutableStateFlow<List<com.hmp.domain.agent.card.SlideCard>>(emptyList())
+    val helloCards: StateFlow<List<com.hmp.domain.agent.card.SlideCard>> = _helloCards
+
+    /** Hello 卡片转发协程（stopHello 时 cancel）。 */
+    private var helloCardsForwarderJob: kotlinx.coroutines.Job? = null
+
+    /**
+     * Enrich 进度的**固定转发流**。EnrichSubAgent 按需创建/重建，UI 不能缓存子代理的
+     * `progressState`（否则 ENRICH 卡冻结在首帧的 IDLE/旧实例）。
+     */
+    private val _enrichProgress =
+        MutableStateFlow(com.hmp.domain.agent.runtime.sub.enrich.EnrichProgress.IDLE)
+    val enrichProgress: StateFlow<com.hmp.domain.agent.runtime.sub.enrich.EnrichProgress> = _enrichProgress
+
+    /** Enrich 进度转发协程（stopEnrich 时 cancel）。 */
+    private var enrichProgressForwarderJob: kotlinx.coroutines.Job? = null
 
     /**
      * 上一段电台对话（**进程内，不落盘**）。
@@ -456,7 +480,7 @@ class MasterAgent internal constructor(
     /**
      * 库变更通知（契约 §4.1.4 事件驱动，v3.6 收口）。
      *
-     * UI 层（LibraryViewModel）只发「库变了」这个**命令**，不直接触碰 [userMemory] 的
+     * UI 层（`LibraryScanUseCase` / 曲库屏级 VM）只发「库变了」这个**命令**，不直接触碰 [userMemory] 的
      * 内部方法 —— 统一走 [ensureProfileReady] 让 Master 协调完整的画像重建链路
      * （曲库侧写 → 行为侧写 → 叙事过期检查）。fire-and-forget：画像失败不影响库操作本身。
      */
@@ -732,6 +756,12 @@ class MasterAgent internal constructor(
             )
             installSubAgent("enrich", enrichAgent)
 
+            // ⑤-2 转发进度 → 固定 _enrichProgress（UI 不能缓存子代理的 progressState）
+            enrichProgressForwarderJob?.cancel()
+            enrichProgressForwarderJob = scope.launch {
+                enrichAgent.progressState.collect { _enrichProgress.value = it }
+            }
+
             // ⑥ 注册到 Scheduler（priority=3）
             scheduler.registerAgent(
                 AgentRegistration(
@@ -768,6 +798,9 @@ class MasterAgent internal constructor(
             old.join() // 等旧 runLoop 真正退出，重建时不会两代并存
         }
         enrichRunLoopJob = null
+        enrichProgressForwarderJob?.cancel()
+        enrichProgressForwarderJob = null
+        _enrichProgress.value = com.hmp.domain.agent.runtime.sub.enrich.EnrichProgress.IDLE
     }
 
     // ===== Radio 电台管理（M6-T1 · F1：Master 唯一决策） =====
@@ -900,6 +933,12 @@ class MasterAgent internal constructor(
                 radioAgent.playlist.collect { _radioPlaylist.value = it }
             }
 
+            // ⑥-6 转发短时消息 → 固定 _radioMessage（同 ⑥-5 的固定实例理由）
+            radioMessageForwarderJob?.cancel()
+            radioMessageForwarderJob = scope.launch {
+                radioAgent.messageFlow.collect { _radioMessage.value = it }
+            }
+
             // ⑦ 立即调 startRadio → 本地保底队列（同步返回给 ChatAgentGateway 渲染 songlist 卡）
             //    **开播整段跑在 Master 自己的 scope 里**：真机踩过 —— RadioCard 用
             //    rememberCoroutineScope.launch 调进来，用户切页导致组合树销毁，
@@ -979,8 +1018,11 @@ class MasterAgent internal constructor(
         radioCardStateForwarderJob = null
         radioPlaylistForwarderJob?.cancel()
         radioPlaylistForwarderJob = null
+        radioMessageForwarderJob?.cancel()
+        radioMessageForwarderJob = null
         _radioCardState.value = com.hmp.domain.agent.runtime.sub.radio.RadioCardState(null, 0, null, null)
         _radioPlaylist.value = emptyList()
+        _radioMessage.value = null
         _radioState.value = null
     }
 
@@ -1118,6 +1160,12 @@ class MasterAgent internal constructor(
                 launch { helloAgent.privateRecommendList.collect { _privateRecommendList.value = it } }
             }
 
+            // ⑦-2 卡片流同理由：UI 缓存固定 StateFlow，不缓存子代理实例
+            helloCardsForwarderJob?.cancel()
+            helloCardsForwarderJob = scope.launch {
+                helloAgent.cards.collect { _helloCards.value = it }
+            }
+
             HmpLog.i(LogTag.AgentMaster) { "🤖 [Master] HelloSubAgent created (llm=${helloTransport != null})" }
             return helloAgent
         }
@@ -1147,6 +1195,9 @@ class MasterAgent internal constructor(
         recommendListForwarderJob = null
         _dailyRecommendList.value = null
         _privateRecommendList.value = null
+        helloCardsForwarderJob?.cancel()
+        helloCardsForwarderJob = null
+        _helloCards.value = emptyList()
     }
 
     // ═══ 热更新 AI 配置 ═══
@@ -1259,23 +1310,12 @@ class MasterAgent internal constructor(
     /** 电台主题（用户 seed 或自动提取的风格关键词，null=自动电台） */
     fun queryRadioStationTheme(): String? = (_subAgents["radio"] as? com.hmp.domain.agent.runtime.sub.radio.RadioSubAgent)?.stationTheme
 
-    /** 电台未就绪时的稳定空消息流——缓存实例，避免每次调用新建导致 UI 以实例为 key 重复订阅（G8） */
-    private val _emptyRadioMessageFlow =
-        kotlinx.coroutines.flow.MutableStateFlow<com.hmp.domain.agent.runtime.sub.radio.RadioMessage?>(null)
+    /** 电台短时消息流——固定转发自当前子代理；emit 后 4s 自动消失，渲染在 RADIO_STATUS 卡右侧。 */
+    fun radioMessageFlow(): kotlinx.coroutines.flow.StateFlow<com.hmp.domain.agent.runtime.sub.radio.RadioMessage?> = radioMessage
 
-    /** 电台短时消息流——emit 后 4s 自动消失，UI 层 collect 后直接渲染在 RADIO_STATUS 卡右侧 */
-    fun radioMessageFlow(): kotlinx.coroutines.flow.StateFlow<com.hmp.domain.agent.runtime.sub.radio.RadioMessage?> = (_subAgents["radio"] as? com.hmp.domain.agent.runtime.sub.radio.RadioSubAgent)?.messageFlow
-        ?: _emptyRadioMessageFlow
-
-    /**
-     * Hello 卡片流（**只读门面**）。
-     *
-     * 为什么不让 UI 直接拿 [helloAgent]：那会把 `HelloSubAgent` 这个**实现类型**
-     * 暴露给 UI —— UI 只需要"看到卡片"，不需要"操作 Hello"。
-     * 与 [tokenUsage] 同理：**把数据形状与写入能力分开**（F13 抽门面范式）。
-     */
-    val helloCards: kotlinx.coroutines.flow.StateFlow<List<com.hmp.domain.agent.card.SlideCard>>?
-        get() = helloAgent()?.cards
+    // Hello 卡片流（只读门面）已改为类字段 `helloCards`（固定转发流，见上方 _helloCards）。
+    // 为什么不让 UI 直接拿 [helloAgent]：那会把 `HelloSubAgent` 这个实现类型暴露给 UI ——
+    // UI 只需要"看到卡片"，不需要"操作 Hello"（F13 抽门面范式）。
 
     /** Hello 实例本身 —— **引擎内部用**（报告叙事段、卡片快照）。UI 走 [helloCards]。 */
     internal fun helloAgent(): HelloSubAgent? = _subAgents["hello"] as? HelloSubAgent
@@ -1283,8 +1323,8 @@ class MasterAgent internal constructor(
     // G6 的 dailyRecommendList / privateRecommendList 已改为类字段（固定转发流，见上方 _dailyRecommendList），
     // 不再是返回 nullable 的函数——UI 首帧即可拿到稳定 StateFlow。
 
-    /** Enrich 进度 StateFlow（UI 层 EnrichTracking 卡用）。无 Enrich 时返回 null。 */
-    fun enrichProgressState(): kotlinx.coroutines.flow.StateFlow<com.hmp.domain.agent.runtime.sub.enrich.EnrichProgress>? = (_subAgents["enrich"] as? com.hmp.domain.agent.runtime.sub.enrich.EnrichSubAgent)?.progressState
+    /** Enrich 进度 StateFlow（UI 层 EnrichTracking 卡用）。固定转发流，无 Enrich 时为 IDLE。 */
+    fun enrichProgressState(): kotlinx.coroutines.flow.StateFlow<com.hmp.domain.agent.runtime.sub.enrich.EnrichProgress> = enrichProgress
 
     /** UI 层轮询播放快照（ANCHOR 卡直接读）*/
     suspend fun queryNowPlayingContext(): com.hmp.domain.agent.port.NowPlayingContext? = nowPlayingProvider?.runCatching { getNowPlaying() }?.getOrNull()

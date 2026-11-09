@@ -5,7 +5,6 @@ import java.awt.Image
 import java.awt.MenuItem
 import java.awt.PopupMenu
 import java.awt.SystemTray
-import java.awt.Toolkit
 import java.awt.TrayIcon
 import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent

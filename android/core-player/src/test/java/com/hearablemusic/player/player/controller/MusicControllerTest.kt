@@ -5,8 +5,6 @@ import com.hmp.domain.enum.PlaybackMode
 import com.hmp.domain.playlist.usecase.ManagePlaylistUseCase
 import com.hmp.domain.setting.SettingsRepository
 import com.hmp.domain.setting.usecase.CurrentPlaybackUseCase
-import com.hmp.domain.setting.usecase.PlaybackHistoryUseCase
-import com.hmp.domain.setting.usecase.TimerUseCase
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers

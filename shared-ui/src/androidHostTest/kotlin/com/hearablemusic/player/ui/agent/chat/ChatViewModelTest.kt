@@ -8,6 +8,7 @@ import com.hmp.domain.agent.port.StoredAgentMessage
 import com.hmp.domain.agent.port.ToolPermissionLevel
 import com.hmp.domain.agent.runtime.TerminationReason
 import com.hmp.domain.setting.usecase.UserSettingsUseCase
+import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -54,6 +55,7 @@ class ChatViewModelTest {
         fakeMessageStore,
         // 测试里不限额：dao/settings 均可空，闸门恒放行
         com.hmp.domain.agent.quota.TokenQuotaGate(null, null) { 0L },
+        mockk(relaxed = true),
     )
 
     private fun needConfirm() = ChatAgentEvent.NeedConfirm(
@@ -70,12 +72,12 @@ class ChatViewModelTest {
         val vm = vm(gateway)
         runCurrent() // init 里的会话恢复 / 问候填充跑在 viewModelScope 上
 
-        assertEquals(1, vm.state.value.messages.size) // 问候区
+        assertEquals(1, vm.uiState.value.messages.size) // 问候区
         vm.onInputChange("帮我建个歌单")
         vm.send()
         runCurrent()
 
-        val state = vm.state.value
+        val state = vm.uiState.value
         assertTrue(state.running)
         // F14-T2 起 runningHint 是 UiText（组合期才解析），非组合侧只能做结构断言
         assertNotNull(state.runningHint)
@@ -95,8 +97,8 @@ class ChatViewModelTest {
         vm.send()
         runCurrent()
 
-        assertFalse(vm.state.value.running)
-        assertEquals(1, vm.state.value.messages.size)
+        assertFalse(vm.uiState.value.running)
+        assertEquals(1, vm.uiState.value.messages.size)
     }
 
     @Test
@@ -108,7 +110,7 @@ class ChatViewModelTest {
         vm.sendPreloaded("你好") // 外部入口带入（M1 锚点 → M5 对话）
         runCurrent()
 
-        val state = vm.state.value
+        val state = vm.uiState.value
         assertTrue(state.running)
         assertEquals(2, state.messages.size)
         val userBubble = state.messages.last()
@@ -129,14 +131,14 @@ class ChatViewModelTest {
         gateway.emitEvent(needConfirm())
         runCurrent()
 
-        val pending = vm.state.value.pendingConfirm
+        val pending = vm.uiState.value.pendingConfirm
         assertTrue(pending != null)
         assertEquals(2, pending!!.items.size)
         assertTrue(pending.items.all { it.selected })
 
         vm.toggleConfirmItem(pending.items[0].id)
-        assertFalse(vm.state.value.pendingConfirm!!.items.first().selected)
-        assertTrue(vm.state.value.pendingConfirm!!.items[1].selected)
+        assertFalse(vm.uiState.value.pendingConfirm!!.items.first().selected)
+        assertTrue(vm.uiState.value.pendingConfirm!!.items[1].selected)
     }
 
     @Test
@@ -149,13 +151,13 @@ class ChatViewModelTest {
 
         gateway.emitEvent(needConfirm())
         runCurrent()
-        val id = vm.state.value.pendingConfirm!!.items.first().id
+        val id = vm.uiState.value.pendingConfirm!!.items.first().id
 
         vm.submitConfirm()
         runCurrent()
         vm.toggleConfirmItem(id)
 
-        assertEquals(true, vm.state.value.pendingConfirm!!.items.first().selected)
+        assertEquals(true, vm.uiState.value.pendingConfirm!!.items.first().selected)
     }
 
     @Test
@@ -169,15 +171,15 @@ class ChatViewModelTest {
         gateway.emitEvent(needConfirm())
         runCurrent()
         // 勾掉第二项再照做
-        val secondId = vm.state.value.pendingConfirm!!.items[1].id
+        val secondId = vm.uiState.value.pendingConfirm!!.items[1].id
         vm.toggleConfirmItem(secondId)
         vm.submitConfirm()
-        assertTrue(vm.state.value.pendingConfirm!!.submitted)
+        assertTrue(vm.uiState.value.pendingConfirm!!.submitted)
 
         gateway.emitEvent(ChatAgentEvent.Finished("已整理到歌单", emptyList(), TerminationReason.ANSWERED))
         runCurrent()
 
-        val state = vm.state.value
+        val state = vm.uiState.value
         assertFalse(state.running)
         assertNull(state.pendingConfirm)
         val confirmBubble = state.messages[state.messages.lastIndex - 1]
@@ -208,13 +210,13 @@ class ChatViewModelTest {
         runCurrent()
 
         vm.skipConfirm()
-        assertTrue(vm.state.value.pendingConfirm!!.submitted)
-        assertTrue(vm.state.value.pendingConfirm!!.items.none { it.selected })
+        assertTrue(vm.uiState.value.pendingConfirm!!.submitted)
+        assertTrue(vm.uiState.value.pendingConfirm!!.items.none { it.selected })
 
         gateway.emitEvent(ChatAgentEvent.Finished("明白了", emptyList(), TerminationReason.ANSWERED))
         runCurrent()
 
-        val confirmBubble = vm.state.value.messages[vm.state.value.messages.lastIndex - 1]
+        val confirmBubble = vm.uiState.value.messages[vm.uiState.value.messages.lastIndex - 1]
         assertTrue(confirmBubble.confirmItems.none { it.selected })
         val allSkipped = confirmBubble.receipt as? UiText.Res
         assertNotNull(allSkipped)
@@ -237,8 +239,8 @@ class ChatViewModelTest {
         runCurrent()
 
         // pending 未提交时不派新一轮：仍在 running，消息数不再增加
-        assertTrue(vm.state.value.running)
-        assertEquals(2, vm.state.value.messages.size)
+        assertTrue(vm.uiState.value.running)
+        assertEquals(2, vm.uiState.value.messages.size)
     }
 
     @Test
@@ -252,7 +254,7 @@ class ChatViewModelTest {
         gateway.emitEvent(ChatAgentEvent.Failed("network down"))
         runCurrent()
 
-        val state = vm.state.value
+        val state = vm.uiState.value
         assertFalse(state.running)
         assertNull(state.pendingConfirm)
         val last = state.messages.last()

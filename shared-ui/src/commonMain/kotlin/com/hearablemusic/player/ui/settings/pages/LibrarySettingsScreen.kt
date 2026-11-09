@@ -24,18 +24,19 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
 import com.hearablemusic.player.ui.common.components.base.TitleWidget
@@ -44,7 +45,6 @@ import com.hearablemusic.player.ui.common.design.typography.LocalHmpTypo
 import com.hearablemusic.player.ui.common.design.typography.medium
 import com.hearablemusic.player.ui.common.layout.LocalWindowSizeInfo
 import com.hearablemusic.player.ui.common.pages.base.SubScreen
-import com.hearablemusic.player.ui.common.util.activityViewModel
 import com.hearablemusic.player.ui.generated.resources.Res
 import com.hearablemusic.player.ui.generated.resources.add_directory
 import com.hearablemusic.player.ui.generated.resources.analyzed_songs
@@ -85,7 +85,9 @@ import com.hearablemusic.player.ui.generated.resources.trash
 import com.hearablemusic.player.ui.generated.resources.unhide_folder
 import com.hearablemusic.player.ui.library.viewmodel.FolderInfo
 import com.hearablemusic.player.ui.library.viewmodel.HiddenFolderInfo
-import com.hearablemusic.player.ui.library.viewmodel.LibraryViewModel
+import com.hearablemusic.player.ui.library.viewmodel.KnownFolderPickerTarget
+import com.hearablemusic.player.ui.library.viewmodel.LibrarySettingsEffect
+import com.hearablemusic.player.ui.library.viewmodel.LibrarySettingsViewModel
 import com.hearablemusic.player.ui.platform.DirectorySelectionMode
 import com.hearablemusic.player.ui.platform.PlatformServices
 import com.hearablemusic.player.ui.player.components.MiniPlayerSafeSpacer
@@ -93,27 +95,48 @@ import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
+import org.koin.compose.viewmodel.koinViewModel
 
 @Composable
 fun LibrarySettingsScreen(
     navController: NavBackStack<NavKey>,
-    libraryViewModel: LibraryViewModel = activityViewModel(),
+    // 屏级 VM：本屏交互态与数据投影都在这里；扫描动作经 LibraryScanUseCase（与引导页同一条）
+    settingsViewModel: LibrarySettingsViewModel = koinViewModel(),
 ) {
     val metrics = LocalHmpMetrics.current
-    val musicCount by libraryViewModel.musicCount.collectAsState(initial = 0)
-    val analyzedCount by libraryViewModel.musicWithExtraCount.collectAsState(initial = 0)
-    val scannedFolders by libraryViewModel.scannedFolders.collectAsState()
-    val hiddenFolders by libraryViewModel.hiddenFolders.collectAsState()
-    val scanDirConfig by libraryViewModel.scanDirectoryConfig.collectAsState()
-    val isScanning by libraryViewModel.isScanning.collectAsState(initial = false)
+    // 单一状态出口：交互态 + 本屏数据投影（总量 / 扫描进度 / 目录 / 隐藏文件夹）
+    val uiState by settingsViewModel.uiState.collectAsState()
+    // 已知文件夹列表被横竖屏两处复用，转换只做一次
+    val knownFolderPaths = remember(uiState.scannedFolders) {
+        uiState.scannedFolders.map { it.path }
+    }
 
-    // 权限提示条（R1b）：无音频读取权限时曲库必然为空 —— 给出可见原因与「去设置」入口，
-    // 避免「静默空库」。读取随每次重组刷新，从系统设置返回后即可更新。
+    // 权限提示条（R1b）：无音频读取权限时曲库必然为空 —— 给出可见原因与「去设置」入口。
+    // 权限态进 uiState；查询仍留在 UI 门面，进入时查一次 + ON_RESUME 重查（从系统设置返回即更新）。
     val platformServices: PlatformServices = koinInject()
-    val hasMusicReadAccess = platformServices.permission.hasMusicReadAccess()
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                settingsViewModel.onPermissionChecked(platformServices.permission.hasMusicReadAccess())
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        settingsViewModel.onPermissionChecked(platformServices.permission.hasMusicReadAccess())
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
+    // 一次性效果：系统目录选择器由组合点消费，VM 不持有 PlatformServices
     LaunchedEffect(Unit) {
-        libraryViewModel.loadHiddenFolders()
+        settingsViewModel.effect.collect { effect ->
+            when (effect) {
+                is LibrarySettingsEffect.PickDirectory -> {
+                    platformServices.filePicker.pickDirectory { picked ->
+                        picked?.let { settingsViewModel.onDirectoryPicked(effect.target, it) }
+                    }
+                }
+            }
+        }
     }
 
     SubScreen(
@@ -128,7 +151,7 @@ fun LibrarySettingsScreen(
                 .padding(metrics.section),
             verticalArrangement = Arrangement.spacedBy(metrics.section),
         ) {
-            if (!hasMusicReadAccess && musicCount == 0) {
+            if (uiState.hasMusicReadAccess == false && uiState.musicCount == 0) {
                 PermissionNoticeBanner(onOpenSettings = platformServices.permission::openAppSettings)
             }
             if (isLandscape) {
@@ -139,47 +162,74 @@ fun LibrarySettingsScreen(
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(metrics.section)) {
                         // 1. 音乐库统计
                         LibraryStatsSection(
-                            musicCount = musicCount,
-                            analyzedCount = analyzedCount,
+                            musicCount = uiState.musicCount,
+                            analyzedCount = uiState.analyzedCount,
                         )
 
                         // 2. 扫描选项
                         ScanOptionsSection(
-                            isScanning = isScanning,
-                            onIncrementalScan = libraryViewModel::refreshMusicList,
-                            onFullRescan = libraryViewModel::fullRescan,
+                            isScanning = uiState.isScanning,
+                            onIncrementalScan = settingsViewModel::onIncrementalScanRequested,
+                            showFullRescanConfirm = uiState.showFullRescanConfirm,
+                            onFullRescanRequested = settingsViewModel::onFullRescanRequested,
+                            onFullRescanConfirmed = settingsViewModel::onFullRescanConfirmed,
+                            onFullRescanDismissed = settingsViewModel::onFullRescanDismissed,
                         )
                     }
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(metrics.section)) {
                         LibraryManagementSection(
-                            folders = scannedFolders,
-                            hiddenFolders = hiddenFolders,
-                            onHideFolder = libraryViewModel::hideFolder,
-                            onUnhideFolder = libraryViewModel::restoreToLibrary,
+                            folders = uiState.scannedFolders,
+                            hiddenFolders = uiState.hiddenFolders,
+                            pendingHideFolder = uiState.pendingHideFolder,
+                            onHideFolderRequested = settingsViewModel::onHideFolderRequested,
+                            onHideFolderConfirmed = settingsViewModel::onHideFolderConfirmed,
+                            onHideFolderDismissed = settingsViewModel::onHideFolderDismissed,
+                            onUnhideFolder = settingsViewModel::onUnhideFolder,
                         )
                         DirectoryManagementSections(
-                            scanDirectories = scanDirConfig.scanDirectories,
-                            blockedDirectories = scanDirConfig.blockedDirectories,
-                            knownFolders = scannedFolders.map { it.path },
-                            onAddScan = libraryViewModel::addScanDirectory,
-                            onRemoveScan = libraryViewModel::removeScanDirectory,
-                            onAddBlocked = libraryViewModel::addBlockedDirectory,
-                            onRemoveBlocked = libraryViewModel::removeBlockedDirectory,
+                            scanDirectories = uiState.scanDirectories,
+                            blockedDirectories = uiState.blockedDirectories,
+                            knownFolders = knownFolderPaths,
+                            knownFolderPicker = uiState.knownFolderPicker,
+                            onAddScanRequested = { mode -> settingsViewModel.onAddDirectoryRequested(KnownFolderPickerTarget.SCAN, mode) },
+                            onAddBlockedRequested = { mode -> settingsViewModel.onAddDirectoryRequested(KnownFolderPickerTarget.BLOCKED, mode) },
+                            onRemoveScan = settingsViewModel::removeScanDirectory,
+                            onRemoveBlocked = settingsViewModel::removeBlockedDirectory,
+                            onFolderPicked = settingsViewModel::onDirectoryPicked,
+                            onPickerDismiss = settingsViewModel::onKnownFolderDismissed,
                         )
                     }
                 }
             } else {
-                LibraryStatsSection(musicCount = musicCount, analyzedCount = analyzedCount)
-                ScanOptionsSection(isScanning = isScanning, onIncrementalScan = libraryViewModel::refreshMusicList, onFullRescan = libraryViewModel::fullRescan)
-                LibraryManagementSection(folders = scannedFolders, hiddenFolders = hiddenFolders, onHideFolder = libraryViewModel::hideFolder, onUnhideFolder = libraryViewModel::restoreToLibrary)
+                LibraryStatsSection(musicCount = uiState.musicCount, analyzedCount = uiState.analyzedCount)
+                ScanOptionsSection(
+                    isScanning = uiState.isScanning,
+                    onIncrementalScan = settingsViewModel::onIncrementalScanRequested,
+                    showFullRescanConfirm = uiState.showFullRescanConfirm,
+                    onFullRescanRequested = settingsViewModel::onFullRescanRequested,
+                    onFullRescanConfirmed = settingsViewModel::onFullRescanConfirmed,
+                    onFullRescanDismissed = settingsViewModel::onFullRescanDismissed,
+                )
+                LibraryManagementSection(
+                    folders = uiState.scannedFolders,
+                    hiddenFolders = uiState.hiddenFolders,
+                    pendingHideFolder = uiState.pendingHideFolder,
+                    onHideFolderRequested = settingsViewModel::onHideFolderRequested,
+                    onHideFolderConfirmed = settingsViewModel::onHideFolderConfirmed,
+                    onHideFolderDismissed = settingsViewModel::onHideFolderDismissed,
+                    onUnhideFolder = settingsViewModel::onUnhideFolder,
+                )
                 DirectoryManagementSections(
-                    scanDirectories = scanDirConfig.scanDirectories,
-                    blockedDirectories = scanDirConfig.blockedDirectories,
-                    knownFolders = scannedFolders.map { it.path },
-                    onAddScan = libraryViewModel::addScanDirectory,
-                    onRemoveScan = libraryViewModel::removeScanDirectory,
-                    onAddBlocked = libraryViewModel::addBlockedDirectory,
-                    onRemoveBlocked = libraryViewModel::removeBlockedDirectory,
+                    scanDirectories = uiState.scanDirectories,
+                    blockedDirectories = uiState.blockedDirectories,
+                    knownFolders = knownFolderPaths,
+                    knownFolderPicker = uiState.knownFolderPicker,
+                    onAddScanRequested = { mode -> settingsViewModel.onAddDirectoryRequested(KnownFolderPickerTarget.SCAN, mode) },
+                    onAddBlockedRequested = { mode -> settingsViewModel.onAddDirectoryRequested(KnownFolderPickerTarget.BLOCKED, mode) },
+                    onRemoveScan = settingsViewModel::removeScanDirectory,
+                    onRemoveBlocked = settingsViewModel::removeBlockedDirectory,
+                    onFolderPicked = settingsViewModel::onDirectoryPicked,
+                    onPickerDismiss = settingsViewModel::onKnownFolderDismissed,
                 )
             }
             MiniPlayerSafeSpacer(height = metrics.bar)
@@ -191,11 +241,13 @@ fun LibrarySettingsScreen(
 private fun LibraryManagementSection(
     folders: List<FolderInfo>,
     hiddenFolders: List<HiddenFolderInfo>,
-    onHideFolder: (String) -> Unit,
+    pendingHideFolder: String?,
+    onHideFolderRequested: (String) -> Unit,
+    onHideFolderConfirmed: () -> Unit,
+    onHideFolderDismissed: () -> Unit,
     onUnhideFolder: (List<Long>) -> Unit,
 ) {
     val metrics = LocalHmpMetrics.current
-    var folderToHide by remember { mutableStateOf<String?>(null) }
     val typo = LocalHmpTypo.current
     TitleWidget(title = stringResource(Res.string.library_management)) {
         val isLandscape = LocalWindowSizeInfo.current.isLandscape
@@ -219,7 +271,7 @@ private fun LibraryManagementSection(
                 folders.forEach { folder ->
                     FolderItem(
                         folder = folder,
-                        onHideClick = { folderToHide = folder.path },
+                        onHideClick = { onHideFolderRequested(folder.path) },
                     )
                 }
             }
@@ -239,23 +291,20 @@ private fun LibraryManagementSection(
             }
         }
     }
-    if (folderToHide != null) {
+    if (pendingHideFolder != null) {
         AlertDialog(
-            onDismissRequest = { folderToHide = null },
+            onDismissRequest = onHideFolderDismissed,
             title = { Text(stringResource(Res.string.confirm_hide_folder)) },
             confirmButton = {
                 TextButton(
-                    onClick = {
-                        folderToHide?.let { onHideFolder(it) }
-                        folderToHide = null
-                    },
+                    onClick = onHideFolderConfirmed,
                     colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.primary),
                 ) {
                     Text(stringResource(Res.string.confirm))
                 }
             },
             dismissButton = {
-                TextButton(onClick = { folderToHide = null }) {
+                TextButton(onClick = onHideFolderDismissed) {
                     Text(stringResource(Res.string.cancel))
                 }
             },
@@ -424,11 +473,12 @@ private fun StatsCard(
 private fun ScanOptionsSection(
     isScanning: Boolean,
     onIncrementalScan: () -> Unit,
-    onFullRescan: () -> Unit,
+    showFullRescanConfirm: Boolean,
+    onFullRescanRequested: () -> Unit,
+    onFullRescanConfirmed: () -> Unit,
+    onFullRescanDismissed: () -> Unit,
 ) {
     val metrics = LocalHmpMetrics.current
-    var showFullRescanDialog by remember { mutableStateOf(false) }
-
     val typo = LocalHmpTypo.current
     TitleWidget(title = stringResource(Res.string.scan_options)) {
         val isLandscape = LocalWindowSizeInfo.current.isLandscape
@@ -455,7 +505,7 @@ private fun ScanOptionsSection(
                     title = stringResource(Res.string.full_rescan),
                     description = stringResource(Res.string.full_rescan_desc),
                     icon = Res.drawable.trash,
-                    onClick = { showFullRescanDialog = true },
+                    onClick = onFullRescanRequested,
                     enabled = !isScanning,
                     isDestructive = true,
                     modifier = Modifier.weight(1f),
@@ -483,17 +533,14 @@ private fun ScanOptionsSection(
         }
     }
 
-    if (showFullRescanDialog) {
+    if (showFullRescanConfirm) {
         AlertDialog(
-            onDismissRequest = { showFullRescanDialog = false },
+            onDismissRequest = onFullRescanDismissed,
             title = { Text(stringResource(Res.string.confirm_full_rescan)) },
             text = { Text(stringResource(Res.string.full_rescan_warning)) },
             confirmButton = {
                 TextButton(
-                    onClick = {
-                        onFullRescan()
-                        showFullRescanDialog = false
-                    },
+                    onClick = onFullRescanConfirmed,
                     colors = ButtonDefaults.textButtonColors(
                         contentColor = MaterialTheme.colorScheme.error,
                     ),
@@ -502,7 +549,7 @@ private fun ScanOptionsSection(
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showFullRescanDialog = false }) {
+                TextButton(onClick = onFullRescanDismissed) {
                     Text(stringResource(Res.string.cancel))
                 }
             },
@@ -585,10 +632,13 @@ private fun DirectoryManagementSections(
     scanDirectories: List<String>,
     blockedDirectories: List<String>,
     knownFolders: List<String>,
-    onAddScan: (String) -> Unit,
+    knownFolderPicker: KnownFolderPickerTarget?,
+    onAddScanRequested: (DirectorySelectionMode) -> Unit,
+    onAddBlockedRequested: (DirectorySelectionMode) -> Unit,
     onRemoveScan: (String) -> Unit,
-    onAddBlocked: (String) -> Unit,
     onRemoveBlocked: (String) -> Unit,
+    onFolderPicked: (KnownFolderPickerTarget, String) -> Unit,
+    onPickerDismiss: () -> Unit,
 ) {
     val platformServices: PlatformServices = koinInject()
     if (platformServices.filePicker.directorySelectionMode == DirectorySelectionMode.UNSUPPORTED) return
@@ -598,16 +648,22 @@ private fun DirectoryManagementSections(
         emptyText = stringResource(Res.string.no_scan_directories),
         directories = scanDirectories,
         knownFolders = knownFolders,
-        onAdd = onAddScan,
+        showPicker = knownFolderPicker == KnownFolderPickerTarget.SCAN,
+        onAddRequested = onAddScanRequested,
         onRemove = onRemoveScan,
+        onFolderPicked = { path -> onFolderPicked(KnownFolderPickerTarget.SCAN, path) },
+        onPickerDismiss = onPickerDismiss,
     )
     DirectorySection(
         title = stringResource(Res.string.blocked_directories),
         emptyText = stringResource(Res.string.no_blocked_directories),
         directories = blockedDirectories,
         knownFolders = knownFolders,
-        onAdd = onAddBlocked,
+        showPicker = knownFolderPicker == KnownFolderPickerTarget.BLOCKED,
+        onAddRequested = onAddBlockedRequested,
         onRemove = onRemoveBlocked,
+        onFolderPicked = { path -> onFolderPicked(KnownFolderPickerTarget.BLOCKED, path) },
+        onPickerDismiss = onPickerDismiss,
     )
 }
 
@@ -625,13 +681,15 @@ private fun DirectorySection(
     emptyText: String,
     directories: List<String>,
     knownFolders: List<String>,
-    onAdd: (String) -> Unit,
+    showPicker: Boolean,
+    onAddRequested: (DirectorySelectionMode) -> Unit,
     onRemove: (String) -> Unit,
+    onFolderPicked: (String) -> Unit,
+    onPickerDismiss: () -> Unit,
 ) {
     val metrics = LocalHmpMetrics.current
     val platformServices: PlatformServices = koinInject()
     val mode = platformServices.filePicker.directorySelectionMode
-    var showKnownFolderPicker by remember { mutableStateOf(false) }
     val typo = LocalHmpTypo.current
 
     TitleWidget(title = title) {
@@ -655,10 +713,9 @@ private fun DirectorySection(
             TextButton(
                 onClick = {
                     when (mode) {
-                        DirectorySelectionMode.ARBITRARY_PATH ->
-                            platformServices.filePicker.pickDirectory { picked -> picked?.let(onAdd) }
-
-                        DirectorySelectionMode.KNOWN_FOLDERS -> showKnownFolderPicker = true
+                        DirectorySelectionMode.ARBITRARY_PATH,
+                        DirectorySelectionMode.KNOWN_FOLDERS,
+                        -> onAddRequested(mode)
 
                         DirectorySelectionMode.UNSUPPORTED -> Unit
                     }
@@ -676,11 +733,11 @@ private fun DirectorySection(
         }
     }
 
-    if (showKnownFolderPicker) {
+    if (showPicker) {
         // 排除已在该列表中的目录，避免重复添加
         val candidates = knownFolders.filter { it !in directories }
         AlertDialog(
-            onDismissRequest = { showKnownFolderPicker = false },
+            onDismissRequest = onPickerDismiss,
             title = { Text(stringResource(Res.string.pick_folder_from_library)) },
             text = {
                 Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
@@ -700,10 +757,7 @@ private fun DirectorySection(
                                 overflow = TextOverflow.Ellipsis,
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .clickable {
-                                        onAdd(path)
-                                        showKnownFolderPicker = false
-                                    }
+                                    .clickable { onFolderPicked(path) }
                                     .padding(vertical = metrics.base),
                             )
                         }
@@ -711,7 +765,7 @@ private fun DirectorySection(
                 }
             },
             confirmButton = {
-                TextButton(onClick = { showKnownFolderPicker = false }) {
+                TextButton(onClick = onPickerDismiss) {
                     Text(stringResource(Res.string.cancel))
                 }
             },

@@ -16,8 +16,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -36,7 +34,6 @@ import com.hearablemusic.player.ui.generated.resources.ok
 import com.hearablemusic.player.ui.generated.resources.scan_complete_desc
 import com.hearablemusic.player.ui.generated.resources.scan_music_title
 import com.hearablemusic.player.ui.generated.resources.scanning_desc
-import com.hearablemusic.player.ui.library.viewmodel.LibraryViewModel
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
@@ -45,14 +42,13 @@ import org.jetbrains.compose.resources.stringResource
 @OptIn(ExperimentalHazeMaterialsApi::class)
 @Composable
 fun MusicScanDialog(
-    libraryViewModel: LibraryViewModel,
+    isLoading: Boolean,
+    musicCount: Int,
     onDismiss: () -> Unit,
     hazeState: HazeState? = null,
     hazeRenderSettings: HazeRenderSettings? = null,
 ) {
     val metrics = LocalHmpMetrics.current
-    val isLoading by libraryViewModel.isScanning.collectAsState(initial = false)
-    val musicCount by libraryViewModel.musicCount.collectAsState(initial = 0)
     val resolvedHazeRenderSettings = hazeRenderSettings ?: LocalHazeRenderSettings.current
     val typo = LocalHmpTypo.current
 

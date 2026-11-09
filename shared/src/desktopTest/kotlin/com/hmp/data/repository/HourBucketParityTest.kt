@@ -9,7 +9,6 @@ import com.hmp.data.util.localHourOfDay
 import com.hmp.data.util.todayDateString
 import com.hmp.test.db.createTestDatabase
 import com.hmp.test.repo.InMemoryMusicRepository
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import java.time.LocalDate
 import java.time.ZoneId

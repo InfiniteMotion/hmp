@@ -1,6 +1,5 @@
 package com.hmp.data.database
 
-import androidx.room.RoomDatabase
 import androidx.room.Transactor
 import androidx.room.deferredTransaction
 import androidx.room.useWriterConnection
