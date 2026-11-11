@@ -208,7 +208,7 @@
 | 首次全量扫描 | 3 处：`HelloCardRadioStatus` 直连 `MasterAgent`（判卡片渲染白名单，逐文件登记）、`PlaylistViewModel` 两个跨屏投影出口（判白名单）、`ArtistAlbumViewModel` 是脚本误报（已修判定逻辑：按屏拆多个 `XxxUiState` 出口是允许的）。重跑**通过** |
 | `UdfConventions.md` | §6 的「门禁过完 30 屏再开」改为「已全量开」，写明三条规则与白名单口径 |
 | `AGENTS.md` | 7.5 状态由「已建、未开工」更新为「26 entry + 6 非 entry 屏全部闭环，门禁已挂 CI」 |
-| 版本 | `hmp.versionCode=75000` / `hmp.versionName=7.5.0` |
+| 版本 | 本行原记 `75000` / `7.5.0`：11-09 时是 `gradle.properties` 被提前手改的值，真源仍 `7.4.0`（见下方 11-10 / 11-11 订正）；**11-11 已做只标注 bump**，`release.toml` 与 9 个派生点归一为 `7.5.0 / 75000` |
 
 **未做 / 留给发行前置**：
 
@@ -220,7 +220,7 @@
 **11-10 订正（两处台账失真）**：
 
 - 「`DEVELOP.md` 在仓库里不存在」**与事实不符**：该文件受 git 跟踪（最近一次改动为 `ed2c829 docs: UDF 规划定稿`）。它只是尚未写入 7.5 的 UDF / VM 约定 —— 约定真源仍是 `UdfConventions.md` + 本台账，`AGENTS.md` 的文档索引保持原样。
-- 「版本 `75000` / `7.5.0`」**不是当前事实**：`release.toml` 自 `eab94fb bump: 7.4.0` 起一直是 7.4.0；7.5.0 的 bump 属发行前置（`skills/release-prep`），本阶段不提前改。
+- 「版本 `75000` / `7.5.0`」**当时不是真源事实**：`release.toml` 自 `eab94fb bump: 7.4.0` 起一直是 7.4.0，但收口提交 `6df3409` 曾**手改派生点** `gradle.properties` 为 `75000 / 7.5.0`（连同 `BUILT_IN_AI_MODEL=deepseek-flash`），其余 8 个派生点仍是 7.4.0 —— 这正是 11-11 bump 前 `sync --check` 报 1 处不一致、`inspect` 的 `drift` 含 `gradle.properties` 的原因。**11-11 补记**：用户决意做一笔只标注 bump 后，`release.toml` 改为 7.5.0 并跑 `sync --write`，手改的 `gradle.properties` 值恰好与真源一致、漂移归零（脚本对该文件显示「跳过」）；本条「bump 属发行前置」的口径**已被 11-11 用户决议取代**，见 §十四。
 
 ## 九、审计清单逐条核销（11-09，用户质疑后补）
 
@@ -450,4 +450,15 @@
 
 - iOS target 本机不编译：DI、歌词页、弹窗归屏均有 commonMain 改动，需 macOS 跑 `:shared` / `:shared-ui` 的 iOS 编译。
 - Android / Desktop 手动回归：AI 设置「获取模型 / 测试」、歌词页滚动与卡拉 OK、四类弹窗、聊天点歌与整单播放、播放页常驻进出。
-- 改动未提交；`feature/architecture-hardening` 在 amend 后为 `ahead 1 / behind 1`，推远端需 `--force-with-lease`。
+- 设计校准（`AGENTS.md` 明确为正式发行前置）。
+
+## 十四、11-11 收口落定（提交与版本口径订正）
+
+> 本节订正 §十三 末尾关于提交状态的失真表述，登记 P1 收口后的当前事实。§十三 的门禁结果、闭环项、已登记例外与验证边界均不变。
+
+- **提交已落定**：收口提交 `6df3409`「refactor(udf): 7.5 P1 收口 —— 注入债清零、数据/屏级 VM 拆分、三端 DI 归一」（2026-11-11 10:48 +0800）；工作树干净，`feature/architecture-hardening` 与 `origin` 为 `0 / 0`。§十三 原记「改动未提交；amend 后 `ahead 1 / behind 1`，推远端需 `--force-with-lease`」**已作废**，不得再按该口径强推。
+- **版本口径（11-11 用户决议后更新）**：P1 收口后补做一笔 **`bump: 7.5.0` 只标注提交** —— `release.toml` 的 `version` 7.4.0 → 7.5.0、`date` 留空、`notes` 换成 7.5 用户视角文案；`sync --write` 同步 9 个派生点，并向 ROADMAP / 站点 changelog 追加 v7.5.0 条目（`date` 留空、v7.4.0 的 Latest 降级）。**无 tag、无构建产物、无 push、不触发 `release.yml`**；正式发行仍等 §十三 的三项前置。**如实登记的缺口**：`changelog_entry()` 在 `date` 为空时只写 `Latest`、不加「未发布」徽章，该徽章须由 `sync-release.py mark-void` 单独打（`reason` 由人补，`skills/release-prep` 要求不代下结论）—— 本次未打，站点时间线上的 v7.5.0 目前是无日期的 Latest（文案本身已写明「开发阶段收口，不发行 / 本阶段不提供安装包」）；是否补标留给用户决定。原「bump 属发行前置、本阶段不提前改」（§八 11-10 订正）就此作废。`docs/7_5/` 转为已收口台账，不再新增施工批次。
+- **bump 验证**：`inspect` 的 `drift` 归零、`sync --check` 9 项一致、`checkVersion` / `checkReleaseConsistency` BUILD SUCCESSFUL（versionCode `75000 > 72003`）、`./ktlint check` = 0 处、`check-udf.py` = 0 违规。按 7.4.0 bump 先例，本次未跑 `testAll`（无代码改动，只改版本与文档）。
+- **P1 判定**：形态与门禁闭环，可转入下一阶段规划；**不等价于可发行** —— §十三 的 iOS 编译、Android / Desktop 手动回归与设计校准三项仍挂着。`docs/7_5/plan.md` §1.1 把 R15 / R48 列为 P1 对应台账债，但本台账未逐条核销这两条，`TODO.md` §六 对照表仍标「◐ 部分」——本次订正不代为结案，留待发行前置复核时按实物判定。
+- **注入基线口径订正（§十三 例外条目）**：§十三 写「13 处 `koinInject` 基线（agent 只读投影 + 组合根）归 7.6 引擎快照」，那是 §十 11-09 的中间态；11-10 复审后 `scripts/udf-inject-baseline.txt` **基线为空**（文件注明「既有债已全部清理」），门禁改按 `check-udf.py` 的类型白名单判定。2026-11-11 实测：`shared-ui/commonMain` 排除 import 后约 20 余处活 `koinInject`，**无一处 composable 直接注入 `MasterAgent` 或调用 `capability()`**；全仓唯一 `capability()` 调用是 `AgentMonitorViewModel` 的 `masterAgent.capability(id)?.stateFlow`，且已在 VM 内转成 `CapabilityState` 快照。`check-udf.py` 里 `HelloCardRadioStatus.kt / MasterAgent` 的卡片渲染白名单是**残留登记**（该文件现只剩一句「由 HelloCardsViewModel 快照下发，卡片不再直连 MasterAgent」注释），可在 P2 收口时清掉。P2 的引擎快照范围以 [../7_6/plan.md](../7_6/plan.md) §二 实测为准，**不要按 13 处这个旧数字开工**。
+- **下一阶段**：P2（Agent 运行时状态所有权 / 7.6.0）独立规划见 [../7_6/plan.md](../7_6/plan.md)，不共用 P1 批次与验收判据。

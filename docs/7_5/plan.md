@@ -4,9 +4,10 @@
 > **结构决议（用户，2026-11-05）**：分 **P1 页面体系**（本规划）与 **P2 Agent 运行时状态所有权**（独立规划待建）两部分，共享原则、形态不同、各自验收。
 > **版本归属（用户，2026-11-06）**：P1 = **7.5.0**、P2 = **7.6.0**，先后推进；因 P1 体量由 7.4.1 升为独立 minor 期，活跃线迁至 `docs/7_5/`，7.6 届时另开目录。`docs/7_4/` 保留 7.4 施工记录与 7.3 残余台账（台账仍活跃，不归档）。
 > **前置**：7.4.0 ktlint 已收口 —— `./ktlint check` = 0 处、555 文件格式化（`0d88404`）、blame 忽略生效（`ac4165e`）。UDF 从合规基线出发。
-> **bump 节奏**：`release.toml` 仍为 **7.4.0**，规划阶段不动；P1 开工 bump 7.5.0、P2 开工 bump 7.6.0，两次都按「只标注不 release」（无 tag / 无包 / 无 push），派生点交 `./gradlew syncVersion`。
+> **bump 节奏**：`release.toml` 规划阶段不动；P1 开工 bump 7.5.0、P2 开工 bump 7.6.0，两次都按「只标注不 release」（无 tag / 无包 / 无 push），派生点交 `./gradlew syncVersion`。**11-11 决议**：P1 实际未在开工 bump，改在**收口后补一笔 `bump: 7.5.0` 只标注提交** —— 11-10 曾订正为「bump 属发行前置」，该口径已被用户 11-11 决议取代，详见 [progress.md](progress.md) §八 / §十四；P2 的 bump 节奏由 [../7_6/plan.md](../7_6/plan.md) §八 独立定。
 > **施工方式决议（用户，2026-11-06）**：**取消开工前的契约 / 门禁 / 批次前置设计**。改为「先定一个最轻的 UiState 共通模板 → 按页面顺序逐个改 → 最后收口契约与门禁」，让规则从真实代码里长出来。
-> **状态（2026-11-07）**：**已开工**。§4.1 定模板已落地（本阶段第 1 笔提交）：`LoadState` 命名归位 19 文件 / 226 处、新增 `common/util/UdfConventions.md`、`EditMusicTagsScreen` 收成单一状态出口 + `SharedFlow` 一次性效果。基线 HEAD `ed2c8293`（UDF 规划定稿），工作树此前干净。`release.toml` 仍 **7.4.0**，按 §4.3 收口时 bump 7.5.0（口径依据见 §七 11-07 记录）。验证：`ktlint` 0 处 / `compileAll` 绿 / `testUi` 绿。§4.2 逐页改进行中，逐屏判定与提交记录见 [progress.md](progress.md)。
+> **状态（2026-11-11）**：**P1 已收口**。26 条 entry + 6 个非 entry 屏全部闭环；§4.3 收口于 11-09，11-10 复审（UI 审计 A/B/C、数据/屏级 VM 拆分、三端 DI 归一、弹窗归屏、歌词归一）再收口，收口提交 `6df3409`（2026-11-11 10:48 +0800），工作树干净且与 `origin/feature/architecture-hardening` 同步（`0 / 0`）。门禁与验证：`ktlint` 0 处 / `check-udf.py` 0 违规 / `compileAll` / `testAll` 全绿；逐屏判定、例外与发行前置见 [progress.md](progress.md) §八 / §十三 / §十四。`release.toml` 现为 **7.5.0**（11-11 收口后补的一笔只标注 bump，无 tag / 无包 / 无 push）；§4.3 第 4 步与 §七 11-07 的「收口时 bump」口径按用户 11-11 决议落地，§八 11-10 的「bump 属发行前置」订正作废。
+> **状态沿革**：11-07 定模板开工 → 11-09 §4.3 收口 → 11-10 复审收口 → 11-11 提交落定。P2（7.6.0）独立规划见 [../7_6/plan.md](../7_6/plan.md)，不共用本阶段的批次与验收判据。
 > **取证口径**：所有计数为 2026-11-05/06 工作树实测；行号会过期，动手前按符号名 grep；归档 `docs/archive/**` 只进不改。
 
 ---
@@ -108,7 +109,7 @@
 1. **模板定稿**：把 4.2 过程中补的规则整理成正式约定，同步 `DEVELOP.md` / `AGENTS.md`
 2. **`scripts/check-udf.py` 全量扫**，挂进 `pr-check.yml` 的 `lint` job（7.4 已建 lint job 与 Verdict 汇总）。**按注入类型判定，不按关键字**：实测 `koinInject` 41 处里 18 处是 `PlatformServices` / `PlaybackController` / `DialogManager` / 各 Controller 等平台门面，`scope.launch` 48 处里约 16 处是纯 UI 用途 —— 关键字一刀切会误报 33~44%
 3. `cmd //c "gradlew-smart.bat preflight"` 全绿；30 屏判定记录归档
-4. bump 7.5.0（只标注不 release）
+4. bump 7.5.0（只标注不 release）—— **11-11 已执行**：收口后补一笔 `bump: 7.5.0`，改 `release.toml` + `sync --write` 派生 9 处，无 tag / 无包 / 无 push；11-10「bump 属发行前置」的订正作废，见 [progress.md](progress.md) §八 / §十四
 
 **这一版唯一的代价**：各屏写法在演进中可能不一致，收口时要统一一遍。比前置设计整套管线的成本小得多。
 
@@ -131,7 +132,7 @@
 
 ## 六、范围外
 
-P2（Agent 运行时，7.6）、注释清理、设计校准、X-01 CI 编译测试、R31 的 `Test` 任务挂钟超时（仅剩防护网，属 X-01）、实机池签收、`storybook/` 沙盒、7.3 其余残余、ktlint 规则集调整。
+P2（Agent 运行时，7.6，独立规划见 [../7_6/plan.md](../7_6/plan.md)）、注释清理、设计校准、X-01 CI 编译测试、R31 的 `Test` 任务挂钟超时（仅剩防护网，属 X-01）、实机池签收、`storybook/` 沙盒、7.3 其余残余、ktlint 规则集调整、7.5.0 的**正式发行**（只标注 bump 已于 11-11 完成；剩余前置见 [progress.md](progress.md) §十三 / §十四）。
 
 ---
 
@@ -149,5 +150,6 @@ P2（Agent 运行时，7.6）、注释清理、设计校准、X-01 CI 编译测�
 | 2026-11-06 | **状态命名归位决议**：不沿用旧 `UiState<T>` 作内部字段，改名为 `LoadState<T>`；`UiState` 之名让给整屏 `XxxUiState`，项目内不再有两套同名概念。全仓 19 文件 / 210 处机械改名，与模板同一笔提交 |
 | 2026-11-07 | **开工第 1 笔（§4.1 定模板）**：实测改名 **19 文件 / 226 处**（规划记 210 处，本口径含 `UiStateContent` / `asUiState` / 测试名等复合标识符）；四文件 `git mv`；新增写法约定与样板屏。样板屏把 3 个 `StateFlow` 出口收成 1 个，`SaveTagsResult` 状态型一次性结果改为 `SharedFlow<EditMusicTagsEffect>`，写权限判定与选图收进 VM。顺手修两处既有缺陷：`loadTags` 重置丢失 `canWriteTags` 首帧能力位、选封面后 `hasChanges` 不重算致保存按钮不亮。验证 `ktlint` 0 处 / `compileAll` / `testUi` 全绿 |
 | 2026-11-07 | **bump 口径如实登记**：头部「P1 开工 bump 7.5.0」与 §4.3「收口 bump」冲突，本阶段按 **§4.3 收口时 bump** 执行。依据：7.3.0（`1dc7352c`）与 7.4.0（`eab94fb1`）两次 bump 均在各自收口提交之后，且 `release.toml` 的 notes 需描述已完成内容；开工期版本号保持 7.4.0。头部决议原文不改写，以本记录为准 |
+| 2026-11-11 | **P1 收口落定 + 只标注 bump**：收口提交 `6df3409`，工作树干净、与远端 `0 / 0`；同日用户决议补做一笔 `bump: 7.5.0`（`release.toml` 现为 7.5.0、`sync --write` 派生 9 处、无 tag / 无包 / 无 push、不发行），故本表 11-07「按 §4.3 收口时 bump」与 §4.3 第 4 步按此落地，而 §八 11-10 的「bump 属发行前置」订正作废；以本节与 [progress.md](progress.md) §十四 为准。门禁 `ktlint` 0 处 / `check-udf.py` 0 违规 / `compileAll` / `testAll` 全绿；bump 另验 `sync --check` / `checkVersion` / `checkReleaseConsistency`。例外与发行前置见 §十三 / §十四。P2 转 [../7_6/plan.md](../7_6/plan.md) |
 
 **参考**：[页面状态盘点](state-audit.md)、[7.4 期规划与施工记录](../7_4/plan.md)、[7.3 残余台账](../7_4/residuals-7.3.md)、[ktlint 落地方案](../ktlint-integration.md)、[7.3 架构审查 R48（归档证据）](../archive/7_x/7_3/review-7.3-architecture.md)。
