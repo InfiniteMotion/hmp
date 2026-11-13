@@ -45,7 +45,11 @@ class MasterAgentLifecycleTest {
 
     private fun song(id: Long, title: String, artist: String) = MusicInfo(Music(id, title, artist, "Album", 180_000, "/$id.mp3", ""), null, null)
 
-    private fun buildMaster(playback: PlaybackCommandPort, transport: FakeLlmTransport): MasterAgent {
+    private fun buildMaster(
+        playback: PlaybackCommandPort,
+        transport: FakeLlmTransport,
+        enrichTransport: FakeLlmTransport? = null,
+    ): MasterAgent {
         val musicRepo = FakeAgentMusicRepository()
         listOf(song(1, "夜航", "甲"), song(2, "清晨", "乙"), song(3, "回声", "丙")).forEach {
             musicRepo.songs[it.music.id] = it
@@ -64,6 +68,7 @@ class MasterAgentLifecycleTest {
                 ),
             ),
             radioTransport = transport,
+            enrichTransport = enrichTransport,
             defaultLlmConfig = AiEndpointConfig(isConfigured = true),
             playbackPort = playback,
             nowPlayingProvider = FakeNowPlayingContextProvider,
@@ -97,6 +102,22 @@ class MasterAgentLifecycleTest {
     }
 
     @Test
+    fun enrich_isSingleton_acrossStopAndStart() = runBlocking {
+        val master = buildMaster(RecordingPlaybackPort(), radioTransport(), enrichTransport = FakeLlmTransport())
+        master.startEnrich(null)
+        val first = master.subAgents["enrich"]
+        assertTrue(first != null, "首次 start 应创建实例")
+
+        master.stopEnrich()
+        master.startEnrich(null)
+        val second = master.subAgents["enrich"]
+
+        // 单例（2026-11-13）：停止不等于销毁，重开必须复用同一实例（否则暂停/进度会被重置）。
+        assertTrue(first === second, "停止后重开必须复用同一个 Enrich 实例")
+        master.stopEnrich()
+    }
+
+    @Test
     fun pauseOrResume_afterStop_doesNotResurrectTheRadio() = runBlocking {
         val master = buildMaster(RecordingPlaybackPort(), radioTransport())
         master.startRadio(seed = "摇滚")
@@ -110,6 +131,7 @@ class MasterAgentLifecycleTest {
         master.resumeRadio()
 
         assertNull(master.queryRadioState(), "停止后 pause/resume 不能把电台状态带回来")
-        assertTrue(master.subAgents["radio"] == null, "停止后注册表里不应再有 radio")
+        // 单例（2026-11-13）：实例常驻，判据改为「运行已停止」而不是「实例已移除」。
+        assertTrue(master.subAgents["radio"] != null, "单例：实例应保留，避免下次开台重建")
     }
 }

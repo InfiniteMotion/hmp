@@ -252,6 +252,32 @@
   - `TerminationReason` 加 `CONFIRM_TIMEOUT`。
 - **判据**：`ConfirmBridgeTest` 2 条（超时返回全 Timeout 且后续提交无效 / 按时提交返回用户决策）、`ToolCallExecutorTest` 2 条（超时标记与拒绝可区分 / `timedOut` 记录 timeout 并回传明确文案）、`ReActLoopTest` 1 条（超时 → `CONFIRM_TIMEOUT`、工具不执行、文案含「确认超时」）。定向全绿。
 - **未做 / 边界**：超时时长写死 60s，未做设置项；跨页可见性仍未做（用户不在对话页时不会主动提示，只是 60 秒后会收到「确认超时」的结束文案）；`ChatViewModel` 的确认卡在超时后由 `Finished` 分支清理，未单独加「已超时」的 UI 态。
+
+### 2.21 富化暂停被重检撤销的修复（2026-11-13 审计后补）
+
+- **问题（7.6 提交审计发现）**：`startEnrich()` 的幂等判据只看 `state() == RUNNING`。而「调度器暂停（电量 / WiFi）」和「用户手动 `enrich_pause`」都会把 `runState` 写成 `PAUSED`、协程仍挂在 `waitResume()` 上 —— 此时任何一次重检（回前台 / 曲库变化 / 工具调用）都会走 `stopEnrichLocked()` 把实例**拆掉重建**：暂停被撤销、进度清零、LLM 连接重建，新实例还会被调度器立刻再次暂停。
+- **归因**：守卫本身是既有代码；本笔新增的「回前台重检」与 `onLibraryMutated → evaluate()` 把低频缺陷变成高频路径。
+- **修法**（抽成纯函数 `shouldSkipEnrichStart(runState, runLoopAlive)`）：`RUNNING → 跳过`；`PAUSED → 仅在 runLoop 仍活着时跳过`；`UNREGISTERED → 重建`。`PAUSED + Job 已死` 仍允许重建，避免异常路径下永久起不来。
+- **配套**：`rescanEnrich()` 不再用 `isEnrichActive()`（只看 RUNNING），改为「实例存在且 Job 活着就 `updateTarget`」，否则暂停中改目标会被幂等判据挡掉、目标丢失；`isEnrichActive()` 随之删除（改后无调用方）。
+- **判据**：当时新增 `EnrichStartGuardTest` 4 条（RUNNING 恒跳过 / PAUSED+活跳过 / PAUSED+死重建 / UNREGISTERED 重建）。
+- **后续（同日）**：本条的「按状态判断是否重建」已被 §2.22 单例化取代 —— `shouldSkipEnrichStart` 与 `EnrichStartGuardTest` 已删除，实例常驻后不存在「重建」分支。
+
+### 2.22 四个 Agent 单例化（2026-11-13，用户决议）
+
+- **定义**：实例活到进程结束，`start/stop` 只切换运行态，不再 new / destroy。两个维度拆开：
+  - **进程**：Master / Hello / Enrich / Radio 同时只允许一个对象存在。
+  - **记忆**：Master（DB 会话历史 + 画像 + 策略）与 Enrich（`AgentContextBudget.history` 跨运行保留）为长期记忆；
+    Hello / Radio 每次全新开始，只注入记忆（Hello：画像简报 + DAO 卡片；Radio：Master 导出的上一段对话）。
+- **每个 Agent 新增 `beginRun(...)`**：清终态 / 进度 / 门闩，注入本次可变参数。
+  - Enrich：目标覆盖率、`systemPrompt`（按目标重建）、端点配置；**刻意不清 history**。
+  - Hello：`enableLlm` / 端点配置 / 画像简报 / 语言 / prompt 覆盖 / 温度；卡片由 `runLoop` 从 DAO 重新水化。
+  - Radio：端点配置 / 目标曲数 / 注入的上一段对话 / 画像简报 / prompt / 温度；清 `_terminalOutcome`。
+- **Master 侧**：新增 `ensureXInstanceLocked()` 首次创建；`stopXLocked()` 不再 `shutdown()` / `uninstall()`，并删除随之无调用方的 `uninstallSubAgent()`；
+  Hello / Enrich 的转发协程随实例只起一次（Radio 关台仍清固定流，行为不变）。
+- **查询语义**：`queryRadioState` / `queryRadioPlaylist` 改按「本次运行是否在跑」返回 null，保持「关台即无状态」。
+- **判据**：`MasterAgentLifecycleTest.enrich_isSingleton_acrossStopAndStart`（停止后重开 `===` 同一实例）；
+  Radio 用例改为「关台后 pause/resume 不复活 + 实例保留」。
+- **边界**：进程销毁仍走 `shutdown()`；未做「内部 scope 已死 → 重建」的兜底（scope 目前只在销毁时取消）。
 ---
 
 ## 三、规划外调整的边界与风险
@@ -277,19 +303,20 @@
 | R6 Hello `stateFlow` | **已结案**（§2.12）：唯一快照 + `transition()` 写入口 + `pause/resume` 同步；TODO R6 已勾 |
 | D6-08 `DialogManager.pendingConfirms` | **已结案**（§2.17）：复核为死路径，整体删除；生产确认走 `ConfirmBridge` + 对话内联确认卡 |
 | C 类 `CapabilitySnapshot` | **已结案**（§2.18）：出口只交 `CapabilitySnapshot`，`start/stop` 一并删除 |
-| 同步形态书面约定 | **未做** |
+| 同步形态书面约定 | **已定稿**（§2.19）：`plan.md` §3.1 四条原则 + `AGENTS.md` §六 入口段 |
 | 收口（ktlint / compileAll / testAll / preflight） | **全部已跑**：`ktlint` 0 处、`compileAll` / `testAll` 全绿、`preflight` BUILD SUCCESSFUL（8s，各任务 UP-TO-DATE） |
 
 ---
 
 ## 五、验证状态
 
+- 2026-11-13 审计后补（§2.21）：`./ktlint check` 0 处；`compileAll`（三端）BUILD SUCCESSFUL（2m29s）；`testAll` BUILD SUCCESSFUL（1m22s）；`EnrichStartGuardTest` 定向 4 条全绿。
 - 2026-11-13 复核（§2.20 后，最新一批）：`./ktlint check` 0 处；`compileAll`（三端）BUILD SUCCESSFUL（2m8s）；`testAll` BUILD SUCCESSFUL（2m12s）；超时判据定向全绿（`ConfirmBridgeTest` 2 / `ToolCallExecutorTest` 2 / `ReActLoopTest` 1）；`check-udf` 0 违规；`checkDesignTokens` 通过；`sync --check` 9 项派生点一致。
 - 按用户 2026-11-13 约定：**每批改动默认跑全量测试**，只有明确说「不要跑全量测试」才跳过。
 - 首次跑 `testAll` 时 `stateFlow_tracksRunState_R6` **变红**：快照初值沿用基类 `PAUSED` → 映射成「已暂停」，与原来对外 `IDLE` 不符。把 `HelloRuntimeState` 初值改为 `UNREGISTERED` 后重跑全绿 —— 这条判据正好守住了「修 R6 不能改变原有对外状态」。
-- 判据累计：`AgentHealthCheckerTest` 11 条、`AgentHealthGateTest` 2 条、`AgentSchedulerTest` 9 条（含并发 / 自愈 2 条）、`ToolRunSummaryTest` 3 条、`AgentHistoryProjectionTest` 3 条、`ReActLoopTest` 含取消回调 1 条、`CapabilityStatusToolTest` 5 条、`EnrichSubAgentTest` 终态 / `resolveOutcome` / 纯映射、`HelloSubAgentTest` 6 条、`RadioTerminalOutcomeTest` 2 条、`ConfirmBridgeTest` 2 条；均随 `testAll` 跑过。
+- 判据累计：`AgentHealthCheckerTest` 11 条、`AgentHealthGateTest` 2 条、`AgentSchedulerTest` 9 条（含并发 / 自愈 2 条）、`ToolRunSummaryTest` 3 条、`AgentHistoryProjectionTest` 3 条、`ReActLoopTest` 含取消回调 1 条、`CapabilityStatusToolTest` 5 条、`EnrichSubAgentTest` 终态 / `resolveOutcome` / 纯映射、`HelloSubAgentTest` 6 条、`RadioTerminalOutcomeTest` 2 条、`ConfirmBridgeTest` 2 条、`MasterAgentLifecycleTest` 的 Enrich 单例身份 1 条；均随 `testAll` 跑过。
 - 前几批同样全绿：§2.8 `compileAll` 5m23s / `testAll` 2m6s；§2.9 2m31s / 1m28s；§2.10 3m55s / 1m56s；§2.11 3m25s / 2m8s；§2.12 3m / 1m46s。
-- `AgentSchedulerTest` 的 flaky 仍未定性；`preflight` 未跑；iOS target 本机不能编译，`commonMain` 改动对 iOS 零机器反馈。
+- `AgentSchedulerTest` 的 flaky 仍未定性；`preflight` 已跑（§2.19 BUILD SUCCESSFUL，审计时从干净树复跑 1m23s）；iOS target 本机不能编译，`commonMain` 改动对 iOS 零机器反馈。
 
 ---
 
@@ -315,4 +342,4 @@
 | TODO R6 判据「共用契约测试」 | 无对应实现 | 改为「同一组状态迁移下产出一致 `CapabilityState`」 |
 | TODO R8「写路径不过闸」 | 电台开台即授权整档接管队列，代码注释与产品决议均按会话内实现细节设计 | 2026-11-13 改判为非缺陷，见 §2.14 |
 | `HelloSubAgent` 的 `enrichConfig` | 实际是 hello 自己的配置 | 已改名 `helloConfig` |
-| `docs/README.md` 多处「7.6 未开工」 | 已开工（工作树未提交） | 已同步 |
+| `docs/README.md` 多处「7.6 未开工」 | 当时已开工、工作树未提交 | 已同步（现为已收口，见 §2.19） |

@@ -215,7 +215,7 @@ class HelloSubAgent internal constructor(
      * 画像简报（契约 v3.8，MasterAgent.startHello 从 `userMemory.helloBriefing()` 取）：
      * 门面卡片与推荐的听众参考 —— 自带「仅供参考」口径，null = 冷启动无画像。
      */
-    private val memoryBriefing: String? = null,
+    @Volatile private var memoryBriefing: String? = null,
     /**
      * UserMemory 引用（契约 v3.4 + F9-T1）：报告叙事生成时取画像侧写片段（`factsRenderForNarrative`）。
      * nullable —— 画像链路静默跳过，不拖垮 HelloSubAgent。
@@ -225,11 +225,11 @@ class HelloSubAgent internal constructor(
     private val userMemory: com.hmp.domain.agent.profile.UserMemory? = null,
     // ── v1 F9-T2：prompt 多语言 + 用户覆盖（可选，默认 null 回落硬编码）──
     /** Agent 独立语言偏好："global" / "zh" / "en" / "auto"。null = 全部回落硬编码。 */
-    private val promptPreferredLang: String? = null,
+    @Volatile private var promptPreferredLang: String? = null,
     /** 全局语言（preferredLang="global" 时使用）。 */
-    private val globalReplyLanguage: String = "zh",
+    @Volatile private var globalReplyLanguage: String = "zh",
     /** 用户覆盖的 prompt Map（key → 用户写的 prompt 文本）。 */
-    private val promptOverrides: Map<String, String> = emptyMap(),
+    @Volatile private var promptOverrides: Map<String, String> = emptyMap(),
     /** 统一 LLM 温度（null = 按卡型 typeTemperature 兜底）。 */
     private var llmTemperature: Float? = null,
     /**
@@ -1379,6 +1379,37 @@ class HelloSubAgent internal constructor(
                 "endpoint=${helloConfig?.endpoint?.take(40) ?: "(none)"} | " +
                 "model=${helloConfig?.selectedModel?.take(30) ?: "(default)"} | " +
                 "hasKey=${helloConfig?.apiKey?.isNotBlank() == true}"
+        }
+    }
+
+    /**
+     * 开始新一次运行（单例语义，2026-11-13）：实例常驻，`start` 只重置**运行态**。
+     *
+     * Hello **不持有长期记忆**：卡片与推荐列表都在数据层（DAO），每轮由 `runLoop`
+     * 重新水化；画像简报 / 语言 / prompt 覆盖 / 温度按次注入。
+     */
+    fun beginRun(
+        enableLlm: Boolean,
+        config: AiEndpointConfig?,
+        memoryBriefing: String?,
+        preferredLang: String?,
+        globalReplyLanguage: String,
+        promptOverrides: Map<String, String>,
+        temperature: Float?,
+    ) {
+        this.enableLlm = enableLlm
+        this.helloConfig = config
+        this.memoryBriefing = memoryBriefing
+        this.promptPreferredLang = preferredLang
+        this.globalReplyLanguage = globalReplyLanguage
+        this.promptOverrides = promptOverrides
+        this.llmTemperature = temperature
+        isActive = false
+        // 清上一次的终态（否则状态映射一直停在 COMPLETED / ERROR，pause 守卫也会挡住）。
+        _runtimeState.value = HelloRuntimeState()
+        _capabilityState.value = _runtimeState.value.toCapabilityState()
+        HmpLog.i(LogTag.AgentHello) {
+            "👋 beginRun | enableLlm=$enableLlm hasBriefing=${memoryBriefing != null} overrides=${promptOverrides.size}"
         }
     }
 

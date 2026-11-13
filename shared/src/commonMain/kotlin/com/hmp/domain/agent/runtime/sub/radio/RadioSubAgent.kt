@@ -136,22 +136,22 @@ internal class RadioSubAgent(
     /** 观测面总线：编排动作期间用它静默，避免自己的操作被当成用户行为 */
     private val observationBus: PlaybackObservationBus? = null,
     /** 上一段电台对话（进程内，不落盘）。命中复用条件时直接续上，省掉完整上下文组装 */
-    private val retained: RadioConversation? = null,
+    @Volatile private var retained: RadioConversation? = null,
     /** AI 端点配置（热更新：MasterAgent.updateAiConfig 可动态替换） */
     private var radioConfig: AiEndpointConfig? = null,
-    private val targetCount: Int = 12,
+    @Volatile private var targetCount: Int = 12,
     private val stopSignal: StopSignal? = null,
     /** DJ 衔接/裁决阶段的 LLM 采样温度（默认 0.2f，EngineDefaults.TEMPERATURE_RADIO）。 */
-    private val defaultTemperature: Float = 0.2f,
+    @Volatile private var defaultTemperature: Float = 0.2f,
     /**
      * 画像简报（契约 v3.8，MasterAgent.startRadio 从 `userMemory.radioBriefing()` 取）：
      * 开播选种与编排仲裁的听众参考 —— 自带「仅供参考」口径，null = 冷启动无画像。
      */
-    private val memoryBriefing: String? = null,
+    @Volatile private var memoryBriefing: String? = null,
     // ── F9-T2：prompt 多语言 + 用户覆盖（可选，默认 null 回落硬编码）──
-    private val promptPreferredLang: String? = null,
-    private val globalReplyLanguage: String = "zh",
-    private val promptOverrides: Map<String, String> = emptyMap(),
+    @Volatile private var promptPreferredLang: String? = null,
+    @Volatile private var globalReplyLanguage: String = "zh",
+    @Volatile private var promptOverrides: Map<String, String> = emptyMap(),
 ) : SubAgent(agentId, contextBudget, toolRegistryView),
     Capability {
 
@@ -311,6 +311,40 @@ internal class RadioSubAgent(
 
     /** Master 消费终态时读取（只读，不改状态）。 */
     internal fun terminalOutcome(): RadioOutcome? = _terminalOutcome.value
+
+    /**
+     * 开始新一次运行（单例语义，2026-11-13）：实例常驻，`start` 只重置**运行态**。
+     *
+     * Radio **不持有长期记忆**：上一段对话由 Master 导出后作为参数注入（[retained]），
+     * 与「每次注入一些记忆」的口径一致；其余状态在 `stopRadio()` 里已清干净。
+     */
+    fun beginRun(
+        config: AiEndpointConfig?,
+        targetCount: Int,
+        retained: RadioConversation?,
+        memoryBriefing: String?,
+        preferredLang: String?,
+        globalReplyLanguage: String,
+        promptOverrides: Map<String, String>,
+        temperature: Float,
+    ) {
+        this.radioConfig = config
+        this.targetCount = targetCount
+        this.retained = retained
+        this.memoryBriefing = memoryBriefing
+        this.promptPreferredLang = preferredLang
+        this.globalReplyLanguage = globalReplyLanguage
+        this.promptOverrides = promptOverrides
+        this.defaultTemperature = temperature
+        isActive = false
+        runState = AgentRunState.UNREGISTERED
+        stopSignal?.resetForNewRun()
+        // 清上一轮终态：否则 stateFlow 的 combine 会一直把状态映射成「额度已用完 / 已停止」。
+        _terminalOutcome.value = null
+        HmpLog.i(LogTag.AgentRadio) {
+            "📻 beginRun | targetCount=$targetCount hasLLM=${config != null} retained=${retained != null}"
+        }
+    }
 
     override suspend fun pause() {
         HmpLog.i(LogTag.AgentRadio) { "📻 pause()" }

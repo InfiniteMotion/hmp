@@ -16,6 +16,9 @@ internal interface StopSignal {
 
     /** 挂起等待（Scheduler pause 时挂起，resume 时立即恢复）——用 Mutex 实现零唤醒 */
     suspend fun waitResume()
+
+    /** 新一轮运行开始前复位门闩（单例语义）：上一次停在暂停态时不能跨运行继承。默认无操作。 */
+    fun resetForNewRun() {}
 }
 
 /** MasterAgent 用——永不暂停。配额耗尽由 ReActLoop 对 `quotaExhausted` 的分支处理（不发请求 + 可行动话术）。 */
@@ -95,5 +98,15 @@ internal class SchedulerStopSignal(
         try {
             pauseMutex.unlock()
         } catch (_: IllegalStateException) { /* already unlocked */ }
+    }
+
+    /**
+     * 新一轮运行开始前复位（单例语义，2026-11-13）。
+     *
+     * 上一次运行若停在暂停态，门闩是锁着的；不复位的话新一轮第一轮 `waitResume()`
+     * 会直接挂住。复位后由 Scheduler 重新注册时的 onPause/onResume 决定本轮是否暂停。
+     */
+    override fun resetForNewRun() {
+        onSchedulerResumed()
     }
 }

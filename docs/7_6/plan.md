@@ -2,7 +2,7 @@
 
 > **版本归属（用户，2026-11-06）**：UDF 工作分 **P1 页面体系 = 7.5.0** / **P2 Agent 运行时状态所有权 = 7.6.0**，先后推进，两者**不共用批次与验收判据**。P1 已于 2026-11-11 收口（`6df3409`），台账见 [../7_5/progress.md](../7_5/progress.md) §十四。
 > **边界（[../7_5/plan.md](../7_5/plan.md) §1.1 / §1.3）**：**不要把 `UiState` / `onXxx` / `reduce` 推进引擎内部**。`ReActLoop.run()` 是有限步循环、状态全是局部变量、副作用本身就是主流程；P2 是「统一与守门」，不是从零引入 UDF。`ChatAgentGateway` 的 6 种不可变 `ChatAgentEvent` 与 `ConfirmBridge` 握手协议不改。
-> **状态（2026-11-11 建立，2026-11-13 更新）**：**施工中，改动仍在工作树、未提交**。已落 R5 结案（删除步数上限）、R3 前半（`try/finally` + `alwaysAllow` 即时落盘），并追加三项对策调整（对话只保留 LLM 路径 / `AgentHealth` 健康门控 / Hello 卡片缓存回退）；**R6 已于 2026-11-13 结案**（Hello 状态出口 + 终态收口，见 [progress.md](progress.md) §2.12）；**R4 已于 2026-11-13 结案**（见 [progress.md](progress.md) §2.15）；**R3 后半也已结案**（跨轮工具摘要，见 §2.16）；**D6-08 已于 2026-11-13 结案**（复核为死路径，整体删除，见 §2.17）；**C 类 `CapabilitySnapshot` 已于 2026-11-13 结案**（能力出口只交快照，见 §2.18）。逐项证据、判据与验证状态见 [progress.md](progress.md)。P1 收口后已补一笔 `bump: 7.5.0` 只标注提交（`release.toml` 现为 **7.5.0**、`date` 留空；无 tag / 无包 / 无 push、不发行），正式发行仍待 P1 三项前置。P2 的 bump 尚未做（见 §八 ①）。
+> **状态（2026-11-11 建立，2026-11-13 更新）**：**已收口（2026-11-13，提交 `4aff68d`；审计后补 §2.21，不发行）**。已落 R5 结案（删除步数上限）、R3 前半（`try/finally` + `alwaysAllow` 即时落盘），并追加三项对策调整（对话只保留 LLM 路径 / `AgentHealth` 健康门控 / Hello 卡片缓存回退）；**R6 已于 2026-11-13 结案**（Hello 状态出口 + 终态收口，见 [progress.md](progress.md) §2.12）；**R4 已于 2026-11-13 结案**（见 [progress.md](progress.md) §2.15）；**R3 后半也已结案**（跨轮工具摘要，见 §2.16）；**D6-08 已于 2026-11-13 结案**（复核为死路径，整体删除，见 §2.17）；**C 类 `CapabilitySnapshot` 已于 2026-11-13 结案**（能力出口只交快照，见 §2.18）。逐项证据、判据与验证状态见 [progress.md](progress.md)。P1 收口后已补一笔 `bump: 7.5.0` 只标注提交（`release.toml` 现为 **7.5.0**、`date` 留空；无 tag / 无包 / 无 push、不发行），正式发行仍待 P1 三项前置。P2 的 bump 尚未做（见 §八 ①）。
 > **取证口径**：本规划 §二 全部计数为 2026-11-11 工作树实测（`git HEAD = 6df3409`）。行号坐标会过期，动手前按符号名 grep；归档 `docs/archive/**` 只进不改；文档与代码冲突时以代码为准。
 > **台账**：已建 [progress.md](progress.md)（逐债判定、对策调整、验证状态与提交拆分），不在本文件里滚动施工记录。
 
@@ -144,7 +144,7 @@
 
 | 阶段 | 内容 | 每笔验证 |
 |---|---|---|
-| **已落（11-11）** | R5 删除步数上限（结案）；R3 前半（`try/finally` + `alwaysAllow` 即时落盘）；三项对策调整（LLM-only / 健康门 / 卡片缓存回退）；**Enrich 子 Agent 状态收口样板**（单一快照 / finally / 暂停可见）。均在工作树、未提交；Enrich 样板已跑 `ktlint` + `testCore`，其余未验证 | 见 [progress.md](progress.md) §二/§五/§2.7 |
+| **已落（11-11）** | R5 删除步数上限（结案）；R3 前半（`try/finally` + `alwaysAllow` 即时落盘）；三项对策调整（LLM-only / 健康门 / 卡片缓存回退）；**Enrich 子 Agent 状态收口样板**（单一快照 / finally / 暂停可见）。已随 `4aff68d` 提交；验证状态见 [progress.md](progress.md) §五（全绿） | 见 [progress.md](progress.md) §二/§五/§2.7 |
 | **0 判据基建** | **并发 / 自愈判据已落（2026-11-13）**：`AgentSchedulerTest` 新增 2 条（50 写协程 × 20 轮 + 3000 次读；`FlakyConditions` 注入单次异常），修复前 9 例 / 3 失败、修复后全绿，见 [progress.md](progress.md) §2.15。**跨轮判据也已补**（§2.16：`ReActLoopTest` 取消回调 + 摘要 / 投影纯函数）；仍缺：`AgentSchedulerTest` 全量并行偶发 flaky 未定性 | 定向 `--rerun` 全绿；`testAll` 见 §五 |
 | **1 R4** | **已结案**（2026-11-13，见 [progress.md](progress.md) §2.15）：两张表改 `@Volatile` 不可变快照 + 写侧 COW 整份替换；仲裁循环单轮 `try/catch` 自愈 + Job 完成回调复位标志（比「重启循环」更稳） | 两条判据先红后绿 |
 | **2 R3** | **已结案**（2026-11-13，见 [progress.md](progress.md) §2.16）：前半 `try/finally` + `alwaysAllow` 立存；后半改为**跨轮工具摘要**（用户定 B，不扩 role、不存完整轮次）—— `finally` + `NonCancellable` 落摘要，`buildHistoryMessages()` 投影成 system 提醒 | 摘要纯函数 / 历史投影 / 取消回调 3 条判据 |
@@ -167,8 +167,8 @@
 
 **如实登记的缺口，不假装闭环**：
 
-- **判据缺口**：R3 的取消收尾已有两条用例（2026-11-11：勾选即触发保存、循环中断仍复位思考态）；但 `TODO.md` 写明的剩余判据（跨轮不重复执行写工具 / R4 并发压力不抛 CME 且能自愈）**仍没有对应用例**，落在阶段 0；不补就开工等于盲改。
-- **本批未验证**：工作树改动尚未跑 `ktlint` / `compileAll` / `testCore` / `testAll`；提交前必须补，不把「改完」当「验过」。
+- **判据已补齐（2026-11-13）**：R3 取消收尾 2 条；R4 并发 / 自愈 2 条（先红后绿）；跨轮摘要 `ToolRunSummaryTest` 3 条 + 投影 `AgentHistoryProjectionTest` 3 条 + 取消仍回传 1 条。仍无「两轮 + 取消 → 模型真的不重复调用」的端到端用例（只到摘要 / 投影层）。
+- **验证已补（2026-11-13）**：`ktlint` 0 处、`compileAll` 三端、`testAll`、`preflight` 均 BUILD SUCCESSFUL，详见 [progress.md](progress.md) §五。
 - **iOS**：本机 Windows 不编译 iOS target、无 `iosTest` 源集，`commonMain` 改动对 iOS 零机器反馈；发行前用 macOS 验。
 - **CI**：`pr-check.yml` 不编译不跑测（X-01 暂缓），本机 `preflight` 是唯一守门人。
 - **flaky**：`AgentSchedulerTest` 曾在 `testCore` 全量并行下偶发失败一次（单独重跑全绿），阶段 0 要定性，不把 flaky 当绿灯。

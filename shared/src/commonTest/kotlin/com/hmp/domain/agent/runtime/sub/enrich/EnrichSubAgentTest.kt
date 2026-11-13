@@ -4,6 +4,7 @@ import com.hmp.domain.agent.enrich.EnrichHealth
 import com.hmp.domain.agent.enrich.EnrichWorkUnit
 import com.hmp.domain.agent.port.CapabilityState
 import com.hmp.domain.agent.port.LlmEvent
+import com.hmp.domain.agent.port.LlmMessage
 import com.hmp.domain.agent.runtime.AgentContextBudget
 import com.hmp.domain.agent.runtime.AgentRunState
 import com.hmp.domain.agent.runtime.ToolRegistryView
@@ -83,6 +84,33 @@ class EnrichSubAgentTest {
         targetCoverage = targetCoverage,
         stopSignal = null,
     )
+
+    @Test
+    fun beginRun_resetsRunState_butKeepsLongTermHistory() {
+        val budget = AgentContextBudget(agentId = "enrich", llmClient = FakeLlmTransport())
+        val agent = EnrichSubAgent(
+            agentId = "enrich",
+            contextBudget = budget,
+            toolRegistryView = ToolRegistryView.empty(null),
+            systemPrompt = "old-prompt",
+            musicRepository = FakeAgentMusicRepository(),
+            enrichConfig = AiEndpointConfig(isConfigured = true),
+            targetCoverage = 0.5f,
+        )
+        budget.appendMessages(listOf(LlmMessage(role = "user", content = "上一轮的上下文")))
+        val historyBefore = budget.historySize()
+        assertTrue(historyBefore > 0)
+
+        agent.beginRun(
+            targetCoverage = 0.9f,
+            systemPrompt = "new-prompt",
+            config = AiEndpointConfig(isConfigured = true, selectedModel = "new-model"),
+        )
+
+        assertEquals(AgentRunState.UNREGISTERED, agent.state(), "新一轮开始前不得残留 RUNNING / PAUSED")
+        assertEquals(EnrichProgress.IDLE, agent.getProgress(), "上一次的终态与进度计数要清零")
+        assertEquals(historyBefore, budget.historySize(), "Enrich 拥有长期记忆：history 跨运行保留")
+    }
 
     @Test
     fun terminalOutcomes_mapToCapabilityStatus() {

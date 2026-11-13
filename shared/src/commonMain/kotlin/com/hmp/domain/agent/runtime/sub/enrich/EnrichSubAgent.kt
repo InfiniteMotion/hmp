@@ -105,7 +105,7 @@ internal class EnrichSubAgent(
     contextBudget: AgentContextBudget,
     toolRegistryView: ToolRegistryView,
     /** Master 注入的富化 system prompt（F5：角色 + 任务参数，不变） */
-    private val systemPrompt: String,
+    @Volatile private var systemPrompt: String,
     /** 音乐库仓库（拉活 + 写 DB） */
     private val musicRepository: MusicRepository,
     /** 存在感总线（emit 进度） */
@@ -162,6 +162,27 @@ internal class EnrichSubAgent(
     fun updateTarget(newTarget: Float) {
         targetCoverage = newTarget
         HmpLog.i(LogTag.AgentEnrich) { "📚 [$agentId] targetCoverage updated to $newTarget" }
+    }
+
+    /**
+     * 开始新一次运行（单例语义，2026-11-13）：实例常驻，`start` 只重置**运行态**。
+     *
+     * 清掉上一次的终态与进度计数，换成本次的目标 / prompt / 端点配置；
+     * **刻意不清 `contextBudget` 的 history** —— Enrich 拥有长期记忆（用户决议），
+     * 跨运行累积的上下文交给预算内的压缩机制处理。
+     */
+    fun beginRun(targetCoverage: Float, systemPrompt: String, config: AiEndpointConfig?) {
+        this.targetCoverage = targetCoverage
+        this.systemPrompt = systemPrompt
+        this.enrichConfig = config
+        isActive = false
+        runState = AgentRunState.UNREGISTERED
+        // 上一次若是暂停态，门闩要复位，否则新一轮第一轮拉活就挂在 waitResume() 上。
+        stopSignal?.resetForNewRun()
+        _progressState.value = EnrichProgress.IDLE
+        HmpLog.i(LogTag.AgentEnrich) {
+            "📚 [$agentId] beginRun | target=$targetCoverage history=${contextBudget.historySize()} hasLLM=${config != null}"
+        }
     }
 
     /** 查询当前进度（与 [progressState] 同源）。 */

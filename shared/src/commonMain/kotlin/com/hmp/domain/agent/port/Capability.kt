@@ -6,7 +6,8 @@ import kotlinx.coroutines.flow.StateFlow
  * SubAgent 对外暴露的统一能力接口（F9-A0）。
  *
  * 所有后台能力（Radio / Enrich / Hello）都实现此接口。
- * MasterAgent 通过 `Map<String, Capability>` 统一管理所有能力，
+ * MasterAgent 内部按 `agentId → SubAgent` 管理实例；**对外只交快照**
+ * （`CapabilitySnapshot` / `StateFlow<CapabilitySnapshot>`），不交实例。
  * ToolRegistry 的状态查询与能力控制工具都从这套接口走。
  *
  * **为什么在 port**：它是**能力契约**而非引擎实现 —— `tool/`、`runtime/`、`sub/`
@@ -14,9 +15,9 @@ import kotlinx.coroutines.flow.StateFlow
  * （工具层不该依赖引擎目录）。
  *
  * 设计原则：
- * 1. **接口极简** —— 强制要求 capabilityName + stateFlow（这是核心价值：
- *    统一状态查询入口），start/stop 可选（不同 SubAgent 生命周期模式不同：
- *    Radio 是单例 start/stop 复用，Enrich 每次 start 新建实例，Hello 自动启动）。
+ * 1. **接口极简** —— 只有 capabilityName + stateFlow（统一状态查询入口）。
+ *    生命周期由 Master 的原生方法管（`startRadio` / `startEnrich` / `startHello`）；
+ *    接口上原有的 start/stop 已于 2026-11-13 删除（全仓零调用）。
  * 2. **stateFlow 是唯一状态出口** —— Tool 层、UI 层、日志都从这里读状态，
  *    绝不允许外部直接访问 SubAgent 的私有 MutableStateFlow。
  * 3. 每个 SubAgent 可以有额外的专属方法（如 RadioSubAgent.startRadio(seed)），
