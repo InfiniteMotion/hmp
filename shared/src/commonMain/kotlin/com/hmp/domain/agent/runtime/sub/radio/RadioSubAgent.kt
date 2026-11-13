@@ -86,6 +86,44 @@ import kotlinx.coroutines.launch
  *   完全静默：模型生成的任何文字只进日志（reason），用户可见的只有
  *   RadioCardState（固定主题 + 动态待播数/下首/最近调整）与固定文案的短时消息。
  */
+/** 一次电台运行的终态。关电台是高频正常操作，故与 Hello 一样没有「完成」。 */
+enum class RadioOutcome { QUOTA_EXHAUSTED, CANCELLED, FAILED }
+
+/**
+ * RadioState → 对外只读状态的单一映射。终态优先于业务态：
+ * `stopRadio()` 会把 `_radioState` 置回 IDLE，终态若只挂在业务态上就会被冲掉。
+ */
+internal fun radioCapabilityState(rs: RadioState, outcome: RadioOutcome?): CapabilityState {
+    val terminal = when (outcome) {
+        RadioOutcome.QUOTA_EXHAUSTED -> CapabilityState(CapabilityState.Status.PAUSED, "额度已用完，恢复后自动继续")
+        RadioOutcome.FAILED -> CapabilityState(CapabilityState.Status.ERROR, "运行异常，已停止")
+        RadioOutcome.CANCELLED -> CapabilityState(CapabilityState.Status.IDLE, "已停止")
+        null -> null
+    }
+    if (terminal != null) return terminal
+    return when (rs) {
+        is RadioState.IDLE -> CapabilityState(CapabilityState.Status.IDLE, raw = rs)
+
+        is RadioState.BUILDING -> CapabilityState(
+            status = CapabilityState.Status.BUILDING,
+            detail = rs.actionText,
+            raw = rs,
+        )
+
+        is RadioState.PLAYING -> CapabilityState(
+            status = CapabilityState.Status.RUNNING,
+            detail = "正在播放，共 ${rs.currentCount} 首",
+            raw = rs,
+        )
+
+        is RadioState.PAUSED -> CapabilityState(
+            status = CapabilityState.Status.PAUSED,
+            detail = "暂停中，共 ${rs.currentCount} 首",
+            raw = rs,
+        )
+    }
+}
+
 internal class RadioSubAgent(
     agentId: String = "radio",
     contextBudget: AgentContextBudget,
@@ -240,15 +278,39 @@ internal class RadioSubAgent(
         // 配额 soft-stop 对电台失效。与 Enrich/Hello 的 runLoop 写法对齐。
         isActive = true
         runState = AgentRunState.RUNNING
-        while (scope.isActive && isActive) {
-            stopSignal?.waitResume() // Scheduler pause → 挂起
-            if (stopSignal?.shouldSoftStop() == true) break
-            // runLoop 只做状态维持——续歌触发由 Master 或 Playback 层调 continueRadio()
-            kotlinx.coroutines.delay(500)
+        // 终态由 finally 唯一写入；会话 Channel / 播放 / 转发流的收口统一交给
+        // Master.stopRadioLocked()（关电台本来就是一条完整业务收口，不重复实现）。
+        var outcome: RadioOutcome? = null
+        try {
+            while (scope.isActive && isActive) {
+                stopSignal?.waitResume() // Scheduler pause → 挂起
+                if (stopSignal?.shouldSoftStop() == true) {
+                    outcome = RadioOutcome.QUOTA_EXHAUSTED
+                    break
+                }
+                // runLoop 只做状态维持——续歌触发由 Master 或 Playback 层调 continueRadio()
+                kotlinx.coroutines.delay(500)
+            }
+        } catch (ce: kotlinx.coroutines.CancellationException) {
+            outcome = RadioOutcome.CANCELLED
+            throw ce
+        } catch (t: Throwable) {
+            outcome = RadioOutcome.FAILED
+            throw t
+        } finally {
+            finish(outcome ?: RadioOutcome.CANCELLED)
         }
-        runState = AgentRunState.PAUSED
-        HmpLog.i(LogTag.AgentRadio) { "📻 runLoop exited" }
     }
+
+    /** 三种退出共用同一条收尾：写终态 + 运行态归零，其余收口交给 Master。 */
+    private fun finish(outcome: RadioOutcome) {
+        runState = AgentRunState.UNREGISTERED
+        _terminalOutcome.value = outcome
+        HmpLog.i(LogTag.AgentRadio) { "📻 runLoop exited (outcome=$outcome)" }
+    }
+
+    /** Master 消费终态时读取（只读，不改状态）。 */
+    internal fun terminalOutcome(): RadioOutcome? = _terminalOutcome.value
 
     override suspend fun pause() {
         HmpLog.i(LogTag.AgentRadio) { "📻 pause()" }
@@ -1668,43 +1730,18 @@ internal class RadioSubAgent(
 
     override val capabilityName = "radio"
 
-    /** RadioState → CapabilityState 统一映射——Tool 层和 UI 层从这里读 */
-    override val stateFlow: StateFlow<CapabilityState> = _radioState.map { rs ->
-        when (rs) {
-            is RadioState.IDLE -> CapabilityState(CapabilityState.Status.IDLE, raw = rs)
+    /** 终态与业务态合成一份出口；映射逻辑抽成纯函数便于单测。 */
+    private val _terminalOutcome = kotlinx.coroutines.flow.MutableStateFlow<RadioOutcome?>(null)
+    override val stateFlow: StateFlow<CapabilityState> =
+        kotlinx.coroutines.flow.combine(_radioState, _terminalOutcome) { rs, outcome ->
+            radioCapabilityState(rs, outcome)
+        }.stateIn(scope, SharingStarted.Eagerly, CapabilityState(CapabilityState.Status.IDLE))
 
-            is RadioState.BUILDING -> CapabilityState(
-                status = CapabilityState.Status.BUILDING,
-                detail = rs.actionText,
-                raw = rs,
-            )
-
-            is RadioState.PLAYING -> CapabilityState(
-                status = CapabilityState.Status.RUNNING,
-                detail = "正在播放，共 ${rs.currentCount} 首",
-                raw = rs,
-            )
-
-            is RadioState.PAUSED -> CapabilityState(
-                status = CapabilityState.Status.PAUSED,
-                detail = "暂停中，共 ${rs.currentCount} 首",
-                raw = rs,
-            )
-        }
-    }.stateIn(scope, SharingStarted.Eagerly, CapabilityState(CapabilityState.Status.IDLE))
-
-    override suspend fun start(): String {
-        val tracks = startRadio(null, RadioTrigger.CHAT_INPUT)
-        return if (tracks.isNotEmpty()) {
-            "电台启动了，为你选了 ${tracks.size} 首"
-        } else {
-            "电台没有找到足够的曲目"
-        }
-    }
-
-    override suspend fun stop(): String {
-        stopRadio()
-        return "电台已停止"
+    /** 内部 scope 此前无人取消：停掉 stateIn 收集与 RadioSession 的兜底 Job。 */
+    override suspend fun shutdown() {
+        super.shutdown()
+        scope.coroutineContext[kotlinx.coroutines.Job]?.cancel()
+        HmpLog.i(LogTag.AgentRadio) { "📻 shutdown complete (internal scope cancelled)" }
     }
 }
 

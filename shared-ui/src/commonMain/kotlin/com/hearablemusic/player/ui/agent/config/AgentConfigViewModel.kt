@@ -32,7 +32,6 @@ data class AgentConfigUiState(
     val customModel: String = "",
     val globalEndpoint: AiEndpointConfig = AiEndpointConfig(),
     val temperature: Float = 0f,
-    val stepBudget: Int = 0,
     val dailyRecommendCount: Int = 1,
     val recommendListSize: Int = 8,
     val targetCoverage: Float = 0f,
@@ -85,7 +84,6 @@ class AgentConfigViewModel(
                 role = role,
                 config = config,
                 temperature = resolved.temperature,
-                stepBudget = resolved.runtimeParams.stepBudget,
                 dailyRecommendCount = resolved.runtimeParams.dailyRecommendCount,
                 recommendListSize = resolved.runtimeParams.recommendListSize,
                 targetCoverage = resolved.runtimeParams.targetCoverage,
@@ -173,8 +171,6 @@ class AgentConfigViewModel(
     fun onCustomModelChange(value: String) = update { it.copy(customModel = value) }
 
     fun onTrustLevelChange(value: Int) = update { it.copy(trustLevel = value) }
-
-    fun onStepBudgetChange(value: Int) = update { it.copy(stepBudget = value) }
 
     fun onDailyRecommendCountChange(value: Int) = update { it.copy(dailyRecommendCount = value) }
 
@@ -264,9 +260,9 @@ class AgentConfigViewModel(
         cfg.preferredLang = s.preferredLang
         cfg.enabled = s.agentEnabled
         cfg.trustLevel = s.trustLevel
+        // 旧版残留的 stepBudget 键不再使用，保存时顺手清掉。
+        cfg.runtimeParams.remove("stepBudget")
         when (role) {
-            "master" -> cfg.runtimeParams["stepBudget"] = s.stepBudget.toString()
-
             "hello" -> {
                 cfg.runtimeParams["dailyRecommendCount"] = s.dailyRecommendCount.toString()
                 cfg.runtimeParams["recommendListSize"] = s.recommendListSize.toString()

@@ -25,17 +25,17 @@
 
 ### 引擎正确性
 
-- [ ] **R3** `ReActLoop` 无 `try/finally`：取消路径丢掉 `onSessionComplete`（alwaysAllow 不落盘）与终态 Presence；且熔断发生在工具执行**之后**、tool 轮次不回传对话历史（`ChatAgentGateway` 只映射 user/agent 文本）→ 下一轮模型看不到「已执行」，可能**重复执行写工具**。补 finally + 把 tool 轮次持久化。**判据**：一条「取消/熔断后重进对话，写工具不被执行两次」的用例
-- [ ] **R4** `AgentScheduler` 的 `agents`/`states` 是普通 `MutableMap`，注册/注销无同步，而仲裁循环每秒在另一线程遍历 → 一次 CME 就让仲裁协程死亡且 `arbitrationStarted` 仍为 true，**全进程 pause/resume 永久失效且不可重启**。换并发容器 + `try/finally` 重启守卫。**判据**：并发注册/遍历的压力用例不抛 CME，循环异常后能自愈
-- [ ] **R5** `stepBudget` 用户可改可持久化，但 Master 恒取 `EngineDefaults` 常量 → 设置项完全无效。接上 `resolvedFor("master").runtimeParams.stepBudget`，或先从 UI 撤下。**判据**：改成 3 与 15 后，实际循环步数跟着变（日志里的 `steps_budget` 可断言）
-- [ ] **R6** `HelloSubAgent.stateFlow` 是构造期一次性求值的 `MutableStateFlow`，此后无人写回 → `capability_status` 与监控页的 Hello 永远停在构造瞬间、「活跃子 Agent 数」少 1 → 改为由 `runState` 派生（`map` + `stateIn(…, Eagerly, …)`）。**判据**：与 Enrich/Radio 共用同一条 Capability 状态契约测试
+- [x] **R3**（2026-11-13 结案）前半（`try/finally` + 取消收尾 + `alwaysAllow` 立存）已于 2026-11-11 完成；**后半**改为「跨轮工具摘要」（用户定 B 方案，不需要回退/回放）：`ReActLoop.finally` 用 `NonCancellable` 回调已执行工具 → `MasterAgent` 落一条 `renderHint=tool_summary` 的摘要 → `buildHistoryMessages()` 把它转成 **system** 消息放最前（不占 6 条窗口），UI 渲染历史时过滤掉。判据：摘要纯函数、历史投影、以及「取消时仍回调已执行工具」三条（见 `docs/7_6/progress.md` §2.16）。
+- [x] **R4**（2026-11-13 结案）`agents`/`states` 改为 `@Volatile` 不可变快照、写侧 `@Synchronized` 整份替换（COW，照抄已修好的 `SubAgentRegistry`）；仲裁循环单轮 `try/catch` 吞异常并下一秒重试、`startArbitration()` 给 Job 挂 `invokeOnCompletion` 复位标志。**阶段 0 判据先行**：先写 2 条用例确认变红（9 例 / 3 失败：读到坏数据、自愈超时、未捕获异常污染后续用例），再改代码转绿。详见 `docs/7_6/progress.md` §2.15。
+- [x] ~~**R5** `stepBudget` 设置项无效~~ **2026-11-11 结案**：用户决议「不要步数上限，有 token 上限就行」，故不修设置项而是整体删除 —— 设置页滑块、`RuntimeParams.stepBudget`、`EngineDefaults.STEP_BUDGET`、Master 构造参数、`ReActLoop` 的 `while` 条件与熔断分支、`TerminationReason.STEP_BUDGET_EXHAUSTED`、14 语言文案及相关测试断言全部移除；`stepsUsed` 仅保留作观测值。循环退出改依赖模型给出最终回答 / 调用失败 / 配额前置拒绝 / StopSignal 软停止。**已知风险**：PAID 与未开启自定义限额的 CUSTOM 模式下配额永不耗尽，模型持续返回工具调用时循环不会自行终止（见 `ReActLoop.kt` 类注释）。
+- [x] **R6**（2026-11-13 结案）`HelloSubAgent.stateFlow` 原是构造期一次性求值的 `MutableStateFlow`，此后无人写回 → 监控页永远停在构造瞬间。已改为生命周期状态的唯一快照 `HelloRuntimeState` + `transition()` 统一写入口（**不用 `stateIn`**：`shutdown()` 会取消内部 scope，收集协程一停就丢最后一帧终态）；override `pause()/resume()` 同步出口且终态不被覆盖。**判据**：`HelloSubAgentTest` 的 `stateFlow_tracksRunState_R6` 与终态纯映射用例（见 `docs/7_6/progress.md` §2.12）
 - [ ] **R11** 首轮对话在 `viewModelScope`(Main) 同步跑「画像就绪 + 全库快照 + 使用统计」→ 挪 `withContext(Dispatchers.Default)`，或首轮不阻塞（用旧画像异步刷新）。**判据**：首轮期间主线程无库级聚合（systrace / 日志埋点计时）
 - [ ] **R12** 画像刷新的 `musicLabel` 聚合仍把全表 + 全量已删曲目拉进内存 groupBy（注释称「已改 SQL GROUP BY」的方法恰是漏改的那个）→ 换成已有的 `getTopLabelsSince` 一类 SQL 聚合。**判据**：该方法调用栈里不再有全表 `getAll`
 
 ### 安全与授权
 
 - [ ] **R7** 提示注入：曲库标题/艺人/歌单名以裸字符串拼进 prompt，并经工具 `summary` 原样回灌对话上下文，全链路无定界与不可信标记；`EnrichResponseParser.normalizeFacts` 之外还有多条 AI 自由文本**无长度上限**直存 DB，成为后续所有 Agent 的载荷 → 统一加引用定界 + 入库截断。**判据**：构造一首标题里带 `[INST]`/伪工具名的歌曲，AI 输出与后续 prompt 都只把它当数据
-- [ ] **R8** 写路径不过闸：电台直连 `playbackPort` 做 SKIP_ALL / REPLACE_QUEUE / ADD_TO_QUEUE，富化直写标签与 extra，二者都绕过 PolicyGuard 与 ConfirmGate，审计只记了 `logRadioStart` → 收进执行器，或至少补显式白名单 + 每次写都落审计。**判据**：`agent_monitor` 里能看到电台改队列的记录，且 Deny 时不执行
+- [x] **R8**（2026-11-13 **改判，非缺陷**）原判「写路径不过闸」把两类写动作混为一谈：① 电台开台后改播放队列是**会话内实现细节** —— 用户点开电台即授权整档接管（`PlaybackCommandPort` 的 `AGENT_INTERNAL` 注释、`pushLocalQueueForInstantPlay`「播放器队列归电台管」、关台只暂停不清队列、产品决议「用户播放控制不退出电台」），逐次过 `PolicyGuard` / `ConfirmGate` 既无必要也会毁掉体验，按设计结案；② 富化写标签 / extra 是持久化数据，改归「后台能力写持久化数据的可观测性 / 撤销」（接近 R16），不再挂在「授权门缺失」上。原判据「Deny 时不执行」失效：那套门只服务主对话 LLM 工具调用，后台 Agent 无 `confirmGate`，硬塞会被全拒。证据与决议见 `docs/7_6/progress.md` §2.14。
 - [ ] **R9** 日志泄露曲库：富化/电台有若干 **WARN 级**日志打印模型响应原文 200–600 字符与歌名，而三端 release 的门槛正是 Warn → 降 DEBUG 或只记长度与计数。**判据**：release 构建跑一轮富化，日志里检索不到任何曲名
 - [ ] **R10** iOS 密钥仍是 XOR 伪加密 + 明文密钥文件落在 `Documents/.keys`（与密文同目录、一起进 iCloud 备份），且用的是非 CSPRNG 的 `kotlin.random.Random` → 换 Keychain（`kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly`），Desktop 的 `KEYSTORE_PASSWORD` 硬编码另计。同时把 README「API 密钥加密存储」的口径改准。**判据**：`grep -r SecItem shared/src/iosMain` 命中且 key 不落沙箱文件；旧库能平滑迁移
 - [ ] **R16** 撤销链路从未实装：审计只存 `argsHash`（不存参数与旧值）→ 数据层面无法还原「改了哪个列表、原内容是什么」；`AgentNoticeBar.onUndo` 全仓未传入、`AppRoot` 唯一分支 `showUndo=false`（挂载但永不显示的死组件）；`DialogConfirmGateAdapter` 的 STRONG_CONFIRM 二次确认是死代码。**另加一条本次修复留下的账**：修复前已写进白名单的不可逆工具项，策略上已被忽略，但设置页仍显示为「总是允许」→ 接出撤销列表时一并清掉。**判据**：删歌单后可从审计页一步还原；设置页显示的可撤销项与 PolicyGuard 实际生效项一致
@@ -71,8 +71,8 @@
 ## 四、清理线（R20–R22、R27–R30，可与方向 C 并行）
 
 - [ ] **R20** 死抽象：`ToolRegistryView` 全类零消费（注入三个 SubAgent 后基类只存不读）、`Capability.start/stop` 生产零调用、`continueRadio` 自陈无调用点、`ALL_BATCH_B` 无引用 → 要么接上（电台/富化将来真要用工具时接进 per-agent 白名单），要么删掉这层
-- [ ] **R21** 注释与口径漂移（**taskbook 的打勾不可信，动手前以代码为准**）：`ToolNames` 注释「29 个」、`ToolCatalog`「34 实例=26+8DJ」（dj_* 全仓 0 命中）、`SharedModules` 称 iOS 未提供 `AgentKeepAlivePort`（其实 `IosModules` 已提供）、`f12` 验收表四个 DAO 聚合零调用方却打 ✅、`f8` §7 的 W-T5/W-T6 未实装仍记完成、`f6` M6-T2 `PresenceEvent.SkipDetected` 与 `CloudQuotaExhausted` 零 emit、`f11` L1「三端启动即初始化」实为仅 Android → 逐条改文档或补实现，并把「工具数 / DAO 消费方」加进断言防回归
-- [ ] **R22** 大文件拆分：`MasterAgent.kt`（本次修完 A1 后 1760 行，六职责混装，`init` 里还 `runBlocking` 读 DataStore）、`EnrichSubAgent.runLoop`（167 行 / 31 分支）、`RadioSubAgent.startRadio`（113 行 / 4 处队列写入，且 494 行处有 R-Phase 3 重做计划）、`HelloCardCoverflow`（283 行 / 45 分支）→ 优先拆 Master 的三套 SubAgent 生命周期与内建意图路由
+- [ ] **R21** 注释与口径漂移（**taskbook 的打勾不可信，动手前以代码为准**）：~~`ToolNames` 注释「29 个」、`ToolCatalog`「34 实例=26+8DJ」~~（2026-11-11 已校准为 **38 = 30 基础 + 8 能力控制**；`ToolCatalog` 基础 29 + `capability_status` + 8 控制）、`SharedModules` 称 iOS 未提供 `AgentKeepAlivePort`（其实 `IosModules` 已提供）、`f12` 验收表四个 DAO 聚合零调用方却打 ✅、`f8` §7 的 W-T5/W-T6 未实装仍记完成、`f6` M6-T2 `PresenceEvent.SkipDetected` 与 `CloudQuotaExhausted` 零 emit、`f11` L1「三端启动即初始化」实为仅 Android → 逐条改文档或补实现，并把「工具数 / DAO 消费方」加进断言防回归
+- [ ] **R22** 大文件拆分：`MasterAgent.kt`（本次修完 A1 后 1760 行，六职责混装，`init` 里还 `runBlocking` 读 DataStore）、`EnrichSubAgent.runLoop`（167 行 / 31 分支）、`RadioSubAgent.startRadio`（113 行 / 4 处队列写入，且 494 行处有 R-Phase 3 重做计划）、`HelloCardCoverflow`（283 行 / 45 分支）→ 优先拆 Master 的三套 SubAgent 生命周期管理
 - [ ] **R27** `getMusicIdListByType` 新默认 `LIMIT 100` 且无 `ORDER BY` → 未显式传 limit 的调用点被静默截断、取哪 100 条不确定。给默认值改 `MAX_VALUE` 或调用点显式传，并补确定序
 - [ ] **R28** 测试盲区：生命周期并发重入、`AgentScheduler` 仲裁循环、`ToolCallExecutor` 之外的 CE 吞没点（agent 域 `catch (Exception)`/`runCatching` 共 184 处，仅 4 处复抛 CE）、Hello 有效行为（现 4 例全是「零依赖构造不崩」）、`pauseResume_transitionsRunState` 把错误语义锁进了断言。**本次新增的两条 A1 用例只断言「不超时」，没断言旧实例确实被收摊；enrich/hello 同形改动也无等价用例** → 补这三块
 - [ ] **R29** 发版前必做的实机核验：① **A4 之后降级库的表现完全没测过** —— 三端都去掉了 destructive 兜底且没注册 `RoomDatabase.Callback`，拿一个 `user_version=10` 的库在三端各跑一次，按结果决定要不要加「库版本较新，请升回新版本或恢复备份」的提示；② `iosMain` 本机（Windows）无法编译，本次 A3/A4 的 iOS 分支只做了源码级核对；③ F11 后台存活真机核验、iOS 锁屏 / Live Activity 交互核验（原 P7.46–P7.49）、三端首启引导实操
@@ -165,7 +165,7 @@
 | R44 CI 不编译、不测试、不编 iOS | X-01 已改判为"按当前环境实现" | ✅ 已定调 ① |
 | R3 `ReActLoop` 无 `try/finally` | D6 §4 横查**不构成反驳**；R3 前半与熔断顺序为真缺陷 | ✅ 已定调 ②，待立案 |
 | R13 i18n 三件事 | **已立案 D8-06** | ✅ 已处置 ③ |
-| R5 设置项 `stepBudget` 无效 · R6 Hello `stateFlow` 不更新 · R7 提示注入 · R8 写路径不过闸 · R9 WARN 日志泄露曲库 · R11 首轮阻塞主线程 · R12 `musicLabel` 聚合 · R16 撤销链路 · R17 产品决策 · R20 死抽象 · R21 注释口径漂移 · R22 大文件拆分 · R24 断点两套 · R25 `plurals` · R27 静默截断 · R28 测试盲区 · R31 CI 测试挂死 · R36 版本号散文核对 · R37 发布后核对 · R38 iOS 脚本改写验证 · R46 `podspec` 入库 · R51 构建拓扑平铺 | —（另注：R31 的新证据见 `docs/archive/7_x/7_3/taskbook/README.md` §四：Robolectric 全仓只存在于 `:android:core-player`） | ❓ 未见对应，须逐条复核 |
+| R5 步数上限（已于 2026-11-11 整体删除、结案） · R6 Hello `stateFlow` 不更新 · R7 提示注入 · R8 写路径不过闸（11-13 改判、非缺陷） · R9 WARN 日志泄露曲库 · R11 首轮阻塞主线程 · R12 `musicLabel` 聚合 · R16 撤销链路 · R17 产品决策 · R20 死抽象 · R21 注释口径漂移 · R22 大文件拆分 · R24 断点两套 · R25 `plurals` · R27 静默截断 · R28 测试盲区 · R31 CI 测试挂死 · R36 版本号散文核对 · R37 发布后核对 · R38 iOS 脚本改写验证 · R46 `podspec` 入库 · R51 构建拓扑平铺 | —（另注：R31 的新证据见 `docs/archive/7_x/7_3/taskbook/README.md` §四：Robolectric 全仓只存在于 `:android:core-player`） | ❓ 未见对应，须逐条复核 |
 
 ### 归口时发现的三个问题与决议（2026-09-30）
 
@@ -186,7 +186,8 @@
   2. **"tool 轮次不回传"要分两层**：**同一次 run 内确实回传** —— `:95` 以 `trackMessages = true` 构造 `ToolCallExecutor`，`:162` 把每个工具结果 append 成 `role="tool"` 消息（`ToolCallExecutor.kt:198-205`），下一步 LLM 看得到。**跨轮看不到** —— 下一轮 `history` 由 `ChatAgentGateway.buildHistory()` 从 `agent_message` 表装载（`:230-238`），只映射 `"user"` 与 `"agent"/"assistant"`，其余一律 `mapNotNull → null` 丢弃；存储端口注释也写明 role 只有 `user / agent / system`（`AgentMessageStore.kt:11`）。→ **R3 此点成立于跨轮，不成立于同一 run 内。**
   3. **熔断确实在工具执行之后**：`:158-163` 先执行本步全部工具，`:165` 才判 `steps >= stepBudget` 并 break —— 该步写工具已落地，但模型没再被叫起来总结（`finalText` 空 → 走 `:183-184` 兜底文案）。→ **R3 此点成立。**
 - **结论**：D6 §4 横查（`:109`）的"单 Agent 内部生命周期正常"指的是**退出机制**（`while` + `stepBudget` 不挂死不泄漏），也成立 —— 但它没回答"取消路径的收尾"，**不构成对 R3 的反驳**。两条都留：D6 不改；R3 的前半与第三点作为真缺陷立案（补 `try/finally` + 把 tool 轮次持久化）。
-- **遗留**：R3 里"下一轮看不到已执行 → **可能**重复执行写工具"是**推理不是实测** —— 最终答复文本（`role="agent"`）是存下来的，若模型在文本里说了"已加进歌单"就仍有信号。要坐实需一条用例：同一会话两轮，第一轮执行写工具后取消/熔断，看第二轮是否重复执行。
+- **11-11 订正**：上条「`while` + `stepBudget` 不挂死不泄漏」随步数上限删除已失效 —— `ReActLoop` 现为 `while (true)`，退出只靠模型收敛 / 调用失败 / 配额前置拒绝 / StopSignal 软停止；PAID 与未开启自定义限额的 CUSTOM 模式下配额永不耗尽，模型持续返回工具调用时循环不会自行终止（见 `ReActLoop.kt` 类注释）。R3 第三点里「熔断在工具执行之后」这一半随熔断删除消失，但「跨轮看不到已执行 → 可能重复执行写工具」仍在，仍须立案。
+- **遗留**：R3 里"下一轮看不到已执行 → **可能**重复执行写工具"是**推理不是实测** —— 最终答复文本（`role="agent"`）是存下来的，若模型在文本里说了"已加进歌单"就仍有信号。要坐实需一条用例：同一会话两轮，第一轮执行写工具后取消/配额耗尽，看第二轮是否重复执行。
 
 **③ i18n —— 决议：同意立案，已落 `D8-06`。**
 - 已在 [docs/archive/7_x/7_3/domain/D8.md](docs/archive/7_x/7_3/domain/D8.md) 追加 **D8-06**（androidMain 旧平行副本 / 无键集合校验 / 泰语 258 行未译），并把该文件 §4「i18n 无键漂移」的"结构性保证"措辞订正为"实测齐平但无机制保证"、§6 语种条注明"覆盖承诺"不含翻译质量。证据与口径见 D8-06 全文，此处不重复；域发现总数随之 **108 → 109**。

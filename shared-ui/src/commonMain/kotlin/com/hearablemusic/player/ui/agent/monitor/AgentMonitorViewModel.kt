@@ -4,7 +4,7 @@ import androidx.compose.runtime.Stable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.hmp.data.database.TokenLedgerDao
-import com.hmp.domain.agent.port.CapabilityState
+import com.hmp.domain.agent.port.CapabilitySnapshot
 import com.hmp.domain.agent.quota.QuotaBucket
 import com.hmp.domain.agent.quota.TokenLedgerMaintenance
 import com.hmp.domain.agent.quota.TokenLedgerSnapshot
@@ -39,10 +39,10 @@ data class AgentMonitorUiState(
     val quotaMode: AiAccessMode = AiAccessMode.FREE,
     val bucketUsage: Map<QuotaBucket, Long> = emptyMap(),
     val exhaustedBuckets: Set<QuotaBucket> = emptySet(),
-    // 只读快照：持有 CapabilityState 而非 sub-agent 的活句柄，卡片不再订阅 cap.stateFlow
-    val radioState: CapabilityState? = null,
-    val enrichState: CapabilityState? = null,
-    val helloState: CapabilityState? = null,
+    // 只读快照：持有 CapabilitySnapshot 而非 sub-agent 的活句柄，卡片不再订阅 cap.stateFlow
+    val radioState: CapabilitySnapshot? = null,
+    val enrichState: CapabilitySnapshot? = null,
+    val helloState: CapabilitySnapshot? = null,
     /** 全局日志按 Agent 桶分组后的快照，UI 只读，不再各自订阅 memLogWriter。 */
     val logsByBucket: Map<String, List<LogEntry>> = emptyMap(),
 )
@@ -95,7 +95,7 @@ class AgentMonitorViewModel(
         capabilityJobs.forEach { it.cancel() }
         capabilityJobs = listOf("radio", "enrich", "hello").map { id ->
             viewModelScope.launch {
-                val stateFlow = masterAgent.capability(id)?.stateFlow ?: return@launch
+                val stateFlow = masterAgent.capabilityState(id) ?: return@launch
                 stateFlow.collect { state ->
                     _uiState.update {
                         when (id) {

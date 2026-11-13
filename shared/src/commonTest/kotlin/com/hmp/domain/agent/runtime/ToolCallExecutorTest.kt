@@ -39,13 +39,41 @@ class ToolCallExecutorTest {
 
     private fun toolCall(name: String, args: String = "{}") = LlmEvent.ToolCall(id = "id_$name", name = name, argumentsJson = args)
 
+    @Test
+    fun `确认超时 → 标记 timeout 且不执行`() = runTest {
+        val policy = AgentPolicy.master(confirmGate = FakeConfirmGate { ConfirmOutcome.Timeout })
+        val ex = executor(
+            listOf(RecordingTool(name = "strong_tool", permissionLevel = ToolPermissionLevel.STRONG_CONFIRM)),
+            confirmGate = policy.confirmGate,
+        )
+
+        val batch = ex.batchDecideApprovals(policy, listOf(toolCall("strong_tool")))
+
+        assertEquals(false, batch.approvals["id_strong_tool"], "超时等同于不执行")
+        assertEquals(setOf("id_strong_tool"), batch.timedOut, "要能和用户拒绝区分开")
+    }
+
+    @Test
+    fun `executeOne timedOut 记录 timeout 并回传明确文案`() = runTest {
+        val ex = executor(listOf(RecordingTool()))
+        val messages = mutableListOf<LlmMessage>()
+
+        val rec = ex.executeOne(toolCall("recording_tool"), messages = messages, timedOut = true)
+
+        assertEquals("timeout", rec.outcome)
+        assertEquals("timeout", audit.entries.single().outcome)
+        val text = messages.single().content.orEmpty()
+        assertTrue(text.contains("超时"), "模型要能读懂发生了什么")
+        assertTrue(text.contains("本轮对话到此结束"), "要明确告诉模型这一轮结束了")
+    }
+
     // ===== 批量权限确认 =====
 
     @Test
     fun `policyGuard 为 null 时全自动通过`() = runTest {
         val ex = executor(listOf(RecordingTool()), policyGuard = null)
-        val approvals = ex.batchDecideApprovals(AgentPolicy.master(), listOf(toolCall("recording_tool")))
-        assertEquals(true, approvals["id_recording_tool"])
+        val batch = ex.batchDecideApprovals(AgentPolicy.master(), listOf(toolCall("recording_tool")))
+        assertEquals(true, batch.approvals["id_recording_tool"])
     }
 
     @Test
@@ -54,15 +82,15 @@ class ToolCallExecutorTest {
             config = AgentPolicyConfig(alwaysAllow = mutableSetOf("recording_tool")),
         )
         val ex = executor(listOf(RecordingTool()))
-        val approvals = ex.batchDecideApprovals(policy, listOf(toolCall("recording_tool")))
-        assertEquals(true, approvals["id_recording_tool"])
+        val batch = ex.batchDecideApprovals(policy, listOf(toolCall("recording_tool")))
+        assertEquals(true, batch.approvals["id_recording_tool"])
     }
 
     @Test
     fun `STRONG_CONFIRM 无确认门时安全兜底否决`() = runTest {
         val ex = executor(listOf(RecordingTool(name = "strong_tool", permissionLevel = ToolPermissionLevel.STRONG_CONFIRM)))
-        val approvals = ex.batchDecideApprovals(AgentPolicy.master(), listOf(toolCall("strong_tool")))
-        assertEquals(false, approvals["id_strong_tool"])
+        val batch = ex.batchDecideApprovals(AgentPolicy.master(), listOf(toolCall("strong_tool")))
+        assertEquals(false, batch.approvals["id_strong_tool"])
     }
 
     @Test
@@ -72,10 +100,10 @@ class ToolCallExecutorTest {
             listOf(RecordingTool(name = "strong_tool", permissionLevel = ToolPermissionLevel.STRONG_CONFIRM)),
             confirmGate = policy.confirmGate,
         )
-        val approvals = ex.batchDecideApprovals(policy, listOf(toolCall("strong_tool"))) {
+        val batch = ex.batchDecideApprovals(policy, listOf(toolCall("strong_tool"))) {
             policy.config.alwaysAllow.addAll(it)
         }
-        assertEquals(true, approvals["id_strong_tool"])
+        assertEquals(true, batch.approvals["id_strong_tool"])
         assertTrue(policy.config.alwaysAllow.contains("strong_tool"))
     }
 

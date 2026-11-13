@@ -6,6 +6,12 @@ package com.hmp.domain.agent.port
  * UI/引擎只描述「存什么/取什么」，不触碰 Room；实现由数据层 [AgentMessageStore] 落盘
  * （RoomAgentMessageStore → agent_message 表）。引擎单测可注内存 Fake。
  */
+/**
+ * 工具执行摘要的 renderHint：只给下一轮模型看，UI 不渲染成气泡。
+ * R3 后半用（2026-11-13）：不扩 role 契约，也不存完整 tool 轮次。
+ */
+const val TOOL_SUMMARY_RENDER_HINT: String = "tool_summary"
+
 data class StoredAgentMessage(
     val sessionId: String,
     /** user / agent / system */

@@ -121,6 +121,11 @@ class AppRootViewModel(
 
     // ── 组合根自己的编排：电台会话、节目单跳曲、启动自愈 ──────────────
 
+    /** 应用回到前台：把「无事件的状态变化」交给引擎重检（额度跨天重置等）。 */
+    fun onAppForeground() {
+        masterAgent.onAppForeground()
+    }
+
     fun onEndRadioSession() {
         viewModelScope.launch { masterAgent.stopRadio() }
     }

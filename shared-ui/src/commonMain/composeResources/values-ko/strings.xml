@@ -565,8 +565,6 @@
     <string name="agent_cfg_trust_act">실행</string>
     <string name="agent_cfg_trust_silent">조용히</string>
     <string name="agent_cfg_always_allow_count">사전 승인된 도구: %1$d</string>
-    <string name="agent_cfg_step_budget">단계 예산</string>
-    <string name="agent_cfg_step_budget_value">%1$d단계</string>
     <string name="agent_cfg_reco_params">추천 카드 매개변수</string>
     <string name="agent_cfg_daily_count">일일 개수</string>
     <string name="agent_cfg_daily_count_value">%1$d장</string>

@@ -4,15 +4,27 @@ import com.hmp.domain.agent.infra.PresenceBus
 import com.hmp.domain.agent.infra.PresenceEvent
 import com.hmp.domain.agent.policy.AgentPolicy
 import com.hmp.domain.agent.policy.PolicyGuard
+import com.hmp.domain.agent.port.ConfirmOutcome
 import com.hmp.domain.agent.port.LlmEvent
+import com.hmp.domain.agent.port.LlmMessage
+import com.hmp.domain.agent.port.LlmToolSpec
+import com.hmp.domain.agent.port.LlmTransport
+import com.hmp.domain.agent.port.ToolPermissionLevel
 import com.hmp.domain.agent.tool.spec.AgentTool
 import com.hmp.domain.agent.tool.spec.ToolRegistry
+import com.hmp.domain.setting.model.AiEndpointConfig
+import com.hmp.test.fakes.FakeAuditLogPort
+import com.hmp.test.fakes.FakeConfirmGate
 import com.hmp.test.fakes.FakeStopSignal
 import com.hmp.test.fakes.RecordingTool
 import com.hmp.test.fakes.perTurnTransport
 import com.hmp.test.fakes.testConfig
 import com.hmp.test.fakes.userMsg
 import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -28,14 +40,12 @@ class ReActLoopTest {
     private val policy = AgentPolicy.master()
 
     private fun loop(
-        stepBudget: Int = 8,
         policyGuard: PolicyGuard? = null,
         auditLog: com.hmp.domain.agent.port.AuditLogPort? = null,
         presenceBus: PresenceBus? = null,
         stopSignal: StopSignal? = null,
         tokenMeter: TokenMeter? = null,
     ) = ReActLoop(
-        stepBudget = stepBudget,
         temperature = 0.7f,
         policyGuard = policyGuard,
         confirmGate = null,
@@ -46,6 +56,72 @@ class ReActLoopTest {
     )
 
     private fun registry(vararg tools: AgentTool) = ToolRegistry(tools.toList())
+
+    /** 第一轮返回工具调用，第二轮永不返回 —— 用于在「工具已执行、循环未结束」时取消。 */
+    private class HangingAfterFirstTransport : LlmTransport {
+        var calls = 0
+            private set
+
+        override suspend fun streamChat(
+            config: AiEndpointConfig,
+            messages: List<LlmMessage>,
+            tools: List<LlmToolSpec>?,
+            temperature: Float,
+        ): Flow<LlmEvent> = flow {
+            calls++
+            if (calls == 1) {
+                emit(LlmEvent.ToolCall("c1", "recording_tool", "{}"))
+                emit(LlmEvent.Completed)
+            } else {
+                awaitCancellation()
+            }
+        }
+    }
+
+    @Test
+    fun `取消时仍回调已执行的工具（供落摘要）`() = runTest {
+        var captured: List<ToolExecutionRecord>? = null
+        val transport = HangingAfterFirstTransport()
+        val job = launch {
+            loop().run(
+                policy,
+                transport,
+                config,
+                systemPrompt,
+                input,
+                registry = registry(RecordingTool()),
+                onRunFinished = { captured = it },
+            )
+        }
+        runCurrent()
+        runCurrent()
+        assertTrue(transport.calls >= 2, "第一轮工具应已执行完并进入第二轮")
+
+        job.cancelAndJoin()
+
+        assertEquals(
+            listOf("recording_tool"),
+            captured?.map { it.toolName },
+            "取消后也必须把已执行的工具交出来（NonCancellable 写库的前提）",
+        )
+    }
+
+    @Test
+    fun `确认超时 → 跳过工具并带明确原因结束本轮`() = runTest {
+        val policy = AgentPolicy.master(confirmGate = FakeConfirmGate { ConfirmOutcome.Timeout })
+        val tool = RecordingTool(name = "strong_tool", permissionLevel = ToolPermissionLevel.STRONG_CONFIRM)
+        val transport = perTurnTransport(
+            listOf(LlmEvent.ToolCall("c1", "strong_tool", "{}"), LlmEvent.Completed),
+            listOf(LlmEvent.TextDelta("不应到达"), LlmEvent.Completed),
+        )
+
+        val result = loop(policyGuard = PolicyGuard(FakeAuditLogPort()))
+            .run(policy, transport, config, systemPrompt, input, registry = registry(tool))
+
+        assertEquals(TerminationReason.CONFIRM_TIMEOUT, result.terminatedBy)
+        assertTrue(result.text.contains("确认超时"), "要给用户和模型一个明确原因")
+        assertEquals(0, tool.receivedArgs.size, "超时的工具不能被执行")
+    }
 
     @Test
     fun `单轮直接回答 → ANSWERED`() = runTest {
@@ -74,17 +150,6 @@ class ReActLoopTest {
     }
 
     @Test
-    fun `步数预算耗尽 → STEP_BUDGET_EXHAUSTED`() = runTest {
-        val transport = perTurnTransport(
-            listOf(LlmEvent.ToolCall("c1", "recording_tool", "{}"), LlmEvent.Completed),
-            listOf(LlmEvent.TextDelta("x"), LlmEvent.Completed),
-        )
-        val result = loop(stepBudget = 1).run(policy, transport, config, systemPrompt, input, registry = registry(RecordingTool()))
-        assertEquals(TerminationReason.STEP_BUDGET_EXHAUSTED, result.terminatedBy)
-        assertEquals(1, result.stepsUsed)
-    }
-
-    @Test
     fun `停止信号软停 → CLOUD_QUOTA_EXHAUSTED`() = runTest {
         // 全局日熔断已删除：子 Agent 的桶耗尽经 StopSignal 传进来，Master 侧只看 quotaExhausted
         val transport = perTurnTransport(listOf(LlmEvent.TextDelta("x"), LlmEvent.Completed))
@@ -102,20 +167,69 @@ class ReActLoopTest {
         assertTrue(result.text.isNotBlank())
     }
 
+    /** 用户对工具点「总是允许」的脚本：CONFIRM 级工具 + 全 AllowAlways 的确认门。 */
+    private fun allowAlwaysScenario() = AgentPolicy.master(
+        confirmGate = FakeConfirmGate { ConfirmOutcome.AllowAlways },
+    )
+
+    private fun strongToolTurns() = perTurnTransport(
+        listOf(LlmEvent.ToolCall("c1", "strong_tool", "{}"), LlmEvent.Completed),
+        listOf(LlmEvent.TextDelta("done"), LlmEvent.Completed),
+    )
+
+    private fun strongToolRegistry() = registry(
+        RecordingTool(name = "strong_tool", permissionLevel = ToolPermissionLevel.STRONG_CONFIRM),
+    )
+
     @Test
-    fun `onSessionComplete 在结束前被回调一次`() = runTest {
-        var called = 0
-        val transport = perTurnTransport(listOf(LlmEvent.TextDelta("hi"), LlmEvent.Completed))
-        loop().run(
-            policy,
-            transport,
+    fun `勾了总是允许 → 立即触发保存回调并写入白名单`() = runTest {
+        var saved = 0
+        val p = allowAlwaysScenario()
+        val result = loop(policyGuard = PolicyGuard(FakeAuditLogPort())).run(
+            p,
+            strongToolTurns(),
             config,
             systemPrompt,
             input,
-            registry = registry(RecordingTool()),
-            onSessionComplete = { called++ },
+            registry = strongToolRegistry(),
+            onAlwaysAllowChanged = { saved++ },
         )
-        assertEquals(1, called)
+        assertEquals(TerminationReason.ANSWERED, result.terminatedBy)
+        assertEquals(1, saved, "保存回调必须与白名单写入同一步发生，而不是等循环结束")
+        assertTrue(p.config.alwaysAllow.contains("strong_tool"))
+    }
+
+    @Test
+    fun `循环中途中断 → 保存已发生且思考态仍复位`() = runTest {
+        val bus = PresenceBus()
+        val events = mutableListOf<PresenceEvent>()
+        backgroundScope.launch(start = CoroutineStart.UNDISPATCHED) {
+            bus.events.collect { events += it }
+        }
+        var saved = 0
+        val p = allowAlwaysScenario()
+        val outcome = runCatching {
+            loop(policyGuard = PolicyGuard(FakeAuditLogPort()), presenceBus = bus).run(
+                p,
+                strongToolTurns(),
+                config,
+                systemPrompt,
+                input,
+                registry = strongToolRegistry(),
+                onAlwaysAllowChanged = {
+                    saved++
+                    error("模拟中途取消 / 异常中断")
+                },
+            )
+        }
+        runCurrent()
+        assertTrue(outcome.isFailure, "保存回调里抛异常应中断循环")
+        assertEquals(1, saved, "用户取消 / 异常前，勾选已经落盘")
+        assertTrue(p.config.alwaysAllow.contains("strong_tool"))
+        assertTrue(
+            events.any { it is PresenceEvent.TaskProgress && it.phase == "idle" && !it.active },
+            "中断也必须把「思考中」复位",
+        )
     }
 
     @Test

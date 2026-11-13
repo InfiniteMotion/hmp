@@ -14,9 +14,7 @@ package com.hmp.domain.agent.config
 object EngineDefaults {
 
     // ── Master Agent ──
-    /** 单任务步数预算（总纲 7.1）——每次 LLM 调用 + 其工具执行合计耗尽即熔断。 */
-    const val STEP_BUDGET = 8
-
+    // 步数上限已于 2026-11-11 删除：主对话循环的终止只依赖模型收敛 / 失败 / token 配额耗尽。
     /** Master LLM 采样温度（对话需要创造性，温度偏高）。 */
     const val TEMPERATURE_MASTER = 0.7f
 

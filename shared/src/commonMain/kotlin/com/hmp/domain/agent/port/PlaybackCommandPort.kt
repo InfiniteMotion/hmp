@@ -1,6 +1,6 @@
 // PlaybackCommand 的实现刻意用 SCREAMING_SNAKE 表达「命令枚举」语义，
-// 与 Kotlin 的 class-naming 规则冲突；改名会让 CommandLexicon / ContextPlaybackTools /
-// ControllerAgentPorts 等引用文件一起产生无收益的 diff，故在此文件级豁免。
+// 与 Kotlin 的 class-naming 规则冲突；改名会让 ContextPlaybackTools / ControllerAgentPorts
+// 等引用文件一起产生无收益的 diff，故在此文件级豁免。
 @file:Suppress("ktlint:standard:class-naming")
 
 package com.hmp.domain.agent.port

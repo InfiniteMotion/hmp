@@ -13,12 +13,8 @@ import com.hearablemusic.player.ui.generated.resources.agent_chat_hint_thinking
 import com.hearablemusic.player.ui.generated.resources.agent_chat_hint_wait
 import com.hearablemusic.player.ui.platform.PlaybackController
 import com.hmp.data.database.currentTimeMillis
-import com.hmp.domain.agent.funnel.CommandLexicon
-import com.hmp.domain.agent.funnel.FunnelResult
 import com.hmp.domain.agent.port.AgentMessageStore
 import com.hmp.domain.agent.port.ConfirmOutcome
-import com.hmp.domain.agent.port.PlaybackCommand
-import com.hmp.domain.agent.port.PlaybackCommandPort
 import com.hmp.domain.agent.port.StoredAgentMessage
 import com.hmp.domain.agent.port.ToolPermissionLevel
 import com.hmp.domain.music.MusicInfo
@@ -73,7 +69,6 @@ data class ChatUiState(
 class ChatViewModel(
     private val gateway: ChatAgentGateway,
     private val userSettings: UserSettingsUseCase,
-    private val playbackCommandPort: PlaybackCommandPort,
     private val agentMessageStore: AgentMessageStore,
     private val quotaGate: com.hmp.domain.agent.quota.TokenQuotaGate,
     private val playbackController: PlaybackController,
@@ -127,7 +122,8 @@ class ChatViewModel(
             if (history.isNotEmpty()) {
                 _uiState.update {
                     it.copy(
-                        messages = history.map { m ->
+                        // tool_summary 只给模型看，不在聊天记录里显示（R3 后半）。
+                        messages = history.filter { it.renderHint != com.hmp.domain.agent.port.TOOL_SUMMARY_RENDER_HINT }.map { m ->
                             CompanionMessage(
                                 id = nextId(),
                                 fromUser = m.role == "user",
@@ -267,42 +263,10 @@ class ChatViewModel(
             it.copy(messages = it.messages + CompanionMessage(id = nextId(), fromUser = true, text = text))
         }
         persist("user", text, CompanionRenderHint.TEXT)
-        when (val decision = CommandLexicon.classify(text)) {
-            is FunnelResult.Direct -> {
-                HmpLog.i(LogTag.AgentChat) { "💬 chat send (funnel=Direct): cmd=${decision.command}" }
-                launchDirect(decision.command)
-            }
-
-            FunnelResult.Upgrade -> {
-                HmpLog.i(LogTag.AgentChat) { "💬 chat send (funnel=Upgrade): $text" }
-                launchRun(text)
-            }
-
-            FunnelResult.Pass -> {
-                HmpLog.d(LogTag.AgentChat) { "💬 chat send (funnel=Pass): $text" }
-                launchRun(text)
-            }
-        }
+        // 只保留 LLM 路径（2026-11-11 决议）：本地词表已删除，播放控制由 playback_control 工具承担。
+        HmpLog.d(LogTag.AgentChat) { "💬 chat send: $text" }
+        launchRun(text)
         return true
-    }
-
-    /** R-T2 第一级：高频指令零 token 直执行（不消耗 LLM）。 */
-    private fun launchDirect(command: PlaybackCommand) {
-        if (_uiState.value.running) return
-        // Direct 也纳入统一运行态与 job：否则同帧可重复派发，cancel() 也取消不到。
-        _uiState.update { it.copy(running = true, runningHint = pickRunningHint(it.messages.size)) }
-        job = viewModelScope.launch {
-            try {
-                val (_, msg) = playbackCommandPort.execute(command)
-                HmpLog.i(LogTag.AgentChat) { "💬 direct command result: $msg" }
-                _uiState.update {
-                    it.copy(messages = it.messages + CompanionMessage(id = nextId(), fromUser = false, text = msg))
-                }
-                persist("agent", msg, CompanionRenderHint.TEXT)
-            } finally {
-                _uiState.update { it.copy(running = false, runningHint = null) }
-            }
-        }
     }
 
     private fun launchRun(input: String) {

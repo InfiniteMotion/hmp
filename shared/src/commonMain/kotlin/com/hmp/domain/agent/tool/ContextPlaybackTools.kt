@@ -76,7 +76,10 @@ class PlaybackControlTool(
     private val port = deps.playbackCommandPort
 
     override val name = ToolNames.PLAYBACK_CONTROL
-    override val description = "瞬时播放控制：pause/next/previous/seek/shuffle/repeat\n改变播放状态，属写操作\n只用于「暂停/下一首/上一首/跳转位置/切模式」\n需要播放某首指定曲目时用 playback_play_at"
+    override val description = "瞬时播放控制：pause/next/previous/seek/shuffle/repeat\n" +
+        "改变播放状态，属写操作\n只用于「暂停/下一首/上一首/跳转位置/切模式」\n" +
+        "需要播放某首指定曲目时用 playback_play_at\n" +
+        "用户说「别放了」「停一下」优先用它 pause；只有明确「关电台」才用 radio_stop"
     override val permissionLevel = ToolPermissionLevel.CONFIRM
     override val params = listOf(
         EnumParam(

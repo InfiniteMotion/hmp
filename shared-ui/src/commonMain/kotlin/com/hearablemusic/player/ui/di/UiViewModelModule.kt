@@ -71,7 +71,7 @@ val uiViewModelModule = module {
     viewModel { RecommendListViewModel(get(), get(), get()) }
     viewModel { HomeViewModel(get(), get(), get(), get()) }
     viewModel { PlayerScreenViewModel(get(), get(), get(), get(), get()) }
-    viewModel { HelloCardsViewModel(getOrNull(), get(), get()) }
+    viewModel { HelloCardsViewModel(getOrNull(), get(), get(), getOrNull()) }
     viewModel { EditMusicTagsViewModel(get(), get(), get()) }
     viewModel { PlaylistViewModel(get(), get(), get()) }
     viewModel { PlaylistScreenViewModel(get(), get(), get(), get(), get()) }
@@ -88,7 +88,7 @@ val uiViewModelModule = module {
     viewModel { LyricsSettingsPageViewModel(get(), get()) }
     viewModel { RecommendationViewModel(get(), get()) }
     viewModel { UserUsageDataViewModel(get<com.hmp.domain.music.MusicRepository>(), get<com.hmp.domain.agent.runtime.MasterAgent>()) }
-    viewModel { ChatViewModel(get(), get(), get(), get(), get(), get()) }
+    viewModel { ChatViewModel(get(), get(), get(), get(), get()) }
     viewModel { AuditLogViewModel(get()) }
     viewModel { AgentMonitorViewModel(get(), get(), get()) }
     viewModel { RadioConsoleViewModel(get()) }

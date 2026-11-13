@@ -42,6 +42,18 @@ class ToolRegistry(
         }
     }
 
+    /**
+     * 幂等注册：已存在同名工具则跳过。
+     *
+     * 给 `MasterAgent.initialize()` 里的动态绑定用 —— 那里是往全局单例 registry 上追加，
+     * 重复初始化 / 多实例时不能因为"第 N 条已经绑过"就整体崩掉。
+     */
+    fun registerIfAbsent(vararg tools: AgentTool) {
+        tools.forEach { t ->
+            if (!byName.containsKey(t.name)) byName[t.name] = t
+        }
+    }
+
     fun all(): List<AgentTool> = byName.values.sortedBy { it.name }
 
     fun find(name: String): AgentTool? = byName[name]

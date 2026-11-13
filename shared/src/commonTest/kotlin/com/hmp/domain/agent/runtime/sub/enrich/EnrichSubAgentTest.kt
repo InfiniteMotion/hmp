@@ -14,7 +14,10 @@ import com.hmp.domain.setting.model.AiAccessMode
 import com.hmp.domain.setting.model.AiEndpointConfig
 import com.hmp.test.fakes.FakeAgentMusicRepository
 import com.hmp.test.fakes.FakeLlmTransport
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -39,6 +42,7 @@ class EnrichSubAgentTest {
     private class ScriptedEnrichRepo(
         workUnits: List<EnrichWorkUnit?>,
         private var health: EnrichHealth,
+        private val fetchGate: CompletableDeferred<Unit>? = null,
     ) : FakeAgentMusicRepository() {
         private val queue = workUnits.toMutableList()
         val fetchCalls: Int get() = fetchCount
@@ -51,6 +55,7 @@ class EnrichSubAgentTest {
             mixGroupSize: Int,
         ): EnrichWorkUnit? {
             fetchCount++
+            fetchGate?.await()
             return if (queue.isNotEmpty()) queue.removeAt(0) else null
         }
 
@@ -80,13 +85,47 @@ class EnrichSubAgentTest {
     )
 
     @Test
+    fun terminalOutcomes_mapToCapabilityStatus() {
+        assertEquals(
+            CapabilityState.Status.IDLE,
+            EnrichProgress.IDLE.toCapabilityState().status,
+            "运行中 / 未启动",
+        )
+        assertEquals(
+            CapabilityState.Status.COMPLETED,
+            EnrichProgress.IDLE.copy(outcome = EnrichOutcome.COMPLETED).toCapabilityState().status,
+        )
+        assertEquals(
+            CapabilityState.Status.ERROR,
+            EnrichProgress.IDLE.copy(outcome = EnrichOutcome.FAILED).toCapabilityState().status,
+        )
+        val quota = EnrichProgress.IDLE.copy(
+            outcome = EnrichOutcome.QUOTA_EXHAUSTED,
+            phase = "额度已用完，恢复后自动继续",
+        ).toCapabilityState()
+        assertEquals(CapabilityState.Status.PAUSED, quota.status, "额度耗尽是暂时停，不是崩溃")
+        assertTrue(quota.detail.contains("额度已用完"), "原因要能被用户看到")
+        assertEquals(
+            CapabilityState.Status.IDLE,
+            EnrichProgress.IDLE.copy(outcome = EnrichOutcome.CANCELLED).toCapabilityState().status,
+        )
+    }
+
+    @Test
+    fun resolveOutcome_distinguishesQuotaFromCompletion() {
+        assertEquals(EnrichOutcome.COMPLETED, resolveOutcome(EnrichOutcome.COMPLETED, softStop = false))
+        assertEquals(EnrichOutcome.QUOTA_EXHAUSTED, resolveOutcome(EnrichOutcome.COMPLETED, softStop = true))
+        assertEquals(EnrichOutcome.CANCELLED, resolveOutcome(EnrichOutcome.CANCELLED, softStop = true))
+        assertEquals(EnrichOutcome.FAILED, resolveOutcome(EnrichOutcome.FAILED, softStop = true))
+    }
+
+    @Test
     fun initialProgress_isIdle() {
         val agent = agent(ScriptedEnrichRepo(emptyList(), EnrichHealth(0, 0, 0)))
 
-        // 逐字段断言：基类 runState 初值 PAUSED ≠ EnrichProgress.IDLE 的 UNREGISTERED
-        // —— 后者是 UI 兜底语义，二者不同源；运行时视角 getProgress() 从 PAUSED 起步
+        // 单一初值：getProgress() 与 progressState 同源，都是 EnrichProgress.IDLE
         val progress = agent.getProgress()
-        assertEquals(AgentRunState.PAUSED, progress.state, "运行时视角：基类 runState 初值 PAUSED")
+        assertEquals(AgentRunState.UNREGISTERED, progress.state)
         assertEquals(0, progress.processed)
         assertEquals(0, progress.failed)
         assertEquals(0, progress.success)
@@ -97,13 +136,56 @@ class EnrichSubAgentTest {
 
     @Test
     fun pauseResume_updatesRunState() = runTest {
-        val agent = agent(ScriptedEnrichRepo(emptyList(), EnrichHealth(0, 0, 0)))
+        val gate = CompletableDeferred<Unit>()
+        val repo = ScriptedEnrichRepo(emptyList(), EnrichHealth(0, 0, 0), fetchGate = gate)
+        val agent = agent(repo)
+        val job = launch { agent.runLoop() }
+        runCurrent()
 
         agent.pause()
         assertEquals(AgentRunState.PAUSED, agent.getProgress().state)
 
         agent.resume()
         assertEquals(AgentRunState.RUNNING, agent.getProgress().state)
+
+        job.cancelAndJoin()
+    }
+
+    @Test
+    fun schedulerPause_updatesSharedState() = runTest {
+        val gate = CompletableDeferred<Unit>()
+        val repo = ScriptedEnrichRepo(emptyList(), EnrichHealth(0, 0, 0), fetchGate = gate)
+        val agent = agent(repo)
+        val job = launch { agent.runLoop() }
+        runCurrent()
+
+        agent.markSchedulerPaused()
+        assertEquals(AgentRunState.PAUSED, agent.progressState.value.state)
+
+        agent.markSchedulerResumed()
+        assertEquals(AgentRunState.RUNNING, agent.progressState.value.state)
+
+        job.cancelAndJoin()
+    }
+
+    @Test
+    fun cancel_stillPublishesTerminalState() = runTest {
+        val gate = CompletableDeferred<Unit>()
+        val repo = ScriptedEnrichRepo(emptyList(), EnrichHealth(0, 0, 0), fetchGate = gate)
+        val agent = agent(repo)
+        val job = launch { agent.runLoop() }
+        runCurrent()
+        assertEquals(AgentRunState.RUNNING, agent.getProgress().state)
+
+        job.cancelAndJoin()
+
+        val progress = agent.getProgress()
+        assertEquals(AgentRunState.UNREGISTERED, progress.state, "取消也必须走 finish() 复位终态")
+        assertEquals(EnrichOutcome.CANCELLED, progress.outcome, "取消与正常完成必须能区分")
+        assertEquals("已停止", progress.phase)
+        assertNull(progress.currentArtist)
+        assertEquals(0, progress.chunkIndex)
+        assertEquals(0, progress.chunkTotal)
     }
 
     @Test
@@ -119,6 +201,12 @@ class EnrichSubAgentTest {
 
         val progress = agent.getProgress()
         assertEquals("完成", progress.phase, "覆盖率达标 → 验收后自退出")
+        assertEquals(EnrichOutcome.COMPLETED, progress.outcome)
+        assertEquals(
+            CapabilityState.Status.COMPLETED,
+            progress.toCapabilityState().status,
+            "达标自退要写成 COMPLETED，而不是笼统的 IDLE",
+        )
         assertEquals(AgentRunState.UNREGISTERED, progress.state)
         assertEquals(0, progress.processed)
         assertEquals(1, repo.fetchCalls, "首次拉活即见底，只拉一次")

@@ -628,7 +628,7 @@ date = "2026-09-28"
 - `shared/src/commonMain/.../domain/setting/SettingsRepository.kt`：API 密钥存储（经 `SecureStorageHelper`；⚠️ iOS 侧目前是 XOR 而非真加密，见 TODO **R10**）
 - `shared-ui/src/commonMain/.../ui/agent/config/AIScreen.kt`：AI 服务商配置界面
 
-> 方向 B 之后，AI 推荐不再只走这条单层链路。对话、电台、曲库富化、画像报告都由 `shared/.../domain/agent/` 的 Agent 体系驱动（`MasterAgent` 门面 + `ReActLoop` 引擎 + 30 个工具），LLM 调用统一经 `domain/agent/port/LlmTransport`。改 AI 相关功能前先看 `AGENTS.md` §六。
+> 方向 B 之后，AI 推荐不再只走这条单层链路。对话、电台、曲库富化、画像报告都由 `shared/.../domain/agent/` 的 Agent 体系驱动（`MasterAgent` 门面 + `ReActLoop` 引擎 + 38 个工具 = 30 基础 + 8 能力控制），LLM 调用统一经 `domain/agent/port/LlmTransport`。启动由 `AgentHealthChecker` 门控，对话只保留 LLM 路径（无本地指令词表）。改 AI 相关功能前先看 `AGENTS.md` §六。
 
 ### 每日推荐刷新策略
 

@@ -15,7 +15,6 @@ import com.hmp.domain.agent.port.ConfirmRequest
 import com.hmp.domain.agent.port.LlmMessage
 import com.hmp.domain.agent.port.NowPlayingContextProvider
 import com.hmp.domain.agent.profile.UserMemory
-import com.hmp.domain.agent.runtime.BuiltinIntentId
 import com.hmp.domain.agent.runtime.ContextAssembler
 import com.hmp.domain.agent.runtime.LibraryOverview
 import com.hmp.domain.agent.runtime.MasterAgent
@@ -23,6 +22,7 @@ import com.hmp.domain.agent.runtime.RunContextInput
 import com.hmp.domain.agent.runtime.TerminationReason
 import com.hmp.domain.agent.runtime.ToolExecutionRecord
 import com.hmp.domain.agent.runtime.sub.radio.RadioState
+import com.hmp.domain.agent.tool.spec.ToolNames
 import com.hmp.domain.music.MusicRepository
 import com.hmp.domain.music.MusicSortKey
 import com.hmp.domain.music.SortDirection
@@ -104,7 +104,15 @@ class ConfirmBridge {
         register(turnId, deferred)
         HmpLog.i(LogTag.AgentGateway) { "🌉 confirm await: turn=$turnId items=${requests.size} waiting..." }
         onRequest?.invoke(turnId, requests)
-        return deferred.await()
+        // 2026-11-13：等待上限。超时不静默挂起，也不假装"用户拒绝"——
+        // 返回 Timeout，由 ReActLoop 回传模型并结束本轮。
+        val decided = kotlinx.coroutines.withTimeoutOrNull(CONFIRM_TIMEOUT_MS) { deferred.await() }
+        if (decided == null) {
+            takePending(turnId) // 清理：此后再点提交也不会唤醒已超时的一轮
+            HmpLog.w(LogTag.AgentGateway) { "🌉 confirm timeout: turn=$turnId items=${requests.size} → timeout" }
+            return List(requests.size) { ConfirmOutcome.Timeout }
+        }
+        return decided
     }
 
     /**
@@ -115,6 +123,17 @@ class ConfirmBridge {
         HmpLog.i(LogTag.AgentGateway) { "🌉 confirm submit: turn=$turnId outcomes=$outcomes" }
         it.complete(outcomes)
     } ?: false.also { HmpLog.w(LogTag.AgentGateway) { "🌉 confirm submit: turn=$turnId 已关闭/取消" } }
+
+    companion object {
+        /**
+         * 确认等待上限：超时按 Timeout 处理并结束本轮（2026-11-13）。
+         *
+         * **有意不做设置项** —— 它是兜底不是常用旋钮；用户频繁被超时，多半是不在
+         * 对话页、根本没看到确认卡，该修的是跨页可见性而不是把等待调长。
+         * 理由与边界见 `docs/7_6/progress.md` §2.20。
+         */
+        const val CONFIRM_TIMEOUT_MS: Long = 60_000L
+    }
 }
 
 /** 对话引擎接缝（M5-T1）：把一次用户输入换算为面向 UI 的事件流。 */
@@ -152,9 +171,8 @@ interface ChatAgentGateway {
  * Gateway 只做 UI 侧的上下文组装（首轮/跨轮记忆合并）+ ConfirmGate 桥接 +
  * AgentResult → ChatAgentEvent 的转换（如电台启动后查 MusicInfo 渲染 songlist bubble）。
  *
- * SubAgent 生命周期管理（enrich pause/resume/status、radio start/stop）
- * 由 MasterAgent.handleUserMessage() 内建意图路由处理——命中后返回 AgentResult.intentHandled，
- * Gateway 根据此字段决定 UI 渲染。
+ * SubAgent 生命周期管理（enrich / radio 的启停）由 LLM 调用能力控制工具完成；
+ * Gateway 从工具回执里识别电台启动，补一条 songlist 事件。
  */
 class MasterChatGateway(
     private val masterAgent: MasterAgent,
@@ -189,43 +207,33 @@ class MasterChatGateway(
             // 其余内建意图的文案已由 Master 生成，直接渲染即可。
             //
             // ⚠️ 分支按「**是否需要 Gateway 加工**」划分，而不是逐一列举意图标识：
-            // 原先这里写死 7 个字符串，新增内建意图若忘记同步，会**静默**落进"正常 LLM 对话"
-            // 分支（带工具回执路径）—— 不报错、只是行为偏了。改为 null/else 二分后，
-            // 新增意图自动落进 else，与其余内建意图同路径，无需改动本文件。
-            when (result.intentHandled) {
-                BuiltinIntentId.RADIO_START -> {
-                    val playlist = masterAgent.queryRadioPlaylist()
-                    if (playlist != null && playlist.isNotEmpty()) {
-                        val ids = playlist.map { it.musicId }
-                        val musicInfos = runCatching {
-                            musicRepository.getAllMusicInfoAsList(MusicSortKey.ID, SortDirection.ASC)
-                                .filter { it.music.id in ids }
-                        }.getOrDefault(emptyList())
-                        val radioEvent = ChatAgentEvent.RadioStarted(
+            // 2026-11-11：内建意图短路已删除。电台启动由 LLM 调用 radio_start 工具完成，
+            // Gateway 从工具回执里识别，再补一条 songlist 事件（模型文本仍作为主回复）。
+            val radioStarted = result.toolCalls.any {
+                it.toolName == ToolNames.RADIO_START && it.outcome == "success"
+            }
+            if (radioStarted) {
+                val playlist = masterAgent.queryRadioPlaylist()
+                if (playlist != null && playlist.isNotEmpty()) {
+                    val ids = playlist.map { it.musicId }
+                    val musicInfos = runCatching {
+                        musicRepository.getAllMusicInfoAsList(MusicSortKey.ID, SortDirection.ASC)
+                            .filter { it.music.id in ids }
+                    }.getOrDefault(emptyList())
+                    HmpLog.i(LogTag.AgentGateway) { "🌉 run: radio_start tracks=${playlist.size}→resolved=${musicInfos.size}" }
+                    emit(
+                        ChatAgentEvent.RadioStarted(
                             songs = musicInfos,
                             seedLabels = playlist.map { it.why },
                             summary = result.text,
-                        )
-                        HmpLog.i(LogTag.AgentGateway) { "🌉 run: intentHandled=radio_start tracks=${playlist.size}→resolved=${musicInfos.size}" }
-                        emit(radioEvent)
-                        emit(ChatAgentEvent.Finished(result.text, emptyList(), result.terminatedBy))
-                    } else {
-                        HmpLog.w(LogTag.AgentGateway) { "🌉 run: intentHandled=radio_start but playlist empty" }
-                        emit(ChatAgentEvent.Failed(result.text))
-                    }
-                }
-
-                null -> {
-                    // 未命中内建意图：正常 LLM 对话，逐条回执工具执行
-                    result.toolCalls.forEach { emit(ChatAgentEvent.ToolExecuted(it)) }
-                    emit(ChatAgentEvent.Finished(result.text, result.toolCalls, result.terminatedBy))
-                }
-
-                else -> {
-                    // 其余内建意图：文案已由 Master 生成，直接渲染回复气泡（无工具调用）
-                    emit(ChatAgentEvent.Finished(result.text, emptyList(), result.terminatedBy))
+                        ),
+                    )
+                } else {
+                    HmpLog.w(LogTag.AgentGateway) { "🌉 run: radio_start success but playlist empty" }
                 }
             }
+            result.toolCalls.forEach { emit(ChatAgentEvent.ToolExecuted(it)) }
+            emit(ChatAgentEvent.Finished(result.text, result.toolCalls, result.terminatedBy))
         } catch (ce: kotlinx.coroutines.CancellationException) {
             throw ce
         } catch (e: Exception) {
@@ -251,14 +259,9 @@ class MasterChatGateway(
         // 预算侧 buildMessages 只 takeLast(HISTORY_KEEP_COUNT)，此处多加载的条目会被立刻裁掉，
         // 统一为同一值既消除魔数、也避免无谓的 DB 加载。
         val sid = agentMessageStore.currentOrNewSessionId()
-        val mapped = agentMessageStore.loadSession(sid, EngineDefaults.HISTORY_KEEP_COUNT).mapNotNull { m ->
-            val role = when (m.role) {
-                "user" -> "user"
-                "agent", "assistant" -> "assistant"
-                else -> null
-            } ?: return@mapNotNull null
-            LlmMessage(role = role, content = m.content)
-        }
+        // 多取一条：tool_summary 单独提出来放最前，不占 6 条对话窗口（R3 后半）。
+        val recent = agentMessageStore.loadSession(sid, EngineDefaults.HISTORY_KEEP_COUNT + 1)
+        val mapped = com.hmp.domain.agent.port.buildHistoryMessages(recent, EngineDefaults.HISTORY_KEEP_COUNT)
         val deduped = if (mapped.lastOrNull()?.role == "user" && mapped.lastOrNull()?.content == input) mapped.dropLast(1) else mapped
         HmpLog.i(LogTag.AgentGateway) { "🌉 history loaded: ${deduped.size} 条（含去重 ${mapped.size - deduped.size}）" }
         return deduped

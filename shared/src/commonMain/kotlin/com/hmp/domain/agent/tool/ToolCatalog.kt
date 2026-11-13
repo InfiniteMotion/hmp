@@ -1,6 +1,6 @@
 package com.hmp.domain.agent.tool
 
-import com.hmp.domain.agent.port.Capability
+import com.hmp.domain.agent.port.CapabilitySnapshot
 import com.hmp.domain.agent.port.ToolPermissionLevel
 import com.hmp.domain.agent.tool.spec.AgentTool
 import com.hmp.domain.agent.tool.spec.StringParam
@@ -17,12 +17,12 @@ import com.hmp.domain.agent.tool.spec.ToolResult
  */
 
 /**
- * 构造基础工具集（34 个实例 = 26 主域 + 8 DJ）。
- * 主域：Playback 3 + Playlist CRUD 5 + Playlist 曲目 3 + Library 4 + Song 标签 1 + Batch B 10。
- * DJ 组（dj_*）只出现在 ToolRegistryView.radio() 白名单——Master 视图按前缀过滤后看不到。
+ * 构造基础工具集（29 个实例；`capability_status` 由 [bindCapabilityTools] 另行绑定）。
+ * 主域：Playback 3 + Playlist CRUD 5 + Playlist 曲目 3 + Library 4 + Profile 3 + Song 标签 1 + Batch B 10。
  *
- * MasterAgent SubAgent 生命周期（enrich 系列 / radio 系列）已重构为内建意图路由，
- * 不再作为 LLM 工具注册——由 MasterAgent.handleUserMessage() 直接识别并调原生方法。
+ * 能力控制工具（radio_* / enrich_*）不在此处：2026-11-11 起由
+ * [bindCapabilityControlTools] 在 `MasterAgent.initialize()` 里动态注册。
+ * DJ 工具（dj_*）已在 F9-A0 删除。
  */
 fun createBaseToolRegistry(deps: ToolDependencies): ToolRegistry {
     val baseTools = listOf(
@@ -81,8 +81,8 @@ fun createBaseToolRegistry(deps: ToolDependencies): ToolRegistry {
  * 与该目录"spec 不认识任何具体工具"的设计意图直接冲突（也是全仓唯一的反向边）。
  * 移到这里后依赖方向恢复为恒定的 `tool → tool/spec`。
  */
-fun ToolRegistry.bindCapabilityTools(capabilitiesProvider: () -> Map<String, Capability>) {
-    register(CapabilityStatusTool(capabilitiesProvider))
+fun ToolRegistry.bindCapabilityTools(capabilitiesProvider: () -> Map<String, CapabilitySnapshot>) {
+    registerIfAbsent(CapabilityStatusTool(capabilitiesProvider))
 }
 
 /**
@@ -93,7 +93,7 @@ fun ToolRegistry.bindCapabilityTools(capabilitiesProvider: () -> Map<String, Cap
  * （之前 playback_state 只查播放器，看不到电台正在启动中）。
  */
 class CapabilityStatusTool(
-    private val capabilitiesProvider: () -> Map<String, Capability>,
+    private val capabilitiesProvider: () -> Map<String, CapabilitySnapshot>,
 ) : AgentTool {
     override val name = ToolNames.CAPABILITY_STATUS
     override val description = "查询后台能力（电台 / 富化 / 门面）的当前状态。不传 name 返回全部能力的状态摘要"
@@ -120,10 +120,9 @@ class CapabilityStatusTool(
         }
 
         val summary = targets.joinToString("\n") { cap ->
-            val state = cap.stateFlow.value
-            val status = state.status.name.lowercase()
-            val detail = if (state.detail.isNotEmpty()) " — ${state.detail}" else ""
-            "${cap.capabilityName}: $status$detail"
+            val status = cap.status.name.lowercase()
+            val detail = if (cap.detail.isNotEmpty()) " — ${cap.detail}" else ""
+            "${cap.name}: $status$detail"
         }
         return ToolResult.success(summary)
     }

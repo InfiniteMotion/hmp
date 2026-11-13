@@ -6,7 +6,9 @@ import com.hearablemusic.player.ui.generated.resources.Res
 import com.hearablemusic.player.ui.generated.resources.card_radio_paused
 import com.hearablemusic.player.ui.generated.resources.card_radio_playing
 import com.hearablemusic.player.ui.platform.PlaybackController
+import com.hmp.data.database.HelloCardCacheDao
 import com.hmp.data.database.currentTimeMillis
+import com.hmp.data.util.todayDateString
 import com.hmp.domain.agent.card.AnchorContent
 import com.hmp.domain.agent.card.AnniversaryContent
 import com.hmp.domain.agent.card.DiscoverContent
@@ -18,6 +20,7 @@ import com.hmp.domain.agent.card.RadioStatusContent
 import com.hmp.domain.agent.card.RecommendContent
 import com.hmp.domain.agent.card.SlideCard
 import com.hmp.domain.agent.card.SlideType
+import com.hmp.domain.agent.card.toSlideCard
 import com.hmp.domain.agent.runtime.AgentRunState
 import com.hmp.domain.agent.runtime.MasterAgent
 import com.hmp.domain.agent.runtime.sub.enrich.EnrichProgress
@@ -65,6 +68,7 @@ internal class HelloCardsViewModel(
     private val masterAgent: MasterAgent?,
     playbackController: PlaybackController,
     private val musicRepository: MusicRepository,
+    private val cardCacheDao: HelloCardCacheDao? = null,
 ) : ViewModel() {
 
     /** 卡片引用曲目的补全结果：VM 查库后随快照下发，卡片不再自己起协程。 */
@@ -82,8 +86,36 @@ internal class HelloCardsViewModel(
 
     private val emptyCards = MutableStateFlow<List<SlideCard>>(emptyList())
 
-    // ① Agent 产物卡（GREETING/RECOMMEND/DISCOVER/FORGOTTEN/ANNIVERSARY）
-    private val agentCards = masterAgent?.helloCards ?: emptyCards
+    /**
+     * 从 `hello_card_cache` 恢复的今日卡。
+     * Hello 未启动（没有可用 LLM）时，页面靠这份缓存仍有内容可展示。
+     */
+    private val recoveredCards = MutableStateFlow<List<SlideCard>>(emptyList())
+
+    init {
+        viewModelScope.launch {
+            recoveredCards.value = runCatching {
+                val dao = cardCacheDao ?: return@runCatching emptyList()
+                val today = todayDateString()
+                dao.getTodayAllEntities(currentTimeMillis() - 24L * 60 * 60 * 1000)
+                    .filter { it.generatedForDate == today }
+                    .mapNotNull { it.toSlideCard() }
+            }.getOrDefault(emptyList())
+        }
+    }
+
+    // ① Agent 产物卡（同类型内存优先，其余用缓存补位；Hello 未启动时整份来自缓存）
+    private val agentCards = combine(
+        masterAgent?.helloCards ?: emptyCards,
+        recoveredCards,
+    ) { live, cached ->
+        if (live.isEmpty()) {
+            cached
+        } else {
+            val liveTypes = live.map { it.type }.toSet()
+            live + cached.filter { it.type !in liveTypes }
+        }
+    }
 
     // ②③⑤ 三个重建结果的落点
     private val anchorCard = MutableStateFlow<SlideCard?>(null)

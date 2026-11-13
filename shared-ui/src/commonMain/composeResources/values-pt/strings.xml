@@ -565,8 +565,6 @@
     <string name="agent_cfg_trust_act">Agir</string>
     <string name="agent_cfg_trust_silent">Silencioso</string>
     <string name="agent_cfg_always_allow_count">Ferramentas pré-aprovadas: %1$d</string>
-    <string name="agent_cfg_step_budget">Orçamento de passos</string>
-    <string name="agent_cfg_step_budget_value">%1$d passos</string>
     <string name="agent_cfg_reco_params">Parâmetros do cartão de recomendação</string>
     <string name="agent_cfg_daily_count">Quantidade diária</string>
     <string name="agent_cfg_daily_count_value">%1$d cartões</string>

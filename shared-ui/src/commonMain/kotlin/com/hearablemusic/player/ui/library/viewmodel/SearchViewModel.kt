@@ -7,8 +7,6 @@ import com.hearablemusic.player.ui.common.util.LoadState
 import com.hearablemusic.player.ui.generated.resources.Res
 import com.hearablemusic.player.ui.generated.resources.search_failed
 import com.hearablemusic.player.ui.platform.PlaybackController
-import com.hmp.domain.agent.funnel.CommandLexicon
-import com.hmp.domain.agent.funnel.FunnelResult
 import com.hmp.domain.music.MusicInfo
 import com.hmp.domain.music.usecase.SearchMusicUseCase
 import kotlinx.coroutines.CancellationException
@@ -70,8 +68,9 @@ class SearchViewModel(
     private var searchJob: Job? = null
 
     fun onQueryChange(query: String) {
-        val intent = query.isNotEmpty() && CommandLexicon.classify(query) is FunnelResult.Upgrade
-        _uiState.update { it.copy(query = query, isIntent = intent) }
+        // 本地意图词表已删除（2026-11-11）：不再猜「这句话像不像意图」，
+        // 只要在搜就给「交给伙伴」入口，由用户自己决定。
+        _uiState.update { it.copy(query = query, isIntent = query.isNotBlank()) }
         searchMusic(query)
     }
 

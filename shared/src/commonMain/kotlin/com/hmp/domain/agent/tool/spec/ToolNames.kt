@@ -56,12 +56,23 @@ object ToolNames {
     // ── F9-A0：Capability 统一状态查询 ──
     const val CAPABILITY_STATUS = "capability_status"
 
+    // ── 能力控制（2026-11-11：builtinIntents 删除后由 LLM 工具承担）──
+    const val RADIO_START = "radio_start"
+    const val RADIO_STOP = "radio_stop"
+    const val RADIO_RESUME = "radio_resume"
+    const val ENRICH_START = "enrich_start"
+    const val ENRICH_STOP = "enrich_stop"
+    const val ENRICH_PAUSE = "enrich_pause"
+    const val ENRICH_RESUME = "enrich_resume"
+    const val ENRICH_RESCAN = "enrich_rescan"
+
     /**
-     * Registry 默认注册的全部工具名清单（共 30 个）。
+     * 基础工具名清单（共 30 个）。
      * Playback(4) + Playlist CRUD(5) + Playlist 曲目(3) + Library(11) + Song 标签(3) + Profile(3) + Capability 状态查询(1)。
      *
-     * DJ 工具（电台专属）已在 F9-A0 删除——电台控制权完全收归 RadioSubAgent runLoop，
-     * 外部只通过 Capability 接口控制生命周期，LLM 不直接操作电台内部队列。
+     * 另有 8 个能力控制工具（RADIO_* / ENRICH_*）不在此清单：它们由
+     * `MasterAgent.initialize()` 经 `bindCapabilityControlTools()` 动态注册。
+     * DJ 工具（电台专属）已在 F9-A0 删除——电台内部队列不直接暴露给 LLM。
      */
     val ALL: List<String> = listOf(
         PLAYBACK_STATE, PLAYBACK_CONTROL, PLAYBACK_PLAY_AT,

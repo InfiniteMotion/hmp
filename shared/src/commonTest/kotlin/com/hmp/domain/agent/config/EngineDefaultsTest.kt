@@ -13,8 +13,7 @@ import kotlin.test.assertTrue
 class EngineDefaultsTest {
 
     @Test
-    fun masterDefaults_stepBudgetAndTemperature() {
-        assertEquals(8, EngineDefaults.STEP_BUDGET, "单任务步数预算（总纲 7.1）")
+    fun masterDefaults_temperature() {
         assertEquals(0.7f, EngineDefaults.TEMPERATURE_MASTER)
     }
 

@@ -2,8 +2,6 @@ package com.hearablemusic.player.ui.common.dialogs.controller
 
 import com.hearablemusic.player.ui.common.dialogs.viewmodel.DialogEvent
 import com.hearablemusic.player.ui.common.dialogs.viewmodel.MessageDuration
-import com.hmp.domain.agent.port.ConfirmDecision
-import com.hmp.domain.agent.port.ConfirmStep
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -12,140 +10,36 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import kotlin.coroutines.resume
 
 /**
- * 全局 DialogManager——管两种能力：
- * 1) 普通 toast/message/timer/share：沿用 DialogEvent 发射 + UI 消费的既有模式
- * 2) 确认链（STRONG_CONFIRM 双确认链）：[requestConfirm] 挂起等待整条链完成，
- *    UI 层每步通过 [advanceConfirmStep]/[denyConfirmChain]/[cancelConfirmChain] 推进
+ * 全局对话框事件出口：toast / 导航请求 / 分享。
+ *
+ * 2026-11-13（D6-08）：原 STRONG_CONFIRM 双确认链（`requestConfirm` + `pendingConfirms`
+ * 裸 Map）是**无人调用的死路径** —— 唯一适配器 `DialogConfirmGateAdapter` 全仓零构造点，
+ * 工具确认实际走 `ConfirmBridge` + 对话内联确认卡。已整体删除，这里只剩事件发射。
  */
 class DialogManager {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
-    // 容量从 1 提到 16 且不再 DROP_OLDEST：同一帧连发多条（toast + 导航 + 确认链推进）
+    // 容量从 1 提到 16 且不再 DROP_OLDEST：同一帧连发多条（toast + 导航）
     // 时宁可让 emit 挂起等消费，也不静默丢事件。消费端是单点 collect，排空很快。
-    private val _dialogEvent = MutableSharedFlow<DialogEvent?>(
+    private val _dialogEvent = MutableSharedFlow<DialogEvent>(
         replay = 0,
         extraBufferCapacity = 16,
         onBufferOverflow = BufferOverflow.SUSPEND,
     )
-    val dialogEvent: SharedFlow<DialogEvent?> = _dialogEvent.asSharedFlow()
-
-    // ═══════════════════════════════════════════════════════════
-    // 确认链状态（STRONG_CONFIRM）
-    // id → (steps, 当前 stepIndex, 挂起 continuation)
-    // ═══════════════════════════════════════════════════════════
-
-    private data class PendingConfirm(
-        val steps: List<ConfirmStep>,
-        var stepIndex: Int,
-        var continuation: (ConfirmDecision) -> Unit,
-    )
-
-    private val pendingConfirms = mutableMapOf<Long, PendingConfirm>()
-
-    /**
-     * 确认链的 key（D6-08）。
-     *
-     * 原来用 `nowEpochMillis()` 当 key：同一毫秒内两条确认链会拿到同一个 id，
-     * 后写的把前一条覆盖掉 —— 前一条的 continuation 永远不会 `resume`，对应工具调用挂死。
-     * 改成进程内单调计数器之后，碰撞在结构上不可能发生；从 0 开始也便于测试断言。
-     *
-     * 用 `Mutex` 而不是 `AtomicLong`：`kotlin.concurrent.atomics` 在当前 Kotlin 版本仍是实验 API，
-     * 而这里只在 `requestConfirm` 的挂起点前取一次号，串行化成本可以忽略。
-     */
-    private val idMutex = Mutex()
-    private var nextConfirmId = 0L
-
-    /** internal 而非 private：D6-08 的并发判据直接压这一层。 */
-    internal suspend fun allocateConfirmId(): Long = idMutex.withLock { ++nextConfirmId }
+    val dialogEvent: SharedFlow<DialogEvent> = _dialogEvent.asSharedFlow()
 
     /**
      * 普通事件的 id，只服务 `MessageToast` 的 key。
-     *
-     * 与确认链分开取号：确认链 id 是协议字段，事件 id 只是渲染 key，混用会让两边的
-     * 起始值与并发判据互相牵连。取号点放在 emit 前的协程里，避免默认参数求值的线程不确定。
+     * 取号点放在 emit 前的协程里，避免默认参数求值的线程不确定。
      */
+    private val idMutex = Mutex()
     private var nextEventId = 0L
+
     private suspend fun allocateEventId(): Long = idMutex.withLock { ++nextEventId }
-
-    /**
-     * 请求用户做一条确认链。挂起直到 UI 层全部通过 / 拒绝 / 取消。
-     * STRONG_CONFIRM 场景传 2 步：第一步 Agent 意图，第二步系统权限确认。
-     */
-    suspend fun requestConfirm(steps: List<ConfirmStep>): ConfirmDecision {
-        // 没 step → 直接 Approved（不进挂起，也不占号）
-        if (steps.isEmpty()) return ConfirmDecision.Approved
-
-        val id = allocateConfirmId()
-        return suspendCancellableCoroutine { cont ->
-            val pending = PendingConfirm(
-                steps = steps,
-                stepIndex = 0,
-                continuation = { decision ->
-                    if (cont.isActive && !cont.isCompleted) cont.resume(decision)
-                },
-            )
-            pendingConfirms[id] = pending
-
-            // 发射第一个 step 给 UI
-            scope.launch {
-                _dialogEvent.emit(
-                    DialogEvent.ConfirmChain(steps = steps, stepIndex = 0, id = id),
-                )
-            }
-
-            cont.invokeOnCancellation {
-                // 调用方协程被取消（罕见，UI dismiss 走的是 cancelConfirmChain）
-                pendingConfirms.remove(id)
-            }
-        }
-    }
-
-    /** UI 层：用户点当前 step 的「确认」。如果还有下一步 → 推进；否则整条链 Approved。 */
-    fun advanceConfirmStep(id: Long) {
-        val pending = pendingConfirms[id] ?: return
-        val nextIndex = pending.stepIndex + 1
-        if (nextIndex >= pending.steps.size) {
-            // 全部通过
-            pendingConfirms.remove(id)
-            pending.continuation(ConfirmDecision.Approved)
-            scope.launch { _dialogEvent.emit(null) }
-        } else {
-            pending.stepIndex = nextIndex
-            scope.launch {
-                _dialogEvent.emit(
-                    DialogEvent.ConfirmChain(
-                        steps = pending.steps,
-                        stepIndex = nextIndex,
-                        id = id,
-                    ),
-                )
-            }
-        }
-    }
-
-    /** UI 层：用户点当前 step 的「取消」→ 整条链 Denied。 */
-    fun denyConfirmChain(id: Long) {
-        val pending = pendingConfirms.remove(id) ?: return
-        pending.continuation(ConfirmDecision.Denied)
-        scope.launch { _dialogEvent.emit(null) }
-    }
-
-    /** UI 层：用户关闭弹窗（dismissRequest）→ 整条链 Cancelled。 */
-    fun cancelConfirmChain(id: Long) {
-        val pending = pendingConfirms.remove(id) ?: return
-        pending.continuation(ConfirmDecision.Cancelled)
-        scope.launch { _dialogEvent.emit(null) }
-    }
-
-    // ═══════════════════════════════════════════════════════════
-    // 普通弹窗 / toast（沿用既有模式）
-    // ═══════════════════════════════════════════════════════════
 
     fun showDialog(event: DialogEvent) {
         scope.launch {

@@ -616,8 +616,6 @@
     <string name="agent_cfg_trust_act">Act</string>
     <string name="agent_cfg_trust_silent">Silent</string>
     <string name="agent_cfg_always_allow_count">Pre-approved tools: %1$d</string>
-    <string name="agent_cfg_step_budget">Step Budget</string>
-    <string name="agent_cfg_step_budget_value">%1$d steps</string>
     <string name="agent_cfg_reco_params">Recommendation Card Params</string>
     <string name="agent_cfg_daily_count">Daily Count</string>
     <string name="agent_cfg_daily_count_value">%1$d cards</string>

@@ -597,8 +597,6 @@
     <string name="agent_cfg_trust_act">Bertindak</string>
     <string name="agent_cfg_trust_silent">Senyap</string>
     <string name="agent_cfg_always_allow_count">Alat yang disetujui: %1$d</string>
-    <string name="agent_cfg_step_budget">Anggaran Langkah</string>
-    <string name="agent_cfg_step_budget_value">%1$d langkah</string>
     <string name="agent_cfg_reco_params">Parameter Kartu Rekomendasi</string>
     <string name="agent_cfg_daily_count">Jumlah Harian</string>
     <string name="agent_cfg_daily_count_value">%1$d kartu</string>

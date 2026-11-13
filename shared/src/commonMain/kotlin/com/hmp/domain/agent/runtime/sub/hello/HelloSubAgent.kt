@@ -96,6 +96,36 @@ import kotlinx.serialization.json.Json
  *
  * `@Volatile` 随字段一起搬 —— 它标的是字段本身，与宿主类无关。
  */
+/** 一次 Hello 运行的终态。Hello 是准常驻服务，**没有「达标完成」**。 */
+enum class HelloOutcome { QUOTA_EXHAUSTED, CANCELLED, FAILED }
+
+/** 生命周期状态的唯一快照（业务态仍留在 HelloSessionState 的局部字段里）。 */
+internal data class HelloRuntimeState(
+    // 对外初值保持 IDLE（原 stateFlow 的 else 分支）；基类 state() 初值仍是 PAUSED，
+    // 两者语义不同：一个是「还没启动」，一个是「启动前的内部暂停态」。
+    val runState: AgentRunState = AgentRunState.UNREGISTERED,
+    val outcome: HelloOutcome? = null,
+    val detail: String = "未启动",
+)
+
+/** 进度 → 对外只读状态；纯函数，便于单测终态。 */
+internal fun HelloRuntimeState.toCapabilityState(): CapabilityState {
+    val status = when (outcome) {
+        HelloOutcome.QUOTA_EXHAUSTED -> CapabilityState.Status.PAUSED
+
+        HelloOutcome.FAILED -> CapabilityState.Status.ERROR
+
+        HelloOutcome.CANCELLED -> CapabilityState.Status.IDLE
+
+        null -> when (runState) {
+            AgentRunState.RUNNING -> CapabilityState.Status.RUNNING
+            AgentRunState.PAUSED -> CapabilityState.Status.PAUSED
+            AgentRunState.UNREGISTERED -> CapabilityState.Status.IDLE
+        }
+    }
+    return CapabilityState(status = status, detail = detail, raw = this)
+}
+
 private class HelloSessionState {
     /** 上次检测到的播放曲目 ID（用于切歌 → GREETING 刷新检测） */
     @Volatile
@@ -161,7 +191,7 @@ private class HelloSessionState {
  * - runLoop 启动时主动 push 初始问候卡（兜底）
  *
  * MusicRepository 依赖：所有卡型生成都通过接口方法（接口返回空列表/零值不崩）。
- * enableLlm 动态启用：transport != null && enrichConfig?.isConfigured == true → LLM 生成，否则兜底模板。
+ * enableLlm 动态启用：transport != null && helloConfig?.isConfigured == true → LLM 生成，否则兜底模板。
  * 由 MasterAgent.updateAiConfig 热推送，用户改 AI 配置后 <100ms 生效。
  */
 class HelloSubAgent internal constructor(
@@ -176,7 +206,7 @@ class HelloSubAgent internal constructor(
     private val nowPlayingProvider: NowPlayingContextProvider? = null,
     private val stopSignal: StopSignal? = null,
     /** AI 端点配置（热更新：MasterAgent.updateAiConfig 可动态替换） */
-    private var enrichConfig: AiEndpointConfig? = null,
+    private var helloConfig: AiEndpointConfig? = null,
     /** 是否启用 LLM 生成（热更新：用户改配置后 MasterAgent 推新值） */
     private var enableLlm: Boolean = false,
     /** 电台查询代理（nullable；MasterAgent.queryRadioPlaylist 直接传进来，避免循环依赖） */
@@ -214,7 +244,7 @@ class HelloSubAgent internal constructor(
 
     // ── 构造诊断日志 ──
     init {
-        val cfg = enrichConfig
+        val cfg = helloConfig
         HmpLog.i(LogTag.AgentHello) {
             "👋 HelloSubAgent created | enableLlm=$enableLlm | temp=${llmTemperature ?: "(per-card default)"} | " +
                 "hasLLM=${cfg != null} | endpoint=${cfg?.endpoint?.take(40) ?: "(none)"} | " +
@@ -255,7 +285,7 @@ class HelloSubAgent internal constructor(
     override suspend fun runLoop() {
         HmpLog.i(LogTag.AgentHello) { "👋 runLoop start" }
         isActive = true
-        runState = AgentRunState.RUNNING
+        transition(AgentRunState.RUNNING)
 
         // ── 同步初始化（协程启动前先铺好初始状态，避免 race） ──
         // ① 从 Room 恢复今日记忆缓存
@@ -282,21 +312,45 @@ class HelloSubAgent internal constructor(
         val presenceJob = scope.launch { collectPresenceEvents() }
         val tickJob = scope.launch { minuteTickLoop() }
 
-        // runLoop 自身只负责暂停/恢复 + 优雅退出
-        while (scope.isActive && isActive) {
-            session.agentPaused = true
-            stopSignal?.waitResume()
-            session.agentPaused = false
-            if (stopSignal?.shouldSoftStop() == true) break
-            delay(500)
+        // runLoop 自身只负责暂停/恢复 + 优雅退出。终态由 finally 唯一写入：
+        // 额度软停止 / 取消 / 异常三条路径都必须停掉内部常驻协程并发布状态。
+        var outcome: HelloOutcome? = null
+        try {
+            while (scope.isActive && isActive) {
+                session.agentPaused = true
+                stopSignal?.waitResume()
+                session.agentPaused = false
+                if (stopSignal?.shouldSoftStop() == true) {
+                    outcome = HelloOutcome.QUOTA_EXHAUSTED
+                    break
+                }
+                delay(500)
+            }
+        } catch (ce: kotlinx.coroutines.CancellationException) {
+            outcome = HelloOutcome.CANCELLED
+            throw ce
+        } catch (t: Throwable) {
+            outcome = HelloOutcome.FAILED
+            throw t
+        } finally {
+            finish(outcome ?: HelloOutcome.CANCELLED, presenceJob, tickJob)
         }
+    }
 
-        // 清理
+    /** 三种退出共用同一条收尾：停内部协程、清卡池、把终态写进唯一出口。 */
+    private fun finish(
+        outcome: HelloOutcome,
+        presenceJob: kotlinx.coroutines.Job,
+        tickJob: kotlinx.coroutines.Job,
+    ) {
         presenceJob.cancel()
         tickJob.cancel()
         cardPool.clear()
-        runState = AgentRunState.PAUSED
-        HmpLog.i(LogTag.AgentHello) { "👋 runLoop exited" }
+        isActive = false
+        // 必须是 UNREGISTERED：startHello() 的幂等守卫把「非 UNREGISTERED」当作还活着，
+        // 保留只读实例时若留 PAUSED，额度恢复后重检会被误判为「已在跑」而挡住补启。
+        transition(AgentRunState.UNREGISTERED, outcome = outcome)
+        HmpLog.i(LogTag.AgentHello) { "👋 runLoop exited (outcome=$outcome)" }
     }
 
     override suspend fun shutdown() {
@@ -1317,14 +1371,14 @@ class HelloSubAgent internal constructor(
      *
      * 注意：已生成的卡不会自动重生成——下一个触发点（DjBlank/时段变化/跨天）会用新配置。
      */
-    fun updateAiConfig(enableLlm: Boolean, enrichConfig: AiEndpointConfig?) {
+    fun updateAiConfig(enableLlm: Boolean, helloConfig: AiEndpointConfig?) {
         this.enableLlm = enableLlm
-        this.enrichConfig = enrichConfig
+        this.helloConfig = helloConfig
         HmpLog.i(LogTag.AgentHello) {
-            "🔄 updateAiConfig | enableLlm=$enableLlm | hasLLM=${enrichConfig != null} | " +
-                "endpoint=${enrichConfig?.endpoint?.take(40) ?: "(none)"} | " +
-                "model=${enrichConfig?.selectedModel?.take(30) ?: "(default)"} | " +
-                "hasKey=${enrichConfig?.apiKey?.isNotBlank() == true}"
+            "🔄 updateAiConfig | enableLlm=$enableLlm | hasLLM=${helloConfig != null} | " +
+                "endpoint=${helloConfig?.endpoint?.take(40) ?: "(none)"} | " +
+                "model=${helloConfig?.selectedModel?.take(30) ?: "(default)"} | " +
+                "hasKey=${helloConfig?.apiKey?.isNotBlank() == true}"
         }
     }
 
@@ -1855,7 +1909,7 @@ class HelloSubAgent internal constructor(
         postProcess: ((String) -> String?) = { it.trim().trim('\u0022', '\u300C', '\u300D', '\u201C', '\u201D') },
     ): String? {
         if (!enableLlm) return null
-        val cfg = enrichConfig ?: return null
+        val cfg = helloConfig ?: return null
         // 画像简报（v3.8）统一追加到 system —— 自带「仅供参考」口径，是背景不是指令
         val systemWithMemory = memoryBriefing?.takeIf { it.isNotBlank() }
             ?.let { "$systemPrompt\n\n$it" } ?: systemPrompt
@@ -1975,14 +2029,49 @@ class HelloSubAgent internal constructor(
 
     override val capabilityName = "hello"
 
-    /** HelloSubAgent 自动启动/停止——用 SubAgent 基类 runState 映射 */
-    override val stateFlow: StateFlow<CapabilityState> = kotlinx.coroutines.flow.MutableStateFlow(
-        CapabilityState(
-            status = when (state()) {
-                AgentRunState.RUNNING -> CapabilityState.Status.RUNNING
-                else -> CapabilityState.Status.IDLE
-            },
-            detail = if (state() == AgentRunState.RUNNING) "运行中" else "未启动",
-        ),
-    )
+    /**
+     * R6：状态流不再是构造期算一次就冻结的值。`transition()` 是生命周期状态的
+     * 唯一写入口，`stateFlow` 直接读这份 MutableStateFlow —— 不依赖收集协程，
+     * 所以 `shutdown()` 取消内部 scope 后最后一帧终态仍留得住。
+     */
+    private val _runtimeState = kotlinx.coroutines.flow.MutableStateFlow(HelloRuntimeState())
+    private val _capabilityState = kotlinx.coroutines.flow.MutableStateFlow(HelloRuntimeState().toCapabilityState())
+    override val stateFlow: StateFlow<CapabilityState> get() = _capabilityState
+
+    /** 生命周期迁移的统一写入口。 */
+    private fun transition(state: AgentRunState, outcome: HelloOutcome? = null) {
+        runState = state
+        val detail = when {
+            outcome == HelloOutcome.QUOTA_EXHAUSTED -> "额度已用完，恢复后自动继续"
+            outcome == HelloOutcome.FAILED -> "运行异常，已停止"
+            outcome == HelloOutcome.CANCELLED -> "已停止"
+            state == AgentRunState.RUNNING -> "运行中"
+            else -> "未启动"
+        }
+        _runtimeState.value = HelloRuntimeState(runState = state, outcome = outcome, detail = detail)
+        _capabilityState.value = _runtimeState.value.toCapabilityState()
+    }
+
+    /** 基类 pause/resume 直接改 runState，这里把状态出口同步过去（终态不允许被覆盖）。 */
+    override suspend fun pause() {
+        // 终态后不再动 runState：否则会把 UNREGISTERED 改回 PAUSED，挡住重建。
+        if (_runtimeState.value.outcome != null) return
+        super.pause()
+        syncCapabilityState()
+    }
+
+    override suspend fun resume() {
+        if (_runtimeState.value.outcome != null) return
+        super.resume()
+        syncCapabilityState()
+    }
+
+    private fun syncCapabilityState() {
+        if (_runtimeState.value.outcome != null) return
+        _runtimeState.value = _runtimeState.value.copy(runState = state())
+        _capabilityState.value = _runtimeState.value.toCapabilityState()
+    }
+
+    /** Master 消费终态时读取（只读，不改状态）。 */
+    internal fun terminalOutcome(): HelloOutcome? = _runtimeState.value.outcome
 }

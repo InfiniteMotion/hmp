@@ -371,7 +371,7 @@
 
 ### 形态清理
 
-- `SearchUiState.isIntent`：意图判定从组合期移入 VM（原每次重组重算 `CommandLexicon.classify`）。
+- `SearchUiState.isIntent`：意图判定从组合期移入 VM（原每次重组重算 `CommandLexicon.classify`；该词表已于 2026-11-11 整体删除，`isIntent` 改为「输入非空即提供 AI 入口」）。
 - `TabScreen` 不再持 `NavBackStack` / 硬编码 `Routes.Library.Search`，改收 `onSearchClick`（B20 同型残留）。
 - 电台「已开启」谓词收成 `RadioState?.isActive()` 一份（AppRoot 与 RadioEntryCard 共用）。
 - `BackupEffect.Message` 载荷改 `UiText`（异常文本用 `UiText.Raw`，资源用 `asUiText()`），消费端 `resolveForEffect()`。

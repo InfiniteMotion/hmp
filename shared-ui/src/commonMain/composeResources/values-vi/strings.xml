@@ -565,8 +565,6 @@
     <string name="agent_cfg_trust_act">Hành động</string>
     <string name="agent_cfg_trust_silent">Im lặng</string>
     <string name="agent_cfg_always_allow_count">Công cụ đã duyệt trước: %1$d</string>
-    <string name="agent_cfg_step_budget">Ngân sách bước</string>
-    <string name="agent_cfg_step_budget_value">%1$d bước</string>
     <string name="agent_cfg_reco_params">Tham số thẻ gợi ý</string>
     <string name="agent_cfg_daily_count">Số lượng mỗi ngày</string>
     <string name="agent_cfg_daily_count_value">%1$d thẻ</string>

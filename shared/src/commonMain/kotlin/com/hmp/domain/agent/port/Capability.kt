@@ -7,7 +7,7 @@ import kotlinx.coroutines.flow.StateFlow
  *
  * 所有后台能力（Radio / Enrich / Hello）都实现此接口。
  * MasterAgent 通过 `Map<String, Capability>` 统一管理所有能力，
- * builtinIntent 路由、ToolRegistry 状态查询都从这套接口走。
+ * ToolRegistry 的状态查询与能力控制工具都从这套接口走。
  *
  * **为什么在 port**：它是**能力契约**而非引擎实现 —— `tool/`、`runtime/`、`sub/`
  * 都要引用它。若留在 `runtime/` 会形成 `tool → runtime` 反向依赖
@@ -28,13 +28,23 @@ interface Capability {
 
     /** 当前状态流——外部只读不写，映射到统一 CapabilityState */
     val stateFlow: StateFlow<CapabilityState>
-
-    /** 启动或重启能力（可选：不 override 则抛 UnsupportedOperationException） */
-    suspend fun start(): String = throw UnsupportedOperationException("$capabilityName.start() 不支持")
-
-    /** 完全停止（释放资源、退出 runLoop）（可选） */
-    suspend fun stop(): String = throw UnsupportedOperationException("$capabilityName.stop() 不支持")
 }
+
+/**
+ * 能力的**只读快照**（2026-11-13，C 类收口）。
+ *
+ * 对外出口只给这个类型，不再交 `Capability` / `SubAgent` 实例：
+ * 没有方法、没有 `raw` 引用，调用方在类型上就无法写状态或下转型。
+ * `start/stop` 已随本次收口删除（全仓零调用）。
+ */
+data class CapabilitySnapshot(
+    val name: String,
+    val status: CapabilityState.Status,
+    val detail: String,
+)
+
+/** 内部状态 → 对外快照；刻意丢弃 `raw`（可能携带子 Agent 内部对象）。 */
+internal fun CapabilityState.toSnapshot(name: String): CapabilitySnapshot = CapabilitySnapshot(name = name, status = status, detail = detail)
 
 /**
  * Capability 统一状态模型。

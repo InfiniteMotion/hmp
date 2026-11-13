@@ -565,8 +565,6 @@
     <string name="agent_cfg_trust_act">تنفيذ</string>
     <string name="agent_cfg_trust_silent">صامت</string>
     <string name="agent_cfg_always_allow_count">أدوات معتمدة مسبقًا: %1$d</string>
-    <string name="agent_cfg_step_budget">ميزانية الخطوات</string>
-    <string name="agent_cfg_step_budget_value">%1$d خطوة</string>
     <string name="agent_cfg_reco_params">إعدادات بطاقة التوصية</string>
     <string name="agent_cfg_daily_count">العدد اليومي</string>
     <string name="agent_cfg_daily_count_value">%1$d بطاقة</string>

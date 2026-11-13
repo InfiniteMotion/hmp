@@ -64,8 +64,17 @@ internal class AgentScheduler(
     private val systemConditions: SystemConditions,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-    private val agents = mutableMapOf<String, AgentRegistration>()
-    private val states = mutableMapOf<String, AgentRunState>()
+
+    /**
+     * R4：注册项与运行状态都是 **@Volatile 的不可变快照**。写侧在 @Synchronized 里
+     * 整份替换（copy-on-write，与已修好的 SubAgentRegistry 同形），读侧只读快照 ——
+     * 仲裁循环每秒遍历时不会被并发注册/注销打断，也不会读到半张表。
+     */
+    @Volatile
+    private var agentSnapshot: Map<String, AgentRegistration> = emptyMap()
+
+    @Volatile
+    private var stateSnapshot: Map<String, AgentRunState> = emptyMap()
 
     /** Scheduler 仲裁循环是否已启动 */
     @Volatile
@@ -74,10 +83,11 @@ internal class AgentScheduler(
     // ===== Agent 注册/注销 =====
 
     /** 注册 Agent；返回当前初始状态 */
+    @Synchronized
     fun registerAgent(registration: AgentRegistration): AgentRunState {
-        agents[registration.agentId] = registration
         val initialState = decideState(registration)
-        states[registration.agentId] = initialState
+        agentSnapshot = agentSnapshot + (registration.agentId to registration)
+        stateSnapshot = stateSnapshot + (registration.agentId to initialState)
         if (initialState == AgentRunState.RUNNING) {
             scope.launch { runCatching { registration.onResume() } }
         }
@@ -86,17 +96,25 @@ internal class AgentScheduler(
     }
 
     /** 注销 Agent（应用销毁或 Master 下令销毁子 Agent） */
+    @Synchronized
     fun unregisterAgent(agentId: String) {
-        agents.remove(agentId)
-        states.remove(agentId)
+        agentSnapshot = agentSnapshot - agentId
+        stateSnapshot = stateSnapshot - agentId
         HmpLog.i(LogTag.AgentScheduler) { "⏱️ [Scheduler] unregistered $agentId" }
     }
 
     /** 查询 Agent 当前状态 */
-    fun getState(agentId: String): AgentRunState = states[agentId] ?: AgentRunState.UNREGISTERED
+    fun getState(agentId: String): AgentRunState = stateSnapshot[agentId] ?: AgentRunState.UNREGISTERED
 
     /** 获取所有已注册 Agent ID */
-    fun registeredAgentIds(): List<String> = agents.keys.toList()
+    fun registeredAgentIds(): List<String> = agentSnapshot.keys.toList()
+
+    /** 仲裁只提交变化项，仍走整份替换，避免覆盖并发注册刚写入的状态。 */
+    @Synchronized
+    private fun applyStateChanges(changes: Map<String, AgentRunState>) {
+        if (changes.isEmpty()) return
+        stateSnapshot = stateSnapshot + changes
+    }
 
     // ===== 仲裁循环 =====
 
@@ -105,42 +123,60 @@ internal class AgentScheduler(
     fun startArbitration() {
         if (arbitrationStarted) return
         arbitrationStarted = true
-        scope.launch { arbitrationLoop() }
+        val job = scope.launch { arbitrationLoop() }
+        // R4：万一循环仍因意外异常死亡，复位标志，避免「牌子还挂着、再也启动不了」。
+        job.invokeOnCompletion { cause ->
+            if (cause != null && arbitrationStarted) arbitrationStarted = false
+        }
         HmpLog.i(LogTag.AgentScheduler) { "⏱️ [Scheduler] arbitration loop started" }
     }
 
     /** 停止仲裁循环（应用销毁时调用） */
     fun stopArbitration() {
         arbitrationStarted = false
-        // 依次 pause 所有 Agent
-        agents.forEach { (id, reg) ->
+        // 依次 pause 所有 Agent（读不可变快照）
+        val current = agentSnapshot
+        current.values.forEach { reg ->
             scope.launch { runCatching { reg.onPause() } }
-            states[id] = AgentRunState.PAUSED
         }
+        applyStateChanges(current.keys.associateWith { AgentRunState.PAUSED })
         HmpLog.i(LogTag.AgentScheduler) { "⏱️ [Scheduler] arbitration loop stopped" }
     }
 
     private suspend fun arbitrationLoop() {
         while (arbitrationStarted && scope.isActive) {
-            agents.entries.forEach { (agentId, registration) ->
-                val newState = decideState(registration)
-                val oldState = states[agentId]
-                if (oldState != newState) {
-                    states[agentId] = newState
-                    when (newState) {
-                        AgentRunState.RUNNING -> {
-                            HmpLog.i(LogTag.AgentScheduler) { "⏱️ [Scheduler] $agentId RESUMED (priority=${registration.priority})" }
-                            runCatching { registration.onResume() }
-                        }
+            try {
+                // 读 @Volatile 快照：遍历期间注册/注销改的是新快照，不会 CME。
+                val current = agentSnapshot
+                val base = stateSnapshot
+                val changes = mutableMapOf<String, AgentRunState>()
+                current.forEach { (agentId, registration) ->
+                    val newState = decideState(registration)
+                    val oldState = base[agentId]
+                    if (oldState != newState) {
+                        changes[agentId] = newState
+                        when (newState) {
+                            AgentRunState.RUNNING -> {
+                                HmpLog.i(LogTag.AgentScheduler) { "⏱️ [Scheduler] $agentId RESUMED (priority=${registration.priority})" }
+                                runCatching { registration.onResume() }
+                            }
 
-                        AgentRunState.PAUSED -> {
-                            HmpLog.i(LogTag.AgentScheduler) { "⏱️ [Scheduler] $agentId PAUSED (priority=${registration.priority})" }
-                            runCatching { registration.onPause() }
-                        }
+                            AgentRunState.PAUSED -> {
+                                HmpLog.i(LogTag.AgentScheduler) { "⏱️ [Scheduler] $agentId PAUSED (priority=${registration.priority})" }
+                                runCatching { registration.onPause() }
+                            }
 
-                        AgentRunState.UNREGISTERED -> Unit
+                            AgentRunState.UNREGISTERED -> Unit
+                        }
                     }
                 }
+                applyStateChanges(changes)
+            } catch (ce: kotlinx.coroutines.CancellationException) {
+                throw ce
+            } catch (t: Throwable) {
+                // R4 自愈：单轮失败不该杀死整条循环。记日志、等下一秒重试；
+                // 异常不再逃逸成未捕获异常，arbitrationStarted 也不会卡死。
+                HmpLog.w(LogTag.AgentScheduler, t) { "⏱️ [Scheduler] arbitration tick failed — retry next tick" }
             }
             delay(1000L) // 每秒仲裁一次
         }

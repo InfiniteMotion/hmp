@@ -565,8 +565,6 @@
     <string name="agent_cfg_trust_act">कार्य करें</string>
     <string name="agent_cfg_trust_silent">मौन</string>
     <string name="agent_cfg_always_allow_count">पूर्व-स्वीकृत टूल: %1$d</string>
-    <string name="agent_cfg_step_budget">चरण बजट</string>
-    <string name="agent_cfg_step_budget_value">%1$d चरण</string>
     <string name="agent_cfg_reco_params">सिफ़ारिश कार्ड पैरामीटर</string>
     <string name="agent_cfg_daily_count">दैनिक संख्या</string>
     <string name="agent_cfg_daily_count_value">%1$d कार्ड</string>

@@ -565,8 +565,6 @@
     <string name="agent_cfg_trust_act">Handeln</string>
     <string name="agent_cfg_trust_silent">Still</string>
     <string name="agent_cfg_always_allow_count">Vorab genehmigte Tools: %1$d</string>
-    <string name="agent_cfg_step_budget">Schritt-Budget</string>
-    <string name="agent_cfg_step_budget_value">%1$d Schritte</string>
     <string name="agent_cfg_reco_params">Parameter der Empfehlungskarte</string>
     <string name="agent_cfg_daily_count">Tägliche Anzahl</string>
     <string name="agent_cfg_daily_count_value">%1$d Karten</string>

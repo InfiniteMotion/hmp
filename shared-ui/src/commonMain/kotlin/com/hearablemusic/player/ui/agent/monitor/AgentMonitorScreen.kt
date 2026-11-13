@@ -80,6 +80,7 @@ import com.hearablemusic.player.ui.generated.resources.cancel
 import com.hearablemusic.player.ui.generated.resources.clear
 import com.hearablemusic.player.ui.generated.resources.confirm
 import com.hmp.data.util.localDateString
+import com.hmp.domain.agent.port.CapabilitySnapshot
 import com.hmp.domain.agent.port.CapabilityState
 import com.hmp.domain.agent.quota.TokenLedgerSnapshot
 import com.hmp.log.LogEntry
@@ -507,9 +508,9 @@ private fun LogLine(entry: LogEntry) {
 // ── MasterAgent（编排中枢：自身无 capability，状态行改为「活跃子 Agent 数」） ──
 @Composable
 private fun MasterMonitorCard(
-    radioState: CapabilityState?,
-    enrichState: CapabilityState?,
-    helloState: CapabilityState?,
+    radioState: CapabilitySnapshot?,
+    enrichState: CapabilitySnapshot?,
+    helloState: CapabilitySnapshot?,
     tokenText: String?,
     logEntries: List<LogEntry>,
     hazeState: HazeState,
@@ -539,7 +540,7 @@ private fun MasterMonitorCard(
 // ── Radio ──
 @Composable
 private fun RadioMonitorCard(
-    state: CapabilityState?,
+    state: CapabilitySnapshot?,
     tokenText: String?,
     logEntries: List<LogEntry>,
     hazeState: HazeState,
@@ -564,7 +565,7 @@ private fun RadioMonitorCard(
 // ── Enrich ──
 @Composable
 private fun EnrichMonitorCard(
-    state: CapabilityState?,
+    state: CapabilitySnapshot?,
     tokenText: String?,
     logEntries: List<LogEntry>,
     hazeState: HazeState,
@@ -589,7 +590,7 @@ private fun EnrichMonitorCard(
 // ── Hello ──
 @Composable
 private fun HelloMonitorCard(
-    state: CapabilityState?,
+    state: CapabilitySnapshot?,
     tokenText: String?,
     logEntries: List<LogEntry>,
     hazeState: HazeState,

@@ -3,7 +3,6 @@ package com.hearablemusic.player.ui.agent.chat
 import com.hearablemusic.player.ui.common.text.UiText
 import com.hmp.domain.agent.port.AgentMessageStore
 import com.hmp.domain.agent.port.ConfirmRequest
-import com.hmp.domain.agent.port.FakePlaybackCommandPort
 import com.hmp.domain.agent.port.StoredAgentMessage
 import com.hmp.domain.agent.port.ToolPermissionLevel
 import com.hmp.domain.agent.runtime.TerminationReason
@@ -51,7 +50,6 @@ class ChatViewModelTest {
     private fun vm(gateway: FakeChatAgentGateway) = ChatViewModel(
         gateway,
         UserSettingsUseCase(MinimalSettingsRepository()),
-        FakePlaybackCommandPort,
         fakeMessageStore,
         // 测试里不限额：dao/settings 均可空，闸门恒放行
         com.hmp.domain.agent.quota.TokenQuotaGate(null, null) { 0L },

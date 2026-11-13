@@ -615,8 +615,6 @@
     <string name="agent_cfg_trust_act">代劳</string>
     <string name="agent_cfg_trust_silent">静默</string>
     <string name="agent_cfg_always_allow_count">已授权免确认工具：%1$d 项</string>
-    <string name="agent_cfg_step_budget">步数预算</string>
-    <string name="agent_cfg_step_budget_value">%1$d 步</string>
     <string name="agent_cfg_reco_params">推荐卡参数</string>
     <string name="agent_cfg_daily_count">每日数量</string>
     <string name="agent_cfg_daily_count_value">%1$d 张</string>

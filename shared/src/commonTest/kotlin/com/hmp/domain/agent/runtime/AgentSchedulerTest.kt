@@ -2,7 +2,13 @@ package com.hmp.domain.agent.runtime
 
 import com.hmp.domain.agent.port.TimeProvider
 import com.hmp.test.fakes.FakeSystemConditions
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.joinAll
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.yield
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -72,6 +78,71 @@ class AgentSchedulerTest {
         s.registerAgent(reg(AgentPriority.MASTER, "a"))
         s.registerAgent(reg(AgentPriority.HELLO, "b"))
         assertTrue(s.registeredAgentIds().containsAll(listOf("a", "b")))
+    }
+
+    /** 阶段 0 判据 1：读写并发不能抛 CME，也不能读到半张表。 */
+    @Test
+    fun `并发注册注销与遍历不抛 CME`() = runTest {
+        val s = AgentScheduler(timeProvider(), FakeSystemConditions())
+
+        // 真实线程，50 个写协程同时注册/注销；读协程持续遍历同一张表。
+        val writers = (1..50).map { i ->
+            launch(Dispatchers.Default) {
+                repeat(20) {
+                    s.registerAgent(reg(AgentPriority.MASTER, "k$i"))
+                    s.registeredAgentIds().forEach { requireNotNull(it) }
+                    s.getState("k$i")
+                    s.unregisterAgent("k$i")
+                }
+            }
+        }
+        val reader = launch(Dispatchers.Default) {
+            repeat(3000) {
+                s.registeredAgentIds().forEach { requireNotNull(it) }
+                s.getState("k1")
+            }
+        }
+        writers.joinAll()
+        reader.join()
+
+        assertTrue(s.registeredAgentIds().isEmpty(), "所有 key 都已移除，注册表必须回到空")
+    }
+
+    /** 系统条件在第 2 次读取时抛一次，模拟单轮仲裁异常。 */
+    private class FlakyConditions : SystemConditions {
+        @Volatile
+        var calls = 0
+
+        @Volatile
+        var thrown = false
+
+        override fun batteryLevel(): Float {
+            calls++
+            if (!thrown && calls >= 2) {
+                thrown = true
+                throw IllegalStateException("simulated arbitration failure")
+            }
+            return 0.9f
+        }
+
+        override fun isWifiConnected(): Boolean = true
+    }
+
+    /** 阶段 0 判据 2：单轮异常不该杀死整条仲裁循环。 */
+    @Test
+    fun `仲裁循环抛异常后仍能继续仲裁`() = runBlocking {
+        val conditions = FlakyConditions()
+        val s = AgentScheduler(timeProvider(), conditions)
+        s.registerAgent(reg(AgentPriority.ENRICH, "e"))
+        s.startArbitration()
+
+        val reached = withTimeoutOrNull(5_000) {
+            while (conditions.calls < 5) delay(50)
+            true
+        } ?: false
+        s.stopArbitration()
+
+        assertTrue(reached, "单轮仲裁异常不该让循环永久死亡；异常后仍应继续每秒仲裁")
     }
 
     @Test

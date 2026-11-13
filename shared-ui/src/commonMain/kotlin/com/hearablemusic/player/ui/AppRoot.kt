@@ -22,6 +22,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -40,6 +41,9 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
@@ -130,6 +134,18 @@ fun AppRoot(darkTheme: Boolean) {
     // 启动不变量：系统歌单存在性校验 + 自愈（每次启动一次，详见 DefaultPlaylistGuard KDoc）
     LaunchedEffect(Unit) { appRootViewModel.ensureDefaultPlaylists() }
 
+    // 应用回到前台 → 引擎重跑一次健康自检。覆盖「跨天 / 额度重置」这类没有配置、
+    // 也没有曲库事件的状态变化；LocalLifecycleOwner 在 commonMain 可用，三端共用一个
+    // 组合根，不必逐端去接 Activity / Window / AppDelegate 的生命周期入口。
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) appRootViewModel.onAppForeground()
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
     val dialogManager = dialogManagerViewModel.dialogManager
     // 订阅调色板、当前曲目与播放状态
     val currentMusic by playbackController.currentPlayingMusic.collectAsState()
@@ -171,11 +187,10 @@ fun AppRoot(darkTheme: Boolean) {
     }
 
     // DialogHost 状态：一次性事件由单个 collector 分发，SharedFlow 不做状态化 ——
-    // 状态化会让后到事件覆盖前一件（确认链被 toast 顶掉），同值事件也会被吞。
+    // 状态化会让后到事件覆盖前一件（toast 被新事件顶掉），同值事件也会被吞。
     val hazeState = rememberHazeState()
     // toast 队列：连续事件按序展示；原单槽会在前一条未显示完时被后一条覆盖。
     var messageQueue by remember { mutableStateOf<List<DialogEvent.Message>>(emptyList()) }
-    var confirmChain by remember { mutableStateOf<DialogEvent.ConfirmChain?>(null) }
 
     // 启动时按配置启动悬浮歌词：配置读取与异常处理在 AppRootViewModel，平台启动留在组合点
     LaunchedEffect(Unit) {
@@ -186,7 +201,7 @@ fun AppRoot(darkTheme: Boolean) {
 
     val navController = rememberHmpNavBackStack(Routes.Main.Tabs)
 
-    // 全局对话框事件的唯一消费点：toast / 导航 / 确认链 / 分享都在这里直达，
+    // 全局对话框事件的唯一消费点：toast / 导航 / 分享都在这里直达，
     // 不再把 SharedFlow 变成 StateFlow 后让两个 LaunchedEffect 分头读同一份状态。
     LaunchedEffect(Unit) {
         dialogManager.dialogEvent.collect { event ->
@@ -194,8 +209,6 @@ fun AppRoot(darkTheme: Boolean) {
                 is DialogEvent.Message -> messageQueue = (messageQueue + event).takeLast(5)
 
                 is DialogEvent.NavRequest -> navController.add(event.route)
-
-                is DialogEvent.ConfirmChain -> confirmChain = event
 
                 is DialogEvent.ShareMusic -> platformServices.share.shareMusic(
                     com.hearablemusic.player.ui.platform.ShareMusicRequest(
@@ -205,9 +218,6 @@ fun AppRoot(darkTheme: Boolean) {
                         album = event.album,
                     ),
                 )
-
-                // null = 关闭确认链（approve / deny / cancel 的收尾信号）。
-                null -> confirmChain = null
             }
         }
     }
@@ -573,54 +583,6 @@ fun AppRoot(darkTheme: Boolean) {
                             }
 
                             null -> Unit
-                        }
-
-                        // ── M6-T5：STRONG_CONFIRM 双确认链 DialogHost ──
-                        confirmChain?.let { chain ->
-                            val step = chain.steps.getOrNull(chain.stepIndex)
-                            if (step != null) {
-                                androidx.compose.material3.AlertDialog(
-                                    onDismissRequest = { dialogManager.cancelConfirmChain(chain.id) },
-                                    title = {
-                                        Column {
-                                            androidx.compose.material3.Text(
-                                                text = step.title,
-                                                style = typo.subtitle,
-                                            )
-                                            if (chain.steps.size > 1) {
-                                                androidx.compose.material3.Text(
-                                                    text = "（${chain.stepIndex + 1}/${chain.steps.size}）",
-                                                    style = typo.caption,
-                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                )
-                                            }
-                                        }
-                                    },
-                                    text = {
-                                        androidx.compose.material3.Text(
-                                            text = step.message,
-                                            style = typo.body,
-                                        )
-                                    },
-                                    confirmButton = {
-                                        androidx.compose.material3.TextButton(
-                                            onClick = { dialogManager.advanceConfirmStep(chain.id) },
-                                        ) {
-                                            androidx.compose.material3.Text(
-                                                step.confirmLabel,
-                                                color = MaterialTheme.colorScheme.primary,
-                                            )
-                                        }
-                                    },
-                                    dismissButton = {
-                                        androidx.compose.material3.TextButton(
-                                            onClick = { dialogManager.denyConfirmChain(chain.id) },
-                                        ) {
-                                            androidx.compose.material3.Text(step.denyLabel)
-                                        }
-                                    },
-                                )
-                            }
                         }
 
                         messageQueue.firstOrNull()?.let { message ->

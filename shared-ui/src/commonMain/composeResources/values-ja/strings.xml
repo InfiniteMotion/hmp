@@ -565,8 +565,6 @@
     <string name="agent_cfg_trust_act">実行</string>
     <string name="agent_cfg_trust_silent">サイレント</string>
     <string name="agent_cfg_always_allow_count">事前承認済みツール: %1$d</string>
-    <string name="agent_cfg_step_budget">ステップ上限</string>
-    <string name="agent_cfg_step_budget_value">%1$d ステップ</string>
     <string name="agent_cfg_reco_params">おすすめカードの設定</string>
     <string name="agent_cfg_daily_count">1 日の枚数</string>
     <string name="agent_cfg_daily_count_value">%1$d 枚</string>

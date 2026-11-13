@@ -8,7 +8,6 @@ import com.hmp.data.network.createHttpClient
 import com.hmp.data.network.createJson
 import com.hmp.data.util.PlatformSecureSecrets
 import com.hmp.data.util.SecureSecrets
-import com.hmp.domain.agent.config.EngineDefaults
 import com.hmp.domain.agent.port.LibraryMutatedNotifier
 import com.hmp.domain.agent.port.LlmTransport
 import com.hmp.domain.agent.port.PlaybackObservationBus
@@ -157,11 +156,11 @@ val sharedModule = module {
             chatPolicyGuard = get(),
             chatAuditLog = get(),
             chatSessionStore = get(),
+            agentMessageStore = get(),
             chatPresenceBus = get(),
             observationBus = get(),
             // F11-L1/L2：agent 保活端口（Android 有实现；iOS/Desktop 未提供 → null，静默跳过）
             keepAlivePort = getOrNull(),
-            stepBudget = EngineDefaults.STEP_BUDGET,
             // Enrich 后台依赖（独立 Transport）
             enrichTransport = enrichTransport,
             enrichConfig = enrichConfig,

@@ -35,8 +35,7 @@ data class ResolvedAgentConfig(
  * 这样 runtimeParams Map 只存用户覆盖的值（diff），Map 为空 = 全部默认。
  */
 data class RuntimeParams(
-    // Master
-    val stepBudget: Int = 8,
+    // Master 无专属数值参数（步数上限已于 2026-11-11 删除）
     // Hello
     val dailyRecommendCount: Int = 1,
     val recommendListSize: Int = 8,
@@ -49,9 +48,8 @@ data class RuntimeParams(
     companion object {
         /** 按 role 解析 runtimeParams Map → RuntimeParams，缺失 key 回落硬编码默认。 */
         fun resolve(role: String, overrides: Map<String, String>): RuntimeParams = when (role) {
-            "master" -> RuntimeParams(
-                stepBudget = overrides["stepBudget"]?.toIntOrNull()?.coerceIn(3, 15) ?: EngineDefaults.STEP_BUDGET,
-            )
+            // master 不再有专属数值参数；旧数据里残留的 stepBudget 键不解析、不生效。
+            "master" -> RuntimeParams()
 
             "hello" -> RuntimeParams(
                 dailyRecommendCount = overrides["dailyRecommendCount"]?.toIntOrNull()?.coerceIn(1, 5) ?: 1,

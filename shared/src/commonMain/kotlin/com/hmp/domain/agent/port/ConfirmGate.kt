@@ -33,6 +33,12 @@ sealed interface ConfirmOutcome {
     data object AllowOnce : ConfirmOutcome
     data object AllowAlways : ConfirmOutcome
     data object Deny : ConfirmOutcome
+
+    /**
+     * 用户未在时限内回应（2026-11-13）。与 [Deny] 区分：不是用户拒绝，
+     * 不回拨信任；跳过该项并由 `ReActLoop` 带着明确原因结束本轮。
+     */
+    data object Timeout : ConfirmOutcome
 }
 
 /**

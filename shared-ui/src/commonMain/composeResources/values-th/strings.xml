@@ -565,8 +565,6 @@
     <string name="agent_cfg_trust_act">ลงมือทำ</string>
     <string name="agent_cfg_trust_silent">เงียบ</string>
     <string name="agent_cfg_always_allow_count">เครื่องมือที่อนุมัติล่วงหน้า: %1$d</string>
-    <string name="agent_cfg_step_budget">งบขั้นตอน</string>
-    <string name="agent_cfg_step_budget_value">%1$d ขั้นตอน</string>
     <string name="agent_cfg_reco_params">พารามิเตอร์การ์ดแนะนำ</string>
     <string name="agent_cfg_daily_count">จำนวนต่อวัน</string>
     <string name="agent_cfg_daily_count_value">%1$d การ์ด</string>

@@ -565,8 +565,6 @@
     <string name="agent_cfg_trust_act">Действовать</string>
     <string name="agent_cfg_trust_silent">Без звука</string>
     <string name="agent_cfg_always_allow_count">Предодобренные инструменты: %1$d</string>
-    <string name="agent_cfg_step_budget">Бюджет шагов</string>
-    <string name="agent_cfg_step_budget_value">%1$d шагов</string>
     <string name="agent_cfg_reco_params">Параметры карточки рекомендаций</string>
     <string name="agent_cfg_daily_count">Количество в день</string>
     <string name="agent_cfg_daily_count_value">%1$d карточек</string>

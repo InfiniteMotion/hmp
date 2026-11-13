@@ -23,7 +23,7 @@ data class AgentTask(
     val personaSnapshot: String? = null,
     /** 状态：pending / running / completed / failed / budget_exhausted / cancelled */
     val status: String,
-    /** 实际消耗的步数预算 */
+    /** 实际消耗的步数（步数上限已于 2026-11-11 删除，此处仅为观测值） */
     @ColumnInfo(name = "budget_used")
     val budgetUsed: Int? = null,
     /** 任务结果（结构化 JSON 或摘要文本） */

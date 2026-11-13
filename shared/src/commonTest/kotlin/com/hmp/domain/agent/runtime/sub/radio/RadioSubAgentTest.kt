@@ -1,5 +1,6 @@
 package com.hmp.domain.agent.runtime.sub.radio
 
+import com.hmp.domain.agent.port.CapabilityState
 import com.hmp.domain.agent.port.CommandSource
 import com.hmp.domain.agent.port.FakeNowPlayingContextProvider
 import com.hmp.domain.agent.port.LlmEvent
@@ -34,6 +35,38 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+
+class RadioTerminalOutcomeTest {
+
+    @Test
+    fun terminalOutcomes_takePrecedenceOverBusinessState() {
+        val quota = radioCapabilityState(RadioState.IDLE, RadioOutcome.QUOTA_EXHAUSTED)
+        assertEquals(CapabilityState.Status.PAUSED, quota.status, "额度耗尽是暂时停，不是崩溃")
+        assertTrue(quota.detail.contains("额度已用完"), "原因要能被用户看到")
+
+        assertEquals(
+            CapabilityState.Status.ERROR,
+            radioCapabilityState(RadioState.IDLE, RadioOutcome.FAILED).status,
+        )
+        assertEquals(
+            CapabilityState.Status.IDLE,
+            radioCapabilityState(RadioState.IDLE, RadioOutcome.CANCELLED).status,
+        )
+    }
+
+    @Test
+    fun noOutcome_keepsOriginalBusinessMapping() {
+        assertEquals(CapabilityState.Status.IDLE, radioCapabilityState(RadioState.IDLE, null).status)
+        assertEquals(
+            CapabilityState.Status.RUNNING,
+            radioCapabilityState(RadioState.PLAYING(currentCount = 3, targetCount = 8), null).status,
+        )
+        assertEquals(
+            CapabilityState.Status.BUILDING,
+            radioCapabilityState(RadioState.BUILDING(actionText = "选曲中"), null).status,
+        )
+    }
+}
 
 /** 测试用曲目构造（文件级——嵌套 Fixture 也需要访问）。 */
 private fun song(id: Long, title: String, artist: String) = MusicInfo(Music(id, title, artist, "Album", 180_000, "/$id.mp3", ""), null, null)

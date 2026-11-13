@@ -47,7 +47,7 @@ data class AgentPolicyConfig(
     // ── ② 行为组（新增）──
     /** LLM 采样温度（null = 回落 EngineDefaults.defaultTemperatureFor(role)）。 */
     var temperature: Float? = null,
-    /** 每个 Agent 专属数值参数（targetCount / targetCoverage / stepBudget …）。
+    /** 每个 Agent 专属数值参数（targetCount / targetCoverage / recommendListSize …）。
      *  用 Map<String, String> 统一承载，DataStore 存 JSON 字符串。
      *  解析时由 RuntimeParams.resolve(role, this) 回落默认。 */
     val runtimeParams: MutableMap<String, String> = mutableMapOf(),

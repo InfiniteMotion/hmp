@@ -13,6 +13,7 @@ import com.hearablemusic.player.ui.generated.resources.enrich
 import com.hearablemusic.player.ui.generated.resources.hello
 import com.hearablemusic.player.ui.generated.resources.master
 import com.hearablemusic.player.ui.generated.resources.radiowaves
+import com.hmp.domain.agent.port.CapabilitySnapshot
 import com.hmp.domain.agent.port.CapabilityState
 import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.stringResource
@@ -50,7 +51,7 @@ fun agentStatusColor(status: CapabilityState.Status?): Color = when (status) {
 
 /** 状态文案（**纯文字，不带 emoji**）。 */
 @Composable
-fun agentStatusLabel(state: CapabilityState?): String = state?.let { s ->
+fun agentStatusLabel(state: CapabilitySnapshot?): String = state?.let { s ->
     when (s.status) {
         CapabilityState.Status.IDLE -> stringResource(Res.string.agent_status_idle)
         CapabilityState.Status.BUILDING -> stringResource(Res.string.agent_status_building)
@@ -62,8 +63,8 @@ fun agentStatusLabel(state: CapabilityState?): String = state?.let { s ->
 } ?: "—"
 
 /**
- * 「当前在做什么」= CapabilityState.detail。
+ * 「当前在做什么」= CapabilitySnapshot.detail。
  * 与状态文案相同时视为**无增量**（例如 Hello 的 detail 就是「运行中」，状态行已写）→ 返回 null。
  */
 @Composable
-fun agentDetailOf(state: CapabilityState?): String? = state?.detail?.takeIf { it.isNotBlank() && it != agentStatusLabel(state) }
+fun agentDetailOf(state: CapabilitySnapshot?): String? = state?.detail?.takeIf { it.isNotBlank() && it != agentStatusLabel(state) }

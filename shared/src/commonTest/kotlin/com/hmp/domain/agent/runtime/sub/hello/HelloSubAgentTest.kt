@@ -1,6 +1,7 @@
 package com.hmp.domain.agent.runtime.sub.hello
 
 import com.hmp.domain.agent.card.NarrativeTimeRange
+import com.hmp.domain.agent.port.CapabilityState
 import com.hmp.domain.agent.runtime.AgentContextBudget
 import com.hmp.domain.agent.runtime.AgentRunState
 import com.hmp.domain.agent.runtime.ToolRegistryView
@@ -56,6 +57,47 @@ class HelloSubAgentTest {
 
         assertTrue(agent.cards.value.isEmpty(), "shutdown 清空卡片池")
         assertEquals(AgentRunState.PAUSED, agent.state(), "直接 shutdown（未经 runLoop）运行态保持 PAUSED")
+    }
+
+    @Test
+    fun stateFlow_tracksRunState_R6() = runTest {
+        val agent = newAgent()
+        assertEquals(CapabilityState.Status.IDLE, agent.stateFlow.value.status, "初值与基类 PAUSED 一致")
+
+        agent.resume()
+        assertEquals(
+            CapabilityState.Status.RUNNING,
+            agent.stateFlow.value.status,
+            "R6：状态流不再冻结在构造瞬间，要跟着 runState 走",
+        )
+
+        agent.pause()
+        assertEquals(CapabilityState.Status.PAUSED, agent.stateFlow.value.status)
+    }
+
+    @Test
+    fun terminalOutcomes_mapToCapabilityStatus() {
+        // finish() 写 UNREGISTERED（让 startHello 能重建），终态呈现不能因此退化成 IDLE。
+        val quota = HelloRuntimeState(
+            runState = AgentRunState.UNREGISTERED,
+            outcome = HelloOutcome.QUOTA_EXHAUSTED,
+            detail = "额度已用完，恢复后自动继续",
+        ).toCapabilityState()
+        assertEquals(CapabilityState.Status.PAUSED, quota.status, "额度耗尽是暂时停，不是崩溃")
+        assertTrue(quota.detail.contains("额度已用完"), "原因要能被用户看到")
+
+        assertEquals(
+            CapabilityState.Status.ERROR,
+            HelloRuntimeState(outcome = HelloOutcome.FAILED).toCapabilityState().status,
+        )
+        assertEquals(
+            CapabilityState.Status.IDLE,
+            HelloRuntimeState(outcome = HelloOutcome.CANCELLED).toCapabilityState().status,
+        )
+        assertEquals(
+            CapabilityState.Status.RUNNING,
+            HelloRuntimeState(runState = AgentRunState.RUNNING).toCapabilityState().status,
+        )
     }
 
     @Test

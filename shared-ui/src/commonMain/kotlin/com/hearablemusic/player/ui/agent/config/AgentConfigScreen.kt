@@ -99,8 +99,6 @@ import com.hearablemusic.player.ui.generated.resources.agent_cfg_save
 import com.hearablemusic.player.ui.generated.resources.agent_cfg_status_default
 import com.hearablemusic.player.ui.generated.resources.agent_cfg_status_overridden
 import com.hearablemusic.player.ui.generated.resources.agent_cfg_status_unsaved
-import com.hearablemusic.player.ui.generated.resources.agent_cfg_step_budget
-import com.hearablemusic.player.ui.generated.resources.agent_cfg_step_budget_value
 import com.hearablemusic.player.ui.generated.resources.agent_cfg_target_count
 import com.hearablemusic.player.ui.generated.resources.agent_cfg_target_cov
 import com.hearablemusic.player.ui.generated.resources.agent_cfg_temperature
@@ -142,7 +140,6 @@ fun AgentConfigScreen(
     val endpointLoaded = state.endpointLoaded
     val globalEndpoint = state.globalEndpoint
     val trustLevel = state.trustLevel
-    val stepBudget = state.stepBudget
     val dailyRecommendCount = state.dailyRecommendCount
     val recommendListSize = state.recommendListSize
     val targetCoverage = state.targetCoverage
@@ -234,8 +231,6 @@ fun AgentConfigScreen(
                             trustLevel = trustLevel,
                             onTrustLevelChange = viewModel::onTrustLevelChange,
                             alwaysAllowCount = policyConfig.alwaysAllow.size,
-                            stepBudget = stepBudget,
-                            onStepBudgetChange = viewModel::onStepBudgetChange,
                             dailyRecommendCount = dailyRecommendCount,
                             onDailyRecommendCountChange = viewModel::onDailyRecommendCountChange,
                             recommendListSize = recommendListSize,
@@ -323,8 +318,6 @@ fun AgentConfigScreen(
                         trustLevel = trustLevel,
                         onTrustLevelChange = viewModel::onTrustLevelChange,
                         alwaysAllowCount = policyConfig.alwaysAllow.size,
-                        stepBudget = stepBudget,
-                        onStepBudgetChange = viewModel::onStepBudgetChange,
                         dailyRecommendCount = dailyRecommendCount,
                         onDailyRecommendCountChange = viewModel::onDailyRecommendCountChange,
                         recommendListSize = recommendListSize,
@@ -404,8 +397,6 @@ private fun ConfigFormLeftColumn(
     trustLevel: Int,
     onTrustLevelChange: (Int) -> Unit,
     alwaysAllowCount: Int,
-    stepBudget: Int,
-    onStepBudgetChange: (Int) -> Unit,
     dailyRecommendCount: Int,
     onDailyRecommendCountChange: (Int) -> Unit,
     recommendListSize: Int,
@@ -569,22 +560,6 @@ private fun ConfigFormLeftColumn(
             style = typo.footnote,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        if (agentRole == "master") {
-            Spacer(Modifier.height(metrics.cozy))
-            Text(stringResource(Res.string.agent_cfg_step_budget), style = typo.subtitle, fontWeight = FontWeight.Bold)
-            Spacer(Modifier.height(metrics.compact))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Slider(
-                    value = stepBudget.toFloat(),
-                    onValueChange = { onStepBudgetChange(it.toInt()) },
-                    valueRange = 3f..15f,
-                    steps = 11,
-                    modifier = Modifier.weight(1f),
-                )
-                Spacer(Modifier.width(metrics.compact))
-                Text(stringResource(Res.string.agent_cfg_step_budget_value, stepBudget), modifier = Modifier.width(metrics.bar))
-            }
-        }
     }
 
     // ═══ ⑤ 专属参数 ═══

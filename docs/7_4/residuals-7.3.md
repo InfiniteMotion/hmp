@@ -42,7 +42,7 @@
 
 - [ ] **R47 自动闸门** [D3-14/R47 施工结果自记「自动闸门仍未做」]：expect/actual 三端配对扫描 + 白名单外「逐字相同」检测脚本。**判据**：某端删 actual 文件即红；白名单外逐字相同被识别为下沉候选。已下沉两例（Playlist Impl、`stringToPinyinSortKey`）无复发闸门。
 - [ ] **X-06 iosMain 半边** [plan §五 X-其余：androidMain 已 24 例收干净，**iosMain 仍 0，需 macOS**]：`shared` 尚无 iosTest 源集（D5 刻意不做「新增平台测试源集」覆盖 Android 侧；iOS 侧随 macOS 批一起议）。
-- [ ] **D6-08 残余** [D6 施工结果自记]：确认 key 碰撞已修（单调计数器 + `idMutex`，[已核 11-05]）；`DialogManager.kt:47` `pendingConfirms` 仍是裸 `mutableMapOf`——Agent 后台协程写、UI Main 读无保护。按 D6-04 思路收口；D6 刻意不做「非 agent 路径的 DialogManager 行为」仍然有效。
+- [x] **D6-08 残余** [D6 施工结果自记]：确认 key 碰撞已修（单调计数器 + `idMutex`，[已核 11-05]）。**2026-11-13 结案（删死路径，非加锁）** —— 复核发现唯一调用方 `DialogConfirmGateAdapter` 全仓零构造点，全局确认链是无人调用的死路径，`pendingConfirms` 在生产上没有任何写入者；生产确认走 `ConfirmBridge` + 对话内联确认卡（已有 `@Synchronized`）。已整体删除，详见 `docs/7_6/progress.md` §2.17。
 - [ ] **R13①　泰语补译** [D8-06 施工结果④：2026-11-02 实测 **451/806** 与英文同值（含 ok/cancel 合理同形），泰语重译未做]。门禁与旧副本两半已完成（见核销表），只剩补译。
 
 ---
@@ -51,16 +51,16 @@
 
 > 这些是 2026-09 两轮审查的遗留，7.3 施工分解未吸收、决策也未处置。编号与坐标出自 TODO §一/§六（历史证据台账），动手前先重新取证。
 
-- [ ] **R3** [已核 11-05：`ReActLoop.kt` 无 `finally`，`onSessionComplete?.invoke()` 在循环体外；决策 14 已去掉 95% 熔断，取消路径收尾缺口仍在]：补 try/finally + tool 轮次跨轮持久化。**判据**：同会话两轮，第一轮写工具后取消，第二轮不重复执行。
-- [ ] **R4** [已核 11-05：`AgentScheduler.kt:68-69` 裸 `mutableMapOf`]：并发容器 + 仲裁循环自愈。**判据**：并发压力不抛 CME、异常后可重启。
-- [ ] **R5** [已核 11-05：`SharedModules.kt:164` 恒传 `EngineDefaults.STEP_BUDGET`；`resolvedFor` 只用于 enrich/radio]：接 `resolvedFor("master")` 或撤设置项。
-- [ ] **R6** [已核 11-05：`HelloSubAgent.kt:1939` 一次性 `MutableStateFlow`，注释与实现不符]：改由 `runState` 派生。
+- [x] **R3** [已核 11-05；**2026-11-11 前半已修**：`ReActLoop.run()` 已用 `try/finally` 复位 Presence，`alwaysAllow` 勾选即落盘，`onSessionComplete` 删除]：**2026-11-13 后半结案** —— 不扩 `role` 契约，改落一条 `tool_summary` 摘要并在 `buildHistoryMessages()` 投影成 system 提醒（B 方案）；详见 `docs/7_6/progress.md` §2.16。
+- [x] **R4** [已核 11-05：`AgentScheduler.kt:68-69` 裸 `mutableMapOf`]：**2026-11-13 结案** —— COW 不可变快照 + 单轮异常自愈 + 循环 Job 完成回调复位标志；判据先红后绿，证据见 `docs/7_6/progress.md` §2.15。
+- [x] **R5** 已结案（2026-11-11）：用户决议不要步数上限、只保留 token 上限，故不接 `resolvedFor("master")`，而是把设置项、引擎熔断、枚举值、文案与测试断言整体删除；详见 `TODO.md` §一 R5 结案记录。
+- [x] **R6** [已核 11-05：`HelloSubAgent.kt:1939` 一次性 `MutableStateFlow`，注释与实现不符]：**2026-11-13 结案** —— 改为生命周期唯一快照 `HelloRuntimeState` + `transition()` 统一写入口（不用 `stateIn`），判据与边界见 `docs/7_6/progress.md` §2.12。
 - [ ] **R7 / R9 [待取证]**：提示注入定界 + 截断；WARN 日志泄露曲名。原坐标过期，动手前重新取证。
-- [ ] **R8** [已核 11-05：`RadioSubAgent.kt:413,423,427` 直连 `playbackPort.execute(...)`]：收进执行器或补白名单 + 审计。
+- [x] **R8** [已核 11-05：`RadioSubAgent.kt:413,423,427` 直连 `playbackPort.execute(...)`]：**2026-11-13 改判为非缺陷** —— 开台即授权整档接管队列，属会话内实现细节，不该逐次过工具授权门；富化持久化写入转归可观测性 / 撤销（R16 类）。见 `docs/7_6/progress.md` §2.14。
 - [ ] **R11** [已核 11-05：MasterAgent 无 `withContext(Default)`]：首轮画像/快照/统计挪出 Main。
 - [ ] **R16**：撤销链路（审计只存 `argsHash`；`onUndo` 全仓零传入 [已核 11-05]）。
 - [ ] **R20** [已核 11-05：`continueRadio`/`ALL_BATCH_B` 各只在定义文件出现]：死抽象接上或删。
-- [ ] **R22** [已核 11-05：`MasterAgent.kt` 1812 行还在涨]：优先拆 SubAgent 生命周期与内建意图路由。
+- [ ] **R22** [已核 11-05：`MasterAgent.kt` 1812 行还在涨]：优先拆 SubAgent 生命周期管理（内建意图路由已于 2026-11-11 删除）。
 - [ ] **R24** [已核 11-05：`RadioConsole`/`HelloCardCoverflow` 仍自算 `BoxWithConstraints`]：统一到 `LocalWindowSizeInfo`。
 - [ ] **R25** [已核 11-05：无 plurals 资源、57 处 `%1$d`]：ru/ar 语法必错。
 - [ ] **R27 [待复核]** [已核 11-05：`MusicLabel.kt:61` 默认 `limit=100` 无 `ORDER BY`；但 D3-17（Agent 入参校验）施工后调用点多已显式传 limit，仅 `HelloSubAgent.kt:824` 一处未传]：改默认或补全调用点 + 确定序。

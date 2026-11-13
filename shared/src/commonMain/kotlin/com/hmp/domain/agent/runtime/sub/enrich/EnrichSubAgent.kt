@@ -21,8 +21,10 @@ import com.hmp.domain.setting.model.AiEndpointConfig
 import com.hmp.log.HmpLog
 import com.hmp.log.LogTag
 import com.hmp.platform.Volatile
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -30,6 +32,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 
 /**
  * 富化进度快照 —— **UI 契约**（F13：从 [EnrichSubAgent] 内部类上提为顶层公开数据类）。
@@ -39,6 +42,9 @@ import kotlinx.coroutines.flow.stateIn
  * `EnrichSubAgent` 被迫 public（"可见性簇"效应）。
  * 提出来后 `MasterAgent.enrichProgressState()` 只暴露本类型，Agent 本体得以 internal。
  */
+/** 一次富化运行的终态；只由 runLoop 的 finally 写入。 */
+enum class EnrichOutcome { COMPLETED, QUOTA_EXHAUSTED, CANCELLED, FAILED }
+
 data class EnrichProgress(
     val processed: Int,
     val success: Int,
@@ -49,6 +55,8 @@ data class EnrichProgress(
     val chunkIndex: Int,
     val chunkTotal: Int,
     val phase: String,
+    /** 本次 runLoop 的终态；运行中恒为 null。 */
+    val outcome: EnrichOutcome? = null,
 ) {
     companion object {
         /**
@@ -103,7 +111,7 @@ internal class EnrichSubAgent(
     /** 存在感总线（emit 进度） */
     private val presenceBus: PresenceBus? = null,
     /** LLM API 端点配置（热更新：MasterAgent.updateAiConfig 可动态替换） */
-    private var enrichConfig: AiEndpointConfig? = null,
+    @Volatile private var enrichConfig: AiEndpointConfig? = null,
     /** 目标覆盖率（0.0 - 1.0） */
     @Volatile private var targetCoverage: Float = EngineDefaults.ENRICH_TARGET_COVERAGE,
     /**
@@ -122,6 +130,8 @@ internal class EnrichSubAgent(
 
     // ── 构造诊断日志 ──
     init {
+        // 单一初值：与 EnrichProgress.IDLE 的 state 对齐（基类默认 PAUSED 只适用于已注册实例）。
+        runState = AgentRunState.UNREGISTERED
         val cfg = enrichConfig
         HmpLog.i(LogTag.AgentEnrich) {
             "📚 EnrichSubAgent created | targetCoverage=$targetCoverage | " +
@@ -131,49 +141,21 @@ internal class EnrichSubAgent(
         }
     }
 
-    // Capability 接口实现需要一个独立 scope（SubAgent 基类不提供）
+    // Capability 接口实现需要一个独立 scope；shutdown() 会取消它
     private val scope = CoroutineScope(SupervisorJob() + kotlinx.coroutines.Dispatchers.Default)
 
-    /** 累计处理歌曲数（已启动 LLM call 的歌曲总数） */
-    @Volatile
-    private var processedCount: Int = 0
-
-    /** 成功富化歌曲数（DB 写入成功） */
-    @Volatile
-    private var successCount: Int = 0
-
-    /** 失败歌曲数（LLM call 失败 + parse 失败） */
-    @Volatile
-    private var failCount: Int = 0
-
-    /** 当前工作单元总大小（getProgress 对外暴露） */
-    @Volatile
-    private var currentUnitSize: Int = 0
-
-    /** 当前处理的 artist 名（混合组为 GROUP_KEY_MIXED） */
-    @Volatile
-    private var currentArtist: String? = null
-
-    /** 当前 chunk 在本 workUnit 中的序号（1-based） */
-    @Volatile
-    private var chunkIndex: Int = 0
-
-    /** 当前 workUnit 总共拆成多少个 chunk */
-    @Volatile
-    private var chunkTotal: Int = 0
-
-    /** 当前阶段文本（给 UI 展示） */
-    @Volatile
-    private var currentPhase: String = "idle"
-
-    /** UI 订阅的进度 StateFlow（每次 chunk 完成更新） */
-    private val _progressState = MutableStateFlow(
-        EnrichProgress.IDLE,
-    )
+    /** 唯一的运行快照出口：进度 / 生命周期 / 当前单元都在这一份里。 */
+    private val _progressState = MutableStateFlow(EnrichProgress.IDLE)
     val progressState: StateFlow<EnrichProgress> = _progressState.asStateFlow()
 
-    private fun updateProgressState() {
-        _progressState.value = getProgress()
+    /** 生命周期迁移；进度字段由运行循环写入同一份快照。 */
+    private fun transition(state: AgentRunState, phase: String? = null) {
+        runState = state
+        _progressState.update { p -> p.copy(state = state, phase = phase ?: p.phase) }
+    }
+
+    private inline fun updateProgress(transform: (EnrichProgress) -> EnrichProgress) {
+        _progressState.update(transform)
     }
 
     /** Master 更新目标覆盖率（rescanEnrich 触发） */
@@ -182,34 +164,37 @@ internal class EnrichSubAgent(
         HmpLog.i(LogTag.AgentEnrich) { "📚 [$agentId] targetCoverage updated to $newTarget" }
     }
 
-    /** 查询当前进度（Master status 用） */
-    fun getProgress(): EnrichProgress = EnrichProgress(
-        processed = processedCount,
-        success = successCount,
-        failed = failCount,
-        currentUnitSize = currentUnitSize,
-        state = runState,
-        currentArtist = currentArtist,
-        chunkIndex = chunkIndex,
-        chunkTotal = chunkTotal,
-        phase = currentPhase,
-    )
+    /** 查询当前进度（与 [progressState] 同源）。 */
+    fun getProgress(): EnrichProgress = _progressState.value
 
     override suspend fun shutdown() {
         super.shutdown()
-        HmpLog.i(LogTag.AgentEnrich) { "📚 [$agentId] shutdown complete (processed=$processedCount success=$successCount failed=$failCount)" }
+        scope.cancel()
+        val p = _progressState.value
+        HmpLog.i(LogTag.AgentEnrich) { "📚 [$agentId] shutdown complete (processed=${p.processed} success=${p.success} failed=${p.failed})" }
     }
 
     override suspend fun pause() {
+        if (!isActive) return
         stopSignal?.onSchedulerPaused()
-        runState = AgentRunState.PAUSED
+        transition(AgentRunState.PAUSED)
         HmpLog.i(LogTag.AgentEnrich) { "📚 [$agentId] manually paused" }
     }
 
     override suspend fun resume() {
+        if (!isActive) return
         stopSignal?.onSchedulerResumed()
-        runState = AgentRunState.RUNNING
+        transition(AgentRunState.RUNNING)
         HmpLog.i(LogTag.AgentEnrich) { "📚 [$agentId] manually resumed" }
+    }
+
+    /** Scheduler 暂停只走 StopSignal；这里补一份对外可见的状态快照。 */
+    internal fun markSchedulerPaused() {
+        if (isActive) transition(AgentRunState.PAUSED)
+    }
+
+    internal fun markSchedulerResumed() {
+        if (isActive) transition(AgentRunState.RUNNING)
     }
 
     // ===== 自循环 runLoop（内部状态机） =====
@@ -225,23 +210,62 @@ internal class EnrichSubAgent(
      * Master 的 startEnrich 是幂等的，设置页切模式后由上层重启即可。
      */
     override suspend fun runLoop() {
-        val mode = runCatching { accessModeProvider() }
-            .getOrDefault(com.hmp.domain.setting.model.AiAccessMode.CUSTOM)
-        if (mode == com.hmp.domain.setting.model.AiAccessMode.CUSTOM) {
-            HmpLog.i(LogTag.AgentEnrich) { "📚 [$agentId] mode=CUSTOM → batch(6-round) pipeline" }
-            runBatchLoop()
-        } else {
-            HmpLog.i(LogTag.AgentEnrich) { "📚 [$agentId] mode=$mode → single-song compact pipeline" }
-            runSingleSongLoop()
+        // 终态由 finally 唯一写入；三种退出路径各有明确死法，不再全落成「完成」。
+        var outcome = EnrichOutcome.COMPLETED
+        try {
+            isActive = true
+            transition(AgentRunState.RUNNING)
+            val mode = runCatching { accessModeProvider() }
+                .getOrDefault(com.hmp.domain.setting.model.AiAccessMode.CUSTOM)
+            if (mode == com.hmp.domain.setting.model.AiAccessMode.CUSTOM) {
+                HmpLog.i(LogTag.AgentEnrich) { "📚 [$agentId] mode=CUSTOM → batch(6-round) pipeline" }
+                runBatchLoop()
+            } else {
+                HmpLog.i(LogTag.AgentEnrich) { "📚 [$agentId] mode=$mode → single-song compact pipeline" }
+                runSingleSongLoop()
+            }
+        } catch (ce: CancellationException) {
+            outcome = EnrichOutcome.CANCELLED
+            throw ce
+        } catch (t: Throwable) {
+            outcome = EnrichOutcome.FAILED
+            throw t
+        } finally {
+            finish(outcome)
+        }
+    }
+
+    /** 正常退出 / 取消 / 异常共用同一条收尾，保证终态必达。 */
+    private fun finish(rawOutcome: EnrichOutcome) {
+        // shouldSoftStop() 退出时额度判断仍为 true（额度没变），据此把「被赶出来」
+        // 与「达标干完」分开；纯函数抽出便于单测，不需要新增字段。
+        val outcome = resolveOutcome(rawOutcome, stopSignal?.shouldSoftStop() == true)
+        isActive = false
+        runState = AgentRunState.UNREGISTERED
+        _progressState.update {
+            it.copy(
+                state = AgentRunState.UNREGISTERED,
+                outcome = outcome,
+                phase = when (outcome) {
+                    EnrichOutcome.COMPLETED -> "完成"
+                    EnrichOutcome.QUOTA_EXHAUSTED -> "额度已用完，恢复后自动继续"
+                    EnrichOutcome.CANCELLED -> "已停止"
+                    EnrichOutcome.FAILED -> "失败"
+                },
+                currentArtist = null,
+                chunkIndex = 0,
+                chunkTotal = 0,
+            )
+        }
+        val p = _progressState.value
+        HmpLog.i(LogTag.AgentEnrich) {
+            "📚 [$agentId] runLoop exited (outcome=$outcome processed=${p.processed} success=${p.success} failed=${p.failed})"
         }
     }
 
     private suspend fun runBatchLoop() {
         HmpLog.i(LogTag.AgentEnrich) { "📚 [$agentId] runLoop start: target=$targetCoverage config=${enrichConfig != null}" }
-        isActive = true
-        runState = AgentRunState.RUNNING
-        currentPhase = "拉活工作单元"
-        updateProgressState()
+        updateProgress { it.copy(phase = "拉活工作单元") }
 
         // 预热缓存：同一歌手多个 chunk 只预热一次
         var preheatCache: Pair<String, String?>? = null // artist → preheat text (nullable)
@@ -272,8 +296,7 @@ internal class EnrichSubAgent(
 
                 // coverage 未达标但 unenriched 已清空 → 等一会儿再查
                 HmpLog.w(LogTag.AgentEnrich) { "📚 [$agentId] no unenriched but coverage ${health.coverageRate} < $targetCoverage — waiting" }
-                currentPhase = "等待更多歌曲"
-                updateProgressState()
+                updateProgress { it.copy(phase = "等待更多歌曲") }
                 repeat(20) {
                     if (!isActive) break
                     stopSignal?.waitResume()
@@ -283,7 +306,7 @@ internal class EnrichSubAgent(
                 continue
             }
 
-            currentUnitSize = workUnit.size
+            updateProgress { it.copy(currentUnitSize = workUnit.size) }
             var anyChunkSucceeded = false
 
             when (workUnit) {
@@ -298,10 +321,9 @@ internal class EnrichSubAgent(
                     HmpLog.i(LogTag.AgentEnrich) { "📚 [$agentId] '$artist' split into ${chunks.size} chunk(s): ${chunks.map { it.size }}" }
 
                     // 设置 workUnit 级追踪字段
-                    currentArtist = artist
-                    chunkTotal = chunks.size
-                    chunkIndex = 0
-                    currentPhase = "Round 0 预热"
+                    updateProgress {
+                        it.copy(currentArtist = artist, chunkTotal = chunks.size, chunkIndex = 0, phase = "Round 0 预热")
+                    }
 
                     // 预热缓存：同一歌手只预热一次
                     val (cachedArtist, cachedText) = preheatCache ?: (null to null)
@@ -329,9 +351,7 @@ internal class EnrichSubAgent(
                         if (stopSignal?.shouldSoftStop() == true) break
 
                         HmpLog.i(LogTag.AgentEnrich) { "📚 [$agentId] '$artist' chunk ${chunkIdx + 1}/${chunks.size} (${chunk.size} songs)" }
-                        chunkIndex = chunkIdx + 1
-                        currentPhase = "Round 1 枚举中"
-                        updateProgressState()
+                        updateProgress { it.copy(chunkIndex = chunkIdx + 1, phase = "Round 1 枚举中") }
 
                         // 每个 chunk 开头注入预热（配对 user+assistant，保持历史对称）
                         if (preheatText != null) {
@@ -359,17 +379,15 @@ internal class EnrichSubAgent(
                     // 混合组跳过 Round 0 —— 没有共同歌手可以预热
                     // 同样加 chunk 拆分保护（Repository 层 mixGroupSize 通常已 < CHUNK_SPLIT_SIZE，但兜底）
                     val chunks = workUnit.songs.chunked(CHUNK_SPLIT_SIZE)
-                    currentArtist = GROUP_KEY_MIXED
-                    chunkTotal = chunks.size
-                    chunkIndex = 0
+                    updateProgress {
+                        it.copy(currentArtist = GROUP_KEY_MIXED, chunkTotal = chunks.size, chunkIndex = 0)
+                    }
                     for ((chunkIdx, chunk) in chunks.withIndex()) {
                         if (!isActive) break
                         stopSignal?.waitResume()
                         if (stopSignal?.shouldSoftStop() == true) break
 
-                        chunkIndex = chunkIdx + 1
-                        currentPhase = "Round 1 枚举中"
-                        updateProgressState()
+                        updateProgress { it.copy(chunkIndex = chunkIdx + 1, phase = "Round 1 枚举中") }
                         val chunkOk = processChunk(chunk, GROUP_KEY_MIXED, isMixed = true)
                         if (chunkOk) anyChunkSucceeded = true else consecutiveChunkFails++
                         clearHistory()
@@ -382,8 +400,7 @@ internal class EnrichSubAgent(
             // ── 连续失败保护：LLM/网络不可用时最多重试 5 轮就退避 15s ──
             if (consecutiveChunkFails >= 5) {
                 HmpLog.e(LogTag.AgentEnrich) { "📚 [$agentId] consecutiveChunkFails=$consecutiveChunkFails (LLM/API unreachable) → backoff 15s" }
-                currentPhase = "网络异常退避中"
-                updateProgressState()
+                updateProgress { it.copy(phase = "网络异常退避中") }
                 consecutiveChunkFails = 0
                 repeat(30) {
                     if (!isActive) break
@@ -396,15 +413,6 @@ internal class EnrichSubAgent(
                 delay(2000)
             }
         }
-
-        isActive = false
-        runState = AgentRunState.UNREGISTERED
-        currentArtist = null
-        chunkIndex = 0
-        chunkTotal = 0
-        currentPhase = "完成"
-        updateProgressState()
-        HmpLog.i(LogTag.AgentEnrich) { "📚 [$agentId] runLoop exited (processed=$processedCount success=$successCount failed=$failCount)" }
     }
 
     /**
@@ -414,10 +422,7 @@ internal class EnrichSubAgent(
      */
     private suspend fun runSingleSongLoop() {
         HmpLog.i(LogTag.AgentEnrich) { "📚 [$agentId] single-song loop start: target=$targetCoverage config=${enrichConfig != null}" }
-        isActive = true
-        runState = AgentRunState.RUNNING
-        currentPhase = "单首富化中"
-        updateProgressState()
+        updateProgress { it.copy(phase = "单首富化中") }
 
         var consecutiveFails = 0
 
@@ -437,8 +442,7 @@ internal class EnrichSubAgent(
                     HmpLog.i(LogTag.AgentEnrich) { "📚 [$agentId] target achieved, self-exiting" }
                     break
                 }
-                currentPhase = "等待更多歌曲"
-                updateProgressState()
+                updateProgress { it.copy(phase = "等待更多歌曲") }
                 repeat(20) {
                     if (!isActive) break
                     stopSignal?.waitResume()
@@ -449,19 +453,16 @@ internal class EnrichSubAgent(
             }
 
             val song = pool.random()
-            currentArtist = song.music.artist
-            currentUnitSize = 1
-            chunkIndex = 1
-            chunkTotal = 1
-            updateProgressState()
+            updateProgress {
+                it.copy(currentArtist = song.music.artist, currentUnitSize = 1, chunkIndex = 1, chunkTotal = 1)
+            }
 
             val ok = processSingleSong(song)
             consecutiveFails = if (ok) 0 else consecutiveFails + 1
 
             if (consecutiveFails >= 5) {
                 HmpLog.e(LogTag.AgentEnrich) { "📚 [$agentId] consecutiveFails=$consecutiveFails → backoff 15s" }
-                currentPhase = "网络异常退避中"
-                updateProgressState()
+                updateProgress { it.copy(phase = "网络异常退避中") }
                 consecutiveFails = 0
                 repeat(30) {
                     if (!isActive) break
@@ -475,24 +476,15 @@ internal class EnrichSubAgent(
                 delay(200)
             }
         }
-
-        isActive = false
-        runState = AgentRunState.UNREGISTERED
-        currentArtist = null
-        chunkIndex = 0
-        chunkTotal = 0
-        currentPhase = "完成"
-        updateProgressState()
-        HmpLog.i(LogTag.AgentEnrich) { "📚 [$agentId] single-song loop exited (processed=$processedCount success=$successCount failed=$failCount)" }
     }
 
     /** 单首富化：1 次精简请求 → 解析 → 两路落库。 */
     private suspend fun processSingleSong(song: MusicInfo): Boolean {
-        processedCount++
+        updateProgress { it.copy(processed = it.processed + 1) }
         val config = enrichConfig
         if (config == null) {
             HmpLog.w(LogTag.AgentEnrich) { "📚 [$agentId] No AiEndpointConfig, skipping \"${song.music.title}\"" }
-            failCount++
+            updateProgress { it.copy(failed = it.failed + 1) }
             return false
         }
         val text = callAndLog(
@@ -501,13 +493,13 @@ internal class EnrichSubAgent(
             userPrompt = EnrichPrompts.buildSingleSongPrompt(song),
             systemOverride = EnrichPrompts.SINGLE_SONG_SYSTEM_PROMPT,
         ) ?: run {
-            failCount++
+            updateProgress { it.copy(failed = it.failed + 1) }
             return false
         }
 
         val draft = EnrichResponseParser.parseSingleSong(text, agentId)
         if (draft == null) {
-            failCount++
+            updateProgress { it.copy(failed = it.failed + 1) }
             return false
         }
 
@@ -530,36 +522,34 @@ internal class EnrichSubAgent(
     private suspend fun processChunk(songs: List<MusicInfo>, groupKey: String, isMixed: Boolean): Boolean {
         val config = enrichConfig
 
-        processedCount += songs.size
+        updateProgress { it.copy(processed = it.processed + songs.size) }
 
         if (config == null) {
             HmpLog.w(LogTag.AgentEnrich) { "📚 [$agentId] No AiEndpointConfig, skipping chunk '$groupKey' (${songs.size} songs)" }
-            failCount += songs.size
+            updateProgress { it.copy(failed = it.failed + songs.size) }
             return false
         }
 
         HmpLog.i(LogTag.AgentEnrich) { "📚 [$agentId] processing chunk '$groupKey' (${songs.size} songs, mixed=$isMixed)" }
 
         // ========== Round 1: 枚举批量 ==========
-        currentPhase = "Round 1 枚举中"
-        updateProgressState()
+        updateProgress { it.copy(phase = "Round 1 枚举中") }
         val enumText = callAndLog(config, "Round 1 enum", EnrichPrompts.buildEnumPrompt(songs, groupKey, isMixed))
         if (enumText == null) {
             HmpLog.e(LogTag.AgentEnrich) { "📚 [$agentId] chunk '$groupKey' Round 1 failed — aborting chunk" }
-            failCount += songs.size
+            updateProgress { it.copy(failed = it.failed + songs.size) }
             return false
         }
         val enumMap = runCatching { EnrichResponseParser.parseEnumBatch(enumText, songs, agentId).toMutableMap() }
             .getOrElse { e ->
                 HmpLog.e(LogTag.AgentEnrich, e) { "📚 [$agentId] chunk '$groupKey' Round 1 parse failed: ${e.message}" }
-                failCount += songs.size
+                updateProgress { it.copy(failed = it.failed + songs.size) }
                 return false
             }
 
         // ========== Round 1.5: 枚举自检 ==========
         // 失败不致命——只是少了一道安全网
-        currentPhase = "Round 1.5 自检中"
-        updateProgressState()
+        updateProgress { it.copy(phase = "Round 1.5 自检中") }
         runCatching {
             val selfCheckText = callAndLog(
                 config,
@@ -576,8 +566,7 @@ internal class EnrichSubAgent(
         }
 
         // ========== Round 2a: 自由文本 Easy（description + singerIntroduce） ==========
-        currentPhase = "Round 2a 自由文本"
-        updateProgressState()
+        updateProgress { it.copy(phase = "Round 2a 自由文本") }
         val easyText = callAndLog(
             config,
             "Round 2a freeText-easy",
@@ -595,8 +584,7 @@ internal class EnrichSubAgent(
         }
 
         // ========== Round 2b: 自由文本 Facts（极易编造，强化 -暂无） ==========
-        currentPhase = "Round 2b Facts"
-        updateProgressState()
+        updateProgress { it.copy(phase = "Round 2b Facts") }
         val factsText = callAndLog(
             config,
             "Round 2b freeText-facts",
@@ -614,8 +602,7 @@ internal class EnrichSubAgent(
         }
 
         // ========== Round 3: 总体反思 ==========
-        currentPhase = "Round 3 反思"
-        updateProgressState()
+        updateProgress { it.copy(phase = "Round 3 反思") }
         // 先构造中间 EnrichDraft（枚举 + easy + facts），让反思轮能看到"完整"状态再 patch
         val draftResults = songs.associate { song ->
             val draft = EnrichResponseParser.mergeAll(
@@ -642,8 +629,7 @@ internal class EnrichSubAgent(
         }
 
         // ========== 最终写 DB ==========
-        currentPhase = "写入数据库"
-        updateProgressState()
+        updateProgress { it.copy(phase = "写入数据库") }
         var chunkSuccess = 0
         var chunkFail = 0
         songs.forEach { song ->
@@ -655,21 +641,21 @@ internal class EnrichSubAgent(
                 HmpLog.d(LogTag.AgentEnrich) { "📚 [$agentId] WRITE OK: id=${song.music.id} title=${song.music.title.take(20)} genre=${draft.genre.take(2)} language=${draft.language}" }
             } else {
                 chunkFail++
-                failCount++
+                updateProgress { it.copy(failed = it.failed + 1) }
                 HmpLog.w(LogTag.AgentEnrich) { "📚 [$agentId] SKIP: id=${song.music.id} title=${song.music.title.take(20)} reason=draft=${draft != null} hasEnum=$hasEnum" }
             }
         }
 
+        val progress = _progressState.value
         presenceBus?.emit(
             PresenceEvent.AgentProgress(
                 agentId = agentId,
-                processed = processedCount,
-                total = currentUnitSize,
+                processed = progress.processed,
+                total = progress.currentUnitSize,
             ),
         )
 
-        HmpLog.i(LogTag.AgentEnrich) { "📚 [$agentId] chunk '$groupKey' done: chunkSuccess=$chunkSuccess chunkFail=$chunkFail runningTotal success=$successCount fail=$failCount" }
-        updateProgressState()
+        HmpLog.i(LogTag.AgentEnrich) { "📚 [$agentId] chunk '$groupKey' done: chunkSuccess=$chunkSuccess chunkFail=$chunkFail runningTotal success=${progress.success} fail=${progress.failed}" }
         return chunkSuccess > 0 || chunkFail == 0
     }
 
@@ -701,7 +687,7 @@ internal class EnrichSubAgent(
     private suspend fun writeSongResult(song: MusicInfo, draft: EnrichDraft) {
         musicRepository.updateMusicExtraTexts(song.music.id, draft.toExtraTexts())
         writeLabelsFromDraft(song.music.id, draft)
-        successCount++
+        updateProgress { it.copy(success = it.success + 1) }
     }
 
     // ===== DB 写入辅助 =====
@@ -754,21 +740,43 @@ internal class EnrichSubAgent(
 
     override val capabilityName = "enrich"
 
-    /** progressState → CapabilityState 统一映射 */
-    override val stateFlow: StateFlow<CapabilityState> = _progressState.map { progress ->
-        val status = when (progress.state) {
+    /** progressState → CapabilityState 单一映射（映射逻辑抽成纯函数，便于单测终态）。 */
+    override val stateFlow: StateFlow<CapabilityState> = _progressState
+        .map { it.toCapabilityState() }
+        .stateIn(
+            scope = scope,
+            started = SharingStarted.Eagerly,
+            initialValue = CapabilityState(CapabilityState.Status.IDLE, detail = "idle"),
+        )
+}
+
+/**
+ * 死法归一：只有「正常跑完且额度分桶已耗尽」才算 QUOTA_EXHAUSTED。
+ * 取消 / 异常优先，不受额度影响。
+ */
+internal fun resolveOutcome(raw: EnrichOutcome, softStop: Boolean): EnrichOutcome = if (raw == EnrichOutcome.COMPLETED && softStop) EnrichOutcome.QUOTA_EXHAUSTED else raw
+
+/** 进度 → 对外只读状态。COMPLETED / ERROR 的文案与颜色 UI 早已备好，过去从没人写过。 */
+internal fun EnrichProgress.toCapabilityState(): CapabilityState {
+    val status = when (outcome) {
+        EnrichOutcome.COMPLETED -> CapabilityState.Status.COMPLETED
+
+        // 不是错误、也不是完成：暂时跑不了，detail 里写明「额度已用完，恢复后自动继续」。
+        EnrichOutcome.QUOTA_EXHAUSTED -> CapabilityState.Status.PAUSED
+
+        EnrichOutcome.FAILED -> CapabilityState.Status.ERROR
+
+        EnrichOutcome.CANCELLED -> CapabilityState.Status.IDLE
+
+        null -> when (state) {
             AgentRunState.RUNNING -> CapabilityState.Status.RUNNING
             AgentRunState.PAUSED -> CapabilityState.Status.PAUSED
             AgentRunState.UNREGISTERED -> CapabilityState.Status.IDLE
         }
-        CapabilityState(
-            status = status,
-            detail = "${progress.phase} ${progress.processed}/${progress.currentUnitSize}",
-            raw = progress,
-        )
-    }.stateIn(
-        scope = scope,
-        started = SharingStarted.Eagerly,
-        initialValue = CapabilityState(CapabilityState.Status.IDLE, detail = "idle"),
+    }
+    return CapabilityState(
+        status = status,
+        detail = if (chunkTotal > 0) "$phase $chunkIndex/$chunkTotal" else phase,
+        raw = this,
     )
 }

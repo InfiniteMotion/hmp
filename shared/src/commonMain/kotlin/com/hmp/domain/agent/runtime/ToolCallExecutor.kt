@@ -28,6 +28,17 @@ import kotlinx.serialization.json.jsonObject
  *
  * 拆自 MasterAgent 的 decideChatApprovals() + executeChatOne() 两个私有方法。
  */
+/**
+ * 一批 toolCall 的权限结果（2026-11-13）。
+ *
+ * [timedOut] 是用户未在时限内确认的 id：跳过该项并结束本轮；
+ * 与 `approvals[id] == false`（用户明确拒绝）区分，后者不回拨信任、也不结束本轮。
+ */
+data class ApprovalBatch(
+    val approvals: Map<String, Boolean>,
+    val timedOut: Set<String> = emptySet(),
+)
+
 internal class ToolCallExecutor(
     private val registry: ToolRegistry,
     private val policyGuard: PolicyGuard? = null,
@@ -53,16 +64,17 @@ internal class ToolCallExecutor(
         toolCalls: List<LlmEvent.ToolCall>,
         taskId: Long? = null,
         onAllowAlways: (Set<String>) -> Unit = {},
-    ): Map<String, Boolean> {
+    ): ApprovalBatch {
         val policyGuard = policyGuard
         val confirmGate = agentPolicy.confirmGate
 
         if (policyGuard == null) {
             // 无 policyGuard 时（比如 DirectToolExecutor 路径 / 测试注入）——全自动通过
-            return toolCalls.associate { it.id to true }
+            return ApprovalBatch(toolCalls.associate { it.id to true })
         }
 
         val approvals = mutableMapOf<String, Boolean>()
+        val timedOut = mutableSetOf<String>()
         val pending = mutableListOf<LlmEvent.ToolCall>()
 
         for (tc in toolCalls) {
@@ -116,6 +128,12 @@ internal class ToolCallExecutor(
                             approvals[tc.id] = false
                             trustLedger?.onActionRejected(tc.name) // 拒绝 → 回拨信任
                         }
+
+                        ConfirmOutcome.Timeout -> {
+                            approvals[tc.id] = false
+                            timedOut += tc.id
+                            // 超时不是用户拒绝：不回拨信任，由 ReActLoop 结束本轮
+                        }
                     }
                 }
                 if (alwaysAllowCandidates.isNotEmpty()) {
@@ -124,7 +142,7 @@ internal class ToolCallExecutor(
             }
         }
 
-        return approvals
+        return ApprovalBatch(approvals = approvals, timedOut = timedOut)
     }
 
     // ===== 执行单个 toolCall =====
@@ -142,6 +160,7 @@ internal class ToolCallExecutor(
         messages: MutableList<LlmMessage>? = null,
         taskId: Long? = null,
         approved: Boolean? = null,
+        timedOut: Boolean = false,
     ): ToolExecutionRecord {
         val tool = registry.find(tc.name)
         if (tool == null) {
@@ -155,6 +174,20 @@ internal class ToolCallExecutor(
             )
             messages?.appendToolResult(tc, "（未知工具，已跳过）")
             return ToolExecutionRecord(tc.name, "skipped", "未知工具")
+        }
+
+        if (timedOut) {
+            auditLog?.record(
+                AuditEntry(
+                    tool = tc.name,
+                    outcome = "timeout",
+                    reason = "用户未在时限内确认",
+                    argsHash = argsHash(tc.name, tc.argumentsJson),
+                    taskId = taskId,
+                ),
+            )
+            messages?.appendToolResult(tc, "（确认超时：用户未在时限内回应，该操作已跳过；本轮对话到此结束）")
+            return ToolExecutionRecord(tc.name, "timeout", "确认超时")
         }
 
         if (approved != null && !approved) {
